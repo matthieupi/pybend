@@ -5,7 +5,7 @@ from flasgger import swag_from
 from functools import wraps
 import yaml
 
-from server.models.storable_mixin import StorableMixin
+from ..models.storable_mixin import StorableMixin
 
 
 def create_api_blueprint(registered_models):

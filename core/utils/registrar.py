@@ -1,8 +1,8 @@
 # app/utils/registrar.py
 
 from typing import Dict, Type, Any
-from server.storage.abstract_storage import AbstractStorage as StorageInterface
-from server.models.storable_mixin import StorableMixin
+from ..storage.abstract_storage import AbstractStorage as StorageInterface
+from ..models.storable_mixin import StorableMixin
 
 registered_models: Dict[str, Type[Any]] = {}
 

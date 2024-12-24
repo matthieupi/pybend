@@ -2,7 +2,7 @@
 
 from .proto_model import ProtoModel
 from typing import ClassVar
-from server.utils.decorators import expose_route
+from ..utils.decorators import expose_route
 from flask import jsonify
 
 class Product(ProtoModel):

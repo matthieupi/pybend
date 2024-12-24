@@ -2,7 +2,7 @@
 
 from .proto_model import ProtoModel
 from typing import ClassVar, Optional
-from server.utils.decorators import expose_route
+from ..utils.decorators import expose_route
 from flask import request, jsonify
 
 class Bot(ProtoModel):
