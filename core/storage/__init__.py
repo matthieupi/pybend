@@ -1,0 +1,3 @@
+from storage.abstract_storage import AbstractStorage
+from storage.json_storage import JSONStorage
+from storage.sqlite_storage import SQLiteStorage

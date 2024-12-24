@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pybend"
+version = "0.5.0"
+description = "A light weight backend library for Python."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{name = "Matthieu Pi", email = "qcpi@gmail.com"}]
+urls = {"Homepage" = "https://github.com/matthieupi/pyrofunc"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
