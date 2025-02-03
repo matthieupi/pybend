@@ -9,7 +9,6 @@ flasgger==0.9.7.1
 requests==2.32.3
 # ML/AI packages
 pyrofunc@git+https://github.com/matthieupi/pyrofunc.git
-pybend@git+https://github.com/matthieupi/pybend.git
 openai==1.57.4
 pydantic==2.10.3
 # Dev packages
