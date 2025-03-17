@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pybend"
-version = "0.5.2"
+version = "0.5.4"
 description = "A light weight backend library for Python."
 readme = "README.md"
 requires-python = ">=3.10"
