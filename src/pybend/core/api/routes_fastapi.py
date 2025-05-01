@@ -100,3 +100,4 @@ def register_routes():
                         tags=[model_title],
                         name=attr.__name__
                     )
+
