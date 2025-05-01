@@ -1,7 +1,7 @@
 # app/models/storable_mixin.py
 
 from typing import ClassVar, Any, List
-from ..storage.abstract_storage import AbstractStorage as StorageInterface
+from storage.abstract_storage import AbstractStorage as StorageInterface
 
 
 class StorableMixin:

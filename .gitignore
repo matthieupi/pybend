@@ -2,3 +2,6 @@
 .venv/
 *.pyc
 __pycache__/
+pybend.egg-info/
+src/pybend.egg-info/
+dist/

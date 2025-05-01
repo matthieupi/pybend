@@ -1,258 +1,102 @@
 # app/api/routes.py
-import requests
-from flask import Blueprint, request, jsonify
-from flasgger import swag_from
-from functools import wraps
-import yaml
 
-from ..models.storable_mixin import StorableMixin
+from fastapi import APIRouter, Request, HTTPException, status, Body
+from fastapi.responses import JSONResponse
+from typing import Dict, Type, Any, List
+from pydantic import BaseModel
+from models.storable_mixin import StorableMixin
+from utils.registrar import registered_models
 
+router = APIRouter()
 
-def create_api_blueprint(registered_models):
-    """
-    Creates a Flask blueprint with routes for all registered models.
-
-    Args:
-        registered_models (dict): A dictionary of registered models.
-
-    Returns:
-        Blueprint: A Flask blueprint with all routes.
-    """
-    api_bp = Blueprint('api', __name__)
-
+def register_routes():
     for model_name, model_class in registered_models.items():
-        # Endpoint base path
-        endpoint_base = f'/{model_name}'
+        endpoint_base = f"/{model_name}"
         is_storable = issubclass(model_class, StorableMixin)
-
-        # Create instance
-        def create_generator(model_class):
-            @swag_from({
-                'tags': [model_name],
-                'parameters': [
-                    {
-                        'in': 'body',
-                        'name': 'body',
-                        'required': True,
-                        'schema': model_class.model_json_schema()
-                    }
-                ],
-                'responses': {
-                    201: {
-                        'description': 'Created',
-                        'schema': model_class.model_json_schema()
-                    },
-                    400: {
-                        'description': 'Invalid input'
-                    }
-                }
-            })
-            def create():
-                data = request.json
-                try:
-                    instance = model_class(**data)
-                    instance = model_class.create(instance)
-                    return jsonify(instance.model_dump()), 201
-                except Exception as e:
-                    return jsonify({'error': str(e)}), 400
-            return create
+        model_title = model_name.capitalize()
 
         if is_storable:
-            create_instance_view = create_generator(model_class)
-            api_bp.add_url_rule(
-                endpoint_base,
-                view_func=create_instance_view,
-                methods=['POST'],
-                endpoint=f'{model_name}_create'
-            )
-
-        # Get all instances
-        def list_generator(model_class):
-            @swag_from({
-                'tags': [model_name],
-                'responses': {
-                    200: {
-                        'description': f'A list of {model_name}',
-                        'schema': {
-                            'type': 'array',
-                            'items': model_class.model_json_schema()
-                        }
-                    }
-                }
-            })
-            def get_all_instances():
-                instances = model_class.list()
-                jsonables = [instance.model_dump() for instance in instances]
-                return jsonables, 200
-            return get_all_instances
-
-        get_all_instances_view = list_generator(model_class)
-        api_bp.add_url_rule(
-            endpoint_base,
-            view_func=get_all_instances_view,
-            methods=['GET'],
-            endpoint=f'{model_name}_get_all'
-        )
-
-        # Get instance by ID
-        def get_generator(model_class):
-            @swag_from({
-                'tags': [model_name],
-                'parameters': [
-                    {
-                        'name': 'id',
-                        'in': 'path',
-                        'required': True,
-                        'type': 'integer'
-                    }
-                ],
-                'responses': {
-                    200: {
-                        'description': f'A {model_name} object',
-                        'schema': model_class.model_json_schema()
-                    },
-                    404: {
-                        'description': 'Not found'
-                    }
-                }
-            })
-            def get_instance_by_id(id):
-                instance = model_class.get(id)
-                if instance:
-                    return jsonify(instance.model_dump()), 200
-                else:
-                    return jsonify({'error': 'Not found'}), 404
-            return get_instance_by_id
-
-        if hasattr(model_class, 'get'):
-            get_instance_by_id_view = get_generator(model_class)
-            api_bp.add_url_rule(
-                f'{endpoint_base}/<int:id>',
-                view_func=get_instance_by_id_view,
-                methods=['GET'],
-                endpoint=f'{model_name}_get'
-            )
-
-        # Update instance
-        def update_generator(model_class):
-            @swag_from({
-                'tags': [model_name],
-                'parameters': [
-                    {
-                        'name': 'id',
-                        'in': 'path',
-                        'required': True,
-                        'type': 'integer'
-                    },
-                    {
-                        'in': 'body',
-                        'name': 'body',
-                        'required': True,
-                        'schema': model_class.model_json_schema()
-                    }
-                ],
-                'responses': {
-                    200: {
-                        'description': 'Updated successfully'
-                    },
-                    400: {
-                        'description': 'Invalid input'
-                    }
-                }
-            })
-            def update_instance(id):
-                data = request.json
+            @router.post(endpoint_base, tags=[model_title], status_code=201)
+            async def create_instance(data: model_class) -> model_class:
                 try:
-                    instance = model_class(**data)
-                    model_class.update(id, instance)
-                    return jsonify({'message': 'Updated successfully'}), 200
+                    instance = model_class(**data.dict())
+                    instance = model_class.create(instance)
+                    return instance
                 except Exception as e:
-                    return jsonify({'error': str(e)}), 400
-            return update_instance
+                    raise HTTPException(status_code=400, detail=str(e))
 
-        if hasattr(model_class, 'update'):
-            update_instance_view = update_generator(model_class)
-            api_bp.add_url_rule(
-                f'{endpoint_base}/<int:id>',
-                view_func=update_instance_view,
-                methods=['PUT'],
-                endpoint=f'{model_name}_update'
-            )
+            @router.get(endpoint_base, tags=[model_title])
+            async def get_all_instances() -> List[model_class]:
+                instances = model_class.list()
+                return instances
 
-        # Delete instance
-        def delete_generator(model_class):
-            @swag_from({
-                'tags': [model_name],
-                'parameters': [
-                    {
-                        'name': 'id',
-                        'in': 'path',
-                        'required': True,
-                        'type': 'integer'
-                    }
-                ],
-                'responses': {
-                    200: {
-                        'description': 'Deleted successfully'
-                    }
-                }
-            })
-            def delete_instance(id):
+            @router.get(f"{endpoint_base}/{{id}}", tags=[model_title])
+            async def get_instance(id: int) -> model_class:
+                instance = model_class.get(id)
+                if not instance:
+                    raise HTTPException(status_code=404, detail="Not found")
+                return instance.model_dump()
+
+            @router.put(f"{endpoint_base}/{{id}}", tags=[model_title])
+            async def update_instance(id: int, data: model_class) -> model_class:
+                try:
+                    model_class.update(id, data)
+                    return model_class
+                except Exception as e:
+                    raise HTTPException(status_code=400, detail=str(e))
+
+            @router.delete(f"{endpoint_base}/{{id}}", tags=[model_title])
+            async def delete_instance(id: int) -> Dict[str, str]:
                 model_class.delete(id)
-                return jsonify({'message': 'Deleted successfully'}), 200
-            return delete_instance
+                return {"message": "Deleted successfully"}
 
-        if hasattr(model_class, 'delete'):
-            delete_instance_view = delete_generator(model_class)
-            api_bp.add_url_rule(
-                f'{endpoint_base}/<int:id>',
-                view_func=delete_instance_view,
-                methods=['DELETE'],
-                endpoint=f'{model_name}_delete'
-            )
-
-        # Register additional endpoints defined in the model
+         # Handle @expose_route endpoints
         for attr_name in dir(model_class):
             attr = getattr(model_class, attr_name)
             if callable(attr) and hasattr(attr, '__endpoint__'):
-                endpoint_info = attr.__endpoint__
-                route = endpoint_info['route']
-                methods = endpoint_info['methods']
-                full_route = f'{endpoint_base}{route}'
+                route = attr.__endpoint__['route']
+                methods = attr.__endpoint__['methods']
+                full_route = f"{endpoint_base}{route}"
+                endpoint_name = f"{model_name}_{attr.__name__}"
 
-                # Capture the function and model_class in a closure
-                def endpoint_generator(func):
-                    @wraps(func)
-                    def endpoint_function(*args, **kwargs):
-                        if request.is_json and request.json:
-                            data = request.json
-                            output = func(data)
-                        else:
-                            output = func()
-                        return output
-                    # Attach the docstring for Swagger
-                    endpoint_function.__doc__ = func.__doc__
-                    return endpoint_function
+                import typing
+                from typing import get_origin, get_args, ForwardRef
 
-                endpoint_function = endpoint_generator(attr)
+                return_type = attr.__annotations__.get('return', None)
 
-                # Apply Swagger documentation
-                if attr.__doc__:
-                    tags = [model_name]
-                    responses = {
-                        200: {
-                            'description': 'Success'
-                        }
-                    }
-                # Set the endpoint name to avoid conflicts
-                endpoint_name = f"{model_name}_{attr_name}"
+                # Resolve forward references
+                if isinstance(return_type, str) or isinstance(return_type, ForwardRef):
+                    return_type_str = str(return_type).replace('ForwardRef(', '').replace(')', '').replace("'", "")
+                    if return_type_str == model_class.__name__:
+                        return_type = model_class
+                    elif return_type_str.startswith(f'List[{model_class.__name__}'):
+                        return_type = List[model_class]
+                elif get_origin(return_type) is list:
+                    args = get_args(return_type)
+                    if args and isinstance(args[0], str) and args[0] == model_class.__name__:
+                        return_type = List[model_class]
 
-                # Register the route
-                api_bp.add_url_rule(
-                    full_route,
-                    endpoint=endpoint_name,
-                    view_func=endpoint_function,
-                    methods=methods
-                )
 
-    return api_bp
+                if 'GET' in methods:
+                    async def custom_get(attr=attr) -> return_type:
+                        return attr()
+                    custom_get.__name__ = attr.__name__
+                    router.add_api_route(
+                        full_route,
+                        custom_get,
+                        methods=['GET'],
+                        tags=[model_title],
+                        name=attr.__name__
+                    )
+
+                if 'POST' in methods:
+                    async def custom_post(data: Dict[str, Any] = Body(...), attr=attr) -> return_type:
+                        return attr(data)
+                    custom_post.__name__ = attr.__name__
+                    router.add_api_route(
+                        full_route,
+                        custom_post,
+                        methods=['POST'],
+                        tags=[model_title],
+                        name=attr.__name__
+                    )

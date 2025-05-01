@@ -1,8 +1,8 @@
 # app/models/user_model.py
-
+from __future__ import annotations
 from .proto_model import ProtoModel
 from typing import ClassVar, Optional
-from ..utils.decorators import expose_route
+from utils.decorators import expose_route
 from flask import request, jsonify
 
 class Bot(ProtoModel):
@@ -32,7 +32,7 @@ class User(ProtoModel):
 
     @staticmethod
     @expose_route('/login', methods=['POST'])
-    def login(data: dict[str, str]):
+    def login(data: dict[str, str]) -> User:
         """
         User login endpoint.
         ---
