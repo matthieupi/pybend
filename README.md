@@ -1,180 +1,281 @@
-# 🛠️ PyBend: Your Modular API Framework with a Twist
-
-Welcome to PyBend! This is not just another API framework—it’s a highly modular, storage-flexible, and swagger-drenched ecosystem designed for builders who want to have it all. Whether you’re defining models, crafting endpoints, or swapping storage backends, PyBend has got you covered.
-
 ---
 
-## 📚 Table of Contents
+# **PyBend Documentation**
 
-1. [What is PyBend?](#what-is-pybend)
+## **Table of Contents**
+
+1. [Introduction](#introduction)
 2. [Features](#features)
-3. [Getting Started](#getting-started)
-4. [How It Works](#how-it-works)
-5. [Storage Backends](#storage-backends)
-6. [Customizing PyBend](#customizing-pybend)
-7. [Testing the System](#testing-the-system)
-8. [Contributing](#contributing)
-9. [License](#license)
+3. [Installation](#installation)
+4. [Configuration](#configuration)
+5. [Running the Application](#running-the-application)
+6. [Switching API Backends](#switching-api-backends)
+7. [Switching Storage Backends](#switching-storage-backends)
+8. [API Documentation](#api-documentation)
+9. [Usage Examples](#usage-examples)
+10. [Schema Endpoint Responses](#schema-endpoint-responses)
+11. [Extending the Application](#extending-the-application)
+12. [Why PyBend?](#why-pybend)
+13. [Testing](#testing)
 
 ---
 
-## 🌐 What is PyBend?
+## **Introduction**
 
-PyBend is a Flask-based API framework that:
-- Simplifies CRUD operation generation.
-- Supports dynamic model registration.
-- Allows flexible integration with storage backends (SQLite, JSON, or your custom implementation).
-- Includes Swagger for automatic API documentation.
-- Makes it easy to create custom endpoints with decorators.
-
-In short: It bends to your will, but stays structured enough to keep everything under control.
+PyBend is a modular, extensible backend framework built with Python. It supports both **FastAPI** and **Flask** backends, dynamically switchable at runtime. It enables model-driven CRUD APIs, custom endpoints via decorators, and plug-and-play persistence with pluggable storage backends.
 
 ---
 
-## ⚙️ Features
+## **Features**
 
-- **Dynamic Model Management**: Define models once and register them dynamically.
-- **Automatic CRUD Endpoints**: Storable models get fully functional endpoints out-of-the-box.
-- **Custom Routes**: Add unique functionality with the `@expose_route` decorator.
-- **Pluggable Storage**: Switch between SQLite, JSON, or implement your own storage.
-- **Swagger Integration**: Auto-generated, interactive API documentation.
-- **Test-Driven Development**: Comprehensive test suite included.
+* ✅ FastAPI **and** Flask backend support
+* ⚐ Adapter architecture to switch backends easily
+* 🧠 Dynamic Model Registration + Schema Introspection
+* ⚙️ Auto-generated CRUD + custom routes via `@expose_route`
+* 📃 Integrated OpenAPI (Swagger) documentation
+* 📄 Optional storage via SQLite or JSON
+* 🔍 Fully typed with Pydantic
+* ✅ Integrated testing with PyTest
 
 ---
 
-## 🚀 Getting Started
+## **Installation**
 
 ### Prerequisites
 
-- Python 3.9+
-- Flask 2.x
-- Optional: Docker (for containerized deployment)
+* Python 3.10+
+* Docker & Docker Compose (optional)
 
-### Installation
+### Clone the Repo
 
-Clone the repository:
 ```bash
-git clone https://github.com/yourusername/pybend.git
-cd pybend
+git clone https://github.com/<your_repo>.git
+cd <your_repo>
 ```
 
-Install dependencies:
+### Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-Run the application:
+---
+
+## **Configuration**
+
+Use these environment variables or set directly in `main.py`:
+
 ```bash
-python app/main.py
+BACKEND=fastapi        # or flask
+STORAGE_BACKEND=sqlite # or json
 ```
 
-Visit the Swagger UI at `http://localhost:5000/apidocs/` to explore your API.
-
----
-
-## 🔧 How It Works
-
-1. **Define Models**: Create models in Python using Pydantic for validation.
-2. **Register Models**: Register models using the `register_model` function. If the model is storable, attach a storage backend.
-3. **Start the Server**: Endpoints for registered models are automatically available. Custom routes can be added using decorators.
-4. **Test & Expand**: Write tests, add features, and customize behavior as needed.
-
----
-
-## 💾 Storage Backends
-
-PyBend provides an abstract storage interface, making it easy to use different storage solutions. Supported backends include:
-
-- **SQLite**: Reliable, fast, and file-based.
-- **JSON**: Lightweight, human-readable, and great for quick setups.
-
-To switch backends, simply inject a new storage class during model registration:
+To define storage:
 
 ```python
-from app.storage.json_storage import JSONStorage
-from app.storage.sqlite_storage import SQLiteStorage
+from storage.sqlite_storage import SQLiteStorage
+from storage.json_storage import JSONStorage
 
-storage_backend = JSONStorage(directory='data')  # Or SQLiteStorage(database='my.db')
+storage_backend = SQLiteStorage("database.db")
+# or
+storage_backend = JSONStorage(directory="data")
+```
+
+Register models:
+
+```python
+from models.user_model import User
+from models.product_model import Product
+from utils.registrar import register_model
+
 register_model(User, storage=storage_backend)
+register_model(Product, storage=storage_backend)
 ```
 
 ---
 
-## 🛠️ Customizing PyBend
+## **Running the Application**
 
-### Adding Models
+### Locally
 
-1. Define your model in `app/models`:
-   ```python
-   from .proto_model import ProtoModel
-   from typing import ClassVar
+```bash
+python main.py
+```
 
-   class Order(ProtoModel):
-       storable: ClassVar[bool] = True
-       __tablename__: ClassVar[str] = 'orders'
-       id: int
-       product_id: int
-       quantity: int
-   ```
+### With Uvicorn
 
-2. Register the model in `main.py`:
-   ```python
-   from app.models.order_model import Order
-   register_model(Order, storage=storage_backend)
-   ```
+```bash
+uvicorn main:app --reload
+```
 
-3. Start the server and use the auto-generated CRUD endpoints!
+### With Docker
 
-### Adding Custom Routes
+```bash
+docker-compose up --build
+```
 
-Decorate methods with `@expose_route` to create custom endpoints:
+---
+
+## **Switching API Backends**
+
+PyBend uses an adapter pattern to switch between Flask and FastAPI:
+
 ```python
-@staticmethod
-@expose_route('/stats', methods=['GET'])
-def get_stats():
-    return jsonify({'message': 'Statistics are fun!'}), 200
+# In main.py
+BACKEND = "flask"  # or "fastapi"
+```
+
+* FastAPI: `routes_fastapi.py`
+* Flask: `routes_flask.py`
+* Automatically registers routes and schema
+
+---
+
+## **Switching Storage Backends**
+
+To change the storage backend:
+
+```python
+from storage.sqlite_storage import SQLiteStorage
+from storage.json_storage import JSONStorage
+
+storage_backend = SQLiteStorage("database.db")
+# or
+storage_backend = JSONStorage(directory="data")
+```
+
+Registered models will use the new backend if injected properly.
+
+---
+
+## **API Documentation**
+
+* FastAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
+* Flask: [http://localhost:8000/apidocs/](http://localhost:8000/apidocs/)
+
+---
+
+## **Usage Examples**
+
+### Create a User
+
+```http
+POST /users
+Content-Type: application/json
+{
+  "name": "Alice",
+  "email": "alice@example.com",
+  "age": 30
+}
+```
+
+### Login a User
+
+```http
+POST /users/login
+{
+  "email": "alice@example.com"
+}
+Response:
+{
+  "message": "Login successful"
+}
+```
+
+### List Products
+
+```http
+GET /products/list
+Response:
+[
+  {
+    "id": 1,
+    "name": "Product A",
+    "price": 10.0,
+    "description": "Description A"
+  },
+  {
+    "id": 2,
+    "name": "Product B",
+    "price": 20.0,
+    "description": "Description B"
+  }
+]
 ```
 
 ---
 
-## 🧪 Testing the System
+## **Schema Endpoint Responses**
 
-PyBend includes a comprehensive test suite using `pytest` and `pytest-flask`.
+### Product Schema
 
-### Run Tests
+```http
+GET /products/schema
+Response:
+{
+  "title": "Product",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "price": { "type": "number" },
+    "description": { "type": "string" },
+    "id": { "type": "integer" }
+  },
+  "required": ["name", "price"]
+}
+```
 
-To run the tests, simply execute:
+---
+
+## **Extending the Application**
+
+### Add New Model
+
+1. Create a new class inheriting `ProtoModel`
+2. Optionally set `storable = True`
+3. Use `@expose_route` to define custom methods
+4. Register with a storage backend
+
+### Add New Storage Backend
+
+1. Implement all abstract methods in `AbstractStorage`
+2. Inject into models with `set_storage()`
+
+---
+
+## **Why PyBend?**
+
+* 🔄 Unified data interface via model schema
+* 🚀 Easy onboarding with FastAPI or Flask
+* ⚖️ Consistent CRUD + custom endpoint structure
+* ⚙️ Backend/storage agnostic
+* 🔬 Designed for frontend-to-backend portability (UCP-ready!)
+
+---
+
+## **Testing**
+
+Run all tests:
+
 ```bash
 pytest
 ```
 
-### Coverage
+Tests include:
 
-For a coverage report:
-```bash
-pytest --cov=app --cov-report=html
-```
-
-Open the HTML report in your browser to explore test coverage.
+* API endpoints
+* Schema generation
+* Storage persistence logic
 
 ---
 
-## 🤝 Contributing
+## **License**
 
-Contributions are welcome! Here’s how you can help:
+MIT
 
-1. Fork the repo and clone it.
-2. Create a new branch for your feature or bugfix.
-3. Write your code and tests.
-4. Submit a pull request.
+## **Contact**
 
----
-
-## 📜 License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
+* Email: [you@example.com](mailto:you@example.com)
+* GitHub: [yourusername/yourrepository](https://github.com/yourusername/yourrepository)
 
 ---
-
-Happy bending! 🛠️
-

@@ -30,6 +30,11 @@ def register_routes():
                 instances = model_class.list()
                 return instances
 
+            @router.get(f"{endpoint_base}/schema", tags=[model_title])
+            async def get_schema() -> Dict[str, Any]:
+                instances = model_class.schema()
+                return instances
+
             @router.get(f"{endpoint_base}/{{id}}", tags=[model_title])
             async def get_instance(id: int) -> model_class:
                 instance = model_class.get(id)

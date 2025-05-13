@@ -1,8 +1,10 @@
 # app/models/base_model.py
+import json
 
 from pydantic import BaseModel as PydanticBaseModel
 from typing import Any, Dict, Type
 
+from utils.decorators import expose_route
 from .storable_mixin import StorableMixin
 
 class ProtoModel(PydanticBaseModel):
@@ -25,3 +27,13 @@ class ProtoModel(PydanticBaseModel):
         """
 
         raise NotImplementedError
+
+    @classmethod
+    @expose_route('/schema', methods=['GET'])
+    def schema(cls) -> Dict[str, Any]:
+        """
+        Returns the schema for this model.
+        """
+        print("Hello from ProtoModel.schema()")
+        print(cls.schema_json())
+        return json.loads(cls.schema_json())

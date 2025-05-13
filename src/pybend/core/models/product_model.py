@@ -1,10 +1,13 @@
 # app/models/product_model.py
 from __future__ import annotations
+
+from models.viewable_mixin import ViewableMixin
 from .proto_model import ProtoModel
 from typing import ClassVar, List
 from utils.decorators import expose_route
 
-class Product(ProtoModel):
+
+class Product(ProtoModel, ViewableMixin):
     """
     Product model representing a product in the system.
     """
