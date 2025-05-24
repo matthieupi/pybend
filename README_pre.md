@@ -110,7 +110,7 @@ register_model(User, storage=storage_backend)
    from typing import ClassVar
 
    class Order(ProtoModel):
-       storable: ClassVar[bool] = True
+       __storable__: ClassVar[bool] = True
        __tablename__: ClassVar[str] = 'orders'
        id: int
        product_id: int

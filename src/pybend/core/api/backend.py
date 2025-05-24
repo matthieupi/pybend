@@ -45,10 +45,19 @@ class FastAPIBackend(BaseBackend):
     def __init__(self, **data):
         super().__init__(**data)
         from fastapi import FastAPI
+        from fastapi.middleware.cors import CORSMiddleware
+
         self.app = FastAPI(
             title=self.name,
             version=self.version,
             description=self.description
+        )
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
         )
 
     def register_routes(self, registered_models: dict[str, type]):

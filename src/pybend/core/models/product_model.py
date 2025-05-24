@@ -7,11 +7,12 @@ from typing import ClassVar, List
 from utils.decorators import expose_route
 
 
-class Product(ProtoModel, ViewableMixin):
+class Product(ProtoModel):
     """
     Product model representing a product in the system.
     """
     __tablename__: ClassVar[str] = 'products'
+    __storable__: ClassVar[bool] = True
     name: str
     price: float
     description: str = ''

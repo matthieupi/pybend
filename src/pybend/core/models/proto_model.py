@@ -14,9 +14,9 @@ class ProtoModel(PydanticBaseModel):
 
     def __init_subclass__(cls, **kwargs):
         # Checks if the class has a 'storable' attribute, defaulting to False
-        storable = getattr(cls, 'storable', False)
+        __storable__ = getattr(cls, '__storable__', False)
         # If 'storable' is True, injects StorableMixin into the class
-        if storable and StorableMixin not in cls.__bases__:
+        if __storable__ and StorableMixin not in cls.__bases__:
             cls.__bases__ = (StorableMixin,) + cls.__bases__
         super().__init_subclass__(**kwargs)
 

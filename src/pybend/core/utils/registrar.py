@@ -12,7 +12,7 @@ def register_model(model_class: Type[Any], storage: StorageInterface = None):
     """
     Registers a model class with the system. If the model is storable, injects the storage backend.
     """
-    if hasattr(model_class, 'storable') and model_class.storable:
+    if hasattr(model_class, '__storable__') and model_class.__storable__:
         if storage is None:
             raise ValueError(f"Storage backend must be provided for model '{model_class.__name__}'")
         model_class.set_storage(storage)

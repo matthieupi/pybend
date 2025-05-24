@@ -6,7 +6,7 @@ from utils.decorators import expose_route
 from flask import request, jsonify
 
 class Bot(ProtoModel):
-    storable: ClassVar[bool] = True
+    __storable__: ClassVar[bool] = True
     __tablename__: ClassVar[str] = 'bots'
     id: int = None
     name: str

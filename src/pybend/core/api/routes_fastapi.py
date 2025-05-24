@@ -10,10 +10,14 @@ from utils.registrar import registered_models
 router = APIRouter()
 
 def register_routes():
+    print("Route registration started")
+    print(registered_models)
     for model_name, model_class in registered_models.items():
         endpoint_base = f"/{model_name}"
         is_storable = issubclass(model_class, StorableMixin)
         model_title = model_name.capitalize()
+
+        print(f"Registering routes for {model_name} with storable={is_storable}")
 
         if is_storable:
             @router.post(endpoint_base, tags=[model_title], status_code=201)
