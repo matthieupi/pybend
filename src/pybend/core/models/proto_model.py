@@ -36,4 +36,6 @@ class ProtoModel(PydanticBaseModel):
         """
         print("Hello from ProtoModel.schema()")
         print(cls.schema_json())
-        return json.loads(cls.schema_json())
+        schema = json.loads(cls.schema_json())
+        schema['type'] = 'schema'
+        return schema

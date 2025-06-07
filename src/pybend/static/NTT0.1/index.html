@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTTTX Framework - Interactive Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .demo-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .demo-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .demo-card .icon {
+            font-size: 1.5rem;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(45deg, #FFA726, #FF7043);
+            box-shadow: 0 4px 15px rgba(255, 167, 38, 0.3);
+        }
+
+        .btn.danger {
+            background: linear-gradient(45deg, #EF5350, #E53935);
+            box-shadow: 0 4px 15px rgba(239, 83, 80, 0.3);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .output {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin: 2px;
+        }
+
+        .status.dirty { background: #ffecb3; color: #f57f17; }
+        .status.clean { background: #c8e6c9; color: #2e7d32; }
+        .status.committing { background: #bbdefb; color: #1565c0; }
+        .status.error { background: #ffcdd2; color: #c62828; }
+
+        .instance-list {
+            display: grid;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .instance-item {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            transition: all 0.3s ease;
+        }
+
+        .instance-item:hover {
+            background: #e3f2fd;
+            border-left-color: #764ba2;
+        }
+
+        .instance-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .instance-id {
+            font-family: 'Courier New', monospace;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .instance-data {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .log-container {
+            background: #1a1a1a;
+            color: #00ff41;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            opacity: 0;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .log-timestamp {
+            color: #888;
+        }
+
+        .log-success { color: #4CAF50; }
+        .log-error { color: #F44336; }
+        .log-warning { color: #FF9800; }
+        .log-info { color: #2196F3; }
+
+        .architecture-diagram {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .component-box {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .component-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        .component-box:hover::before {
+            transform: translateX(100%);
+        }
+
+        .component-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .component-size {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🚀 NTTTX Framework</h1>
+            <p>Named Thing Transaction eXchange - Interactive Demo</p>
+            <p><em>Event-driven, functional, reactive frontend framework for PyBend backends</em></p>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="instanceCount">0</div>
+                    <div class="stat-label">Active Instances</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dirtyCount">0</div>
+                    <div class="stat-label">Dirty Instances</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="subscriberCount">0</div>
+                    <div class="stat-label">Active Observers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="healthScore">100%</div>
+                    <div class="stat-label">Health Score</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Architecture Overview -->
+        <div class="architecture-diagram">
+            <h2>🏗️ Modular Architecture</h2>
+            <p>Phase 2: Split from 800+ lines monolithic to 6 focused components</p>
+            <div class="component-grid">
+                <div class="component-box">
+                    <div class="component-title">NTT.js</div>
+                    <div class="component-size">~200 lines</div>
+                    <div>Core Orchestration</div>
+                </div>
+                <div class="component-box">
+                    <div class="component-title">NTTBroker.js</div>
+                    <div class="component-size">~150 lines</div>
+                    <div>API Communication</div>
+                </div>
+                <div class="component-box">
+                    <div class="component-title">NTTFunctional.js</div>
+                    <div class="component-size">~200 lines</div>
+                    <div>State Management</div>
+                </div>
+                <div class="component-box">
+                    <div class="component-title">NTTObserver.js</div>
+                    <div class="component-size">~150 lines</div>
+                    <div>Reactive Subscriptions</div>
+                </div>
+                <div class="component-box">
+                    <div class="component-title">NTTRegistry.js</div>
+                    <div class="component-size">~50 lines</div>
+                    <div>Shared State</div>
+                </div>
+                <div class="component-box">
+                    <div class="component-title">NTTUtils.js</div>
+                    <div class="component-size">~200 lines</div>
+                    <div>Pure Utilities</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demo Cards -->
+        <div class="demo-grid">
+            <!-- Basic NTT Operations -->
+            <div class="demo-card">
+                <h3><span class="icon">⚡</span>Basic NTT Operations</h3>
+                <div class="controls">
+                    <button class="btn" onclick="createBasicNTT()">Create NTT</button>
+                    <button class="btn secondary" onclick="evolveBasicNTT()">Evolve State</button>
+                    <button class="btn" onclick="commitBasicNTT()">Commit</button>
+                    <button class="btn danger" onclick="rollbackBasicNTT()">Rollback</button>
+                </div>
+                <div class="input-group">
+                    <label>User Name:</label>
+                    <input type="text" id="userName" value="John Doe" placeholder="Enter user name">
+                </div>
+                <div class="input-group">
+                    <label>User Email:</label>
+                    <input type="email" id="userEmail" value="john@example.com" placeholder="Enter email">
+                </div>
+                <div class="output" id="basicOutput">Ready to create your first NTT...</div>
+            </div>
+
+            <!-- Reactive Observations -->
+            <div class="demo-card">
+                <h3><span class="icon">👁️</span>Reactive Observations</h3>
+                <div class="controls">
+                    <button class="btn" onclick="setupObservations()">Setup Observers</button>
+                    <button class="btn secondary" onclick="triggerChanges()">Trigger Changes</button>
+                    <button class="btn" onclick="testDebounced()">Test Debounced</button>
+                    <button class="btn danger" onclick="clearObservations()">Clear All</button>
+                </div>
+                <div class="input-group">
+                    <label>Property to Watch:</label>
+                    <input type="text" id="watchProperty" value="email" placeholder="Property name">
+                </div>
+                <div class="output" id="observerOutput">Click 'Setup Observers' to start watching...</div>
+            </div>
+
+            <!-- Batch Operations -->
+            <div class="demo-card">
+                <h3><span class="icon">📦</span>Batch Operations</h3>
+                <div class="controls">
+                    <button class="btn" onclick="createBatch()">Create Batch</button>
+                    <button class="btn secondary" onclick="evolveBatch()">Evolve Batch</button>
+                    <button class="btn" onclick="commitBatch()">Commit Batch</button>
+                    <button class="btn danger" onclick="clearBatch()">Clear All</button>
+                </div>
+                <div class="input-group">
+                    <label>Batch Size:</label>
+                    <input type="number" id="batchSize" value="5" min="1" max="20">
+                </div>
+                <div class="output" id="batchOutput">Ready to create batch instances...</div>
+            </div>
+
+            <!-- Advanced Features -->
+            <div class="demo-card">
+                <h3><span class="icon">🧠</span>Advanced Features</h3>
+                <div class="controls">
+                    <button class="btn" onclick="createComputedProps()">Computed Props</button>
+                    <button class="btn secondary" onclick="createDerived()">Derived NTT</button>
+                    <button class="btn" onclick="testSnapshots()">Snapshots</button>
+                    <button class="btn" onclick="testMerge()">Merge Test</button>
+                </div>
+                <div class="input-group">
+                    <label>Computation Function:</label>
+                    <textarea id="computeFunction" rows="3">data => `${data.name || 'Unknown'} (v${data.version || 1})`</textarea>
+                </div>
+                <div class="output" id="advancedOutput">Try advanced NTT features...</div>
+            </div>
+
+            <!-- State Management -->
+            <div class="demo-card">
+                <h3><span class="icon">🔄</span>State Management</h3>
+                <div class="controls">
+                    <button class="btn" onclick="showStateComparison()">Compare States</button>
+                    <button class="btn secondary" onclick="validateStates()">Validate States</button>
+                    <button class="btn" onclick="showStatistics()">Show Stats</button>
+                    <button class="btn danger" onclick="resetAll()">Reset All</button>
+                </div>
+                <div class="output" id="stateOutput">State management tools ready...</div>
+            </div>
+
+            <!-- Live Instance Monitor -->
+            <div class="demo-card">
+                <h3><span class="icon">📊</span>Live Instance Monitor</h3>
+                <div class="controls">
+                    <button class="btn" onclick="toggleMonitoring()">Toggle Monitor</button>
+                    <button class="btn secondary" onclick="refreshInstances()">Refresh</button>
+                </div>
+                <div class="instance-list" id="instanceList">
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        No instances created yet...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Console Log -->
+        <div class="demo-card">
+            <h3><span class="icon">📝</span>Live Console</h3>
+            <div class="controls">
+                <button class="btn secondary" onclick="clearConsole()">Clear Console</button>
+                <button class="btn" onclick="exportLogs()">Export Logs</button>
+            </div>
+            <div class="log-container" id="consoleLog">
+                <div class="log-entry log-info">
+                    <span class="log-timestamp">[${new Date().toLocaleTimeString()}]</span>
+                    🚀 NTTTX Framework Demo Ready!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mock Transport and Event System -->
+    <script type="module">
+        // Mock transport for demo purposes
+        window.transport = {
+            send: function(evt) {
+                console.log('🌐 Transport sending:', evt);
+
+                // Simulate API responses after delay
+                setTimeout(() => {
+                    if (evt.data && evt.data.onSuccess) {
+                        const mockResponse = {
+                            id: Math.floor(Math.random() * 1000),
+                            ...evt.data.data,
+                            timestamp: Date.now(),
+                            version: 1
+                        };
+                        evt.data.onSuccess(mockResponse);
+                    }
+                }, Math.random() * 1000 + 500); // 500-1500ms delay
+            }
+        };
+
+        window.TransportManager = window.remote;
+
+        // Mock Event class
+        window.Event = class Event {
+            constructor(config) {
+                Object.assign(this, config);
+                this.id = this.id || Math.random().toString(36).substring(7);
+                this.timestamp = Date.now();
+            }
+        };
+    </script>
+
+    <!-- Import and Initialize NTTTX -->
+    <script type="module">
+        // Import all NTTTX components
+        import { NTT } from './NTT.js';
+        import { NTTBroker } from './NTTBroker.js';
+        import { NTTFunctional } from './NTTFunctional.js';
+        import { NTTObserver } from './NTTObserver.js';
+        import { NTTRegistry } from './NTTRegistry.js';
+
+        // Make available globally for demo
+        window.NTT = NTT;
+        window.NTTBroker = NTTBroker;
+        window.NTTFunctional = NTTFunctional;
+        window.NTTObserver = NTTObserver;
+        window.NTTRegistry = NTTRegistry;
+
+        // Demo state
+        window.demoState = {
+            basicNTT: null,
+            batchInstances: [],
+            observerUnsubscribers: [],
+            monitoringInterval: null,
+            isMonitoring: false
+        };
+
+        // Enhanced console logging
+        const originalConsole = { ...console };
+        const $consoleLog = document.getElementById('consoleLog');
+
+        function logToDemo(level, ...args) {
+            originalConsole[level](...args);
+
+            const timestamp = new Date().toLocaleTimeString();
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${level}`;
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                ${message}
+            `;
+
+            $consoleLog.appendChild(logEntry);
+            $consoleLog.scrollTop = $consoleLog.scrollHeight;
+
+            // Keep only last 50 entries
+            while ($consoleLog.children.length > 50) {
+                $consoleLog.removeChild($consoleLog.firstChild);
+            }
+        }
+
+        ['log', 'info', 'warn', 'error'].forEach(level => {
+            console[level] = (...args) => logToDemo(level === 'log' ? 'info' : level, ...args);
+        });
+
+        // Register a mock descriptor
+        NTT.register('users', 'User',
+            (ntt) => {
+                console.info(`✅ User operation successful: ${ntt.name} (${ntt.id})`);
+                updateStats();
+            },
+            (error) => {
+                console.error(`❌ User operation failed: ${error}`);
+            },
+            'http://localhost:8000/api/users'
+        );
+
+        console.info('🎉 NTTTX Framework initialized successfully!');
+        updateStats();
+    </script>
+
+    <!-- Demo Functions -->
+    <script>
+        // Basic NTT Operations
+        function createBasicNTT() {
+            const name = document.getElementById('userName').value;
+            const email = document.getElementById('userEmail').value;
+
+            window.demoState.basicNTT = new NTT({
+                name: 'DemoUser',
+                addr: '/api/users/demo',
+                data: { name, email, age: 30, version: 1 }
+            });
+
+            console.info(`🔨 Created NTT: ${window.demoState.basicNTT.id}`);
+            document.getElementById('basicOutput').textContent =
+                `Created NTT: ${window.demoState.basicNTT.id}\nData: ${JSON.stringify(window.demoState.basicNTT.data, null, 2)}`;
+
+            updateStats();
+        }
+
+        function evolveBasicNTT() {
+            if (!window.demoState.basicNTT) {
+                createBasicNTT();
+            }
+
+            const name = document.getElementById('userName').value;
+            const email = document.getElementById('userEmail').value;
+
+            NTT.evolve(window.demoState.basicNTT.id, {
+                name,
+                email,
+                lastModified: new Date().toISOString(),
+                version: (window.demoState.basicNTT.data.version || 1) + 1
+            });
+
+            console.info(`🔄 Evolved NTT: ${window.demoState.basicNTT.id}`);
+            document.getElementById('basicOutput').textContent =
+                `Evolved NTT: ${window.demoState.basicNTT.id}\nData: ${JSON.stringify(window.demoState.basicNTT.data, null, 2)}\nStatus: ${window.demoState.basicNTT.isDirty ? 'DIRTY' : 'CLEAN'}`;
+
+            updateStats();
+        }
+
+        async function commitBasicNTT() {
+            if (!window.demoState.basicNTT) {
+                console.warn('⚠️ No basic NTT to commit');
+                return;
+            }
+
+            try {
+                console.info(`💾 Committing NTT: ${window.demoState.basicNTT.id}`);
+                await NTT.commit(window.demoState.basicNTT.id);
+
+                document.getElementById('basicOutput').textContent =
+                    `Committed NTT: ${window.demoState.basicNTT.id}\nStatus: ${window.demoState.basicNTT.isDirty ? 'DIRTY' : 'CLEAN'}`;
+
+                updateStats();
+            } catch (error) {
+                console.error('❌ Commit failed:', error);
+            }
+        }
+
+        function rollbackBasicNTT() {
+            if (!window.demoState.basicNTT) {
+                console.warn('⚠️ No basic NTT to rollback');
+                return;
+            }
+
+            NTT.rollback(window.demoState.basicNTT.id);
+            console.info(`↩️ Rolled back NTT: ${window.demoState.basicNTT.id}`);
+
+            document.getElementById('basicOutput').textContent =
+                `Rolled back NTT: ${window.demoState.basicNTT.id}\nData: ${JSON.stringify(window.demoState.basicNTT.data, null, 2)}`;
+
+            updateStats();
+        }
+
+        // Reactive Observations
+        function setupObservations() {
+            if (!window.demoState.basicNTT) {
+                createBasicNTT();
+            }
+
+            const property = document.getElementById('watchProperty').value;
+
+            // Clear existing observers
+            clearObservations();
+
+            // General subscription
+            const unsub1 = NTT.subscribe(window.demoState.basicNTT.id, (newData, oldData) => {
+                console.info('👁️ General observer triggered:', { newData, oldData });
+            });
+
+            // Property observation
+            const unsub2 = NTT.observe(window.demoState.basicNTT.id, property, (newValue, oldValue, prop) => {
+                console.info(`👁️ Property '${prop}' changed: ${oldValue} → ${newValue}`);
+            });
+
+            // State transition observation
+            const unsub3 = NTT.observeStateTransitions(window.demoState.basicNTT.id, (transition) => {
+                console.info(`🔄 State transition: ${transition.type} ${transition.from} → ${transition.to}`);
+            });
+
+            window.demoState.observerUnsubscribers = [unsub1, unsub2, unsub3];
+
+            document.getElementById('observerOutput').textContent =
+                `Observers setup for NTT: ${window.demoState.basicNTT.id}\nWatching: general changes, '${property}' property, state transitions`;
+
+            console.info(`👁️ Setup 3 observers for: ${window.demoState.basicNTT.id}`);
+            updateStats();
+        }
+
+        function triggerChanges() {
+            if (!window.demoState.basicNTT) {
+                setupObservations();
+            }
+
+            const randomData = {
+                email: `user${Date.now()}@example.com`,
+                lastUpdate: new Date().toISOString(),
+                randomValue: Math.floor(Math.random() * 1000)
+            };
+
+            NTT.evolve(window.demoState.basicNTT.id, randomData);
+            console.info('🎯 Triggered random changes');
+        }
+
+        function testDebounced() {
+            if (!window.demoState.basicNTT) {
+                setupObservations();
+            }
+
+            const unsub = NTT.observeDebounced(window.demoState.basicNTT.id, (newData) => {
+                console.info('⏱️ Debounced observer triggered:', newData);
+            }, 500);
+
+            // Trigger rapid changes
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    NTT.evolve(window.demoState.basicNTT.id, { counter: i });
+                }, i * 100);
+            }
+
+            window.demoState.observerUnsubscribers.push(unsub);
+            console.info('⏱️ Testing debounced observer with rapid changes');
+        }
+
+        function clearObservations() {
+            window.demoState.observerUnsubscribers.forEach(unsub => unsub());
+            window.demoState.observerUnsubscribers = [];
+
+            document.getElementById('observerOutput').textContent = 'All observers cleared';
+            console.info('🧹 Cleared all observers');
+            updateStats();
+        }
+
+        // Batch Operations
+        function createBatch() {
+            const size = parseInt(document.getElementById('batchSize').value);
+            window.demoState.batchInstances = [];
+
+            for (let i = 0; i < size; i++) {
+                const ntt = new NTT({
+                    name: `BatchUser${i}`,
+                    addr: `/api/users/batch/${i}`,
+                    data: {
+                        name: `User ${i}`,
+                        email: `user${i}@batch.com`,
+                        batchId: Date.now(),
+                        index: i
+                    }
+                });
+                window.demoState.batchInstances.push(ntt);
+            }
+
+            console.info(`📦 Created batch of ${size} NTT instances`);
+            document.getElementById('batchOutput').textContent =
+                `Created ${size} batch instances\nIDs: ${window.demoState.batchInstances.map(n => n.id.substring(0, 8)).join(', ')}...`;
+
+            updateStats();
+        }
+
+        function evolveBatch() {
+            if (window.demoState.batchInstances.length === 0) {
+                createBatch();
+            }
+
+            const instanceIds = window.demoState.batchInstances.map(n => n.id);
+            const batchData = {
+                lastBatchUpdate: new Date().toISOString(),
+                batchEvolution: Math.floor(Math.random() * 1000)
+            };
+
+            NTT.evolveBatch(instanceIds, batchData);
+            console.info(`🔄 Evolved batch of ${instanceIds.length} instances`);
+
+            document.getElementById('batchOutput').textContent =
+                `Evolved ${instanceIds.length} instances\nBatch data: ${JSON.stringify(batchData, null, 2)}`;
+
+            updateStats();
+        }
+
+        async function commitBatch() {
+            if (window.demoState.batchInstances.length === 0) {
+                console.warn('⚠️ No batch instances to commit');
+                return;
+            }
+
+            const instanceIds = window.demoState.batchInstances.map(n => n.id);
+
+            try {
+                console.info(`💾 Committing batch of ${instanceIds.length} instances`);
+                const committed = await NTT.commitBatch(instanceIds);
+
+                document.getElementById('batchOutput').textContent =
+                    `Committed ${committed.length}/${instanceIds.length} instances successfully`;
+
+                updateStats();
+            } catch (error) {
+                console.error('❌ Batch commit failed:', error);
+            }
+        }
+
+        function clearBatch() {
+            window.demoState.batchInstances.forEach(ntt => NTT.remove(ntt.id));
+            window.demoState.batchInstances = [];
+
+            document.getElementById('batchOutput').textContent = 'All batch instances cleared';
+            console.info('🧹 Cleared all batch instances');
+            updateStats();
+        }
+
+        // Advanced Features
+        function createComputedProps() {
+            if (!window.demoState.basicNTT) {
+                createBasicNTT();
+            }
+
+            const computeFn = new Function('data', `return ${document.getElementById('computeFunction').value}`);
+
+            NTT.addComputedProperty(
+                window.demoState.basicNTT.id,
+                'displayName',
+                computeFn,
+                ['name', 'version']
+            );
+
+            console.info('🧠 Added computed property: displayName');
+
+            // Trigger changes to see computed property in action
+            NTT.evolve(window.demoState.basicNTT.id, { version: (window.demoState.basicNTT.data.version || 1) + 1 });
+
+            document.getElementById('advancedOutput').textContent =
+                `Added computed property 'displayName'\nResult: ${window.demoState.basicNTT.data.displayName}`;
+        }
+
+        function createDerived() {
+            if (!window.demoState.basicNTT) {
+                createBasicNTT();
+            }
+
+            const derived = NTT.derive(window.demoState.basicNTT.id, {
+                name: 'UserPreferences',
+                addr: '/api/preferences/derived',
+                transform: (data) => ({
+                    theme: 'dark',
+                    language: 'en',
+                    notifications: true,
+                    userName: data.name,
+                    derivedAt: new Date().toISOString()
+                }),
+                filter: (newData, oldData) => newData.name !== oldData.name
+            });
+
+            console.info(`🔗 Created derived NTT: ${derived.id}`);
+
+            document.getElementById('advancedOutput').textContent =
+                `Created derived NTT: ${derived.id}\nTransformed data: ${JSON.stringify(derived.data, null, 2)}`;
+
+            updateStats();
+        }
+
+        function testSnapshots() {
+            if (!window.demoState.basicNTT) {
+                createBasicNTT();
+            }
+
+            // Create snapshot
+            const snapshot = NTT.snapshot(window.demoState.basicNTT.id, 'demo_snapshot');
+
+            // Make some changes
+            NTT.evolve(window.demoState.basicNTT.id, {
+                snapshotTest: true,
+                changedAt: new Date().toISOString()
+            });
+
+            console.info(`📸 Created snapshot: ${snapshot.id}`);
+            console.info('🔄 Made changes after snapshot');
+
+            // Restore after delay
+            setTimeout(() => {
+                NTT.restore(window.demoState.basicNTT.id, snapshot);
+                console.info('↩️ Restored from snapshot');
+
+                document.getElementById('advancedOutput').textContent =
+                    `Snapshot test completed\nRestored to: ${JSON.stringify(window.demoState.basicNTT.data, null, 2)}`;
+            }, 2000);
+
+            document.getElementById('advancedOutput').textContent =
+                'Snapshot created, changes made, restoring in 2 seconds...';
+        }
+
+        function testMerge() {
+            if (!window.demoState.basicNTT) {
+                createBasicNTT();
+            }
+
+            // Create another NTT to merge with
+            const otherNTT = new NTT({
+                name: 'MergeSource',
+                addr: '/api/users/merge',
+                data: {
+                    name: 'Merged User',
+                    email: 'merged@example.com',
+                    department: 'Engineering',
+                    skills: ['JavaScript', 'NTTTX']
+                }
+            });
+
+            console.info(`🔗 Created merge source: ${otherNTT.id}`);
+
+            // Perform merge
+            NTT.merge(window.demoState.basicNTT.id, otherNTT.id);
+
+            console.info(`🔀 Merged ${otherNTT.id} into ${window.demoState.basicNTT.id}`);
+
+            document.getElementById('advancedOutput').textContent =
+                `Merge completed\nResult: ${JSON.stringify(window.demoState.basicNTT.data, null, 2)}`;
+
+            updateStats();
+        }
+
+        // State Management
+        function showStateComparison() {
+            const instances = NTT.getAllInstances();
+            let output = 'State Comparison:\n\n';
+
+            instances.forEach((instance, id) => {
+                const comparison = NTT.compareStates(id);
+                output += `${id.substring(0, 8)}... - ${comparison.isDifferent ? 'DIFFERENT' : 'SAME'}\n`;
+                if (comparison.isDifferent) {
+                    output += `  Differences: ${Object.keys(comparison.differences).join(', ')}\n`;
+                }
+            });
+
+            document.getElementById('stateOutput').textContent = output;
+            console.info('📊 State comparison completed');
+        }
+
+        function validateStates() {
+            const instances = NTT.getAllInstances();
+            let output = 'State Validation:\n\n';
+
+            instances.forEach((instance, id) => {
+                const validation = NTT.validateState(id);
+                output += `${id.substring(0, 8)}... - ${validation.isValid ? '✅ VALID' : '❌ INVALID'}\n`;
+                if (!validation.isValid) {
+                    validation.issues.forEach(issue => {
+                        output += `  ⚠️ ${issue}\n`;
+                    });
+                }
+            });
+
+            document.getElementById('stateOutput').textContent = output;
+            console.info('🔍 State validation completed');
+        }
+
+        function showStatistics() {
+            const stats = NTT.getStats();
+            const output = `NTTTX Framework Statistics:
+
+Registry:
+  - Instances: ${stats.registry.instances}
+  - Descriptors: ${stats.registry.descriptors}
+  - Prototypes: ${stats.registry.prototypes}
+
+Functional:
+  - Total Instances: ${stats.functional.totalInstances}
+  - Dirty Instances: ${stats.functional.dirtyInstances}
+  - Committing: ${stats.functional.committingInstances}
+  - Avg Pending Ops: ${stats.functional.averagePendingOps.toFixed(2)}
+
+Observer:
+  - Total Subscribers: ${stats.observer.totalSubscribers}
+  - Property Observers: ${stats.observer.totalPropertyObservers}
+  - Avg Subscribers/Instance: ${stats.observer.averageSubscribersPerInstance.toFixed(2)}
+
+Health Score: ${(stats.combined.healthScore * 100).toFixed(1)}%`;
+
+            document.getElementById('stateOutput').textContent = output;
+            console.info('📈 Statistics displayed');
+        }
+
+        function resetAll() {
+            // Clear all observers first
+            clearObservations();
+
+            // Clear batch instances
+            clearBatch();
+
+            // Clear basic NTT
+            if (window.demoState.basicNTT) {
+                NTT.remove(window.demoState.basicNTT.id);
+                window.demoState.basicNTT = null;
+            }
+
+            // Clear all remaining instances
+            NTT.clear();
+
+            // Reset outputs
+            document.getElementById('basicOutput').textContent = 'Ready to create your first NTT...';
+            document.getElementById('observerOutput').textContent = "Click 'Setup Observers' to start watching...";
+            document.getElementById('batchOutput').textContent = 'Ready to create batch instances...';
+            document.getElementById('advancedOutput').textContent = 'Try advanced NTT features...';
+            document.getElementById('stateOutput').textContent = 'State management tools ready...';
+
+            console.info('🧹 Complete reset performed');
+            updateStats();
+        }
+
+        // Live Instance Monitor
+        function toggleMonitoring() {
+            if (window.demoState.isMonitoring) {
+                clearInterval(window.demoState.monitoringInterval);
+                window.demoState.isMonitoring = false;
+                console.info('⏹️ Monitoring stopped');
+            } else {
+                window.demoState.monitoringInterval = setInterval(refreshInstances, 1000);
+                window.demoState.isMonitoring = true;
+                console.info('▶️ Monitoring started');
+            }
+        }
+
+        function refreshInstances() {
+            const instances = NTT.getAllInstances();
+            const $instanceList = document.getElementById('instanceList');
+
+            if (instances.size === 0) {
+                $instanceList.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        No instances created yet...
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            instances.forEach((instance, id) => {
+                const status = instance.isDirty ? 'dirty' : 'clean';
+                const commitStatus = instance.isCommitting ? 'committing' : '';
+
+                html += `
+                    <div class="instance-item">
+                        <div class="instance-header">
+                            <span class="instance-id">${id.substring(0, 12)}...</span>
+                            <div>
+                                <span class="status ${status}">${status.toUpperCase()}</span>
+                                ${commitStatus && `<span class="status ${commitStatus}">${commitStatus.toUpperCase()}</span>`}
+                            </div>
+                        </div>
+                        <div class="instance-data">
+                            <strong>${instance.name}</strong> - ${instance.addr}<br>
+                            Version: ${instance.version} | Pending Ops: ${instance.pendingOps.length}<br>
+                            Data: ${JSON.stringify(instance.data).substring(0, 100)}${JSON.stringify(instance.data).length > 100 ? '...' : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            $instanceList.innerHTML = html;
+        }
+
+        // Utility Functions
+        function updateStats() {
+            const stats = NTT.getStats();
+
+            document.getElementById('instanceCount').textContent = stats.registry.instances;
+            document.getElementById('dirtyCount').textContent = stats.functional.dirtyInstances;
+            document.getElementById('subscriberCount').textContent = stats.observer.totalSubscribers;
+            document.getElementById('healthScore').textContent = `${(stats.combined.healthScore * 100).toFixed(1)}%`;
+
+            if (window.demoState.isMonitoring) {
+                refreshInstances();
+            }
+        }
+
+        function clearConsole() {
+            document.getElementById('consoleLog').innerHTML = `
+                <div class="log-entry log-info">
+                    <span class="log-timestamp">[${new Date().toLocaleTimeString()}]</span>
+                    🧹 Console cleared
+                </div>
+            `;
+        }
+
+        function exportLogs() {
+            const logs = Array.from(document.getElementById('consoleLog').children)
+                .map(entry => entry.textContent)
+                .join('\n');
+
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ntttx-demo-logs-${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            console.info('📁 Logs exported');
+        }
+
+        // Auto-refresh stats every 2 seconds
+        setInterval(updateStats, 2000);
+
+        // Welcome message
+        setTimeout(() => {
+            console.info('👋 Welcome to NTTTX Framework Demo!');
+            console.info('🎯 Try creating some NTT instances and explore the features');
+            console.info('📊 Stats update automatically every 2 seconds');
+            console.info('👁️ Use the monitoring feature to watch instances live');
+        }, 1000);
+    </script>
+</body>
+</html>

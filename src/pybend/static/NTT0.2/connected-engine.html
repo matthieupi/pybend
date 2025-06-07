@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTTTX Framework - PyBend Connected</title>
+
+    <!-- External Stylesheets -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./dark-theme.css">
+
+    <!-- Additional styles for connection status -->
+    <style>
+        .connection-status {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-md);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-warning);
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected .status-dot {
+            background: var(--accent-success);
+            animation: none;
+        }
+
+        .status-indicator.disconnected .status-dot {
+            background: var(--accent-error);
+            animation: pulse 2s infinite;
+        }
+
+        .backend-info {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-left: 24px;
+        }
+
+        .status-value.connected {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-success);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .status-value.disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-error);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        /* Enhanced input styles */
+        select {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            background: var(--bg-secondary);
+        }
+
+        select option {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 8px;
+        }
+
+        /* Enhanced responsive behavior */
+        @media (max-width: 768px) {
+            .connection-status {
+                padding: 15px;
+            }
+
+            .status-indicator {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .backend-info {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 NTTTX Framework</h1>
+        <p class="subtitle">PyBend Backend Integration - Real API Connection</p>
+
+        <div class="framework-info">
+            <div>🔗 Connected to PyBend Backend • 🌐 Real HTTP API • 🔄 Live Data</div>
+            <div class="version">localhost:8000 • Production Transport Layer</div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="connection-status" id="connection-status">
+            <div class="status-indicator" id="status-indicator">
+                <span class="status-dot"></span>
+                <span id="connection-text">Checking PyBend connection...</span>
+            </div>
+            <div class="backend-info" id="backend-info"></div>
+        </div>
+
+        <div class="examples-grid">
+            <!-- PyBend User Management -->
+            <div class="example-card">
+                <h3><span class="icon">👤</span> PyBend User Management</h3>
+                <div class="controls">
+                    <input type="text" id="user-name" placeholder="Enter user name" style="width: 140px;">
+                    <input type="email" id="user-email" placeholder="Enter email" style="width: 160px;">
+                    <input type="number" id="user-age" placeholder="Age" style="width: 80px;">
+                    <button onclick="createPyBendUser()">Create User</button>
+                    <button onclick="loadPyBendUsers()" class="secondary">Load All Users</button>
+                    <button onclick="clearUserLog()" class="danger">Clear Log</button>
+                </div>
+                <div id="user-output" class="output"></div>
+                <div id="user-data" class="data-display"></div>
+            </div>
+
+            <!-- PyBend Product Management -->
+            <div class="example-card">
+                <h3><span class="icon">📦</span> PyBend Product Management</h3>
+                <div class="controls">
+                    <input type="text" id="product-name" placeholder="Product name" style="width: 140px;">
+                    <input type="number" id="product-price" placeholder="Price" step="0.01" style="width: 100px;">
+                    <input type="text" id="product-description" placeholder="Description" style="width: 160px;">
+                    <button onclick="createPyBendProduct()">Create Product</button>
+                    <button onclick="loadPyBendProducts()" class="secondary">Load All Products</button>
+                    <button onclick="clearProductLog()" class="danger">Clear Log</button>
+                </div>
+                <div id="product-output" class="output"></div>
+                <div id="product-data" class="data-display"></div>
+            </div>
+
+            <!-- Real-time State Management -->
+            <div class="example-card">
+                <h3><span class="icon">⚡</span> Real-time State Management</h3>
+                <div class="controls">
+                    <select id="entity-selector" style="width: 150px;">
+                        <option value="">Select entity...</option>
+                    </select>
+                    <button onclick="evolveSelectedEntity()">Evolve State</button>
+                    <button onclick="commitSelectedEntity()" class="secondary">Commit to PyBend</button>
+                    <button onclick="rollbackSelectedEntity()" class="danger">Rollback</button>
+                    <button onclick="refreshSelectedEntity()" class="secondary">Refresh from API</button>
+                </div>
+                <div id="state-output" class="output"></div>
+                <div id="state-data" class="data-display"></div>
+            </div>
+
+            <!-- PyBend Schema Discovery -->
+            <div class="example-card">
+                <h3><span class="icon">🔍</span> PyBend Schema Discovery</h3>
+                <div class="controls">
+                    <button onclick="discoverPyBendSchemas()">Discover Schemas</button>
+                    <button onclick="showUserSchema()" class="secondary">Show User Schema</button>
+                    <button onclick="showProductSchema()" class="secondary">Show Product Schema</button>
+                    <button onclick="testDynamicPromotion()" class="secondary">Test Dynamic Promotion</button>
+                </div>
+                <div id="schema-output" class="output"></div>
+            </div>
+
+            <!-- Reactive Subscriptions -->
+            <div class="example-card">
+                <h3><span class="icon">🔔</span> Live Data Subscriptions</h3>
+                <div class="controls">
+                    <button onclick="subscribeToAllEntities()">Subscribe All</button>
+                    <button onclick="observeUserEmails()">Observe User Emails</button>
+                    <button onclick="observeProductPrices()">Observe Product Prices</button>
+                    <button onclick="triggerRandomChange()" class="secondary">Trigger Change</button>
+                    <button onclick="unsubscribeAllEntities()" class="danger">Unsubscribe All</button>
+                </div>
+                <div id="reactive-output" class="output"></div>
+            </div>
+
+            <!-- PyBend Custom Endpoints -->
+            <div class="example-card">
+                <h3><span class="icon">🔧</span> Custom PyBend Endpoints</h3>
+                <div class="controls">
+                    <button onclick="testUserLogin()">Test User Login</button>
+                    <button onclick="getUserSchema()">Get User Schema</button>
+                    <button onclick="testRPCCall()">Test RPC Call</button>
+                    <button onclick="testCustomEndpoints()" class="secondary">Test All Endpoints</button>
+                </div>
+                <div id="custom-output" class="output"></div>
+            </div>
+        </div>
+
+        <!-- Enhanced Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span>📊 NTT Instances:</span>
+                <span class="status-value" id="instance-count">0</span>
+            </div>
+            <div class="status-item">
+                <span>🔔 Active Subscriptions:</span>
+                <span class="status-value" id="subscription-count">0</span>
+            </div>
+            <div class="status-item">
+                <span>🏭 PyBend Factories:</span>
+                <span class="status-value" id="factory-count">0</span>
+            </div>
+            <div class="status-item">
+                <span>🌐 API Requests:</span>
+                <span class="status-value" id="request-count">0</span>
+            </div>
+            <div class="status-item">
+                <span>🔗 Connection:</span>
+                <span class="status-value" id="connection-status-badge">Checking...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Real HTTP and TransportManager -->
+    <script type="module">
+        // Import HTTP class
+        import HTTP from './HTTP.js';
+        window.HTTP = HTTP;
+
+        // Import Real TransportManager
+        import { TransportManager, transport } from './TransportManager.js';
+        window.TransportManager = TransportManager;
+        window.transport = transport;
+
+        console.log('✅ HTTP and TransportManager loaded');
+    </script>
+
+    <!-- Import Real NTT System -->
+    <script type="module">
+        // Import all the real NTT classes
+        import { NTTUtils } from './NTTUtils.js';
+        import { EntityRegistry } from './EntityRegistry.js';
+        import { NTTFunctional } from './NTTFunctional.js';
+        import { NTTReactive } from './NTTReactive.js';
+        import { NTT } from './NTT.js';
+        import { Event } from './Event.js';
+
+        // Make classes globally available
+        window.NTTUtils = NTTUtils;
+        window.Registry = EntityRegistry;
+        window.NTTFunctional = NTTFunctional;
+        window.NTTReactive = NTTReactive;
+        window.NTT = NTT;
+        window.Event = Event;
+
+        console.log('✅ NTTTX Framework loaded');
+    </script>
+
+    <!-- Import PyBend Integration Logic -->
+    <script src="./connected-engine.js"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import assert from "../utils/Assert.js";
-import Socket from "./Socket.js";
+import Socket from "../Socket.js";
+import {TransportManager} from "./TransportManager.js";
 
 const E = {
 	"ENABLE": "ENABLE",
@@ -12,7 +13,7 @@ const E = {
 }
 export default class Event {
 
-	transport = window.Remote
+	transport = new TransportManager()
 
 	constructor(name, id, source, target, data={}, meta={}, timestamp=Date.now()) {
 		this.name = name
@@ -34,6 +35,8 @@ export default class Event {
 	}
 
 	dispatch() {
+		assert(this, !!this.transport, "window.TransportManager not set. Cannot dispatch event.")
+		console.info(`Dispatching event ${this.name} from ${this.source} to ${this.target}`, this.repr())
 		this.transport.send("event", this.repr())
 	}
 

@@ -1,5 +1,5 @@
 import {default as logging} from "../utils/Logging.js"
-import Event from "../core/Event.js"
+//import Event from "../core/Event.js"
 
 
 let DISCONNECTED = "DISCONNECTED"

@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTTTX Framework - Interactive Examples</title>
+    <!-- External Stylesheets -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./dark-theme.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 NTTTX Framework</h1>
+        <p class="subtitle">Interactive Examples - Testing Real Implementation</p>
+
+        <div class="framework-info">
+            <div>✅ Using Real NTT Classes • 🔧 Live Testing Environment</div>
+            <div class="version">Import-based • Modular Architecture</div>
+        </div>
+
+        <div class="examples-grid">
+            <!-- Basic NTT Operations -->
+            <div class="example-card">
+                <h3><span class="icon">🏗️</span> Basic NTT Operations</h3>
+                <div class="controls">
+                    <button onclick="createUser()">Create User</button>
+                    <button onclick="updateUser()" class="secondary">Update User</button>
+                    <button onclick="showUserData()" class="secondary">Show Data</button>
+                    <button onclick="clearUserLog()" class="danger">Clear Log</button>
+                </div>
+                <div id="user-output" class="output"></div>
+                <div id="user-data" class="data-display"></div>
+            </div>
+
+            <!-- Functional State Management -->
+            <div class="example-card">
+                <h3><span class="icon">⚡</span> Functional Operations</h3>
+                <div class="controls">
+                    <input type="text" id="evolve-input" placeholder="Enter new age" style="width: 120px;">
+                    <button onclick="evolveUser()">Evolve State</button>
+                    <button onclick="commitUser()" class="secondary">Commit</button>
+                    <button onclick="rollbackUser()" class="danger">Rollback</button>
+                </div>
+                <div id="functional-output" class="output"></div>
+                <div id="functional-data" class="data-display"></div>
+            </div>
+
+            <!-- Reactive Subscriptions -->
+            <div class="example-card">
+                <h3><span class="icon">🔔</span> Reactive Subscriptions</h3>
+                <div class="controls">
+                    <button onclick="subscribeToUser()">Subscribe All</button>
+                    <button onclick="observeEmail()">Observe Email</button>
+                    <button onclick="triggerChange()" class="secondary">Trigger Change</button>
+                    <button onclick="unsubscribeAll()" class="danger">Unsubscribe All</button>
+                </div>
+                <div id="reactive-output" class="output"></div>
+            </div>
+
+            <!-- Entity Registry & Factories -->
+            <div class="example-card">
+                <h3><span class="icon">🏭</span> Entity Registry</h3>
+                <div class="controls">
+                    <button onclick="registerFactory()">Register Factory</button>
+                    <button onclick="createViaFactory()">Create via Factory</button>
+                    <button onclick="showAllInstances()" class="secondary">Show All Instances</button>
+                    <button onclick="discoverSchemas()" class="secondary">Discover Schemas</button>
+                </div>
+                <div id="registry-output" class="output"></div>
+            </div>
+
+            <!-- Merge & Conflict Resolution -->
+            <div class="example-card">
+                <h3><span class="icon">🔄</span> Merge Operations</h3>
+                <div class="controls">
+                    <button onclick="createConflictingUsers()">Create Conflicting Users</button>
+                    <button onclick="mergeUsers()">Merge Users</button>
+                    <button onclick="setCustomResolver()" class="secondary">Set Custom Resolver</button>
+                </div>
+                <div id="merge-output" class="output"></div>
+            </div>
+
+            <!-- Schema & Dynamic Promotion -->
+            <div class="example-card">
+                <h3><span class="icon">🎭</span> Dynamic Schema</h3>
+                <div class="controls">
+                    <button onclick="createProductWithSchema()">Create Product</button>
+                    <button onclick="validateProductFields()">Validate Fields</button>
+                    <button onclick="showProductSchema()" class="secondary">Show Schema</button>
+                </div>
+                <div id="schema-output" class="output"></div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span>📊 Total Instances:</span>
+                <span class="status-value" id="instance-count">0</span>
+            </div>
+            <div class="status-item">
+                <span>🔧 Active Subscriptions:</span>
+                <span class="status-value" id="subscription-count">0</span>
+            </div>
+            <div class="status-item">
+                <span>🏭 Registered Factories:</span>
+                <span class="status-value" id="factory-count">0</span>
+            </div>
+            <div class="status-item">
+                <span>⚡ Events Dispatched:</span>
+                <span class="status-value" id="event-count">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mock Transport Manager for Testing -->
+    <script type="module">
+        // Mock Transport Manager to simulate backend responses
+        class MockTransportManager {
+            constructor() {
+                this.eventCount = 0;
+            }
+
+            send(eventType, eventData) {
+                console.log(`[MockTransport] Sending ${eventType}:`, eventData);
+                this.eventCount++;
+                this.updateEventCount();
+
+                // Simulate realistic API delays
+                setTimeout(() => {
+                    this.simulateResponse(eventData);
+                }, Math.random() * 1000 + 300);
+            }
+
+            simulateResponse(eventData) {
+                const event = eventData;
+
+                switch(event.name) {
+                    case 'create':
+                        this.handleCreate(event);
+                        break;
+                    case 'update':
+                        this.handleUpdate(event);
+                        break;
+                    case 'load':
+                        this.handleLoad(event);
+                        break;
+                    case 'discover':
+                        this.handleDiscover(event);
+                        break;
+                    default:
+                        console.log(`[MockTransport] Unhandled event: ${event.name}`);
+                }
+            }
+
+            handleCreate(event) {
+                const responseData = {
+                    ...event.data,
+                    id: Math.floor(Math.random() * 1000) + 1,
+                    created_at: new Date().toISOString()
+                };
+
+                window.log('success', `✅ Mock API created ${event.meta.factoryId} with ID: ${responseData.id}`, 'registry-output');
+
+                // Trigger factory success callback if registered
+                if (window.factoryCallbacks && window.factoryCallbacks[event.source]) {
+                    const ntt = new window.NTT({
+                        name: `${event.meta.factoryId}_${responseData.id}`,
+                        addr: `${event.meta.url}/${responseData.id}`,
+                        data: responseData
+                    });
+                    window.factoryCallbacks[event.source](ntt);
+                }
+            }
+
+            handleUpdate(event) {
+                const responseData = {
+                    ...event.data,
+                    updated_at: new Date().toISOString()
+                };
+
+                window.log('success', `✅ Mock API updated ${event.meta.instanceId}`, 'functional-output');
+
+                // Simulate commit success by finding instance and calling its commit resolver
+                const instance = window.NTT.get(event.meta.instanceId);
+                if (instance && instance._meta.commitResolver) {
+                    instance._meta.commitResolver(responseData);
+                }
+            }
+
+            handleLoad(event) {
+                const mockFreshData = {
+                    name: 'John Doe (Refreshed)',
+                    email: 'john.refreshed@example.com',
+                    age: Math.floor(Math.random() * 50) + 20,
+                    last_login: new Date().toISOString()
+                };
+
+                window.log('info', `📥 Mock API loaded fresh data for ${event.meta.instanceId}`, 'functional-output');
+
+                // Update the instance's remote state directly to simulate server response
+                const instance = window.NTT.get(event.meta.instanceId);
+                if (instance) {
+                    instance._meta.remoteState = { ...mockFreshData };
+                    if (!instance._meta.isDirty) {
+                        instance._data = { ...mockFreshData };
+                        instance._meta.hash = window.Utils.simpleHash(mockFreshData);
+                    }
+                    window.log('success', `Updated instance data: ${JSON.stringify(mockFreshData)}`, 'functional-output');
+                }
+            }
+
+            handleDiscover(event) {
+                const mockSchemas = {
+                    $defs: {
+                        User: {
+                            title: 'User',
+                            type: 'object',
+                            properties: {
+                                name: { type: 'string', title: 'Full Name' },
+                                email: { type: 'string', title: 'Email Address' },
+                                age: { type: 'integer', title: 'Age' },
+                                status: { type: 'string', title: 'Status' }
+                            }
+                        },
+                        Product: {
+                            title: 'Product',
+                            type: 'object',
+                            properties: {
+                                name: { type: 'string', title: 'Product Name' },
+                                price: { type: 'number', title: 'Price' },
+                                description: { type: 'string', title: 'Description' },
+                                inStock: { type: 'boolean', title: 'In Stock' },
+                                category: { type: 'string', title: 'Category', readOnly: true }
+                            }
+                        }
+                    }
+                };
+
+                window.log('info', `🔍 Mock API discovered schemas: ${Object.keys(mockSchemas.$defs).join(', ')}`, 'registry-output');
+
+                // Register the discovered schemas
+                for (const [key, schema] of Object.entries(mockSchemas.$defs)) {
+                    window.Registry.registerPrototype(key.toLowerCase(), schema);
+                }
+            }
+
+            updateEventCount() {
+                const counter = document.getElementById('event-count');
+                if (counter) {
+                    counter.textContent = this.eventCount;
+                }
+            }
+        }
+
+        // Set up global transport
+        window.TransportManager = new MockTransportManager();
+
+        // Mock transport interface for Event class compatibility
+        window.transport = {
+            send: function(event) {
+                window.Remote.send("event", event.repr());
+            }
+        };
+    </script>
+
+    <!-- Import Real NTT System -->
+    <script type="module">
+        // Import all the real NTT classes
+        import { NTTUtils } from './NTTUtils.js';
+        import { EntityRegistry } from './EntityRegistry.js';
+        import { NTTFunctional } from './NTTFunctional.js';
+        import { NTTReactive } from './NTTReactive.js';
+        import { NTT } from './NTT.js';
+        import { Event } from './Event.js';
+
+        // Make classes globally available for the example functions
+        window.NTTUtils = NTTUtils;
+        window.Registry = EntityRegistry;
+        window.NTTFunctional = NTTFunctional;
+        window.NTTReactive = NTTReactive;
+        window.NTT = NTT;
+        window.Event = Event;
+
+        // Log successful import
+        console.log('✅ NTTTX Framework loaded successfully');
+        console.log('📦 Available classes:', {
+            NTTUtils: !!NTTUtils,
+            EntityRegistry: !!EntityRegistry,
+            NTTFunctional: !!NTTFunctional,
+            NTTReactive: !!NTTReactive,
+            NTT: !!NTT,
+            Event: !!Event
+        });
+
+        // Initialize the framework
+        window.addEventListener('DOMContentLoaded', () => {
+            window.log('success', '🚀 NTTTX Framework initialized with real classes!');
+            window.log('info', 'All components loaded from separate modules');
+            window.updateCounters();
+        });
+    </script>
+
+    <!-- Example Functions (Using Real Classes) -->
+    <script>
+        // Global state for examples
+        let currentUser = null;
+        let userA = null, userB = null;
+        let currentProduct = null;
+        let subscriptions = [];
+
+        // Factory callback storage
+        window.factoryCallbacks = {};
+
+        // Utility functions
+        window.log = function(type, message, outputId = 'user-output') {
+            const output = document.getElementById(outputId);
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
+        };
+
+        function updateDisplay(data, displayId) {
+            const display = document.getElementById(displayId);
+            if (display) {
+                display.textContent = JSON.stringify(data, null, 2);
+            }
+        }
+
+        window.updateCounters = function() {
+            // Update instance count
+            const instanceCount = window.NTT ? window.NTT.getAllInstances().size : 0;
+            document.getElementById('instance-count').textContent = instanceCount;
+
+            // Update subscription count
+            let subscriptionCount = 0;
+            if (window.NTT) {
+                window.NTT.getAllInstances().forEach(instance => {
+                    subscriptionCount += instance._meta.subscribers.size;
+                    instance._meta.propertyObservers.forEach(observers => {
+                        subscriptionCount += observers.size;
+                    });
+                });
+            }
+            document.getElementById('subscription-count').textContent = subscriptionCount;
+
+            // Update factory count
+            const factoryCount = window.Registry ?
+                (window.Registry.factories ? window.Registry.factories.size : 0) : 0;
+            document.getElementById('factory-count').textContent = factoryCount;
+        };
+
+        // Basic NTT Operations
+        function createUser() {
+            try {
+                currentUser = new window.NTT({
+                    name: 'UserExample',
+                    addr: '/api/users/123',
+                    data: {
+                        name: 'Alice Johnson',
+                        email: 'alice@example.com',
+                        age: 28,
+                        status: 'active'
+                    }
+                });
+
+                window.log('success', `Created user with ID: ${currentUser.id}`);
+                window.log('info', `Initial hash: ${currentUser.hash}`);
+                window.log('info', `Version: ${currentUser.version}`);
+                updateDisplay(currentUser.data, 'user-data');
+                window.updateCounters();
+            } catch (error) {
+                window.log('error', `Failed to create user: ${error.message}`);
+            }
+        }
+
+        function updateUser() {
+            if (!currentUser) {
+                window.log('error', 'No user created yet!');
+                return;
+            }
+
+            try {
+                const oldHash = currentUser.hash;
+                currentUser.data = {
+                    email: 'alice.updated@example.com',
+                    lastLogin: new Date().toISOString()
+                };
+
+                window.log('info', `Updated user - hash: ${oldHash} → ${currentUser.hash}`);
+                window.log('info', `Is dirty: ${currentUser.isDirty}`);
+                window.log('info', `Version: ${currentUser.version}`);
+                updateDisplay(currentUser.data, 'user-data');
+            } catch (error) {
+                window.log('error', `Failed to update user: ${error.message}`);
+            }
+        }
+
+        function showUserData() {
+            if (!currentUser) {
+                window.log('error', 'No user created yet!');
+                return;
+            }
+
+            try {
+                window.log('info', `Current Data: ${JSON.stringify(currentUser.data)}`);
+                window.log('info', `Remote State: ${JSON.stringify(currentUser.remoteState)}`);
+                window.log('info', `Version: ${currentUser.version}, Hash: ${currentUser.hash}`);
+                window.log('info', `Is Dirty: ${currentUser.isDirty}, Is Committing: ${currentUser.isCommitting}`);
+                updateDisplay({
+                    data: currentUser.data,
+                    remoteState: currentUser.remoteState,
+                    meta: {
+                        version: currentUser.version,
+                        hash: currentUser.hash,
+                        isDirty: currentUser.isDirty,
+                        pendingOps: currentUser.pendingOps.length
+                    }
+                }, 'user-data');
+            } catch (error) {
+                window.log('error', `Failed to show user data: ${error.message}`);
+            }
+        }
+
+        function clearUserLog() {
+            document.getElementById('user-output').innerHTML = '';
+            document.getElementById('user-data').textContent = '';
+        }
+
+        // Functional Operations
+        function evolveUser() {
+            if (!currentUser) {
+                window.log('error', 'No user created yet!', 'functional-output');
+                return;
+            }
+
+            try {
+                const ageInput = document.getElementById('evolve-input');
+                const newAge = parseInt(ageInput.value) || Math.floor(Math.random() * 30) + 20;
+
+                const oldVersion = currentUser.version;
+                const oldHash = currentUser.hash;
+
+                window.NTT.evolve(currentUser.id, {
+                    age: newAge,
+                    lastModified: new Date().toISOString()
+                });
+
+                window.log('success', `Evolved user - Age: ${newAge}`, 'functional-output');
+                window.log('info', `Version: ${oldVersion} → ${currentUser.version}`, 'functional-output');
+                window.log('info', `Hash: ${oldHash} → ${currentUser.hash}`, 'functional-output');
+                window.log('info', `Is dirty: ${currentUser.isDirty}`, 'functional-output');
+
+                updateDisplay(currentUser.data, 'functional-data');
+                ageInput.value = '';
+            } catch (error) {
+                window.log('error', `Failed to evolve user: ${error.message}`, 'functional-output');
+            }
+        }
+
+        function commitUser() {
+            if (!currentUser) {
+                window.log('error', 'No user created yet!', 'functional-output');
+                return;
+            }
+
+            if (!currentUser.isDirty) {
+                window.log('warning', 'No changes to commit', 'functional-output');
+                return;
+            }
+
+            try {
+                window.log('info', 'Committing changes...', 'functional-output');
+
+                window.NTT.commit(currentUser.id).then(ntt => {
+                    window.log('success', 'Commit successful!', 'functional-output');
+                    window.log('info', `Is dirty: ${ntt.isDirty}`, 'functional-output');
+                    window.log('info', `Final hash: ${ntt.hash}`, 'functional-output');
+                    updateDisplay(ntt.data, 'functional-data');
+                }).catch(err => {
+                    window.log('error', `Commit failed: ${err.message}`, 'functional-output');
+                });
+            } catch (error) {
+                window.log('error', `Failed to commit: ${error.message}`, 'functional-output');
+            }
+        }
+
+        function rollbackUser() {
+            if (!currentUser) {
+                window.log('error', 'No user created yet!', 'functional-output');
+                return;
+            }
+
+            if (!currentUser.isDirty) {
+                window.log('warning', 'No changes to rollback', 'functional-output');
+                return;
+            }
+
+            try {
+                const oldData = JSON.stringify(currentUser.data);
+                window.NTT.rollback(currentUser.id);
+
+                window.log('success', 'Rolled back changes', 'functional-output');
+                window.log('info', `Reverted to: ${JSON.stringify(currentUser.data)}`, 'functional-output');
+                window.log('info', `Is dirty: ${currentUser.isDirty}`, 'functional-output');
+
+                updateDisplay(currentUser.data, 'functional-data');
+            } catch (error) {
+                window.log('error', `Failed to rollback: ${error.message}`, 'functional-output');
+            }
+        }
+
+        // Reactive Subscriptions
+        function subscribeToUser() {
+            if (!currentUser) {
+                window.log('error', 'No user created yet!', 'reactive-output');
+                return;
+            }
+
+            try {
+                const unsubscribe = window.NTT.subscribe(currentUser.id, (newData, oldData, ntt) => {
+                    window.log('info', `🔔 User changed! Version ${ntt.version}`, 'reactive-output');
+                    window.log('info', `📊 Hash: ${ntt.hash}`, 'reactive-output');
+
+                    // Show specific changes
+                    for (const [key, newValue] of Object.entries(newData)) {
+                        if (oldData[key] !== newValue) {
+                            window.log('success', `  ${key}: ${oldData[key]} → ${newValue}`, 'reactive-output');
+                        }
+                    }
+                });
+
+                subscriptions.push(unsubscribe);
+                window.log('success', 'Subscribed to all user changes', 'reactive-output');
+                window.updateCounters();
+            } catch (error) {
+                window.log('error', `Failed to subscribe: ${error.message}`, 'reactive-output');
+            }
+        }
+
+        function observeEmail() {
+            if (!currentUser) {
+                window.log('error', 'No user created yet!', 'reactive-output');
+                return;
+            }
+
+            try {
+                const unsubscribe = window.NTT.observe(currentUser.id, 'email', (newValue, oldValue, property, ntt) => {
+                    window.log('info', `📧 Email changed: ${oldValue} → ${newValue}`, 'reactive-output');
+
+                    // Email validation
+                    if (newValue && !newValue.includes('@')) {
+                        window.log('warning', '⚠️  Invalid email format detected!', 'reactive-output');
+                    } else if (newValue) {
+                        window.log('success', '✅ Valid email format', 'reactive-output');
+                    }
+                });
+
+                subscriptions.push(unsubscribe);
+                window.log('success', 'Now observing email changes', 'reactive-output');
+                window.updateCounters();
+            } catch (error) {
+                window.log('error', `Failed to observe email: ${error.message}`, 'reactive-output');
+            }
+        }
+
+        function triggerChange() {
+            if (!currentUser) {
+                window.log('error', 'No user created yet!', 'reactive-output');
+                return;
+            }
+
+            try {
+                const changes = [
+                    { email: 'alice.new@example.com' },
+                    { age: Math.floor(Math.random() * 30) + 25 },
+                    { status: Math.random() > 0.5 ? 'active' : 'inactive' },
+                    { email: 'invalid-email' }, // This will trigger validation warning
+                    { name: 'Alice Smith-Johnson' }
+                ];
+
+                const randomChange = changes[Math.floor(Math.random() * changes.length)];
+                window.NTT.evolve(currentUser.id, randomChange);
+
+                window.log('info', `Triggered change: ${JSON.stringify(randomChange)}`, 'reactive-output');
+            } catch (error) {
+                window.log('error', `Failed to trigger change: ${error.message}`, 'reactive-output');
+            }
+        }
+
+        function unsubscribeAll() {
+            try {
+                subscriptions.forEach(unsubscribe => unsubscribe());
+                subscriptions = [];
+
+                if (currentUser) {
+                    window.NTT.unsubscribeAll(currentUser.id);
+                }
+
+                window.log('success', 'Unsubscribed from all changes', 'reactive-output');
+                window.updateCounters();
+            } catch (error) {
+                window.log('error', `Failed to unsubscribe: ${error.message}`, 'reactive-output');
+            }
+        }
+
+        // Entity Registry & Factories
+        function registerFactory() {
+            try {
+                // Set up factory callback
+                window.factoryCallbacks['products'] = (ntt) => {
+                    window.log('success', `🏭 Factory created product: ${ntt.data.name} (ID: ${ntt.id})`, 'registry-output');
+                    window.updateCounters();
+                };
+
+                window.NTT.register(
+                    'products',
+                    'Product',
+                    (ntt) => {
+                        window.log('success', `✅ Product operation successful`, 'registry-output');
+                        window.log('info', `📦 ${ntt.data.name} - ${ntt.data.price}`, 'registry-output');
+                    },
+                    (error) => {
+                        window.log('error', `❌ Product operation failed: ${error}`, 'registry-output');
+                    },
+                    'http://localhost:8000/api/products'
+                );
+
+                window.log('success', 'Registered product factory', 'registry-output');
+                window.updateCounters();
+            } catch (error) {
+                window.log('error', `Failed to register factory: ${error.message}`, 'registry-output');
+            }
+        }
+
+        function createViaFactory() {
+            try {
+                const productData = {
+                    name: `Widget ${Math.floor(Math.random() * 1000)}`,
+                    price: Math.floor(Math.random() * 100) + 10,
+                    description: 'A fantastic widget for all your widget needs',
+                    inStock: Math.random() > 0.3
+                };
+
+                window.log('info', 'Creating product via factory...', 'registry-output');
+                window.NTT.create('products', productData);
+            } catch (error) {
+                window.log('error', `Failed to create via factory: ${error.message}`, 'registry-output');
+            }
+        }
+
+        function showAllInstances() {
+            try {
+                const instances = window.NTT.getAllInstances();
+                window.log('info', `📊 Total instances: ${instances.size}`, 'registry-output');
+
+                instances.forEach((ntt, id) => {
+                    window.log('info', `  🔹 ${ntt.name} (${id.substring(0, 8)}...)`, 'registry-output');
+                    window.log('info', `    📍 ${ntt.addr}`, 'registry-output');
+                    window.log('info', `    📝 Version ${ntt.version}, Hash: ${ntt.hash}`, 'registry-output');
+                    window.log('info', `    ${ntt.isDirty ? '🔴 Modified' : '🟢 Clean'}`, 'registry-output');
+                });
+            } catch (error) {
+                window.log('error', `Failed to show instances: ${error.message}`, 'registry-output');
+            }
+        }
+
+        function discoverSchemas() {
+            try {
+                window.log('info', 'Discovering API schemas...', 'registry-output');
+                window.NTT.discover('http://localhost:8000/api/schema');
+            } catch (error) {
+                window.log('error', `Failed to discover schemas: ${error.message}`, 'registry-output');
+            }
+        }
+
+        // Merge & Conflict Resolution
+        function createConflictingUsers() {
+            try {
+                userA = new window.NTT({
+                    name: 'UserA',
+                    addr: '/api/users/200',
+                    data: {
+                        name: 'Bob Wilson',
+                        email: 'bob@company-a.com',
+                        age: 35,
+                        department: 'Engineering'
+                    }
+                });
+
+                userB = new window.NTT({
+                    name: 'UserB',
+                    addr: '/api/users/201',
+                    data: {
+                        name: 'Bob Wilson',
+                        email: 'bob@company-b.com',
+                        age: 36,
+                        department: 'Marketing'
+                    }
+                });
+
+                // Make some conflicting changes
+                window.NTT.evolve(userA.id, { age: 37, title: 'Senior Engineer' });
+                window.NTT.evolve(userB.id, { age: 38, title: 'Marketing Manager' });
+
+                window.log('success', 'Created two conflicting users', 'merge-output');
+                window.log('info', `UserA: ${JSON.stringify(userA.data)}`, 'merge-output');
+                window.log('info', `UserB: ${JSON.stringify(userB.data)}`, 'merge-output');
+                window.updateCounters();
+            } catch (error) {
+                window.log('error', `Failed to create conflicting users: ${error.message}`, 'merge-output');
+            }
+        }
+
+        function mergeUsers() {
+            if (!userA || !userB) {
+                window.log('error', 'Need to create conflicting users first!', 'merge-output');
+                return;
+            }
+
+            try {
+                window.log('info', 'Merging users...', 'merge-output');
+
+                const beforeMerge = JSON.stringify(userA.data);
+                window.NTT.merge(userA.id, userB.id);
+                const afterMerge = JSON.stringify(userA.data);
+
+                window.log('success', 'Merge completed!', 'merge-output');
+                window.log('info', `Before: ${beforeMerge}`, 'merge-output');
+                window.log('info', `After:  ${afterMerge}`, 'merge-output');
+                window.log('info', `UserA version: ${userA.version}`, 'merge-output');
+            } catch (error) {
+                window.log('error', `Failed to merge users: ${error.message}`, 'merge-output');
+            }
+        }
+
+        function setCustomResolver() {
+            if (!userA) {
+                window.log('error', 'Need to create users first!', 'merge-output');
+                return;
+            }
+
+            try {
+                // Set custom conflict resolver
+                window.NTT.setConflictResolver(userA.id, (conflict, localNTT, otherNTT) => {
+                    window.log('info', `🔀 Resolving conflict for ${conflict.property}`, 'merge-output');
+                    window.log('info', `  Local: ${conflict.localValue}`, 'merge-output');
+                    window.log('info', `  Other: ${conflict.otherValue}`, 'merge-output');
+
+                    // Custom resolution logic
+                    if (conflict.property === 'email') {
+                        return conflict.otherValue; // Always prefer other email
+                    } else if (conflict.property === 'age') {
+                        return Math.max(conflict.localValue, conflict.otherValue); // Take higher age
+                    } else if (conflict.property === 'department') {
+                        return `${conflict.localValue}/${conflict.otherValue}`; // Combine departments
+                    }
+
+                    return conflict.localValue; // Default to local
+                });
+
+                window.log('success', 'Set custom conflict resolver', 'merge-output');
+                window.log('info', 'Logic: email→other, age→higher, dept→combined', 'merge-output');
+            } catch (error) {
+                window.log('error', `Failed to set conflict resolver: ${error.message}`, 'merge-output');
+            }
+        }
+
+        // Schema & Dynamic Promotion
+        function createProductWithSchema() {
+            try {
+                // Create product instance
+                currentProduct = new window.NTT({
+                    name: 'ProductWithSchema',
+                    addr: '/api/products/999',
+                    data: {
+                        name: 'Super Widget',
+                        price: 49.99,
+                        description: 'The ultimate widget experience',
+                        inStock: true,
+                        category: 'Electronics'
+                    }
+                });
+
+                // Mock schema registration (in real app, this would come from discovery)
+                const mockSchema = {
+                    title: 'Product',
+                    type: 'object',
+                    properties: {
+                        name: { type: 'string', title: 'Product Name' },
+                        price: { type: 'number', title: 'Price' },
+                        description: { type: 'string', title: 'Description' },
+                        inStock: { type: 'boolean', title: 'In Stock' },
+                        category: { type: 'string', title: 'Category', readOnly: true }
+                    }
+                };
+
+                window.Registry.registerPrototype('product-schema', mockSchema);
+
+                window.log('success', 'Created product with schema', 'schema-output');
+                window.log('info', `Product: ${currentProduct.data.name}`, 'schema-output');
+                window.log('info', `Hash: ${currentProduct.hash}`, 'schema-output');
+                window.updateCounters();
+            } catch (error) {
+                window.log('error', `Failed to create product: ${error.message}`, 'schema-output');
+            }
+        }
+
+        function validateProductFields() {
+            if (!currentProduct) {
+                window.log('error', 'No product created yet!', 'schema-output');
+                return;
+            }
+
+            window.log('info', 'Testing field validation...', 'schema-output');
+
+            // Test valid updates
+            try {
+                window.NTT.evolve(currentProduct.id, { price: 59.99 });
+                window.log('success', '✅ Valid price update', 'schema-output');
+            } catch (e) {
+                window.log('error', `❌ Price validation failed: ${e.message}`, 'schema-output');
+            }
+
+            // Test string field
+            try {
+                window.NTT.evolve(currentProduct.id, { name: 'Ultra Super Widget' });
+                window.log('success', '✅ Valid name update', 'schema-output');
+            } catch (e) {
+                window.log('error', `❌ Name validation failed: ${e.message}`, 'schema-output');
+            }
+
+            // Test boolean field
+            try {
+                window.NTT.evolve(currentProduct.id, { inStock: false });
+                window.log('success', '✅ Valid stock status update', 'schema-output');
+            } catch (e) {
+                window.log('error', `❌ Stock validation failed: ${e.message}`, 'schema-output');
+            }
+
+            window.log('info', `Updated product hash: ${currentProduct.hash}`, 'schema-output');
+        }
+
+        function showProductSchema() {
+            try {
+                const schema = window.Registry.getPrototype('product-schema');
+                if (schema) {
+                    window.log('info', '📋 Product Schema:', 'schema-output');
+                    window.log('info', JSON.stringify(schema, null, 2), 'schema-output');
+                } else {
+                    window.log('warning', 'No schema registered yet', 'schema-output');
+                }
+
+                if (currentProduct) {
+                    window.log('info', `Current product data:`, 'schema-output');
+                    window.log('info', JSON.stringify(currentProduct.data, null, 2), 'schema-output');
+                }
+            } catch (error) {
+                window.log('error', `Failed to show schema: ${error.message}`, 'schema-output');
+            }
+        }
+
+        // Auto-update counters periodically
+        setInterval(() => {
+            if (window.NTT) {
+                window.updateCounters();
+            }
+        }, 2000);
+
+        // Welcome message after framework loads
+        setTimeout(() => {
+            if (window.NTT) {
+                window.log('info', '🚀 NTTTX Framework Demo Ready!');
+                window.log('info', 'Using real imported classes from modules');
+                window.log('info', 'Click buttons above to explore features');
+            } else {
+                window.log('error', '❌ Framework failed to load properly');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

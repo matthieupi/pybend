@@ -1,5 +1,5 @@
 import assert from "../utils/Assert.js";
-import Socket from "./Socket.js";
+import Socket from "../Socket.js";
 
 const E = {
 	"ENABLE": "ENABLE",
@@ -10,6 +10,7 @@ const E = {
 	"CONNECTED": "CONNECTED"
 
 }
+
 export default class Event {
 
 	transport = window.Remote

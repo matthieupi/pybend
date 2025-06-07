@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTT Components - PyBend Integration</title>
+
+    <!-- External Stylesheets -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./dark-theme.css">
+
+    <style>
+        .demo-section {
+            background: var(--bg-card, rgba(26, 26, 36, 0.95));
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+        }
+
+        .demo-section h2 {
+            color: var(--text-primary, #ffffff);
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .component-showcase {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .single-column {
+            grid-template-columns: 1fr;
+        }
+
+        .component-wrapper {
+            border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+            border-radius: 12px;
+            padding: 20px;
+            background: var(--bg-secondary, rgba(255,255,255,0.02));
+        }
+
+        .component-title {
+            color: var(--text-primary, #ffffff);
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .connection-status {
+            background: var(--bg-tertiary, #242438);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary, #ffffff);
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-warning, #f59e0b);
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected .status-dot {
+            background: var(--accent-success, #10b981);
+            animation: none;
+        }
+
+        .status-indicator.disconnected .status-dot {
+            background: var(--accent-error, #ef4444);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .quick-actions {
+            background: var(--bg-tertiary, #242438);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .quick-actions button {
+            background: var(--accent-primary, #6366f1);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .quick-actions button:hover {
+            background: #5856eb;
+            transform: translateY(-1px);
+        }
+
+        .quick-actions button.secondary {
+            background: var(--bg-secondary, #6b7280);
+        }
+
+        .event-log {
+            background: var(--bg-tertiary, #242438);
+            border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary, #b8b8cc);
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 2px 0;
+        }
+
+        .log-success { color: var(--accent-success, #10b981); }
+        .log-error { color: var(--accent-error, #ef4444); }
+        .log-warning { color: var(--accent-warning, #f59e0b); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧩 NTT Components</h1>
+        <p class="subtitle">PyBend Backend Integration - Live Component Showcase</p>
+
+        <div class="framework-info">
+            <div>🔗 Live PyBend Connection • 🎨 Web Components • ⚡ Reactive Updates</div>
+            <div class="version">Real-time Data Binding • Auto-commit • Schema Discovery</div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="connection-status">
+            <div class="status-indicator" id="connection-indicator">
+                <span class="status-dot"></span>
+                <span id="connection-text">Checking PyBend connection...</span>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <button onclick="createSampleUser()">👤 Create Sample User</button>
+            <button onclick="createSampleProduct()">📦 Create Sample Product</button>
+            <button onclick="refreshAll()" class="secondary">🔄 Refresh All</button>
+            <button onclick="clearEventLog()" class="secondary">🗑️ Clear Log</button>
+        </div>
+
+        <!-- Event Log -->
+        <div class="demo-section">
+            <h2>📊 Live Event Log</h2>
+            <div class="event-log" id="event-log">
+                <div class="log-entry">System initializing...</div>
+            </div>
+        </div>
+
+        <!-- NTT Item Components -->
+        <div class="demo-section">
+            <h2>🎯 NTT Item Components</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                Individual entity display and editing with real-time PyBend synchronization
+            </p>
+
+            <div class="component-showcase">
+                <div class="component-wrapper">
+                    <div class="component-title">📝 User Item (Auto-commit)</div>
+                    <ntt-item id="user-item" auto-commit></ntt-item>
+                </div>
+
+                <div class="component-wrapper">
+                    <div class="component-title">🛍️ Product Item (Manual save)</div>
+                    <ntt-item id="product-item"></ntt-item>
+                </div>
+            </div>
+        </div>
+
+        <!-- NTT List Components -->
+        <div class="demo-section">
+            <h2>📋 NTT List Components</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                Collection views with factory integration for creating new items
+            </p>
+
+            <div class="component-showcase">
+                <div class="component-wrapper">
+                    <div class="component-title">👥 Users List</div>
+                    <ntt-list href="http://localhost:8000/users" factory-id="users" auto-commit></ntt-list>
+                </div>
+
+                <div class="component-wrapper">
+                    <div class="component-title">🏪 Products List</div>
+                    <ntt-list href="http://localhost:8000/products" factory-id="products"></ntt-list>
+                </div>
+            </div>
+        </div>
+
+        <!-- NTT Table Components -->
+        <div class="demo-section">
+            <h2>📊 NTT Table Components</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                Tabular data views with inline editing and batch operations
+            </p>
+
+            <div class="component-showcase single-column">
+                <div class="component-wrapper">
+                    <div class="component-title">👥 Users Table (Editable)</div>
+                    <ntt-table href="http://localhost:8000/users" editable></ntt-table>
+                </div>
+            </div>
+
+            <div class="component-showcase single-column">
+                <div class="component-wrapper">
+                    <div class="component-title">🛍️ Products Table (Read-only)</div>
+                    <ntt-table href="http://localhost:8000/products"></ntt-table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import NTT Framework -->
+    <script type="module">
+        // Import HTTP and Transport
+        import HTTP from './HTTP.js';
+        import { TransportManager, transport } from './TransportManager.js';
+
+        // Import NTT Framework
+        import { NTTUtils } from './NTTUtils.js';
+        import { EntityRegistry } from './EntityRegistry.js';
+        import { NTTFunctional } from './NTTFunctional.js';
+        import { NTTReactive } from './NTTReactive.js';
+        import { NTT } from './NTT.js';
+        import { Event } from './Event.js';
+
+        // Import NTT Components
+        import './ntt-item.js';
+        import './ntt-list.js';
+        import './ntt-table.js';
+
+        // Make globally available
+        window.HTTP = HTTP;
+        window.transport = transport;
+        window.NTT = NTT;
+        window.Registry = EntityRegistry;
+
+        console.log('✅ NTT Framework and Components loaded');
+    </script>
+
+    <!-- Minimal Integration Logic -->
+    <script>
+        // Global state
+        let isConnected = false;
+        let sampleUserCount = 0;
+        let sampleProductCount = 0;
+
+        // Utility functions
+        function logEvent(type, message) {
+            const log = document.getElementById('event-log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+
+            // Keep only last 20 entries
+            while (log.children.length > 20) {
+                log.removeChild(log.firstChild);
+            }
+        }
+
+        function updateConnectionStatus(connected, message) {
+            isConnected = connected;
+            const indicator = document.getElementById('connection-indicator');
+            const text = document.getElementById('connection-text');
+
+            indicator.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
+            text.textContent = message;
+        }
+
+        // Connection check
+        async function checkConnection() {
+            try {
+                const response = await fetch('http://localhost:8000/users/schema');
+                if (response.ok) {
+                    updateConnectionStatus(true, 'PyBend API Connected');
+                    logEvent('success', 'Connected to PyBend backend');
+                    setupFactories();
+                    return true;
+                }
+            } catch (error) {
+                updateConnectionStatus(false, 'PyBend API Unavailable');
+                logEvent('error', 'PyBend backend not available');
+            }
+            return false;
+        }
+
+        // Setup NTT factories
+        function setupFactories() {
+            // User factory
+            window.NTT.register('users', 'User',
+                (ntt) => {
+                    logEvent('success', `User created/updated: ${ntt.data.name}`);
+                },
+                (error) => {
+                    logEvent('error', `User operation failed: ${error}`);
+                },
+                'http://localhost:8000/users'
+            );
+
+            // Product factory
+            window.NTT.register('products', 'Product',
+                (ntt) => {
+                    logEvent('success', `Product created/updated: ${ntt.data.name}`);
+                },
+                (error) => {
+                    logEvent('error', `Product operation failed: ${error}`);
+                },
+                'http://localhost:8000/products'
+            );
+
+            logEvent('success', 'NTT factories registered');
+        }
+
+        // Quick actions
+        function createSampleUser() {
+            if (!isConnected) {
+                logEvent('warning', 'Please connect to PyBend first');
+                return;
+            }
+
+            sampleUserCount++;
+            const userData = {
+                name: `Sample User ${sampleUserCount}`,
+                email: `user${sampleUserCount}@example.com`,
+                age: Math.floor(Math.random() * 50) + 18
+            };
+
+            window.NTT.create('users', userData);
+            logEvent('info', `Creating sample user: ${userData.name}`);
+        }
+
+        function createSampleProduct() {
+            if (!isConnected) {
+                logEvent('warning', 'Please connect to PyBend first');
+                return;
+            }
+
+            sampleProductCount++;
+            const productData = {
+                name: `Sample Product ${sampleProductCount}`,
+                price: parseFloat((Math.random() * 100 + 10).toFixed(2)),
+                description: `This is a sample product for testing the NTT components.`
+            };
+
+            window.NTT.create('products', productData);
+            logEvent('info', `Creating sample product: ${productData.name}`);
+        }
+
+        function refreshAll() {
+            logEvent('info', 'Refreshing all components...');
+
+            // Refresh all ntt-list and ntt-table components
+            document.querySelectorAll('ntt-list, ntt-table').forEach(component => {
+                if (component.refresh) {
+                    component.refresh();
+                }
+            });
+        }
+
+        function clearEventLog() {
+            document.getElementById('event-log').innerHTML = '';
+            logEvent('info', 'Event log cleared');
+        }
+
+        // Component event listeners
+        document.addEventListener('ntt-saved', (e) => {
+            logEvent('success', `Entity saved: ${e.detail.ntt.name}`);
+        });
+
+        document.addEventListener('ntt-error', (e) => {
+            logEvent('error', `Entity error: ${e.detail.error.message}`);
+        });
+
+        document.addEventListener('add-item', (e) => {
+            const { factoryId } = e.detail;
+            logEvent('info', `Add item requested for factory: ${factoryId}`);
+
+            if (factoryId === 'users') {
+                createSampleUser();
+            } else if (factoryId === 'products') {
+                createSampleProduct();
+            }
+        });
+
+        document.addEventListener('edit-row', (e) => {
+            logEvent('info', `Edit requested for: ${e.detail.ntt.name}`);
+        });
+
+        document.addEventListener('row-saved', (e) => {
+            logEvent('success', `Row saved: ${e.detail.ntt.name}`);
+        });
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', async () => {
+            logEvent('info', 'Initializing NTT Components demo...');
+
+            const connected = await checkConnection();
+
+            if (connected) {
+                // Load sample data into individual components
+                setTimeout(async () => {
+                    try {
+                        // Load first user into user-item component
+                        const usersRes = await fetch('http://localhost:8000/users');
+                        const users = await usersRes.json();
+                        if (users.length > 0) {
+                            document.getElementById('user-item').setAttribute('href', `http://localhost:8000/users/${users[0].id}`);
+                        }
+
+                        // Load first product into product-item component
+                        const productsRes = await fetch('http://localhost:8000/products');
+                        const products = await productsRes.json();
+                        if (products.length > 0) {
+                            document.getElementById('product-item').setAttribute('href', `http://localhost:8000/products/${products[0].id}`);
+                        }
+
+                        logEvent('success', 'Sample data loaded into components');
+                    } catch (error) {
+                        logEvent('warning', 'No existing data found - create some samples!');
+                    }
+                }, 1000);
+            }
+
+            logEvent('success', 'Demo initialization complete');
+        });
+
+        // Periodic connection check
+        setInterval(checkConnection, 10000);
+
+        // Make functions globally available
+        window.createSampleUser = createSampleUser;
+        window.createSampleProduct = createSampleProduct;
+        window.refreshAll = refreshAll;
+        window.clearEventLog = clearEventLog;
+    </script>
+</body>
+</html>

@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTTTX Framework - Demo</title>
+    <link rel="stylesheet" href="./dark-theme.css">
+    <style>
+        .demo-section {
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+        }
+
+        .form-row input {
+            flex: 1;
+        }
+
+        .schema-display {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 12px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .entity-form {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .success-message {
+            background: rgba(16, 185, 129, 0.1);
+            color: #6ee7b7;
+            border: 1px solid var(--accent-success);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            color: #fca5a5;
+            border: 1px solid var(--accent-error);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        .ntt-instance {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .ntt-dirty {
+            border-left: 3px solid var(--accent-warning);
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .ntt-committing {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .registry-viewer {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .event-log {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        .event-entry {
+            margin: 4px 0;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .event-create { background: rgba(16, 185, 129, 0.1); }
+        .event-read { background: rgba(99, 102, 241, 0.1); }
+        .event-update { background: rgba(245, 158, 11, 0.1); }
+        .event-delete { background: rgba(239, 68, 68, 0.1); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="framework-info">
+            <h1>🔧 NTTTX Framework Demo</h1>
+            <p class="subtitle">Named Thing Technology - Entity Management System</p>
+            <div class="version">v2.0.0 - Development Build</div>
+        </div>
+
+        <div class="examples-grid">
+            <!-- Schema Discovery Section -->
+            <div class="example-card demo-section">
+                <h3>📋 Schema Discovery</h3>
+                <p>Discover and load entity schemas from the PyBend backend using NTT registry</p>
+
+                <div class="form-group">
+                    <label for="model-name">Model Name:</label>
+                    <div class="form-row">
+                        <input type="text" id="model-name" placeholder="e.g., users, products, bots" value="users">
+                        <button id="load-schema-btn" onclick="loadModelSchema()">Load Schema</button>
+                    </div>
+                </div>
+
+                <div id="schema-output" class="schema-display" style="display: none;"></div>
+                <div id="schema-message"></div>
+            </div>
+
+            <!-- Entity Management Section -->
+            <div class="example-card demo-section">
+                <h3>➕ Entity Management</h3>
+                <p>Create, read, update and manage entities through NTT instances</p>
+
+                <div id="entity-form-container">
+                    <p style="color: var(--text-muted);">Load a schema first to see the management interface</p>
+                </div>
+
+                <div id="creation-message"></div>
+            </div>
+
+            <!-- NTT Registry Viewer -->
+            <div class="example-card demo-section">
+                <h3>🗂️ NTT Registry</h3>
+                <p>Live view of registered NTT instances and their state</p>
+
+                <div class="controls">
+                    <button onclick="refreshRegistry()">Refresh Registry</button>
+                    <button onclick="clearRegistry()">Clear Registry</button>
+                </div>
+
+                <div id="registry-viewer" class="registry-viewer"></div>
+            </div>
+
+            <!-- Event Monitor -->
+            <div class="example-card demo-section">
+                <h3>📡 Event Monitor</h3>
+                <p>Real-time monitoring of NTT events and transport layer activity</p>
+
+                <div class="controls">
+                    <button onclick="clearEventLog()">Clear Log</button>
+                    <button onclick="toggleEventMonitoring()" id="toggle-monitoring">Pause Monitoring</button>
+                </div>
+
+                <div id="event-log" class="event-log"></div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span>🌐 Backend URL:</span>
+                <span class="status-value" id="backend-url">http://localhost:8000</span>
+            </div>
+            <div class="status-item">
+                <span>📡 Transport:</span>
+                <span class="status-value" id="transport-mode">HTTP</span>
+            </div>
+            <div class="status-item">
+                <span>🔄 Status:</span>
+                <span class="status-value" id="connection-status">Initializing</span>
+            </div>
+            <div class="status-item">
+                <span>📊 Registry:</span>
+                <span class="status-value" id="registry-count">0 instances</span>
+            </div>
+        </div>
+
+        <!-- Debug Output -->
+        <div class="example-card">
+            <h3>🐛 Debug Output</h3>
+            <div id="debug-output" class="output"></div>
+            <div class="controls">
+                <button onclick="clearDebug()">Clear</button>
+                <button onclick="testNTTConnection()">Test NTT Connection</button>
+                <button onclick="createTestInstance()">Create Test Instance</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import NTTTX Framework -->
+    <script type="module">
+        // Import core NTTTX modules
+        console.info("Loading NTTTX Framework...");
+
+        import NTT from './core/NTT.js';
+        import {config} from "./config.js";
+        import { Registry } from './core/Registry.js';
+        import { Remote } from './core/Remote.js';
+
+        // Initialize global access for demo functions
+        window.NTT = NTT;
+        window.Registry = Registry;
+
+        await NTT.register("User", `${config.API_URL}/users/`)
+        await NTT.register("Product", `${config.API_URL}/products/`)
+        await NTT.register("Bot", `${config.API_URL}/bots/`)
+
+        //window.Event = Event;
+        //window.E = E;
+
+        // Configure NTT framework
+        NTT.Transport = Remote;
+        //NTT.Event = Event;
+
+        // Initialize demo
+        debugLog('NTTTX Framework loaded successfully', 'success');
+        updateStatus('connection-status', 'Ready');
+        updateStatus('transport-mode', window.Remote.mode.toUpperCase());
+
+        // Start monitoring
+        startFrameworkMonitoring();
+    </script>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let currentSchema = null;
+        let currentModel = null;
+        let currentModelNTT = null;
+        let eventMonitoringEnabled = true;
+        let registeredInstances = new Map();
+
+        // Debug logging with event monitoring
+        function debugLog(message, type = 'info') {
+            const $output = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const logClass = `log-${type}`;
+
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${logClass}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+
+            $output.appendChild(logEntry);
+            $output.scrollTop = $output.scrollHeight;
+
+            // Also log to event monitor if it's a framework event
+            if (type === 'event') {
+                logEvent(message);
+            }
+        }
+
+        function logEvent(eventDescription, eventType = 'info') {
+            if (!eventMonitoringEnabled) return;
+
+            const $eventLog = document.getElementById('event-log');
+            const timestamp = new Date().toLocaleTimeString();
+
+            const eventEntry = document.createElement('div');
+            eventEntry.className = `event-entry event-${eventType}`;
+            eventEntry.textContent = `[${timestamp}] ${eventDescription}`;
+
+            $eventLog.appendChild(eventEntry);
+            $eventLog.scrollTop = $eventLog.scrollHeight;
+
+            // Keep only last 50 events
+            while ($eventLog.children.length > 50) {
+                $eventLog.removeChild($eventLog.firstChild);
+            }
+        }
+
+        function clearDebug() {
+            document.getElementById('debug-output').innerHTML = '';
+        }
+
+        function clearEventLog() {
+            document.getElementById('event-log').innerHTML = '';
+        }
+
+        function toggleEventMonitoring() {
+            eventMonitoringEnabled = !eventMonitoringEnabled;
+            const $btn = document.getElementById('toggle-monitoring');
+            $btn.textContent = eventMonitoringEnabled ? 'Pause Monitoring' : 'Resume Monitoring';
+            debugLog(`Event monitoring ${eventMonitoringEnabled ? 'resumed' : 'paused'}`, 'info');
+        }
+
+        function updateStatus(elementId, text, type = 'info') {
+            const $element = document.getElementById(elementId);
+            if ($element) {
+                $element.textContent = text;
+                $element.className = `status-value status-${type}`;
+            }
+        }
+
+        // NTT-based schema loading
+        async function loadModelSchema() {
+            const modelName = document.getElementById('model-name').value.trim();
+
+            if (!modelName) {
+                showMessage('schema-message', 'Please enter a model name', 'error');
+                return;
+            }
+
+            currentModel = modelName;
+            updateStatus('connection-status', 'Loading Schema...', 'warning');
+            debugLog(`Loading schema for model: ${modelName} using NTTTX Registry`);
+
+            try {
+                const schemaAddr = `${modelName}/schema`;
+                const schemaCallback = (schemaData) => {
+                    console.warn(`SCHEMA DATA ${schemaData}`)
+                    debugLog(`Schema received for ${modelName}`, 'success');
+                    logEvent(`Schema loaded: ${modelName}`, 'read');
+
+                    currentSchema = schemaData;
+                    displaySchema(schemaData);
+                    generateEntityForm(schemaData, modelName);
+                    showMessage('schema-message', `Schema loaded successfully for ${modelName}`, 'success');
+                    updateStatus('connection-status', 'Connected', 'success');
+
+                    // Create model NTT instance for entity management
+                    createModelNTT(modelName);
+                };
+
+                // Register schema endpoint with NTT Registry
+                Registry.register(schemaAddr, schemaCallback, API_BASE);
+                Registry.pull(schemaAddr)
+                logEvent(`Registered schema endpoint: ${schemaAddr}`, 'read');
+                debugLog(`Registered schema endpoint: ${schemaAddr}`, 'read');
+
+            } catch (error) {
+                debugLog(`Schema loading failed: ${error.message}`, 'error');
+                showMessage('schema-message', `Failed to load schema: ${error.message}`, 'error');
+                updateStatus('connection-status', 'Error', 'error');
+            }
+        }
+
+        function createModelNTT(modelName) {
+            try {
+                currentModelNTT = new NTT({
+                    name: `${modelName}_manager`,
+                    addr: `${API_BASE}/${modelName}`,
+                    href: modelName,
+                    data: currentSchema || {}
+                });
+
+                registeredInstances.set(currentModelNTT.id, currentModelNTT);
+                debugLog(`Created model NTT instance: ${currentModelNTT.id}`, 'success');
+                refreshRegistry();
+
+            } catch (error) {
+                debugLog(`Failed to create model NTT: ${error.message}`, 'error');
+            }
+        }
+
+        function displaySchema(schema) {
+            const $output = document.getElementById('schema-output');
+            $output.textContent = JSON.stringify(schema, null, 2);
+            $output.style.display = 'block';
+        }
+
+        function generateEntityForm(schema, modelName) {
+            const $container = document.getElementById('entity-form-container');
+
+            if (!schema.properties) {
+                $container.innerHTML = '<p style="color: var(--text-muted);">No properties found in schema</p>';
+                return;
+            }
+
+            let formHTML = '<form id="entity-form" class="entity-form">';
+
+            for (const [fieldName, fieldDef] of Object.entries(schema.properties)) {
+                if (fieldName === 'id') continue;
+
+                const isRequired = schema.required && schema.required.includes(fieldName);
+                const fieldType = fieldDef.type || 'string';
+                const fieldTitle = fieldDef.title || fieldName;
+
+                formHTML += `
+                    <div class="form-group">
+                        <label for="field-${fieldName}">
+                            ${fieldTitle}${isRequired ? ' *' : ''}
+                        </label>
+                        ${generateFieldInput(fieldName, fieldDef, fieldType)}
+                    </div>
+                `;
+            }
+
+            formHTML += `
+                <div class="controls">
+                    <button type="submit">Create ${modelName}</button>
+                    <button type="reset" class="secondary">Reset Form</button>
+                    <button type="button" onclick="listEntities()" class="secondary">List All</button>
+                </div>
+            </form>`;
+
+            $container.innerHTML = formHTML;
+
+            // Add NTT-based form event listeners
+            const $form = document.getElementById('entity-form');
+            $form.addEventListener('submit', handleNTTEntityCreation);
+            $form.addEventListener('reset', () => {
+                clearMessage('creation-message');
+            });
+        }
+
+        function generateFieldInput(fieldName, fieldDef, fieldType) {
+            const inputId = `field-${fieldName}`;
+            const placeholder = fieldDef.description || `Enter ${fieldName}`;
+            const defaultValue = fieldDef.default || '';
+
+            switch (fieldType) {
+                case 'string':
+                    return `<input type="text" id="${inputId}" name="${fieldName}" placeholder="${placeholder}" value="${defaultValue}">`;
+                case 'integer':
+                case 'number':
+                    return `<input type="number" id="${inputId}" name="${fieldName}" placeholder="${placeholder}" value="${defaultValue}">`;
+                case 'boolean':
+                    return `<input type="checkbox" id="${inputId}" name="${fieldName}" ${defaultValue ? 'checked' : ''}>`;
+                default:
+                    return `<input type="text" id="${inputId}" name="${fieldName}" placeholder="${placeholder}" value="${defaultValue}">`;
+            }
+        }
+
+        // NTT-based entity creation
+        async function handleNTTEntityCreation(event) {
+            event.preventDefault();
+            console.group()
+            console.warn("NTT CREATION")
+            console.warn(currentModel)
+            console.warn(currentSchema)
+            console.warn(currentModelNTT)
+
+            console.groupEnd()
+
+            if (!currentModel || !currentSchema || !currentModelNTT) {
+                showMessage('creation-message', 'Please load a schema first', 'error');
+                return;
+            }
+
+            const formData = new FormData(event.target);
+            const entityData = {};
+
+            // Process form data according to schema
+            for (const [fieldName, fieldDef] of Object.entries(currentSchema.properties)) {
+                if (fieldName === 'id') continue;
+
+                const rawValue = formData.get(fieldName);
+                if (rawValue !== null) {
+                    switch (fieldDef.type) {
+                        case 'integer':
+                            entityData[fieldName] = parseInt(rawValue) || 0;
+                            break;
+                        case 'number':
+                            entityData[fieldName] = parseFloat(rawValue) || 0;
+                            break;
+                        case 'boolean':
+                            entityData[fieldName] = rawValue === 'on';
+                            break;
+                        default:
+                            entityData[fieldName] = rawValue;
+                    }
+                }
+            }
+
+            debugLog(`Creating entity via NTT framework: ${JSON.stringify(entityData)}`);
+            updateStatus('connection-status', 'Creating...', 'warning');
+
+            try {
+                // Create event for entity creation
+                const createEvent = new Event({
+                    name :E.CREATE,
+                    addr: 'create_' +Date.now(),
+                    href: `${API_BASE}/${currentModelNTT.href}`,
+                    entityData
+                    }
+                );
+
+                // Set up success callback via Registry
+                const successCallback = (responseData) => {
+                    debugLog(`Entity created successfully: ${JSON.stringify(responseData)}`, 'success');
+                    logEvent(`Created entity: ${currentModel}`, 'create');
+
+                    showMessage('creation-message',
+                        `✅ ${currentModel} created successfully! ID: ${responseData.id || 'N/A'}`,
+                        'success');
+
+                    updateStatus('connection-status', 'Connected', 'success');
+                    event.target.reset();
+
+                    // Create NTT instance for the new entity
+                    if (responseData.id) {
+                        createEntityNTT(responseData);
+                    }
+                };
+
+                // Register callback for the create response
+                const responseAddr = `${currentModel}_create_response`;
+                Registry.register(responseAddr, successCallback);
+
+                // Dispatch creation event
+                createEvent.dispatch();
+                logEvent(`Dispatched create event: ${currentModel}`, 'create');
+
+            } catch (error) {
+                throw error
+                debugLog(`Entity creation failed: ${error.message}`, 'error');
+                showMessage('creation-message', `❌ Failed to create entity: ${error.message}`, 'error');
+                updateStatus('connection-status', 'Error', 'error');
+            }
+        }
+
+        function createEntityNTT(entityData) {
+            try {
+                const entityNTT = new NTT({
+                    name: `${currentModel}_${entityData.id}`,
+                    addr: `${API_BASE}/${currentModel}/${entityData.id}`,
+                    href: `${currentModel}/${entityData.id}`,
+                    data: entityData,
+                    schema: currentSchema
+                });
+
+                registeredInstances.set(entityNTT.id, entityNTT);
+                debugLog(`Created entity NTT instance: ${entityNTT.id}`, 'success');
+                refreshRegistry();
+
+                return entityNTT;
+            } catch (error) {
+                debugLog(`Failed to create entity NTT: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        // List entities using NTT
+        function listEntities() {
+            if (!currentModel) {
+                showMessage('creation-message', 'Please load a schema first', 'error');
+                return;
+            }
+
+            debugLog(`Listing all ${currentModel} entities via NTT`);
+
+            const listCallback = (entitiesData) => {
+                debugLog(`Received ${entitiesData.length} entities`, 'success');
+                logEvent(`Listed entities: ${currentModel} (${entitiesData.length})`, 'read');
+
+                // Create NTT instances for each entity if they don't exist
+                entitiesData.forEach(entityData => {
+                    if (entityData.id) {
+                        const existingKey = Array.from(registeredInstances.keys())
+                            .find(key => registeredInstances.get(key).name === `${currentModel}_${entityData.id}`);
+
+                        if (!existingKey) {
+                            createEntityNTT(entityData);
+                        }
+                    }
+                });
+
+                showMessage('creation-message', `📋 Listed ${entitiesData.length} ${currentModel} entities`, 'success');
+                refreshRegistry();
+            };
+
+            try {
+                const listAddr = `${currentModel}_list`;
+                Registry.register(listAddr, listCallback, API_BASE);
+                logEvent(`Requested entity list: ${currentModel}`, 'read');
+            } catch (error) {
+                debugLog(`Failed to list entities: ${error.message}`, 'error');
+                showMessage('creation-message', `❌ Failed to list entities: ${error.message}`, 'error');
+            }
+        }
+
+        // Registry management
+        function refreshRegistry() {
+            const $viewer = document.getElementById('registry-viewer');
+            const instanceCount = registeredInstances.size;
+
+            updateStatus('registry-count', `${instanceCount} instances`);
+
+            if (instanceCount === 0) {
+                $viewer.innerHTML = '<p style="color: var(--text-muted);">No NTT instances registered</p>';
+                return;
+            }
+
+            let registryHTML = '';
+            for (const [id, ntt] of registeredInstances) {
+                const isDirty = ntt.isDirty ? 'ntt-dirty' : '';
+                const isCommitting = ntt.isCommitting ? 'ntt-committing' : '';
+
+                registryHTML += `
+                    <div class="ntt-instance ${isDirty} ${isCommitting}">
+                        <strong>${ntt.name}</strong> (${id})<br>
+                        <small>Addr: ${ntt.addr}</small><br>
+                        <small>State: ${ntt.isDirty ? 'DIRTY' : 'CLEAN'} | Version: ${ntt.version}</small>
+                        <div style="margin-top: 8px;">
+                            <button onclick="inspectNTT('${id}')" class="secondary" style="font-size: 0.8rem; padding: 4px 8px;">Inspect</button>
+                            <button onclick="removeNTT('${id}')" class="danger" style="font-size: 0.8rem; padding: 4px 8px;">Remove</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            $viewer.innerHTML = registryHTML;
+        }
+
+        function clearRegistry() {
+            registeredInstances.clear();
+            refreshRegistry();
+            debugLog('Registry cleared', 'info');
+        }
+
+        function inspectNTT(instanceId) {
+            const ntt = registeredInstances.get(instanceId);
+            if (ntt) {
+                debugLog(`NTT Instance ${instanceId}:\n${JSON.stringify(ntt.toJSON(), null, 2)}`, 'info');
+            }
+        }
+
+        function removeNTT(instanceId) {
+            const ntt = registeredInstances.get(instanceId);
+            if (ntt) {
+                registeredInstances.delete(instanceId);
+                debugLog(`Removed NTT instance: ${instanceId}`, 'info');
+                refreshRegistry();
+            }
+        }
+
+        // Framework monitoring
+        function startFrameworkMonitoring() {
+            debugLog('Starting NTTTX framework monitoring', 'info');
+
+            // Monitor Registry changes
+            const originalRegister = Registry.register;
+            Registry.register = function(...args) {
+                logEvent(`Registry.register: ${args[0]}`, 'read');
+                return originalRegister.apply(this, args);
+            };
+
+            // Monitor Remote operations
+            const originalSend = Remote.send;
+            Remote.send = function(event) {
+                logEvent(`Remote.send: ${event.name} -> ${event.target}`, event.name.toLowerCase());
+                return originalSend.apply(this, arguments);
+            };
+
+            refreshRegistry();
+            debugLog('Framework monitoring active', 'success');
+        }
+
+        // Test functions
+        function testNTTConnection() {
+            debugLog('Testing NTTTX framework connection...', 'info');
+            updateStatus('connection-status', 'Testing...', 'warning');
+
+            try {
+                // Test Registry
+                const testCallback = (data) => {
+                    debugLog('Registry test successful', 'success');
+                    updateStatus('connection-status', 'Connected', 'success');
+                };
+
+                Registry.register('test_connection', testCallback, API_BASE);
+                logEvent('Connection test initiated', 'read');
+
+            } catch (error) {
+                debugLog(`Connection test failed: ${error.message}`, 'error');
+                updateStatus('connection-status', 'Disconnected', 'error');
+            }
+        }
+
+        function createTestInstance() {
+            try {
+                const testNTT = new NTT({
+                    name: 'test_instance',
+                    addr: `${API_BASE}/test`,
+                    href: 'test',
+                    data: { message: 'Hello NTTTX!', timestamp: Date.now() },
+                    schema: { properties: { message: { type: 'string' }, timestamp: { type: 'number' } } }
+                });
+
+                registeredInstances.set(testNTT.id, testNTT);
+                debugLog(`Created test NTT instance: ${testNTT.id}`, 'success');
+                refreshRegistry();
+
+            } catch (error) {
+                debugLog(`Failed to create test instance: ${error.message}`, 'error');
+            }
+        }
+
+        // Utility functions
+        function showMessage(containerId, message, type) {
+            const $container = document.getElementById(containerId);
+            $container.innerHTML = `<div class="${type}-message">${message}</div>`;
+        }
+
+        function clearMessage(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            debugLog('NTTTX Demo page initialized', 'success');
+            testNTTConnection();
+
+            // Auto-refresh registry every 5 seconds
+            setInterval(refreshRegistry, 5000);
+        });
+    </script>
+</body>
+</html>

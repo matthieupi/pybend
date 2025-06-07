@@ -1,48 +1,55 @@
 import assert from "../utils/Assert.js";
-import Socket from "./Socket.js";
+import NTT from "./NTT.js";
 
 const E = {
+	// UI Events
 	"ENABLE": "ENABLE",
 	"DISABLE": "DISABLE",
-	"UPDATE": "UPDATE",
-	"GET": "GET",
 	"DESCRIBE": "DESCRIBE",
-	"CONNECTED": "CONNECTED"
+	"CONNECTED": "CONNECTED",
+	"DISCONNECTED": "DISCONNECTED",
+	// CRUD operations
+	"CREATE": "CREATE",
+	"READ": "READ",
+	"UPDATE": "UPDATE",
+	"DELETE": "DELETE",
+	"GET": "GET",
+	// STATE management
+	"EVOLVE": "EVOLVE",
+	"COMMIT": "COMMIT",
+	"ROLLBACK": "ROLLBACK",
+	"SUBSCRIBE": "SUBSCRIBE",
+	"OBSERVE": "OBSERVE",
 
 }
-export default class Event {
+export default class Event extends NTT{
 
-	transport = window.Remote
+	static #transport = window.Remote
 
-	constructor(name, id, source, target, data={}, meta={}, timestamp=Date.now()) {
-		this.name = name
-		this.id = id ? id : Math.random().toString(36).substring(7)
-		this.source = source
-		this.target = target
+	constructor({name, addr, href, data={}, meta={}, timestamp=Date.now()}) {
+		super({name, addr, href, data, meta})
 		this.tst = timestamp
-		this.data = data
-		this.meta = meta
-
-		assert(this,typeof(this.name) === "string", `Event name must be a string, got ${typeof this.name}\n${this.name}`)
-		assert(this,typeof(this.id) === "string", `Event id must be a string, got ${id} with type ${typeof this.id}`)
-		assert(this, typeof(this.source) === "string", `Source must be a string, got ${typeof this.source}\n${this.source}`)
-		assert(this, typeof(this.target) === "string", `Target must be a string, got ${typeof this.target}\n${this.target}`)
-		assert(this, typeof(this.meta) === "object", `Meta must be an object, got ${typeof this.meta}\n${this.meta}`)
-
-		this.dispatch = this.dispatch.bind(this)
-		this.repr = this.repr.bind(this)
+		//this.dispatch = this.dispatch.bind(this)
+		//this.repr = this.repr.bind(this)
 	}
 
+	/**
+	 * Dispatch the event through the transport layer.
+	 *
+	 * @throws {AssertError} If the transport manager is not set.
+	 */
 	dispatch() {
-		this.transport.send("event", this.repr())
+		assert(this, !!Event.#transport, "window.remote not set. Cannot dispatch event.")
+		console.info(`Dispatching event ${this.name} from ${this.addr} to ${this.href}`, this.repr())
+		Event.#transport.send(this.repr())
 	}
 
 	repr() {
 		const obj = {}
 		obj.name = this.name
 		obj.id = this.id
-		obj.source = this.source
-		obj.target = this.target
+		obj.source = this.addr
+		obj.target = this.href
 		obj.data = this.data
 		obj.meta = this.meta
 		obj.tst = this.tst
