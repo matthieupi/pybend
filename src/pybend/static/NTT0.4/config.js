@@ -6,7 +6,17 @@ export const config = {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
     },
-    TIMEOUT: 5000, // Default timeout for HTTP requests in milliseconds
-    RETRY_LIMIT: 3, // Number of retries for failed requests
-    DEBUG: true // Enable debug mode for logging
+    TIMEOUT: 5000,
+    RETRY_LIMIT: 3,
+    DEBUG: true,
+    E : {
+        create: "CREATE",
+        read: "READ",
+        update: "UPDATE",
+        delete: "DELETE",
+        enable: "ENABLE",
+        disable: "DISABLE",
+        describe: "DESCRIBE",
+        error: "ERROR",
+    }
 }

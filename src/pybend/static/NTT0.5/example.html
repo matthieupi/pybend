@@ -1,0 +1,784 @@
+<!-- NTTX FRAMEWORK DEMO PAGE v0.5 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTTTX Framework - Demo</title>
+    <link rel="stylesheet" href="./dark-theme.css">
+    <style>
+        .demo-section {
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+        }
+
+        .form-row input {
+            flex: 1;
+        }
+
+        .schema-display {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 12px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .entity-form {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .success-message {
+            background: rgba(16, 185, 129, 0.1);
+            color: #6ee7b7;
+            border: 1px solid var(--accent-success);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            color: #fca5a5;
+            border: 1px solid var(--accent-error);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        .ptt-instance {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .ptt-active {
+            border-left: 3px solid var(--accent-success);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .ntt-instance {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .registrar-viewer {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .event-log {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        .event-entry {
+            margin: 4px 0;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .event-create { background: rgba(16, 185, 129, 0.1); }
+        .event-read { background: rgba(99, 102, 241, 0.1); }
+        .event-update { background: rgba(245, 158, 11, 0.1); }
+        .event-delete { background: rgba(239, 68, 68, 0.1); }
+        .event-schema { background: rgba(139, 92, 246, 0.1); }
+
+        .registrar-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-radius: 6px;
+            margin: 4px 0;
+            background: var(--bg-secondary);
+            border-left: 3px solid var(--accent-primary);
+        }
+
+        .registrar-key {
+            font-weight: bold;
+            color: var(--accent-primary);
+        }
+
+        .registrar-type {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="framework-info">
+            <h1>🔧 NTTTX Framework Demo</h1>
+            <p class="subtitle">Named Thing Technology - Registrar-Based Entity Management</p>
+            <div class="version">v2.1.0 - Registrar Architecture</div>
+        </div>
+
+        <div class="examples-grid">
+            <!-- PTT Discovery Section -->
+            <div class="example-card demo-section">
+                <h3>🔍 PTT Discovery</h3>
+                <p>Create Protocol Transfer Types and discover remote schemas</p>
+
+                <div class="form-group">
+                    <label for="model-name">Model Name:</label>
+                    <div class="form-row">
+                        <input type="text" id="model-name" placeholder="e.g., users, products, bots" value="users">
+                        <button id="discover-ptt-btn" onclick="discoverPTT()">Discover PTT</button>
+                    </div>
+                </div>
+
+                <div id="schema-output" class="schema-display" style="display: none;"></div>
+                <div id="ptt-message"></div>
+            </div>
+
+            <!-- Entity Management Section -->
+            <div class="example-card demo-section">
+                <h3>➕ Entity Management</h3>
+                <p>Create and manage entities through NTT instances</p>
+
+                <div id="entity-form-container">
+                    <p style="color: var(--text-muted);">Discover a PTT first to see the management interface</p>
+                </div>
+
+                <div id="creation-message"></div>
+            </div>
+
+            <!-- Registrar Viewer -->
+            <div class="example-card demo-section">
+                <h3>📋 Registrar Registry</h3>
+                <p>Live view of registered endpoints and their callbacks</p>
+
+                <div class="controls">
+                    <button onclick="refreshRegistrar()">Refresh</button>
+                    <button onclick="clearRegistrar()">Clear Custom</button>
+                    <button onclick="testDispatch()">Test Dispatch</button>
+                </div>
+
+                <div id="registrar-viewer" class="registrar-viewer"></div>
+            </div>
+
+            <!-- PTT/NTT Instances -->
+            <div class="example-card demo-section">
+                <h3>🏗️ Active Instances</h3>
+                <p>PTT prototypes and NTT entity instances</p>
+
+                <div class="controls">
+                    <button onclick="refreshInstances()">Refresh</button>
+                    <button onclick="createTestNTT()">Create Test NTT</button>
+                </div>
+
+                <div id="instances-viewer" class="registrar-viewer"></div>
+            </div>
+
+            <!-- Event Monitor -->
+            <div class="example-card demo-section">
+                <h3>📡 Event Monitor</h3>
+                <p>Real-time monitoring of NTTTX events and registrar dispatch</p>
+
+                <div class="controls">
+                    <button onclick="clearEventLog()">Clear Log</button>
+                    <button onclick="toggleEventMonitoring()" id="toggle-monitoring">Pause Monitoring</button>
+                </div>
+
+                <div id="event-log" class="event-log"></div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span>🌐 API URL:</span>
+                <span class="status-value" id="api-url">http://localhost:8000</span>
+            </div>
+            <div class="status-item">
+                <span>📡 Transport:</span>
+                <span class="status-value" id="transport-mode">HTTP</span>
+            </div>
+            <div class="status-item">
+                <span>🔄 Status:</span>
+                <span class="status-value" id="connection-status">Initializing</span>
+            </div>
+            <div class="status-item">
+                <span>📊 Registrar:</span>
+                <span class="status-value" id="registrar-count">0 entries</span>
+            </div>
+        </div>
+
+        <!-- Debug Output -->
+        <div class="example-card">
+            <h3>🐛 Debug Output</h3>
+            <div id="debug-output" class="output"></div>
+            <div class="controls">
+                <button onclick="clearDebug()">Clear</button>
+                <button onclick="testRemoteConnection()">Test Remote</button>
+                <button onclick="inspectRegistrar()">Inspect Registrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import NTTTX Framework -->
+    <script type="module">
+        // Import core NTTTX modules
+        console.info("Loading NTTTX Framework v2.1...");
+
+        import { NTT, PTT } from './core/NTT.js';
+        import { registrar, registry, dispatch } from './core/registrar.js';
+        import { remote } from './core/Remote.js';
+        import Event from './core/Event.js';
+        import { config } from './config.js';
+
+        // Initialize global access for demo functions
+        window.NTT = NTT;
+        window.PTT = PTT;
+        window.registrar = registrar;
+        window.registry = registry;
+        window.dispatch = dispatch;
+        window.remote = remote;
+        window.Event = Event;
+        window.config = config;
+
+        // Initialize demo
+        debugLog('NTTTX Framework v2.1 loaded successfully', 'success');
+        updateStatus('connection-status', 'Ready');
+        updateStatus('transport-mode', remote.mode.toUpperCase());
+        updateStatus('api-url', config.API_URL);
+
+        // Start monitoring
+        startFrameworkMonitoring();
+    </script>
+
+    <script>
+        let currentPTT = null;
+        let currentSchema = null;
+        let currentModel = null;
+        let eventMonitoringEnabled = true;
+        let activeInstances = new Map(); // PTT and NTT instances
+
+        // Debug logging with event monitoring
+        function debugLog(message, type = 'info') {
+            const $output = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const logClass = `log-${type}`;
+
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${logClass}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+
+            $output.appendChild(logEntry);
+            $output.scrollTop = $output.scrollHeight;
+
+            // Also log to event monitor if it's a framework event
+            if (type === 'event') {
+                logEvent(message);
+            }
+        }
+
+        function logEvent(eventDescription, eventType = 'info') {
+            if (!eventMonitoringEnabled) return;
+
+            const $eventLog = document.getElementById('event-log');
+            const timestamp = new Date().toLocaleTimeString();
+
+            const eventEntry = document.createElement('div');
+            eventEntry.className = `event-entry event-${eventType}`;
+            eventEntry.textContent = `[${timestamp}] ${eventDescription}`;
+
+            $eventLog.appendChild(eventEntry);
+            $eventLog.scrollTop = $eventLog.scrollHeight;
+
+            // Keep only last 50 events
+            while ($eventLog.children.length > 50) {
+                $eventLog.removeChild($eventLog.firstChild);
+            }
+        }
+
+        function clearDebug() {
+            document.getElementById('debug-output').innerHTML = '';
+        }
+
+        function clearEventLog() {
+            document.getElementById('event-log').innerHTML = '';
+        }
+
+        function toggleEventMonitoring() {
+            eventMonitoringEnabled = !eventMonitoringEnabled;
+            const $btn = document.getElementById('toggle-monitoring');
+            $btn.textContent = eventMonitoringEnabled ? 'Pause Monitoring' : 'Resume Monitoring';
+            debugLog(`Event monitoring ${eventMonitoringEnabled ? 'resumed' : 'paused'}`, 'info');
+        }
+
+        function updateStatus(elementId, text, type = 'info') {
+            const $element = document.getElementById(elementId);
+            if ($element) {
+                $element.textContent = text;
+                $element.className = `status-value status-${type}`;
+            }
+        }
+
+        // PTT Discovery using new registrar system
+        async function discoverPTT() {
+            const modelName = document.getElementById('model-name').value.trim();
+
+            if (!modelName) {
+                showMessage('ptt-message', 'Please enter a model name', 'error');
+                return;
+            }
+
+            currentModel = modelName;
+            updateStatus('connection-status', 'Discovering PTT...', 'warning');
+            debugLog(`Discovering PTT for model: ${modelName} using registrar system`);
+
+            try {
+                // Create PTT instance using new architecture
+                const pttAddr = modelName;
+                const pttHref = `${config.API_URL}/${modelName}`;
+
+                currentPTT = PTT.register(pttAddr, pttHref);
+                activeInstances.set(pttAddr, currentPTT);
+
+                debugLog(`Created PTT instance: ${pttAddr} -> ${pttHref}`, 'success');
+                logEvent(`PTT registered: ${modelName}`, 'create');
+
+                // Pull schema from remote
+                logEvent(`Schema pull initiated: ${modelName}`, 'schema');
+
+                showMessage('ptt-message', `PTT created for ${modelName}. Pulling schema...`, 'success');
+                updateStatus('connection-status', 'Connected', 'success');
+
+                // Set up observer for schema updates
+                setTimeout(() => {
+                    checkSchemaLoaded();
+                }, 1000);
+
+            } catch (error) {
+                debugLog(`PTT discovery failed: ${error.message}`, 'error');
+                showMessage('ptt-message', `Failed to discover PTT: ${error.message}`, 'error');
+                updateStatus('connection-status', 'Error', 'error');
+            }
+        }
+
+        function checkSchemaLoaded() {
+            console.warn('Checking if schema is loaded...')
+            if (currentPTT && currentPTT.data) {
+                currentSchema = currentPTT.data;
+                displaySchema(currentSchema);
+                generateEntityForm(currentSchema, currentModel);
+                showMessage('ptt-message', `Schema loaded successfully for ${currentModel}`, 'success');
+                debugLog(`Schema loaded and form generated for ${currentModel}`, 'success');
+                logEvent(`Schema loaded: ${currentModel}`, 'schema');
+                refreshInstances();
+            } else {
+                // Retry after a delay
+                setTimeout(checkSchemaLoaded, 500);
+            }
+        }
+
+        function displaySchema(schema) {
+            const $output = document.getElementById('schema-output');
+            $output.textContent = JSON.stringify(schema, null, 2);
+            $output.style.display = 'block';
+        }
+
+        function generateEntityForm(schema, modelName) {
+            const $container = document.getElementById('entity-form-container');
+
+            if (!schema.properties) {
+                $container.innerHTML = '<p style="color: var(--text-muted);">No properties found in schema</p>';
+                return;
+            }
+
+            let formHTML = '<form id="entity-form" class="entity-form">';
+
+            for (const [fieldName, fieldDef] of Object.entries(schema.properties)) {
+                if (fieldName === 'id') continue;
+
+                const isRequired = schema.required && schema.required.includes(fieldName);
+                const fieldType = fieldDef.type || 'string';
+                const fieldTitle = fieldDef.title || fieldName;
+
+                formHTML += `
+                    <div class="form-group">
+                        <label for="field-${fieldName}">
+                            ${fieldTitle}${isRequired ? ' *' : ''}
+                        </label>
+                        ${generateFieldInput(fieldName, fieldDef, fieldType)}
+                    </div>
+                `;
+            }
+
+            formHTML += `
+                <div class="controls">
+                    <button type="submit">Create ${modelName}</button>
+                    <button type="reset" class="secondary">Reset Form</button>
+                    <button type="button" onclick="listEntities()" class="secondary">List All</button>
+                </div>
+            </form>`;
+
+            $container.innerHTML = formHTML;
+
+            // Add registrar-based form event listeners
+            const $form = document.getElementById('entity-form');
+            $form.addEventListener('submit', handleEntityCreation);
+            $form.addEventListener('reset', () => {
+                clearMessage('creation-message');
+            });
+        }
+
+        function generateFieldInput(fieldName, fieldDef, fieldType) {
+            const inputId = `field-${fieldName}`;
+            const placeholder = fieldDef.description || `Enter ${fieldName}`;
+            const defaultValue = fieldDef.default || '';
+
+            switch (fieldType) {
+                case 'string':
+                    return `<input type="text" id="${inputId}" name="${fieldName}" placeholder="${placeholder}" value="${defaultValue}">`;
+                case 'integer':
+                case 'number':
+                    return `<input type="number" id="${inputId}" name="${fieldName}" placeholder="${placeholder}" value="${defaultValue}">`;
+                case 'boolean':
+                    return `<input type="checkbox" id="${inputId}" name="${fieldName}" ${defaultValue ? 'checked' : ''}>`;
+                default:
+                    return `<input type="text" id="${inputId}" name="${fieldName}" placeholder="${placeholder}" value="${defaultValue}">`;
+            }
+        }
+
+        // Entity creation using PTT and registrar system
+        async function handleEntityCreation(event) {
+            event.preventDefault();
+
+            if (!currentModel || !currentSchema || !currentPTT) {
+                showMessage('creation-message', 'Please discover a PTT first', 'error');
+                return;
+            }
+
+            const formData = new FormData(event.target);
+            const entityData = {};
+
+            // Process form data according to schema
+            for (const [fieldName, fieldDef] of Object.entries(currentSchema.properties)) {
+                if (fieldName === 'id') continue;
+
+                const rawValue = formData.get(fieldName);
+                if (rawValue !== null) {
+                    switch (fieldDef.type) {
+                        case 'integer':
+                            entityData[fieldName] = parseInt(rawValue) || 0;
+                            break;
+                        case 'number':
+                            entityData[fieldName] = parseFloat(rawValue) || 0;
+                            break;
+                        case 'boolean':
+                            entityData[fieldName] = rawValue === 'on';
+                            break;
+                        default:
+                            entityData[fieldName] = rawValue;
+                    }
+                }
+            }
+
+            debugLog(`Creating entity via PTT: ${JSON.stringify(entityData)}`);
+            updateStatus('connection-status', 'Creating...', 'warning');
+
+            try {
+                // Use PTT to call CREATE method
+                currentPTT.call('CREATE', entityData);
+                logEvent(`Create dispatched: ${currentModel}`, 'create');
+
+                showMessage('creation-message', `✅ ${currentModel} creation dispatched via PTT!`, 'success');
+                updateStatus('connection-status', 'Connected', 'success');
+                event.target.reset();
+
+            } catch (error) {
+                debugLog(`Entity creation failed: ${error.message}`, 'error');
+                showMessage('creation-message', `❌ Failed to create entity: ${error.message}`, 'error');
+                updateStatus('connection-status', 'Error', 'error');
+            }
+        }
+
+        // List entities using PTT
+        function listEntities() {
+            if (!currentPTT) {
+                showMessage('creation-message', 'Please discover a PTT first', 'error');
+                return;
+            }
+
+            debugLog(`Listing all ${currentModel} entities via PTT`);
+            currentPTT.call('READ');
+            logEvent(`List requested: ${currentModel}`, 'read');
+            showMessage('creation-message', `📋 List request dispatched for ${currentModel}`, 'success');
+        }
+
+        // Create test NTT instance
+        function createTestNTT() {
+            try {
+                const testAddr = `test_ntt_${Date.now()}`;
+                const testHref = `${config.API_URL}/test`;
+
+                const testNTT = new NTT({
+                    addr: testAddr,
+                    href: testHref,
+                    data: { message: 'Hello NTTTX!', timestamp: Date.now() },
+                    schema: { properties: { message: { type: 'string' }, timestamp: { type: 'number' } } }
+                });
+
+                activeInstances.set(testAddr, testNTT);
+                debugLog(`Created test NTT instance: ${testAddr}`, 'success');
+                logEvent(`NTT created: ${testAddr}`, 'create');
+                refreshInstances();
+
+            } catch (error) {
+                debugLog(`Failed to create test NTT: ${error.message}`, 'error');
+            }
+        }
+
+        // Registrar management
+        function refreshRegistrar() {
+            const $viewer = document.getElementById('registrar-viewer');
+            const registrarCount = registry.size;
+
+            updateStatus('registrar-count', `${registrarCount} entries`);
+
+            if (registrarCount === 0) {
+                $viewer.innerHTML = '<p style="color: var(--text-muted);">No entries in registrar</p>';
+                return;
+            }
+
+            let registrarHTML = '';
+            for (const [key, callback] of registry) {
+                const callbackType = callback === remote.send ? 'remote' : 'local';
+
+                registrarHTML += `
+                    <div class="registrar-entry">
+                        <div>
+                            <div class="registrar-key">${key}</div>
+                            <div class="registrar-type">${callbackType} callback</div>
+                        </div>
+                        <button onclick="testRegistrarEntry('${key}')" class="secondary" style="font-size: 0.8rem; padding: 4px 8px;">Test</button>
+                    </div>
+                `;
+            }
+
+            $viewer.innerHTML = registrarHTML;
+        }
+
+        function clearRegistrar() {
+            // Clear only custom entries, keep core ones
+            const coreEntries = [currentPTT?.addr, currentPTT?.href];
+            for (const [key] of registry) {
+                if (!coreEntries.includes(key)) {
+                    registry.delete(key);
+                }
+            }
+            refreshRegistrar();
+            debugLog('Custom registrar entries cleared', 'info');
+        }
+
+        function testRegistrarEntry(key) {
+            try {
+                const testData = new Event({
+                    name: 'TEST',
+                    source: 'demo',
+                    target: key,
+                    data: { message: 'This is a test dispatch' },
+                    timestamp: Date.now()
+                });
+                dispatch(key, testData);
+                debugLog(`Test dispatch to ${key} completed`, 'success');
+                logEvent(`Test dispatch: ${key}`, 'read');
+            } catch (error) {
+                debugLog(`Test dispatch to ${key} failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testDispatch() {
+            if (registry.size === 0) {
+                debugLog('No registrar entries to test', 'warning');
+                return;
+            }
+            const firstKey = registry.keys().next().value;
+            testRegistrarEntry(firstKey);
+        }
+
+        // Instance management
+        function refreshInstances() {
+            const $viewer = document.getElementById('instances-viewer');
+
+            if (activeInstances.size === 0) {
+                $viewer.innerHTML = '<p style="color: var(--text-muted);">No active instances</p>';
+                return;
+            }
+
+            let instancesHTML = '';
+            for (const [key, instance] of activeInstances) {
+                const isPTT = instance instanceof PTT;
+                const instanceType = isPTT ? 'PTT' : 'NTT';
+                const cssClass = isPTT ? 'ptt-instance ptt-active' : 'ntt-instance';
+
+                instancesHTML += `
+                    <div class="${cssClass}">
+                        <strong>${instanceType}: ${key}</strong><br>
+                        <small>Addr: ${instance.addr}</small><br>
+                        <small>Href: ${instance.href}</small>
+                        ${isPTT && instance._data ? '<br><small>Schema: ✓ Loaded</small>' : ''}
+                        <div style="margin-top: 8px;">
+                            <button onclick="inspectInstance('${key}')" class="secondary" style="font-size: 0.8rem; padding: 4px 8px;">Inspect</button>
+                            <button onclick="removeInstance('${key}')" class="danger" style="font-size: 0.8rem; padding: 4px 8px;">Remove</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            $viewer.innerHTML = instancesHTML;
+        }
+
+        function inspectInstance(key) {
+            const instance = activeInstances.get(key);
+            if (instance) {
+                debugLog(`Instance ${key}:\n${JSON.stringify(instance.toJSON ? instance.toJSON() : instance, null, 2)}`, 'info');
+            }
+        }
+
+        function removeInstance(key) {
+            const instance = activeInstances.get(key);
+            if (instance) {
+                activeInstances.delete(key);
+                debugLog(`Removed instance: ${key}`, 'info');
+                refreshInstances();
+            }
+        }
+
+        // Framework monitoring
+        function startFrameworkMonitoring() {
+            debugLog('Starting NTTTX registrar framework monitoring', 'info');
+
+            // Monitor registrar operations
+            const originalRegistrar = window.registrar;
+            window.registrar = function(key, callback) {
+                logEvent(`Registrar.register: ${key}`, 'create');
+                return originalRegistrar.call(this, key, callback);
+            };
+
+            // Monitor dispatch operations
+            const originalDispatch = window.dispatch;
+            window.dispatch = function(key, data) {
+                logEvent(`Dispatch: ${key}`, 'update');
+                return originalDispatch.call(this, key, data);
+            };
+
+            // Monitor Remote operations
+            const originalSend = window.remote.send;
+            window.remote.send = function(event) {
+                logEvent(`Remote.send: ${event.name} -> ${event.target}`, event.name.toLowerCase());
+                return originalSend.call(this, event);
+            };
+
+            refreshRegistrar();
+            refreshInstances();
+            debugLog('Framework monitoring active', 'success');
+        }
+
+        // Test functions
+        function testRemoteConnection() {
+            debugLog('Testing remote connection via registrar...', 'info');
+            updateStatus('connection-status', 'Testing...', 'warning');
+            registrar(`blueprint`,
+                (event) => {
+                    debugLog(`Remote test received: ${JSON.stringify(event)}`, 'event');
+                    logEvent(`Remote test event: ${event.name}`, event.name.toLowerCase());
+                })
+            registrar(`${config.API_URL}/blueprint`, remote.send);
+
+            try {
+                // Test with a simple event
+                const testEvent = {
+                    name: 'READ',
+                    source: 'blueprint',
+                    target: `${config.API_URL}/blueprint`,
+                    data: null,
+                    timestamp: Date.now()
+                };
+
+                remote.send(testEvent);
+                logEvent('Remote connection test dispatched', 'read');
+                updateStatus('connection-status', 'Connected', 'success');
+
+            } catch (error) {
+                debugLog(`Remote connection test failed: ${error.message}`, 'error');
+                updateStatus('connection-status', 'Disconnected', 'error');
+            }
+        }
+
+        function inspectRegistrar() {
+            debugLog('=== REGISTRAR INSPECTION ===', 'info');
+            debugLog(`Total entries: ${registry.size}`, 'info');
+
+            for (const [key, callback] of registry) {
+                const callbackType = callback === remote.send ? 'remote.send' : 'local function';
+                debugLog(`${key} -> ${callbackType}`, 'info');
+            }
+        }
+
+        // Utility functions
+        function showMessage(containerId, message, type) {
+            const $container = document.getElementById(containerId);
+            $container.innerHTML = `<div class="${type}-message">${message}</div>`;
+        }
+
+        function clearMessage(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            debugLog('NTTTX Demo page initialized with registrar architecture', 'success');
+            testRemoteConnection();
+
+            // Auto-refresh registry every 5 seconds
+            setInterval(() => {
+                refreshRegistrar();
+                refreshInstances();
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

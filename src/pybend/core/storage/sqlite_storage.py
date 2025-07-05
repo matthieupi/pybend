@@ -58,6 +58,7 @@ class SQLiteStorage(AbstractStorage):
         # Implementation similar to previous create method
         # ...
 
+        print("Creating a new record in the database for model class:", model_class.__name__, flush=True)
         table_name = model_class.__tablename__
         fields = [f for f in model_class.model_fields.keys() if f != 'id']
         print("Fields: ", fields)

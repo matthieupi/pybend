@@ -39,3 +39,15 @@ class ProtoModel(PydanticBaseModel):
         schema = json.loads(cls.schema_json())
         schema['type'] = 'schema'
         return schema
+
+    @staticmethod
+    def blueprint():
+        """
+        Returns the blueprint of registered models
+        """
+        from utils.registrar import registered_models
+        print("Hello from ProtoModel.blueprint()")
+        blueprint = {}
+        for model_name, model_cls in registered_models.items():
+            blueprint[model_name] = model_cls.schema()
+        return blueprint

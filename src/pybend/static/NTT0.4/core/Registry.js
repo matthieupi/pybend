@@ -21,12 +21,12 @@ export class Registry {
   /**
    * Register a factory configuration for creating NTT instances
    * @param {string} key - Enbdpoint key
-   * @param {string} url - API endpoint URL
+   * @param {string} href - API endpoint URL
    */
   static register(key, callback, href="") {
     //assert(this, !Registry.#registry.has(key), `KEY '${key}': is already registered in schema.`);
-    assert(this, typeof url === 'string' && url.startsWith('http') || url === "local",
-        `Invalid URL: ${url}. Must be a valid HTTP URL.`);
+    //assert(this, typeof href === 'string' && href.startsWith('http') || href === "local",
+    //    `Invalid URL: ${href}. Must be a valid HTTP URL.`);
     assert(this, typeof key === 'string' && key.length > 0, `ID must be a non-empty string.`);
     assert(this, typeof callback === 'function', `Callback must be a function, got ${typeof callback}.`);
     console.info(`[Registry] Registering key: ${key} with callback: ${typeof callback}`)
@@ -139,7 +139,7 @@ export class Registry {
     assert(this, typeof key === 'string' && key.length > 0, `Key must be a non-empty string.`);
     assert(this, typeof remote.pull === 'function', `Remote pull must be a function, got ${typeof remote.pull}.`);
     assert(this, Registry.#callbacks.has(key), `Trying to pull with no callback registered for key: ${key}.`);
-    remote.pull(`${DEFAULT_API_URL}/${key}`, this.update.bind(this, key))
+    remote.pull(`${config.API_URL}/${key}`, this.update.bind(this, key))
   }
   
   /**

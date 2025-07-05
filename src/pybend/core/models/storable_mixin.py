@@ -33,7 +33,6 @@ class StorableMixin:
         """
         data_dict = data.model_dump(exclude_unset=True)
         print(f'Creating {cls.__name__} with data: {data_dict}')
-        print(data_dict)
         return cls.storage.create(cls, data_dict)
 
     @classmethod

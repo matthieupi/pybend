@@ -2,6 +2,8 @@ import HTTP from './HTTP.js';
 import Socket from './Socket.js';
 import assert from "../utils/Assert.js";
 import {Utils} from "./Utils.js";
+import {registrar, registry, dispatch} from "./registrar.js";
+import {config} from "../config.js";
 
 export class Remote {
   
@@ -13,20 +15,19 @@ export class Remote {
     if (mode === 'ws') {
       this.socket = new Socket("localhost:8765");
     }
+    this.send = this.send.bind(this);
   }
-  
+ 
   httpCallback(event, response) {
     assert(this, event && event.target, `Event must have a target property.`);
-    assert(this, Remote.#callbacks.has(event.target), `No callback registered for target: ${event.target}`);
-    // Create an event object from the response, inversing source and target
-    const callback = Remote.#callbacks.get(event.target);
-    assert(this, typeof callback === 'function', `Callback for ${event.target} is not a function.`);
-    try {
-      // If response is successful, invoke the callback with the event
-      callback(response);
-    } catch (error) {
-      console.error(`Error in callback for ${event.target}:`, error);
-    }
+    assert(this, registry.has(event.target), `No callback registered for target: ${event.target}`);
+    // Updater the event with the response data
+    let source = event.source, target = event.target
+    event.source = target;
+    event.target = source
+    event.data = response; // Assuming response is the data we want to send back
+    // Dispatch the event through the system layer
+    dispatch(event.target, event)
   }
   
   /**
@@ -41,8 +42,8 @@ export class Remote {
     console.error(`Error Response:\n${response}`);
     console.groupEnd()
     let {name, data, meta, source, target, id, timestamp} = event;
-    let eventCallback = {
-        'name': "error",
+    let errorCallback = {
+        'name': "ERROR",
         'id': id,
         'source': source,
         'target': target,
@@ -54,7 +55,7 @@ export class Remote {
           'response': response
         }
     }
-    this.emit(eventCallback)
+    this.emit(errorCallback)
   }
   
   /**
@@ -76,8 +77,8 @@ export class Remote {
   emit(event) {
     assert(this, event && event.target, `Event must have a target property.`);
     assert(this, event && event.name, `Event must have a name property.`);
-    assert(this, Remote.#callbacks.has(event.target), `No callback registered for target: ${event.target}`);
-    const callback = Remote.#callbacks.get(event.target);
+    assert(this, registry.has(event.target), `No callback registered for target: ${event.target}`);
+    const callback = registry.get(event.target);
     assert(this, typeof callback === 'function', `Callback for ${event.target} is not a function.`);
     try {
       callback(event);
@@ -90,11 +91,10 @@ export class Remote {
     console.log(`Pulling data from target: ${target}`, callback ? `with callback: ${callback.name}` : 'without callback')
     assert(this, target, `Target must be provided for pull operation.`);
     assert(this, typeof target === 'string', `Target must be a string, got ${typeof target}`);
-    assert(this, Remote.#callbacks.has(target) || callback , `No callback registered, and no callback provided for target: ${target}`)
     assert(this, !callback || typeof callback === 'function', `Callback must be a function, got ${typeof callback}`);
     
     if (callback) {
-      Remote.#callbacks.set(target, callback);
+      registry.set(target, callback);
     }
     const event = {
       'name': 'read',
@@ -117,19 +117,18 @@ export class Remote {
    * @returns {void}
    */
   send(event) {
-    
-    console.log(`Sending event: ${event.name} from ${event.source} to ${event.target}`, event)
     const {name, data, meta, source, target, id, timestamp} = event;
     let callback = this.httpCallback.bind(this, event);
     let onError = this.onError.bind(this, event);
     
     if (this.mode === 'http') {
-      if (name.toUpperCase() === 'LOAD') HTTP.get(target, callback, onError);
+      if (name.toUpperCase() === config.E.load) HTTP.get(target, callback, onError);
       else if (name.toUpperCase() === 'READ') HTTP.get(target, callback, onError);
-      else if (name.toUpperCase() === 'SCHEMA') HTTP.get(target, callback, onError);
+      else if (name.toUpperCase() === 'SCHEMA') HTTP.get(`${target}/schema`, callback, onError);
       else if (name.toUpperCase() === 'CREATE') HTTP.post(target, data, callback, onError);
       else if (name.toUpperCase() === 'UPDATE') HTTP.put(target, data, callback, onError);
       else if (name.toUpperCase() === 'DELETE') HTTP.remove(target, data, callback, onError);
+      else if (name.toUpperCase() === 'TEST') HTTP.get(target, data, callback, onError);
       else throw new Error(`Unsupported event name: ${name}. Supported names are: LOAD, READ, SCHEMA, CREATE, UPDATE, DELETE.`)
     }
     
@@ -143,4 +142,4 @@ export class Remote {
 
 export const remote = new Remote('http');
 console.log(`Registering remote transport manager to window: `, remote.mode, remote.socket ? remote.socket.url : 'No socket available');
-window.Remote = remote;
+window.remote = remote;

@@ -61,7 +61,7 @@ class FastAPIBackend(BaseBackend):
         )
 
     def register_routes(self, registered_models: dict[str, type]):
-        from api.routes_fastapi import register_routes
+        from api.routes_fastapi import register_routes, register_route
         from api.routes_fastapi import router
         register_routes()
         self.app.include_router(router)

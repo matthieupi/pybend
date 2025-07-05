@@ -1,50 +1,233 @@
-import { Utils } from './Utils.js';
+import {isUrl, Utils} from './Utils.js';
 import assert from "../utils/Assert.js";
-import { Registry } from './Registry.js';
-//import { NTTFunctional } from './NTTFunctional.js';
-//import { NTTReactive } from './NTTReactive.js';
+import {registry, registrar, getRegistrar} from "./registrar.js";
+import Event from "./Event.js";
+import {remote} from "./Remote.js";
 
-class PTT{
+class TT {
   
-  static #registry = new Map();
+    static #registry = new Map();
+    
+    #addr;
+    #href;
+    
+    constructor(addr, href, remote = TT.remote) {
+        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
+        assert(this, !TT.#registry.has(addr), `Address '${addr}' is already registered.`);
+        assert(this, href && typeof href === 'string', `HREF must be a non-empty string.`);
+        assert(this, !registry.has(href), `HREF '${href}' is already registered in the Registry.`);
+        assert(this, href.startsWith('http'), `HREF must be a valid HTTP URL, got: ${href}`);
+        
+        this.#addr = addr;
+        this.#href = href;
+        TT.#registry.set(addr, href);
+    }
+    
+    // Protected getters for subclasses
+    get addr() { return this.#addr; }
+    get href() { return this.#href; }
+    
+    static register(addr, href) {
+        console.warn(`Registering address '${addr}' with HREF '${href}'`)
+        assert(this, addr && typeof addr === 'string' && !!addr,
+            `Address must be a non-empty string.`);
+        assert(this, !TT.#registry.has(addr),
+            `Address '${addr}' is already registered.`);
+        assert(this, isUrl(href),
+            `HREF must be a valid URL, got: ${href}`);
+        TT.#registry.set(addr, href);
+    }
+    
+    static get(addr) {
+        return TT.#registry.get(addr);
+    }
+   
+    /**
+     * Send an event via the registrar callback
+     * @param event {Event}
+     */
+    send(event) {
+        assert(this, event && typeof event === 'object', `Data must be a non-empty object.`);
+        // Retrieve href callback and dispatch the event to it
+        console.warn(`Sending event '${event.name}' from ${event.source} to ${event.target}`, event)
+        console.log(registry)
+        registry.get(event.target)(event)
+    }
   
-  #addr;
-  #href;
+    /**
+     * Call a distant method on the PTT instance
+     * @param method {string} - Method name to call
+     * @param data {Object} - Data (args and kwargs) to send with the method call
+     * @param [meta] {Object} - Additional metadata for the call
+     */
+    call(method, data = {}, meta = {}) {
+      this.send(
+        new Event({
+            name: method,
+            source: this.addr,
+            target: this.href,
+            data: data,
+            meta: meta,
+            timestamp: Date.now()
+        })
+      )
+    }
+    
+    _error(event) {
+        console.group(`[TT] Error received from ${event.source}:`, event.name);
+        console.error(`[TT] Error received from ${event.source}->${event.target}`);
+        console.warn(`[TT] Error data:`, event.data);
+        console.warn(`[TT] Event meta:`, event.meta);
+        console.groupEnd()
+    }
+    
+    
+}
+
+
+/**
+ * PTT (ProtoTransferType) - Protocol Transfer Type
+ * Acts as a proxy for remote registered models
+ */
+export class PTT extends TT{
   
+    static #registry = new Map();
+    static #models = new Map();
+    
+    #data;
+    #cls;
   
-  constructor(addr, href) {
-    assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-    assert(this, !PTT.#registry.has(addr), `Address '${addr}' is already registered.`);
-    assert(this, href && typeof href === 'string', `HREF must be a non-empty string.`);
-    assert(this, !Registry.has(href), `HREF '${href}' is already registered in the Registry.`);
-    assert(this, href.startsWith('http'), `HREF must be a valid HTTP URL, got: ${href}`);
-    this.#addr = addr;
-    this.#href = href;
-    this.#registry.set(href, this);
-    Registry.register(`${href}/schema`, this.update.bind(this));
-    Registry.pull(`${href}/schema`);
-  }
+    constructor(addr, href) {
+        super(addr, href);
+        // Save the Prototype instance to the PTT local registry
+        PTT.#registry.set(addr, this);
+        // Register the inbox method to handle incoming events
+        registrar(addr, this.inbox.bind(this))
+        // Register the uplink for remote communication
+        registrar(href, remote.send)
+        // Also bind to schema description
+        registrar(`${href}/schema`, this.inbox.bind(this));
+    }
+    
+    get data() { return this.#data; }
+    set data(val) { return this.#data = val; }
+    
+    pull() {
+        assert(this, isUrl(this.href), `HREF must be a valid HTTP URL, got: ${this.href}`);
+        // Register the inbox method to handle incoming events
+        this.call('SCHEMA', {}, {remote: true});
+        return this;
+    }
+    
+    /**
+     * Inbox method to handle incoming events
+     * @param event {Event}
+     */
+    inbox(event) {
+        // Check if the event name matches a method in this class
+        let method_name = `_${event.name}`.toLowerCase();
+        // Dispatch the event internally to the corresponding method
+        if (typeof this[method_name] === 'function') {
+            this[method_name](event.data);
+        } else {
+            console.warn(`No handler ${method_name} for event '${event.name}' in PTT instance.`);
+        }
+        
+    }
+   
+    _schema(data) {
+        console.log("[PTT] Received schema data for", this.addr, ":", data);
+        // Create a subclass of NTT with the provided schema
+        this.#data = data;
+        this.#cls = PTT.define(this.addr, data)
+    }
+    
+    
+    // ------------------ Static Methods ------------------ //
+    
+    /**
+     * Creates a PTT instance and registers it in the global registry.
+     * @param addr
+     * @param href
+     * @returns {PTT}
+     */
+    static register(addr, href) {
+        assert(this, !PTT.#registry.has(addr), `Address '${addr}' is already registered.`);
+        return new PTT(addr, href).pull();
+    }
+    
+    static get(addr) {
+        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
+        if (!PTT.#registry.has(addr)) {
+            throw new Error(`Address '${addr}' is not registered.`);
+        }
+        return PTT.#registry.get(addr);
+    }
+    
+    
+    static define(addr, schema) {
   
-  update(data) {
+        const fields = Object.keys(schema.properties || {});
+        const className = addr
   
-  }
+        // 1. Create a subclass of NTT with dynamic properties
+        const SubClass = class extends PTT {
+          constructor(opts) {
+            super(opts);
+          }
+        };
+        // 1.1 Set the class name dynamically
+        Object.defineProperty(SubClass, 'name', {value: className});
+        Object.defineProperty(SubClass, 'schema', {value: schema});
   
+        // 2. Add schema properties to the subclass prototype
+        for (const field of fields) {
+          const definition = schema.properties[field];
+          const isReadonly = definition.readOnly === true;
+          const label = definition.title || field;
+          const hidden = definition.extra && definition.extra.hidden;
+    
+          Object.defineProperty(SubClass.prototype, field, {
+            enumerable: !hidden,
+            configurable: true,
+            // 2.1 Variable access
+            get() {
+              return this[field];
+            },
+            // 2.2 Variable assignment with type checking and validation
+            set(value) {
+              if (isReadonly) {
+                throw new Error(`Trying to set read-only '${field}' with data ${JSON.stringify(value)}.`);
+              }
+              const expectedType = definition.type;
+              if (expectedType && !isTypeCompatible(value, expectedType)) {
+                throw new TypeError(`Invalid type for '${field}': expected ${expectedType}`);
+              }
+            },
+          });
+    
+          // 2.3 Add labels for UI representation
+          if (!SubClass.labels) SubClass.labels = {};
+          SubClass.labels[field] = label;
+        }
+  
+        // 3. Add schema methods to the subclass prototype
+        // ToDo: When backend is ready, implement remote method calling (RPC) from the prototype
+  
+        return SubClass;
+    }
+ 
 }
 
 /**
- * NTT (Named Thing) - Core entity class
+ * NTT (Named Transfer Type) - Core entity class
  * Represents virtual backend entities with functional state management
  */
-export default class NTT {
+export class NTT extends TT {
   
-  static #prototypes = new Map();
   
-  #addr;
-  #href;
-  #data;
-  #schema;
-  #meta;
-  #id;
+    #data;
+    #meta = {};
   
   /**
    * Create a new NTT instance
@@ -56,10 +239,8 @@ export default class NTT {
    * @param {Object} [meta={}] - Additional metadata
    * @param {string} [id] - Custom ID (auto-generated if not provided)
    */
-  constructor({ addr="", href= "" , data = {}, schema = {}, meta = {}, id = null }) {
-    
-    this.#addr = addr;
-    this.href = href || addr;
+  constructor({ addr="", href= "" , data = {}, schema = {}, meta = {}, }) {
+    super(addr, href);
     this.#data = { ...data };
     this.schema = schema;
 
@@ -82,9 +263,6 @@ export default class NTT {
     }
   }
 
-  get href() { return this.#href; }
-  set href(val) { this.#href = val; }
-
   get data() { return { ...this.#data }; }
   set data(val) {
     if (typeof val !== 'object') {
@@ -93,13 +271,13 @@ export default class NTT {
     this.#data = { ...this.#data, ...val };
   }
 
-  get schema() { return { ...this.#schema }; }
-  set schema(val) { this.#schema = val }
+  get schema() { return { ...this.#meta["schema"] }; }
+  set schema(val) { this.#meta['schema'] = val }
   
   update(data) {
     this.#data = { ...this.#data, ...data };
     if (data.hasOwnProperty('name') && data.name === "error") {
-      console.warn(`[NTT] Error received from ${this.#addr}:`, data.message || data.error || "Unknown error")
+      console.warn(`[NTT] Error received from ${this.addr}:`, data.message || data.error || "Unknown error")
     }
     // Notify subscribers about data change
     else{
@@ -109,7 +287,7 @@ export default class NTT {
 
   describe(schema) {
     assert(this, schema && typeof schema === 'object', 'Schema must be an object');
-    this.#schema = { ...this.#schema, ...schema };
+    this.#meta['schema'] = { ...this.#meta[schema], ...schema };
     // Notify subscribers about schema change
     this.#meta.subscribers.forEach(callback => callback(this));
   }
@@ -135,7 +313,7 @@ export default class NTT {
   
   _schema(event) {
     assert(this, event.data && typeof event.data === 'object', `Invalid error event ${event}`);
-    this.#schema = event.data;
+    this.#meta['schema'] = event.data;
   }
 
   /**
@@ -144,13 +322,11 @@ export default class NTT {
    */
   toJSON() {
     return {
-      id: this.#id,
-      addr: this.#addr,
-      href: this.#href,
+      addr: this.addr,
+      href: this.href,
       data: this.#data,
-      schema: this.#schema,
       meta: {
-        ...this.#meta,
+        ...structuredClone(this.#meta),
         // Exclude non-serializable items
         subscribers: undefined,
         propertyObservers: undefined,
@@ -166,10 +342,9 @@ export default class NTT {
   clone() {
     const Ctor = Object.getPrototypeOf(this).constructor;
     return new Ctor({
-      addr: this.#addr,
-      href: this.#href,
+      addr: this.addr,
+      href: this.href,
       data: structuredClone(this.#data),
-      schema: structuredClone(this.#schema),
       meta: {
         ...structuredClone(this.#meta),
         // Reset functional state for clone
@@ -194,64 +369,6 @@ export default class NTT {
     //assert(this, href.startsWith('http'), `HREF must be a valid HTTP URL, got: ${href}`);
     // Load schema from registry or create new NTT instance
     Registry.register(`${href}/schema`, NTT.define.bind(NTT, addr))
-  }
-  
-  static define(addr, schema) {
-  
-    const fields = Object.keys(schema.properties || {});
-    const className = addr
-
-    // 1. Create a subclass of NTT with dynamic properties
-    const SubClass = class extends NTT {
-      constructor(opts) {
-        super(opts);
-      }
-    };
-    // 1.1 Set the class name dynamically
-    Object.defineProperty(SubClass, 'name', { value: className });
-    Object.defineProperty(SubClass, 'schema', { value: schema });
-
-    // 2. Add schema properties to the subclass prototype
-    for (const field of fields) {
-      const definition = schema.properties[field];
-      const isReadonly = definition.readOnly === true;
-      const label = definition.title || field;
-      const hidden = definition.extra && definition.extra.hidden;
-
-      Object.defineProperty(SubClass.prototype, field, {
-        enumerable: !hidden,
-        configurable: true,
-        // 2.1 Variable access
-        get() {
-          return this[field];
-        },
-        // 2.2 Variable assignment with type checking and validation
-        set(value) {
-          if (isReadonly) {
-            throw new Error(`Field '${field}' is read-only`);
-          }
-          const expectedType = definition.type;
-          if (expectedType && !isTypeCompatible(value, expectedType)) {
-            throw new TypeError(`Invalid type for '${field}': expected ${expectedType}`);
-          }
-
-          // Use static functional evolution for property changes
-          //NTT.evolve(this.id, { [field]: value });
-        },
-      });
-
-      // 2.3 Add labels for UI representation
-      if (!SubClass.labels) SubClass.labels = {};
-      SubClass.labels[field] = label;
-    }
-    
-    // 3. Add schema methods to the subclass prototype
-    // ToDo: When backend is ready, implement remote method calling (RPC) from the prototype
-
-    // 4. Register the subclass in the NTT registry
-    NTT.#prototypes.set(addr, SubClass);
-    
-    return SubClass;
   }
 
   
@@ -287,12 +404,12 @@ export default class NTT {
    * @param {string} instanceId - Instance identifier
    * @returns {boolean} True if instance was removed
    */
-  static remove = Registry.unregister.bind(Registry);
+  //static remove = Registry.unregister.bind(Registry);
 
   /**
    * Clear all instances and factories
    */
-  static clear = Registry.clear.bind(Registry);
+  //static clear = Registry.clear.bind(Registry);
 
   /**
    * Discover API schemas and register them

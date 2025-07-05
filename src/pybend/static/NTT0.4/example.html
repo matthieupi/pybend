@@ -228,9 +228,9 @@
         window.NTT = NTT;
         window.Registry = Registry;
 
-        await NTT.register("User", `${config.API_URL}/users/`)
-        await NTT.register("Product", `${config.API_URL}/products/`)
-        await NTT.register("Bot", `${config.API_URL}/bots/`)
+        await NTT.register("User", `users`)
+        await NTT.register("Product", `products`)
+        await NTT.register("Bot", `bots`)
 
         //window.Event = Event;
         //window.E = E;
@@ -346,7 +346,6 @@
                     // Create model NTT instance for entity management
                     createModelNTT(modelName);
                 };
-
                 // Register schema endpoint with NTT Registry
                 Registry.register(schemaAddr, schemaCallback, API_BASE);
                 Registry.pull(schemaAddr)
@@ -356,6 +355,7 @@
             } catch (error) {
                 debugLog(`Schema loading failed: ${error.message}`, 'error');
                 showMessage('schema-message', `Failed to load schema: ${error.message}`, 'error');
+                debugLog(`Failed to load schema: ${error}`, 'error');
                 updateStatus('connection-status', 'Error', 'error');
             }
         }
@@ -450,12 +450,11 @@
         // NTT-based entity creation
         async function handleNTTEntityCreation(event) {
             event.preventDefault();
-            console.group()
-            console.warn("NTT CREATION")
+
+            console.group("NTT Entity Creation");
             console.warn(currentModel)
             console.warn(currentSchema)
             console.warn(currentModelNTT)
-
             console.groupEnd()
 
             if (!currentModel || !currentSchema || !currentModelNTT) {
@@ -494,7 +493,7 @@
             try {
                 // Create event for entity creation
                 const createEvent = new Event({
-                    name :E.CREATE,
+                    name :"CREATE",
                     addr: 'create_' +Date.now(),
                     href: `${API_BASE}/${currentModelNTT.href}`,
                     entityData

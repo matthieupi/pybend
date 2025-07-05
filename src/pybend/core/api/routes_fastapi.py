@@ -1,13 +1,27 @@
 # app/api/routes.py
 
 from fastapi import APIRouter, Request, HTTPException, status, Body
-from fastapi.responses import JSONResponse
 from typing import Dict, Type, Any, List
-from pydantic import BaseModel
 from models.storable_mixin import StorableMixin
 from utils.registrar import registered_models
 
 router = APIRouter()
+
+def register_route(path, fn, method='GET'):
+    """
+    Register a route at the root path.
+    """
+    print(f"Registering route {path} with method {method}")
+    if method == 'GET':
+        router.get(path)(fn)
+    elif method == 'POST':
+        router.post(path)(fn)
+    elif method == 'PUT':
+        router.put(path)(fn)
+    elif method == 'DELETE':
+        router.delete(path)(fn)
+    else:
+        raise ValueError(f"Unsupported HTTP method: {method}")
 
 def register_routes():
     print("Route registration started")
@@ -23,10 +37,12 @@ def register_routes():
             @router.post(endpoint_base, tags=[model_title], status_code=201)
             async def create_instance(data: model_class) -> model_class:
                 try:
+                    print(f"Creating instance of {model_name} with data: {data}")
                     instance = model_class(**data.dict())
                     instance = model_class.create(instance)
                     return instance
                 except Exception as e:
+                    print(f"Error creating instance of {model_name}: {e}")
                     raise HTTPException(status_code=400, detail=str(e))
 
             @router.get(endpoint_base, tags=[model_title])
