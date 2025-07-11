@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTTTX Schema Explorer</title>
+    <link rel="stylesheet" href="./dark-theme.css">
+    <link rel="stylesheet" href="./index.css">
+</head>
+<body>
+    <div class="schema-explorer">
+        <div class="explorer-header">
+            <h1 class="explorer-title">🧠 NTTTX Schema Explorer</h1>
+            <p class="explorer-subtitle">Discover and explore backend schemas using the NTTTX framework</p>
+            <div class="status-indicator status-ready" id="system-status">
+                <span>🟢</span> System Ready
+            </div>
+        </div>
+
+        <!-- Model Input Section -->
+        <div class="model-input-section">
+            <div class="section-header">
+                <span class="section-icon">🔍</span>
+                Model Discovery
+            </div>
+            <div class="input-group">
+                <div style="flex: 1;">
+                    <label for="model-name" style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-weight: 500;">Model Name</label>
+                    <input type="text" id="model-name" placeholder="e.g., users, products, bots" value="users">
+                </div>
+                <button id="fetch-btn" class="fetch-btn">
+                    <span id="fetch-icon">🔍</span> Discover Schema
+                </button>
+            </div>
+        </div>
+
+        <!-- Schema Display Section -->
+        <div class="schema-section">
+            <div class="section-header">
+                <span class="section-icon">📐</span>
+                Schema Definition
+                <div style="margin-left: auto;">
+                    <span class="status-indicator status-ready" id="schema-status">
+                        <span>⏳</span> Waiting
+                    </span>
+                </div>
+            </div>
+            <div class="schema-display" id="schema-output">
+                <div class="empty-state">
+                    <div style="font-size: 2rem; margin-bottom: 1rem;">📋</div>
+                    <div>Enter a model name and click "Discover Schema" to view the schema definition</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items List Section -->
+        <div class="items-section">
+            <div class="section-header">
+                <span class="section-icon">📦</span>
+                Items (List View)
+                <div style="margin-left: auto;">
+                    <span class="status-indicator status-ready" id="list-status">
+                        <span>⏳</span> Waiting
+                    </span>
+                </div>
+            </div>
+            <div class="component-container">
+                <ucp-list id="items-container"></ucp-list>
+            </div>
+        </div>
+
+        <!-- Items Table Section -->
+        <div class="table-section">
+            <div class="section-header">
+                <span class="section-icon">📊</span>
+                Items (Table View)
+                <div style="margin-left: auto;">
+                    <span class="status-indicator status-ready" id="table-status">
+                        <span>⏳</span> Waiting
+                    </span>
+                </div>
+            </div>
+            <div class="component-container">
+                <ucp-table id="items-table"></ucp-table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import NTTTX Framework and Components -->
+    <script type="module">
+        // Import NTTTX Framework
+        import { NTT, PTT } from './core/NTT.js';
+        import { registrar, registry, dispatch } from './core/registrar.js';
+        import { remote } from './core/Remote.js';
+        import Event from './core/Event.js';
+        import { config } from './config.js';
+
+        // Import Web Components
+        import './components/item.js';
+        //import './list.js';
+        //import './table.js';
+
+        console.log(`🧠 Initializing NTTTX Schema Explorer with API URL: ${config.API_URL}`);
+        console.log(`🧠 NTTTX Framework Version: ${NTT.version}`);
+        console.log(`Registering products from: ${config.API_URL}/products`);
+
+        let Product = PTT.register("products", `${config.API_URL}/products` )
+        let my_product = new Product({
+            name: 'Product',
+            description: 'A product item',
+            price: 42
+        })
+
+
+
+        // Initialize Schema Explorer
+        console.log('🧠 NTTTX Schema Explorer initialized');
+        updateSystemStatus('ready', 'System Ready');
+    </script>

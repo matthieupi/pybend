@@ -11,12 +11,12 @@ class TT {
     #addr;
     #href;
     
-    constructor(addr, href, remote = TT.remote) {
-        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-        assert(this, !TT.#registry.has(addr), `Address '${addr}' is already registered.`);
-        assert(this, href && typeof href === 'string', `HREF must be a non-empty string.`);
-        assert(this, !registry.has(href), `HREF '${href}' is already registered in the Registry.`);
-        assert(this, href.startsWith('http'), `HREF must be a valid HTTP URL, got: ${href}`);
+    constructor(addr, href) {
+        assert(this, addr && typeof addr === 'string', `TT: Address must be a non-empty string.`);
+        assert(this, !TT.#registry.has(addr), `TT: Address '${addr}' is already registered.`);
+        assert(this, href && typeof href === 'string', `TT: HREF must be a non-empty string.`);
+        assert(this, !registry.has(href), `TT: HREF '${href}' is already registered in the Registry.`);
+        assert(this, href.startsWith('http'), `TT: HREF must be a valid HTTP URL, got: ${href}`);
         
         this.#addr = addr;
         this.#href = href;
@@ -53,6 +53,24 @@ class TT {
         console.log(registry)
         registry.get(event.target)(event)
     }
+    
+    
+    /**
+     * Inbox method to handle incoming events
+     * @param event {Event}
+     */
+    inbox(event) {
+        // Check if the event name matches a method in this class
+        let method_name = `_${event.name}`.toLowerCase();
+        // Dispatch the event internally to the corresponding method
+        if (typeof this[method_name] === 'function') {
+            this[method_name](event.data);
+        } else {
+            console.warn(`No handler ${method_name} for event '${event.name}' in PTT instance.`);
+        }
+        
+    }
+  
   
     /**
      * Call a distant method on the PTT instance
@@ -94,8 +112,9 @@ export class PTT extends TT{
     static #registry = new Map();
     static #models = new Map();
     
-    #data;
+    #schema;
     #cls;
+    #observers = new Set();
   
     constructor(addr, href) {
         super(addr, href);
@@ -109,8 +128,12 @@ export class PTT extends TT{
         registrar(`${href}/schema`, this.inbox.bind(this));
     }
     
-    get data() { return this.#data; }
-    set data(val) { return this.#data = val; }
+    // Leaving for example legacy
+    get data() { return this.#schema; }
+    set data(val) { return this.#schema = val; }
+    get schema() { return this.#schema; }
+    set schema(val) { this.#schema = val; }
+    
     
     pull() {
         assert(this, isUrl(this.href), `HREF must be a valid HTTP URL, got: ${this.href}`);
@@ -118,27 +141,11 @@ export class PTT extends TT{
         this.call('SCHEMA', {}, {remote: true});
         return this;
     }
-    
-    /**
-     * Inbox method to handle incoming events
-     * @param event {Event}
-     */
-    inbox(event) {
-        // Check if the event name matches a method in this class
-        let method_name = `_${event.name}`.toLowerCase();
-        // Dispatch the event internally to the corresponding method
-        if (typeof this[method_name] === 'function') {
-            this[method_name](event.data);
-        } else {
-            console.warn(`No handler ${method_name} for event '${event.name}' in PTT instance.`);
-        }
-        
-    }
-   
+  
     _schema(data) {
         console.log("[PTT] Received schema data for", this.addr, ":", data);
         // Create a subclass of NTT with the provided schema
-        this.#data = data;
+        this.#schema = data;
         this.#cls = PTT.define(this.addr, data)
     }
     
@@ -153,7 +160,7 @@ export class PTT extends TT{
      */
     static register(addr, href) {
         assert(this, !PTT.#registry.has(addr), `Address '${addr}' is already registered.`);
-        return new PTT(addr, href).pull();
+        return new PTT(addr, href).pull().constructor;
     }
     
     static get(addr) {
@@ -256,10 +263,8 @@ export class NTT extends TT {
 
     // Register this instance with EntityRegistry
     if (href) {
-      Registry.register(`${href}/schema`, this.describe.bind(this));
-      Registry.register(`${href}`, this.update.bind(this));
-      //Registry.pull(`${href}/schema`);
-      //Registry.pull(`${href}`);
+      registrar(`${href}/schema`, this.describe.bind(this));
+      registrar(`${href}`, this.update.bind(this));
     }
   }
 
@@ -271,8 +276,8 @@ export class NTT extends TT {
     this.#data = { ...this.#data, ...val };
   }
 
-  get schema() { return { ...this.#meta["schema"] }; }
-  set schema(val) { this.#meta['schema'] = val }
+  get proto() { return { ...this.#meta["proto"] }; }
+  set proto(val) { this.#meta['proto'] = val }
   
   update(data) {
     this.#data = { ...this.#data, ...data };
@@ -285,9 +290,9 @@ export class NTT extends TT {
     }
   }
 
-  describe(schema) {
-    assert(this, schema && typeof schema === 'object', 'Schema must be an object');
-    this.#meta['schema'] = { ...this.#meta[schema], ...schema };
+  describe(proto, data = {}) {
+    assert(this, proto && typeof proto === 'object', 'Proto must be an object');
+    this.#meta['proto'] = { ...this.#meta['proto'], ...proto };
     // Notify subscribers about schema change
     this.#meta.subscribers.forEach(callback => callback(this));
   }
