@@ -23,6 +23,7 @@ def register_route(path, fn, method='GET'):
     else:
         raise ValueError(f"Unsupported HTTP method: {method}")
 
+
 def register_routes():
     print("Route registration started")
     print(registered_models)
@@ -32,6 +33,12 @@ def register_routes():
         model_title = model_name.capitalize()
 
         print(f"Registering routes for {model_name} with storable={is_storable}")
+
+        # Register the base route for the schema
+        @router.get(f"/{model_class.__name__}", tags=[model_title], status_code=200)
+        @router.get(f"/{model_class.__name__}/schema", tags=[model_title], status_code=200)
+        async def get_model_schema(cls_=model_class) -> Dict[str, Any]:
+            return cls_.schema()
 
         if is_storable:
             @router.post(endpoint_base, tags=[model_title], status_code=201)
@@ -46,26 +53,24 @@ def register_routes():
                     raise HTTPException(status_code=400, detail=str(e))
 
             @router.get(endpoint_base, tags=[model_title])
-            async def get_all_instances() -> List[model_class]:
-                instances = model_class.list()
-                return instances
+            async def get_all_instances(cls_=model_class) -> List[model_class]:
+                return cls_.list()
 
             @router.get(f"{endpoint_base}/schema", tags=[model_title])
-            async def get_schema() -> Dict[str, Any]:
-                instances = model_class.schema()
-                return instances
+            async def get_schema(cls_=model_class) -> Dict[str, Any]:
+                return cls_.schema()
 
             @router.get(f"{endpoint_base}/{{id}}", tags=[model_title])
-            async def get_instance(id: int) -> model_class:
-                instance = model_class.get(id)
+            async def get_instance(id: int, cls_=model_class) -> model_class:
+                instance = cls_.get(id)
                 if not instance:
                     raise HTTPException(status_code=404, detail="Not found")
                 return instance.model_dump()
 
             @router.put(f"{endpoint_base}/{{id}}", tags=[model_title])
-            async def update_instance(id: int, data: model_class) -> model_class:
+            async def update_instance(id: int, data: model_class, cls_=model_class) -> model_class:
                 try:
-                    model_class.update(id, data)
+                    cls_.update(id, data)
                     return model_class
                 except Exception as e:
                     raise HTTPException(status_code=400, detail=str(e))

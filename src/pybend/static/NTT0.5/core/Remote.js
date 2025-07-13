@@ -22,6 +22,8 @@ export class Remote {
     assert(this, event && event.target, `Event must have a target property.`);
     assert(this, registry.has(event.target), `No callback registered for target: ${event.target}`);
     // Updater the event with the response data
+    if (event.data['inbox'])
+      event.name = event.data['inbox']; // Use inbox as the event name if provided
     let source = event.source, target = event.target
     event.source = target;
     event.target = source

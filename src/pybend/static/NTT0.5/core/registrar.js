@@ -2,6 +2,7 @@ import assert from "../utils/Assert.js";
 import { config } from '../config.js';
 
 export const registry = new Map();
+export const connectors = new Map();
 
 
 /**
@@ -29,6 +30,7 @@ export function getRegistrar(key) {
     
     return registry.get(key);
 }
+
 
 /**
  * Executes the callback function associated with the given key in the registry with specified data.

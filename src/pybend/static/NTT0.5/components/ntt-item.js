@@ -1,45 +1,69 @@
-export class NTTItem extends HTMLElement {
+import { PTT } from '../core/NTT.js';
+export class Item extends HTMLElement {
   
-  #ptt;
-  #ntt;
+  #model = "";
+  #proto = {};
+  #hash = "";
+  #data = {};
   
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
-    this.mode = this.getAttribute('mode')?.toLowerCase() || 'display';
-    this.href = this.getAttribute('href') || '';
-    this.#ntt = NTT.get(this.getAttribute('href') || 'default');
+    this.mode = this.getAttribute('mode') || 'display';
+    this.#model = this.getAttribute('model') || undefined;
+    this.#hash = this.getAttribute('hash') || undefined;
+    // Register to get schema eventually
+    //NTT.attach(this.#model, this.#hash, this.update.bind(this))
+    
   }
-
+  
   static get observedAttributes() {
-    return ['mode', 'href'];
-  }
-  
-  
-  
-  get ptt() { return this.#ntt.ptt; }
-  
-  get ntt() { return this.#ntt; }
-  set ntt(ntt) {
-    this.#ntt = ntt;
-    this.render();
+    return ['mode', 'model', 'hash'];
   }
 
   connectedCallback() {
+    console.warn(`Item component connected with model: ${this.#model}, hash: ${this.#hash}`)
+    if (!this.#proto) {
+      // Set placeholder content
+      this.shadowRoot.innerHTML = `
+        <h1>${this.model ? this.model : "Item"} Placeholder</h1>
+        <div class="card">
+            <button class="edit-btn" title="Toggle Edit">✏️</button>
+        </div>
+        <h4>Mode: ${this.mode}</h4>
+        <div class="content"></div>
+        `;
+      // Connect to NTT if model and hash are defined
+      PTT.attach(this.#model, this.describe.bind(this));
+    }
+    else this.render()
+    
+  }
+
+  get value() { return this.#data; }
+  set value(obj) {
+    this.#data = obj;
+    console.log(`Setting value in Item:`, obj);
     this.render();
+  }
+
+  get model() { return this.#model; }
+  set model(model) {
+    if (model !== this.#model) {
+      this.#model = model;
+      this.render();
+    }
   }
   
-  connect(href = this.href) {
-    if (!href) {
-      console.warn('No href provided for NTTItem.');
-      return;
-    }
-    this.href = href;
-    let ntt = NTT.get(href);
-    this.#ptt = ntt?.ptt || {};
-    
-    this.render();
+  get schema() { return this.#proto?.schema; }
+  
+  describe(proto, data={}) {
+    if (!this.#model) { this.#model = proto.__name__}
+    this.#proto = proto;
+    this.value = data;
   }
+  
+  update(data) { this.value = data; }
 
   toggleMode() {
     this.mode = this.mode === 'edit' ? 'display' : 'edit';
@@ -62,17 +86,22 @@ export class NTTItem extends HTMLElement {
         }
       </style>
     `;
-
+  
     const fields = this.schema?.properties || {};
     const html = [];
 
     html.push(`<button class="edit-btn" title="Toggle Edit">✏️</button>`);
+    console.warn("SCHEMA - FIELDS")
+    console.log(this.schema)
+    
+    console.log(fields)
 
     for (const key in fields) {
+      console.log(`Rendering field: ${key}`, this.value?.[key])
       const def = fields[key];
       const label = def.title || key;
       const type = def.type || 'string';
-      const value = this.data[key] ?? '';
+      const value = this.value?.[key] ?? '';
 
       if (this.mode === 'edit') {
         if (type === 'boolean') {
@@ -99,4 +128,4 @@ export class NTTItem extends HTMLElement {
   }
 }
 
-customElements.define('ucp-item', NTTItem);
+customElements.define('ntt-item', Item);

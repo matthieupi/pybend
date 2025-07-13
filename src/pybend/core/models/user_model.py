@@ -18,7 +18,7 @@ class Bot(ProtoModel):
 
 
 class User(ProtoModel):
-    storable: ClassVar[bool] = True
+    __storable__: ClassVar[bool] = True
     __tablename__: ClassVar[str] = 'users'
     id: int = None
     name: str

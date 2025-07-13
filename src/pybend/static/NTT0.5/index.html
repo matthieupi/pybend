@@ -6,6 +6,9 @@
     <title>NTTTX Schema Explorer</title>
     <link rel="stylesheet" href="./dark-theme.css">
     <link rel="stylesheet" href="./index.css">
+    <style>
+
+    </style>
 </head>
 <body>
     <div class="schema-explorer">
@@ -96,24 +99,311 @@
         import { config } from './config.js';
 
         // Import Web Components
-        import './components/item.js';
-        //import './list.js';
-        //import './table.js';
+        import './components/ntt-list.js';
+        import './components/ntt-item.js';
 
-        console.log(`🧠 Initializing NTTTX Schema Explorer with API URL: ${config.API_URL}`);
-        console.log(`🧠 NTTTX Framework Version: ${NTT.version}`);
-        console.log(`Registering products from: ${config.API_URL}/products`);
-
-        let Product = PTT.register("products", `${config.API_URL}/products` )
-        let my_product = new Product({
-            name: 'Product',
-            description: 'A product item',
-            price: 42
-        })
-
-
+        // Global framework access
+        window.config = config;
 
         // Initialize Schema Explorer
         console.log('🧠 NTTTX Schema Explorer initialized');
+
         updateSystemStatus('ready', 'System Ready');
     </script>
+
+
+
+    <!-- This should display a create form for the Product model -->
+    <!-- <ntt-item model="Product"></ntt-item> -->
+    <!-- This should display a Product record -->
+    <!-- <ntt-item model="Product", id="product-id"></ntt-item> -->
+    <!-- This should display a list of items for the Product model -->
+    <ntt-list model="Product"></ntt-list>
+
+    <script>
+        // Schema Explorer State
+        let currentPTT = null;
+        let currentSchema = null;
+        let currentModel = null;
+        let isLoading = false;
+
+        // UI Element References
+        const $modelInput = document.getElementById('model-name');
+        const $fetchBtn = document.getElementById('fetch-btn');
+        const $fetchIcon = document.getElementById('fetch-icon');
+        const $schemaOutput = document.getElementById('schema-output');
+        const $itemsContainer = document.getElementById('items-container');
+        const $itemsTable = document.getElementById('items-table');
+
+        // Status Update Functions
+        function updateSystemStatus(type, message) {
+            const $status = document.getElementById('system-status');
+            $status.className = `status-indicator status-${type}`;
+
+            const icons = { ready: '🟢', loading: '🟡', error: '🔴' };
+            $status.innerHTML = `<span>${icons[type]}</span> ${message}`;
+        }
+
+        function updateComponentStatus(component, type, message) {
+            const $status = document.getElementById(`${component}-status`);
+            $status.className = `status-indicator status-${type}`;
+
+            const icons = { ready: '✅', loading: '⏳', error: '❌' };
+            $status.innerHTML = `<span>${icons[type]}</span> ${message}`;
+        }
+
+        // Enhanced JSON Tree Renderer
+        function renderCollapsibleJSON(obj, level = 0) {
+            if (typeof obj !== 'object' || obj === null) {
+                return `<span class="schema-value">${JSON.stringify(obj)}</span>`;
+            }
+
+            const indent = '&nbsp;'.repeat(level * 2);
+            const isArray = Array.isArray(obj);
+
+            const entries = Object.entries(obj).map(([key, value]) => {
+                const isObject = typeof value === 'object' && value !== null;
+                const openAttr = level < 2 ? 'open' : ''; // Auto-open first 2 levels
+
+                if (isObject) {
+                    const nested = renderCollapsibleJSON(value, level + 1);
+                    return `
+                        ${indent}<details ${openAttr}>
+                            <summary><span class="schema-key">${key}</span></summary>
+                            ${nested}
+                        </details>
+                    `;
+                } else {
+                    const valueType = typeof value;
+                    return `
+                        ${indent}<div style="margin: 2px 0;">
+                            <span class="schema-key">${key}</span>:
+                            <span class="schema-value">${JSON.stringify(value)}</span>
+                            <span class="schema-type">(${valueType})</span>
+                        </div>
+                    `;
+                }
+            });
+
+            const wrapper = isArray ? ['[', ']'] : ['{', '}'];
+            return `<div class="schema-tree">${wrapper[0]}<br>${entries.join('')}<br>${wrapper[1]}</div>`;
+        }
+
+        // Loading State Management
+        function setLoadingState(loading) {
+            isLoading = loading;
+            $fetchBtn.disabled = loading;
+
+            if (loading) {
+                $fetchIcon.textContent = '⏳';
+                $fetchBtn.innerHTML = '<span>⏳</span> Loading...';
+                updateSystemStatus('loading', 'Loading Schema...');
+            } else {
+                $fetchIcon.textContent = '🔍';
+                $fetchBtn.innerHTML = '<span>🔍</span> Discover Schema';
+                updateSystemStatus('ready', 'System Ready');
+            }
+        }
+
+        // Error Display Functions
+        function displayError(container, message) {
+            container.innerHTML = `
+                <div class="error-state">
+                    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">❌</div>
+                    <div>${message}</div>
+                </div>
+            `;
+        }
+
+        function displayLoading(container, message = 'Loading...') {
+            container.innerHTML = `
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <div>${message}</div>
+                </div>
+            `;
+        }
+
+        // Schema Discovery Function
+        async function discoverSchema() {
+            const modelName = $modelInput.value.trim().toLowerCase();
+
+            if (!modelName) {
+                displayError($schemaOutput, 'Please enter a model name');
+                updateComponentStatus('schema', 'error', 'No Model Name');
+                return;
+            }
+
+            // Validate model name
+            if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(modelName)) {
+                displayError($schemaOutput, 'Model name must start with a letter and contain only letters, numbers, and underscores');
+                updateComponentStatus('schema', 'error', 'Invalid Name');
+                return;
+            }
+
+            currentModel = modelName;
+            setLoadingState(true);
+
+            // Reset component statuses
+            updateComponentStatus('schema', 'loading', 'Fetching...');
+            updateComponentStatus('list', 'loading', 'Waiting...');
+            updateComponentStatus('table', 'loading', 'Waiting...');
+
+            try {
+                console.log(`🔍 Discovering schema for: ${modelName}`);
+
+                // Create PTT instance for schema discovery
+                const pttAddr = `${modelName}_explorer`;
+                const pttHref = `${config.API_URL}/${modelName}`;
+
+                // Check if PTT already exists
+                if (PTT.get && currentPTT) {
+                    try {
+                        // Clean up existing PTT
+                        currentPTT = null;
+                    } catch (e) {
+                        console.warn('PTT cleanup warning:', e);
+                    }
+                }
+
+                // Create new PTT instance
+                currentPTT = PTT.register(pttAddr, pttHref);
+                console.log(`✅ Created PTT: ${pttAddr} -> ${pttHref}`);
+
+                // Set up schema response handler
+                const schemaResponseAddr = `${modelName}_schema_response`;
+                registrar(schemaResponseAddr, (event) => {
+                    console.log('📐 Schema response received:', event);
+                    handleSchemaResponse(event);
+                });
+
+                // Set up items response handler
+                const itemsResponseAddr = `${modelName}_items_response`;
+                registrar(itemsResponseAddr, (event) => {
+                    console.log('📦 Items response received:', event);
+                    handleItemsResponse(event);
+                });
+
+                // Pull schema from remote
+                displayLoading($schemaOutput, 'Fetching schema...');
+                await currentPTT.pull();
+
+                // Also fetch items list
+                currentPTT.call('READ');
+
+                // Set timeout for schema loading
+                setTimeout(() => {
+                    if (isLoading) {
+                        setLoadingState(false);
+                        displayError($schemaOutput, 'Schema loading timeout. Please check the backend connection.');
+                        updateComponentStatus('schema', 'error', 'Timeout');
+                    }
+                }, 10000);
+
+            } catch (error) {
+                console.error('❌ Schema discovery failed:', error);
+                setLoadingState(false);
+                displayError($schemaOutput, `Failed to discover schema: ${error.message}`);
+                updateComponentStatus('schema', 'error', 'Failed');
+                updateComponentStatus('list', 'error', 'Failed');
+                updateComponentStatus('table', 'error', 'Failed');
+            }
+        }
+
+        // Schema Response Handler
+        function handleSchemaResponse(event) {
+            try {
+                const schemaData = event.data || event;
+                currentSchema = schemaData;
+
+                console.log('📐 Processing schema data:', schemaData);
+
+                // Display schema
+                const schemaHTML = renderCollapsibleJSON(schemaData);
+                $schemaOutput.innerHTML = schemaHTML;
+
+                updateComponentStatus('schema', 'ready', 'Loaded');
+                console.log('✅ Schema displayed successfully');
+
+                // Update components with schema
+                updateWebComponents();
+
+            } catch (error) {
+                console.error('❌ Schema processing failed:', error);
+                displayError($schemaOutput, `Failed to process schema: ${error.message}`);
+                updateComponentStatus('schema', 'error', 'Process Failed');
+            }
+        }
+
+        // Items Response Handler
+        function handleItemsResponse(event) {
+            try {
+                const itemsData = event.data || event;
+                console.log('📦 Processing items data:', itemsData);
+
+                // Items are handled by the web components
+                updateComponentStatus('list', 'ready', 'Loaded');
+                updateComponentStatus('table', 'ready', 'Loaded');
+
+                setLoadingState(false);
+                console.log('✅ Items loaded successfully');
+
+            } catch (error) {
+                console.error('❌ Items processing failed:', error);
+                updateComponentStatus('list', 'error', 'Failed');
+                updateComponentStatus('table', 'error', 'Failed');
+                setLoadingState(false);
+            }
+        }
+
+        // Update Web Components
+        function updateWebComponents() {
+            if (!currentSchema || !currentModel) return;
+
+            try {
+                const href = `${config.API_URL}/${currentModel}`;
+
+                // Update list component
+                $itemsContainer.setAttribute('href', href);
+                $itemsContainer.prototype = currentSchema;
+
+                // Update table component
+                $itemsTable.setAttribute('href', href);
+                $itemsTable.prototype = currentSchema;
+
+                console.log('🔄 Web components updated with schema');
+
+            } catch (error) {
+                console.error('❌ Component update failed:', error);
+                updateComponentStatus('list', 'error', 'Update Failed');
+                updateComponentStatus('table', 'error', 'Update Failed');
+            }
+        }
+
+        // Event Listeners
+        $fetchBtn.addEventListener('click', discoverSchema);
+
+        $modelInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter' && !isLoading) {
+                discoverSchema();
+            }
+        });
+
+        // Auto-discover on input change (debounced)
+        let discoveryTimeout;
+        $modelInput.addEventListener('input', () => {
+            clearTimeout(discoveryTimeout);
+            discoveryTimeout = setTimeout(() => {
+                const value = $modelInput.value.trim();
+                if (value && value !== currentModel && !isLoading) {
+                    // Optional: auto-discover after 2 seconds of no typing
+                    // discoverSchema();
+                }
+            }, 2000);
+        });
+
+        // Initialize
+        console.log('🧠 Schema Explorer UI initialized');
+    </script>
+</body>
+</html>

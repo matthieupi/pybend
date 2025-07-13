@@ -13,8 +13,8 @@ from utils.registrar import register_model, registered_models
 
 # Set up storage and register models
 storage_backend = SQLiteStorage(config.SQLITE_DB_FILE)
-register_model(User, storage=storage_backend)
 register_model(Product, storage=storage_backend)
+register_model(User, storage=storage_backend)
 
 if config.BACKEND == "flask":
     backend = FlaskBackend(

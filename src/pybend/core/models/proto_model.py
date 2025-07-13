@@ -37,7 +37,9 @@ class ProtoModel(PydanticBaseModel):
         print("Hello from ProtoModel.schema()")
         print(cls.schema_json())
         schema = json.loads(cls.schema_json())
-        schema['type'] = 'schema'
+        schema['__type__'] = 'schema'
+        schema['__name__'] = cls.__name__
+        schema['__tablename__'] = cls.__tablename__ if hasattr(cls, '__tablename__') else ""
         return schema
 
     @staticmethod
