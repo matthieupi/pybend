@@ -126,7 +126,7 @@ export class Remote {
     if (this.mode === 'http') {
       if (name.toUpperCase() === config.E.load) HTTP.get(target, callback, onError);
       else if (name.toUpperCase() === 'READ') HTTP.get(target, callback, onError);
-      else if (name.toUpperCase() === 'SCHEMA') HTTP.get(`${target}/schema`, callback, onError);
+      else if (name.toUpperCase() === 'SCHEMA') HTTP.get(`${target}`, callback, onError);
       else if (name.toUpperCase() === 'CREATE') HTTP.post(target, data, callback, onError);
       else if (name.toUpperCase() === 'UPDATE') HTTP.put(target, data, callback, onError);
       else if (name.toUpperCase() === 'DELETE') HTTP.remove(target, data, callback, onError);

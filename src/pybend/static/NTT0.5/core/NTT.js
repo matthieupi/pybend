@@ -61,11 +61,23 @@ class TT {
         this.#observers.get(property).forEach(callback => callback(newValue, oldValue, property, this));
     }
     
-    signal(callback = undefined) {
+    signal(callback = undefined, wait = false) {
         assert(this, !callback || typeof callback === 'function', `Callback must be a function if given.`);
-        // If a callback is provided, add it to the signals set, else notify all signals observers
-        if (callback) { this.#signals.add(callback); }
-        else { this.#signals.forEach((callback) => { callback(this); }); }
+        if (callback) {
+            if (!wait) {
+                // When wait is false, immediately call the callback
+                callback(this);
+            }
+            // Add the callback to the signals set
+            this.#signals.add(callback);
+            // Return an unsubscribe function
+            return () => { this.#signals.delete(callback); };
+        }
+        else {
+            // When called with no callback, signal to all listeners
+            this.#signals.forEach((callback) => { callback(this); });
+        }
+        
     }
    
     /**
@@ -76,7 +88,6 @@ class TT {
         assert(this, event && typeof event === 'object', `Data must be a non-empty object.`);
         // Retrieve href callback and dispatch the event to it
         console.warn(`Sending event '${event.name}' from ${event.source} to ${event.target}`, event)
-        console.log(registry)
         registry.get(event.target)(event)
     }
     
@@ -86,7 +97,7 @@ class TT {
      */
     inbox(event) {
         // Check if the event name matches a method in this class
-        let method_name = `_${event.name}`.toLowerCase();
+        let method_name = `_${event.name}_`.toLowerCase();
         // Dispatch the event internally to the corresponding method
         if (typeof this[method_name] === 'function') {
             this[method_name](event.data);
@@ -106,6 +117,7 @@ class TT {
         if (!this.#observers.has(property)) {
             this.#observers.set(property, new Set());
         }
+        //
         this.#observers.get(property).add(callback);
         
         // Return unsubscribe function
@@ -136,7 +148,7 @@ class TT {
       )
     }
     
-    _error(event) {
+    _error_(event) {
         console.group(`[TT] Error received from ${event.source}:`, event.name);
         console.error(`[TT] Error received from ${event.source}->${event.target}`);
         console.warn(`[TT] Error data:`, event.data);
@@ -154,16 +166,18 @@ class TT {
  */
 export class PTT extends TT{
   
-    static #registry = new Map();
+    static #prototypes = new Map();
     static #models = new Map();
     
+    #instances;
     #data;
     #cls;
   
     constructor(addr, href) {
         super(addr, href);
         // Save the Prototype instance to the PTT local registry
-        PTT.#registry.set(addr, this);
+        PTT.#prototypes.set(addr, this);
+        this.#instances = new Map();
         // Register the inbox method to handle incoming events
         registrar(addr, this.inbox.bind(this))
         // Register the uplink for remote communication
@@ -173,7 +187,6 @@ export class PTT extends TT{
     get schema() { return this.#data; }
     get value() { return this.#data; }
     set value(val) {
-        console.warn(`Setting data for PTT instance at ${this.addr} with value:`, val)
         this.#data = val;
         this.#cls = prototype(this.addr, this.#data);
         this.signal()
@@ -186,8 +199,7 @@ export class PTT extends TT{
         return this;
     }
   
-    _schema(data) {
-        console.log("[PTT] Received schema definition for", this.addr, ":", this.#cls);
+    _schema_(data) {
         // If the data has a __tablename__, we need to link this prototype to the endpoint
         if (data['__tablename__']) {
             this.href = `${config.API_URL}/${data['__tablename__']}`;
@@ -209,29 +221,34 @@ export class PTT extends TT{
      * @returns {PTT}
      */
     static register(addr, href) {
-        assert(this, !PTT.#registry.has(addr), `Address '${addr}' is already registered.`);
+        assert(this, !PTT.#prototypes.has(addr), `Address '${addr}' is already registered.`);
         return new PTT(addr, href).pull();
     }
     
     static get(addr) {
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-        if (!PTT.#registry.has(addr)) {
-            throw new Error(`Address '${addr}' is not registered.`);
+        if (!PTT.#prototypes.has(addr)) {
+            throw new Error(`Trying to get Proto with address '${addr}': is not registered.`);
         }
-        return PTT.#registry.get(addr);
+        return PTT.#prototypes.get(addr);
     }
     
     static attach(addr, callback) {
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
         assert(this, callback && typeof callback === 'function', `Callback must be a function.`);
-        if (!PTT.#registry.has(addr)) {
+        let unsubscribe;
+        if (!PTT.#prototypes.has(addr)) {
             // If the address is not registered, get the PTT instance from the backend
             const href = `${config.API_URL}/${addr}`;
-            PTT.register(addr, href).signal(callback);
+            unsubscribe =  PTT.register(addr, href).signal(callback, true);
             
         } else {
-            PTT.#registry.get(addr).signal(callback);
+            unsubscribe = PTT.#prototypes.get(addr).signal(callback);
         }
+        
+        // Return unregister
+        return unsubscribe;
+        
     }
     
     
@@ -247,6 +264,7 @@ export class PTT extends TT{
 export class NTT extends TT {
   
   
+    #proto;
     #data;
     #meta = {};
   

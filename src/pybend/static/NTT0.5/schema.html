@@ -79,56 +79,55 @@
     }
 
     function renderCollapsibleJSON(obj, level = 0) {
-      if (typeof obj !== 'object' || obj === null) {
-        return `<span class="schema-value">${JSON.stringify(obj)}</span>`;
-      }
-
-      const indent = '&nbsp;'.repeat(level * 2);
-      const isArray = Array.isArray(obj);
-      const entries = Object.entries(obj).map(([key, val]) => {
-        const open = level < 2 ? 'open' : '';
-        if (typeof val === 'object' && val !== null) {
-          return `${indent}<details ${open}><summary><span class="schema-key">${key}</span></summary>${renderCollapsibleJSON(val, level + 1)}</details>`;
-        } else {
-          return `${indent}<div><span class="schema-key">${key}</span>: <span class="schema-value">${JSON.stringify(val)}</span> <span class="schema-type">(${typeof val})</span></div>`;
+        if (typeof obj !== 'object' || obj === null) {
+            return `<span class="schema-value">${JSON.stringify(obj)}</span>`;
         }
-      });
-      const wrapper = isArray ? ['[', ']'] : ['{', '}'];
-      return `<div class="schema-tree">${wrapper[0]}<br>${entries.join('')}<br>${wrapper[1]}</div>`;
+
+        const indent = '  '.repeat(level * 2);
+        const isArray = Array.isArray(obj);
+        const entries = Object.entries(obj).map(([key, val]) => {
+            const open = level < 2 ? 'open' : '';
+            if (typeof val === 'object' && val !== null) {
+              return `${indent}<details ${open}><summary><span class="schema-key">${key}</span></summary>${renderCollapsibleJSON(val, level + 1)}</details>`;
+            } else {
+              return `${indent}<div><span class="schema-key">${key}</span>: <span class="schema-value">${JSON.stringify(val)}</span> <span class="schema-type">(${typeof val})</span></div>`;
+            }
+        });
+
+        const wrapper = isArray ? ['[', ']'] : ['{', '}'];
+        return `<div class="schema-tree">${wrapper[0]}${entries.join('')}${wrapper[1]}</div>`;
+    }
+
+    function schemaCallback (model, ptt) {
+        const schema = ptt.schema;
+        $schema.innerHTML = renderCollapsibleJSON(schema);
+        $list.setAttribute('model', model);
+
+        if (ptt.model === model) {
+            $list.setAttribute('model', ptt.model);
+        }
     }
 
     $btn.addEventListener('click', async () => {
       const model = $input.value.trim();
       if (!model) return;
 
+      $list.setAttribute('model', model);
+
       updateStatus('loading', `Fetching schema for "${model}"...`);
       $schema.innerHTML = `<div class="loading-state"><div class="loading-spinner"></div>Loading...</div>`;
       const addr = `${model}`;
 
-      let listCallback = (ptt) => {
-          const schema = ptt.schema;
-          $schema.innerHTML = renderCollapsibleJSON(schema);
-          $list.setAttribute('model', model);
-          $list.value = [];
+      PTT.attach(addr, (ptt) => {
+        if (!!ptt?.schema) {
+          console.log('PTT attached:', !!ptt?.schema);
+          $schema.innerHTML = renderCollapsibleJSON(ptt.schema, 0);
           updateStatus('ready', `Schema loaded for "${model}"`);
-
-        if (ptt.model === model) {
-          $list.setAttribute('model', ptt.model);
-        }
-      };
-
-      const ptt = PTT.attach(addr, listCallback);
-
-
-
-
-      registrar(`${href}`, (event) => {
-        if (Array.isArray(event.data)) {
-          $list.value = event.data;
+        } else {
+          updateStatus('error', `Failed to load schema for "${model}"`);
+          $schema.innerHTML = `<div class="error-state">❌ Schema not found for "${model}". Got ${ptt}</div>`;
         }
       });
-
-      ptt.call('READ');
     });
   </script>
 </body>

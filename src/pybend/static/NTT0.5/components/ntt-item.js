@@ -20,9 +20,10 @@ export class Item extends HTMLElement {
   static get observedAttributes() {
     return ['mode', 'model', 'hash'];
   }
+  
+  static get observedProperties() {}
 
   connectedCallback() {
-    console.warn(`Item component connected with model: ${this.#model}, hash: ${this.#hash}`)
     if (!this.#proto) {
       // Set placeholder content
       this.shadowRoot.innerHTML = `
@@ -33,10 +34,7 @@ export class Item extends HTMLElement {
         <h4>Mode: ${this.mode}</h4>
         <div class="content"></div>
         `;
-      // Connect to NTT if model and hash are defined
-      PTT.attach(this.#model, this.describe.bind(this));
     }
-    else this.render()
     
   }
 
@@ -56,6 +54,13 @@ export class Item extends HTMLElement {
   }
   
   get schema() { return this.#proto?.schema; }
+  
+  inbox(event) {
+    if (this.hasAttribute(event.name) && typeof this[event.name] === 'function') {
+      console.warn(`Event ${event.name} received in Item:`, event);
+      this[event.name](event.data);
+    }
+  }
   
   describe(proto, data={}) {
     if (!this.#model) { this.#model = proto.__name__}
@@ -91,13 +96,9 @@ export class Item extends HTMLElement {
     const html = [];
 
     html.push(`<button class="edit-btn" title="Toggle Edit">✏️</button>`);
-    console.warn("SCHEMA - FIELDS")
-    console.log(this.schema)
-    
-    console.log(fields)
+    console.warn(`Rendering ${this.#model} item: ${this.value?.name}`);
 
     for (const key in fields) {
-      console.log(`Rendering field: ${key}`, this.value?.[key])
       const def = fields[key];
       const label = def.title || key;
       const type = def.type || 'string';

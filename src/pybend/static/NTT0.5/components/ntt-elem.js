@@ -1,29 +1,34 @@
+import {registry} from '../core/registrar.js';
 import './ntt-item.js';
-import './ntt-elem.js';
-import { PTT } from '../core/NTT.js';
+import {PTT} from '../core/NTT.js';
 import {generateId} from "../core/Utils.js";
 
-export class List extends HTMLElement {
+export class NTTElement extends HTMLElement {
   
   #addr;
   #model;
   #proto= {};
   #hash;
-  #data = [];
+  #data;
   #unsubscribe = undefined;
   #detach = undefined;
   
   constructor() {
     super();
     this.attachShadow({mode: 'open'});
+    
     this.#model = this.getAttribute('model') || undefined;
     this.#hash = this.getAttribute('hash') || undefined;
-    this.#addr = this.getAttribute('addr') || `${generateId()}-${this.#model}-list`;
+    this.#addr = this.getAttribute('addr') || `${generateId()}-${this.#model}`;
+    
     this.describe = this.describe.bind(this);
+    this.inbox = this.inbox.bind(this);
+    
+    registry.set(this.#addr, this);
   }
   
   static get observedAttributes() {
-    return ['model', 'hash'];
+    //throw new Error(`Not implemented error: observedAttributes must be defined in ${this.name} class.`);
   }
   
   connectedCallback() {
@@ -48,12 +53,8 @@ export class List extends HTMLElement {
     return this.#data || [];
   }
   
-  set value(items) {
-    if (!Array.isArray(items)) {
-      console.warn('Value must be an array');
-      return;
-    }
-    this.#data = items;
+  set value(data) {
+    this.#data = data;
     this.render();
   }
   
@@ -61,8 +62,18 @@ export class List extends HTMLElement {
     return this.#model;
   }
   
-  set model(ptt) {
-    this.#model = ptt;
+  set model(model_name) {
+    this.#model = model_name;
+  }
+  
+  inbox(event) {
+    let event_method = `_${event.name}_`;
+    if (this.hasAttribute(event.name) && typeof this[event_method] === 'function') {
+      console.warn(`Event ${event.name} received in List:`, event);
+      this[event_method](event.data);
+    } else {
+      console.warn(`No handler for event ${event.name} in List`);
+    }
   }
   
   describe(ptt) {
@@ -86,35 +97,10 @@ export class List extends HTMLElement {
     }
   }
   
-  append(data) {
-    console.warn(`Appending data to List: ${data}`);
-    if (Array.isArray(data)) {
-      this.value = [...this.value, ...data];
-    } else {
-      console.warn('Data must be an array');
-    }
-  }
   
   render() {
-    if (!this.#proto || !Array.isArray(this.value)) return;
-    
-    this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: grid;
-          gap: 1rem;
-        }
-      </style>
-      <h1>List of ${this.#model}</h1>
-    `;
-    
-    this.value.forEach(item => {
-      const el = document.createElement('ntt-item');
-      el.model = this.#model;
-      el.describe(this.#proto, item);
-      this.shadowRoot.appendChild(el);
-    });
+    throw new Error(`Not implemented error: Render method must be implemented in ${this.constructor.name} class.`);
   }
 }
 
-customElements.define('ntt-list', List);
+customElements.define('ntt-element', NTTElement);
