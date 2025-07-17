@@ -120,7 +120,6 @@
 
       PTT.attach(addr, (ptt) => {
         if (!!ptt?.schema) {
-          console.log('PTT attached:', !!ptt?.schema);
           $schema.innerHTML = renderCollapsibleJSON(ptt.schema, 0);
           updateStatus('ready', `Schema loaded for "${model}"`);
         } else {

@@ -193,8 +193,26 @@ function isUrl(str) {
   }
 }
 
+function isEmpty(obj) {
+  if (typeof obj !== 'object') {
+    for (const prop in obj) {
+      if (Object.hasOwn(obj, prop)) {
+        return false;
+      }
+    }
+  return true;
+  }
+  else if (Array.isArray(obj)) {
+    return obj.length === 0;
+  }
+  else {
+    return !!obj
+  }
+}
+
 export {
   isUrl,
+  isEmpty,
   deepEqual,
   generateId,
   createOperation,

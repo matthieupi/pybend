@@ -1,31 +1,19 @@
 import { PTT } from '../core/NTT.js';
-export class Item extends HTMLElement {
+import { NTTElement} from "./ntt-element.js";
+
+export class Item extends NTTElement {
   
-  #model = "";
-  #proto = {};
-  #hash = "";
-  #data = {};
   
   constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
+    super({});
     this.mode = this.getAttribute('mode') || 'display';
-    this.#model = this.getAttribute('model') || undefined;
-    this.#hash = this.getAttribute('hash') || undefined;
-    // Register to get schema eventually
     //NTT.attach(this.#model, this.#hash, this.update.bind(this))
-    
   }
   
-  static get observedAttributes() {
-    return ['mode', 'model', 'hash'];
-  }
-  
-  static get observedProperties() {}
-
   connectedCallback() {
-    if (!this.#proto) {
-      // Set placeholder content
+    super.connectedCallback();
+    // Set placeholder content
+    if (!this.proto) {
       this.shadowRoot.innerHTML = `
         <h1>${this.model ? this.model : "Item"} Placeholder</h1>
         <div class="card">
@@ -35,47 +23,15 @@ export class Item extends HTMLElement {
         <div class="content"></div>
         `;
     }
-    
-  }
-
-  get value() { return this.#data; }
-  set value(obj) {
-    this.#data = obj;
-    console.log(`Setting value in Item:`, obj);
-    this.render();
-  }
-
-  get model() { return this.#model; }
-  set model(model) {
-    if (model !== this.#model) {
-      this.#model = model;
-      this.render();
-    }
   }
   
-  get schema() { return this.#proto?.schema; }
-  
-  inbox(event) {
-    if (this.hasAttribute(event.name) && typeof this[event.name] === 'function') {
-      console.warn(`Event ${event.name} received in Item:`, event);
-      this[event.name](event.data);
-    }
-  }
-  
-  describe(proto, data={}) {
-    if (!this.#model) { this.#model = proto.__name__}
-    this.#proto = proto;
-    this.value = data;
-  }
-  
-  update(data) { this.value = data; }
-
   toggleMode() {
     this.mode = this.mode === 'edit' ? 'display' : 'edit';
     this.render();
   }
 
   render() {
+    
     const styles = `
       <style>
         .card { background: #2c2f4a; border-radius: 1rem; padding: 1rem; color: #fff; position: relative; }
@@ -92,11 +48,12 @@ export class Item extends HTMLElement {
       </style>
     `;
   
+    if (this.value?.name) console.warn(`Rendering ${this.model} item: ${this.value?.name}`);
+    
     const fields = this.schema?.properties || {};
     const html = [];
 
     html.push(`<button class="edit-btn" title="Toggle Edit">✏️</button>`);
-    console.warn(`Rendering ${this.#model} item: ${this.value?.name}`);
 
     for (const key in fields) {
       const def = fields[key];

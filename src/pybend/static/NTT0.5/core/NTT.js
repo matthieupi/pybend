@@ -16,7 +16,7 @@ class TT {
     
     #addr;
     #href;
-    #signals = new Set(); // Map of signals for this instance
+    #signals = new Set(); // Set of signals for this instance
     #observers = new Map(); // Map of property observers
     
     constructor(addr, href, remote = TT.remote) {
@@ -103,7 +103,7 @@ class TT {
             this[method_name](event.data);
         } else if (this.#observers.has(event.name)) {
             // If the event name is registered as an observer, notify observers
-            this.#observers.get(event.name).forEach(callback => callback(event.data, null, event.name, this));
+            this.#observers.get(event.name).forEach(callback => callback(event.data));
         } else {
             console.warn(`No handler ${method_name} for event '${event.name}' in PTT instance.`);
         }
@@ -113,13 +113,12 @@ class TT {
     observe(property, callback) {
         assert(this, property && typeof property === 'string', `Property must be a non-empty string.`);
         assert(this, callback && typeof callback === 'function', `Callback must be a function.`);
-        
+        // Create a new Set for observers if it doesn't exist
         if (!this.#observers.has(property)) {
             this.#observers.set(property, new Set());
         }
-        //
+        // Add subscriber to the property observers
         this.#observers.get(property).add(callback);
-        
         // Return unsubscribe function
         return () => {
             this.#observers.get(property).delete(callback);
@@ -149,7 +148,7 @@ class TT {
     }
     
     _error_(event) {
-        console.group(`[TT] Error received from ${event.source}:`, event.name);
+        console.groupCollapsed(`[TT] Error received from ${event.source}:`, event.name);
         console.error(`[TT] Error received from ${event.source}->${event.target}`);
         console.warn(`[TT] Error data:`, event.data);
         console.warn(`[TT] Event meta:`, event.meta);
@@ -192,9 +191,12 @@ export class PTT extends TT{
         this.signal()
     }
     
+    get(addr) {
+        return this.#instances.get(addr) || undefined;
+    }
+    
     pull() {
         assert(this, isUrl(this.href), `[PTT] ${this.addr} HREF must be a valid HTTP URL, got: ${this.href}`);
-        // Register the inbox method to handle incoming events
         this.call('SCHEMA', {}, {remote: true});
         return this;
     }
@@ -210,25 +212,18 @@ export class PTT extends TT{
         this.value = data;
     }
     
-    
-    
+   
     // ------------------ Static Methods ------------------ //
     
-    /**
-     * Creates a PTT instance and registers it in the global registry.
-     * @param addr
-     * @param href
-     * @returns {PTT}
-     */
-    static register(addr, href) {
-        assert(this, !PTT.#prototypes.has(addr), `Address '${addr}' is already registered.`);
-        return new PTT(addr, href).pull();
+    static has(addr) {
+        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
+        return this.#prototypes.has(addr);
     }
     
     static get(addr) {
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
         if (!PTT.#prototypes.has(addr)) {
-            throw new Error(`Trying to get Proto with address '${addr}': is not registered.`);
+            return new PTT(addr, `${config.API_URL}/${addr}`).pull();
         }
         return PTT.#prototypes.get(addr);
     }
@@ -237,24 +232,27 @@ export class PTT extends TT{
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
         assert(this, callback && typeof callback === 'function', `Callback must be a function.`);
         let unsubscribe;
+        // If the address is not registered, get the PTT instance from the backend
         if (!PTT.#prototypes.has(addr)) {
-            // If the address is not registered, get the PTT instance from the backend
-            const href = `${config.API_URL}/${addr}`;
-            unsubscribe =  PTT.register(addr, href).signal(callback, true);
-            
+            unsubscribe = PTT.get(addr).signal(callback, true);
         } else {
             unsubscribe = PTT.#prototypes.get(addr).signal(callback);
         }
-        
         // Return unregister
         return unsubscribe;
-        
     }
     
-    
-    
-
- 
+    /**
+     * Creates a PTT instance and registers it in the global registry.
+     * Used for pre-registring models for faster access later.
+     * @param addr
+     * @param href
+     * @returns {PTT}
+     */
+    static register(addr, href) {
+        assert(this, !PTT.#prototypes.has(addr), `Address '${addr}' is already registered.`);
+        return new PTT(addr, href).pull();
+    }
 }
 
 /**
@@ -263,9 +261,11 @@ export class PTT extends TT{
  */
 export class NTT extends TT {
   
-  
+    static #instances = new Map();
     #proto;
     #data;
+    #detach;
+    #unsubscribe;
     #meta = {};
   
   /**
@@ -278,83 +278,70 @@ export class NTT extends TT {
    * @param {Object} [meta={}] - Additional metadata
    * @param {string} [id] - Custom ID (auto-generated if not provided)
    */
-  constructor({ addr="", href= "" , data = {}, schema = {}, meta = {}, }) {
+  constructor(model, hash, {data = {}, schema = {}, meta = {}, } = {}) {
+    const id = hash || Utils.generateId();
+    const href = `${config.API_URL}/${model}/${id}`;
+    const addr = `${model}/${id}`;
     super(addr, href);
-    this.#data = { ...data };
-    this.schema = schema;
-
-    // Initialize functional state management in meta
+    // Attach to the type definition
+    NTT.#instances.set(addr, this);
+    this.#detach = PTT.attach(model, this.define.bind(this));
+    // Register the upstream and downstream links
+    registrar(addr, this.inbox.bind(this));
+    registrar(href, remote.send)
+    // Initialize functional state management in meta. Functionality is not implemented yet but will be added later
     this.#meta = {
       ...meta,
       remoteState: { ...data },          // Last known server state
       pendingOps: [],                    // Uncommitted transformations
-      hash: Utils.simpleHash(data),   // Data integrity hash
-      subscribers: new Set(),            // Change subscribers
-      propertyObservers: new Map(),      // Property-specific observers
     };
-
-    // Register this instance with EntityRegistry
-    if (href) {
-      Registry.register(`${href}/schema`, this.describe.bind(this));
-      Registry.register(`${href}`, this.update.bind(this));
-      //Registry.pull(`${href}/schema`);
-      //Registry.pull(`${href}`);
-    }
   }
 
-  get data() { return { ...this.#data }; }
-  set data(val) {
+  get value() { return this.#data }
+  set value(val) {
     if (typeof val !== 'object') {
       throw new TypeError('data must be an object');
     }
-    this.#data = { ...this.#data, ...val };
+    this.#data = val;
+    if (this.#proto) {
+        console.warn(`[NTT] Setting value in ${this.addr} prior to definition:`, val);
+    } else {
+        // TODO - Cast the value to the prototype class `new proto.#cls(...data)`)
+        this.signal()
+    }
+  }
+  
+  get proto() { return this.#proto; }
+
+  get schema() { return this.proto?.schema }
+  
+  define(proto) {
+      this.#proto = proto;
   }
 
-  get schema() { return { ...this.#meta["schema"] }; }
-  set schema(val) { this.#meta['schema'] = val }
-  
+  describe(proto, data) {
+    if (!proto || typeof proto !== 'object') return
+    this.define(proto)
+    this.update(data || this.#data || {});
+  }
+ 
   update(data) {
-    this.#data = { ...this.#data, ...data };
+    this.value = { ...this.#data, ...data };
     if (data.hasOwnProperty('name') && data.name === "error") {
       console.warn(`[NTT] Error received from ${this.addr}:`, data.message || data.error || "Unknown error")
     }
-    // Notify subscribers about data change
-    else{
-      this.#meta.subscribers.forEach(callback => callback(this));
-    }
   }
-
-  describe(schema) {
-    assert(this, schema && typeof schema === 'object', 'Schema must be an object');
-    this.#meta['schema'] = { ...this.#meta[schema], ...schema };
-    // Notify subscribers about schema change
-    this.#meta.subscribers.forEach(callback => callback(this));
-  }
- 
-  observe(callback) {
-    assert(this, callback && typeof callback === 'function', 'Callback must be a function');
-    this.#meta.subscribers.add(callback);
-    // Return unsubscribe function
-    return () => {
-      this.#meta.subscribers.delete(callback);
-    };
-  }
- 
-  _error(event) {
+  
+  _error_(event) {
     console.error(`[NTT] ${event.name} from ${event.source}:`, event.data);
   }
   
-  _read(event) {
-    assert(this, event.data && typeof event.data === 'object', "Read event data must be an object");
-    this.#meta.remoteState = event.data;
-    this.data = event.data;
+  _read_(data) {
+    assert(this, data && typeof data === 'object', `Data must be a non-empty object.`);
+    // Update the NTT instance with the received data
+    this.update(data);
   }
   
-  _schema(event) {
-    assert(this, event.data && typeof event.data === 'object', `Invalid error event ${event}`);
-    this.#meta['schema'] = event.data;
-  }
-
   /**
    * Serialize NTT instance to JSON
    * @returns {Object} JSON representation
@@ -393,21 +380,41 @@ export class NTT extends TT {
       }
     });
   }
- 
-  // ------------------ Static Methods (Delegated to specialized classes) ------------------
+  
+  pull() {
+    assert(this, isUrl(this.href), `[NTT] ${this.addr} HREF must be a valid HTTP URL, got: ${this.href}`);
+    this.call('READ', {}, {remote: true});
+    return this;
+  }
+    
+    // ------------------ Static Methods  ------------------ //
 
-  /* Entity Registry Methods */
+  static get(addr) {
+      assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
+      if (!NTT.#instances.has(addr)) {
+          const [model, hash] = addr.split('/');
+          return new NTT(model, hash).pull();
+      }
+      return NTT.#instances.get(addr);
+  }
+  
+  static attach(model, hash, callback) {
+      // Compute local address and href
+    const addr = `${model}/${hash || Utils.generateId()}`;
+    const href = `${config.API_URL}/${addr}`;
+    let unsubscribe;
+    // If the address is not registered, get the NTT instance from the backend
+    if (!NTT.#instances.has(addr)) {
+        unsubscribe = NTT.get(addr).signal(callback, true);
+    } else {
+        unsubscribe = NTT.#instances.get(addr).signal(callback);
+    }
+    return unsubscribe;
+  }
   
   /**
    */
   static register(addr, href) {
-    assert(this, addr, 'Address must be provided for registration');
-    assert(this, typeof addr === 'string', `Address must be a string, got ${typeof addr}`);
-    //assert(this, href, 'HREF must be provided for registration');
-    //assert(this, typeof href === 'string', `HREF must be a string, got ${typeof href}`);
-    //assert(this, href.startsWith('http'), `HREF must be a valid HTTP URL, got: ${href}`);
-    // Load schema from registry or create new NTT instance
-    Registry.register(`${href}/schema`, NTT.define.bind(NTT, addr))
   }
 
   
@@ -419,7 +426,7 @@ export class NTT extends TT {
       'create',
       Utils.generateId(),
       model,
-      `${DEFAULT_API_URL}/${model}`,
+      `${config.API_URL}/${model}`,
       data,
       callback
     );
@@ -496,49 +503,6 @@ export class NTT extends TT {
    */
   // static pull = NTTFunctional.pull.bind(NTTFunctional);
 
-  /**
-   * Set custom conflict resolver for an NTT instance
-   * @param {string} instanceId - NTT instance identifier
-   * @param {Function} resolver - Conflict resolution function
-   */
-  // static setConflictResolver = NTTFunctional.setConflictResolver.bind(NTTFunctional);
-
-  /* Reactive Operations */
-  
-  /**
-   * Subscribe to all changes on an NTT instance
-   * @param {string} instanceId - NTT instance identifier
-   * @param {Function} callback - Callback function (newData, oldData, ntt) => void
-   * @returns {Function} Unsubscribe function
-   */
-  // static subscribe = NTTReactive.subscribe.bind(NTTReactive);
-
-  /**
-   * Observe changes to a specific property on an NTT instance
-   * @param {string} instanceId - NTT instance identifier
-   * @param {string} property - Property name to observe
-   * @param {Function} callback - Callback function (newValue, oldValue, property, ntt) => void
-   * @returns {Function} Unsubscribe function
-   */
-  // static observe = NTTReactive.observe.bind(NTTReactive);
-
-  /**
-   * Unsubscribe all observers from an NTT instance
-   * @param {string} instanceId - NTT instance identifier
-   */
-  // static unsubscribeAll = NTTReactive.unsubscribeAll.bind(NTTReactive);
-
-  // ------------------ Legacy Compatibility ------------------
-
-  /**
-   * Access method for backward compatibility
-   * @param {string} instanceId - NTT instance identifier
-   * @returns {Object|null} Instance data or null
-   */
-  static access(instanceId) {
-    const instance = Registry.get(instanceId);
-    return instance ? instance.data : null;
-  }
 }
 
 // Global exposure for backward compatibility
