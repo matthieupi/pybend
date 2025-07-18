@@ -1,6 +1,6 @@
 import assert from "../utils/Assert.js";
 import {config} from "../config.js";
-import {isUrl, Utils} from './Utils.js';
+import {isTypeCompatible, isUrl, Utils} from './Utils.js';
 import {registry, registrar, getRegistrar} from "./registrar.js";
 import Event from "./Event.js";
 import {remote} from "./Remote.js";
@@ -166,7 +166,6 @@ class TT {
 export class PTT extends TT{
   
     static #prototypes = new Map();
-    static #models = new Map();
     
     #instances;
     #data;
@@ -187,7 +186,7 @@ export class PTT extends TT{
     get value() { return this.#data; }
     set value(val) {
         this.#data = val;
-        this.#cls = prototype(this.addr, this.#data);
+        this.#cls = prototype(this);
         this.signal()
     }
     
@@ -257,13 +256,14 @@ export class PTT extends TT{
 
 /**
  * NTT (Named Transfer Type) - Core entity class
- * Represents virtual backend entities with functional state management
+ * Represents virtual backend entities with functional state management.
+ * This class is designed to be extended for specific entity types, and is not intended to be instantiated directly.
  */
 export class NTT extends TT {
   
     static #instances = new Map();
     #proto;
-    #data;
+    #data; // Will be redefined in subclass
     #detach;
     #unsubscribe;
     #meta = {};
@@ -278,7 +278,7 @@ export class NTT extends TT {
    * @param {Object} [meta={}] - Additional metadata
    * @param {string} [id] - Custom ID (auto-generated if not provided)
    */
-  constructor(model, hash, {data = {}, schema = {}, meta = {}, } = {}) {
+  constructor(model, hash) {
     const id = hash || Utils.generateId();
     const href = `${config.API_URL}/${model}/${id}`;
     const addr = `${model}/${id}`;
@@ -291,11 +291,12 @@ export class NTT extends TT {
     registrar(href, remote.send)
     // Initialize functional state management in meta. Functionality is not implemented yet but will be added later
     this.#meta = {
-      ...meta,
-      remoteState: { ...data },          // Last known server state
-      pendingOps: [],                    // Uncommitted transformations
+      // ...meta,
+      // remoteState: { ...data },          // Last known server state
+      // pendingOps: [],                    // Uncommitted transformations
     };
   }
+  
 
   get value() { return this.#data }
   set value(val) {
@@ -306,13 +307,11 @@ export class NTT extends TT {
     if (this.#proto) {
         console.warn(`[NTT] Setting value in ${this.addr} prior to definition:`, val);
     } else {
-        // TODO - Cast the value to the prototype class `new proto.#cls(...data)`)
         this.signal()
     }
   }
   
   get proto() { return this.#proto; }
-
   get schema() { return this.proto?.schema }
   
   define(proto) {
@@ -515,20 +514,24 @@ window.NTT = NTT;
  * @param schema
  * @returns {class}
  */
-function prototype(addr, schema) {
+function prototype(ptt) {
 
-    const fields = Object.keys(schema.properties || {});
-    const className = addr
+    const fields = Object.keys(ptt.schema.properties || {});
+    const className = ptt.addr
+    const schema = ptt.schema;
 
     // 1. Create a subclass of NTT with dynamic properties
-    const DynamicClass = class extends PTT {
-      constructor(opts) {
-        super(opts);
+    const DynamicClass = class extends NTT {
+      
+      constructor(data) {
+        super(DynamicClass.name, data.hashtag);
       }
+      
     };
     // 1.1 Set the class name dynamically
     Object.defineProperty(DynamicClass, 'name', {value: className});
-    Object.defineProperty(DynamicClass, 'schema', {value: schema});
+    Object.defineProperty(DynamicClass, 'proto', {value: ptt});
+    
 
     // 2. Add schema properties to the subclass prototype
     for (const field of fields) {
@@ -542,7 +545,7 @@ function prototype(addr, schema) {
         configurable: true,
         // 2.1 Variable access
         get() {
-          return this[field];
+          return this.value[field]
         },
         // 2.2 Variable assignment with type checking and validation
         set(value) {
@@ -553,6 +556,12 @@ function prototype(addr, schema) {
           if (expectedType && !isTypeCompatible(value, expectedType)) {
             throw new TypeError(`Invalid type for '${field}': expected ${expectedType}`);
           }
+          // Cache the old value for observers
+          const oldValue = this.value[field];
+          // Assign the value to the field
+          this.value[field] = value;
+          // If this field has property observers, notify them
+          this.notify(field, value, oldValue);
         },
       });
 
@@ -560,6 +569,9 @@ function prototype(addr, schema) {
       if (!DynamicClass.labels) DynamicClass.labels = {};
       DynamicClass.labels[field] = label;
     }
+    
+    // 3. Add schema functions to the subclass prototype
+    
 
     // 3. Add schema methods to the subclass prototype
     // ToDo: When backend is ready, implement remote method calling (RPC) from the prototype

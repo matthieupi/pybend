@@ -36,7 +36,7 @@ def register_routes():
 
         # Register the base route for the schema
         @router.get(f"/{model_class.__name__}", tags=[model_title], status_code=200)
-        @router.get(f"/{model_class.__name__}/schema", tags=[model_title], status_code=200)
+        # @router.get(f"/{model_class.__name__}/schema", tags=[model_title], status_code=200)
         async def get_model_schema(cls_=model_class) -> Dict[str, Any]:
             return cls_.schema()
 

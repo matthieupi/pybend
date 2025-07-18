@@ -4,6 +4,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from models.viewable_mixin import ViewableMixin
+from .comment_model import Comment
 from .proto_model import ProtoModel
 from typing import ClassVar, List, Optional
 from utils.decorators import expose_route
@@ -18,6 +19,7 @@ class Product(ProtoModel):
     name: str
     price: float
     description: str = ''
+    comments: List[Comment] = Field(default=[], alias='comments', description="List of comments associated with the product")
     id: Optional[int] = Field(default=None, alias='product_id')
 
     @staticmethod
@@ -40,3 +42,38 @@ class Product(ProtoModel):
         ]
         return products
 
+
+    @expose_route('/comments', methods=['POST'])
+    def comment(self, comment: Comment ) -> str:
+        """
+        Add a comment to the product.
+        ---
+        tags:
+          - products
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    type: string
+        responses:
+          200:
+            description: Comment added successfully
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+        """
+        print(f"Adding comment to product {self.id}: {comment}")
+        new_comment = Comment(name=comment, description=f"Comment for product {self.id}")
+        self.comments.append(new_comment)
+        return comment
+
+
+Product.update_forward_refs()

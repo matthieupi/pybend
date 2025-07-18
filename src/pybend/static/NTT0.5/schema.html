@@ -83,14 +83,16 @@
             return `<span class="schema-value">${JSON.stringify(obj)}</span>`;
         }
 
-        const indent = '  '.repeat(level * 2);
+        const indent = '\t'.repeat(level * 2);
         const isArray = Array.isArray(obj);
         const entries = Object.entries(obj).map(([key, val]) => {
-            const open = level < 2 ? 'open' : '';
+            const open = level < 1 ? 'open' : '';
             if (typeof val === 'object' && val !== null) {
               return `${indent}<details ${open}><summary><span class="schema-key">${key}</span></summary>${renderCollapsibleJSON(val, level + 1)}</details>`;
+            } else if (key === 'type'){
+              return `${indent}<div class="schema-item"><span class="schema-key">${key}</span>: <span class="schema-type">${val}</span> </div>`;
             } else {
-              return `${indent}<div><span class="schema-key">${key}</span>: <span class="schema-value">${JSON.stringify(val)}</span> <span class="schema-type">(${typeof val})</span></div>`;
+              return `${indent}<div class="schema-item"><span class="schema-key">${key}</span>: <span class="schema-value">${JSON.stringify(val)}</span></div>`;
             }
         });
 

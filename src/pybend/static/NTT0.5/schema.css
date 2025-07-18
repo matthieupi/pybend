@@ -115,6 +115,11 @@
     overflow-y: auto;
 }
 
+.schema-tree .schema-item {
+    margin-left: 1rem;
+    padding-left: 1rem;
+}
+
 .schema-tree {
     color: var(--text-primary);
 }
@@ -122,7 +127,6 @@
 .schema-tree details {
     margin-left: 1rem;
     border-left: 1px solid var(--border-color);
-    padding-left: 1rem;
 }
 
 .schema-tree summary {

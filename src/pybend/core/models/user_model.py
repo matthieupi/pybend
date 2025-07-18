@@ -32,7 +32,7 @@ class User(ProtoModel):
 
     @staticmethod
     @expose_route('/login', methods=['POST'])
-    def login(data: dict[str, str]) -> User:
+    def login(email: str, password: str) -> User:
         """
         User login endpoint.
         ---
@@ -67,9 +67,9 @@ class User(ProtoModel):
                     error:
                       type: string
         """
-        email = data.get('email')
         users = User.list()
         if any(u.email == email for u in users):
-            return jsonify({'message': 'Login successful'}), 200
+            # Return the found user object
+            return next(u for u in users if u.email == email)
         else:
             return jsonify({'error': 'Invalid credentials'}), 401
