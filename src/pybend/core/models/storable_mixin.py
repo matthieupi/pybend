@@ -54,8 +54,11 @@ class StorableMixin:
         """
         Updates a record using the storage backend.
         """
+        print(f'Updating {cls.__name__} ID={id} with data: {data}')
+        print(data.model_dump(exclude_unset=True))
         data_dict = data.model_dump(exclude_unset=True)
         cls.storage.update(cls, id, data_dict)
+        return cls.get(id)
 
     @classmethod
     def delete(cls, id: int):

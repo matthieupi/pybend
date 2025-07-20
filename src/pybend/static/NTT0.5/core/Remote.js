@@ -121,7 +121,7 @@ export class Remote {
    * @returns {void}
    */
   send(event) {
-    const {name, data, meta, source, target, id, timestamp} = event;
+    let {name, data, meta, source, target, id, timestamp} = event;
     let callback = this.httpCallback.bind(this, event);
     let onError = this.onError.bind(this, event);
     

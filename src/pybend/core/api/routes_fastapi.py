@@ -37,12 +37,14 @@ def make_get_all_instances(model_class):
 
 def make_get_schema(model_class):
     async def get_model_schema() -> Dict[str, Any]:
+        print(f"[SCHEMA] Fetching schema for {model_class.__name__}")
         return model_class.schema()
     return get_model_schema
 
 
 def make_get_instance(model_class):
     async def read_instance(id: int) -> model_class:
+        print(f"[READ] Attempting to read {model_class.__name__} ID={id}")
         instance = model_class.get(id)
         if not instance:
             raise HTTPException(status_code=404, detail="Not found")
@@ -53,15 +55,18 @@ def make_get_instance(model_class):
 def make_update_instance(model_class):
     async def update_instance(id: int, data: model_class) -> model_class:
         try:
-            model_class.update(id, data)
-            return model_class
+            print(f"[UPDATE] Attempting to update {model_class.__name__} ID={id} with data: {data}")
+            updated = model_class.update(id, data)
+            return updated
         except Exception as e:
+            print(f"[ERROR] Failed to update {model_class.__name__} ID={id}: {e}")
             raise HTTPException(status_code=400, detail=str(e))
     return update_instance
 
 
 def make_delete_instance(model_class):
     async def delete_instance(id: int) -> Dict[str, str]:
+        print(f"[DELETE] Attempting to delete {model_class.__name__} ID={id}")
         model_class.delete(id)
         return {"message": "Deleted successfully"}
     return delete_instance
@@ -112,11 +117,13 @@ def register_routes():
 
                 if 'GET' in methods:
                     async def custom_get(attr=attr) -> return_type:
+                        print(f"[GET] Custom GET handler for {attr.__name__} at {full_route}")
                         return attr()
                     router.add_api_route(full_route, custom_get, methods=['GET'], tags=[model_title], name=attr.__name__)
 
                 if 'POST' in methods:
                     async def custom_post(data: Dict[str, Any] = Body(...), attr=attr) -> return_type:
+                        print(f"[POST] Custom POST handler for {attr.__name__} at {full_route} with data: {data}")
                         return attr(data)
                     router.add_api_route(full_route, custom_post,
                                          methods=['POST'], tags=[model_title], name=attr.__name__,

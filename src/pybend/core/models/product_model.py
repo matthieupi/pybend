@@ -19,13 +19,16 @@ class Product(ProtoModel):
     name: str
     price: float
     description: str = ''
-    comments: List[Comment] = Field(default=[], alias='comments', description="List of comments associated with the product")
+    #comments: List[Comment] = Field(default=[], alias='comments', description="List of comments associated with the product")
     id: Optional[int] = Field(default=None, alias='id')
 
+    """
     @field_validator('comments', mode='before')
     @classmethod
     def default_comments(cls, v):
         return v if v is not None else []
+    """
+
 
     @expose_route('/comment', methods=['POST'])
     def comment(self, comment: Comment) -> str:

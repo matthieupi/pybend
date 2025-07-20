@@ -39,9 +39,9 @@ export class Item extends NTTElement {
        // Save triggered
        if (this.value?.call && typeof this.value.call === 'function') {
          console.warn(`[ntt-item] Dispatching update for`, this.value);
-         this.value.call('UPDATE', this.value);
+         this.value.call('UPDATE', this.value.value);
        } else if (this.proto?.call) {
-         this.proto.call('UPDATE', this.value);
+         this.proto.call('UPDATE', this.value.value);
        } else {
          console.warn(`[ntt-item] No update method found for`, this.value);
        }
