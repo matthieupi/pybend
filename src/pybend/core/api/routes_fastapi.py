@@ -17,6 +17,7 @@ def register_route(path, fn, method='GET'):
     else:
         raise ValueError(f"Unsupported HTTP method: {method}")
 
+
 # --- Route factories ---
 def make_create_instance(model_class, model_name):
     async def create_instance(data: model_class) -> model_class:
@@ -27,23 +28,27 @@ def make_create_instance(model_class, model_name):
             raise HTTPException(status_code=400, detail=str(e))
     return create_instance
 
+
 def make_get_all_instances(model_class):
-    async def get_all_instances() -> List[model_class]:
+    async def list_all_instances() -> List[model_class]:
         return model_class.list()
-    return get_all_instances
+    return list_all_instances
+
 
 def make_get_schema(model_class):
-    async def get_schema() -> Dict[str, Any]:
+    async def get_model_schema() -> Dict[str, Any]:
         return model_class.schema()
-    return get_schema
+    return get_model_schema
+
 
 def make_get_instance(model_class):
-    async def get_instance(id: int) -> model_class:
+    async def read_instance(id: int) -> model_class:
         instance = model_class.get(id)
         if not instance:
             raise HTTPException(status_code=404, detail="Not found")
         return instance.model_dump()
-    return get_instance
+    return read_instance
+
 
 def make_update_instance(model_class):
     async def update_instance(id: int, data: model_class) -> model_class:
@@ -53,6 +58,7 @@ def make_update_instance(model_class):
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
     return update_instance
+
 
 def make_delete_instance(model_class):
     async def delete_instance(id: int) -> Dict[str, str]:
@@ -72,7 +78,7 @@ def register_routes():
         if is_storable:
             router.post(endpoint_base, tags=[model_title], status_code=201)(make_create_instance(model_class, model_name))
             router.get(endpoint_base, tags=[model_title])(make_get_all_instances(model_class))
-            router.get(f"{endpoint_base}/schema", tags=[model_title])(make_get_schema(model_class))
+            # router.get(f"{endpoint_base}/schema", tags=[model_title])(make_get_schema(model_class))
             router.get(f"{endpoint_base}/{{id}}", tags=[model_title])(make_get_instance(model_class))
             router.put(f"{endpoint_base}/{{id}}", tags=[model_title])(make_update_instance(model_class))
             router.delete(f"{endpoint_base}/{{id}}", tags=[model_title])(make_delete_instance(model_class))
@@ -81,10 +87,14 @@ def register_routes():
         for attr_name in dir(model_class):
             attr = getattr(model_class, attr_name)
             if callable(attr) and hasattr(attr, '__endpoint__'):
+                # Check if method is classmethod or staticmethod
                 route_info = attr.__endpoint__
                 route = route_info['route']
                 methods = route_info['methods']
-                full_route = f"{endpoint_base}{route}"
+                if isinstance(attr, (classmethod, staticmethod)):
+                    full_route = f"{endpoint_base}{route}"
+                else:
+                    full_route = f"{endpoint_base}/{{id}}{route}"
 
                 from typing import get_origin, get_args, ForwardRef
                 return_type = attr.__annotations__.get('return', None)
@@ -108,7 +118,10 @@ def register_routes():
                 if 'POST' in methods:
                     async def custom_post(data: Dict[str, Any] = Body(...), attr=attr) -> return_type:
                         return attr(data)
-                    router.add_api_route(full_route, custom_post, methods=['POST'], tags=[model_title], name=attr.__name__)
+                    router.add_api_route(full_route, custom_post,
+                                         methods=['POST'], tags=[model_title], name=attr.__name__,
+                                         response_model=return_type if return_type else None,
+                                         )
 
 
 # Expose router to be used in FastAPI app

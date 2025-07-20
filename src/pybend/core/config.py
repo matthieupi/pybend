@@ -2,7 +2,7 @@
 #
 BACKEND = "fastapi"  # or "flask"
 VERSION = "0.5.0"
-HOST = "localhost"
+HOST = "0.0.0.0"
 PORT = 8000
 
 

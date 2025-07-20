@@ -6,14 +6,30 @@ class AssertionError extends Error {
     }
 }
 
-export default function assert(caller, condition, message) {
+export default function assert(caller, condition, message, trigger='error') {
     if (!condition)
         //throw new AssertionError(`\n${caller}\n${message || ''}`);
-        if (!!caller)
-            throw new AssertionError(`${caller.name}\n${message || ''}`);
-        else
-            throw new AssertionError(`${message || ''}`);
+        if (trigger === 'error'){
+            if (!!caller)
+                throw new AssertionError(caller ? `[${caller.name}] Assertion error` : "", `\n${message || ''}`);
+            else
+                throw new AssertionError(`${message || ''}`);
+        } else if (trigger === 'warn') {
+            console.warn(`${caller ? `[${caller.name}]` : ''} Assertion warning\n    ${message || ''}`);
+        } else if (trigger === 'info') {
+            console.info(`${caller ? `[${caller.name}]` : ''} Assertion info\n    ${message || ''}`);
+        } else {
+        }
 };
+
+export function caution(caller, condition, message) {
+    assert(caller, condition, message, 'warn');
+}
+
+export function inform(caller, condition, message) {
+    assert(caller, condition, message, 'info');
+}
+
 
 /**
  * assert(1 === 1); // Executes without problem

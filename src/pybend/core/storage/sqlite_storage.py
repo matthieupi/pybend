@@ -54,6 +54,61 @@ class SQLiteStorage(AbstractStorage):
         conn.commit()
         conn.close()
 
+    def migrate_table(self, model_class: Type[Any]):
+        """
+        Adds missing columns to existing tables based on the model definition.
+        Automatically handles List[...] fields by storing them as TEXT and initializing to '[]'.
+        """
+        import json
+        import sqlite3
+        from typing import get_origin, get_args
+
+        table_name = model_class.__tablename__
+        existing_columns = set()
+
+        conn = sqlite3.connect(self.database)
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            existing_columns = {row[1] for row in cursor.fetchall()}
+        except sqlite3.OperationalError:
+            existing_columns = set()
+
+        for field_name, field_type in model_class.__annotations__.items():
+            if field_name == 'id' or field_name in existing_columns:
+                continue
+
+            origin_type = getattr(field_type, '__origin__', None)
+            base_type = field_type
+            if origin_type is not None:
+                base_type = field_type.__args__[0]
+
+            if origin_type is list or origin_type is List:
+                sql_type = 'TEXT'
+                default_value = json.dumps([])
+            elif base_type == int:
+                sql_type = 'INTEGER'
+                default_value = '0'
+            elif base_type == float:
+                sql_type = 'REAL'
+                default_value = '0.0'
+            elif base_type == str:
+                sql_type = 'TEXT'
+                default_value = "''"
+            else:
+                sql_type = 'TEXT'
+                default_value = "''"
+
+            try:
+                alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} {sql_type} DEFAULT {repr(default_value)}"
+                cursor.execute(alter_sql)
+                print(f"[MIGRATE] Added column '{field_name}' to '{table_name}' as {sql_type}")
+            except sqlite3.OperationalError as e:
+                print(f"[MIGRATE] Failed to add column {field_name} to {table_name}: {e}")
+
+        conn.commit()
+        conn.close()
+
     def create(self, model_class: Type[Any], data: Dict[str, Any]) -> Any:
         # Implementation similar to previous create method
         # ...

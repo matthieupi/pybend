@@ -1,7 +1,7 @@
 # app/models/product_model.py
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from models.viewable_mixin import ViewableMixin
 from .comment_model import Comment
@@ -20,55 +20,17 @@ class Product(ProtoModel):
     price: float
     description: str = ''
     comments: List[Comment] = Field(default=[], alias='comments', description="List of comments associated with the product")
-    id: Optional[int] = Field(default=None, alias='product_id')
+    id: Optional[int] = Field(default=None, alias='id')
 
-    @staticmethod
-    @expose_route('/list', methods=['GET'])
-    def list() -> List[Product]:
-        """
-        List all products.
-        ---
-        tags:
-          - products
-        responses:
-          200:
-            description: A list of products bis
-        """
-        # Example static data
-        print("Hello from Product.list()")
-        products = [
-            Product(id=1, name='Product A', price=10.0, description='Description A'),
-            Product(id=2, name='Product B', price=20.0, description='Description B'),
-        ]
-        return products
+    @field_validator('comments', mode='before')
+    @classmethod
+    def default_comments(cls, v):
+        return v if v is not None else []
 
-
-    @expose_route('/comments', methods=['POST'])
-    def comment(self, comment: Comment ) -> str:
+    @expose_route('/comment', methods=['POST'])
+    def comment(self, comment: Comment) -> str:
         """
         Add a comment to the product.
-        ---
-        tags:
-          - products
-        requestBody:
-          required: true
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  comment:
-                    type: string
-        responses:
-          200:
-            description: Comment added successfully
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    message:
-                      type: string
         """
         print(f"Adding comment to product {self.id}: {comment}")
         new_comment = Comment(name=comment, description=f"Comment for product {self.id}")

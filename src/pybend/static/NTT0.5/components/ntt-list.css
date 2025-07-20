@@ -1,0 +1,20 @@
+:host {
+  display: block;
+}
+
+.title {
+  color: var(--text-primary);
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1.2rem;
+  padding-left: 0.75rem;
+  border-left: 4px solid var(--accent-primary);
+  letter-spacing: -0.02rem;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}

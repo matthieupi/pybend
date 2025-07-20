@@ -1,6 +1,6 @@
 import assert from "../utils/Assert.js";
 import {config} from "../config.js";
-import {isTypeCompatible, isUrl, Utils} from './Utils.js';
+import {isEmpty, isTypeCompatible, isUrl, Utils} from './Utils.js';
 import {registry, registrar, getRegistrar} from "./registrar.js";
 import Event from "./Event.js";
 import {remote} from "./Remote.js";
@@ -18,6 +18,7 @@ class TT {
     #href;
     #signals = new Set(); // Set of signals for this instance
     #observers = new Map(); // Map of property observers
+    #listeners = new Map(); // Map of event listeners
     
     constructor(addr, href, remote = TT.remote) {
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
@@ -35,8 +36,11 @@ class TT {
     get href() { return this.#href; }
     set href(href) {
         assert(this, isUrl(href), `[TT] ${this.addr} - HREF must be a valid URL, got: ${href}`);
+        const oldHref = this.#href;
         this.#href = href
         TT.#registry.set(this.#addr, href);
+        registrar(oldHref, undefined) // Unregister old href
+        registrar(href, remote.send) // Register new href
     }
     
     static register(addr, href) {
@@ -56,9 +60,11 @@ class TT {
     
     notify(property, newValue, oldValue) {
         assert(this, property && typeof property === 'string', `Property must be a non-empty string.`);
-        assert(this, this.#observers.has(property), `No observers registered for property '${property}'.`);
+        //assert(this, this.#observers.has(property), `No observers registered for property '${property}'.`);
         // Notify all observers for the specified property
-        this.#observers.get(property).forEach(callback => callback(newValue, oldValue, property, this));
+        if (this.#observers.has(property)) {
+            this.#observers.get(property).forEach(callback => callback(newValue, oldValue, property, this));
+        }
     }
     
     signal(callback = undefined, wait = false) {
@@ -105,7 +111,8 @@ class TT {
             // If the event name is registered as an observer, notify observers
             this.#observers.get(event.name).forEach(callback => callback(event.data));
         } else {
-            console.warn(`No handler ${method_name} for event '${event.name}' in PTT instance.`);
+            console.warn(`No handler ${method_name} for event '${event.name}' in PTT [${this.addr}] instance.`);
+            console.info(event)
         }
         
     }
@@ -154,8 +161,6 @@ class TT {
         console.warn(`[TT] Event meta:`, event.meta);
         console.groupEnd()
     }
-    
-    
 }
 
 
@@ -171,7 +176,9 @@ export class PTT extends TT{
     #data;
     #cls;
   
-    constructor(addr, href) {
+    constructor(addr, href, schema = undefined) {
+        console.warn(`[PTT] Creating PTT instance for ${addr}`, schema ? 'WITH SCHEMA' : 'WITHOUT SCHEMA');
+        assert(PTT, !PTT.#prototypes.has(addr), `Address '${addr}' is already registered.`);
         super(addr, href);
         // Save the Prototype instance to the PTT local registry
         PTT.#prototypes.set(addr, this);
@@ -199,6 +206,19 @@ export class PTT extends TT{
         this.call('SCHEMA', {}, {remote: true});
         return this;
     }
+    
+    new(data = {}) {
+        assert(this, data && typeof data === 'object', `Data must be a non-empty object.`);
+        // Create a new instance of the PTT prototype with the provided data
+        if (!this.#cls) {
+            console.warn(`[PTT] No prototype class defined for ${this.addr}. Pulling schema...`);
+            this.pull();
+        }
+        const instance = new this.#cls(data);
+        // Register the instance in the local registry
+        this.#instances.set(instance.addr, instance);
+        return instance;
+    }
   
     _schema_(data) {
         // If the data has a __tablename__, we need to link this prototype to the endpoint
@@ -209,8 +229,20 @@ export class PTT extends TT{
         // Create a subclass of NTT with the provided schema
         console.log("[PTT] Received schema data for", this.addr, ":", data);
         this.value = data;
+        // If the schema has a $defs, register them as PTTs
+        if (data.$defs && typeof data.$defs === 'object') {
+            for (const [key, value] of Object.entries(data.$defs)) {
+                if (value.type === 'object' && value.properties) {
+                    // Register the prototype with the address
+                    if (!PTT.has(key)) {
+                        PTT.register(key, `${value['__url__']}`, value);
+                    } else {
+                        console.warn(`[PTT.schema] Prototype for ${key} is already registered.`);
+                    }
+                }
+            }
+        }
     }
-    
    
     // ------------------ Static Methods ------------------ //
     
@@ -244,13 +276,15 @@ export class PTT extends TT{
     /**
      * Creates a PTT instance and registers it in the global registry.
      * Used for pre-registring models for faster access later.
-     * @param addr
-     * @param href
+     * @param addr {string} - Unique local address for the model, usually in the form of `model/instance_id`
+     * @param href {string} - URL for the model, usually in the form of `http://api.example.com/model`
+     * @param schema {Object|string} - Schema or URL for the model
      * @returns {PTT}
      */
-    static register(addr, href) {
-        assert(this, !PTT.#prototypes.has(addr), `Address '${addr}' is already registered.`);
-        return new PTT(addr, href).pull();
+    static register(addr, href, schema = undefined) {
+        assert(this, !PTT.#prototypes.has(addr), `Address '${addr}' is already registered.`, 'warn');
+        if (!schema) return new PTT(addr, href).pull();
+        else return new PTT(addr, href, schema);
     }
 }
 
@@ -278,7 +312,7 @@ export class NTT extends TT {
    * @param {Object} [meta={}] - Additional metadata
    * @param {string} [id] - Custom ID (auto-generated if not provided)
    */
-  constructor(model, hash) {
+  constructor(model, hash, data={}, meta={}) {
     const id = hash || Utils.generateId();
     const href = `${config.API_URL}/${model}/${id}`;
     const addr = `${model}/${id}`;
@@ -286,6 +320,9 @@ export class NTT extends TT {
     // Attach to the type definition
     NTT.#instances.set(addr, this);
     this.#detach = PTT.attach(model, this.define.bind(this));
+    if (!isEmpty(data)){
+        this.value = data; // Initialize value with provided data
+    }
     // Register the upstream and downstream links
     registrar(addr, this.inbox.bind(this));
     registrar(href, remote.send)
@@ -316,6 +353,7 @@ export class NTT extends TT {
   
   define(proto) {
       this.#proto = proto;
+      this.href = `${proto.href}/${this.hash}`;
   }
 
   describe(proto, data) {
@@ -517,14 +555,19 @@ window.NTT = NTT;
 function prototype(ptt) {
 
     const fields = Object.keys(ptt.schema.properties || {});
+    const methods = Object.keys(ptt.schema.methods || {});
     const className = ptt.addr
     const schema = ptt.schema;
+    
 
     // 1. Create a subclass of NTT with dynamic properties
     const DynamicClass = class extends NTT {
       
       constructor(data) {
+        console.warn(`Creating dynamic class ${DynamicClass.name} with data:`, data, 'and ptt:', ptt)
         super(DynamicClass.name, data.hashtag);
+        this.value = data;
+        this.href = `${ptt.href}/${this.id}`; // Set the href based on the PTT instance
       }
       
     };
@@ -565,12 +608,60 @@ function prototype(ptt) {
         },
       });
 
-      // 2.3 Add labels for UI representation
+      // 2.3 Add fields labels for UI representation
       if (!DynamicClass.labels) DynamicClass.labels = {};
       DynamicClass.labels[field] = label;
     }
     
+    /*
+    comment
+{
+route: "/comment"
+methods
+[
+0: "POST"
+]
+parameters
+{
+comment
+{
+$ref: "#/$defs/Comment"
+}
+}
+returns
+{
+type: string 
+     */
     // 3. Add schema functions to the subclass prototype
+    for (const method of methods) {
+      const definition = schema.methods[method];
+      // Add the method to the prototype
+      DynamicClass.prototype[method] = function(...args) {
+          // Validate the arguments against the method definition
+        if (definition.parameters) {
+            for (const [param, paramDef] of Object.entries(definition.parameters)) {
+                // Check if the parameter is a required field
+                if (paramDef.required && !args[param]) {
+                    throw new TypeError(`Missing required parameter '${param}' in method '${method}'.`);
+                }
+                // Check if the type is a reference to another schema
+                if (paramDef.$ref) {
+                    // If the parameter is a reference, ensure it matches the schema
+                    const refSchemaName = schema.$defs[paramDef.$ref.replace('#/$defs/', '')];
+                    // Validate the argument against the referenced schema
+                    if (args[param] && args[param]?.addr !== refSchemaName) {
+                        throw new TypeError(`Parameter '${param}' in method '${method}' must match schema '${refSchemaName}'. ` +
+                            `Got: ${JSON.stringify(args[param])}`);
+                    }
+                } else if (!isTypeCompatible(args[param], paramDef.type)) {
+                    throw new TypeError(`Invalid type for parameter '${param}' in method '${method}': expected ${paramDef.type}`);
+                }
+            }
+        }
+        // Call the remote method with the provided arguments
+        this.call(method, args, {});
+      };
+    }
     
 
     // 3. Add schema methods to the subclass prototype

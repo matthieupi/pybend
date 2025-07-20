@@ -1,5 +1,7 @@
 import { PTT } from '../core/NTT.js';
 import { NTTElement} from "./ntt-element.js";
+import {NTTMethod} from "./ntt-method.js";
+import {Formidable} from '../generators/form.js';
 
 export class Item extends NTTElement {
   
@@ -8,6 +10,12 @@ export class Item extends NTTElement {
     super({});
     this.mode = this.getAttribute('mode') || 'display';
     //NTT.attach(this.#model, this.#hash, this.update.bind(this))
+    const $link = document.createElement('link');
+    $link.setAttribute('rel', 'stylesheet');
+    $link.setAttribute('href', new URL('./ntt-item.css', import.meta.url));
+    this.shadowRoot.appendChild($link);
+    this.$styles = $link
+
   }
   
   connectedCallback() {
@@ -25,65 +33,96 @@ export class Item extends NTTElement {
     }
   }
   
-  toggleMode() {
-    this.mode = this.mode === 'edit' ? 'display' : 'edit';
-    this.render();
-  }
-
-  render() {
-    
-    const styles = `
-      <style>
-        .card { background: #2c2f4a; border-radius: 1rem; padding: 1rem; color: #fff; position: relative; }
-        .edit-btn {
-          position: absolute; top: 10px; right: 10px;
-          cursor: pointer; background: none; border: none;
-          font-size: 1.2em; color: #aaa;
-        }
-        label { font-weight: bold; display: block; margin-top: .5rem; }
-        input, textarea {
-          width: 100%; padding: .3rem; margin-bottom: .5rem;
-          background: #1e1e2f; border: 1px solid #444; color: white;
-        }
-      </style>
-    `;
+   toggleMode() {
+     const isEdit = this.mode === 'edit';
+     if (isEdit) {
+       // Save triggered
+       if (this.value?.call && typeof this.value.call === 'function') {
+         console.warn(`[ntt-item] Dispatching update for`, this.value);
+         this.value.call('UPDATE', this.value);
+       } else if (this.proto?.call) {
+         this.proto.call('UPDATE', this.value);
+       } else {
+         console.warn(`[ntt-item] No update method found for`, this.value);
+       }
+     }
   
-    if (this.value?.name) console.warn(`Rendering ${this.model} item: ${this.value?.name}`);
-    
-    const fields = this.schema?.properties || {};
-    const html = [];
+     this.mode = isEdit ? 'display' : 'edit';
+     this.render();
+   }
 
-    html.push(`<button class="edit-btn" title="Toggle Edit">✏️</button>`);
-
-    for (const key in fields) {
-      const def = fields[key];
-      const label = def.title || key;
-      const type = def.type || 'string';
-      const value = this.value?.[key] ?? '';
-
-      if (this.mode === 'edit') {
-        if (type === 'boolean') {
-          html.push(`
-            <label>${label}</label>
-            <input type="checkbox" id="${key}" ${value ? 'checked' : ''}>
-          `);
-        } else {
-          html.push(`
-            <label>${label}</label>
-            <input type="${type === 'number' ? 'number' : 'text'}" id="${key}" value="${value}">
-          `);
-        }
-      } else {
-        html.push(`
-          <label>${label}</label>
-          <div>${value}</div>
-        `);
-      }
+ 
+  handleInputChange(e) {
+    const el = e.target;
+    const key = el.dataset.key;
+    const index = el.dataset.index;
+    const type = el.dataset.type;
+  
+    let newValue;
+    if (type === 'boolean' || el.type === 'checkbox') {
+      newValue = el.checked;
+    } else if (type === 'number') {
+      newValue = parseFloat(el.value);
+    } else {
+      newValue = el.value;
     }
-
-    this.shadowRoot.innerHTML = `${styles}<div class="card">${html.join('')}</div>`;
-    this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', () => this.toggleMode());
+  
+    if (index !== undefined) {
+      // Array update
+      const idx = parseInt(index);
+      if (!Array.isArray(this.value[key])) this.value[key] = [];
+      this.value[key][idx] = newValue;
+    } else {
+      // Scalar update
+      this.value[key] = newValue;
+    }
+  
+    console.warn(`[ntt-item] Updated "${key}" →`, newValue, 'Current state:', this.value);
   }
+
+
+render() {
+  console.log(`Rendering Item: ${this.model}, Mode: ${this.mode}`, this.value, this.schema, this.proto);
+
+  if (this.value?.name) console.warn(`Rendering ${this.model} item: ${this.value?.name}`);
+
+  const fields = this.schema?.properties || {};
+  const methods = this.schema?.methods || {};
+  const html = [];
+
+  const icon = this.mode === 'edit' ? '💾' : '✏️';
+  html.push(`<button class="edit-btn" title="${this.mode === 'edit' ? 'Save' : 'Edit'}">${icon}</button>`);
+
+  html.push(Formidable.getForm(this.value, this.mode));
+
+  for (const methodName in methods) {
+    const methodSchema = methods[methodName];
+    const label = methodSchema.title || methodName;
+
+    if (this.mode !== 'edit') {
+      html.push(`
+        <ntt-method
+          model="${this.model}"
+          uuid="${this.value?.addr || ''}"
+          method="${methodName}"
+          label="${label}">
+        </ntt-method>
+      `);
+    }
+  }
+
+  this.shadowRoot.innerHTML = `<div class="card">${html.join('')}</div>`;
+  this.shadowRoot.appendChild(this.$styles);
+
+  this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', () => this.toggleMode());
+
+  this.shadowRoot.querySelectorAll('input, textarea').forEach(el => {
+    const type = el.type;
+    const event = (type === 'checkbox') ? 'change' : 'input';
+    el.addEventListener(event, e => this.handleInputChange(e));
+  });
+}
+
 }
 
 customElements.define('ntt-item', Item);

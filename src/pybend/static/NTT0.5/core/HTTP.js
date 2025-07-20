@@ -79,7 +79,7 @@ export default class HTTP {
         fetch(url, {
             method: 'PUT',
             headers: header,
-            body: JSON.stringify(data)
+            body: data
         }).then((resp) => {
             if(resp.ok) {
                 return resp.json();

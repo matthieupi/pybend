@@ -104,7 +104,8 @@ export class NTTElement extends HTMLElement {
   }
   
   describe(proto, data) {
-    console.warn(`Describing List with model: ${this.#model}`, proto);
+    console.warn(`Describing ${this.constructor.name} with model: ${this.#model}`, proto);
+    console.log(data)
     if (!proto.schema) return
     // Clean up previous subscription if it exists
     if (!this.#model) { this.#model = proto.schema.__name__ }
@@ -113,6 +114,7 @@ export class NTTElement extends HTMLElement {
   }
   
   update(data) {
+    console.error(isEmpty(this.value), isEmpty(this.#data))
     if (!data) return
     this.value = data;
   }

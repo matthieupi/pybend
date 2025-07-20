@@ -21,9 +21,11 @@ export class Remote {
   httpCallback(event, response) {
     assert(this, event && event.target, `Event must have a target property.`);
     assert(this, registry.has(event.target), `No callback registered for target: ${event.target}`);
+    console.log(`HTTP Callback for event:`, event.name, `with response:`, response, `on target:`, event.target)
+    console.log(event.meta)
     // Updater the event with the response data
-    if (event.data['inbox'])
-      event.name = event.data['inbox']; // Use inbox as the event name if provided
+    if (event.meta['inbox'])
+      event.name = event.meta['inbox']; // Use inbox as the event name if provided
     let source = event.source, target = event.target
     event.source = target;
     event.target = source
@@ -123,6 +125,8 @@ export class Remote {
     let callback = this.httpCallback.bind(this, event);
     let onError = this.onError.bind(this, event);
     
+    if (data) console.warn(`Sending data with event:`, name, `to target:`, target, `with data:`, data);
+    
     if (this.mode === 'http') {
       if (name.toUpperCase() === config.E.load) HTTP.get(target, callback, onError);
       else if (name.toUpperCase() === 'READ') HTTP.get(target, callback, onError);
@@ -131,7 +135,10 @@ export class Remote {
       else if (name.toUpperCase() === 'UPDATE') HTTP.put(target, data, callback, onError);
       else if (name.toUpperCase() === 'DELETE') HTTP.remove(target, data, callback, onError);
       else if (name.toUpperCase() === 'TEST') HTTP.get(target, data, callback, onError);
-      else throw new Error(`Unsupported event name: ${name}. Supported names are: LOAD, READ, SCHEMA, CREATE, UPDATE, DELETE.`)
+      else {
+        HTTP.post(`${target}/${name.toLowerCase()}`, data, callback, onError);
+      }
+      //else throw new Error(`Unsupported event name: ${name}. Supported names are: LOAD, READ, SCHEMA, CREATE, UPDATE, DELETE.`)
     }
     
     if (this.mode === 'ws' && this.socket) {

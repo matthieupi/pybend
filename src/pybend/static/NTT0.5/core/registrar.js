@@ -1,4 +1,5 @@
 import assert from "../utils/Assert.js";
+import { caution } from "../utils/Assert.js";
 import { config } from '../config.js';
 
 export const registry = new Map();
@@ -12,11 +13,22 @@ export const connectors = new Map();
  */
 export function registrar(key, callback) {
     assert(this, key, 'Name must be defined');
-    assert(this, callback, 'Remote must be defined');
-    if (registry.has(key)) {
-        console.warn(`Overwriting existing registry entry for ${key}`);
+    caution(this, callback, `Callback undefined, will unregister ${key}`);
+    caution(this, registry.has(key), `Overwriting existing registry entry for ${key}`)
+    if (!callback){
+        if (registry.has(key)) { registry.delete(key); }
+        else { console.warn(`No entry found for ${key} to unregister.`); }
+    } else {
+        registry.set(key, callback);
     }
-    registry.set(key, callback);
+    // Return unregister function to remove the entry
+    return () => {
+        if (registry.has(key)) {
+            registry.delete(key);
+        } else {
+            console.warn(`No entry found for ${key} to unregister.`);
+        }
+    };
 }
 
 /**

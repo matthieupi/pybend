@@ -12,7 +12,7 @@ export class List extends NTTElement {
   
   definedCallback() {
     this.subscribe(this.proto, 'UPDATE', this.update.bind(this));
-    this.proto.call('READ', {inbox: 'UPDATE'});
+    this.proto.call('READ', {}, {inbox: 'UPDATE'});
   }
   
   append(data) {
@@ -23,6 +23,21 @@ export class List extends NTTElement {
       console.warn('Data must be an array');
     }
   }
+  
+  update(data) {
+    console.error(`Updating List with data: ${data}`);
+    console.log(data)
+    if (Array.isArray(data)) {
+      const valueArray = data.map(item => (this.proto.new(item)))
+      console.log(`Updated List value: ${this.value}`);
+      console.log(valueArray);
+      this.value = valueArray;
+    } else {
+      console.warn('Data must be an array');
+    }
+    this.render();
+  }
+  
   
   render() {
     if (!this.schema || !Array.isArray(this.value)) return;
@@ -40,7 +55,7 @@ export class List extends NTTElement {
     this.value.forEach(item => {
       const el = document.createElement('ntt-item');
       el.model = this.model;
-      console.log(`Describing item with model: ${this.model}`, item);
+      console.log(`Describing item with model: ${this.model}`, typeof item, item.addr, item);
       el.describe(this.proto, item);
       this.shadowRoot.appendChild(el);
     });
