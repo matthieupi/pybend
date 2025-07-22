@@ -23,7 +23,7 @@ class ProtoModel(PydanticBaseModel):
         # Checks if the class has a 'storable' attribute, defaulting to False
         __storable__ = getattr(cls, '__storable__', False)
         # If 'storable' is True, injects StorableMixin into the class
-        if __storable__ and StorableMixin not in cls.__bases__:
+        if __storable__ and not issubclass(cls, StorableMixin):
             cls.__bases__ = (StorableMixin,) + cls.__bases__
         super().__init_subclass__(**kwargs)
 
@@ -143,21 +143,3 @@ class ProtoModel(PydanticBaseModel):
             blueprint[model_name] = model_cls.schema()
         return blueprint
     
-    
-def generate_join_model(owner_cls, ref_model, field_name):
-    owner_name = owner_cls.__name__.lower()
-    ref_table = f"{owner_name}_{ref_model.__tablename__}"
-    fk_field = f"{owner_name}_id"
-
-    class_name = f"{owner_cls.__name__}{ref_model.__name__}"
-
-    return type(
-        class_name,
-        (ref_model,),
-        {
-            "__tablename__": ref_table,
-            "__storable__": True,
-            "__parent__": owner_cls,
-            fk_field: (int, Field(..., alias=fk_field, description=f"FK to {owner_cls.__name__}", exclude=True)),
-        }
-    )

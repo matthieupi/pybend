@@ -19,10 +19,13 @@ def register_route(path, fn, method='GET'):
 
 
 # --- Route factories ---
-def make_create_instance(model_class, model_name):
-    async def create_instance(data: model_class) -> model_class:
+def make_create_instance(model_class):
+    async def create_instance(data: model_class, parent_id: int = None) -> model_class:
         try:
             instance = model_class(**data.dict())
+            if parent_id:
+                fk_field = f"{model_class.__parent__.__name__.lower()}_id"
+                setattr(instance, fk_field, parent_id)
             return model_class.create(instance)
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -30,8 +33,13 @@ def make_create_instance(model_class, model_name):
 
 
 def make_get_all_instances(model_class):
-    async def list_all_instances() -> List[model_class]:
-        return model_class.list()
+    async def list_all_instances(parent_id: int = None) -> List[model_class]:
+        results = model_class.list()
+        # TODO - Base MVP implementation with atrocious performance, to be improved
+        if parent_id:
+            fk_field = f"{model_class.__parent__.__name__.lower()}_id"
+            return [r for r in results if getattr(r, fk_field) == parent_id]
+        return results
     return list_all_instances
 
 
@@ -78,14 +86,14 @@ def register_routes():
         if not hasattr(model_class, '__parent__') or model_class.__parent__ is None:
             endpoint_base = f"/{model_name}"
         else:
-            endpoint_base = f"/{model_class.__parent__.__tablename__}/{{parent_id}}/{model_name}"
+            endpoint_base = f"/{model_class.__parent__.__tablename__}/{{parent_id}}/{model_class.__tagname__}"
         model_title = model_name.capitalize()
         is_storable = issubclass(model_class, StorableMixin)
 
         router.get(f"/{model_class.__name__}", tags=[model_title])(make_get_schema(model_class))
 
         if is_storable:
-            router.post(endpoint_base, tags=[model_title], status_code=201)(make_create_instance(model_class, model_name))
+            router.post(endpoint_base, tags=[model_title], status_code=201)(make_create_instance(model_class))
             router.get(endpoint_base, tags=[model_title])(make_get_all_instances(model_class))
             # router.get(f"{endpoint_base}/schema", tags=[model_title])(make_get_schema(model_class))
             router.get(f"{endpoint_base}/{{id}}", tags=[model_title])(make_get_instance(model_class))

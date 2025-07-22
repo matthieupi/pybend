@@ -9,6 +9,7 @@ from models.product_model import Product
 from api.backend import FastAPIBackend, FlaskBackend
 from models.user_model import User
 from storage.sqlite_storage import SQLiteStorage
+from utils.modeling import generate_join_model
 from utils.registrar import register_model, registered_models
 
 
@@ -17,6 +18,7 @@ storage_backend = SQLiteStorage(config.SQLITE_DB_FILE)
 register_model(Comment, storage=storage_backend)
 register_model(Product, storage=storage_backend)
 register_model(User, storage=storage_backend)
+register_model(generate_join_model(Product, Comment), storage=storage_backend)
 
 if config.BACKEND == "flask":
     backend = FlaskBackend(
