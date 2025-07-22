@@ -19,7 +19,7 @@ class Product(ProtoModel):
     name: str
     price: float
     description: str = ''
-    #comments: List[Comment] = Field(default=[], alias='comments', description="List of comments associated with the product")
+    comments: Optional[List[Comment]] = Field(default=[], alias='comments', description="List of comments associated with the product")
     id: Optional[int] = Field(default=None, alias='id')
 
     """

@@ -2,7 +2,7 @@
 import inspect
 import json
 
-from pydantic import BaseModel as PydanticBaseModel, GetJsonSchemaHandler, BaseModel
+from pydantic import BaseModel as PydanticBaseModel, GetJsonSchemaHandler, BaseModel, Field
 from typing import Any, Dict, Type, get_type_hints, get_origin, get_args, Union
 
 from pydantic.json_schema import JsonSchemaValue
@@ -142,3 +142,22 @@ class ProtoModel(PydanticBaseModel):
         for model_name, model_cls in registered_models.items():
             blueprint[model_name] = model_cls.schema()
         return blueprint
+    
+    
+def generate_join_model(owner_cls, ref_model, field_name):
+    owner_name = owner_cls.__name__.lower()
+    ref_table = f"{owner_name}_{ref_model.__tablename__}"
+    fk_field = f"{owner_name}_id"
+
+    class_name = f"{owner_cls.__name__}{ref_model.__name__}"
+
+    return type(
+        class_name,
+        (ref_model,),
+        {
+            "__tablename__": ref_table,
+            "__storable__": True,
+            "__parent__": owner_cls,
+            fk_field: (int, Field(..., alias=fk_field, description=f"FK to {owner_cls.__name__}", exclude=True)),
+        }
+    )

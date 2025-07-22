@@ -7,7 +7,7 @@ from models.storable_mixin import StorableMixin
 
 registered_models: Dict[str, Type[Any]] = {}
 
-def register_model(model_class: Type[Any], storage: StorageInterface = None):
+def register_model(model_class: Type[Any], storage: StorageInterface = None ):
     if hasattr(model_class, '__storable__') and model_class.__storable__:
         if storage is None:
             raise ValueError(f"Storage backend must be provided for model '{model_class.__name__}'")

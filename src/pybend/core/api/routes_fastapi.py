@@ -74,7 +74,11 @@ def make_delete_instance(model_class):
 
 def register_routes():
     for model_name, model_class in registered_models.items():
-        endpoint_base = f"/{model_name}"
+        # Check if has parent
+        if not hasattr(model_class, '__parent__') or model_class.__parent__ is None:
+            endpoint_base = f"/{model_name}"
+        else:
+            endpoint_base = f"/{model_class.__parent__.__tablename__}/{{parent_id}}/{model_name}"
         model_title = model_name.capitalize()
         is_storable = issubclass(model_class, StorableMixin)
 
