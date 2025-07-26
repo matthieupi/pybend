@@ -36,9 +36,10 @@ class Product(ProtoModel):
         Add a comment to the product.
         """
         print(f"Adding comment to product {self.id}: {comment}")
-        new_comment = Comment(name=comment, description=f"Comment for product {self.id}")
-        self.comments.append(new_comment)
-        return comment
+        print(type(comment))
+        comment.__parent__ = self
+        comment.save()
+        return comment.model_dump_json()
 
 
 Product.update_forward_refs()

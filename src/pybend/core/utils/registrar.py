@@ -1,13 +1,20 @@
 # app/utils/registrar.py
 
 from typing import Dict, Type, Any
-from pydantic import BaseModel
 from storage.abstract_storage import AbstractStorage as StorageInterface
-from models.storable_mixin import StorableMixin
 
 registered_models: Dict[str, Type[Any]] = {}
 
+join_models: Dict[tuple[str, str], Type[Any]] = {}
+
+
 def register_model(model_class: Type[Any], storage: StorageInterface = None ):
+
+    if hasattr(model_class, '__parent__'):
+        parent = model_class.__parent__
+        base = model_class.__bases__[-1]  # Assuming join model inherits from base
+        join_models[(parent.__name__, base.__name__)] = model_class
+
     if hasattr(model_class, '__storable__') and model_class.__storable__:
         if storage is None:
             raise ValueError(f"Storage backend must be provided for model '{model_class.__name__}'")

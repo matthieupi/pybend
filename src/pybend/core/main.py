@@ -1,7 +1,6 @@
 # app/main.py
 
-from fastapi import FastAPI
-
+import os
 import config
 from api.routes_fastapi import register_route
 from models.comment_model import Comment
@@ -9,9 +8,9 @@ from models.product_model import Product
 from api.backend import FastAPIBackend, FlaskBackend
 from models.user_model import User
 from storage.sqlite_storage import SQLiteStorage
+from utils.generate_docs import generate_docs
 from utils.modeling import generate_join_model
 from utils.registrar import register_model, registered_models
-
 
 # Set up storage and register models
 storage_backend = SQLiteStorage(config.SQLITE_DB_FILE)
@@ -19,6 +18,9 @@ register_model(Comment, storage=storage_backend)
 register_model(Product, storage=storage_backend)
 register_model(User, storage=storage_backend)
 register_model(generate_join_model(Product, Comment), storage=storage_backend)
+
+if os.getenv("GENERATE_DOCS", "true").lower() in ("1", "true"):
+    generate_docs()
 
 if config.BACKEND == "flask":
     backend = FlaskBackend(

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException, status, Body
+from fastapi import APIRouter, Request, HTTPException, status, Body, Path
 from typing import Dict, Type, Any, List
 from models.storable_mixin import StorableMixin
 from utils.registrar import registered_models
@@ -31,15 +31,29 @@ def make_create_instance(model_class):
             raise HTTPException(status_code=400, detail=str(e))
     return create_instance
 
+from utils.registrar import join_models
 
 def make_get_all_instances(model_class):
     async def list_all_instances(parent_id: int = None) -> List[model_class]:
-        results = model_class.list()
-        # TODO - Base MVP implementation with atrocious performance, to be improved
+        target_cls = model_class
+
         if parent_id:
-            fk_field = f"{model_class.__parent__.__name__.lower()}_id"
-            return [r for r in results if getattr(r, fk_field) == parent_id]
+            # Resolve join model based on registration
+            for (parent_name, child_name), join_cls in join_models.items():
+                if child_name == model_class.__name__:
+                    target_cls = join_cls
+                    break
+
+        results = target_cls.list()
+        print(f"[LIST] Fetching all instances of {target_cls.__name__} (parent_id={parent_id})")
+        print(results)
+
+        if parent_id:
+            fk_field = f"{target_cls.__parent__.__name__.lower()}_id"
+            return [r for r in results if getattr(r, fk_field, None) == parent_id]
+
         return results
+
     return list_all_instances
 
 
@@ -79,26 +93,97 @@ def make_delete_instance(model_class):
         return {"message": "Deleted successfully"}
     return delete_instance
 
+from fastapi import Body, Path
+from inspect import signature
+from pydantic import BaseModel
+from typing import get_type_hints
+
+def make_custom_post(attr, model_class, route_path):
+    sig = signature(attr)
+    type_hints = get_type_hints(attr)
+
+    is_instance_method = 'self' in sig.parameters
+    is_class_method = 'cls' in sig.parameters
+    is_static_method = isinstance(attr, staticmethod)
+
+    async def post_with_id(
+        id: int = Path(..., description=f"{model_class.__name__} ID"),
+        data: Dict[str, Any] = Body(...),
+    ):
+        instance = model_class.get(id)
+        if not instance:
+            raise HTTPException(status_code=404, detail="Not found")
+
+        parsed_args = {}
+        for name, param in sig.parameters.items():
+            if name in ('self', 'cls'):
+                continue
+            param_type = type_hints.get(name, str)
+            raw = data.get(name)
+            if raw is None:
+                raise HTTPException(status_code=400, detail=f"Missing field: {name}")
+            try:
+                if isinstance(param_type, type) and issubclass(param_type, BaseModel):
+                    parsed_args[name] = param_type(**raw) if isinstance(raw, dict) else param_type.parse_obj(raw)
+                else:
+                    parsed_args[name] = param_type(raw)
+            except Exception as e:
+                raise HTTPException(status_code=422, detail=f"Invalid field '{name}': {e}")
+
+        return attr(instance, **parsed_args)
+
+    async def post_no_id(
+        data: Dict[str, Any] = Body(...),
+    ):
+        parsed_args = {}
+        for name, param in sig.parameters.items():
+            if name in ('self', 'cls'):
+                continue
+            param_type = type_hints.get(name, str)
+            raw = data.get(name)
+            if raw is None:
+                raise HTTPException(status_code=400, detail=f"Missing field: {name}")
+            try:
+                if isinstance(param_type, type) and issubclass(param_type, BaseModel):
+                    parsed_args[name] = param_type(**raw) if isinstance(raw, dict) else param_type.parse_obj(raw)
+                else:
+                    parsed_args[name] = param_type(raw)
+            except Exception as e:
+                raise HTTPException(status_code=422, detail=f"Invalid field '{name}': {e}")
+
+        if is_class_method:
+            return attr(model_class, **parsed_args)
+        else:
+            return attr(**parsed_args)
+
+    return post_with_id if is_instance_method else post_no_id
+
 
 def register_routes():
     for model_name, model_class in registered_models.items():
-        # Check if has parent
-        if not hasattr(model_class, '__parent__') or model_class.__parent__ is None:
-            endpoint_base = f"/{model_name}"
-        else:
-            endpoint_base = f"/{model_class.__parent__.__tablename__}/{{parent_id}}/{model_class.__tagname__}"
+        # Extract model metadata
+        print(f"[ROUTES] Registering routes for model: {model_name} ({model_class.__name__})")
         model_title = model_name.capitalize()
         is_storable = issubclass(model_class, StorableMixin)
+        parent_class = getattr(model_class, '__parent__', None)
+        # Check if has parent
+        if not parent_class:
+            tag = model_class.__tablename__.capitalize()
+            endpoint_base = f"/{model_name}"
+        else:
+            tag = model_class.__parent__.__tablename__.capitalize()
+            parent_name = parent_class.__name__.lower()
+            endpoint_base = f"/{parent_class.__tablename__}/{{parent_id}}/{model_class.__tagname__}"
 
-        router.get(f"/{model_class.__name__}", tags=[model_title])(make_get_schema(model_class))
-
+        # Register basic GET route for schema
+        router.get(f"/{model_class.__name__}", tags=[tag])(make_get_schema(model_class))
+        # Register basic CRUD routes
         if is_storable:
-            router.post(endpoint_base, tags=[model_title], status_code=201)(make_create_instance(model_class))
-            router.get(endpoint_base, tags=[model_title])(make_get_all_instances(model_class))
-            # router.get(f"{endpoint_base}/schema", tags=[model_title])(make_get_schema(model_class))
-            router.get(f"{endpoint_base}/{{id}}", tags=[model_title])(make_get_instance(model_class))
-            router.put(f"{endpoint_base}/{{id}}", tags=[model_title])(make_update_instance(model_class))
-            router.delete(f"{endpoint_base}/{{id}}", tags=[model_title])(make_delete_instance(model_class))
+            router.post(endpoint_base, tags=[tag], status_code=201)(make_create_instance(model_class))
+            router.get(endpoint_base, tags=[tag])(make_get_all_instances(model_class))
+            router.get(f"{endpoint_base}/{{id}}", tags=[tag])(make_get_instance(model_class))
+            router.put(f"{endpoint_base}/{{id}}", tags=[tag])(make_update_instance(model_class))
+            router.delete(f"{endpoint_base}/{{id}}", tags=[tag])(make_delete_instance(model_class))
 
         # Custom @expose_route handlers
         for attr_name in dir(model_class):
@@ -127,20 +212,43 @@ def register_routes():
                     if args and args[0] == model_class.__name__:
                         return_type = List[model_class]
 
-                if 'GET' in methods:
-                    async def custom_get(attr=attr) -> return_type:
-                        print(f"[GET] Custom GET handler for {attr.__name__} at {full_route}")
-                        return attr()
-                    router.add_api_route(full_route, custom_get, methods=['GET'], tags=[model_title], name=attr.__name__)
+                custom_method = None
+                if isinstance(attr, (classmethod, staticmethod)):
+                    if 'GET' in methods:
+                        async def custom_get(attr=attr) -> return_type:
+                            print(f"[GET] Custom GET handler for {attr.__name__} at {full_route}")
+                            return attr()
+                        router.add_api_route(full_route, custom_get, methods=['GET'], tags=[model_title], name=attr.__name__)
+                        custom_method = custom_get
+                    elif 'POST' in methods:
+                        async def custom_post(data: Dict[str, Any] = Body(...), attr=attr) -> return_type:
+                            print(f"[POST] Custom POST handler for {attr.__name__} at {full_route} with data: {data}")
+                            return attr(**data)
+                        custom_method = custom_post
+                else:
+                    if 'GET' in methods:
+                        async def custom_get(id: int = Path(..., description=f"{model_name.capitalize()} primary key"), attr=attr) -> return_type:
+                            print(f"[GET] Custom GET handler for {attr.__name__} ID={id} at {full_route}")
+                            instance = parent_class.get(id)
+                            return attr(instance)
+                        custom_method = custom_get
 
-                if 'POST' in methods:
-                    async def custom_post(data: Dict[str, Any] = Body(...), attr=attr) -> return_type:
-                        print(f"[POST] Custom POST handler for {attr.__name__} at {full_route} with data: {data}")
-                        return attr(data)
-                    router.add_api_route(full_route, custom_post,
-                                         methods=['POST'], tags=[model_title], name=attr.__name__,
-                                         response_model=return_type if return_type else None,
-                                         )
+                    elif 'POST' in methods:
+                        async def custom_post(
+                                id: int = Path(..., description=f"{model_name.capitalize()} primary key"),
+                                data: Dict[str, Any] = Body(...),
+                                attr=attr
+                        ) -> return_type:
+                            print(f"[POST] Custom POST handler for {attr.__name__} ID={id} at {full_route} with data: {data}")
+                            instance = parent_class.get(id)
+                            return attr(instance, **data)
+                        custom_method = custom_post
+
+                handler = make_custom_post(attr, model_class, full_route)
+                router.add_api_route(full_route, handler,
+                                     methods=methods, tags=[model_title], name=attr.__name__,
+                                     response_model=return_type if return_type else None,
+                                     )
 
 
 # Expose router to be used in FastAPI app

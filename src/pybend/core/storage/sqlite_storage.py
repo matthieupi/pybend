@@ -22,8 +22,9 @@ class SQLiteStorage(AbstractStorage):
         # Example:
         table_name = model_class.__tablename__
         columns = []
-        for field_name, field_type in model_class.__annotations__.items():
-            if field_name == 'id':
+        for field_name, field_info in model_class.model_fields.items():
+            field_type = field_info.annotation
+            if field_name == 'id' or field_name.startswith('_') or field_name.startswith('__'):
                 continue  # 'id' is added separately
 
             # Handle typing annotations like Optional[int]
@@ -74,7 +75,8 @@ class SQLiteStorage(AbstractStorage):
         except sqlite3.OperationalError:
             existing_columns = set()
 
-        for field_name, field_type in model_class.__annotations__.items():
+        for field_name, field_info in model_class.model_fields.items():
+            field_type = field_info.annotation
             if field_name == 'id' or field_name in existing_columns:
                 continue
 
@@ -103,8 +105,18 @@ class SQLiteStorage(AbstractStorage):
                 alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} {sql_type} DEFAULT {repr(default_value)}"
                 cursor.execute(alter_sql)
                 print(f"[MIGRATE] Added column '{field_name}' to '{table_name}' as {sql_type}")
+
             except sqlite3.OperationalError as e:
                 print(f"[MIGRATE] Failed to add column {field_name} to {table_name}: {e}")
+
+        # Remove the column from the table that are in existing_columns and not present anymore
+        for col in existing_columns:
+            if col not in model_class.model_fields or col.startswith('_') or col.startswith('__'):
+                try:
+                    cursor.execute(f"ALTER TABLE {table_name} DROP COLUMN {col}")
+                    print(f"[MIGRATE] Removed column '{col}' from '{table_name}'")
+                except sqlite3.OperationalError as e:
+                    print(f"[MIGRATE] Failed to remove column {col} from {table_name}: {e}")
 
         conn.commit()
         conn.close()

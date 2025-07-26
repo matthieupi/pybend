@@ -16,14 +16,40 @@
     const schema = ntt.schema;
     const fields = schema.properties || {};
     const model = ntt.name
-    return Object.keys(fields).map(key => {
+    // We want to put the name and desc first, and use h2 for name and h4 for desc
+    let $header = getHeader(ntt, mode);
+    let $fields = Object.keys(fields).map(key => {
+      if (['name', 'id', 'description'].includes(key)) return '';
       const def = fields[key];
       const value = ntt.value?.[key] ?? '';
       return getInput(model, mode, def, key, value);
     }).join('');
+      return $header.concat($fields).join('');
   }
  
   
+  function getHeader(ntt, mode) {
+    const schema = ntt.schema || {};
+    const name = ntt.title || ntt.name || schema.name || 'Unnamed';
+    const desc = ntt.description || '';
+    
+    let headerHtml = [];
+    
+    if (mode === 'edit') {
+      headerHtml.push(`<input style="font-size: 1.5rem" type="text" id="name" data-key="name" data-type="string" value="${name}">`);
+      if (desc)
+        headerHtml.push(`<textarea id="description" data-key="description" data-type="text">${desc}</textarea>`);
+        
+    } else {
+        headerHtml.push(`<h2 class="${ntt.schema.name}">${name}</h2>`);
+        if (desc) {
+            headerHtml.push(`<h4>${desc}</h4>`);
+        }
+    }
+    
+    return headerHtml;
+    
+  }
   
 function getInput(model, mode, def, key, value) {
   const label = def.title || key;

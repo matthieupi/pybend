@@ -19,10 +19,11 @@ class Comment(ProtoModel):
     description: str = ''
     id: Optional[int] = Field(default=None, alias='comment_id')
 
+    """
     @staticmethod
     @expose_route('/list', methods=['GET'])
     def list() -> str:
-        """
+        ""
         List all products.
         ---
         tags:
@@ -30,7 +31,7 @@ class Comment(ProtoModel):
         responses:
           200:
             description: A list of products bis
-        """
+        ""
         # Example static data
         print("Hello from Product.list()")
         comments = [
@@ -38,4 +39,5 @@ class Comment(ProtoModel):
             Comment(id=2, name='Product B', description='Description B'),
         ]
         return comments
+    """
 
