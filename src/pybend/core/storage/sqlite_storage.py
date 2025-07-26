@@ -155,7 +155,7 @@ class SQLiteStorage(AbstractStorage):
         conn.close()
         return [model_class(**dict(zip(columns, row))) for row in rows]
 
-    def get(self, model_class: Type[Any], id: int) -> Any:
+    def get(self, model_class: Type[Any], id: int, as_dict: bool = False) -> Any:
         # Implementation similar to previous get_by_id method
         # ...
 
@@ -171,6 +171,8 @@ class SQLiteStorage(AbstractStorage):
             record = dict(zip(columns, row))
             object = {key: value for key, value in record.items() if key in model_class.model_fields}
             print(object)
+            if as_dict:
+                return object
             return model_class(**object)
         else:
             return None

@@ -22,7 +22,7 @@ class AbstractStorage(ABC):
         pass
 
     @abstractmethod
-    def get(self, model_class: Type[Any], id_: int = None, **kwargs) -> Any:
+    def get(self, model_class: Type[Any], id_: int = None, as_dict: bool = False, **kwargs) -> Any:
         pass
 
     @abstractmethod

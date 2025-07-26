@@ -67,11 +67,11 @@ class StorableMixin:
         return cls.storage.list(cls)
 
     @classmethod
-    def get(cls, id: int) -> Any:
+    def get(cls, id: int, as_dict: bool = False) -> Any:
         """
         Retrieves a record by ID using the storage backend.
         """
-        return cls.storage.get(cls, id)
+        return cls.storage.get(cls, id, as_dict=as_dict)
 
     @classmethod
     def update(cls, id: int, data: Any):

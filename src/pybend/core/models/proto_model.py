@@ -35,13 +35,13 @@ class ProtoModel(PydanticBaseModel):
         if getattr(self, '__storable__', False):
             # If the model is storable, it can be created by simply passing an id and it will be retrieved from the
             # storage
-            if 'id' in kwargs:
+            if 'id' in kwargs and len(kwargs) == 1:
                 # If 'id' is provided, ensure it's an integer
                 kwargs['id'] = int(kwargs['id'])
                 # Then retrieve this
                 # instance from the storage
                 from utils.registrar import registered_models
-                self.__class__.get(kwargs['id'])  # This will call the get method of StorableMixin
+                self.__class__.get(kwargs['id'], as_dict=True)  # This will call the get method of StorableMixin
         super().__init__(*args, **kwargs)
         # Set __owner__ if it exists in kwargs
         self.__owner__ = kwargs.get('__owner__', None)
