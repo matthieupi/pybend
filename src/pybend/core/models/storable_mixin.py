@@ -44,7 +44,7 @@ class StorableMixin:
 
     @classmethod
     def create(cls, data: Any) -> Any:
-        parent = getattr(data, '__parent__', None)
+        parent = getattr(data, '__owner__', None)
 
         if parent:
             key = (parent.__class__.__name__, cls.__name__)

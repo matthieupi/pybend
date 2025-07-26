@@ -19,7 +19,8 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
         "__tablename__": tablename,
         "__tagname__": ref_model.__tablename__,
         "__storable__": True,
-        "__parent__": owner_cls,
+        "__owner__": owner_cls,
+        "__parent__": ref_model,
         "__module__": ref_model.__module__,
         "__annotations__": annotations,
         fk_field: Field(..., alias=fk_field, description=f"FK to {owner_name}")

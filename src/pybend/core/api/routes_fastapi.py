@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException, status, Body, Path
 from typing import Dict, Type, Any, List
 from models.storable_mixin import StorableMixin
-from utils.registrar import registered_models
+from utils.registrar import registered_models, join_models
 
 router = APIRouter()
 
@@ -20,18 +20,25 @@ def register_route(path, fn, method='GET'):
 
 # --- Route factories ---
 def make_create_instance(model_class):
-    async def create_instance(data: model_class, parent_id: int = None) -> model_class:
+    param_class = model_class.__parent__ if hasattr(model_class, '__parent__') else model_class
+
+    async def create_instance(data: param_class, parent_id: int = None) -> model_class:
+        print(f"[CREATE] Attempting to create {model_class.__name__} with data: {data}, parent_id: {parent_id}", flush=True)
         try:
-            instance = model_class(**data.dict())
             if parent_id:
-                fk_field = f"{model_class.__parent__.__name__.lower()}_id"
-                setattr(instance, fk_field, parent_id)
+                fk_field = f"{model_class.__owner__.__name__.lower()}_id"
+                data_dict = data.dict()
+                data_dict[fk_field] = parent_id
+                instance = model_class(**data_dict)
+            else:
+                instance = model_class(**data.dict())
+
             return model_class.create(instance)
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
+
     return create_instance
 
-from utils.registrar import join_models
 
 def make_get_all_instances(model_class):
     async def list_all_instances(parent_id: int = None) -> List[model_class]:
@@ -49,7 +56,7 @@ def make_get_all_instances(model_class):
         print(results)
 
         if parent_id:
-            fk_field = f"{target_cls.__parent__.__name__.lower()}_id"
+            fk_field = f"{target_cls.__owner__.__name__.lower()}_id"
             return [r for r in results if getattr(r, fk_field, None) == parent_id]
 
         return results
@@ -165,13 +172,13 @@ def register_routes():
         print(f"[ROUTES] Registering routes for model: {model_name} ({model_class.__name__})")
         model_title = model_name.capitalize()
         is_storable = issubclass(model_class, StorableMixin)
-        parent_class = getattr(model_class, '__parent__', None)
+        parent_class = getattr(model_class, '__owner__', None)
         # Check if has parent
         if not parent_class:
             tag = model_class.__tablename__.capitalize()
             endpoint_base = f"/{model_name}"
         else:
-            tag = model_class.__parent__.__tablename__.capitalize()
+            tag = model_class.__owner__.__tablename__.capitalize()
             parent_name = parent_class.__name__.lower()
             endpoint_base = f"/{parent_class.__tablename__}/{{parent_id}}/{model_class.__tagname__}"
 

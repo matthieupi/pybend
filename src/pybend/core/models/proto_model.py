@@ -127,6 +127,8 @@ class ProtoModel(PydanticBaseModel):
         schema['__url__'] = f"{config.HOST}:{config.PORT}/{cls.__name__}"
         schema['__type__'] = 'schema'
         schema['__name__'] = cls.__name__
+        schema['__owner__'] = cls.__owner__.__name__ if hasattr(cls, '__owner__') else None
+        schema['__parent__'] = cls.__parent__.__name__ if hasattr(cls, '__parent__') else None
         schema['__tablename__'] = cls.__tablename__ if hasattr(cls, '__tablename__') else ""
         # Reset referenced models for the next call
         return schema

@@ -10,8 +10,8 @@ join_models: Dict[tuple[str, str], Type[Any]] = {}
 
 def register_model(model_class: Type[Any], storage: StorageInterface = None ):
 
-    if hasattr(model_class, '__parent__'):
-        parent = model_class.__parent__
+    if hasattr(model_class, '__owner__'):
+        parent = model_class.__owner__
         base = model_class.__bases__[-1]  # Assuming join model inherits from base
         join_models[(parent.__name__, base.__name__)] = model_class
 
