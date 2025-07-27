@@ -9,7 +9,7 @@ from api.backend import FastAPIBackend, FlaskBackend
 from models.user_model import User
 from storage.sqlite_storage import SQLiteStorage
 from utils.generate_docs import generate_docs
-from utils.modeling import generate_join_model
+from models.proto_model import generate_join_model
 from utils.registrar import register_model, registered_models
 
 # Set up storage and register models

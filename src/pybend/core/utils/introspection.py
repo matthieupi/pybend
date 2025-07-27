@@ -5,11 +5,20 @@ from typing import Dict, Any, Callable, get_type_hints, get_args, get_origin, Un
 from pydantic import BaseModel, create_model
 from pydantic.json_schema import model_json_schema
 
+from utils.typer import ForeignKey
+
 
 def pydantic_schema_for_type(t) -> Dict[str, Any]:
     """
     Extracts a Pydantic-style JSON schema or $ref for a given type.
     """
+    if hasattr(t, '__origin__'):
+        print(f"[ORIGIN] Processing type: {t}, origin: {get_origin(t)}", flush=True)
+    if hasattr(t, '__origin__') and t.__origin__ is ForeignKey:
+        target_type = get_args(t)[0]
+        return {"type": "$ref", "$ref": f"#/$defs/{target_type.__name__}"}
+
+
     if isinstance(t, type) and issubclass(t, BaseModel):
         return {"type": "$ref", "$ref": f"#/$defs/{t.__name__}"}
     elif t == str:

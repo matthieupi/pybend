@@ -1,6 +1,9 @@
 # app/models/storable_mixin.py
 
-from typing import ClassVar, Any, List
+from typing import ClassVar, Any, List, Union
+
+from pydantic import BaseModel
+
 from storage.abstract_storage import AbstractStorage as StorageInterface
 from utils.registrar import join_models
 
@@ -82,13 +85,17 @@ class StorableMixin:
         return cls.storage.get(cls, id, as_dict=as_dict)
 
     @classmethod
-    def update(cls, id: int, data: Any):
+    def update(cls, id: int, data: Union[BaseModel, dict]):
         """
         Updates a record using the storage backend.
         """
         print(f'Updating {cls.__name__} ID={id} with data: {data}')
-        print(data.model_dump(exclude_unset=True))
-        data_dict = data.model_dump(exclude_unset=True)
+        if isinstance(data, BaseModel):
+            data_dict = data.model_dump(exclude_unset=True)
+        elif isinstance(data, dict):
+            data_dict = data
+        else:
+            raise ValueError(f"[UPDATING {cls.__name__}-{id}] Invalid data type for update: {type(data)}")
         cls.storage.update(cls, id, data_dict)
         return cls.get(id)
 

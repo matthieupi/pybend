@@ -30,7 +30,7 @@ class ForeignKey(Generic[T]):
     """
 
     def __init__(self, value: Optional[Any] = None):
-        print()
+        print(f"[FOREIGNKEY] Initializing with value: {value}")
         if isinstance(value, BaseModel):
             self.id = getattr(value, 'id', None)
             self._model = value
@@ -63,6 +63,7 @@ class ForeignKey(Generic[T]):
 
     def to_python(self, *args, **kwargs):
         return self.id  # last-ditch serializer fallback
+
 
 
     @classmethod
