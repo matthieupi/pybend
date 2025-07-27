@@ -1,6 +1,9 @@
+import traceback
+
 from fastapi import APIRouter, Request, HTTPException, status, Body, Path
 from typing import Dict, Type, Any, List
 from models.storable_mixin import StorableMixin
+from utils.erroring import get_traceback_info
 from utils.registrar import registered_models, join_models
 
 router = APIRouter()
@@ -35,7 +38,8 @@ def make_create_instance(model_class):
 
             return model_class.create(instance)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=get_traceback_info(e) )
+            raise HTTPException(status_code=400, detail=f"'error':{str(e)}, 'stacktrace': {str(e.__traceback__)}")
 
     return create_instance
 

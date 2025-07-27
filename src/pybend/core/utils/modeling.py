@@ -27,3 +27,4 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
     }
 
     return type(class_name, (ref_model,), fields)
+

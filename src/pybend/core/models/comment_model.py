@@ -7,6 +7,7 @@ from models.viewable_mixin import ViewableMixin
 from .proto_model import ProtoModel
 from typing import ClassVar, List, Optional
 from utils.decorators import expose_route
+from .user_model import User
 
 
 class Comment(ProtoModel):
@@ -17,6 +18,7 @@ class Comment(ProtoModel):
     __storable__: ClassVar[bool] = True
     name: str
     description: str = ''
+    user_owner: User = Field(default=None, alias='user_owner', description="User who owns the comment")
     id: Optional[int] = Field(default=None, alias='comment_id')
 
     """

@@ -11,6 +11,7 @@ from pydantic_core import CoreSchema
 import config
 from utils.decorators import expose_route
 from utils.introspection import pydantic_schema_for_type, collect_all_referenced_models, record_model_type
+from utils.typer import ForeignKey
 from .storable_mixin import StorableMixin
 
 
@@ -23,8 +24,19 @@ class ProtoModel(PydanticBaseModel):
         # Checks if the class has a 'storable' attribute, defaulting to False
         __storable__ = getattr(cls, '__storable__', False)
         # If 'storable' is True, injects StorableMixin into the class
-        if __storable__ and not issubclass(cls, StorableMixin):
-            cls.__bases__ = (StorableMixin,) + cls.__bases__
+        if __storable__:
+            if not issubclass(cls, StorableMixin):
+                # Bases injection: add StorableMixin to the class bases
+                cls.__bases__ = (StorableMixin,) + cls.__bases__
+                # FK Injection: rewrite fields that are Pydantic models into ForeignKey
+                new_annotations = {}
+                for name, annotation in get_type_hints(cls, include_extras=True).items():
+                    if isinstance(annotation, type) and issubclass(annotation, BaseModel) and annotation != cls:
+                        new_annotations[name] = ForeignKey[annotation]
+                # Rewrite annotations dynamically
+                if new_annotations:
+                    cls.__annotations__ = dict(cls.__annotations__)  # make a copy
+                    cls.__annotations__.update(new_annotations)
         super().__init_subclass__(**kwargs)
 
 
@@ -32,6 +44,7 @@ class ProtoModel(PydanticBaseModel):
         """
         Initializes the model and sets the __owner__ attribute if provided.
         """
+        params = kwargs
         if getattr(self, '__storable__', False):
             # If the model is storable, it can be created by simply passing an id and it will be retrieved from the
             # storage
@@ -40,9 +53,10 @@ class ProtoModel(PydanticBaseModel):
                 kwargs['id'] = int(kwargs['id'])
                 # Then retrieve this
                 # instance from the storage
-                from utils.registrar import registered_models
-                self.__class__.get(kwargs['id'], as_dict=True)  # This will call the get method of StorableMixin
-        super().__init__(*args, **kwargs)
+                print(f"Retrieving {self.__class__.__name__} with id {kwargs['id']} from storage.", flush=True)
+                params = self.__class__.get(kwargs['id'], as_dict=True)  # This will call the get method of StorableMixin
+                print(params, flush=True)
+        super().__init__(*args, **params)
         # Set __owner__ if it exists in kwargs
         self.__owner__ = kwargs.get('__owner__', None)
 

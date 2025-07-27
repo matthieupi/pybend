@@ -52,10 +52,18 @@ class StorableMixin:
                 join_cls = join_models[key]
                 fk_field = f"{parent.__class__.__name__.lower()}_id"
                 join_data = {**data.model_dump(exclude_unset=True), fk_field: parent.id}
+                for k, v in join_data.items():
+                    if hasattr(v, '__class__') and v.__class__.__name__ == "ForeignKey":
+                        join_data[k] = int(v)  # unwrap FK to plain int
+
                 return join_cls.create(join_cls(**join_data))
 
         # Fallback to normal behavior
         data_dict = data.model_dump(exclude_unset=True)
+        for k, v in data_dict.items():
+            if hasattr(v, '__class__') and v.__class__.__name__ == "ForeignKey":
+                data_dict[k] = int(v)  # unwrap FK to plain int
+
         print(f'Creating {cls.__name__} with data: {data_dict}')
         return cls.storage.create(cls, data_dict)
 
