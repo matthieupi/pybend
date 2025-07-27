@@ -19,6 +19,11 @@ class ProtoModel(PydanticBaseModel):
     """
     Base model that optionally adds StorableMixin based on the 'storable' class attribute.
     """
+    class Config:
+        arbitrary_types_allowed = True  # allows ForeignKey through
+        json_encoders = {
+            ForeignKey: lambda fk: int(fk),
+        }
 
     def __init_subclass__(cls, **kwargs):
         # Checks if the class has a 'storable' attribute, defaulting to False

@@ -2,9 +2,25 @@ from typing import Generic, TypeVar, Optional, Any, get_args, get_origin
 from pydantic import BaseModel, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from pydantic.json_schema import JsonSchemaValue
+from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
+def flatten_foreign_keys(obj: BaseModel) -> dict:
+    """
+    Recursively flatten any ForeignKey[...] fields to plain ints for storage/validation purposes.
+    """
+    flat = obj.model_dump()
+    for field, value in flat.items():
+        if isinstance(value, ForeignKey):
+            flat[field] = int(value)
+        elif isinstance(value, BaseModel):
+            flat[field] = flatten_foreign_keys(value)
+        elif isinstance(value, list):
+            flat[field] = [
+                int(v) if isinstance(v, ForeignKey) else v for v in value
+            ]
+    return flat
 
 
 class ForeignKey(Generic[T]):
@@ -14,6 +30,7 @@ class ForeignKey(Generic[T]):
     """
 
     def __init__(self, value: Optional[Any] = None):
+        print()
         if isinstance(value, BaseModel):
             self.id = getattr(value, 'id', None)
             self._model = value
@@ -30,17 +47,36 @@ class ForeignKey(Generic[T]):
         return self.id
 
     def __repr__(self):
+        return str(self.id)
+
+    def __str__(self):
         return f"<ForeignKey id={self.id}>"
+
+    def __json__(self):
+        """
+        Custom JSON serialization to return just the id.
+        """
+        return self.id
 
     def model_dump(self):
         return self.id
 
+    def to_python(self, *args, **kwargs):
+        return self.id  # last-ditch serializer fallback
+
+
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
-        return core_schema.no_info_after_validator_function(
-            cls.validate,
-            core_schema.int_schema()
+        return core_schema.json_or_python_schema(
+            python_schema=core_schema.no_info_plain_validator_function(
+                lambda v: int(v) if isinstance(v, ForeignKey) else v
+            ),
+            json_schema=core_schema.int_schema(),
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda v: int(v)
+            )
         )
+
 
     @classmethod
     def validate(cls, v):

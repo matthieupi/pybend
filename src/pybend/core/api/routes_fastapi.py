@@ -5,6 +5,7 @@ from typing import Dict, Type, Any, List
 from models.storable_mixin import StorableMixin
 from utils.erroring import get_traceback_info
 from utils.registrar import registered_models, join_models
+from utils.typer import flatten_foreign_keys
 
 router = APIRouter()
 
@@ -28,18 +29,15 @@ def make_create_instance(model_class):
     async def create_instance(data: param_class, parent_id: int = None) -> model_class:
         print(f"[CREATE] Attempting to create {model_class.__name__} with data: {data}, parent_id: {parent_id}", flush=True)
         try:
+            data_dict = flatten_foreign_keys(data)
             if parent_id:
                 fk_field = f"{model_class.__owner__.__name__.lower()}_id"
-                data_dict = data.dict()
                 data_dict[fk_field] = parent_id
-                instance = model_class(**data_dict)
-            else:
-                instance = model_class(**data.dict())
 
+            instance = model_class(**data_dict)
             return model_class.create(instance)
         except Exception as e:
             raise HTTPException(status_code=400, detail=get_traceback_info(e) )
-            raise HTTPException(status_code=400, detail=f"'error':{str(e)}, 'stacktrace': {str(e.__traceback__)}")
 
     return create_instance
 
@@ -86,10 +84,15 @@ def make_get_instance(model_class):
 
 
 def make_update_instance(model_class):
-    async def update_instance(id: int, data: model_class) -> model_class:
+    param_class = model_class.__parent__ if hasattr(model_class, '__parent__') else model_class
+    async def update_instance(id: int, data: param_class, parent_id: int = None) -> model_class:
         try:
-            print(f"[UPDATE] Attempting to update {model_class.__name__} ID={id} with data: {data}")
-            updated = model_class.update(id, data)
+            data_dict = flatten_foreign_keys(data)
+            if parent_id:
+                fk_field = f"{model_class.__owner__.__name__.lower()}_id"
+                data_dict[fk_field] = parent_id
+            print(f"[UPDATE] Attempting to update {model_class.__name__} ID={id} with data: {data_dict}")
+            updated = model_class.update(id, data_dict)
             return updated
         except Exception as e:
             print(f"[ERROR] Failed to update {model_class.__name__} ID={id}: {e}")

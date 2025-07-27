@@ -173,6 +173,7 @@ class SQLiteStorage(AbstractStorage):
         conn.commit()
         data['id'] = cursor.lastrowid
         conn.close()
+        print("Record created with ID:", data['id'], flush=True)
         return model_class(**data)
 
     def list(self, model_class: Type[Any]) -> List[Any]:
