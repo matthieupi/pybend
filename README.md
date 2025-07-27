@@ -1,5 +1,3 @@
----
-
 # **PyBend Documentation**
 
 ## **Table of Contents**
@@ -11,31 +9,37 @@
 5. [Running the Application](#running-the-application)
 6. [Switching API Backends](#switching-api-backends)
 7. [Switching Storage Backends](#switching-storage-backends)
-8. [API Documentation](#api-documentation)
-9. [Usage Examples](#usage-examples)
-10. [Schema Endpoint Responses](#schema-endpoint-responses)
-11. [Extending the Application](#extending-the-application)
-12. [Why PyBend?](#why-pybend)
-13. [Testing](#testing)
+8. [Model Relationships](#model-relationships)
+9. [API Documentation](#api-documentation)
+10. [Usage Examples](#usage-examples)
+11. [Schema Endpoint Responses](#schema-endpoint-responses)
+12. [Extending the Application](#extending-the-application)
+13. [Why PyBend?](#why-pybend)
+14. [Testing](#testing)
 
 ---
 
 ## **Introduction**
 
-PyBend is a modular, extensible backend framework built with Python. It supports both **FastAPI** and **Flask** backends, dynamically switchable at runtime. It enables model-driven CRUD APIs, custom endpoints via decorators, and plug-and-play persistence with pluggable storage backends.
+PyBend is a modular, extensible backend framework built with Python. It supports both **FastAPI** and **Flask** backends, dynamically switchable at runtime. It enables model-driven CRUD APIs, schema discovery, join model inference, and custom routes via decorators. Storage backends are pluggable with auto-migration support.
 
 ---
 
 ## **Features**
 
 * ✅ FastAPI **and** Flask backend support
-* ⚐ Adapter architecture to switch backends easily
-* 🧠 Dynamic Model Registration + Schema Introspection
-* ⚙️ Auto-generated CRUD + custom routes via `@expose_route`
-* 📃 Integrated OpenAPI (Swagger) documentation
-* 📄 Optional storage via SQLite or JSON
-* 🔍 Fully typed with Pydantic
-* ✅ Integrated testing with PyTest
+* ⚙️ Adapter architecture to switch between backends
+* 🧠 Model auto-registration with dynamic route generation
+* 🔄 Auto-generated CRUD + custom endpoints using `@expose_route`
+* 🔗 Automatic Join Model Generation for relationships
+* 🧩 ForeignKey support with schema resolution
+* 📃 Integrated OpenAPI (Swagger) docs
+* 🛢️ Pluggable storage backends (SQLite, JSON)
+* 🚀 Schema introspection at runtime via `/ModelName`
+* 🧪 Auto-migrating storage schema (SQLite)
+* 📄 Schema includes full method metadata and $defs resolution
+* ✅ Typed end-to-end using Pydantic v2
+* 🧪 Built-in tests via PyTest
 
 ---
 
@@ -44,18 +48,13 @@ PyBend is a modular, extensible backend framework built with Python. It supports
 ### Prerequisites
 
 * Python 3.10+
-* Docker & Docker Compose (optional)
+* Docker (optional)
 
-### Clone the Repo
+### Clone and Install
 
 ```bash
 git clone https://github.com/<your_repo>.git
 cd <your_repo>
-```
-
-### Install Dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
@@ -63,14 +62,14 @@ pip install -r requirements.txt
 
 ## **Configuration**
 
-Use these environment variables or set directly in `main.py`:
+Environment variables or `main.py` can control configuration:
 
-```bash
-BACKEND=fastapi        # or flask
-STORAGE_BACKEND=sqlite # or json
+```env
+BACKEND=fastapi
+STORAGE_BACKEND=sqlite
 ```
 
-To define storage:
+You can also configure programmatically:
 
 ```python
 from storage.sqlite_storage import SQLiteStorage
@@ -81,36 +80,29 @@ storage_backend = SQLiteStorage("database.db")
 storage_backend = JSONStorage(directory="data")
 ```
 
-Register models:
+Register your models with:
 
 ```python
-from models.user_model import User
 from models.product_model import Product
+from models.user_model import User
+from models.comment_model import Comment
 from utils.registrar import register_model
+from models.proto_model import generate_join_model
 
-register_model(User, storage=storage_backend)
 register_model(Product, storage=storage_backend)
+register_model(User, storage=storage_backend)
+register_model(generate_join_model(Product, Comment), storage=storage_backend)
 ```
 
 ---
 
 ## **Running the Application**
 
-### Locally
-
 ```bash
 python main.py
-```
-
-### With Uvicorn
-
-```bash
+# or
 uvicorn main:app --reload
-```
-
-### With Docker
-
-```bash
+# or
 docker-compose up --build
 ```
 
@@ -118,33 +110,57 @@ docker-compose up --build
 
 ## **Switching API Backends**
 
-PyBend uses an adapter pattern to switch between Flask and FastAPI:
+PyBend uses an adapter pattern. Set in `main.py` or environment:
 
 ```python
-# In main.py
-BACKEND = "flask"  # or "fastapi"
+BACKEND = "fastapi"  # or "flask"
 ```
 
-* FastAPI: `routes_fastapi.py`
-* Flask: `routes_flask.py`
-* Automatically registers routes and schema
+Routes are automatically registered via `register_routes()`.
 
 ---
 
 ## **Switching Storage Backends**
 
-To change the storage backend:
-
 ```python
 from storage.sqlite_storage import SQLiteStorage
 from storage.json_storage import JSONStorage
 
-storage_backend = SQLiteStorage("database.db")
-# or
-storage_backend = JSONStorage(directory="data")
+storage_backend = SQLiteStorage("db.sqlite")
+register_model(MyModel, storage=storage_backend)
 ```
 
-Registered models will use the new backend if injected properly.
+SQLite includes auto-migration of fields on boot.
+
+---
+
+## **Model Relationships**
+
+PyBend provides dynamic join model generation and foreign key resolution between models:
+
+* Use `ForeignKey[Model]` in your fields — injected automatically when `__storable__ = True`.
+* PyBend generates join models via `generate_join_model(Product, Comment)`.
+* Related objects are persisted and filtered via join tables.
+* Foreign keys serialize to primitive types in storage but expose full schemas in OpenAPI.
+
+Example:
+
+```python
+class Product(ProtoModel):
+    __storable__ = True
+    __tablename__ = 'products'
+    comments: List[Comment]
+
+class Comment(ProtoModel):
+    __storable__ = True
+    user_owner: User
+```
+
+Join model:
+
+```python
+register_model(generate_join_model(Product, Comment), storage=backend)
+```
 
 ---
 
@@ -161,11 +177,9 @@ Registered models will use the new backend if injected properly.
 
 ```http
 POST /users
-Content-Type: application/json
 {
   "name": "Alice",
-  "email": "alice@example.com",
-  "age": 30
+  "email": "alice@example.com"
 }
 ```
 
@@ -176,86 +190,79 @@ POST /users/login
 {
   "email": "alice@example.com"
 }
-Response:
-{
-  "message": "Login successful"
-}
 ```
 
 ### List Products
 
 ```http
 GET /products/list
-Response:
-[
-  {
-    "id": 1,
-    "name": "Product A",
-    "price": 10.0,
-    "description": "Description A"
-  },
-  {
-    "id": 2,
-    "name": "Product B",
-    "price": 20.0,
-    "description": "Description B"
-  }
-]
+```
+
+### Comment on a Product
+
+```http
+POST /products/1/comment
+{
+  "name": "Nice product",
+  "description": "Really liked this!"
+}
 ```
 
 ---
 
 ## **Schema Endpoint Responses**
 
-### Product Schema
+Each model is introspectable via:
 
 ```http
-GET /products/schema
-Response:
-{
-  "title": "Product",
-  "type": "object",
-  "properties": {
-    "name": { "type": "string" },
-    "price": { "type": "number" },
-    "description": { "type": "string" },
-    "id": { "type": "integer" }
-  },
-  "required": ["name", "price"]
-}
+GET /Product
+GET /Comment
 ```
+
+Returns:
+
+* JSON schema
+* Referenced types via `$defs`
+* Custom method metadata (`/comment`, `/login`, etc.)
 
 ---
 
 ## **Extending the Application**
 
-### Add New Model
+### Add a New Model
 
-1. Create a new class inheriting `ProtoModel`
-2. Optionally set `storable = True`
-3. Use `@expose_route` to define custom methods
-4. Register with a storage backend
+1. Subclass `ProtoModel`
+2. Set `__storable__ = True` for persistence
+3. Use `@expose_route()` for custom API endpoints
+4. Register with `register_model(...)`
 
-### Add New Storage Backend
+### Add Relationships
 
-1. Implement all abstract methods in `AbstractStorage`
-2. Inject into models with `set_storage()`
+```python
+register_model(generate_join_model(OwnerModel, SubModel))
+```
+
+### Add a Storage Backend
+
+1. Implement `AbstractStorage` methods
+2. Inject via `set_storage()`
 
 ---
 
 ## **Why PyBend?**
 
-* 🔄 Unified data interface via model schema
-* 🚀 Easy onboarding with FastAPI or Flask
-* ⚖️ Consistent CRUD + custom endpoint structure
-* ⚙️ Backend/storage agnostic
-* 🔬 Designed for frontend-to-backend portability (UCP-ready!)
+* 🧠 Self-discoverable data models and APIs
+* 🔗 Schema-driven architecture
+* 🧬 Foreign key resolution + join modeling built-in
+* 🧱 Modular for switching backend/storage
+* 📐 Fully typed runtime behavior with schema traceability
+* 🔍 Frontend-ready API schema via OpenAPI and custom metadata
 
 ---
 
 ## **Testing**
 
-Run all tests:
+Run with:
 
 ```bash
 pytest
@@ -263,9 +270,10 @@ pytest
 
 Tests include:
 
-* API endpoints
-* Schema generation
-* Storage persistence logic
+* CRUD API coverage
+* Schema endpoint behavior
+* Storage backend logic
+* Custom method invocation
 
 ---
 
@@ -278,4 +286,7 @@ MIT
 * Email: [you@example.com](mailto:you@example.com)
 * GitHub: [yourusername/yourrepository](https://github.com/yourusername/yourrepository)
 
+
 ---
+
+Let me know if you'd like this committed to your project file directly or exported elsewhere.
