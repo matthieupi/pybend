@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🧠 NTTTX Schema Explorer</title>
+  <link rel="stylesheet" href="./dark-theme.css" />
+  <link rel="stylesheet" href="./schema.css" />
+</head>
+<body>
+  <div class="schema-explorer">
+
+    <!-- Header -->
+    <div class="explorer-header">
+      <h1 class="explorer-title">🧠 NTTTX Schema Explorer</h1>
+      <p class="explorer-subtitle">Discover and explore backend schemas dynamically with beautiful components.</p>
+      <div class="status-indicator status-ready" id="system-status">
+        <span>🟢</span> System Ready
+      </div>
+    </div>
+
+    <!-- Model Input Section -->
+    <div class="model-input-section">
+      <div class="section-header">
+        <span class="section-icon">🔍</span>
+        Model Discovery
+      </div>
+      <div class="input-group">
+        <input type="text" id="model-input" placeholder="Enter model name (e.g., users)" value="users" />
+        <button id="load-btn" class="fetch-btn"><span>🔍</span> Discover Schema</button>
+      </div>
+    </div>
+
+    <!-- Schema Display -->
+    <div class="schema-section">
+      <div class="section-header">
+        <span class="section-icon">📐</span> Schema Definition
+      </div>
+      <div class="schema-display" id="schema-output">
+        <div class="empty-state">
+          <div style="font-size: 2rem; margin-bottom: 1rem;">📋</div>
+          <div>Enter a model name and click "Discover Schema" to view the schema definition</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- List View Section -->
+    <div class="items-section">
+      <div class="section-header">
+        <span class="section-icon">📦</span> Items (List View)
+      </div>
+      <div class="component-container">
+        <ntt-list model="User" id="model-list"></ntt-list>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module">
+    import { PTT } from './core/NTT.js';
+    import './components/ntt-item.js';
+    import './components/ntt-list.js';
+
+    const $input = document.getElementById('model-input');
+    const $btn = document.getElementById('load-btn');
+    const $schema = document.getElementById('schema-output');
+    const $list = document.getElementById('model-list');
+    const $status = document.getElementById('system-status');
+
+    function updateStatus(state, message) {
+      const map = {
+        ready: ['status-ready', '🟢'],
+        loading: ['status-loading', '⏳'],
+        error: ['status-error', '❌']
+      };
+      const [cls, icon] = map[state];
+      $status.className = `status-indicator ${cls}`;
+      $status.innerHTML = `<span>${icon}</span> ${message}`;
+    }
+
+    function renderCollapsibleJSON(obj, level = 0) {
+        if (typeof obj !== 'object' || obj === null) {
+            return `<span class="schema-value">${JSON.stringify(obj)}</span>`;
+        }
+
+        const indent = '\t'.repeat(level * 2);
+        const isArray = Array.isArray(obj);
+        const entries = Object.entries(obj).map(([key, val]) => {
+            const open = level < 1 ? 'open' : '';
+            if (typeof val === 'object' && val !== null) {
+              return `${indent}<details ${open}><summary><span class="schema-key">${key}</span></summary>${renderCollapsibleJSON(val, level + 1)}</details>`;
+            } else if (key === 'type'){
+              return `${indent}<div class="schema-item"><span class="schema-key">${key}</span>: <span class="schema-type">${val}</span> </div>`;
+            } else {
+              return `${indent}<div class="schema-item"><span class="schema-key">${key}</span>: <span class="schema-value">${JSON.stringify(val)}</span></div>`;
+            }
+        });
+
+        const wrapper = isArray ? ['[', ']'] : ['{', '}'];
+        return `<div class="schema-tree">${wrapper[0]}${entries.join('')}${wrapper[1]}</div>`;
+    }
+
+    function schemaCallback (model, ptt) {
+        const schema = ptt.schema;
+        $schema.innerHTML = renderCollapsibleJSON(schema);
+        $list.setAttribute('model', model);
+
+        if (ptt.model === model) {
+            $list.setAttribute('model', ptt.model);
+        }
+    }
+
+    $btn.addEventListener('click', async () => {
+      const model = $input.value.trim();
+      if (!model) return;
+
+      $list.setAttribute('model', model);
+
+      updateStatus('loading', `Fetching schema for "${model}"...`);
+      $schema.innerHTML = `<div class="loading-state"><div class="loading-spinner"></div>Loading...</div>`;
+      const addr = `${model}`;
+
+      PTT.attach(addr, (ptt) => {
+        if (!!ptt?.schema) {
+          $schema.innerHTML = renderCollapsibleJSON(ptt.schema, 0);
+          updateStatus('ready', `Schema loaded for "${model}"`);
+        } else {
+          updateStatus('error', `Failed to load schema for "${model}"`);
+          $schema.innerHTML = `<div class="error-state">❌ Schema not found for "${model}". Got ${ptt}</div>`;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

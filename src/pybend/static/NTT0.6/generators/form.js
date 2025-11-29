@@ -2,7 +2,7 @@
   function refInput(ref) {
     const ptt = PTT.get(ref);
     if (!ptt) {
-      console.warn(`No PTT found for reference: ${ref}`);
+      console.error(`No PTT found for reference: ${ref}`);
       return `<input type="text" placeholder="Invalid reference">`;
     }
     // Assuming ptt has a schema with properties
@@ -105,10 +105,6 @@ function getArrayInput(ntt, def, key, mode = 'display') {
     const href = `/${parent}/`
     let value = ntt.value?.[key] || [];
     let html = [];
-    console.log(`[HREF] ${href}`)
-    console.warn(`[FORM] getArrayInput called with def:`, def, `key:`, key, `value:`, value)
-    
-    console.log(ntt)
     
     const addr = `/${ntt.addr}/${ntt.id}/${model}`;
     html.push(`<div class="array-field">`);
@@ -138,7 +134,6 @@ function getArrayInput(ntt, def, key, mode = 'display') {
 
 
 function resolveAnyOf(def) {
-    console.log(`resolveAnyOf called with def:`, def)
     // Check if one of the anyOf definitions is null
     const null_removed = def.anyOf.filter(item => item.type !== "null");
     

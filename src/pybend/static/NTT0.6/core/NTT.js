@@ -1,15 +1,19 @@
 import assert from "../utils/Assert.js";
 import {config} from "../config.js";
 import {isEmpty, isTypeCompatible, isUrl, Utils} from './Utils.js';
-import {registry, registrar, getRegistrar} from "./registrar.js";
+//import {registry, registrar, getRegistrar} from "./registrar.js";
 import Event from "./Event.js";
-import {remote} from "./Remote.js";
+import {remote} from "./transport/NetworkAdapter.js";
 import Logging from "../utils/Logging.js";
+import Actor from "./Actor.js";
+
+import {matrix} from "./Matrix.js";
+
 
 /**
  * TT (Transfer Type) - Base class for transfer types
  */
-class TT {
+class TT extends Actor{
     
     /** Registry of all TT instances */
     static #registry = new Map();
@@ -19,17 +23,17 @@ class TT {
     #href;
     #signals = new Set(); // Set of signals for this instance
     #observers = new Map(); // Map of property observers
-    #listeners = new Map(); // Map of event listeners
     
     constructor(addr, href, remote = TT.remote) {
+        super(addr);
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-        assert(this, href && typeof isUrl(href), `[TT] ${addr} - HREF must be a valid URL, got: ${href}`);
+        //assert(this, href && typeof isUrl(href), `[TT] ${addr} - HREF must be a valid URL, got: ${href}`);
         
-        if (TT.#registry.has(href)) { console.warn(`[TT] '${href}' will be overwritten in the Registry.`); }
+        if (!href)
+            href = `${config.API_URL}/api/${addr}`;
         
         this.#addr = addr;
         this.#href = href;
-        TT.#registry.set(addr, href);
     }
     
     // Protected getters for subclasses
@@ -39,20 +43,6 @@ class TT {
         assert(this, isUrl(href), `[TT] ${this.addr} - HREF must be a valid URL, got: ${href}`);
         const oldHref = this.#href;
         this.#href = href
-        TT.#registry.set(this.#addr, href);
-        registrar(oldHref, undefined) // Unregister old href
-        registrar(href, remote.send) // Register new href
-    }
-    
-    static register(addr, href) {
-        console.warn(`Registering address '${addr}' with HREF '${href}'`)
-        assert(this, addr && typeof addr === 'string' && !!addr,
-            `Address must be a non-empty string.`);
-        assert(this, !TT.#registry.has(addr),
-            `Address '${addr}' is already registered.`);
-        assert(this, isUrl(href),
-            `HREF must be a valid URL, got: ${href}`);
-        TT.#registry.set(addr, href);
     }
     
     static get(addr) {
@@ -94,8 +84,8 @@ class TT {
     send(event) {
         assert(this, event && typeof event === 'object', `Data must be a non-empty object.`);
         // Retrieve href callback and dispatch the event to it
-        console.warn(`Sending event '${event.name}' from ${event.source} to ${event.target}`, event)
-        registry.get(event.target)(event)
+        Logging.event(`Sending event '${event.name}' from ${event.source} to ${event.target}\n`, event.str())
+        matrix.dispatch(event)
     }
     
     /**
@@ -185,9 +175,7 @@ export class PTT extends TT{
         PTT.#prototypes.set(addr, this);
         this.#instances = new Map();
         // Register the inbox method to handle incoming events
-        registrar(addr, this.inbox.bind(this))
-        // Register the uplink for remote communication
-        registrar(href, remote.send)
+        matrix.register(this)
     }
     
     get schema() { return this.#data; }
@@ -198,15 +186,12 @@ export class PTT extends TT{
         this.signal()
     }
     
-    get(addr) {
-        return this.#instances.get(addr) || undefined;
-    }
-    
     pull() {
         assert(this, isUrl(this.href), `[PTT] ${this.addr} HREF must be a valid HTTP URL, got: ${this.href}`);
         this.call('SCHEMA', {}, {remote: true});
         return this;
     }
+    
     
     new(data = {}) {
         assert(this, data && typeof data === 'object', `Data must be a non-empty object.`);
@@ -225,10 +210,10 @@ export class PTT extends TT{
         // If the data has a __tablename__, we need to link this prototype to the endpoint
         if (data['__tablename__']) {
             this.href = `${config.API_URL}/${data['__tablename__']}`;
-            registrar(this.href, remote.send)
+            //registrar(this.href, remote.send)
         }
         // Create a subclass of NTT with the provided schema
-        Logging.log("[PTT] Received schema data for", this.addr, ":", data);
+        Logging.log(`[PTT] Received schema data for ${this.addr}`, data);
         this.value = data;
         // If the schema has a $defs, register them as PTTs
         if (data.$defs && typeof data.$defs === 'object') {
@@ -260,6 +245,16 @@ export class PTT extends TT{
         return PTT.#prototypes.get(addr);
     }
     
+    has(addr) {
+        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
+        return this.#instances.has(addr);
+    }
+    
+    get(addr) {
+        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
+        return this.#instances.get(addr) || undefined;
+    }
+    
     static attach(addr, callback) {
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
         assert(this, callback && typeof callback === 'function', `Callback must be a function.`);
@@ -287,6 +282,12 @@ export class PTT extends TT{
         if (!schema) return new PTT(addr, href).pull();
         else return new PTT(addr, href, schema);
     }
+    
+    register(instance) {
+        Logging.warn(`[${this.addr}] Registering in PTT`,`${instance.addr}`)
+        this.#instances.set(instance.addr, instance);
+    }
+    
 }
 
 /**
@@ -314,7 +315,6 @@ export class NTT extends TT {
      * @param {string} [id] - Custom ID (auto-generated if not provided)
      */
     constructor(model, hash, data = {}, meta = {}) {
-        console.error(`[NTT] Creating NTT instance for model: ${model}, hash: ${hash}, data:`, data, 'and meta:', meta);
         const id = hash || Utils.generateId();
         const href = `${config.API_URL}/${model}/${id}`;
         const addr = `${model}/${id}`;
@@ -326,8 +326,7 @@ export class NTT extends TT {
             this.value = data; // Initialize value with provided data
         }
         // Register the upstream and downstream links
-        registrar(addr, this.inbox.bind(this));
-        registrar(href, remote.send)
+        this.proto.register(this)
         // Initialize functional state management in meta. Functionality is not implemented yet but will be added later
         this.#meta = {
             // ...meta,
@@ -347,7 +346,6 @@ export class NTT extends TT {
         }
         this.#data = val;
         if (this.#proto) {
-            console.warn(`[NTT] Setting value in ${this.addr} prior to definition:`, val);
         } else {
             this.signal()
         }
@@ -407,27 +405,7 @@ export class NTT extends TT {
             }
         };
     }
-    
-    /**
-     * Create a deep copy of this NTT instance
-     * @returns {NTT} Cloned instance
-     */
-    clone() {
-        const Ctor = Object.getPrototypeOf(this).constructor;
-        return new Ctor({
-            addr: this.addr,
-            href: this.href,
-            data: structuredClone(this.#data),
-            meta: {
-                ...structuredClone(this.#meta),
-                // Reset functional state for clone
-                subscribers: new Set(),
-                propertyObservers: new Map(),
-                conflictResolver: this.#meta.conflictResolver
-            }
-        });
-    }
-    
+   
     pull() {
         assert(this, isUrl(this.href), `[NTT] ${this.addr} HREF must be a valid HTTP URL, got: ${this.href}`);
         this.call('READ', {}, {remote: true});
@@ -464,6 +442,7 @@ export class NTT extends TT {
     /**
      */
     static register(addr, href) {
+        console.warn(`Registering NTT address '${addr}' with HREF '${href}'`)
     }
     
     
@@ -517,12 +496,24 @@ function prototype(ptt) {
     // 1. Create a subclass of NTT with dynamic properties
     const DynamicClass = class extends NTT {
       
+      static instances = new Map();
+      
+      
       constructor(data) {
         Logging.log(`Creating dynamic class instance ${DynamicClass.name} with data:`, data, 'and ptt:', ptt)
-        super(DynamicClass.name, data.hashtag);
+        super(DynamicClass.name, data.id );
         this.value = data;
         this.href = `${ptt.href}/${this.id}`; // Set the href based on the PTT instance
       }
+      
+      register() {
+          console.warn(`Registering instance of ${DynamicClass.name} at addr: ${this.addr}`)
+          DynamicClass.proto.instances.set(this.addr, this);
+          matrix.register(this);
+      
+      }
+      
+      
       
     };
     // 1.1 Set the class name dynamically

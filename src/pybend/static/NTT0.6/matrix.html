@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NTTTX - Matrix</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./dark-theme.css">
+</head>
+<body>
+
+    <div class="container">
+        <div class="framework-info">
+            <h1>🔧 NTTTX - Matrix</h1>
+            <p class="subtitle">Matrix - Actor-Based Distributed Entity Management</p>
+            <div class="version">v0.6.0 - Matrix Architecture</div>
+        </div>
+    </div>
+
+    <ntt-list model="Product" id="product-list"></ntt-list>
+    <ntt-list model="Product" id="product-list"></ntt-list>
+
+
+    <!-- Import NTTTX Framework -->
+    <script type="module">
+        // Import core NTTTX modules
+        console.info("Loading NTTTX Framework v0.6...");
+
+        import {Matrix, matrix} from './core/Matrix.js';
+        import { PTT } from './core/NTT.js';
+        import { config } from './config.js';
+        import './components/ntt-item.js';
+        import './components/ntt-list.js';
+
+        //matrix.spawn("Product", PTT, config.API_URL)
+        //let ProductClass = PTT.register("Product", `${config.API_URL}/Product`)
+
+
+
+    </script>
+
+    <div>
+    </div>
+
+</body>
+</html>

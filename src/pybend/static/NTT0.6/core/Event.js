@@ -1,10 +1,9 @@
 import assert from "../utils/Assert.js";
 import {simpleHash} from "./Utils.js";
-import {dispatch, registry} from "./registrar.js";
+//import {dispatch, registry} from "./registrar.js";
 
 export default class Event {
 
-	static #transport = window.NetworkAdapter
 
 	constructor({name, source, target, data={}, meta={}, timestamp=Date.now()}) {
 		this.name = name
@@ -22,12 +21,11 @@ export default class Event {
 	 * Dispatch the event through the transport layer.
 	 *
 	 * @throws {AssertError} If the transport manager is not set.
-	 */
 	dispatch() {
-		assert(this, !!Event.#transport, "window.remote not set. Cannot dispatch event.")
 		console.info(`Dispatching event ${this.name} from ${this.addr} to ${this.href}`, this.repr())
 		dispatch(this.target, this.repr())
 	}
+	 */
 
 	repr() {
 		const obj = {}
@@ -39,6 +37,10 @@ export default class Event {
 		obj.hash = this.hash
 		obj.tst = this.tst
 		return obj
+	}
+	
+	str() {
+		return JSON.stringify(this.repr())
 	}
 
 	static fromString(str) {

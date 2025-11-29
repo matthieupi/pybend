@@ -77,13 +77,10 @@ export class Item extends NTTElement {
       // Scalar update
       this.value[key] = newValue;
     }
-  
-    console.warn(`[ntt-item] Updated "${key}" →`, newValue, 'Current state:', this.value);
   }
 
 
 render() {
-  Logging.dev(`Rendering Item: ${this.model}, Mode: ${this.mode}`, this.value, this.schema, this.proto);
   
   if (this.value?.name) Logging.debug(`Rendering ${this.model} item: ${this.value?.name}`);
   

@@ -1,16 +1,16 @@
 import HTTP from './HTTP.js';
 import Socket from './Socket.js';
-import assert from "../utils/Assert.js";
-import {Utils} from "./Utils.js";
-import {registrar, registry, dispatch} from "./registrar.js";
-import {config} from "../config.js";
-import Logging from "../utils/Logging.js";
+import assert from "../../utils/Assert.js";
+import {Utils} from "../Utils.js";
+import {config} from "../../config.js";
+import Logging from "../../utils/Logging.js";
 
-export class Remote {
+export class NetworkAdapter {
   
   static #callbacks = new Map(); // key -> callback for this address
   
-  constructor(mode = 'http') {
+  constructor(matrix, mode = 'http') {
+    this.matrix = matrix;
     this.mode = mode;
     this.socket = null;
     if (mode === 'ws') {
@@ -21,8 +21,8 @@ export class Remote {
  
   httpCallback(event, response) {
     assert(this, event && event.target, `Event must have a target property.`);
-    assert(this, registry.has(event.target), `No callback registered for target: ${event.target}`);
-    Logging.dev(`HTTP Callback for event:`, event.name, `with response:`, response, `on target:`, event.target)
+    assert(this, this.matrix.has(event.source), `No callback registered for target: ${event.source}`);
+    Logging.event(`HTTP Callback for event:`, event.name, `with response:`, response, `on target:`, event.target)
     // Updater the event with the response data
     if (event.meta['inbox'])
       event.name = event.meta['inbox']; // Use inbox as the event name if provided
@@ -31,7 +31,7 @@ export class Remote {
     event.target = source
     event.data = response; // Assuming response is the data we want to send back
     // Dispatch the event through the system layer
-    dispatch(event.target, event)
+    this.matrix.dispatch(event)
   }
   
   /**
@@ -41,16 +41,15 @@ export class Remote {
    * @param response (Object) - The response object containing error details.
    */
   onError(event, response) {
-    console.group()
-    console.error(`Remote error on event:`, event);
+    console.group(`Remote error on event:`, event);
     console.error(`Error Response:\n${response}`);
     console.groupEnd()
     let {name, data, meta, source, target, id, timestamp} = event;
     let errorCallback = {
         'name': "ERROR",
         'id': id,
-        'source': source,
-        'target': target,
+        'source': target,
+        'target': source,
         'data': event,
         'timestamp': Date.now(),
         'meta': {
@@ -61,17 +60,7 @@ export class Remote {
     }
     this.emit(errorCallback)
   }
-  
-  /**
-   * Dispatch an event through the system layer.
-   *
-   * @param {Event} event  - The event to dispatch.
-   * @returns {Promise<void>}
-   */
-  dispatch(event) {
-    // TODO: Check if the event is local or remote and dispatch appropriately
-  }
-  
+ 
   /**
    * Emit an event to the registered callback.
    * This method will invoke the callback registered for the event's target.
@@ -81,8 +70,8 @@ export class Remote {
   emit(event) {
     assert(this, event && event.target, `Event must have a target property.`);
     assert(this, event && event.name, `Event must have a name property.`);
-    assert(this, registry.has(event.target), `No callback registered for target: ${event.target}`);
-    const callback = registry.get(event.target);
+    //assert(this, registry.has(event.target), `No callback registered for target: ${event.target}`);
+    //const callback = registry.get(event.target);
     assert(this, typeof callback === 'function', `Callback for ${event.target} is not a function.`);
     try {
       callback(event);
@@ -98,7 +87,7 @@ export class Remote {
     assert(this, !callback || typeof callback === 'function', `Callback must be a function, got ${typeof callback}`);
     
     if (callback) {
-      registry.set(target, callback);
+      //registry.set(target, callback);
     }
     const event = {
       'name': 'read',
@@ -125,7 +114,7 @@ export class Remote {
     let callback = this.httpCallback.bind(this, event);
     let onError = this.onError.bind(this, event);
     
-    if (data) Logging.debug(`Sending data with event:`, name, `to target:`, target, `with data:`, data);
+    if (data) Logging.event(`Sending data with event:`, name, `to target:`, target, `with data:`, data);
     
     if (this.mode === 'http') {
       if (name.toUpperCase() === config.E.load) HTTP.get(target, callback, onError);
@@ -149,7 +138,7 @@ export class Remote {
 }
 
 
-export const remote = new Remote('http');
+export const remote = new NetworkAdapter('http');
 console.log(`Registering remote transport manager to window: `, remote.mode, '\n',
             remote.socket ? remote.socket.url : 'No socket available');
 window.remote = remote;

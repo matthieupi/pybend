@@ -12,12 +12,10 @@ export class List extends NTTElement {
   }
   
   connectedCallback() {
-    console.log(`[NTT-LIST] Connected with model: ${this.model}, addr: ${this.addr}, hash: ${this.hash}`)
     super.connectedCallback();
   }
   
   definedCallback() {
-    console.warn(`[NTT-LIST] Defined with proto:`, this.proto);
     this.subscribe(this.proto, 'UPDATE', this.update.bind(this));
     this.proto.call('READ', {}, {inbox: 'UPDATE'});
   }

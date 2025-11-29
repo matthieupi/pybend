@@ -1,6 +1,9 @@
 
 export const config = {
     LOGGING: 3,
+    LOGEVENTS: false,
+    LOGSPAWN: false,
+    DEBUG: false,
     API_URL: 'http://localhost:8000',
     WS_URL: 'ws://localhost:8765',
     DEFAULT_HEADERS: {
@@ -9,7 +12,6 @@ export const config = {
     },
     TIMEOUT: 5000,
     RETRY_LIMIT: 3,
-    DEBUG: true,
     E : {
         // CRUD operations
         create: "CREATE",

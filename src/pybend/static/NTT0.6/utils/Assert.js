@@ -12,7 +12,7 @@ export default function assert(caller, condition, message, trigger='error') {
         //throw new AssertionError(`\n${caller}\n${message || ''}`);
         if (trigger === 'error'){
             if (!!caller)
-                throw new AssertionError(caller ? `[${caller.name}] Assertion error` : "", `\n${message || ''}`);
+                throw new AssertionError(caller ? `[${caller.name}] Assertion error: ${message}` : "", `\n${message || ''}`);
             else
                 throw new AssertionError(`${message || ''}`);
         } else if (trigger === 'warn') {
