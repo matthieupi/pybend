@@ -1,11 +1,27 @@
 import assert from "../utils/Assert.js";
 import {simpleHash} from "./Utils.js";
-//import {dispatch, registry} from "./registrar.js";
+import {config} from "../config.js";
 
-export default class Event {
+export const E = config.E;
 
-
-	constructor({name, source, target, data={}, meta={}, timestamp=Date.now()}) {
+export default class TX {
+	
+	
+	/**
+	 * Create a new TX (transaction) event.
+	 *
+	 * @param event {Object|string} - The event object or its JSON string representation. If it is a string, it will be
+	 * parsed as JSON.
+	 *
+	 */
+	constructor(event) {
+		// If event is a string, parse it as JSON
+		if (typeof event === 'string') {
+			event = JSON.parse(event)
+		}
+		// Destructure event properties with defaults
+		let {name, source, target, data={}, meta={}, timestamp=Date.now()} = event
+		// Instantiate properties
 		this.name = name
 		this.source = source
 		this.target = target
@@ -13,8 +29,6 @@ export default class Event {
 		this.meta = meta
 		this.tst = timestamp
 		this.hash = simpleHash(this.repr())
-		//this.dispatch = this.dispatch.bind(this)
-		//this.repr = this.repr.bind(this)
 	}
 
 	/**
@@ -26,12 +40,11 @@ export default class Event {
 		dispatch(this.target, this.repr())
 	}
 	 */
-
 	repr() {
 		const obj = {}
 		obj.name = this.name
-		obj.source = this.addr
-		obj.target = this.href
+		obj.source = this.source
+		obj.target = this.target
 		obj.data = this.data
 		obj.meta = this.meta
 		obj.hash = this.hash
@@ -45,62 +58,64 @@ export default class Event {
 
 	static fromString(str) {
 		let obj = JSON.parse(str)
-		return new Event(
-			obj.name,
-			obj.id,
-			obj.source,
-			obj.target,
-			obj.data,
-			obj.meta || {},
-			obj.timestamp || Date.now())
+		return new TX({
+			name: obj.name,
+			id: obj.id,
+			source: obj.source,
+			target: obj.target,
+			data: obj.data,
+			meta: obj.meta || {},
+			timestamp: obj.timestamp || Date.now()
+		})
 	}
 
 }
 
+class ConnectEvent extends TX {
+	constructor(source, target) {
+		super({name: E.CONNECT, source: source, target: target})
+	}
+}
 
-class EnableEvent extends Event {
+
+class EnableEvent extends TX {
     constructor(source, target) {
-        super(E.ENABLE, source, target)
+        super({name: E.ENABLE, source, target}, )
     }
 }
 
-class DisableEvent extends Event {
+class DisableEvent extends TX {
     constructor(source, target) {
         super(E.DISABLE, "", source, target)
     }
 }
 
-class UpdateEvent extends Event {
+class UpdateEvent extends TX {
     constructor(source, target, data) {
         super(E.UPDATE, "", source, target, data)
     }
 }
 
-class GetEvent extends Event {
+class GetEvent extends TX {
     constructor(source, target) {
         super(E.GET, source, target)
     }
 }
 
-class DescribeEvent extends Event {
+class DescribeEvent extends TX {
     constructor(source, target) {
         super(E.DESCRIBE, source, target)
     }
 }
 
-class ConnectedEvent extends Event {
-	constructor(source, id) {
-		super(E.CONNECTED, id || "", source, source)
-	}
-}
-
-class ReadEvent extends Event {
+class ReadEvent extends TX {
 	constructor(source, target) {
 		super(E.READ, source, target)
 	}
 }
 
 export {
-	Event,
+	TX,
+	ConnectEvent,
 	ReadEvent,
 }

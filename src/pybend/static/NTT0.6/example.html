@@ -264,7 +264,7 @@
         import { NTT, PTT } from './core/NTT.js';
         import { registrar, registry, dispatch } from './core/registrar.js';
         import { remote } from './core/transport/NetworkAdapter.js';
-        import Event from './core/Event.js';
+        import TX from './core/TX.js';
         import { config } from './config.js';
 
         // Initialize global access for demo functions
@@ -274,7 +274,7 @@
         window.registry = registry;
         window.dispatch = dispatch;
         window.remote = remote;
-        window.Event = Event;
+        window.Event = TX;
         window.config = config;
 
         // Initialize demo
@@ -615,7 +615,7 @@
 
         function testRegistrarEntry(key) {
             try {
-                const testData = new Event({
+                const testData = new TX({
                     name: 'TEST',
                     source: 'demo',
                     target: key,

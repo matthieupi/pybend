@@ -2,7 +2,7 @@ import assert from "../utils/Assert.js";
 import {config} from "../config.js";
 import {isEmpty, isTypeCompatible, isUrl, Utils} from './Utils.js';
 //import {registry, registrar, getRegistrar} from "./registrar.js";
-import Event from "./Event.js";
+import TX from "./TX.js";
 import {remote} from "./transport/NetworkAdapter.js";
 import Logging from "../utils/Logging.js";
 import Actor from "./Actor.js";
@@ -30,7 +30,7 @@ class TT extends Actor{
         //assert(this, href && typeof isUrl(href), `[TT] ${addr} - HREF must be a valid URL, got: ${href}`);
         
         if (!href)
-            href = `${config.API_URL}/api/${addr}`;
+            href = `${config.API_URL}/${addr}`;
         
         this.#addr = addr;
         this.#href = href;
@@ -79,7 +79,7 @@ class TT extends Actor{
    
     /**
      * Send an event via the registrar callback
-     * @param event {Event}
+     * @param event {TX}
      */
     send(event) {
         assert(this, event && typeof event === 'object', `Data must be a non-empty object.`);
@@ -90,7 +90,7 @@ class TT extends Actor{
     
     /**
      * Inbox method to handle incoming events
-     * @param event {Event}
+     * @param event {TX}
      */
     inbox(event) {
         // Check if the event name matches a method in this class
@@ -134,7 +134,7 @@ class TT extends Actor{
      */
     call(method, data = {}, meta = {}) {
       this.send(
-        new Event({
+        new TX({
             name: method,
             source: this.addr,
             target: this.href,

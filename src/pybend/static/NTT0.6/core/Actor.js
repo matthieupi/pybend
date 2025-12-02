@@ -3,6 +3,7 @@
  */
 import assert from "../utils/Assert.js";
 import Logging from "../utils/Logging.js";
+import TX from "./TX.js";
 
 
 export default class Actor {
@@ -25,6 +26,10 @@ export default class Actor {
         
     }
     
+    static send(event) {
+        throw new Error("Static Send method must be implemented in subclass.");
+    }
+    
     get addr() {
         return this.#addr;
     }
@@ -34,7 +39,12 @@ export default class Actor {
     }
     
     inbox(event) {
-        throw new Error("Inbox method must be implemented in subclass.");
+        if (typeof event === 'string') {
+            event = Actor.parseEvent(event)
+        }
+        else if (typeof event == 'object') {
+            event = TX(...event)
+        }
     }
     
     send(event) {

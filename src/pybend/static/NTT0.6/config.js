@@ -13,6 +13,15 @@ export const config = {
     TIMEOUT: 5000,
     RETRY_LIMIT: 3,
     E : {
+        
+        "CONNECT": "CONNECT",
+        "ENABLE": "ENABLE",
+        "DISABLE": "DISABLE",
+        "UPDATE": "UPDATE",
+        "GET": "GET",
+        "DESCRIBE": "DESCRIBE",
+        "CONNECTED": "CONNECTED",
+        "SCHEMA": "SCHEMA",
         // CRUD operations
         create: "CREATE",
         read: "READ",
@@ -29,6 +38,7 @@ export const config = {
         subscribe: "SUBSCRIBE",
         observe: "OBSERVE",
         // Connection events
+        "connect": "CONNECT",
         connected: "CONNECTED",
         disconnected: "DISCONNECTED",
         // Other events
