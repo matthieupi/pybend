@@ -6,12 +6,14 @@ import Logging from "../utils/Logging.js";
 import TX from "./TX.js";
 
 
+
 export default class Actor {
     
     #addr;
+    #parent;
     #children;
     
-    constructor(addr = "", send = undefined) {
+    constructor(addr = "") {
         Logging.dev(`Initializing Actor at address:`,`${addr}`)
         // Address generation
         if (!addr) {
@@ -27,7 +29,11 @@ export default class Actor {
     }
     
     static send(event) {
-        throw new Error("Static Send method must be implemented in subclass.");
+      // TODO : Implement static send method here instead of in child classes. The send method is currently  found in
+      //   Component but needs to be adapted to work generically for all Actor subclasses. This is an issue due to the fact
+      //   That different levels have different #children maps. Effectively, what we are trying to achieve is a way to
+      //   route messages through the Actor hierarchy, starting from the root (Matrix) down to the target Actor.
+      //   In order to do this, we want to make the Types, or children classes, actors themselves.
     }
     
     get addr() {
@@ -39,12 +45,8 @@ export default class Actor {
     }
     
     inbox(event) {
-        if (typeof event === 'string') {
-            event = Actor.parseEvent(event)
-        }
-        else if (typeof event == 'object') {
-            event = TX(...event)
-        }
+        const tx = event instanceof TX ? event : new TX(event);
+        return tx;
     }
     
     send(event) {

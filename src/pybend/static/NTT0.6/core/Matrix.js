@@ -23,7 +23,8 @@ export class Matrix extends Actor {
     inbox(event) {
         console.warn(`Matrix received event '${event.name}' for target: ${event.target}`, event);
         console.log(`Registered children:`, this.children);
-        let tx = typeof event !== 'TX' ? new TX(event) : event;
+        let tx = event instanceof TX ? event : new TX(event);
+
         let targetAddr = tx.target.split('/')[0];
         // Check if the target actor is local
         if (tx.name === E.connect){
@@ -76,6 +77,10 @@ export class Matrix extends Actor {
         else if (actor && typeof actor.addr === 'string' && typeof actor.inbox === 'function')
             return true;
         else
+            console.warn(actor)
+        // TODO Whty is actor.addr showing up as undefined here?
+        // There is a getter in Component hierarchy that should make this work
+        console.log(actor.addr, typeof actor.inbox)
             throw new Error(`Object ${actor} is not an Actor instance.`);
     }
     

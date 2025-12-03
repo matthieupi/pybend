@@ -21,9 +21,8 @@ export class Component extends HTMLElement {
  
   constructor() {
     super();
-    this.attachShadow({mode: 'open'});
     this.#hash = this.getAttribute('hash') || generateId();
-    this.#addr = this.getAttribute('addr') || `${this.prototype.name}-${this.#hash}`;
+    this.#addr = this.getAttribute('addr') || `${this.constructor.name}-${this.#hash}`;
     // Register component reference in parent class
     Component.#children.set(this.addr, this)
   }
@@ -36,9 +35,10 @@ export class Component extends HTMLElement {
     return Component.name;
   }
   
+ 
   static send(event) {
     // Parse event into TX if necessary
-    let tx = typeof event !== 'TX' ? new TX(event) : event;
+    let tx = event instanceof TX ? event : new TX(event);
     // Determine source and target prefixes
     let sourcePrefix = `/${Component.name}`;
     let targetParent = event.target.split('/')[0]
@@ -73,16 +73,6 @@ export class Component extends HTMLElement {
     Component.send(connectEvent.repr());
   }
   
-  get addr() { return this.#addr; }
-  set addr(addr) {
-    if (!this.#addr)
-      this.#addr = addr;
-    else if (this.#addr === addr)
-      return;
-    else
-      throw new Error(`[Component-${this.#addr}] Address is already set and cannot be changed to ${addr}.`);
-  }
-  
   static register(component) {
     if (!this.#children.has(component.addr)) {
       this.#children.set(component.addr, component);
@@ -92,6 +82,20 @@ export class Component extends HTMLElement {
     }
   }
   
+  /** -------------------------------------------- **/
+  /**   ACTOR Instance Interface Implementation    **/
+  /** -------------------------------------------- **/
+  
+  get addr() { return this.#addr; }
+  set addr(addr) {
+    if (!this.#addr)
+      this.#addr = addr;
+    else if (this.#addr === addr)
+      return;
+    else
+      throw new Error(`[${this.#addr}] Address is already set to ${this.#addr} and cannot be changed to ${addr}.`);
+  }
+ 
   inbox(event) {
       // Parse event into TX if necessary
       let tx = typeof event !== 'TX' ? new TX(event) : event;
@@ -114,6 +118,11 @@ export class Component extends HTMLElement {
   send(event) {
     return Component.send(event);
   }
+  
+  /** -------------------------------------------- **/
+  /**     Web Component Lifecycle Callbacks        **/
+  /** -------------------------------------------- **/
+  
   
   connectedCallback() {
     console.warn(`Component ${this.addr} connected to DOM.`)

@@ -8,7 +8,7 @@ import Logging from "../utils/Logging.js";
 export class List extends NTTElement {
   
   constructor() {
-    super([]);
+    super();
   }
   
   connectedCallback() {
@@ -43,6 +43,7 @@ export class List extends NTTElement {
   
   render() {
     if (!this.schema || !Array.isArray(this.value)) return;
+    console.warn(`Rendering List of ${this.model} with ${this.value.length} items.`)
     
     this.shadowRoot.innerHTML = `
       <style>

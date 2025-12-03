@@ -14,14 +14,14 @@ export const config = {
     RETRY_LIMIT: 3,
     E : {
         
-        "CONNECT": "CONNECT",
-        "ENABLE": "ENABLE",
-        "DISABLE": "DISABLE",
-        "UPDATE": "UPDATE",
-        "GET": "GET",
-        "DESCRIBE": "DESCRIBE",
-        "CONNECTED": "CONNECTED",
-        "SCHEMA": "SCHEMA",
+        CONNECT: "CONNECT",
+        ENABLE: "ENABLE",
+        DISABLE: "DISABLE",
+        UPDATE: "UPDATE",
+        GET: "GET",
+        DESCRIBE: "DESCRIBE",
+        CONNECTED: "CONNECTED",
+        SCHEMA: "SCHEMA",
         // CRUD operations
         create: "CREATE",
         read: "READ",

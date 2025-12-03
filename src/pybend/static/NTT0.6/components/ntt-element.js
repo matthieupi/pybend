@@ -3,16 +3,15 @@ import {PTT} from '../core/NTT.js';
 import {isEmpty, generateId} from "../core/Utils.js";
 import Logging from "../utils/Logging.js";
 import {matrix} from "../core/Matrix.js";
+import {Component} from "../core/Component.js";
 
 
 
-export class NTTElement extends HTMLElement {
+export class NTTElement extends Component {
   
-  #addr;
   #href;
   #model;
   #proto = {};
-  #hash;
   #data;
   #defaultValue = {};
   #unsubscribe = undefined;
@@ -22,55 +21,22 @@ export class NTTElement extends HTMLElement {
     super();
     this.attachShadow({mode: 'open'});
     this.#model = this.getAttribute('model') || undefined;
-    this.#hash = this.getAttribute('hash') || generateId();
-    this.#addr = this.getAttribute('addr') || `${this.#model}-${this.#hash}`;
     this.#href = this.getAttribute('href') || undefined;
     this.#data = defaultValue;
     this.#defaultValue = defaultValue;
     
     this.describe = this.describe.bind(this);
     this.define = this.define.bind(this);
-    matrix.register(this);
+    //matrix.register(this);
   }
   
   static get observedAttributes() {
     return ['model', 'addr', 'hash'];
   }
-  
-  get addr() { return this.#addr; }
-  set addr(addr) {
-    if (!this.#addr)
-      this.#addr = addr;
-    else if (this.#addr === addr)
-      return;
-    else
-      throw new Error(`[NTT-${this.#addr}] Address is already set to ${this.#addr} and cannot be changed to ${addr}.`);
-    
-  }
-  
-  inbox(event) {
-    throw new Error(`Not implemented error: Inbox method must be implemented in ${this.constructor.name} class.`);
-  }
-  
-  connectedCallback() {
-    Logging.debug(`[NTT-ELEMENT-${this.#hash}]`,`Connected with model: ${this.model}, addr: ${this.#addr}, hash: ${this.#hash}`)
-    if (this.href){
-        console.warn(`[NTT-ELEMENT] Detaching from previous href: ${this.#href}`);
-        this.#detach?.();
-        this.#detach = NTT.attach(this.href, this.define);
-    }
-    else if (this.model){
-      this.#detach?.()
-      this.#detach = PTT.attach(this.model, this.define);
-    }
-  }
-  
-  definedCallback() {
-    console.log("PARENT DEFINEDCALLBACK")
-    // This method should be implemented in subclasses to handle specific initialization logic
-  }
+ 
   
   attributeChangedCallback(name, oldVal, newVal) {
+    console.log("ATTR CHANGED:      ", `${this.constructor.name}.${name} ${oldVal} => ${newVal}`)
     if (oldVal === newVal) return; // No change, no need to update
     
     if (name === 'model') {
@@ -108,17 +74,7 @@ export class NTTElement extends HTMLElement {
   set model(model_name) {
     this.#model = model_name;
   }
-  
-  //inbox(event) {
-  //  let event_method = `_${event.name}_`;
-  //  if (this.hasAttribute(event.name) && typeof this[event_method] === 'function') {
-  //    console.warn(`Event ${event.name} received in Element:`, event);
-  //    this[event_method](event.data);
-  //  } else {
-  //    console.warn(`No handler for event ${event.name} in List`);
-  //  }
-  //}
-  
+ 
   define(ptt) {
     Logging.debug(`[NTT-ELEMENT] ${this.model} - Defining Element with `, ptt);
     if (!ptt.schema || ptt.schema.__name__ === this.#proto?.schema?.__name__) return;

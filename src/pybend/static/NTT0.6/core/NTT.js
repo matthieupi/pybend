@@ -19,7 +19,6 @@ class TT extends Actor{
     static #registry = new Map();
     
     
-    #addr;
     #href;
     #signals = new Set(); // Set of signals for this instance
     #observers = new Map(); // Map of property observers
@@ -31,13 +30,10 @@ class TT extends Actor{
         
         if (!href)
             href = `${config.API_URL}/${addr}`;
-        
-        this.#addr = addr;
         this.#href = href;
     }
     
     // Protected getters for subclasses
-    get addr() { return this.#addr; }
     get href() { return this.#href; }
     set href(href) {
         assert(this, isUrl(href), `[TT] ${this.addr} - HREF must be a valid URL, got: ${href}`);
@@ -45,9 +41,6 @@ class TT extends Actor{
         this.#href = href
     }
     
-    static get(addr) {
-        return TT.#registry.get(addr);
-    }
     
     notify(property, newValue, oldValue) {
         assert(this, property && typeof property === 'string', `Property must be a non-empty string.`);
