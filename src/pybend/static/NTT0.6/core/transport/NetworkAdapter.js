@@ -7,12 +7,11 @@ import Logging from "../../utils/Logging.js";
 
 export class NetworkAdapter {
   
-  static #callbacks = new Map(); // key -> callback for this address
-  
-  constructor(matrix, mode = 'http') {
+  constructor(matrix, url="", mode = 'http') {
     this.matrix = matrix;
     this.mode = mode;
     this.socket = null;
+    this.url = url || config.API_URL;
     if (mode === 'ws') {
       this.socket = new Socket("localhost:8765");
     }
@@ -20,6 +19,7 @@ export class NetworkAdapter {
   }
  
   httpCallback(event, response) {
+    
     assert(this, event && event.target, `Event must have a target property.`);
     assert(this, this.matrix.has(event.source), `No callback registered for target: ${event.source}`);
     Logging.event(`HTTP Callback for event:`, event.name, `with response:`, response, `on target:`, event.target)

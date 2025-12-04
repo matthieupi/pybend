@@ -373,7 +373,7 @@
                 const pttAddr = modelName;
                 const pttHref = `${config.API_URL}/${modelName}`;
 
-                currentPTT = PTT.register(pttAddr, pttHref);
+                currentPTT = PTT.factory(pttAddr, pttHref);
                 activeInstances.set(pttAddr, currentPTT);
 
                 debugLog(`Created PTT instance: ${pttAddr} -> ${pttHref}`, 'success');

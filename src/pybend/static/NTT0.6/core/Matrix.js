@@ -10,19 +10,23 @@ const E = config.E;
 
 export class Matrix extends Actor {
     
-    
-    constructor(url) {
-        super(url);
-        this.remote = new NetworkAdapter(this)
+    constructor(addr, url="") {
+        super(addr);
+        // When initializing the first Matrix, register it as the root actor
+        if (!Actor.root){
+            Actor.registerRoot(this);
+        }
+        this.remote = new NetworkAdapter(this, url)
     }
     
     has(addr) {
+        console.log(`Matrix checking for local actor at address: ${addr}`, this.children);
         return this.children.has(addr.split('/')[0]);
     }
    
     inbox(event) {
-        console.warn(`Matrix received event '${event.name}' for target: ${event.target}`, event);
-        console.log(`Registered children:`, this.children);
+        //console.warn(`Matrix received event '${event.name}' for target: ${event.target}`, event);
+        //console.log(`[MATRIX] Inbox received event '${event.source}' for target: ${event.target}`);
         let tx = event instanceof TX ? event : new TX(event);
 
         let targetAddr = tx.target.split('/')[0];
@@ -32,6 +36,9 @@ export class Matrix extends Actor {
         } else if (tx.target === this.addr) {
             throw new Error(`Matrix cannot send messages to itself at address ${this.addr}.`);
         } else if (this.children.has(targetAddr)) {
+            // Forward to local child actor
+            //console.log(`[MATRIX] Forwarding event '${tx.name}' to local actor at address:`, targetAddr)
+            //tx.target = tx.target.replace(`${targetAddr}`, '').replace(/^\/+/,''); // Remove the processed prefix
             tx = this.children.get(targetAddr).inbox(tx.repr())
         } else {
             tx = this.remote.send(tx);
@@ -42,13 +49,7 @@ export class Matrix extends Actor {
     dispatch(event) {
         this.inbox(event);
     }
-    
-    register(actor) {
-        assert(this,  this.isActor(actor) , `Only Actor instances can be registered.`);
-        caution(this, !this.children.has(actor.addr), `Actor with address ${actor.addr} is already registered.`);
-        this.children.set(actor.addr, actor);
-        Logging.debug(`[MATRIX] Registered actor at address:`, actor.addr);
-    }
+   
     
     connect(source, target) {
         // The target is in the form of /ChildrenClass/child-addr
@@ -70,21 +71,10 @@ export class Matrix extends Actor {
         
     }
     
-    isActor(actor) {
-        if (actor instanceof Actor)
-            return true;
-        // Check if the object implements the Actor interface (addr, inbox)
-        else if (actor && typeof actor.addr === 'string' && typeof actor.inbox === 'function')
-            return true;
-        else
-            console.warn(actor)
-        // TODO Whty is actor.addr showing up as undefined here?
-        // There is a getter in Component hierarchy that should make this work
-        console.log(actor.addr, typeof actor.inbox)
-            throw new Error(`Object ${actor} is not an Actor instance.`);
-    }
-    
 }
 
 
+// Required initialization step for all Actor Classes
+Actor.subclass(Matrix)
+// Create the ROOT matrix instance
 export const matrix = new Matrix("matrix://root");

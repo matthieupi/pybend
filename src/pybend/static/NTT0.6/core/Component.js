@@ -17,14 +17,13 @@ export class Component extends HTMLElement {
   
   #addr;
   #hash;
-  static #children = new Map();
+  //static #children = new Map();
  
   constructor() {
     super();
     this.#hash = this.getAttribute('hash') || generateId();
     this.#addr = this.getAttribute('addr') || `${this.constructor.name}-${this.#hash}`;
     // Register component reference in parent class
-    Component.#children.set(this.addr, this)
   }
   
   static get observedAttributes() {
@@ -36,6 +35,7 @@ export class Component extends HTMLElement {
   }
   
  
+  /**
   static send(event) {
     // Parse event into TX if necessary
     let tx = event instanceof TX ? event : new TX(event);
@@ -58,12 +58,15 @@ export class Component extends HTMLElement {
       }
     return tx
   }
+   **/
+  /**
   
   static inbox(event) {
     let tx = typeof event !== 'TX' ? new TX(event) : event;
     if (tx.target === `/${Component.addr}` || tx.target === Component.addr) {
       throw new Error(`Component inbox() cannot handle messages targeted to the Component itself.`);
     } else {
+      console.error("Will sent")
       Component.send(event)
     }
   }
@@ -81,6 +84,7 @@ export class Component extends HTMLElement {
       Logging.warn(`[COMPONENT] Component at address ${component.addr} is already registered.`);
     }
   }
+   */
   
   /** -------------------------------------------- **/
   /**   ACTOR Instance Interface Implementation    **/
@@ -137,6 +141,7 @@ export class Component extends HTMLElement {
   }
 }
 
+Actor.subclass(Component);
 matrix.register(Component)
 
 // As it is solely a parent class do we really need to define it?

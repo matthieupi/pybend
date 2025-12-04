@@ -40,7 +40,7 @@ export default class Logging {
         );
     }
 
-   static warn(val1, val2) {
+   static warn(val1, val2="") {
        if (config.LOGGING < 2) return;
        val1 = Logging.pad(val1)
        let caller = _getCaller()
@@ -51,8 +51,6 @@ export default class Logging {
                "color: inherit; font-weight: bolder;",                            // val2
                "display:inline-block; text-align:right; color:#888; float:right" // right column
            );
-       else
-           console.warn(val1)
    }
 
    static error(val1, val2) {

@@ -15,15 +15,11 @@ import {matrix} from "./Matrix.js";
  */
 class TT extends Actor{
     
-    /** Registry of all TT instances */
-    static #registry = new Map();
-    
-    
     #href;
     #signals = new Set(); // Set of signals for this instance
     #observers = new Map(); // Map of property observers
     
-    constructor(addr, href, remote = TT.remote) {
+    constructor(addr, href) {
         super(addr);
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
         //assert(this, href && typeof isUrl(href), `[TT] ${addr} - HREF must be a valid URL, got: ${href}`);
@@ -74,17 +70,21 @@ class TT extends Actor{
      * Send an event via the registrar callback
      * @param event {TX}
      */
+    
+    /**
     send(event) {
         assert(this, event && typeof event === 'object', `Data must be a non-empty object.`);
         // Retrieve href callback and dispatch the event to it
         Logging.event(`Sending event '${event.name}' from ${event.source} to ${event.target}\n`, event.str())
         matrix.dispatch(event)
     }
+     **/
     
     /**
      * Inbox method to handle incoming events
      * @param event {TX}
      */
+    /**
     inbox(event) {
         // Check if the event name matches a method in this class
         let method_name = `_${event.name}_`.toLowerCase();
@@ -100,6 +100,7 @@ class TT extends Actor{
         }
         
     }
+     **/
     
     observe(property, callback) {
         assert(this, property && typeof property === 'string', `Property must be a non-empty string.`);
@@ -126,6 +127,7 @@ class TT extends Actor{
      * @param [meta] {Object} - Additional metadata for the call
      */
     call(method, data = {}, meta = {}) {
+        console.error(`[TT] Calling remote method '${method}' on ${this.addr} with data:`, data, 'and meta:', meta)
       this.send(
         new TX({
             name: method,
@@ -168,7 +170,7 @@ export class PTT extends TT{
         PTT.#prototypes.set(addr, this);
         this.#instances = new Map();
         // Register the inbox method to handle incoming events
-        matrix.register(this)
+        //matrix.register(this)
     }
     
     get schema() { return this.#data; }
@@ -199,7 +201,7 @@ export class PTT extends TT{
         return instance;
     }
   
-    _schema_(data) {
+    SCHEMA(data) {
         // If the data has a __tablename__, we need to link this prototype to the endpoint
         if (data['__tablename__']) {
             this.href = `${config.API_URL}/${data['__tablename__']}`;
@@ -214,13 +216,19 @@ export class PTT extends TT{
                 if (value.type === 'object' && value.properties) {
                     // Register the prototype with the address
                     if (!PTT.has(key)) {
-                        PTT.register(key, `${value['__url__']}`, value);
+                        PTT.factory(key, `${value['__url__']}`, value);
                     } else {
                         Logging.dev(`[PTT.schema] Prototype for ${key} is already registered.`);
                     }
                 }
             }
         }
+    }
+    
+    UPDATE(data) {
+        console.warn(`[PTT] UPDATE method not implemented yet.`)
+        console.log(this)
+        console.log(matrix.children)
     }
    
     // ------------------ Static Methods ------------------ //
@@ -270,16 +278,18 @@ export class PTT extends TT{
      * @param schema {Object|string} - Schema or URL for the model
      * @returns {PTT}
      */
-    static register(addr, href, schema = undefined) {
+    static factory(addr, href, schema = undefined) {
         assert(this, !PTT.#prototypes.has(addr), `Address '${addr}' is already registered.`, 'warn');
         if (!schema) return new PTT(addr, href).pull();
         else return new PTT(addr, href, schema);
     }
     
+    /**
     register(instance) {
         Logging.warn(`[${this.addr}] Registering in PTT`,`${instance.addr}`)
         this.#instances.set(instance.addr, instance);
     }
+     */
     
 }
 
@@ -469,8 +479,7 @@ export class NTT extends TT {
 }
 
 // Global exposure for backward compatibility
-window.NTT = NTT;
-
+//
 
 /**
  *
@@ -480,6 +489,7 @@ window.NTT = NTT;
  */
 function prototype(ptt) {
 
+    console.error(`Creating PTT prototype class for ${ptt.addr}:`)
     const fields = Object.keys(ptt.schema.properties || {});
     const methods = Object.keys(ptt.schema.methods || {});
     const className = ptt.addr
@@ -494,17 +504,19 @@ function prototype(ptt) {
       
       constructor(data) {
         Logging.log(`Creating dynamic class instance ${DynamicClass.name} with data:`, data, 'and ptt:', ptt)
-        super(DynamicClass.name, data.id );
+        super(DynamicClass.name, data.id);
         this.value = data;
         this.href = `${ptt.href}/${this.id}`; // Set the href based on the PTT instance
       }
       
+      /**
       register() {
           console.warn(`Registering instance of ${DynamicClass.name} at addr: ${this.addr}`)
           DynamicClass.proto.instances.set(this.addr, this);
           matrix.register(this);
       
       }
+       */
       
       
       
@@ -585,7 +597,16 @@ function prototype(ptt) {
     
 
     // 3. Add schema methods to the subclass prototype
-    // ToDo: When backend is ready, implement remote method calling (RPC) from the prototype
+    // ToDo: When backend is ready, implement remote method calling (RPC) from the constructor
 
     return DynamicClass;
 }
+
+
+window.NTT = NTT;
+
+Actor.subclass(TT);
+
+Actor.subclass(PTT);
+
+Actor.subclass(NTT)
