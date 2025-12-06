@@ -15,7 +15,6 @@ export default class Actor {
     #children;
     
     constructor(addr = "") {
-        Logging.dev(`Initializing Actor at address:`,`${addr}`)
         // Address generation
         if (!addr) {
             addr = `actor-${Math.random().toString(36).substr(2, 9)}`;
@@ -24,7 +23,7 @@ export default class Actor {
         this.#addr = addr
         this.#parent = this.constructor
         this.#children = new Map(); // Child actors
-        console.warn(this)
+        Logging.init(`Actor ${this.addr}`, this)
         this.constructor.register(this); // Register in type-level children map
         // Bindings
         this.inbox = this.inbox.bind(this);
@@ -70,7 +69,7 @@ export default class Actor {
             );
         }
         // Local initialization
-        console.warn(`[Actor.${this.addr}_send] Routing message to target: ${tx.target}`, this.children)
+        //console.warn(`[Actor.${this.addr}_send] Routing message to target: ${tx.target}`, this.children)
         const Type = this; // the concrete subclass (e.g. Component)
         const children = Type.children; // Subclasses must expose a static children map
         const typeAddr = Type.addr || Type.name;
@@ -87,11 +86,11 @@ export default class Actor {
         // Case 2: target looks like "/this.addr/child-addr" and we own that child
         else if (targetParent === this.addr) {
             if (children && targetChild && children.has(targetChild)) {
-                console.log("Forwarding message to child actor at address:", targetChild)
                 tx.target = rawTarget.replace(sourcePrefix, "");
                 tx.target = rawTarget.replace(typeAddr, "");
                 children.get(targetChild).inbox(tx.repr());
             } else {
+                console.error(this, this.children)
                 throw new Error(
                     `[Actor.${this.addr}_send] Cannot route message to target: ${tx.target}. No such child actor.`
                 );
@@ -128,18 +127,15 @@ export default class Actor {
     }
     
     static _inbox(event) {
-        console.warn(`[Actor.${this.addr}_inbox] Received message for target: ${event.target}`)
         const tx = event instanceof TX ? event : new TX(event);
         const Type = this;
         const Prototype = Object.getPrototypeOf(this);
         if (tx.target === `/${Type.addr}` || tx.target === Type.addr) {
-            console.log(`[${this.addr}._inbox] Handling message for self:`, tx)
-            console.log(this)
-            console.log(Object.getOwnPropertyNames(this))
             // Check if has method
-            if (this.hasOwnProperty(tx.name)) {
+            if (typeof this[tx.name] === "function") {
+            //if (this.hasOwnProperty(tx.name)) {
                 return this[tx.name](tx.data);
-            } else if(Prototype.hasOwnProperty(tx.name)){
+            } else if(tx.name in Prototype){
                 return Prototype[tx.name].call(this, tx.data);
             } else {
                 throw new Error(`[${this.addr}._inbox] No handler for event ${tx.name}.`);
@@ -156,6 +152,7 @@ export default class Actor {
      * Call this from the base-class constructor (e.g. Component's constructor).
      */
     static _register(actor) {
+        console.warn(`[Actor._register] Registering actor at address: ${actor.addr} in parent: ${this.addr}`);
         // 1. When caller context is a class, register actor in its parent type's children map
         if (typeof this === "function"){
             assert(this, actor, `[Actor.register] Actor to register must be provided when called from a Class`)
@@ -167,29 +164,8 @@ export default class Actor {
         } else {
             throw new Error(`[Actor.register] What are you trying to register, a Giraffe?: ${this}`)
         }
-           console.log(parent, actor)
         this.children.set(actor.addr, actor);
-        
-        /*
-           
-        // If actor is instance, register in its type's children map
-        if (actor instanceof Actor)
-            this._children.set(actor.addr, actor);
-        console.error(`[Actor.register] Registering instance of ${actor.constructor.name} at addr: ${actor.addr}`)
-           console.log(actor)
-           console.log(this)
-        const Type = actor.constructor;
-
-        if (typeof actor.addr !== "string" || !actor.addr) {
-            Logging.warn(
-                `[Actor.registerChild] Instance of ${Type.name} has no valid 'addr' string; not added to children map.`
-            );
-            return;
-        }
-
-        Type._children.set(actor.addr, actor);
-        
-         */
+    
     }
     
       /**
@@ -197,7 +173,7 @@ export default class Actor {
      *  - Adds static addr / children / send
      *  - Adds a default instance send that delegates to the static one
      */
-    static subclass(ChildClass=undefined, { addr } = {}) {
+    static subclass(ChildClass=undefined, ...Mixins) {
         // TODO: Make callable via ChildClass.subclass()
         // if (this.name && !this.name === "Actor"){
         //     ChildClass = this;
@@ -219,7 +195,7 @@ export default class Actor {
             Object.defineProperty(Type, "addr", {
                 configurable: true,
                 get() {
-                    return addr || Type.name;
+                    return Type.name;
                 },
             });
         }
@@ -239,13 +215,17 @@ export default class Actor {
             });
         }
         // ------------- STATIC CLASS METHOD SETUP -------------- //
-        Type.send = function (event) {
-            return Actor._send.call(Type, event);
-        };
-        Type.inbox = function (event) {
-            const tx = event instanceof TX ? event : new TX(event);
-            return Actor._inbox.call(Type, tx);
-        };
+        if (!Object.getOwnPropertyDescriptor(Type, "send")) {
+            Type.send = function (event) {
+                return Actor._send.call(Type, event);
+            };
+        }
+        if (!Object.getOwnPropertyDescriptor(Type, "inbox")) {
+            Type.inbox = function (event) {
+                const tx = event instanceof TX ? event : new TX(event);
+                return Actor._inbox.call(Type, tx);
+            };
+        }
         Type.register = function (actor) {
             return Actor._register.call(Type, actor);
         }
@@ -263,7 +243,6 @@ export default class Actor {
         // ------------- INSTANCE ATTRIBUTE SETUP -------------- //
         const childrenDescriptor = Object.getOwnPropertyDescriptor(Type.prototype, "_children");
         if (!childrenDescriptor || childrenDescriptor.value === Actor.prototype._children) {
-            console.log(`[Actor.subclass] Setting up instance _children map for ${Type.name}`)
             Type.prototype._children = new Map();
             // Children getter and setter
             Object.defineProperty(Type.prototype, "children", {
@@ -288,6 +267,18 @@ export default class Actor {
             };
         }
         */
+    
+        // ------------- APPLY MIXINS TO BASE CLASS -------------- //
+        for (const Mixin of Mixins) {
+            if (!Mixin) continue;
+
+            // Convention: mixin class should expose static apply(Base)
+            if (typeof Mixin.apply === "function") {
+                Mixin.apply(Type);
+            } else {
+                throw new Error(`[Actor.subclass(${ChildClass.name})] Mixin ${Mixin.name || "<anonymous>"} must have a static apply(Base) method.`);
+            }
+        }
 
         // Mark as augmented
         Object.defineProperty(Type, "__TypeActor", {

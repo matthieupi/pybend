@@ -4,6 +4,7 @@ import {isEmpty, generateId} from "../core/Utils.js";
 import Logging from "../utils/Logging.js";
 import {matrix} from "../core/Matrix.js";
 import {Component} from "../core/Component.js";
+import TX from "../core/TX.js";
 
 
 
@@ -40,6 +41,12 @@ export class NTTElement extends Component {
     if (oldVal === newVal) return; // No change, no need to update
     
     if (name === 'model') {
+      this.send(new TX({
+        name: 'ATTACH',
+        source: this.addr,
+        target: 'PTT',
+        data: newVal
+      }))
       this.model = newVal;
       // Detach and reattach to the new model
       this.#detach?.();

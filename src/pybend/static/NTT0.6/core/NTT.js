@@ -8,7 +8,9 @@ import Logging from "../utils/Logging.js";
 import Actor from "./Actor.js";
 
 import {matrix} from "./Matrix.js";
+import Observable from "./Observable.js";
 
+const E = config.E;
 
 /**
  * TT (Transfer Type) - Base class for transfer types
@@ -16,8 +18,8 @@ import {matrix} from "./Matrix.js";
 class TT extends Actor{
     
     #href;
-    #signals = new Set(); // Set of signals for this instance
-    #observers = new Map(); // Map of property observers
+    #watchers = new Set();
+    #observers = new Map();
     
     constructor(addr, href) {
         super(addr);
@@ -37,7 +39,12 @@ class TT extends Actor{
         this.#href = href
     }
     
+    watch(addr) {
+        this.#watchers.add(addr);
+    }
     
+    
+    /**
     notify(property, newValue, oldValue) {
         assert(this, property && typeof property === 'string', `Property must be a non-empty string.`);
         //assert(this, this.#observers.has(property), `No observers registered for property '${property}'.`);
@@ -65,6 +72,7 @@ class TT extends Actor{
         }
         
     }
+     **/
    
     /**
      * Send an event via the registrar callback
@@ -102,6 +110,7 @@ class TT extends Actor{
     }
      **/
     
+    /**
     observe(property, callback) {
         assert(this, property && typeof property === 'string', `Property must be a non-empty string.`);
         assert(this, callback && typeof callback === 'function', `Callback must be a function.`);
@@ -119,6 +128,7 @@ class TT extends Actor{
             }
         };
     }
+     **/
   
     /**
      * Call a distant method on the PTT instance
@@ -127,7 +137,6 @@ class TT extends Actor{
      * @param [meta] {Object} - Additional metadata for the call
      */
     call(method, data = {}, meta = {}) {
-        console.error(`[TT] Calling remote method '${method}' on ${this.addr} with data:`, data, 'and meta:', meta)
       this.send(
         new TX({
             name: method,
@@ -208,7 +217,6 @@ export class PTT extends TT{
             //registrar(this.href, remote.send)
         }
         // Create a subclass of NTT with the provided schema
-        Logging.log(`[PTT] Received schema data for ${this.addr}`, data);
         this.value = data;
         // If the schema has a $defs, register them as PTTs
         if (data.$defs && typeof data.$defs === 'object') {
@@ -226,9 +234,12 @@ export class PTT extends TT{
     }
     
     UPDATE(data) {
-        console.warn(`[PTT] UPDATE method not implemented yet.`)
-        console.log(this)
-        console.log(matrix.children)
+        matrix.dispatch(new TX({
+            name: E.update,
+            source: `${this.addr}/${this.href}`,
+            target: this.addr,
+            data: data,
+        }));
     }
    
     // ------------------ Static Methods ------------------ //
@@ -254,6 +265,32 @@ export class PTT extends TT{
     get(addr) {
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
         return this.#instances.get(addr) || undefined;
+    }
+    
+    static inbox(event) {
+        let tx = event instanceof TX ? event : new TX(event);
+        Logging.event(tx);
+        if (tx.name === "ATTACH") {
+            // Handle attach event
+            const addr = tx.data
+            if (PTT.#prototypes.has(addr)) {
+                return PTT.#prototypes.get(addr).inbox(tx.repr());
+            } else {
+                console.warn(`[PTT] No prototype registered for address '${addr}' to attach.`);
+                return PTT.get(addr).signal( (ptt) => {
+                        console.error(ptt);
+                        ptt.watch(tx.source)
+                        ptt.send(new TX({
+                            name: 'UPDATE',
+                            source: ptt.addr,
+                            target: tx.source,
+                            data: ptt.value
+                        }))
+                    },
+                    true);
+            }
+        }
+        else Actor._send.call(this, tx.repr());
     }
     
     static attach(addr, callback) {
@@ -323,19 +360,37 @@ export class NTT extends TT {
         const addr = `${model}/${id}`;
         super(addr, href);
         // Attach to the type definition
-        NTT.#instances.set(addr, this);
-        this.#detach = PTT.attach(model, this.define.bind(this));
-        if (!isEmpty(data)) {
-            this.value = data; // Initialize value with provided data
+        //NTT.#instances.set(addr, this);
+        //this.#detach = PTT.attach(model, this.define.bind(this));
+        //if (!isEmpty(data)) {
+        //    this.value = data; // Initialize value with provided data
+        //}
+        //// Register the upstream and downstream links
+        //this.proto.register(this)
+        //// Initialize functional state management in meta. Functionality is not implemented yet but will be added later
+        //this.#meta = {
+        //    // ...meta,
+        //    // remoteState: { ...data },          // Last known server state
+        //    // pendingOps: [],                    // Uncommitted transformations
+        //};
+    }
+    
+    static UPDATE(data) {
+        // TODO update to use addr (right now index) when the backend is updated to return dict of addr: value instead of list
+        for (const [addr, value] of Object.entries(data)) {
+            const instance = this.get(value.id);
+            if (instance) {
+                instance.update(value);
+            } else {
+                new this(value)
+            }
+            
         }
-        // Register the upstream and downstream links
-        this.proto.register(this)
-        // Initialize functional state management in meta. Functionality is not implemented yet but will be added later
-        this.#meta = {
-            // ...meta,
-            // remoteState: { ...data },          // Last known server state
-            // pendingOps: [],                    // Uncommitted transformations
-        };
+    }
+    
+    CONNECT(addr) {
+        console.warn(`[NTT] CONNECT received for ${addr} - Not implemented yet.`);
+        
     }
     
     
@@ -417,13 +472,22 @@ export class NTT extends TT {
     
     // ------------------ Static Methods  ------------------ //
     
+    /**
+     * Get NTT instance by address
+     * @param {string} addr - Instance identifier
+     * @returns {NTT|null} NTT instance or null if not found
+     */
     static get(addr) {
-        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-        if (!NTT.#instances.has(addr)) {
-            const [model, hash] = addr.split('/');
-            return new NTT(model, hash).pull();
+        assert(this, addr && typeof addr === 'string' || addr && typeof addr === 'number',
+            `Address must be a non-empty string.`);
+        if (typeof addr === 'number'){
+            // Conver to string
+            addr = addr.toString();
         }
-        return NTT.#instances.get(addr);
+        if (!this.children.has(addr)) {
+            return undefined
+        }
+        return this.children.get(addr);
     }
     
     static attach(model, hash, callback) {
@@ -465,17 +529,6 @@ export class NTT extends TT {
         evt.dispatch();
     }
     
-    
-    /**
-     * Get NTT instance by ID
-     * @param {string} instanceId - Instance identifier
-     * @returns {NTT|null} NTT instance or null if not found
-     */
-    static get(instanceId) {
-        assert(this, instanceId, 'Instance ID must be provided');
-        // ToDo Get instance from registry from NTT.get(instanceId)
-    }
-    
 }
 
 // Global exposure for backward compatibility
@@ -501,26 +554,28 @@ function prototype(ptt) {
       
       static instances = new Map();
       
+      _data;
+      
       
       constructor(data) {
-        Logging.log(`Creating dynamic class instance ${DynamicClass.name} with data:`, data, 'and ptt:', ptt)
+      Logging.init(`Dynamic ${DynamicClass.name} ${data.id}`, data)
         super(DynamicClass.name, data.id);
         this.value = data;
         this.href = `${ptt.href}/${this.id}`; // Set the href based on the PTT instance
       }
       
-      /**
-      register() {
-          console.warn(`Registering instance of ${DynamicClass.name} at addr: ${this.addr}`)
-          DynamicClass.proto.instances.set(this.addr, this);
-          matrix.register(this);
-      
+      get value() {
+        return this._data;
       }
-       */
-      
-      
-      
+      set value(val) {
+            if (typeof val !== 'object') {
+                throw new TypeError('data must be an object');
+            }
+            this._data = val;
+            this.signal();
+      }
     };
+    
     // 1.1 Set the class name dynamically
     Object.defineProperty(DynamicClass, 'name', {value: className});
     Object.defineProperty(DynamicClass, 'proto', {value: ptt});
@@ -538,7 +593,7 @@ function prototype(ptt) {
         configurable: true,
         // 2.1 Variable access
         get() {
-          return this.value[field]
+          return this.value?.[field]
         },
         // 2.2 Variable assignment with type checking and validation
         set(value) {
@@ -596,8 +651,12 @@ function prototype(ptt) {
     }
     
 
-    // 3. Add schema methods to the subclass prototype
+    // 3. Add schema static methods to the subclass prototype
     // ToDo: When backend is ready, implement remote method calling (RPC) from the constructor
+    
+    
+    // Apply Actor and Mixins
+    Actor.subclass(DynamicClass, Observable);
 
     return DynamicClass;
 }
@@ -607,6 +666,6 @@ window.NTT = NTT;
 
 Actor.subclass(TT);
 
-Actor.subclass(PTT);
+Actor.subclass(PTT, Observable);
 
 Actor.subclass(NTT)

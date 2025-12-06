@@ -23,6 +23,7 @@ export class Component extends HTMLElement {
     super();
     this.#hash = this.getAttribute('hash') || generateId();
     this.#addr = this.getAttribute('addr') || `${this.constructor.name}-${this.#hash}`;
+    console.log(this)
     // Register component reference in parent class
   }
   
@@ -36,41 +37,6 @@ export class Component extends HTMLElement {
   
  
   /**
-  static send(event) {
-    // Parse event into TX if necessary
-    let tx = event instanceof TX ? event : new TX(event);
-    // Determine source and target prefixes
-    let sourcePrefix = `/${Component.name}`;
-    let targetParent = event.target.split('/')[0]
-    let targetChild = event.target.split('/')[1]
-    // When target is in children, forward to child
-    if ( Component.#children.has(targetParent) ){
-      // Forward the message to the appropriate child component
-      Component.#children.get(targetParent).inbox(tx.repr());
-    } else if ( Component.#children.has(targetChild) ) {
-      // Remove prefix from target as this layer has been processed
-      tx.target = tx.target.replace(sourcePrefix, '');
-      Component.#children.get(targetChild).inbox(tx.repr());
-    } else{
-        // Add source prefix to the source address
-        tx.source = `${Component.addr}/${tx.source}`;
-        matrix.inbox(tx.repr());
-      }
-    return tx
-  }
-   **/
-  /**
-  
-  static inbox(event) {
-    let tx = typeof event !== 'TX' ? new TX(event) : event;
-    if (tx.target === `/${Component.addr}` || tx.target === Component.addr) {
-      throw new Error(`Component inbox() cannot handle messages targeted to the Component itself.`);
-    } else {
-      console.error("Will sent")
-      Component.send(event)
-    }
-  }
-  
   connect(target) {
     let connectEvent = new ConnectEvent(this.addr, target);
     Component.send(connectEvent.repr());
@@ -129,7 +95,6 @@ export class Component extends HTMLElement {
   
   
   connectedCallback() {
-    console.warn(`Component ${this.addr} connected to DOM.`)
   }
   
   disconnectedCallback() {

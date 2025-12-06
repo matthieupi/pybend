@@ -4,11 +4,14 @@ import { PTT } from '../core/NTT.js';
 import {generateId} from "../core/Utils.js";
 import {NTTElement} from "./ntt-element.js";
 import Logging from "../utils/Logging.js";
+import Observable from "../core/Observable.js";
+import Actor from "../core/Actor.js";
 
 export class List extends NTTElement {
   
   constructor() {
     super();
+    this.constructor.register(this); // Register in type-level children map
   }
   
   connectedCallback() {
@@ -65,4 +68,5 @@ export class List extends NTTElement {
   }
 }
 
+Actor.subclass(List);
 customElements.define('ntt-list', List);

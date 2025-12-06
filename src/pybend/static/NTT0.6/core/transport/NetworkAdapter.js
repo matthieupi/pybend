@@ -22,7 +22,6 @@ export class NetworkAdapter {
     
     assert(this, event && event.target, `Event must have a target property.`);
     assert(this, this.matrix.has(event.source), `No callback registered for target: ${event.source}`);
-    Logging.event(`HTTP Callback for event:`, event.name, `with response:`, response, `on target:`, event.target)
     // Updater the event with the response data
     if (event.meta['inbox'])
       event.name = event.meta['inbox']; // Use inbox as the event name if provided
@@ -113,8 +112,6 @@ export class NetworkAdapter {
     let {name, data, meta, source, target, id, timestamp} = event;
     let callback = this.httpCallback.bind(this, event);
     let onError = this.onError.bind(this, event);
-    
-    if (data) Logging.event(`Sending data with event:`, name, `to target:`, target, `with data:`, data);
     
     if (this.mode === 'http') {
       if (name.toUpperCase() === config.E.load) HTTP.get(target, callback, onError);

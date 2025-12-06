@@ -20,14 +20,14 @@ export class Matrix extends Actor {
     }
     
     has(addr) {
-        console.log(`Matrix checking for local actor at address: ${addr}`, this.children);
         return this.children.has(addr.split('/')[0]);
     }
    
     inbox(event) {
+        let tx = event instanceof TX ? event : new TX(event);
         //console.warn(`Matrix received event '${event.name}' for target: ${event.target}`, event);
         //console.log(`[MATRIX] Inbox received event '${event.source}' for target: ${event.target}`);
-        let tx = event instanceof TX ? event : new TX(event);
+        Logging.event(tx);
 
         let targetAddr = tx.target.split('/')[0];
         // Check if the target actor is local
@@ -39,6 +39,7 @@ export class Matrix extends Actor {
             // Forward to local child actor
             //console.log(`[MATRIX] Forwarding event '${tx.name}' to local actor at address:`, targetAddr)
             //tx.target = tx.target.replace(`${targetAddr}`, '').replace(/^\/+/,''); // Remove the processed prefix
+            console.log(this.children)
             tx = this.children.get(targetAddr).inbox(tx.repr())
         } else {
             tx = this.remote.send(tx);

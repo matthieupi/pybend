@@ -1,6 +1,19 @@
 import {config} from '../config.js';
 export default class Logging {
     
+    static init(val, ntt, data) {
+        if (config.LOGGING < 3) return;
+        val = Logging.pad(`[${new Date().toISOString()}] ${val}`, 55, )+ '\n'
+        let caller = _getCaller();
+        // let caller = log.caller().name
+        // console.log(val1, val2, caller)
+        
+        console.info(
+            "%c" + val,
+            "color: gray; font-weight: bold;",                                  // val1
+            ntt,
+        );
+    }
     static log(val1, val2) {
         if (config.LOGGING < 3) return;
         val1 = Logging.pad(val1)
@@ -23,9 +36,19 @@ export default class Logging {
         );
    }
    
-   static event(val1, val2) {
-        if (!config.LOGEVENTS) return;
-        this.warn(val1, val2)
+   static event(tx) {
+       if (!config.LOGEVENTS) return;
+       let caller = _getCaller();
+       let val1 = Logging.pad(`[${tx.name}]`)
+    
+       console.warn(
+           "%c" + val1 + "%c" + `${tx.source} --> ${tx.target}` + "%c" + caller,
+           "color: lightgrey; font-weight: bold;",                                  // val1
+           "color: inherit; font-weight: bolder;",                            // val2
+           "display:inline-block; text-align:right; color:#888; float:right", // right column
+           '\n',
+           tx.data
+       );
    }
 
     static debug(val1, val2) {
@@ -40,8 +63,8 @@ export default class Logging {
         );
     }
 
-   static warn(val1, val2="") {
-       if (config.LOGGING < 2) return;
+   static warn(val1, val2="", lvl=config.LOGGING) {
+       if (lvl < 2) return;
        val1 = Logging.pad(val1)
        let caller = _getCaller()
        if (val2)

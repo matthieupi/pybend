@@ -1,8 +1,8 @@
 
 export const config = {
     LOGGING: 3,
-    LOGEVENTS: false,
-    LOGSPAWN: false,
+    LOGEVENTS: true,
+    LOGSPAWN: true,
     DEBUG: false,
     API_URL: 'http://localhost:8000',
     WS_URL: 'ws://localhost:8765',
