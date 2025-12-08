@@ -3,6 +3,8 @@ import { NTTElement} from "./ntt-element.js";
 import {NTTMethod} from "./ntt-method.js";
 import {Formidable} from '../generators/form.js';
 import Logging from "../utils/Logging.js";
+import assert from "../utils/Assert.js";
+import TX from "../core/TX.js";
 
 export class Item extends NTTElement {
   
@@ -16,7 +18,32 @@ export class Item extends NTTElement {
     $link.setAttribute('href', new URL('./ntt-item.css', import.meta.url));
     this.shadowRoot.appendChild($link);
     this.$styles = $link
+    this._type = undefined
 
+  }
+  
+  UPDATE(data) {
+    console.warn(`Received UPDATE for Item: ${this.model}`)
+    console.error(data)
+    console.log(this)
+    assert(this, "@type" in data, "UPDATE data missing $type field");
+    Logging.dev(`[NTT-ITEM] ${this.schema.__name__} - Updated Item value: ${this.value}`, data);
+    this.value = data;
+    if (this._type !== data['@type']){
+        this._type = data['@type'];
+        this.send(new TX({
+            name: 'CONNECT',
+            source: this.addr,
+            target: this._type
+        }))
+    }
+  }
+  
+  DESCRIBE(data) {
+    Logging.dev(`[NTT-ITEM] ${this.model} - Received DESCRIBE`, data);
+    this.schema = data.proto
+    this.value = data.data
+    this.render()
   }
   
   connectedCallback() {
@@ -82,6 +109,7 @@ export class Item extends NTTElement {
 
 render() {
   
+  console.warn(`Rendering Item: ${this.addr}`)
   if (this.value?.name) Logging.debug(`Rendering ${this.model} item: ${this.value?.name}`);
   
   const fields = this.schema?.properties || {};
@@ -91,12 +119,13 @@ render() {
   const icon = this.mode === 'edit' ? '💾' : '✏️';
   html.push(`<button class="edit-btn" title="${this.mode === 'edit' ? 'Save' : 'Edit'}">${icon}</button>`);
   
-  html.push(Formidable.getForm(this.value, this.mode));
+  html.push(Formidable.getForm({schema: this.schema, value: this.value}, this.mode));
   
   for (const methodName in methods) {
     const methodSchema = methods[methodName];
     const label = methodSchema.title || methodName;
     
+    /**
     if (this.mode !== 'edit') {
       html.push(`
         <ntt-method
@@ -107,6 +136,7 @@ render() {
         </ntt-method>
       `);
     }
+     */
   }
   
   this.shadowRoot.innerHTML = `<div class="card">${html.join('')}</div>`;

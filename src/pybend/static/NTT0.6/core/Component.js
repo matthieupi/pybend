@@ -23,7 +23,8 @@ export class Component extends HTMLElement {
     super();
     this.#hash = this.getAttribute('hash') || generateId();
     this.#addr = this.getAttribute('addr') || `${this.constructor.name}-${this.#hash}`;
-    console.log(this)
+    matrix.register(this);
+    this.constructor.register(this);
     // Register component reference in parent class
   }
   
@@ -36,22 +37,6 @@ export class Component extends HTMLElement {
   }
   
  
-  /**
-  connect(target) {
-    let connectEvent = new ConnectEvent(this.addr, target);
-    Component.send(connectEvent.repr());
-  }
-  
-  static register(component) {
-    if (!this.#children.has(component.addr)) {
-      this.#children.set(component.addr, component);
-      Logging.debug(`[COMPONENT] Registered component at address:`, component.addr);
-    } else {
-      Logging.warn(`[COMPONENT] Component at address ${component.addr} is already registered.`);
-    }
-  }
-   */
-  
   /** -------------------------------------------- **/
   /**   ACTOR Instance Interface Implementation    **/
   /** -------------------------------------------- **/
@@ -66,29 +51,6 @@ export class Component extends HTMLElement {
       throw new Error(`[${this.#addr}] Address is already set to ${this.#addr} and cannot be changed to ${addr}.`);
   }
  
-  inbox(event) {
-      // Parse event into TX if necessary
-      let tx = typeof event !== 'TX' ? new TX(event) : event;
-      // Handle if tx target matches this component's address
-      if (tx.target === this.addr || tx.target === `/${this.addr})`) {
-        console.warn(`Event ${tx.name} received in Element:`, tx);
-        // Call internal event handler
-        let event_method = `$${tx.name}`;
-        if (this.hasAttribute(tx.name) && typeof this[event_method] === 'function') {
-          this[event_method](tx.data);
-        } else {
-          console.warn(`No handler for event ${tx.name} in Component ${this.addr} ${this.prototype.name}.`);
-        }
-      } else {
-        // Forward the event up to the Component static send method
-        this.send(event);
-      }
-  }
-  
-  send(event) {
-    return Component.send(event);
-  }
-  
   /** -------------------------------------------- **/
   /**     Web Component Lifecycle Callbacks        **/
   /** -------------------------------------------- **/

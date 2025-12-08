@@ -3,7 +3,7 @@ export const config = {
     LOGGING: 3,
     LOGEVENTS: true,
     LOGSPAWN: true,
-    DEBUG: false,
+    DEBUG: true,
     API_URL: 'http://localhost:8000',
     WS_URL: 'ws://localhost:8765',
     DEFAULT_HEADERS: {

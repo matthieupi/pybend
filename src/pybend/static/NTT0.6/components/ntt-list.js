@@ -11,7 +11,6 @@ export class List extends NTTElement {
   
   constructor() {
     super();
-    this.constructor.register(this); // Register in type-level children map
   }
   
   connectedCallback() {
@@ -32,19 +31,17 @@ export class List extends NTTElement {
     }
   }
   
-  update(data) {
+  UPDATE(data){
+    Logging.dev(`[NTT-LIST] ${this.schema.__name__} - Updated List value: ${this.value}`, data);
     if (Array.isArray(data)) {
-      const valueArray = data.map(item => (this.proto.new(item)))
-      Logging.dev(`[NTT-LIST] ${this.schema.__name__} - Updated List value: ${this.value}`, valueArray);
-      this.value = valueArray;
+      this.value = data;
+      this.render();
     } else {
       console.warn('Data must be an array');
     }
-    this.render();
   }
   
-  
-  render() {
+  render(children) {
     if (!this.schema || !Array.isArray(this.value)) return;
     console.warn(`Rendering List of ${this.model} with ${this.value.length} items.`)
     
@@ -60,9 +57,9 @@ export class List extends NTTElement {
     
     this.value.forEach(item => {
       const el = document.createElement('ntt-item');
-      el.model = this.model;
       Logging.debug(`Describing item with model: ${this.model}`, [typeof item, item.addr, item]);
-      el.describe(this.proto, item);
+      console.warn(item)
+      el.ref = item
       this.shadowRoot.appendChild(el);
     });
   }

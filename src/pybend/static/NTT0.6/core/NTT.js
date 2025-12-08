@@ -39,9 +39,45 @@ class TT extends Actor{
         this.#href = href
     }
     
-    watch(addr) {
+    watch(addr, immediate = true) {
         this.#watchers.add(addr);
+        if (this.value && immediate){
+            this.send(new TX({
+                name: E.update,
+                source: this.addr,
+                target: addr,
+                data: this.value
+            }))
+        }
     }
+    
+    
+    notify(value) {
+        let data = []
+        if (!value){
+            data = [...this.value].map(child => child.addr);
+        }
+        else {
+            data = Array.isArray(value) ? value : [value];
+        }
+        this.#watchers.forEach( (addr) => {
+            this.send(
+                new TX({
+                    name: E.update,
+                    source: this.addr,
+                    target: addr,
+                    data: data,
+                })
+            )
+        });
+    }
+    
+    ATTACH(data, tx) {
+        console.log("ATTACHING")
+        this.watch(tx.source)
+    }
+    
+    
     
     
     /**
@@ -183,7 +219,11 @@ export class PTT extends TT{
     }
     
     get schema() { return this.#data; }
-    get value() { return this.#data; }
+    get value() {
+        let data = this.#data;
+        data["@context"] = this.href;
+        data["@type"] = this.addr
+        return this.#data; }
     set value(val) {
         this.#data = val;
         this.#cls = prototype(this);
@@ -196,20 +236,6 @@ export class PTT extends TT{
         return this;
     }
     
-    
-    new(data = {}) {
-        assert(this, data && typeof data === 'object', `Data must be a non-empty object.`);
-        // Create a new instance of the PTT prototype with the provided data
-        if (!this.#cls) {
-            Logging.dev(`[PTT] No prototype class defined for ${this.addr}. Pulling schema...`);
-            this.pull();
-        }
-        const instance = new this.#cls(data);
-        // Register the instance in the local registry
-        this.#instances.set(instance.addr, instance);
-        return instance;
-    }
-  
     SCHEMA(data) {
         // If the data has a __tablename__, we need to link this prototype to the endpoint
         if (data['__tablename__']) {
@@ -241,6 +267,43 @@ export class PTT extends TT{
             data: data,
         }));
     }
+    
+    READ(data) {
+        assert(this, data && typeof data === 'object', `Data must be a non-empty object.`);
+        if (Array.isArray(data)){
+                // Update all instances with the received data
+                for (const value of data) {
+                    const addr = value.id;
+                    if (this.#instances.has(addr)) {
+                        this.#instances.get(addr).update(value);
+                    } else {
+                        const instance = new this.#cls(value);
+                        this.#instances.set(addr, instance);
+                    }
+                }
+            }
+        else if (typeof data === 'object') {
+            // Update all instances with the received data
+            for (const [addr, value] of Object.entries(data)) {
+                if (this.#instances.has(addr)) {
+                    this.#instances.get(addr).update(value);
+                } else {
+                    const instance = new this.#cls(value);
+                    this.#instances.set(addr, instance);
+                }
+            }
+        }
+        // Make list of instances addresses
+        const instanceAddrs = new Set(this.#instances.keys());
+        // Add Product/ prefix to addresses
+        const childrenAddrs = [...instanceAddrs].map( addr => addr.toString().startsWith(`${this.addr}/`) ? addr : `${this.addr}/${addr}`);
+        console.warn("CHILDREN ADDR", childrenAddrs )
+        this.notify(childrenAddrs)
+        
+        
+        
+        
+    }
    
     // ------------------ Static Methods ------------------ //
     
@@ -266,31 +329,25 @@ export class PTT extends TT{
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
         return this.#instances.get(addr) || undefined;
     }
-    
-    static inbox(event) {
-        let tx = event instanceof TX ? event : new TX(event);
-        Logging.event(tx);
-        if (tx.name === "ATTACH") {
-            // Handle attach event
-            const addr = tx.data
-            if (PTT.#prototypes.has(addr)) {
-                return PTT.#prototypes.get(addr).inbox(tx.repr());
-            } else {
-                console.warn(`[PTT] No prototype registered for address '${addr}' to attach.`);
-                return PTT.get(addr).signal( (ptt) => {
-                        console.error(ptt);
-                        ptt.watch(tx.source)
-                        ptt.send(new TX({
-                            name: 'UPDATE',
-                            source: ptt.addr,
-                            target: tx.source,
-                            data: ptt.value
-                        }))
-                    },
-                    true);
-            }
+   
+    static ATTACH(data, tx) {
+        tx = tx instanceof TX ? tx : new TX(tx);
+        // Handle attach event
+        const addr = tx.data
+        if (PTT.#prototypes.has(addr)) {
+            return PTT.#prototypes.get(addr).inbox(tx.repr());
+        } else {
+            console.warn(`[PTT] No prototype registered for address '${addr}' to attach.`);
+            return PTT.get(addr).signal( (ptt) => {
+                    console.error(ptt);
+                    ptt.watch(tx.source)
+                console.warn(`[PTT] Watch to prototype '${ptt.addr}' from source '${tx.source}'.`)
+                console.log(ptt)
+                console.log(ptt.watch)
+                ptt.call('READ', {})
+                },
+                true);
         }
-        else Actor._send.call(this, tx.repr());
     }
     
     static attach(addr, callback) {
@@ -357,7 +414,7 @@ export class NTT extends TT {
     constructor(model, hash, data = {}, meta = {}) {
         const id = hash || Utils.generateId();
         const href = `${config.API_URL}/${model}/${id}`;
-        const addr = `${model}/${id}`;
+        const addr = `${id}`;
         super(addr, href);
         // Attach to the type definition
         //NTT.#instances.set(addr, this);
@@ -388,11 +445,16 @@ export class NTT extends TT {
         }
     }
     
-    CONNECT(addr) {
-        console.warn(`[NTT] CONNECT received for ${addr} - Not implemented yet.`);
-        
+    ATTACH(data, event) {
+        const tx = event instanceof TX ? event : new TX(event);
+        this.watch(tx.source, false);
+        this.send(new TX({
+            name: 'DESCRIBE',
+            source: this.addr,
+            target: tx.source,
+            data: this.proto ? {proto: this.proto.schema(), data: this.value} : {proto: this.constructor._schema, data: this.value}
+        }))
     }
-    
     
     get value() {
         return this.#data
@@ -426,6 +488,12 @@ export class NTT extends TT {
         if (!proto || typeof proto !== 'object') return
         this.define(proto)
         this.update(data || this.#data || {});
+    }
+    
+    static READ(data) {
+        assert(this, data && typeof data === 'object', `Data must be a non-empty object.`);
+        // Update the NTT instance with the received data
+        this.update(data);
     }
     
     update(data) {
@@ -508,13 +576,6 @@ export class NTT extends TT {
     
     /**
      */
-    static register(addr, href) {
-        console.warn(`Registering NTT address '${addr}' with HREF '${href}'`)
-    }
-    
-    
-    /**
-     */
     static create(model, data, callback = null) {
         
         const evt = new NTT.Event(
@@ -553,6 +614,7 @@ function prototype(ptt) {
     const DynamicClass = class extends NTT {
       
       static instances = new Map();
+      static _schema = schema
       
       _data;
       
@@ -562,10 +624,17 @@ function prototype(ptt) {
         super(DynamicClass.name, data.id);
         this.value = data;
         this.href = `${ptt.href}/${this.id}`; // Set the href based on the PTT instance
+          console.warn(`Created instance of ${DynamicClass.name} with addr ${this.addr}`)
       }
       
       get value() {
-        return this._data;
+          if (!this._data) {
+              return undefined
+          }
+          let data = this._data;
+          data["@context"] = this.href;
+          data["@type"] = this.constructor.addr
+          return this._data;
       }
       set value(val) {
             if (typeof val !== 'object') {

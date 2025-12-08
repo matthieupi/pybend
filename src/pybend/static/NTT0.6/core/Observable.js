@@ -108,7 +108,7 @@ export default class Observable extends Actor {
       });
     }
 
-    if (!Object.prototype.hasOwnProperty.call(proto, "notify")) {
+    if (!Object.prototype.hasOwnProperty.call(proto, "notify") && !("notify" in proto)) {
       Object.defineProperty(proto, "notify", {
         configurable: true,
         enumerable: false,

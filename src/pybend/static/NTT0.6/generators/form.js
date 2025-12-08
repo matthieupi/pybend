@@ -15,7 +15,7 @@
   function getForm(ntt, mode="display") {
       const schema = ntt.schema;
       const fields = schema.properties || {};
-      const model = ntt.name
+      const model = ntt.value.name
       // We want to put the name and desc first, and use h2 for name and h4 for desc
       let $header = getHeader(ntt, mode);
       let $fields = Object.keys(fields).map(key => {
@@ -30,6 +30,7 @@
   
   function getHeader(ntt, mode) {
       const schema = ntt.schema || {};
+      ntt = ntt.value || {};
       const name = ntt.title || ntt.name || schema.name || 'Unnamed';
       const desc = ntt.description || '';
     
@@ -41,7 +42,7 @@
               headerHtml.push(`<textarea id="description" data-key="description" data-type="text">${desc}</textarea>`);
         
       } else {
-          headerHtml.push(`<h2 class="${ntt.schema.name}">${name}</h2>`);
+          headerHtml.push(`<h2 class="${schema.name}">${name}</h2>`);
           if (desc) {
               headerHtml.push(`<h4>${desc}</h4>`);
           }
@@ -80,7 +81,7 @@ function getInput(ntt, key, mode = 'display') {
         } else if (type === 'number') {
             html.push(`<input type="number" id="${key}" data-key="${key}" data-type="${type}" value="${value}">`);
         } else if (type === 'array') {
-            html.push(getArrayInput(ntt, def, key, value));
+            //html.push(getArrayInput(ntt, def, key, value));
         } else {
             html.push(`<input type="${type}" data-key="${key}" data-type="${type}" value="${value}" id="${key}">`);
         }
@@ -88,7 +89,7 @@ function getInput(ntt, key, mode = 'display') {
         if (type === '$ref' || def?.$ref) {
             html.push(`<div>[Reference: ${value?.name || value?.id || JSON.stringify(value)}]</div>`);
         } else if (type === 'array') {
-            html.push(getArrayInput(ntt, def, key, mode));
+            //html.push(getArrayInput(ntt, def, key, mode));
         } else {
             html.push(`<div>${value}</div>`);
         }

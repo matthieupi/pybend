@@ -62,6 +62,8 @@ export default class Actor {
     static _send(event) {
         // Normalize to TX
         let tx = event instanceof TX ? event : new TX(event);
+        console.warn(`[Actor.${this.addr}_send] Sending event '${tx.name}' to target: ${tx.target}`)
+        console.log(this.children)
         // Ensure the system is properly INIT
         if (!ROOT_ACTOR) {
             throw new Error(
@@ -75,7 +77,7 @@ export default class Actor {
         const typeAddr = Type.addr || Type.name;
         const sourcePrefix = `/${typeAddr}`;
         const rawTarget = tx.target || "";
-        const [targetParent, targetChild] = rawTarget
+        let [targetParent, targetChild, childTarget] = rawTarget
             .split("/")
             .filter(Boolean); // removes empty segments
         // Routing logic
@@ -83,6 +85,7 @@ export default class Actor {
         if (children && children.has(targetParent)) {
             children.get(targetParent).inbox(tx.repr());
         }
+        
         // Case 2: target looks like "/this.addr/child-addr" and we own that child
         else if (targetParent === this.addr) {
             if (children && targetChild && children.has(targetChild)) {
@@ -92,7 +95,7 @@ export default class Actor {
             } else {
                 console.error(this, this.children)
                 throw new Error(
-                    `[Actor.${this.addr}_send] Cannot route message to target: ${tx.target}. No such child actor.`
+                    `[Actor.${this.addr}_send] Cannot route message to target: ${targetChild}. No such child actor.`
                 );
             
             }
@@ -130,14 +133,16 @@ export default class Actor {
         const tx = event instanceof TX ? event : new TX(event);
         const Type = this;
         const Prototype = Object.getPrototypeOf(this);
+        Logging.event(event)
         if (tx.target === `/${Type.addr}` || tx.target === Type.addr) {
             // Check if has method
             if (typeof this[tx.name] === "function") {
-            //if (this.hasOwnProperty(tx.name)) {
-                return this[tx.name](tx.data);
+                return this[tx.name](tx.data, tx);
             } else if(tx.name in Prototype){
                 return Prototype[tx.name].call(this, tx.data);
             } else {
+                console.warn(this)
+                console.log(tx.name)
                 throw new Error(`[${this.addr}._inbox] No handler for event ${tx.name}.`);
             }
         } else {
@@ -160,6 +165,7 @@ export default class Actor {
                 `[Actor.register] Only ${this.name} instances can be registered in ${this.name}, got ${actor.name}`)
         // 2. When caller context is an instance, register in its type's children map
         } else if (this instanceof Actor)  {
+        
         // 3. What are you trying to do?
         } else {
             throw new Error(`[Actor.register] What are you trying to register, a Giraffe?: ${this}`)
@@ -257,6 +263,13 @@ export default class Actor {
         if (!sendDescriptor || sendDescriptor.value === Actor.prototype.send) {
             Type.prototype.send = function (event) {
                 return this.constructor.send(event);
+            };
+        }
+        
+        const inboxDescriptor = Object.getOwnPropertyDescriptor(Type.prototype, "inbox");
+        if (!inboxDescriptor || inboxDescriptor.value === Actor.prototype.inbox) {
+            Type.prototype.inbox = function (event) {
+                return Actor._inbox.call(this, event);
             };
         }
         /**

@@ -32,7 +32,17 @@ export class NTTElement extends Component {
   }
   
   static get observedAttributes() {
-    return ['model', 'addr', 'hash'];
+    return ['model', 'addr', 'hash', 'ref'];
+  }
+  
+  get ref() { return this.#href; }
+  set ref(href) {
+    this.#href = href;
+    this.send(new TX({
+        name: 'ATTACH',
+        source: this.addr,
+        target: href,
+        }))
   }
  
   
@@ -47,13 +57,16 @@ export class NTTElement extends Component {
         target: 'PTT',
         data: newVal
       }))
+      /*
       this.model = newVal;
       // Detach and reattach to the new model
       this.#detach?.();
       this.#detach = PTT.attach(newVal, this.define);
-    } else {
-      this[name] = newVal;
+      */
+    } else if (name === 'ref') {
+      this.ref = newVal;
     }
+    this[name] = newVal;
   }
   
   disconnectedCallback() {
@@ -61,7 +74,15 @@ export class NTTElement extends Component {
     this.#unsubscribe?.();
   }
   
-  get schema() { return this.#proto?.schema || {}; }
+  get schema() {
+    if (!this._schema)
+      this._schema = this.#proto?.schema || {};
+    return this._schema;
+  }
+  
+  set schema(schema) {
+    this._schema = schema;
+  }
   
   get proto() { return this.#proto; }
   
@@ -73,7 +94,8 @@ export class NTTElement extends Component {
     }
     if (data !== this.value){
       this.#data = data;
-      this.render();
+      if (this._type)
+        this.render();
     }
   }
   
@@ -99,7 +121,6 @@ export class NTTElement extends Component {
   }
   
   update(data) {
-    console.error(isEmpty(this.value), isEmpty(this.#data))
     if (!data) return
     this.value = data;
   }
