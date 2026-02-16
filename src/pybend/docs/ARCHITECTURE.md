@@ -1,0 +1,643 @@
+# PyBend Architecture Overview
+
+This document provides a detailed explanation of PyBend's internal architecture, design patterns, and component interactions.
+
+## Table of Contents
+
+- [High-Level Architecture](#high-level-architecture)
+- [Core Components](#core-components)
+- [Data Flow](#data-flow)
+- [Design Patterns](#design-patterns)
+- [Extension Points](#extension-points)
+
+## High-Level Architecture
+
+PyBend follows a layered architecture with dependency injection for maximum flexibility:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Client Layer                             │
+│                   (HTTP Requests/Responses)                     │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│                       Backend Layer                             │
+│              (FastAPI / Flask Adapters)                         │
+│  • Route Registration       • Request Validation                │
+│  • Response Serialization   • Error Handling                    │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│                     Business Logic Layer                        │
+│                    (Model Definitions)                          │
+│  • ProtoModel (Base)        • Custom Methods                    │
+│  • Schema Generation        • Validation Rules                  │
+│  • Type Safety (Pydantic)   • Foreign Keys                      │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│                      Persistence Layer                          │
+│              (StorableMixin + Storage Backends)                 │
+│  • CRUD Operations          • Transaction Management            │
+│  • Auto-Migration           • Query Execution                   │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│                         Data Layer                              │
+│                  (SQLite / JSON / Custom)                       │
+│  • Physical Storage         • Data Persistence                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Core Components
+
+### 1. ProtoModel
+
+**Location**: `models/proto_model.py`
+
+The foundation of PyBend's model system. All models inherit from `ProtoModel`.
+
+**Responsibilities**:
+- Base class for all data models
+- Schema generation and introspection
+- Optional storage injection via `__storable__` flag
+- Foreign key field transformation
+- Method signature collection for API documentation
+
+**Key Features**:
+
+```python
+class ProtoModel(PydanticBaseModel):
+    # Automatic storage injection
+    def __init_subclass__(cls, **kwargs):
+        if cls.__storable__:
+            # Inject StorableMixin
+            cls.__bases__ = (StorableMixin,) + cls.__bases__
+            # Transform Pydantic models to ForeignKey
+            # Register with storage backend
+    
+    # Schema generation with method signatures
+    @classmethod
+    def schema(cls) -> Dict[str, Any]:
+        # Returns complete JSON schema including:
+        # - Fields (from Pydantic)
+        # - Methods (from @expose_route)
+        # - Referenced models (in $defs)
+```
+
+**Design Decisions**:
+- Uses `__init_subclass__` for automatic mixin injection
+- Leverages Pydantic for validation and schema generation
+- Separate `schema()` from `referenced_json_schema()` to avoid circular references
+
+### 2. StorableMixin
+
+**Location**: `models/storable_mixin.py`
+
+Provides CRUD operations through dependency injection.
+
+**Pattern**: Strategy Pattern (storage backend is injected)
+
+```python
+class StorableMixin:
+    storage: ClassVar[StorageInterface] = None  # Injected
+    
+    @classmethod
+    def create(cls, data: Any) -> Any:
+        return cls.storage.create(cls, data)
+    
+    @classmethod
+    def list(cls) -> List[Any]:
+        return cls.storage.list(cls)
+    
+    # ... other CRUD methods
+```
+
+**Key Features**:
+- Storage backend agnostic
+- Automatic join model support
+- Foreign key unwrapping before persistence
+- Lazy loading optimization
+
+### 3. AbstractStorage
+
+**Location**: `storage/abstract_storage.py`
+
+Interface for storage backends (Strategy Pattern).
+
+```python
+class AbstractStorage(ABC):
+    @abstractmethod
+    def create_table(self, model_class: Type[Any]): pass
+    
+    @abstractmethod
+    def create(self, model_class: Type[Any], data: Dict[str, Any]) -> Any: pass
+    
+    @abstractmethod
+    def list(self, model_class: Type[Any]) -> List[Any]: pass
+    
+    # ... other CRUD operations
+```
+
+**Implementations**:
+
+#### SQLiteStorage
+- Automatic schema migration
+- Foreign key handling
+- JSON serialization for complex types
+
+#### JSONStorage
+- File-based storage
+- Auto-incrementing IDs
+- Human-readable format
+
+### 4. ForeignKey Type
+
+**Location**: `utils/typer.py`
+
+Type-safe foreign key wrapper with OpenAPI schema generation.
+
+```python
+class ForeignKey(Generic[T]):
+    def __init__(self, value: Optional[Any] = None):
+        if isinstance(value, BaseModel):
+            self.id = value.id
+            self._model = value
+        elif isinstance(value, int):
+            self.id = value
+            self._model = None
+    
+    # Custom Pydantic schema for OpenAPI
+    @classmethod
+    def __get_pydantic_json_schema__(cls, ...):
+        return {
+            "type": "$ref",
+            "$ref": f"#/$defs/{target.__name__}"
+        }
+```
+
+**Purpose**:
+- Maintains type safety in the model layer
+- Generates proper `$ref` in OpenAPI schemas
+- Serializes as integer for storage
+
+### 5. Model Registry
+
+**Location**: `utils/registrar.py`
+
+Central registry for models and join tables.
+
+```python
+registered_models: Dict[str, Type[Any]] = {}
+join_models: Dict[tuple[str, str], Type[Any]] = {}
+
+def register_model(model_class: Type[Any], storage: StorageInterface = None):
+    # 1. Detect join models (has __owner__)
+    # 2. Set storage backend
+    # 3. Create table
+    # 4. Run migrations
+    # 5. Add to registry
+```
+
+**Pattern**: Registry Pattern
+
+### 6. Backend Adapters
+
+**Location**: `api/backend.py`
+
+Abstract interface for web frameworks (Adapter Pattern).
+
+```python
+class BaseBackend(ABC, BaseModel):
+    @abstractmethod
+    def register_routes(self, registered_models: dict): pass
+
+class FastAPIBackend(BaseBackend):
+    # FastAPI-specific implementation
+
+class FlaskBackend(BaseBackend):
+    # Flask-specific implementation
+```
+
+**Purpose**:
+- Framework-agnostic model definitions
+- Easy switching between FastAPI/Flask
+- Extensible to other frameworks (Django, Sanic, etc.)
+
+### 7. Route Registration
+
+**Location**: `api/routes_fastapi.py`
+
+Dynamically generates routes from model definitions.
+
+**Route Factories**:
+
+```python
+def make_create_instance(model_class):
+    # Returns async function for POST /model
+    
+def make_get_all_instances(model_class):
+    # Returns async function for GET /model
+
+def make_get_instance(model_class):
+    # Returns async function for GET /model/{id}
+
+# ... etc
+```
+
+**Custom Routes**:
+
+```python
+def make_custom_post(attr, model_class, route_path):
+    # Inspects method signature
+    # Generates appropriate async function
+    # Handles parameter parsing and validation
+```
+
+## Data Flow
+
+### 1. Model Registration Flow
+
+```
+┌─────────────────┐
+│ Define Model    │
+│ (ProtoModel)    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ __init_subclass │
+│ • Check __storable__
+│ • Inject StorableMixin
+│ • Transform FKs
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ register_model  │
+│ • Set storage   │
+│ • Create table  │
+│ • Run migration │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ register_routes │
+│ • CRUD routes   │
+│ • Custom routes │
+└─────────────────┘
+```
+
+### 2. Request Handling Flow (Read)
+
+```
+HTTP GET /users/1
+      │
+      ▼
+┌─────────────────┐
+│ FastAPI Router  │
+│ (make_get_instance)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ User.get(1)     │
+│ (StorableMixin) │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ storage.get()   │
+│ (SQLiteStorage) │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Execute Query   │
+│ SELECT * FROM users WHERE id=1
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Hydrate Model   │
+│ User(**data)    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Serialize JSON  │
+│ model.model_dump()
+└────────┬────────┘
+         │
+         ▼
+    HTTP 200 OK
+```
+
+### 3. Foreign Key Resolution Flow
+
+```
+┌─────────────────┐
+│ Model Definition│
+│ user: User      │ (Pydantic model reference)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ __init_subclass │
+│ Detects BaseModel
+│ → user: ForeignKey[User]
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Storage Layer   │
+│ Stores: user_id=123
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Retrieval       │
+│ Creates shell:  │
+│ User(id=123)    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Lazy Loading    │
+│ (if accessed)   │
+│ Full fetch from DB
+└─────────────────┘
+```
+
+## Design Patterns
+
+### 1. Mixin Pattern
+
+**StorableMixin** and **ViewableMixin** are dynamically injected into models:
+
+```python
+# Before
+class User(ProtoModel):
+    __storable__: ClassVar[bool] = True
+
+# After __init_subclass__
+class User(StorableMixin, ProtoModel):
+    # Now has .save(), .create(), .list(), etc.
+```
+
+**Benefits**:
+- Opt-in functionality
+- Keeps concerns separated
+- No inheritance pollution
+
+### 2. Strategy Pattern
+
+Storage backends implement a common interface:
+
+```python
+storage: AbstractStorage = SQLiteStorage('db.db')  # or JSONStorage
+
+model.set_storage(storage)
+model.create_table()
+```
+
+**Benefits**:
+- Swap backends without code changes
+- Easy testing with mock storage
+- Custom storage implementations
+
+### 3. Registry Pattern
+
+Central model registry for route generation:
+
+```python
+registered_models: Dict[str, Type[Any]] = {}
+
+# During registration
+registered_models['users'] = User
+
+# During route generation
+for model_name, model_cls in registered_models.items():
+    register_crud_routes(model_name, model_cls)
+```
+
+### 4. Factory Pattern
+
+Route handlers are generated via factory functions:
+
+```python
+def make_create_instance(model_class):
+    async def create_instance(data: model_class):
+        return model_class.create(data)
+    return create_instance
+
+router.post('/users', make_create_instance(User))
+```
+
+### 5. Decorator Pattern
+
+`@expose_route` adds metadata to methods:
+
+```python
+@expose_route('/login', methods=['POST'])
+def login(email: str, password: str):
+    pass
+
+# Adds: method.__endpoint__ = {'route': '/login', 'methods': ['POST']}
+```
+
+### 6. Adapter Pattern
+
+Backend adapters translate between frameworks:
+
+```python
+class BaseBackend(ABC):
+    @abstractmethod
+    def register_routes(self): pass
+
+class FastAPIBackend(BaseBackend):
+    def register_routes(self):
+        # FastAPI-specific logic
+
+class FlaskBackend(BaseBackend):
+    def register_routes(self):
+        # Flask-specific logic
+```
+
+## Extension Points
+
+### 1. Custom Storage Backend
+
+```python
+class RedisStorage(AbstractStorage):
+    def create_table(self, model_class):
+        # Redis doesn't need tables
+        pass
+    
+    def create(self, model_class, data):
+        key = f"{model_class.__tablename__}:{data['id']}"
+        self.redis.set(key, json.dumps(data))
+        return model_class(**data)
+    
+    # ... implement other methods
+```
+
+### 2. Custom Backend Adapter
+
+```python
+class DjangoBackend(BaseBackend):
+    def __init__(self, **data):
+        super().__init__(**data)
+        from django.conf import settings
+        # Django setup
+    
+    def register_routes(self, registered_models):
+        # Generate Django URL patterns
+        pass
+```
+
+### 3. Custom Mixin
+
+```python
+class AuditableMixin:
+    created_at: datetime
+    updated_at: datetime
+    
+    def save(self):
+        self.updated_at = datetime.now()
+        return super().save()
+
+class User(ProtoModel):
+    __storable__: ClassVar[bool] = True
+    __bases__ = (AuditableMixin,) + ProtoModel.__bases__
+```
+
+### 4. Custom Field Types
+
+```python
+class EncryptedString(str):
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        # Custom validation/serialization
+        pass
+
+class User(ProtoModel):
+    password: EncryptedString  # Automatically encrypted
+```
+
+### 5. Middleware/Hooks
+
+```python
+# In backend.py
+class FastAPIBackend(BaseBackend):
+    def register_routes(self, registered_models):
+        @self.app.middleware("http")
+        async def log_requests(request, call_next):
+            # Custom logging
+            response = await call_next(request)
+            return response
+        
+        # Then register routes
+        super().register_routes(registered_models)
+```
+
+## Performance Considerations
+
+### 1. Lazy Loading
+
+Foreign keys load as shells (ID only) and fetch on demand:
+
+```python
+user = User.get(1)
+print(user.id)           # No DB query
+print(user.posts[0].id)  # Triggers DB query for posts
+```
+
+### 2. Schema Caching
+
+Schemas are generated once per model class:
+
+```python
+@classmethod
+@lru_cache(maxsize=None)  # Could be added
+def schema(cls):
+    # Expensive introspection
+    return computed_schema
+```
+
+### 3. Batch Operations
+
+```python
+# Future enhancement
+class StorableMixin:
+    @classmethod
+    def bulk_create(cls, items: List[Any]):
+        # Single transaction for multiple inserts
+        pass
+```
+
+## Security Considerations
+
+### 1. SQL Injection Prevention
+
+All storage backends use parameterized queries:
+
+```python
+cursor.execute(
+    "SELECT * FROM users WHERE id = ?",
+    (user_id,)  # Parameterized
+)
+```
+
+### 2. Field Validation
+
+Pydantic validates all inputs:
+
+```python
+class User(ProtoModel):
+    email: EmailStr  # Automatic email validation
+    age: conint(ge=0, le=120)  # Constrained integer
+```
+
+### 3. Sensitive Data
+
+```python
+class User(ProtoModel):
+    password: str = Field(..., exclude=True)  # Never in responses
+```
+
+## Testing Architecture
+
+```python
+# Mock storage for testing
+class MockStorage(AbstractStorage):
+    def __init__(self):
+        self.data = {}
+    
+    def create(self, model_class, data):
+        self.data[data['id']] = data
+        return model_class(**data)
+
+# In tests
+storage = MockStorage()
+register_model(User, storage=storage)
+```
+
+## Future Enhancements
+
+1. **Query Builder**: Fluent API for complex queries
+2. **Async Storage**: Async/await for I/O operations
+3. **Caching Layer**: Redis/Memcached integration
+4. **Event System**: Pre/post save hooks
+5. **Migrations**: Version-controlled schema changes
+6. **GraphQL**: Automatic GraphQL schema generation
+7. **WebSockets**: Real-time updates
+
+## Conclusion
+
+PyBend's architecture prioritizes:
+- **Modularity**: Swappable components at every layer
+- **Declarative**: Models define behavior, not implementation
+- **Type Safety**: Pydantic + ForeignKey for compile-time checks
+- **Extensibility**: Clear extension points for customization
+- **Simplicity**: Minimal boilerplate for common cases

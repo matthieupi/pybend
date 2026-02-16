@@ -1,0 +1,20 @@
+# `users` Model
+
+**Endpoint**: `GET /users` (returns schema)
+
+## Fields
+
+| Name | Type | Required | Default |
+|------|------|----------|---------|
+| id | integer | No | None |
+| name | string | Yes | — |
+| email | string | Yes | — |
+| age | object | No | None |
+
+## Routes
+### `/login` [POST] (instancemethod)
+**Method**: `login`
+#### Parameters:
+- `email`: *string*
+- `password`: *string*
+**Returns**: `$ref`
