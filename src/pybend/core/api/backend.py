@@ -66,7 +66,30 @@ class FastAPIBackend(BaseBackend):
         register_routes()
         self.app.include_router(router)
 
+    def _mount_static(self):
+        import os
+        from pathlib import Path
+        from fastapi.staticfiles import StaticFiles
+        from fastapi.responses import FileResponse
+
+        static_dir = Path(__file__).resolve().parent.parent.parent / "static" / "NTT0.6"
+        if not static_dir.is_dir():
+            return
+
+        # Serve the 3 HTML pages at the root
+        for html_file in ("schema.html", "example.html", "matrix.html"):
+            html_path = static_dir / html_file
+            if html_path.exists():
+                self.app.get(f"/{html_file}", include_in_schema=False)(
+                    lambda _path=str(html_path): FileResponse(_path)
+                )
+
+        # Mount the rest of NTT0.6 so JS/CSS imports resolve
+        self.app.mount("/", StaticFiles(directory=str(static_dir)), name="static")
+
     def get_app(self):
+        # Mount static last so HTML routes take precedence over the catch-all mount
+        self._mount_static()
         return self.app
 
 
