@@ -40,10 +40,10 @@ class SQLiteStorage(AbstractStorage):
         table_name = model_class.__tablename__
 
         # Identify List[BaseModel] fields — these are NOT columns on this table
-        list_field_names = {name for name, _cls in get_list_fields(model_class)}
+        collection_field_names = {name for name, _cls in get_list_fields(model_class)}
 
         fields = [f for f in model_class.model_fields.keys()
-                  if f != 'id' and f not in list_field_names]
+                  if f != 'id' and f not in collection_field_names]
         print("Fields: ", fields)
         placeholders = ", ".join(['?'] * len(fields))
         columns = ", ".join(fields)
@@ -196,8 +196,12 @@ class SQLiteStorage(AbstractStorage):
         """
         table_name = model_class.__tablename__
 
+        # Identify List[BaseModel] fields — these are NOT columns on this table
+        collection_field_names = {name for name, _cls in get_list_fields(model_class)}
+
         # Validate and filter the fields based on model annotations
-        valid_fields = [f for f in model_class.__annotations__.keys() if f != 'id']
+        valid_fields = [f for f in model_class.__annotations__.keys()
+                        if f != 'id' and f not in collection_field_names]
         fields_to_update = [field for field in data.keys() if field in valid_fields]
 
         if not fields_to_update:
