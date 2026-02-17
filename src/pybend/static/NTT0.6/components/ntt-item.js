@@ -40,7 +40,7 @@ export class Item extends NTTElement {
   }
   
   DESCRIBE(data) {
-    Logging.dev(`[NTT-ITEM] ${this.model} - Received DESCRIBE`, data);
+    Logging.dev(`[NTT-ITEM ${this.model}] Received DESCRIBE`, data);
     this.schema = data.proto
     this.value = data.data
     this.render()
@@ -64,22 +64,21 @@ export class Item extends NTTElement {
    toggleMode() {
      const isEdit = this.mode === 'edit';
      if (isEdit) {
-       // Save triggered
-       if (this.value?.call && typeof this.value.call === 'function') {
-         console.warn(`[ntt-item] Dispatching update for`, this.value);
-         this.value.call('UPDATE', this.value.value);
-       } else if (this.proto?.call) {
-         this.proto.call('UPDATE', this.value.value);
-       } else {
-         console.warn(`[ntt-item] No update method found for`, this.value);
-       }
+       this.save()
      }
-  
      this.mode = isEdit ? 'display' : 'edit';
      this.render();
    }
+   
+   save() {
+        this.send(new TX({
+         name: 'UPDATE',
+         source: this.addr,
+         target: this.ref,
+         data: this.value
+       }));
+   }
 
- 
   handleInputChange(e) {
     const el = e.target;
     const key = el.dataset.key;

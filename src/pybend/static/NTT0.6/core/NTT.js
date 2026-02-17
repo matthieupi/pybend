@@ -496,6 +496,13 @@ export class NTT extends TT {
         this.update(data);
     }
     
+    UPDATE(data, event) {
+        this.update(data);
+        if (!event.source?.startsWith('http')) {
+            this.call('UPDATE', this.value);
+        }
+    }
+
     update(data) {
         this.value = {...this.#data, ...data};
         if (data.hasOwnProperty('name') && data.name === "error") {
@@ -503,7 +510,7 @@ export class NTT extends TT {
         }
     }
     
-    _error_(event) {
+    ERROR(event) {
         console.error(`[NTT] ${event.name} from ${event.source}:`, event.data);
     }
     
