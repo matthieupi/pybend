@@ -1,167 +1,54 @@
 # app/storage/sqlite_storage.py
 
 import sqlite3
-from typing import Any, Dict, List, Type, Union, get_args
+from typing import Any, Dict, List, Type
 
 from pydantic import BaseModel
 
 from utils.registrar import registered_models
 from .abstract_storage import AbstractStorage
+from .sqlite_helpers import get_list_fields
+from .sqlite_migration import SQLiteMigration
+
 
 class SQLiteStorage(AbstractStorage):
     """
     SQLite storage backend implementing the AbstractStorage.
+    Delegates schema management to SQLiteMigration.
     """
 
     def __init__(self, database: str = 'database.db'):
         self.database = database
+        self._migration = SQLiteMigration(database=database)
+
+    # ──────────────────────────────────────────────
+    # SCHEMA (delegated to SQLiteMigration)
+    # ──────────────────────────────────────────────
 
     def create_table(self, model_class: Type[Any]):
-        # Implementation similar to previous create_table method
-        # Use model_class.__annotations__ to get fields
-        # ...
-
-        # (Include the same create_table logic as before, adjusted to fit this method)
-
-        # Example:
-        table_name = model_class.__tablename__
-        columns = []
-        for field_name, field_info in model_class.model_fields.items():
-            field_type = field_info.annotation
-            if field_name == 'id' or field_name.startswith('_') or field_name.startswith('__'):
-                continue  # 'id' is added separately
-
-            # Handle typing annotations like Optional[int]
-            origin_type = getattr(field_type, '__origin__', None)
-            # Handle Optional[T]
-            if origin_type is Union and type(None) in get_args(field_type):
-                field_type = get_args(field_type)[0]
-
-            # Handle nested Pydantic model
-            if isinstance(field_type, type) and issubclass(field_type, BaseModel):
-                sql_type = 'INTEGER'
-                field_name = f"{field_name}_id"
-            elif field_type == int:
-                sql_type = 'INTEGER'
-            elif field_type == float:
-                sql_type = 'REAL'
-            elif field_type == str:
-                sql_type = 'TEXT'
-            else:
-                sql_type = 'TEXT'  # Default to TEXT
-            columns.append(f"{field_name} {sql_type}")
-
-        columns_sql = ", ".join(columns)
-        create_table_sql = f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            {columns_sql}
-        )
-        """
-        conn = sqlite3.connect(self.database)
-        cursor = conn.cursor()
-        cursor.execute(create_table_sql)
-        conn.commit()
-        conn.close()
+        self._migration.create_table(model_class)
 
     def migrate_table(self, model_class: Type[Any]):
-        """
-        Adds missing columns to existing tables based on the model definition.
-        Automatically handles List[...] fields by storing them as TEXT and initializing to '[]'.
-        """
-        import json
-        import sqlite3
-        from typing import get_origin, get_args
+        self._migration.migrate_table(model_class)
 
-        table_name = model_class.__tablename__
-        existing_columns = set()
-        model_columns = dict(model_class.model_fields)
-
-        conn = sqlite3.connect(self.database)
-        cursor = conn.cursor()
-        try:
-            cursor.execute(f"PRAGMA table_info({table_name})")
-            existing_columns = {row[1] for row in cursor.fetchall()}
-        except sqlite3.OperationalError:
-            existing_columns = set()
-
-        for field_name, field_info in list(model_columns.items()):
-            field_type = field_info.annotation
-
-            origin_type = getattr(field_type, '__origin__', None)
-            base_type = field_type
-            if origin_type is not None:
-                base_type = field_type.__args__[0]
-
-            # Handle Optional[T]
-            if origin_type is Union and type(None) in get_args(field_type):
-                field_type = get_args(field_type)[0]
-
-            if isinstance(field_type, type) and issubclass(field_type, BaseModel):
-                # If it's a nested Pydantic model, we will store its ID
-                model_columns[f"{field_name}_id"] = model_columns.pop(field_name)
-                field_name = f"{field_name}_id"
-
-            # Skip 'id' and fields that already exist in the table
-            if field_name == 'id' or field_name in existing_columns:
-                continue
-
-            # Handle nested Pydantic model
-            print(f"[MIGRATE] Processing field '{field_name}' of type '{field_type}' in model '{model_class.__name__}'")
-            if model_class.__name__ == 'ProductComment':
-                print(f"[MIGRATE] Skipping migration for {model_class.__name__} due to known issue.")
-            if isinstance(field_type, type) and issubclass(field_type, BaseModel):
-                sql_type = 'INTEGER'
-                default_value = 0
-            elif origin_type is list or origin_type is List:
-                sql_type = 'TEXT'
-                default_value = json.dumps([])
-            elif base_type == int:
-                sql_type = 'INTEGER'
-                default_value = '0'
-            elif base_type == float:
-                sql_type = 'REAL'
-                default_value = '0.0'
-            elif base_type == str:
-                sql_type = 'TEXT'
-                default_value = "''"
-            else:
-                sql_type = 'TEXT'
-                default_value = "''"
-
-            try:
-                alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} {sql_type} DEFAULT {repr(default_value)}"
-                cursor.execute(alter_sql)
-                print(f"[MIGRATE] Added column '{field_name}' to '{table_name}' as {sql_type}")
-
-            except sqlite3.OperationalError as e:
-                print(f"[MIGRATE] Failed to add column {field_name} to {table_name}: {e}")
-
-        # Remove the column from the table that are in existing_columns and not present anymore
-        for col in existing_columns:
-            if col not in model_columns or col.startswith('_') or col.startswith('__'):
-                try:
-                    cursor.execute(f"ALTER TABLE {table_name} DROP COLUMN {col}")
-                    print(f"[MIGRATE] Removed column '{col}' from '{table_name}'")
-                except sqlite3.OperationalError as e:
-                    print(f"[MIGRATE] Failed to remove column {col} from {table_name}: {e}")
-
-        conn.commit()
-        conn.close()
+    # ──────────────────────────────────────────────
+    # CREATE
+    # ──────────────────────────────────────────────
 
     def create(self, model_class: Type[Any], data: Dict[str, Any]) -> Any:
-        # Implementation similar to previous create method
-        # ...
-
         print("Creating a new record in the database for model class:", model_class.__name__, flush=True)
         table_name = model_class.__tablename__
-        fields = [f for f in model_class.model_fields.keys() if f != 'id']
+
+        # Identify List[BaseModel] fields — these are NOT columns on this table
+        list_field_names = {name for name, _cls in get_list_fields(model_class)}
+
+        fields = [f for f in model_class.model_fields.keys()
+                  if f != 'id' and f not in list_field_names]
         print("Fields: ", fields)
         placeholders = ", ".join(['?'] * len(fields))
         columns = ", ".join(fields)
         # Extract values
-        values = [data.get(field)
-                  for field in fields]
+        values = [data.get(field) for field in fields]
         # De-reference BaseModel instances to their IDs if they have an 'id' attribute
         values = [value.id
                   if isinstance(value, BaseModel) and hasattr(value, 'id') else value
@@ -176,76 +63,135 @@ class SQLiteStorage(AbstractStorage):
         print("Record created with ID:", data['id'], flush=True)
         return model_class(**data)
 
-    def list(self, model_class: Type[Any]) -> List[Any]:
-        # Implementation similar to previous get_all method
-        # ...
+    # ──────────────────────────────────────────────
+    # LIST
+    # ──────────────────────────────────────────────
 
+    def list(self, model_class: Type[Any]) -> List[Any]:
         table_name = model_class.__tablename__
+        list_fields = get_list_fields(model_class)
+
         select_sql = f"SELECT * FROM {table_name}"
         conn = sqlite3.connect(self.database)
         cursor = conn.cursor()
         cursor.execute(select_sql)
         rows = cursor.fetchall()
         columns = [column[0] for column in cursor.description]
+
+        results = []
+        for row in rows:
+            record = dict(zip(columns, row))
+
+            # If no List[BaseModel] fields, fast path
+            if not list_fields:
+                results.append(model_class(**record))
+                continue
+
+            # Hydrate List[BaseModel] fields
+            parent_id = record.get('id')
+            for field_name, child_class in list_fields:
+                fk_col = f"{model_class.__name__.lower()}_id"
+                child_table = child_class.__tablename__
+                try:
+                    cursor.execute(
+                        f"SELECT * FROM {child_table} WHERE {fk_col} = ?",
+                        (parent_id,)
+                    )
+                    child_rows = cursor.fetchall()
+                    if child_rows:
+                        child_cols = [c[0] for c in cursor.description]
+                        record[field_name] = [
+                            child_class(**dict(zip(child_cols, r)))
+                            for r in child_rows
+                        ]
+                    else:
+                        record[field_name] = []
+                except sqlite3.OperationalError:
+                    record[field_name] = []
+
+            results.append(model_class(**record))
+
         conn.close()
-        return [model_class(**dict(zip(columns, row))) for row in rows]
+        return results
+
+    # ──────────────────────────────────────────────
+    # GET
+    # ──────────────────────────────────────────────
 
     def get(self, model_class: Type[Any], id: int, as_dict: bool = False) -> Any:
-        # Implementation similar to previous get_by_id method
-        # ...
-
         table_name = model_class.__tablename__
         select_sql = f"SELECT * FROM {table_name} WHERE id = ?"
         conn = sqlite3.connect(self.database)
         cursor = conn.cursor()
         cursor.execute(select_sql, (id,))
         row = cursor.fetchone()
-        conn.close()
-        if row:
-            columns = [column[0] for column in cursor.description]
-            record = dict(zip(columns, row))
-            """
-            object = {key: value for key, value in record.items() if key in model_class.model_fields}
-            print(object)
-            if as_dict:
-                return object
-            return model_class(**object)
-            """
-            data = {}
-
-            for field_name, field_info in model_class.model_fields.items():
-                value = record.get(field_name)
-
-                if value is not None:
-                    data[field_name] = value
-                    continue
-
-                # If this is a nested Pydantic model (foreign key style)
-                field_type = field_info.annotation
-                if (
-                        isinstance(field_type, type)
-                        and issubclass(field_type, BaseModel)
-                ):
-                    fk_field = f"{field_name}_id"
-                    fk_value = record.get(fk_field)
-
-                    if fk_value is not None:
-                        # 💡 Instead of fetching the full model, create a shell object
-                        try:
-                            fk_model = registered_models[field_type.__tablename__]
-                            data[field_name] = fk_model(id=fk_value)
-                        except Exception:
-                            # 👇 Or optionally just skip it
-                            pass
-            if as_dict:
-                return data
-            return model_class(**data)
-        else:
+        if not row:
+            conn.close()
             return None
+
+        columns = [column[0] for column in cursor.description]
+        record = dict(zip(columns, row))
+
+        data = {}
+
+        for field_name, field_info in model_class.model_fields.items():
+            value = record.get(field_name)
+
+            if value is not None:
+                data[field_name] = value
+                continue
+
+            # If this is a nested Pydantic model (foreign key style)
+            field_type = field_info.annotation
+            if (
+                    isinstance(field_type, type)
+                    and issubclass(field_type, BaseModel)
+            ):
+                fk_field = f"{field_name}_id"
+                fk_value = record.get(fk_field)
+
+                if fk_value is not None:
+                    try:
+                        fk_model = registered_models[field_type.__tablename__]
+                        data[field_name] = fk_model(id=fk_value)
+                    except Exception:
+                        pass
+
+        # ── Hydrate List[BaseModel] fields from child tables ──
+        for field_name, child_class in get_list_fields(model_class):
+            fk_col = f"{model_class.__name__.lower()}_id"
+            child_table = child_class.__tablename__
+            try:
+                cursor.execute(
+                    f"SELECT * FROM {child_table} WHERE {fk_col} = ?", (id,)
+                )
+                child_rows = cursor.fetchall()
+                if child_rows:
+                    child_cols = [c[0] for c in cursor.description]
+                    data[field_name] = [
+                        child_class(**dict(zip(child_cols, r)))
+                        for r in child_rows
+                    ]
+                else:
+                    data[field_name] = []
+            except sqlite3.OperationalError:
+                # Child table or FK column may not exist yet
+                data[field_name] = []
+
+        conn.close()
+
+        if as_dict:
+            return data
+        return model_class(**data)
+
+    # ──────────────────────────────────────────────
+    # UPDATE
+    # ──────────────────────────────────────────────
 
     def update(self, model_class: Type[Any], id: int, data: Dict[str, Any]):
         """
-        Updates a record in the database for the given model class, using only the fields provided in the `data` dictionary.
+        Updates a record in the database for the given model class,
+        using only the fields provided in the `data` dictionary.
         Prevents SQL injection by using parameterized queries.
         """
         table_name = model_class.__tablename__
@@ -276,27 +222,12 @@ class SQLiteStorage(AbstractStorage):
             raise RuntimeError(f"Database update failed: {e}")
         finally:
             conn.close()
-    """
-        def update(self, model_class: Type[Any], id: int, data: Dict[str, Any]):
-            # Implementation similar to previous update method
-            # ...
 
-            table_name = model_class.__tablename__
-            fields = [f for f in model_class.__annotations__.keys() if f != 'id']
-            set_clause = ", ".join([f"{field} = ?" for field in fields])
-            values = [data.get(field) for field in data.keys() if field in fields]
-            update_sql = f"UPDATE {table_name} SET {set_clause} WHERE id = ?"
-            conn = sqlite3.connect(self.database)
-            cursor = conn.cursor()
-            cursor.execute(update_sql, values + [id])
-            conn.commit()
-            conn.close()
-    """
+    # ──────────────────────────────────────────────
+    # DELETE
+    # ──────────────────────────────────────────────
 
     def delete(self, model_class: Type[Any], id: int):
-        # Implementation similar to previous delete method
-        # ...
-
         table_name = model_class.__tablename__
         delete_sql = f"DELETE FROM {table_name} WHERE id = ?"
         conn = sqlite3.connect(self.database)
