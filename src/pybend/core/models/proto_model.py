@@ -3,7 +3,7 @@ import inspect
 import json
 
 from pydantic import BaseModel as PydanticBaseModel, GetJsonSchemaHandler, BaseModel, Field
-from typing import Any, Dict, Type, get_type_hints, get_origin, get_args, Union
+from typing import Any, ClassVar, Dict, Type, get_type_hints, get_origin, get_args, Union
 
 from pydantic.json_schema import JsonSchemaValue, JsonSchemaMode, GenerateJsonSchema, DEFAULT_REF_TEMPLATE
 from pydantic_core import CoreSchema
@@ -20,6 +20,8 @@ class ProtoModel(PydanticBaseModel):
     """
     Base model that optionally adds StorableMixin based on the 'storable' class attribute.
     """
+    __fk_models__: ClassVar[Dict[str, Type]] = {}
+
     class Config:
         arbitrary_types_allowed = True  # allows ForeignKey through
         json_encoders = {
@@ -241,6 +243,20 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
         fk_field: Field(..., alias=fk_field, description=f"FK to {owner_name}")
     }
     join_model = type(class_name, (ref_model,), fields)
+
+    # Resolve field_name if not provided
+    if not field_name:
+        from utils.introspection import get_list_fields
+        for fname, child_cls in get_list_fields(owner_cls):
+            if child_cls is ref_model:
+                field_name = fname
+                break
+
+    # Cache join model on the parent class for FK hydration
+    if field_name:
+        if not hasattr(owner_cls, '__fk_models__') or owner_cls.__fk_models__ is ProtoModel.__fk_models__:
+            owner_cls.__fk_models__ = {}
+        owner_cls.__fk_models__[field_name] = join_model
 
     return join_model
 

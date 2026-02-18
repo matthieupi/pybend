@@ -5,9 +5,10 @@ from typing import Any, Dict, List, Type
 
 from pydantic import BaseModel
 
+import config
 from utils.registrar import registered_models
+from utils.introspection import get_list_fields
 from .abstract_storage import AbstractStorage
-from .sqlite_helpers import get_list_fields
 from .sqlite_migration import SQLiteMigration
 
 
@@ -87,25 +88,22 @@ class SQLiteStorage(AbstractStorage):
                 results.append(model_class(**record))
                 continue
 
-            # Hydrate List[BaseModel] fields
+            # Hydrate collection fields as href arrays
             parent_id = record.get('id')
             for field_name, child_class in list_fields:
+                effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
+                child_table = effective_cls.__tablename__
                 fk_col = f"{model_class.__name__.lower()}_id"
-                child_table = child_class.__tablename__
                 try:
                     cursor.execute(
-                        f"SELECT * FROM {child_table} WHERE {fk_col} = ?",
+                        f"SELECT id FROM {child_table} WHERE {fk_col} = ?",
                         (parent_id,)
                     )
                     child_rows = cursor.fetchall()
-                    if child_rows:
-                        child_cols = [c[0] for c in cursor.description]
-                        record[field_name] = [
-                            child_class(**dict(zip(child_cols, r)))
-                            for r in child_rows
-                        ]
-                    else:
-                        record[field_name] = []
+                    record[field_name] = [
+                        f"{config.API_URL}/{model_class.__tablename__}/{parent_id}/{field_name}/{row[0]}"
+                        for row in child_rows
+                    ]
                 except sqlite3.OperationalError:
                     record[field_name] = []
 
@@ -157,23 +155,20 @@ class SQLiteStorage(AbstractStorage):
                     except Exception:
                         pass
 
-        # ── Hydrate List[BaseModel] fields from child tables ──
+        # ── Hydrate collection fields as href arrays ──
         for field_name, child_class in get_list_fields(model_class):
+            effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
+            child_table = effective_cls.__tablename__
             fk_col = f"{model_class.__name__.lower()}_id"
-            child_table = child_class.__tablename__
             try:
                 cursor.execute(
-                    f"SELECT * FROM {child_table} WHERE {fk_col} = ?", (id,)
+                    f"SELECT id FROM {child_table} WHERE {fk_col} = ?", (id,)
                 )
                 child_rows = cursor.fetchall()
-                if child_rows:
-                    child_cols = [c[0] for c in cursor.description]
-                    data[field_name] = [
-                        child_class(**dict(zip(child_cols, r)))
-                        for r in child_rows
-                    ]
-                else:
-                    data[field_name] = []
+                data[field_name] = [
+                    f"{config.API_URL}/{model_class.__tablename__}/{id}/{field_name}/{row[0]}"
+                    for row in child_rows
+                ]
             except sqlite3.OperationalError:
                 # Child table or FK column may not exist yet
                 data[field_name] = []

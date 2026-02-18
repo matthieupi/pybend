@@ -6,7 +6,8 @@ from pydantic import Field, field_validator
 from models.viewable_mixin import ViewableMixin
 from .comment_model import Comment
 from .proto_model import ProtoModel
-from typing import ClassVar, List, Optional
+from .ref import ListRef
+from typing import ClassVar, Optional
 from utils.decorators import expose_route
 
 
@@ -19,7 +20,7 @@ class Product(ProtoModel):
     name: str
     price: float
     description: str = ''
-    comments: Optional[List[Comment]] = Field(default=[], alias='comments', description="List of comments associated with the product")
+    comments: Optional[ListRef[Comment]] = Field(default=[], alias='comments', description="List of comments associated with the product")
     id: Optional[int] = Field(default=None, alias='id')
 
     """

@@ -1,6 +1,6 @@
 import inspect
 import json
-from typing import Dict, Any, Callable, get_type_hints, get_args, get_origin, Union
+from typing import Dict, Any, Callable, List, Tuple, Type, get_type_hints, get_args, get_origin, Union
 
 from pydantic import BaseModel, create_model
 from pydantic.json_schema import model_json_schema
@@ -109,3 +109,49 @@ def pydantic_method_signature(method: Callable) -> Dict[str, Any]:
         'parameters': parameters,
         'returns': return_type_schema
     }
+
+
+def _unwrap_listref(field_type):
+    """If field_type is ListRef[T] (Annotated with a model_type marker), return T.
+    Otherwise return None."""
+    if hasattr(field_type, '__metadata__'):
+        for meta in field_type.__metadata__:
+            if hasattr(meta, 'model_type'):
+                return meta.model_type
+    return None
+
+
+def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
+    """
+    Returns a list of (field_name, child_model_class) for every
+    field typed as ListRef[SomeBaseModel] or List[SomeBaseModel]
+    on *model_class*.  Unwraps Optional transparently.
+
+    Example:
+        class Product(BaseModel):
+            comments: Optional[ListRef[Comment]] = []
+
+        get_list_fields(Product)  ->  [("comments", Comment)]
+    """
+    results = []
+    for field_name, field_info in model_class.model_fields.items():
+        field_type = field_info.annotation
+
+        origin = get_origin(field_type)
+        # Unwrap Optional[...]
+        if origin is Union and type(None) in get_args(field_type):
+            field_type = get_args(field_type)[0]
+            origin = get_origin(field_type)
+
+        # Check for ListRef[T] (Annotated with _ListRefMarker)
+        ref_model = _unwrap_listref(field_type)
+        if ref_model is not None:
+            results.append((field_name, ref_model))
+            continue
+
+        # Fallback: plain List[BaseModel]
+        if origin is list:
+            args = get_args(field_type)
+            if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
+                results.append((field_name, args[0]))
+    return results
