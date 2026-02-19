@@ -9,9 +9,8 @@ Detailed documentation of each class in the Actor/Matrix system.
 3. [TX](#tx)
 4. [Observable](#observable)
 5. [TT (Transfer Type)](#tt-transfer-type)
-6. [PTT (Proto Transfer Type)](#ptt-proto-transfer-type)
-7. [NTT (Named Transfer Type)](#ntt-named-transfer-type)
-8. [Dynamic Prototype Classes](#dynamic-prototype-classes)
+6. [NTT (Named Transfer Type)](#ntt-named-transfer-type)
+7. [DynamicClass (DynClass)](#dynamicclass-dynclass)
 
 ---
 
@@ -97,7 +96,7 @@ The metaclass helper. Mutates `ChildClass` to add Actor capabilities:
 **Mixin application:**
 - Each mixin must have a static `apply(Base)` method
 - Called in order: `Mixin.apply(ChildClass)`
-- Example: `Actor.subclass(PTT, Observable)` adds signal/observe/notify to PTT
+- Example: `Actor.subclass(NTT, Observable)` adds signal/observe/notify to NTT
 
 **Idempotent:** If `ChildClass.__TypeActor` is already set, skips silently.
 
@@ -148,13 +147,13 @@ On construction:
 ### Children
 
 The Matrix's children map contains **classes** (not instances):
-- `PTT` (registered via `Actor.subclass(PTT)` when Matrix exists)
-- `Component` (registered via `Actor.subclass(Component)`)
 - `NTT` (registered via `Actor.subclass(NTT)`)
+- `Component` (registered via `Actor.subclass(Component)`)
 - `TT` (registered via `Actor.subclass(TT)`)
 - `List`, `Item` (registered via `Actor.subclass(List)`)
+- Each DynClass (e.g., `Product`) is registered when `Actor.subclass(DynClass)` runs inside `prototype()`
 
-This means a message targeting "PTT" routes to `PTT.inbox()` (the static method), which handles it at the class level.
+This means a message targeting `"NTT"` routes to `NTT.inbox()` (the static method), which handles it at the class level. A message targeting `"Product"` routes to the DynClass's static `inbox()`.
 
 ---
 
@@ -210,7 +209,7 @@ LOAD, ERROR, PING, PONG, HEARTBEAT, LOGIN, LOGOUT, REGISTER, NOTIFY, ALERT
 A mixin that adds pub/sub reactivity to any Actor subclass. Applied via:
 
 ```javascript
-Actor.subclass(PTT, Observable)  // PTT instances get signal/observe/notify
+Actor.subclass(NTT, Observable)  // NTT instances get signal/observe/notify
 ```
 
 ### Applied Methods (on prototype)
@@ -227,6 +226,12 @@ Uses instance properties (not private fields, since it's a mixin):
 - `this.__signals` - `Set<Function>` for signal() callbacks
 - `this.__observers` - `Map<string, Set<Function>>` for observe() callbacks
 - `this._initObservable()` - lazy initializer, called by each method
+
+### Important: Instance vs. Static Observable
+
+`Observable.apply(Base)` only adds methods to `Base.prototype` (instance-level). For DynClass, static-level Observable methods (`signal`, `observe`) are added **manually** inside `prototype()` because:
+- DynClass needs to be observable at the **class** level (components subscribe to the class itself)
+- `Observable.apply` doesn't handle static properties
 
 ---
 
@@ -260,163 +265,206 @@ Actor.subclass(TT)  // No Observable - TT has its own notify
 
 ---
 
-## PTT (Proto Transfer Type)
-
-**File:** `core/NTT.js`
-
-Schema proxy for a backend model. One PTT per model type (e.g., one for "Product", one for "User"). Pulls the JSON schema from the backend, generates a dynamic NTT subclass, and manages entity instances.
-
-### Static State
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `PTT.#prototypes` | `Map<string, PTT>` | Registry of all PTT instances by address. |
-
-### Instance State
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `#instances` | `Map<id, NTT>` | Entity instances created from backend data. |
-| `#data` | `object` | The raw JSON schema from the backend. |
-| `#cls` | `class` | The dynamically generated NTT subclass. |
-
-### Key Instance Methods
-
-| Method | Description |
-|--------|-------------|
-| `get schema()` | Returns `#data` (the raw schema). |
-| `get value()` | Returns schema with injected `@context` (href) and `@type` (addr). |
-| `set value(val)` | Sets schema, runs `prototype(this)` to generate/update the dynamic class, fires `signal()`. |
-| `pull()` | Sends `SCHEMA` call to backend via `this.call('SCHEMA')`. |
-| `SCHEMA(data)` | Handler for schema response. Sets `this.href` from `__tablename__`, sets `this.value` (triggers class generation). Registers any `$defs` models as new PTTs. |
-| `READ(data)` | Handler for list/read response. Creates NTT instances from array data, stores in `#instances`, calls `notify()` with instance addresses. |
-| `UPDATE(data)` | Dispatches UPDATE through Matrix. |
-| `has(addr)` / `get(addr)` | Instance-level lookup in `#instances`. |
-
-### Static Methods
-
-| Method | Description |
-|--------|-------------|
-| `PTT.has(addr)` | Checks `#prototypes` registry. |
-| `PTT.get(addr)` | Returns existing PTT or creates + pulls a new one. |
-| `PTT.factory(addr, href, schema?)` | Creates a PTT. If no schema provided, calls `pull()`. |
-| `PTT.attach(addr, callback)` | Attaches a signal callback to a PTT (creates it if needed). Returns unsubscribe function. |
-| `PTT.ATTACH(data, tx)` | Static event handler. Looks up or creates the PTT for the given address, registers the sender as a watcher, triggers a READ. |
-
-### Mixins Applied
-
-```javascript
-Actor.subclass(PTT, Observable)  // Gets signal(), observe(), notify()
-```
-
-Note: PTT.notify (from TT) and Observable.notify coexist. TT's `notify()` sends TX messages to watchers. Observable's `notify()` fires local property observer callbacks. In practice, PTT uses TT's `notify()` for the watcher pattern and Observable's `signal()` for schema-ready callbacks.
-
----
-
 ## NTT (Named Transfer Type)
 
 **File:** `core/NTT.js`
 
-Represents a single entity instance (e.g., Product #1). Linked to a PTT prototype for schema access.
+NTT serves a **dual role**: it is both the **type registry** (static level) and the **entity base class** (instance level). After the PTT merge, NTT absorbed all of PTT's registry and routing responsibilities.
 
-### Instance State
+### Static Level: Type Registry
+
+The static side of NTT manages DynClass registration, the null-pointer bootstrap, and the universal ATTACH router.
+
+#### Static State
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `#proto` | `PTT` | Reference to the prototype (schema source). |
-| `#data` | `object` | The entity's current data. |
-| `#meta` | `object` | Metadata (currently unused, placeholder for future state management). |
+| `NTT.#prototypes` | `Map<string, DynClass\|null>` | Registry of all DynClass types. Three states per key: `undefined` (never seen), `null` (schema in flight), `DynClass` (ready). |
+| `NTT.#waiting` | `Map<string, Array>` | Queued TXs and attach callbacks for models whose schema is still in flight. |
 
-### Key Instance Methods
+#### Static Methods
+
+| Method | Description |
+|--------|-------------|
+| `NTT.has(addr)` | Checks if a DynClass is registered for the given model name. |
+| `NTT.get(addr)` | **Dual lookup:** `NTT.get("Product")` returns DynClass. `NTT.get("Product/1")` returns NTT instance. |
+| `NTT.attach(addr, callback)` | Imperative attach with callback. If DynClass exists, fires immediately via `signal()`. If `null` (in flight), queues callback. If `undefined` (never seen), bootstraps schema fetch and queues. |
+| `NTT.ATTACH(data, tx)` | **Universal ATTACH router.** Handles both type-level (`"Product"`) and instance-level (`"Product/1"`) ATTACHes. Routes to DynClass if ready, queues if in flight, bootstraps if never seen. |
+| `NTT.SCHEMA(data, tx)` | **Bootstrap completion handler.** Receives schema from backend, creates DynClass via `prototype()`, stores in `#prototypes`, replays queued messages, triggers initial READ. Also registers `$defs` nested schemas as additional DynClasses. |
+| `NTT.#replayWaiting(addr, DynClass)` | Internal: replays queued TXs and attach callbacks for a model once its DynClass is ready. |
+
+#### Null Pointer Bootstrap
+
+The three-state pattern in `#prototypes` prevents duplicate schema fetches:
+
+```
+NTT.#prototypes.get("Product"):
+  undefined  → Never seen → Set null, fetch schema, queue TX
+  null       → Schema in flight → Queue TX (will replay when DynClass arrives)
+  DynClass   → Ready → Forward TX directly to DynClass
+```
+
+This replaces the old PTT lifecycle where a PTT instance existed in a half-initialized state before its schema arrived.
+
+### Instance Level: Entity Data
+
+Each NTT instance represents a single entity (e.g., Product #1).
+
+#### Instance State
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `#proto` | `object` | Reference to the DynClass (set via `define()`). |
+| `#data` | `object` | The entity's current data. |
+| `#meta` | `object` | Metadata (placeholder for future state management). |
+
+#### Instance Methods
 
 | Method | Description |
 |--------|-------------|
 | `get value()` | Returns `#data`. |
-| `set value(val)` | Sets `#data`. If proto is not set, fires `signal()`. |
+| `set value(val)` | Sets `#data`, calls `signal()`. |
 | `get proto()` | Returns `#proto`. |
-| `get schema()` | Returns `#proto?.schema`. |
-| `define(proto)` | Links this NTT to a PTT and sets href. |
+| `get schema()` | Returns `this.constructor._schema` (from the DynClass). |
+| `define(proto)` | Links this NTT to a DynClass and sets href. |
 | `describe(proto, data)` | Calls `define()` + `update()`. |
 | `update(data)` | Merges data into value via spread. |
 | `pull()` | Sends READ call to backend for this specific entity. |
 | `ATTACH(data, event)` | Registers the sender as a watcher (non-immediate), then sends DESCRIBE back with schema + data. |
+| `UPDATE(data, event)` | Updates local data. If the event didn't come from backend (source doesn't start with `http`), forwards the update to the backend. This is the **optimistic update** flow. |
 | `toJSON()` | Serializes addr, href, data, meta. |
 
-### Static Methods
+#### Static Instance Handlers
 
 | Method | Description |
 |--------|-------------|
-| `NTT.get(addr)` | Looks up instance in `this.children` (class-level). |
 | `NTT.READ(data)` | Static handler: updates the NTT instance with received data. |
 | `NTT.UPDATE(data)` | Static handler: updates or creates instances from data entries. |
-| `NTT.attach(model, hash, callback)` | Creates/gets an NTT and attaches a signal callback. |
-| `NTT.create(model, data, callback?)` | Dispatches a CREATE event to the backend. |
 
 ### Mixins Applied
 
 ```javascript
-Actor.subclass(NTT)  // No Observable on base NTT
+Actor.subclass(NTT, Observable)  // NTT gets signal/observe/notify at instance level
 ```
 
 ---
 
-## Dynamic Prototype Classes
+## DynamicClass (DynClass)
 
 **File:** `core/NTT.js` (`prototype()` function)
 
-When a PTT receives its schema, it calls `prototype(ptt)` to generate a runtime NTT subclass with schema-aware properties and methods.
+When `NTT.SCHEMA()` receives a model's schema from the backend, it calls `prototype(addr, schema, href)` to generate a runtime NTT subclass. The DynClass **is** the type: it holds the schema, manages instances, handles CRUD, and provides Observable reactivity at the class level.
 
-### What `prototype(ptt)` does
+DynClasses are **born complete** — they never exist in a half-initialized state. The `prototype()` function returns a fully wired class with schema properties, methods, static CRUD handlers, and Actor/Observable integration.
+
+### `prototype(addr, schema, href)` — What It Does
 
 ```javascript
-function prototype(ptt) {
-  // Reads ptt.schema.properties and ptt.schema.methods
-
+function prototype(addr, schema, href) {
+  // 1. Create DynClass extending NTT
   const DynamicClass = class extends NTT { ... }
 
-  // 1. Sets class name to ptt.addr (e.g., "Product")
-  // 2. Stores static _schema reference
+  // 2. Set class name to addr (e.g., "Product")
+  // 3. Store static _schema reference
+  // 4. Initialize static state (_watchers, _pendingAttaches, __signals, __observers)
 
-  // 3. For each schema property, defines a getter/setter:
+  // 5. For each schema property, define getter/setter on prototype:
   //    - getter: returns this.value[field]
   //    - setter: validates type, validates readOnly, updates value, calls notify()
   //    - Stores field labels for UI
 
-  // 4. For each schema method, defines a prototype method:
+  // 6. For each schema method, define prototype method:
   //    - Validates required parameters
   //    - Validates $ref parameter types
   //    - Calls this.call(method, args) for remote invocation
 
-  // 5. Applies Actor.subclass(DynamicClass, Observable)
-  //    - Gets full actor wiring + signal/observe/notify
+  // 7. Add static type-level methods (call, signal, observe, ATTACH, READ, UPDATE)
+  // 8. Apply Actor.subclass(DynamicClass, Observable)
 
   return DynamicClass;
 }
 ```
 
-### Dynamic Class Instance
+### Static Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `DynClass.instances` | `Map<id, NTT>` | All entity instances for this model. |
+| `DynClass._schema` | `object` | The JSON schema from the backend. |
+| `DynClass.schema` | `object` | Getter, returns `_schema`. |
+| `DynClass.href` | `string` | CRUD endpoint URL (e.g., `http://.../products`). |
+| `DynClass.labels` | `object` | Field name → display label mapping for UI. |
+| `DynClass._watchers` | `Set<string>` | Addresses of actors watching this type for instance changes. |
+| `DynClass._pendingAttaches` | `Array` | Queued instance-level ATTACHes waiting for READ to complete. |
+| `DynClass.__signals` | `Set<Function>` | Static Observable signal callbacks. |
+| `DynClass.__observers` | `Map<string, Set>` | Static Observable property observer callbacks. |
+
+### Static Methods
+
+| Method | Description |
+|--------|-------------|
+| `DynClass.call(method, data?, meta?)` | Sends a TX from the DynClass (type-level). **Omits `source`** so that `Actor._send` assigns it to `className` during Case 3 bubble — this avoids double-prefixing like `"Product/Product"`. |
+| `DynClass.signal(callback?, wait?)` | Static Observable. Without args: fires all callbacks. With callback: registers it (fires immediately if `wait=false`). Returns unsubscribe function. |
+| `DynClass.observe(property, callback)` | Static Observable. Registers a property observer at the class level. |
+| `DynClass.ATTACH(data, tx)` | Handles type-level and instance-level ATTACHes forwarded from `NTT.ATTACH`. For type-level: adds watcher, sends immediate UPDATE if instances loaded. For instance-level: forwards to instance, or queues in `_pendingAttaches` if instance doesn't exist yet. |
+| `DynClass.READ(data)` | Creates/updates NTT instances from backend records. Replays `_pendingAttaches`, then notifies all watchers with instance addresses. |
+| `DynClass.UPDATE(data, tx)` | Delegates to `DynClass.READ()` — handles `meta.inbox='UPDATE'` responses. |
+
+### Two Queues
+
+DynClass uses a second queue (`_pendingAttaches`) that is separate from `NTT.#waiting`:
+
+| Queue | Location | Purpose |
+|-------|----------|---------|
+| `NTT.#waiting` | NTT static | TXs waiting for DynClass to be **created** (schema not yet received) |
+| `DynClass._pendingAttaches` | DynClass static | Instance ATTACHes waiting for **READ to complete** (DynClass exists but instances not yet loaded) |
+
+### Instance (per entity)
 
 ```javascript
-// constructor(data):
-//   - Calls super(DynamicClass.name, data.id) -> NTT constructor
-//   - Sets this.value = data
-//   - Sets this.href = ptt.href/id
+constructor(data) {
+  super(className, data.id);  // → NTT constructor → TT → Actor
+  this.value = data;
+  this.href = `${href}/${this.id}`;
+}
 
-// get value():
-//   - Returns this._data with @context and @type injected
+get value() {
+  // Returns this._data with @context (href) and @type (class name) injected
+}
 
-// set value(val):
-//   - Sets this._data = val
-//   - Calls this.signal()
+set value(val) {
+  this._data = val;
+  this.signal();  // Fires Observable callbacks
+}
 ```
 
 ### Example
 
-After PTT("Product") pulls its schema with properties `{id, name, price, description, comments}` and method `{comment}`:
+After `NTT.SCHEMA()` processes a schema for "Product" with properties `{id, name, price, description, comments}` and method `{comment}`:
 
 ```javascript
-// DynamicClass.name === "Product"
-// instance.name -> this.value.name
-// instance.price = 29.99 -> type-checked, calls notify()
-// instance.comment({...}) -> this.call('comment', {...}) -> remote POST
+// DynClass.name === "Product"
+// DynClass.href === "http://localhost:5000/products"
+// DynClass.schema === { properties: { ... }, methods: { ... } }
+
+// After READ populates instances:
+const product = NTT.get("Product/1");
+product.name              // -> this.value.name (typed getter)
+product.price = 29.99     // -> type-checked, calls notify() (Observable)
+product.comment({...})    // -> this.call('comment', {...}) -> remote POST
+
+// FK Hydration: collection fields contain href arrays:
+product.comments
+// -> ["http://localhost:5000/products/1/comments/1", ...]
+// Each href is independently resolvable via GET.
 ```
+
+### Mixins Applied
+
+```javascript
+Actor.subclass(DynamicClass, Observable)  // Gets full actor wiring + signal/observe/notify
+```
+
+Note: Observable is applied at both levels:
+- **Instance level** (via `Actor.subclass`): `signal()`, `observe()`, `notify()` on prototype — used for per-entity reactivity
+- **Static level** (manually added in `prototype()`): `DynClass.signal()`, `DynClass.observe()` — used for type-level subscriptions (e.g., components subscribing to "when Product class is ready")

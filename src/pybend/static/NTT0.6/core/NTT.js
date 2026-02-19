@@ -16,21 +16,21 @@ const E = config.E;
  * TT (Transfer Type) - Base class for transfer types
  */
 class TT extends Actor{
-    
+
     #href;
     #watchers = new Set();
     #observers = new Map();
-    
+
     constructor(addr, href) {
         super(addr);
         assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
         //assert(this, href && typeof isUrl(href), `[TT] ${addr} - HREF must be a valid URL, got: ${href}`);
-        
+
         if (!href)
             href = `${config.API_URL}/${addr}`;
         this.#href = href;
     }
-    
+
     // Protected getters for subclasses
     get href() { return this.#href; }
     set href(href) {
@@ -38,7 +38,7 @@ class TT extends Actor{
         const oldHref = this.#href;
         this.#href = href
     }
-    
+
     watch(addr, immediate = true) {
         this.#watchers.add(addr);
         if (this.value && immediate){
@@ -50,8 +50,8 @@ class TT extends Actor{
             }))
         }
     }
-    
-    
+
+
     notify(value) {
         let data = []
         if (!value){
@@ -71,15 +71,15 @@ class TT extends Actor{
             )
         });
     }
-    
+
     ATTACH(data, tx) {
         console.log("ATTACHING")
         this.watch(tx.source)
     }
-    
-    
-    
-    
+
+
+
+
     /**
     notify(property, newValue, oldValue) {
         assert(this, property && typeof property === 'string', `Property must be a non-empty string.`);
@@ -89,7 +89,7 @@ class TT extends Actor{
             this.#observers.get(property).forEach(callback => callback(newValue, oldValue, property, this));
         }
     }
-    
+
     signal(callback = undefined, wait = false) {
         assert(this, !callback || typeof callback === 'function', `Callback must be a function if given.`);
         if (callback) {
@@ -106,15 +106,15 @@ class TT extends Actor{
             // When called with no callback, signal to all listeners
             this.#signals.forEach((callback) => { callback(this); });
         }
-        
+
     }
      **/
-   
+
     /**
      * Send an event via the registrar callback
      * @param event {TX}
      */
-    
+
     /**
     send(event) {
         assert(this, event && typeof event === 'object', `Data must be a non-empty object.`);
@@ -123,7 +123,7 @@ class TT extends Actor{
         matrix.dispatch(event)
     }
      **/
-    
+
     /**
      * Inbox method to handle incoming events
      * @param event {TX}
@@ -142,10 +142,10 @@ class TT extends Actor{
             Logging.dev(`No handler ${method_name} for event '${event.name}' in PTT [${this.addr}] instance.`);
             Logging.debug(event)
         }
-        
+
     }
      **/
-    
+
     /**
     observe(property, callback) {
         assert(this, property && typeof property === 'string', `Property must be a non-empty string.`);
@@ -165,7 +165,7 @@ class TT extends Actor{
         };
     }
      **/
-  
+
     /**
      * Call a distant method on the PTT instance
      * @param method {string} - Method name to call
@@ -184,7 +184,7 @@ class TT extends Actor{
         })
       )
     }
-    
+
     _error_(event) {
         console.groupCollapsed(`[TT] Error received from ${event.source}:`, event.name);
         console.error(`[TT] Error received from ${event.source}->${event.target}`);
@@ -196,244 +196,207 @@ class TT extends Actor{
 
 
 /**
- * PTT (ProtoTransferType) - Protocol Transfer Type
- * Acts as a proxy for remote registered models
- */
-export class PTT extends TT{
-  
-    static #prototypes = new Map();
-    
-    #instances;
-    #data;
-    #cls;
-  
-    constructor(addr, href, schema = undefined) {
-        Logging.debug(`[PTT] Creating PTT instance for ${addr}`, schema ? 'WITH SCHEMA' : 'WITHOUT SCHEMA');
-        assert(PTT, !PTT.#prototypes.has(addr), `Address '${addr}' is already registered.`);
-        super(addr, href);
-        // Save the Prototype instance to the PTT local registry
-        PTT.#prototypes.set(addr, this);
-        this.#instances = new Map();
-        // Register the inbox method to handle incoming events
-        //matrix.register(this)
-    }
-    
-    get schema() { return this.#data; }
-    get value() {
-        let data = this.#data;
-        data["@context"] = this.href;
-        data["@type"] = this.addr
-        return this.#data; }
-    set value(val) {
-        this.#data = val;
-        this.#cls = prototype(this);
-        this.signal()
-    }
-    
-    pull() {
-        assert(this, isUrl(this.href), `[PTT] ${this.addr} HREF must be a valid HTTP URL, got: ${this.href}`);
-        this.call('SCHEMA', {}, {remote: true});
-        return this;
-    }
-    
-    SCHEMA(data) {
-        // If the data has a __tablename__, we need to link this prototype to the endpoint
-        if (data['__tablename__']) {
-            this.href = `${config.API_URL}/${data['__tablename__']}`;
-            //registrar(this.href, remote.send)
-        }
-        // Create a subclass of NTT with the provided schema
-        this.value = data;
-        // If the schema has a $defs, register them as PTTs
-        if (data.$defs && typeof data.$defs === 'object') {
-            for (const [key, value] of Object.entries(data.$defs)) {
-                if (value.type === 'object' && value.properties) {
-                    // Register the prototype with the address
-                    if (!PTT.has(key)) {
-                        PTT.factory(key, `${value['__url__']}`, value);
-                    } else {
-                        Logging.dev(`[PTT.schema] Prototype for ${key} is already registered.`);
-                    }
-                }
-            }
-        }
-    }
-    
-    UPDATE(data) {
-        matrix.dispatch(new TX({
-            name: E.update,
-            source: `${this.addr}/${this.href}`,
-            target: this.addr,
-            data: data,
-        }));
-    }
-    
-    READ(data) {
-        assert(this, data && typeof data === 'object', `Data must be a non-empty object.`);
-        if (Array.isArray(data)){
-                // Update all instances with the received data
-                for (const value of data) {
-                    const addr = value.id;
-                    if (this.#instances.has(addr)) {
-                        this.#instances.get(addr).update(value);
-                    } else {
-                        const instance = new this.#cls(value);
-                        this.#instances.set(addr, instance);
-                    }
-                }
-            }
-        else if (typeof data === 'object') {
-            // Update all instances with the received data
-            for (const [addr, value] of Object.entries(data)) {
-                if (this.#instances.has(addr)) {
-                    this.#instances.get(addr).update(value);
-                } else {
-                    const instance = new this.#cls(value);
-                    this.#instances.set(addr, instance);
-                }
-            }
-        }
-        // Make list of instances addresses
-        const instanceAddrs = new Set(this.#instances.keys());
-        // Add Product/ prefix to addresses
-        const childrenAddrs = [...instanceAddrs].map( addr => addr.toString().startsWith(`${this.addr}/`) ? addr : `${this.addr}/${addr}`);
-        console.warn("CHILDREN ADDR", childrenAddrs )
-        this.notify(childrenAddrs)
-        
-        
-        
-        
-    }
-   
-    // ------------------ Static Methods ------------------ //
-    
-    static has(addr) {
-        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-        return this.#prototypes.has(addr);
-    }
-    
-    static get(addr) {
-        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-        if (!PTT.#prototypes.has(addr)) {
-            return new PTT(addr, `${config.API_URL}/${addr}`).pull();
-        }
-        return PTT.#prototypes.get(addr);
-    }
-    
-    has(addr) {
-        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-        return this.#instances.has(addr);
-    }
-    
-    get(addr) {
-        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-        return this.#instances.get(addr) || undefined;
-    }
-   
-    static ATTACH(data, tx) {
-        tx = tx instanceof TX ? tx : new TX(tx);
-        // Handle attach event
-        const addr = tx.data
-        if (PTT.#prototypes.has(addr)) {
-            return PTT.#prototypes.get(addr).inbox(tx.repr());
-        } else {
-            console.warn(`[PTT] No prototype registered for address '${addr}' to attach.`);
-            return PTT.get(addr).signal( (ptt) => {
-                    console.error(ptt);
-                    ptt.watch(tx.source)
-                console.warn(`[PTT] Watch to prototype '${ptt.addr}' from source '${tx.source}'.`)
-                console.log(ptt)
-                console.log(ptt.watch)
-                ptt.call('READ', {})
-                },
-                true);
-        }
-    }
-    
-    static attach(addr, callback) {
-        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
-        assert(this, callback && typeof callback === 'function', `Callback must be a function.`);
-        let unsubscribe;
-        // If the address is not registered, get the PTT instance from the backend
-        if (!PTT.#prototypes.has(addr)) {
-            unsubscribe = PTT.get(addr).signal(callback, true);
-        } else {
-            unsubscribe = PTT.#prototypes.get(addr).signal(callback);
-        }
-        // Return unregister
-        return unsubscribe;
-    }
-    
-    /**
-     * Creates a PTT instance and registers it in the global registry.
-     * Used for pre-registring models for faster access later.
-     * @param addr {string} - Unique local address for the model, usually in the form of `model/instance_id`
-     * @param href {string} - URL for the model, usually in the form of `http://api.example.com/model`
-     * @param schema {Object|string} - Schema or URL for the model
-     * @returns {PTT}
-     */
-    static factory(addr, href, schema = undefined) {
-        assert(this, !PTT.#prototypes.has(addr), `Address '${addr}' is already registered.`, 'warn');
-        if (!schema) return new PTT(addr, href).pull();
-        else return new PTT(addr, href, schema);
-    }
-    
-    /**
-    register(instance) {
-        Logging.warn(`[${this.addr}] Registering in PTT`,`${instance.addr}`)
-        this.#instances.set(instance.addr, instance);
-    }
-     */
-    
-}
-
-/**
- * NTT (Named Transfer Type) - Core entity class
- * Represents virtual backend entities with functional state management.
- * This class is designed to be extended for specific entity types, and is not intended to be instantiated directly.
+ * NTT (Named Transfer Type) - Core entity class + universal type registry.
+ *
+ * Static level:
+ *   - Global registry of DynamicClass types (#prototypes)
+ *   - Universal ATTACH router for both type-level and instance-level
+ *   - SCHEMA handler for bootstrap completion
+ *
+ * Instance level:
+ *   - Per-entity data with functional state management
+ *   - ATTACH/UPDATE/DESCRIBE handlers for entity lifecycle
  */
 export class NTT extends TT {
-    
-    static #instances = new Map();
+
+    // ── Type Registry (replaces PTT) ──
+    static #prototypes = new Map();  // addr → DynamicClass | null
+    static #waiting = new Map();     // addr → TX[] | {_attachCallback}[]
+
     #proto;
-    #data; // Will be redefined in subclass
+    #data;
     #detach;
     #unsubscribe;
     #meta = {};
-    
+
     /**
      * Create a new NTT instance
-     * @param {string} name - Entity name
-     * @param {string} addr - Backend address/endpoint
-     * @param {string} [href] - View URL (defaults to addr)
+     * @param {string} model - Entity model name
+     * @param {string} hash - Entity ID
      * @param {Object} [data={}] - Initial data/state
-     * @param {Object|string} [schema={}] - Schema or URL
      * @param {Object} [meta={}] - Additional metadata
-     * @param {string} [id] - Custom ID (auto-generated if not provided)
      */
     constructor(model, hash, data = {}, meta = {}) {
         const id = hash || Utils.generateId();
         const href = `${config.API_URL}/${model}/${id}`;
         const addr = `${id}`;
         super(addr, href);
-        // Attach to the type definition
-        //NTT.#instances.set(addr, this);
-        //this.#detach = PTT.attach(model, this.define.bind(this));
-        //if (!isEmpty(data)) {
-        //    this.value = data; // Initialize value with provided data
-        //}
-        //// Register the upstream and downstream links
-        //this.proto.register(this)
-        //// Initialize functional state management in meta. Functionality is not implemented yet but will be added later
-        //this.#meta = {
-        //    // ...meta,
-        //    // remoteState: { ...data },          // Last known server state
-        //    // pendingOps: [],                    // Uncommitted transformations
-        //};
     }
-    
+
+    // ──────────────────────────────────────────────
+    // STATIC: Registry
+    // ──────────────────────────────────────────────
+
+    /**
+     * Check if a DynamicClass is registered for the given address.
+     * @param {string} addr - Model name (e.g., "Product")
+     * @returns {boolean}
+     */
+    static has(addr) {
+        return NTT.#prototypes.has(addr);
+    }
+
+    /**
+     * Dual lookup:
+     *   NTT.get("Product")   → DynamicClass
+     *   NTT.get("Product/1") → NTT instance
+     * @param {string} addr
+     * @returns {DynamicClass|NTT|undefined}
+     */
+    static get(addr) {
+        if (!addr) return undefined;
+        addr = String(addr);
+        if (addr.includes('/')) {
+            const [model, id] = addr.split('/');
+            const DC = NTT.#prototypes.get(model);
+            return DC ? DC.children.get(id) : undefined;
+        }
+        return NTT.#prototypes.get(addr) || undefined;
+    }
+
+    /**
+     * Imperative attach with callback — fires when DynamicClass is ready.
+     * If DC exists, fires immediately. If pending, queues. If unknown, bootstraps.
+     * @param {string} addr - Model name
+     * @param {Function} callback - Called with DynamicClass when ready
+     * @returns {Function|undefined} Unsubscribe function
+     */
+    static attach(addr, callback) {
+        assert(this, addr && typeof addr === 'string', `Address must be a non-empty string.`);
+        assert(this, callback && typeof callback === 'function', `Callback must be a function.`);
+
+        const DC = NTT.#prototypes.get(addr);
+
+        if (DC) {
+            // DynamicClass exists → signal immediately
+            return DC.signal(callback);
+        } else if (DC === null) {
+            // Schema in flight → queue callback
+            NTT.#waiting.get(addr).push({_attachCallback: callback});
+        } else {
+            // Never seen → bootstrap + queue callback
+            NTT.#prototypes.set(addr, null);
+            NTT.#waiting.set(addr, [{_attachCallback: callback}]);
+            matrix.dispatch(new TX({
+                name: 'SCHEMA',
+                source: 'NTT',
+                target: `${config.API_URL}/${addr}`,
+                meta: {remote: true}
+            }));
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    // STATIC: Message Handlers
+    // ──────────────────────────────────────────────
+
+    /**
+     * Universal ATTACH router — single entry point for all entity ATTACHes.
+     * Handles both type-level ("Product") and instance-level ("Product/1").
+     *
+     * Three states per model:
+     *   undefined → never seen → bootstrap (set null, fetch schema, queue TX)
+     *   null      → schema in flight → queue TX
+     *   DynClass  → ready → forward TX to DynamicClass
+     */
+    static ATTACH(data, tx) {
+        tx = tx instanceof TX ? tx : new TX(tx);
+        const addr = typeof data === 'string' ? data : tx.data;
+        const model = addr.split('/')[0];
+
+        const DC = NTT.#prototypes.get(model);
+
+        if (DC) {
+            // DynamicClass exists → forward TX
+            DC.inbox({...tx.repr(), target: addr});
+        } else if (DC === null) {
+            // Schema in flight → queue
+            NTT.#waiting.get(model).push(tx);
+        } else {
+            // Never seen → bootstrap + queue
+            NTT.#prototypes.set(model, null);
+            NTT.#waiting.set(model, [tx]);
+            matrix.dispatch(new TX({
+                name: 'SCHEMA',
+                source: 'NTT',
+                target: `${config.API_URL}/${model}`,
+                meta: {remote: true}
+            }));
+        }
+    }
+
+    /**
+     * Bootstrap completion — receives schema from backend, creates DynamicClass,
+     * stores it in registry, replays queued messages, triggers initial READ.
+     */
+    static SCHEMA(data, tx) {
+        const addr = data.__name__ || data.__type__;
+        const href = data.__tablename__
+            ? `${config.API_URL}/${data.__tablename__}`
+            : `${config.API_URL}/${addr}`;
+
+        // Handle $defs (nested schemas) first — skip the main model itself
+        if (data.$defs && typeof data.$defs === 'object') {
+            for (const [key, value] of Object.entries(data.$defs)) {
+                if (key === addr) continue; // Main model handled below
+                if (value.type === 'object' && value.properties && !NTT.has(key)) {
+                    Logging.debug(`[NTT.SCHEMA] Registering nested schema: ${key}`);
+                    const defHref = value.__url__ || `${config.API_URL}/${key}`;
+                    const DC = prototype(key, value, defHref);
+                    NTT.#prototypes.set(key, DC);
+                    NTT.#replayWaiting(key, DC);
+                }
+            }
+        }
+
+        // Create DynamicClass for the main model
+        const DC = prototype(addr, data, href);
+        NTT.#prototypes.set(addr, DC);
+
+        // Replay queued messages + callbacks
+        NTT.#replayWaiting(addr, DC);
+
+        // Trigger initial data fetch
+        DC.call('READ', {});
+    }
+
+    /**
+     * Replay queued TXs and attach callbacks for a model.
+     * @param {string} addr - Model name
+     * @param {class} DC - The DynamicClass
+     */
+    static #replayWaiting(addr, DC) {
+        const queue = NTT.#waiting.get(addr);
+        if (!queue) return;
+        for (const entry of queue) {
+            if (entry._attachCallback) {
+                DC.signal(entry._attachCallback);
+            } else {
+                // Rewrite target from 'NTT' to the entity address so DC.inbox
+                // dispatches locally instead of bouncing back through the router.
+                const repr = entry instanceof TX ? entry.repr() : {...entry};
+                repr.target = typeof repr.data === 'string' ? repr.data : addr;
+                DC.inbox(repr);
+            }
+        }
+        NTT.#waiting.delete(addr);
+    }
+
+    // ──────────────────────────────────────────────
+    // INSTANCE: Handlers
+    // ──────────────────────────────────────────────
+
     static UPDATE(data) {
-        // TODO update to use addr (right now index) when the backend is updated to return dict of addr: value instead of list
         for (const [addr, value] of Object.entries(data)) {
             const instance = this.get(value.id);
             if (instance) {
@@ -441,10 +404,10 @@ export class NTT extends TT {
             } else {
                 new this(value)
             }
-            
+
         }
     }
-    
+
     ATTACH(data, event) {
         const tx = event instanceof TX ? event : new TX(event);
         this.watch(tx.source, false);
@@ -452,50 +415,49 @@ export class NTT extends TT {
             name: 'DESCRIBE',
             source: this.addr,
             target: tx.source,
-            data: this.proto ? {proto: this.proto.schema(), data: this.value} : {proto: this.constructor._schema, data: this.value}
+            data: {proto: this.constructor._schema, data: this.value}
         }))
     }
-    
+
     get value() {
         return this.#data
     }
-    
+
     set value(val) {
         if (typeof val !== 'object') {
             throw new TypeError('data must be an object');
         }
         this.#data = val;
-        if (this.#proto) {
-        } else {
-            this.signal()
-        }
+        this.signal();
     }
-    
+
     get proto() {
         return this.#proto;
     }
-    
+
     get schema() {
-        return this.#proto?.schema
+        return this.constructor._schema;
     }
-    
+
     define(proto) {
         this.#proto = proto;
-        this.href = `${proto.href}/${this.hash}`;
+        if (proto && proto.href) {
+            this.href = `${proto.href}/${this.addr}`;
+        }
     }
-    
+
     describe(proto, data) {
         if (!proto || typeof proto !== 'object') return
         this.define(proto)
         this.update(data || this.#data || {});
     }
-    
+
     static READ(data) {
         assert(this, data && typeof data === 'object', `Data must be a non-empty object.`);
         // Update the NTT instance with the received data
         this.update(data);
     }
-    
+
     UPDATE(data, event) {
         this.update(data);
         if (!event.source?.startsWith('http')) {
@@ -509,17 +471,17 @@ export class NTT extends TT {
             console.warn(`[NTT] Error received from ${this.addr}:`, data.message || data.error || "Unknown error")
         }
     }
-    
+
     ERROR(event) {
         console.error(`[NTT] ${event.name} from ${event.source}:`, event.data);
     }
-    
+
     _read_(data) {
         assert(this, data && typeof data === 'object', `Data must be a non-empty object.`);
         // Update the NTT instance with the received data
         this.update(data);
     }
-    
+
     /**
      * Serialize NTT instance to JSON
      * @returns {Object} JSON representation
@@ -538,102 +500,51 @@ export class NTT extends TT {
             }
         };
     }
-   
+
     pull() {
         assert(this, isUrl(this.href), `[NTT] ${this.addr} HREF must be a valid HTTP URL, got: ${this.href}`);
         this.call('READ', {}, {remote: true});
         return this;
     }
-    
-    // ------------------ Static Methods  ------------------ //
-    
-    /**
-     * Get NTT instance by address
-     * @param {string} addr - Instance identifier
-     * @returns {NTT|null} NTT instance or null if not found
-     */
-    static get(addr) {
-        assert(this, addr && typeof addr === 'string' || addr && typeof addr === 'number',
-            `Address must be a non-empty string.`);
-        if (typeof addr === 'number'){
-            // Conver to string
-            addr = addr.toString();
-        }
-        if (!this.children.has(addr)) {
-            return undefined
-        }
-        return this.children.get(addr);
-    }
-    
-    static attach(model, hash, callback) {
-        // Compute local address and href
-        const addr = `${model}/${hash || Utils.generateId()}`;
-        const href = `${config.API_URL}/${addr}`;
-        let unsubscribe;
-        // If the address is not registered, get the NTT instance from the backend
-        if (!NTT.#instances.has(addr)) {
-            const wait = !!NTT.#instances.get(addr)?.schema;
-            console.error("[WAIT] ", addr, wait)
-            unsubscribe = NTT.get(addr).signal(callback, true);
-        } else {
-            unsubscribe = NTT.#instances.get(addr).signal(callback);
-        }
-        return unsubscribe;
-    }
-    
-    /**
-     */
-    static create(model, data, callback = null) {
-        
-        const evt = new NTT.Event(
-            'create',
-            Utils.generateId(),
-            model,
-            `${config.API_URL}/${model}`,
-            data,
-            callback
-        );
-        
-        evt.dispatch();
-    }
-    
+
 }
 
-// Global exposure for backward compatibility
-//
 
 /**
+ * Generate a DynamicClass — a runtime NTT subclass for a specific model type.
+ * The class IS the type: holds schema, instances, CRUD, Observable.
+ * Born complete — never exists in a half-initialized state.
  *
- * @param addr
- * @param schema
- * @returns {class}
+ * @param {string} addr - Model name (e.g., "Product")
+ * @param {Object} schema - JSON schema from backend
+ * @param {string} href - CRUD endpoint URL (e.g., "http://.../products")
+ * @returns {class} DynamicClass extends NTT
  */
-function prototype(ptt) {
+function prototype(addr, schema, href) {
 
-    console.error(`Creating PTT prototype class for ${ptt.addr}:`)
-    const fields = Object.keys(ptt.schema.properties || {});
-    const methods = Object.keys(ptt.schema.methods || {});
-    const className = ptt.addr
-    const schema = ptt.schema;
-    
+    console.log(`[NTT] Creating DynamicClass for ${addr}`);
+    const fields = Object.keys(schema.properties || {});
+    const methods = Object.keys(schema.methods || {});
+    const className = addr;
+
 
     // 1. Create a subclass of NTT with dynamic properties
     const DynamicClass = class extends NTT {
-      
+
       static instances = new Map();
-      static _schema = schema
-      
+      static _schema = schema;
+
       _data;
-      
-      
+
+
       constructor(data) {
-      Logging.init(`Dynamic ${DynamicClass.name} ${data.id}`, data)
-        super(DynamicClass.name, data.id);
+        Logging.init(`Dynamic ${className} ${data.id}`, data)
+        super(className, data.id);
         this.value = data;
-        this.href = `${ptt.href}/${this.id}`; // Set the href based on the PTT instance
-          console.warn(`Created instance of ${DynamicClass.name} with addr ${this.addr}`)
+        this.href = `${href}/${this.id}`;
+        console.warn(`Created instance of ${className} with addr ${this.addr}`)
       }
-      
+
       get value() {
           if (!this._data) {
               return undefined
@@ -651,11 +562,21 @@ function prototype(ptt) {
             this.signal();
       }
     };
-    
-    // 1.1 Set the class name dynamically
+
+    // 1.1 Set the class name and href
     Object.defineProperty(DynamicClass, 'name', {value: className});
-    Object.defineProperty(DynamicClass, 'proto', {value: ptt});
-    
+    Object.defineProperty(DynamicClass, 'href', {value: href, writable: true});
+    Object.defineProperty(DynamicClass, 'schema', {
+        configurable: true,
+        get() { return DynamicClass._schema; }
+    });
+
+    // 1.2 Static type-level state
+    DynamicClass._watchers = new Set();
+    DynamicClass._pendingAttaches = [];
+    DynamicClass.__signals = new Set();
+    DynamicClass.__observers = new Map();
+
 
     // 2. Add schema properties to the subclass prototype
     for (const field of fields) {
@@ -693,8 +614,8 @@ function prototype(ptt) {
       if (!DynamicClass.labels) DynamicClass.labels = {};
       DynamicClass.labels[field] = label;
     }
-    
- 
+
+
     // 3. Add schema functions to the subclass prototype
     for (const method of methods) {
       const definition = schema.methods[method];
@@ -725,13 +646,156 @@ function prototype(ptt) {
         this.call(method, args, {});
       };
     }
-    
 
-    // 3. Add schema static methods to the subclass prototype
-    // ToDo: When backend is ready, implement remote method calling (RPC) from the constructor
-    
-    
-    // Apply Actor and Mixins
+
+    // ── 4. Static type-level methods ──
+    // DynamicClass acts as a type actor: holds schema, instances, CRUD.
+    // These are added manually because Observable.apply only targets prototype.
+
+    /**
+     * Static call — sends TX from the DynamicClass (type-level).
+     * Does NOT set source so Actor._send assigns it to className.
+     */
+    DynamicClass.call = function(method, data = {}, meta = {}) {
+        DynamicClass.send(new TX({
+            name: method,
+            target: DynamicClass.href,
+            data: data,
+            meta: meta,
+            timestamp: Date.now()
+        }));
+    };
+
+    /**
+     * Static signal — Observable pattern at class level.
+     * @param {Function} [callback] - If provided, registers listener. If omitted, fires all.
+     * @param {boolean} [wait=false] - If true, don't fire callback immediately.
+     * @returns {Function|undefined} Unsubscribe function when callback is provided.
+     */
+    DynamicClass.signal = function(callback, wait = false) {
+        if (callback) {
+            if (!wait) callback(DynamicClass);
+            DynamicClass.__signals.add(callback);
+            return () => DynamicClass.__signals.delete(callback);
+        } else {
+            DynamicClass.__signals.forEach(cb => cb(DynamicClass));
+        }
+    };
+
+    /**
+     * Static observe — Observable pattern at class level.
+     * Used by subscribe(this.proto, 'UPDATE', ...) in components.
+     */
+    DynamicClass.observe = function(property, callback) {
+        if (!DynamicClass.__observers.has(property)) {
+            DynamicClass.__observers.set(property, new Set());
+        }
+        DynamicClass.__observers.get(property).add(callback);
+        return () => {
+            const set = DynamicClass.__observers.get(property);
+            if (!set) return;
+            set.delete(callback);
+            if (set.size === 0) DynamicClass.__observers.delete(property);
+        };
+    };
+
+    /**
+     * Static ATTACH — handles type-level and instance-level ATTACHes
+     * forwarded from NTT.ATTACH.
+     */
+    DynamicClass.ATTACH = function(data, tx) {
+        tx = tx instanceof TX ? tx : new TX(tx);
+        const addr = typeof data === 'string' ? data : tx.data;
+
+        if (addr && addr.includes('/')) {
+            // Instance-level → forward to instance
+            const id = addr.split('/')[1];
+            const instance = DynamicClass.children.get(id);
+            if (instance) {
+                instance.inbox(tx instanceof TX ? tx.repr() : tx);
+            } else {
+                // Instance not yet created — queue for replay after READ
+                DynamicClass._pendingAttaches.push({id, tx: tx.repr()});
+            }
+        } else {
+            // Type-level → add watcher
+            DynamicClass._watchers.add(tx.source);
+            // If instances are already loaded, send immediate UPDATE
+            if (DynamicClass.instances.size > 0) {
+                const addrs = [...DynamicClass.instances.keys()].map(
+                    id => `${DynamicClass.addr}/${id}`
+                );
+                DynamicClass.send(new TX({
+                    name: E.update,
+                    source: DynamicClass.addr,
+                    target: tx.source,
+                    data: addrs
+                }));
+            }
+        }
+    };
+
+    /**
+     * Static READ — creates/updates NTT instances from backend records.
+     * Replays pending instance ATTACHes, then notifies all watchers.
+     */
+    DynamicClass.READ = function(data) {
+        if (Array.isArray(data)) {
+            for (const value of data) {
+                const id = value.id;
+                if (DynamicClass.instances.has(id)) {
+                    DynamicClass.instances.get(id).update(value);
+                } else {
+                    const instance = new DynamicClass(value);
+                    DynamicClass.instances.set(id, instance);
+                }
+            }
+        } else if (typeof data === 'object') {
+            for (const [id, value] of Object.entries(data)) {
+                if (DynamicClass.instances.has(id)) {
+                    DynamicClass.instances.get(id).update(value);
+                } else {
+                    const instance = new DynamicClass(value);
+                    DynamicClass.instances.set(id, instance);
+                }
+            }
+        }
+
+        // Replay pending instance ATTACHes
+        if (DynamicClass._pendingAttaches.length > 0) {
+            const pending = DynamicClass._pendingAttaches.splice(0);
+            for (const {id, tx} of pending) {
+                const instance = DynamicClass.children.get(id);
+                if (instance) {
+                    instance.inbox(tx);
+                }
+            }
+        }
+
+        // Notify watchers with instance addresses
+        const childrenAddrs = [...DynamicClass.instances.keys()].map(
+            id => id.toString().startsWith(`${DynamicClass.addr}/`) ? id : `${DynamicClass.addr}/${id}`
+        );
+        console.warn("CHILDREN ADDR", childrenAddrs);
+        DynamicClass._watchers.forEach(addr => {
+            DynamicClass.send(new TX({
+                name: E.update,
+                source: DynamicClass.addr,
+                target: addr,
+                data: childrenAddrs
+            }));
+        });
+    };
+
+    /**
+     * Static UPDATE — delegates to READ (handles meta.inbox='UPDATE' responses).
+     */
+    DynamicClass.UPDATE = function(data, tx) {
+        DynamicClass.READ(data, tx);
+    };
+
+
+    // 5. Apply Actor and Mixins
     Actor.subclass(DynamicClass, Observable);
 
     return DynamicClass;
@@ -742,6 +806,4 @@ window.NTT = NTT;
 
 Actor.subclass(TT);
 
-Actor.subclass(PTT, Observable);
-
-Actor.subclass(NTT)
+Actor.subclass(NTT, Observable);

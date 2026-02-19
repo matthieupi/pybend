@@ -1,5 +1,5 @@
 // components/ntt-method.js
-import { PTT } from '../core/NTT.js';
+import { NTT } from '../core/NTT.js';
 
 export class NTTMethod extends HTMLElement {
   constructor() {
@@ -32,7 +32,7 @@ export class NTTMethod extends HTMLElement {
     this.label = this.getAttribute('label') || this.method;
     this.forward = this.getAttribute('forward');
 
-    this.proto = PTT.get(this.model);
+    this.proto = NTT.get(this.model);
     if (!this.proto) return console.error(`[ntt-method] Model not found: ${this.model}`);
 
     if (this.uuid) {
@@ -65,7 +65,7 @@ export class NTTMethod extends HTMLElement {
       this.render();
 
       if (this.forward) {
-        const forwardTarget = PTT.get(this.forward);
+        const forwardTarget = NTT.get(this.forward);
         if (forwardTarget?.call) {
           forwardTarget.call('UPDATE', result);
         } else {

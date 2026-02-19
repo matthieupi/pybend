@@ -53,7 +53,11 @@ Maps TX event names to HTTP methods:
 | `TEST` | GET | `{target}` |
 | (anything else) | POST | `{target}/{name}` |
 
-The `target` field of the TX is used directly as the URL (it's already a full URL like `http://localhost:8000/products`).
+The `target` field of the TX is used directly as the URL (it's already a full URL like `http://localhost:5000/products`).
+
+**Note:** FK hydration hrefs (e.g., `http://localhost:5000/products/1/comments/2`)
+are also valid targets. They resolve via the same nested routes registered by the
+backend. A READ to such a URL returns the child entity directly.
 
 If mode is `"ws"`, the event is sent as a WebSocket frame instead.
 
@@ -80,7 +84,7 @@ httpCallback(event, response) {
 }
 ```
 
-The `meta.inbox` field is key: it allows the caller to specify what event name the response should arrive as. For example, `PTT.call('READ', {}, {inbox: 'UPDATE'})` means the response will be dispatched as an UPDATE event rather than READ.
+The `meta.inbox` field is key: it allows the caller to specify what event name the response should arrive as. For example, `DynClass.call('READ', {}, {inbox: 'UPDATE'})` means the response will be dispatched as an UPDATE event rather than READ.
 
 ### onError(event, response)
 
@@ -189,14 +193,15 @@ Targets receive events dispatched by the socket's `onMessage` handler.
 Complete lifecycle of a remote call:
 
 ```
-1. Actor calls:     ptt.call('READ', {}, {inbox: 'UPDATE'})
+1. Actor calls:     DynClass.call('READ', {})
 
-2. TT.call() creates TX:
-   { name: READ, source: "Product", target: "http://localhost:8000/products",
-     data: {}, meta: {remote: true, inbox: 'UPDATE'} }
+2. DynClass.call() creates TX:
+   { name: READ, target: "http://localhost:8000/products",
+     data: {}, meta: {} }
+   (source omitted — Actor._send assigns DynClass.name during Case 3 bubble)
 
-3. TT.send() -> constructor.send() -> Actor._send()
-   Target "http://..." is not in PTT.children
+3. DynClass.send() -> Actor._send()
+   Target "http://..." is not in DynClass.children
    -> Bubbles to Matrix
 
 4. Matrix.inbox():
@@ -211,28 +216,22 @@ Complete lifecycle of a remote call:
    -> NetworkAdapter.httpCallback(originalEvent, jsonData)
 
 7. httpCallback:
-   event.name = meta.inbox = "UPDATE"
+   event.name = meta.inbox (if set) or stays "READ"
    event.source = "http://localhost:8000/products"  (was target)
    event.target = "Product"                          (was source)
    event.data = [{id:1, name:"Keyboard",...}, ...]
    matrix.dispatch(event)
 
 8. Matrix.inbox():
-   First segment "Product" -> found in matrix.children (PTT class)
-   -> PTT.inbox(tx)
+   First segment "Product" -> found in matrix.children (DynClass)
+   -> DynClass.inbox(tx)
 
-9. PTT (static) inbox:
-   tx.target = "Product" matches PTT's child "Product" instance
-   -> Routes to PTT instance
+9. DynClass (static) inbox:
+   tx.target = "Product" matches DynClass.addr
+   -> this["READ"](tx.data) dispatches to DynClass.READ()
 
-10. PTT instance inbox:
-    tx.target = "Product" = this.addr
-    -> this["UPDATE"](tx.data) -- but wait, UPDATE is not a PTT method
-    -> Actually: the routing calls READ() because... (see note below)
-
-Note: There is a nuance in the current implementation. The meta.inbox
-override changes the event name for the response, but the PTT handlers
-are named READ/SCHEMA/UPDATE. The exact dispatch depends on which name
-the httpCallback sets. This is an area of the codebase that is still
-being refined.
+10. DynClass.READ():
+    Creates/updates NTT instances from data array
+    Replays pending instance ATTACHes
+    Notifies all watchers with instance address array
 ```

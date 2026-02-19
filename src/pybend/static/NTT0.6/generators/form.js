@@ -1,8 +1,8 @@
 
   function refInput(ref) {
-    const ptt = PTT.get(ref);
+    const ptt = NTT.get(ref);
     if (!ptt) {
-      console.error(`No PTT found for reference: ${ref}`);
+      console.error(`No NTT found for reference: ${ref}`);
       return `<input type="text" placeholder="Invalid reference">`;
     }
     // Assuming ptt has a schema with properties

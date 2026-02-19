@@ -1,5 +1,5 @@
 import './ntt-item.js';
-import {PTT} from '../core/NTT.js';
+import {NTT} from '../core/NTT.js';
 import {isEmpty, generateId} from "../core/Utils.js";
 import Logging from "../utils/Logging.js";
 import {matrix} from "../core/Matrix.js";
@@ -41,7 +41,8 @@ export class NTTElement extends Component {
     this.send(new TX({
         name: 'ATTACH',
         source: this.addr,
-        target: href,
+        target: 'NTT',
+        data: href,
         }))
   }
  
@@ -54,14 +55,14 @@ export class NTTElement extends Component {
       this.send(new TX({
         name: 'ATTACH',
         source: this.addr,
-        target: 'PTT',
+        target: 'NTT',
         data: newVal
       }))
       /*
       this.model = newVal;
       // Detach and reattach to the new model
       this.#detach?.();
-      this.#detach = PTT.attach(newVal, this.define);
+      this.#detach = NTT.attach(newVal, this.define);
       */
     } else if (name === 'ref') {
       this.ref = newVal;
@@ -132,7 +133,7 @@ export class NTTElement extends Component {
   
   attach(addr) {
     this.#detach?.();
-    this.#detach = PTT.attach(addr, this.define);
+    this.#detach = NTT.attach(addr, this.define);
   }
   
   render() {

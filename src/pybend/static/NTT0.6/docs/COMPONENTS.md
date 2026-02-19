@@ -93,8 +93,8 @@ constructor(defaultValue={}) {
 | Property | Type | Description |
 |----------|------|-------------|
 | `model` | `string` | Model name (e.g., "Product"). |
-| `ref` | `string` | Reference address. Setting this sends ATTACH to that address. |
-| `proto` | `PTT` | The PTT prototype (set via `define()`). |
+| `ref` | `string` | Reference address. Setting this sends ATTACH to NTT. |
+| `proto` | `DynClass` | The DynClass prototype (set via `define()`). |
 | `schema` | `object` | JSON schema from proto. Cached in `_schema`. |
 | `value` | `object` | Current entity data. Setting triggers `render()` if `_type` is set. |
 
@@ -103,12 +103,12 @@ constructor(defaultValue={}) {
 ```javascript
 attributeChangedCallback(name, oldVal, newVal) {
   if (name === 'model') {
-    // Send ATTACH to PTT class with model name as data
-    TX { name: ATTACH, source: this.addr, target: 'PTT', data: newVal }
+    // Send ATTACH to NTT (static) with model name as data
+    TX { name: ATTACH, source: this.addr, target: 'NTT', data: newVal }
   }
   if (name === 'ref') {
-    // Send ATTACH to the referenced address
-    this.ref = newVal;  // triggers ref setter -> TX { ATTACH ... }
+    // Send ATTACH to NTT with the full reference address
+    this.ref = newVal;  // triggers ref setter -> TX { ATTACH, target: 'NTT', data: newVal }
   }
 }
 ```
@@ -117,11 +117,11 @@ attributeChangedCallback(name, oldVal, newVal) {
 
 | Method | Description |
 |--------|-------------|
-| `define(ptt)` | Called when PTT schema is ready. Stores proto, calls `definedCallback()`. |
+| `define(dynClass)` | Called when DynClass is ready. Stores proto, calls `definedCallback()`. |
 | `describe(proto, data)` | Sets proto + value in one call. |
 | `update(data)` | Sets value if data is provided. |
-| `subscribe(tt, attribute, callback)` | Observes a property on a TT instance. |
-| `attach(addr)` | Calls `PTT.attach(addr, this.define)`. |
+| `subscribe(dynClass, attribute, callback)` | Observes a property on a DynClass. |
+| `attach(addr)` | Calls `NTT.attach(addr, this.define)`. |
 | `render()` | Abstract - must be overridden by subclasses. |
 
 ### Lifecycle Hook
@@ -151,12 +151,12 @@ Renders a list of `<ntt-item>` elements for a given model.
 1. Constructor -> super() (NTTElement -> Component)
 2. connectedCallback -> super.connectedCallback()
 3. attributeChangedCallback("model", "Product")
-   -> Sends ATTACH to PTT with "Product"
-4. PTT resolves, fires signal -> define() -> definedCallback()
+   -> Sends ATTACH to NTT with "Product"
+4. NTT routes to DynClass, which fires signal -> define() -> definedCallback()
 5. definedCallback():
    - subscribe(this.proto, 'UPDATE', this.update)
    - this.proto.call('READ', {}, {inbox: 'UPDATE'})
-6. Backend responds -> PTT.READ creates instances -> PTT.notify()
+6. Backend responds -> DynClass.READ creates instances -> DynClass notifies watchers
    -> List.UPDATE(data) with array of address strings
 7. render() creates <ntt-item ref="addr"> per entry
 ```
@@ -165,7 +165,7 @@ Renders a list of `<ntt-item>` elements for a given model.
 
 | Handler | Trigger | Behavior |
 |---------|---------|----------|
-| `UPDATE(data)` | PTT notifies with child addresses | Sets value to address array, calls render(). |
+| `UPDATE(data)` | DynClass notifies with child addresses | Sets value to address array, calls render(). |
 
 ### Render
 
@@ -252,6 +252,22 @@ Toggle via `toggleMode()`:
 
 `handleInputChange(e)` reads `data-key`, `data-type`, `data-index` from the input element and updates `this.value` accordingly. Supports scalars, checkboxes, and array items.
 
+### FK Hydration: Collection Fields
+
+Collection fields (e.g., `comments`) arrive as arrays of href strings rather
+than embedded objects. For example:
+
+```json
+"comments": [
+  "http://localhost:5000/products/1/comments/1",
+  "http://localhost:5000/products/1/comments/2"
+]
+```
+
+Each href is independently resolvable via GET. The form generator (`Formidable`)
+currently renders these as raw strings — future work will resolve them as nested
+`<ntt-item>` cards.
+
 ---
 
 ## NTTMethod
@@ -273,18 +289,18 @@ Renders a form for invoking a custom method on a model or instance.
 
 | Attribute | Description |
 |-----------|-------------|
-| `model` | Model name for PTT lookup. |
+| `model` | Model name for NTT lookup. |
 | `method` | Method name from schema.methods. |
 | `uuid` | Instance ID (for instance methods). |
 | `mode` | `"manual"` (button submit) or `"auto"` (submit on input). |
 | `label` | Display label for the fieldset. |
-| `forward` | Optional PTT address to forward results to. |
+| `forward` | Optional DynClass address to forward results to. |
 
 ### Behavior
 
-1. `load()`: Resolves PTT, optionally resolves NTT instance, reads method schema.
+1. `load()`: Resolves DynClass via `NTT.get(this.model)`, optionally resolves NTT instance, reads method schema.
 2. `render()`: Generates form inputs from `schema.parameters`.
-3. `callMethod()`: Calls `target.call(method, payload)` on the NTT instance or PTT.
+3. `callMethod()`: Calls `target.call(method, payload)` on the NTT instance or DynClass.
 4. Displays response as JSON in the component.
 
 ---
@@ -307,7 +323,7 @@ Formidable.getForm({ schema: jsonSchema, value: entityData }, mode);
 // Individual field:
 Formidable.getInput(ntt, key, mode);
 
-// Reference input (uses PTT lookup):
+// Reference input (uses NTT lookup):
 Formidable.refInput(refName);
 ```
 
@@ -336,8 +352,13 @@ Generates appropriate input based on schema type:
 
 Handles `anyOf` schemas (Pydantic Optional fields) by stripping the null type via `resolveAnyOf()`.
 
+**Note:** `ListRef[T]` fields (FK hydration) produce an `anyOf` schema with both
+`$ref` and `string` types. The actual data contains href strings, not objects.
+
 All inputs include `data-key` and `data-type` attributes for the Item's `handleInputChange()` to read.
 
 ### getArrayInput (commented out)
 
-Would render a `<ntt-list>` sub-component for array fields with `$ref` items. Currently disabled.
+Would render a `<ntt-list>` sub-component for array fields with `$ref` items.
+Currently disabled. When enabled, this should detect href string arrays (from FK
+hydration) and resolve each href via the NTT actor system.

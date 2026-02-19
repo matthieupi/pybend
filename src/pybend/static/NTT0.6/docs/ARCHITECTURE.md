@@ -39,7 +39,7 @@ The key design goals:
                               |  TX messages
 +-----------------------------v----------------------------+
 |  Data Layer (Transfer Types)                             |
-|  TT > PTT (schema proxy) > NTT (entity instance)        |
+|  TT > NTT (registry + entity base) > DynClass (per type)|
 +-----------------------------+----------------------------+
                               |  TX messages with meta.remote
 +-----------------------------v----------------------------+
@@ -50,6 +50,7 @@ The key design goals:
 +-----------------------------v----------------------------+
 |  PyBend Backend (FastAPI)                                |
 |  /ModelName (schema), /tablename (CRUD)                  |
+|  /tablename/:id/field/:child_id (nested FK routes)       |
 +----------------------------------------------------------+
 ```
 
@@ -64,11 +65,11 @@ Actor                          # Base actor: addr, inbox, send, children, spawn
   |
   +-- TT (Transfer Type)       # Actor with href (remote endpoint) + watcher/notify pattern
   |     |
-  |     +-- PTT                # Proto Transfer Type: schema proxy, dynamic class factory
-  |     |
-  |     +-- NTT                # Named Transfer Type: entity instance with data + proto link
+  |     +-- NTT                # Type registry (static) + entity base class (instance)
   |           |
-  |           +-- [Dynamic]    # Runtime-generated subclass per model (e.g. "Product")
+  |           +-- [DynClass]   # Runtime-generated subclass per model (e.g. "Product")
+  |                 |
+  |                 +-- instances  # Per-entity NTT instances (Product/1, Product/2, ...)
   |
   +-- Component (HTMLElement)  # Web component base, registered in Matrix
         |
@@ -84,7 +85,7 @@ Observable                     # Mixin: signal(), observe(), notify() - applied 
 All classes with `Actor.subclass(Class)` at the bottom of their module get:
 - Static `addr`, `children`, `send`, `inbox`, `register`
 - Instance `children`, `send`, `inbox`
-- Optional mixin application (e.g., `Actor.subclass(PTT, Observable)`)
+- Optional mixin application (e.g., `Actor.subclass(NTT, Observable)`)
 
 ---
 
@@ -98,7 +99,7 @@ NTT0.6/
     Matrix.js                # Root actor singleton, message router
     TX.js                    # Transaction envelope (name, source, target, data, meta, hash)
     Observable.js            # Mixin: signal/observe/notify reactivity
-    NTT.js                   # TT, PTT, NTT classes + prototype() dynamic class factory
+    NTT.js                   # TT, NTT classes + prototype() DynClass factory
     Component.js             # HTMLElement + Actor base for web components
     Utils.js                 # generateId, simpleHash, isTypeCompatible, deepEqual, isUrl
     transport/
@@ -135,8 +136,7 @@ When `matrix.html` loads:
 
 2. NTT.js executes
    - Actor.subclass(TT)
-   - Actor.subclass(PTT, Observable)   -- PTT gets signal/observe/notify
-   - Actor.subclass(NTT)
+   - Actor.subclass(NTT, Observable)   -- NTT gets signal/observe/notify
    - window.NTT = NTT exposed globally
 
 3. Component.js executes
@@ -154,7 +154,7 @@ When `matrix.html` loads:
      - super() -> NTTElement -> Component -> HTMLElement
      - Component registers itself in Matrix and in Component.children
    - attributeChangedCallback fires for model="Product"
-     - Sends TX { name: ATTACH, source: <list-addr>, target: PTT, data: "Product" }
+     - Sends TX { name: ATTACH, source: <list-addr>, target: NTT, data: "Product" }
 ```
 
 ---
@@ -170,40 +170,45 @@ The primary data flow for rendering a list of entities:
 <ntt-list model="Product">
   |
   | attributeChangedCallback("model", "Product")
-  | TX { ATTACH, source: list-addr, target: PTT, data: "Product" }
+  | TX { ATTACH, source: list-addr, target: NTT, data: "Product" }
   v
-Matrix.inbox() -> routes to PTT (static)
+Matrix.inbox() -> routes to NTT (static)
   |
-  | PTT.ATTACH() - no prototype exists yet
-  | PTT.get("Product") creates new PTT("Product", "http://localhost:8000/Product")
-  | PTT.pull() -> TX { SCHEMA, source: Product, target: http://...8000/Product, meta: {remote:true} }
+  | NTT.ATTACH() - "Product" not in #prototypes (undefined)
+  | Sets #prototypes["Product"] = null (schema in flight)
+  | Queues the ATTACH TX in #waiting
+  | Dispatches: TX { SCHEMA, source: NTT, target: http://...8000/Product, meta: {remote:true} }
   v
 Matrix.inbox() -> target not local -> NetworkAdapter.send()
   |
   | HTTP.get("http://localhost:8000/Product") -> backend returns JSON schema
   v
 NetworkAdapter.httpCallback() -> swaps source/target, sets name to SCHEMA
-  | TX { SCHEMA, source: http://...8000/Product, target: Product, data: <schema> }
+  | TX { SCHEMA, source: http://...8000/Product, target: NTT, data: <schema> }
   v
-Matrix.inbox() -> routes to PTT instance "Product"
+Matrix.inbox() -> routes to NTT (static)
   |
-  | PTT.SCHEMA(data):
-  |   - Sets this.value = schema
-  |   - prototype(this) generates dynamic NTT subclass with typed properties
-  |   - Registers any $defs models as PTTs
-  |   - signal() fires -> list's define() callback runs
+  | NTT.SCHEMA(data):
+  |   - Calls prototype(addr, schema, href) -> creates DynClass "Product"
+  |   - Stores DynClass in #prototypes["Product"]
+  |   - Registers any $defs models as additional DynClasses
+  |   - Replays queued TXs from #waiting (the original ATTACH)
+  |   - DynClass.call('READ', {}) triggers data fetch
   v
-List.definedCallback():
-  | Calls this.proto.call('READ', {}, {inbox: 'UPDATE'})
-  | TX { READ, source: Product, target: http://...8000/products, meta: {remote:true, inbox:'UPDATE'} }
+DynClass "Product" receives replayed ATTACH
+  | DynClass.ATTACH() -> adds list as watcher
+  |
+  | Meanwhile, DynClass.call('READ') sends:
+  | TX { READ, source: Product, target: http://...8000/products, meta: {remote:true} }
   v
 NetworkAdapter -> HTTP.get(.../products) -> backend returns [{id:1,...}, ...]
-  | httpCallback swaps, name becomes UPDATE (from meta.inbox)
-  | TX { UPDATE, source: http://...8000/products, target: Product, data: [...] }
+  | httpCallback: name stays READ (no meta.inbox override here)
+  | TX { READ, source: http://...8000/products, target: Product, data: [...] }
   v
-PTT.inbox -> PTT.READ(data):
-  | Creates NTT instances for each record
-  | Calls notify() -> sends UPDATE to all watchers (the list)
+DynClass.READ(data):
+  | Creates NTT instances for each record, stores in DynClass.instances
+  | Replays any _pendingAttaches
+  | Notifies all watchers (the list)
   | TX { UPDATE, source: Product, target: <list-addr>, data: ["Product/1","Product/2",...] }
   v
 List.UPDATE(data):
@@ -211,11 +216,12 @@ List.UPDATE(data):
   | this.render() creates <ntt-item> for each, sets el.ref = "Product/1"
   v
 Item.ref setter:
-  | TX { ATTACH, source: <item-addr>, target: "Product/1" }
+  | TX { ATTACH, source: <item-addr>, target: NTT, data: "Product/1" }
   v
-Matrix routes to NTT instance "1" (child of PTT "Product")
+NTT.ATTACH() -> "Product" exists in #prototypes -> forwards to DynClass
+  | DynClass.ATTACH() -> instance-level -> forwards to NTT instance
   |
-  | NTT.ATTACH():
+  | NTT instance ATTACH():
   |   - this.watch(item-addr, false)
   |   - TX { DESCRIBE, source: 1, target: <item-addr>, data: {proto: schema, data: values} }
   v
@@ -232,13 +238,15 @@ Item.DESCRIBE(data):
 **Working:**
 - Actor base class with subclass() metaclass, hierarchical routing, mixin system
 - Matrix as root actor with NetworkAdapter bridge to PyBend backend
-- PTT schema discovery from backend, dynamic class generation via prototype()
-- Observable mixin (signal/observe/notify) applied to PTT and NTT
+- NTT type registry with null-pointer bootstrap and universal ATTACH router
+- DynClass generation via `prototype()` with typed properties and methods
+- Observable mixin (signal/observe/notify) applied to NTT and DynClass (both instance and static level)
 - TX message envelope with hash, serialization, event type subclasses
 - Component base class integrated into Actor system
 - NTTElement with model/schema/value binding, ref-based ATTACH protocol
 - List rendering with UPDATE handler
 - Item rendering with DESCRIBE handler and Formidable form generation
+- FK Hydration: collection fields (e.g., `comments`) return href arrays instead of embedded objects. Each href is independently resolvable via nested routes (`/tablename/:id/field/:child_id`).
 
 **WIP / Incomplete:**
 - NTT constructor has most initialization commented out (detach, meta, observer setup)
@@ -246,5 +254,5 @@ Item.DESCRIBE(data):
 - Array input rendering is commented out in form.js
 - Component.connectedCallback() is empty (initial bootstrapping relies on attributeChangedCallback)
 - Debug logging throughout (console.warn, console.error) not cleaned up
-- example.html references old registrar architecture and is broken against v0.6
+- example.html references old architecture and is broken against v0.6
 - No automated tests exist; testing is manual via browser + console

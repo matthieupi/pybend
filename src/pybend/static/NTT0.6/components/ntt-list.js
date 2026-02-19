@@ -1,6 +1,5 @@
 import './ntt-item.js';
 import './ntt-element.js';
-import { PTT } from '../core/NTT.js';
 import {generateId} from "../core/Utils.js";
 import {NTTElement} from "./ntt-element.js";
 import Logging from "../utils/Logging.js";

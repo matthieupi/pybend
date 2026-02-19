@@ -58,7 +58,7 @@
 
   <!-- Scripts -->
   <script type="module">
-    import { PTT } from './core/NTT.js';
+    import { NTT } from './core/NTT.js';
     import './components/ntt-item.js';
     import './components/ntt-list.js';
 
@@ -121,7 +121,7 @@
       $schema.innerHTML = `<div class="loading-state"><div class="loading-spinner"></div>Loading...</div>`;
       const addr = `${model}`;
 
-      PTT.attach(addr, (ptt) => {
+      NTT.attach(addr, (ptt) => {
         if (!!ptt?.schema) {
           $schema.innerHTML = renderCollapsibleJSON(ptt.schema, 0);
           updateStatus('ready', `Schema loaded for "${model}"`);

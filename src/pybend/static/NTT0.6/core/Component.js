@@ -1,5 +1,4 @@
 import '../components/ntt-item.js';
-import {PTT} from './NTT.js';
 import {isEmpty, generateId} from "./Utils.js";
 import Logging from "../utils/Logging.js";
 import {matrix} from "./Matrix.js";

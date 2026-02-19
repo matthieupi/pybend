@@ -1,4 +1,3 @@
-import { PTT } from '../core/NTT.js';
 import { NTTElement} from "./ntt-element.js";
 import {NTTMethod} from "./ntt-method.js";
 import {Formidable} from '../generators/form.js';

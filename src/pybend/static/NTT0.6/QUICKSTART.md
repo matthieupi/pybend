@@ -28,7 +28,7 @@ export const config = {
 
     <script type="module">
         import { Matrix, matrix } from './core/Matrix.js';
-        import { PTT } from './core/NTT.js';
+        import { NTT } from './core/NTT.js';
         import { config } from './config.js';
         import './components/ntt-item.js';
         import './components/ntt-list.js';
@@ -48,8 +48,8 @@ That's it. The `<ntt-list>` component will:
 | Concept | What it is |
 |---------|-----------|
 | **Matrix** | The root actor — routes all messages between local actors and the backend |
-| **PTT** | Proto Transfer Type — a proxy for a backend model (holds the schema) |
-| **NTT** | Named Transfer Type — a single entity instance (e.g. Product #4) |
+| **NTT** | Named Transfer Type — type registry (static) + entity base class (instance) |
+| **DynClass** | DynamicClass — runtime-generated NTT subclass per model (e.g. "Product"), holds schema and instances |
 | **TX** | A message (transaction) flowing through the actor system |
 | **Component** | Base class for web components — connects HTML elements to the actor system |
 
@@ -80,22 +80,23 @@ Displays a single record. Usually created automatically by `<ntt-list>`, but can
 
 ```
 Browser                          Backend
-───────                          ───────
+-------                          -------
 <ntt-list model="Product">
-   │
-   ├─ ATTACH ──► PTT
-   │              ├─ GET /Product ──────────► Schema
-   │              ├─ GET /products ─────────► [records]
-   │              │
-   │              └─ Creates NTT instances
-   │                    (Product/1, Product/2, ...)
-   │
-   └─ Renders <ntt-item ref="Product/1">
-                   │
-                   ├─ ATTACH ──► NTT (Product/1)
-                   │              └─ DESCRIBE ──► Item
-                   │
-                   └─ On save: UPDATE ──► NTT ──► PUT /products/1
+   |
+   +- ATTACH --> NTT (static)
+   |              +- GET /Product -----------> Schema
+   |              +- Creates DynClass "Product"
+   |              +- GET /products -----------> [records]
+   |              |
+   |              +- DynClass.READ creates NTT instances
+   |                    (Product/1, Product/2, ...)
+   |
+   +- Renders <ntt-item ref="Product/1">
+                   |
+                   +- ATTACH --> NTT --> DynClass --> NTT instance
+                   |              +- DESCRIBE --> Item
+                   |
+                   +- On save: UPDATE --> NTT --> PUT /products/1
 ```
 
 ## 6. Configuration Reference

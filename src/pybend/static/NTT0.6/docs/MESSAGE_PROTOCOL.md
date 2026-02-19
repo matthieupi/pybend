@@ -66,7 +66,7 @@ IF name === CONNECT:
   -> matrix.connect(source, target)
 
 ELSE IF first segment of target is in matrix.children:
-  -> child.inbox(tx)       (child is usually a Class: PTT, Component, NTT, etc.)
+  -> child.inbox(tx)       (child is usually a Class: NTT, Component, DynClass, etc.)
 
 ELSE:
   -> matrix.remote.send(tx)  (forward to backend via NetworkAdapter)
@@ -91,71 +91,65 @@ On response: swaps source/target, sets `name = meta.inbox || original name`, dis
 
 ## Protocol: Schema Discovery
 
-Triggered when a component sets its `model` attribute or when `PTT.get(addr)` is called for an unknown model.
+Triggered when a component sets its `model` attribute or when `NTT.attach(addr, callback)` is called for an unknown model.
 
 ```
-Step 1: Component or code triggers PTT lookup
-  TX { name: ATTACH, source: <requester>, target: PTT, data: "Product" }
-  -> Matrix routes to PTT (static class)
-  -> PTT.ATTACH() checks #prototypes
+Step 1: Component or code triggers NTT lookup
+  TX { name: ATTACH, source: <requester>, target: NTT, data: "Product" }
+  -> Matrix routes to NTT (static class)
+  -> NTT.ATTACH() checks #prototypes
 
-Step 2: PTT not found, create and pull
-  new PTT("Product", "http://localhost:8000/Product")
-  PTT.pull() sends:
-  TX { name: SCHEMA, source: Product, target: http://localhost:8000/Product, meta: {remote:true} }
+Step 2: Model never seen (undefined) — null pointer bootstrap
+  NTT.#prototypes.set("Product", null)     // Mark as "schema in flight"
+  NTT.#waiting.set("Product", [tx])        // Queue the original TX
+  Dispatches:
+  TX { name: SCHEMA, source: NTT, target: http://localhost:8000/Product, meta: {remote:true} }
   -> Matrix can't resolve URL -> NetworkAdapter.send()
   -> HTTP GET http://localhost:8000/Product
   -> Backend returns JSON schema
 
 Step 3: Response routed back
   NetworkAdapter.httpCallback() creates:
-  TX { name: SCHEMA, source: http://localhost:8000/Product, target: Product, data: <schema> }
-  -> Matrix routes to PTT instance "Product"
+  TX { name: SCHEMA, source: http://localhost:8000/Product, target: NTT, data: <schema> }
+  -> Matrix routes to NTT (static)
 
-Step 4: PTT processes schema
-  PTT.SCHEMA(data):
-    - this.href = "http://localhost:8000/products"  (from __tablename__)
-    - this.value = data  (triggers prototype() class generation)
-    - Registers $defs as sub-PTTs
-    - signal() fires all pending callbacks
+Step 4: NTT processes schema — DynClass created
+  NTT.SCHEMA(data):
+    - Registers any $defs nested schemas as additional DynClasses
+    - Calls prototype(addr, schema, href) -> creates DynClass "Product"
+    - Stores DynClass in #prototypes["Product"]
+    - Replays all queued TXs and callbacks from #waiting["Product"]
+    - Calls DynClass.call('READ', {}) to trigger initial data fetch
 
-Step 5: Requester notified
-  PTT registers watcher -> sends UPDATE to requester
-  Or: signal() fires define() callback on the component
+Step 5: Requester receives the replayed ATTACH
+  The original ATTACH TX is replayed to DynClass.ATTACH()
+  -> DynClass adds requester as a watcher
+  -> If using NTT.attach() with callback, DynClass.signal(callback) fires
 ```
 
 ---
 
 ## Protocol: List Rendering
 
-Triggered after schema discovery completes and a List component's `definedCallback()` fires.
+Triggered after schema discovery completes and a List component's watcher/callback kicks in.
 
 ```
-Step 1: List requests data
-  List.definedCallback():
-    this.proto.call('READ', {}, {inbox: 'UPDATE'})
-  TX { name: READ, source: Product, target: http://localhost:8000/products, meta: {remote:true, inbox:'UPDATE'} }
+Step 1: DynClass fetches data
+  DynClass.call('READ', {})
+  TX { name: READ, source: Product, target: http://localhost:8000/products }
 
 Step 2: Backend responds
   HTTP GET /products -> returns [{id:1, name:"Keyboard", ...}, ...]
-  httpCallback: name becomes 'UPDATE' (from meta.inbox)
-  TX { name: UPDATE, source: http://.../products, target: Product, data: [...] }
+  httpCallback: swaps source/target
+  TX { name: READ, source: http://.../products, target: Product, data: [...] }
 
-Step 3: PTT processes response
-  Because name is UPDATE, but target resolves to PTT instance:
-  PTT.inbox -> Actor._inbox dispatches PTT.READ(data) -- actually the
-  routing sends UPDATE but PTT processes via READ since the httpCallback
-  swaps and name is set from meta.inbox.
-
-  Note: There is an impedance mismatch here. The meta.inbox='UPDATE'
-  changes the response event name, but the PTT handler is READ().
-  In practice, PTT.READ() runs when the response targets the PTT addr.
-
-  PTT.READ(data):
+Step 3: DynClass processes response
+  DynClass.READ(data):
     For each item in array:
-      - Creates new DynamicClass(item) -> NTT instance
-      - Stores in PTT.#instances
-    Calls this.notify(childAddresses)
+      - Creates new DynClass(item) -> NTT instance
+      - Stores in DynClass.instances
+    Replays any _pendingAttaches (instance ATTACHes that arrived before READ)
+    Notifies all watchers with instance addresses:
     TX { name: UPDATE, source: Product, target: <list-addr>, data: ["Product/1","Product/2",...] }
 
 Step 4: List renders
@@ -177,15 +171,17 @@ Triggered when a List sets `el.ref` on an `<ntt-item>`.
 ```
 Step 1: Item sends ATTACH
   Item.ref setter:
-  TX { name: ATTACH, source: <item-addr>, target: "Product/1" }
+  TX { name: ATTACH, source: <item-addr>, target: NTT, data: "Product/1" }
 
-Step 2: Routes to NTT instance
-  Matrix -> PTT children? No -> resolves through NTT or dynamic class children
-  Eventually reaches the NTT instance with addr "1" (child of dynamic "Product" class)
+Step 2: Routes through NTT to DynClass to instance
+  NTT.ATTACH() -> "Product" exists in #prototypes -> forwards to DynClass
+  DynClass.ATTACH() -> addr contains "/" -> instance-level
+    -> Looks up instance "1" in DynClass.children
+    -> Forwards TX to instance inbox
 
-  NTT.ATTACH(data, tx):
+  NTT instance ATTACH(data, tx):
     this.watch(tx.source, false)   // Register item as watcher, no immediate push
-    TX { name: DESCRIBE, source: 1, target: <item-addr>,
+    TX { name: DESCRIBE, source: this.addr, target: <item-addr>,
          data: { proto: this.constructor._schema, data: this.value } }
 
 Step 3: Item receives DESCRIBE
@@ -202,10 +198,10 @@ Step 3: Item receives DESCRIBE
 ### Create
 
 ```
-PTT.call('CREATE', entityData)
+DynClass.call('CREATE', entityData)
 TX { name: CREATE, source: Product, target: http://localhost:8000/products, data: {...} }
 -> NetworkAdapter -> HTTP POST /products
--> Response routed back as TX to PTT
+-> Response routed back to DynClass
 ```
 
 ### Read (single)
@@ -217,12 +213,26 @@ TX { name: READ, source: <ntt-addr>, target: http://localhost:8000/products/<id>
 -> Response updates NTT instance
 ```
 
+**Note: FK Hydration.** Read responses may contain collection fields as href
+arrays instead of embedded objects. For example, a Product's `comments` field
+returns `["http://localhost:5000/products/1/comments/1", ...]` rather than
+inline Comment objects. Each href is independently resolvable via GET.
+
 ### Update
 
 ```
 ntt.call('UPDATE', updatedData)
 TX { name: UPDATE, source: <ntt-addr>, target: http://localhost:8000/products/<id>, data: {...} }
 -> HTTP PUT /products/<id>
+```
+
+Or via optimistic update flow (from UI save):
+```
+Item sends: TX { UPDATE, target: "Product/1", data: {...} }
+-> Routes to NTT instance
+-> NTT.UPDATE(): updates local data, then forwards to backend
+-> TX { UPDATE, target: http://.../products/1, data: {...} }
+-> HTTP PUT
 ```
 
 ### Delete
@@ -237,7 +247,7 @@ TX { name: DELETE, source: <ntt-addr>, target: http://localhost:8000/products/<i
 
 ```
 ntt.comment({name: "Great!", description: "..."})
-// DynamicClass prototype method calls:
+// DynClass prototype method calls:
 TX { name: comment, source: <ntt-addr>, target: http://localhost:8000/products/<id> }
 -> NetworkAdapter: unrecognized name -> HTTP POST /products/<id>/comment
 ```
@@ -248,15 +258,17 @@ TX { name: comment, source: <ntt-addr>, target: http://localhost:8000/products/<
 
 | Name | Direction | Source | Target | Data | Handler |
 |------|-----------|--------|--------|------|---------|
-| `ATTACH` | Component -> PTT (static) | component addr | `"PTT"` | model name string | `PTT.ATTACH()` |
-| `ATTACH` | Component -> NTT instance | component addr | instance addr | - | `NTT.ATTACH()` / `TT.ATTACH()` |
-| `SCHEMA` | PTT -> Backend | PTT addr | backend URL | `{}` | NetworkAdapter (HTTP GET) |
-| `SCHEMA` | Backend -> PTT | backend URL | PTT addr | JSON schema | `PTT.SCHEMA()` |
-| `READ` | PTT -> Backend | PTT addr | backend URL | `{}` | NetworkAdapter (HTTP GET) |
-| `READ` | Backend -> PTT | backend URL | PTT addr | array of entities | `PTT.READ()` |
-| `UPDATE` | PTT -> watchers | PTT addr | watcher addr | array of child addresses | `List.UPDATE()` / `Item.UPDATE()` |
-| `DESCRIBE` | NTT -> Component | NTT addr | component addr | `{proto: schema, data: values}` | `Item.DESCRIBE()` |
-| `CONNECT` | Component -> NTT type | component addr | type name | - | `Matrix.connect()` |
-| `CREATE` | PTT -> Backend | PTT addr | backend URL | entity data | NetworkAdapter (HTTP POST) |
-| `DELETE` | NTT -> Backend | NTT addr | backend URL | - | NetworkAdapter (HTTP DELETE) |
+| `ATTACH` | Component -> NTT (static) | component addr | `"NTT"` | model name string (e.g., `"Product"`) or instance addr (e.g., `"Product/1"`) | `NTT.ATTACH()` -> forwards to DynClass |
+| `ATTACH` | NTT -> DynClass | (forwarded) | DynClass addr | model or instance addr | `DynClass.ATTACH()` |
+| `ATTACH` | DynClass -> NTT instance | (forwarded) | instance addr | - | `NTT.ATTACH()` (instance method) |
+| `SCHEMA` | NTT -> Backend | `"NTT"` | backend URL | `{}` | NetworkAdapter (HTTP GET) |
+| `SCHEMA` | Backend -> NTT | backend URL | `"NTT"` | JSON schema | `NTT.SCHEMA()` |
+| `READ` | DynClass -> Backend | DynClass addr | backend URL | `{}` | NetworkAdapter (HTTP GET) |
+| `READ` | Backend -> DynClass | backend URL | DynClass addr | array of entities | `DynClass.READ()` |
+| `UPDATE` | DynClass -> watchers | DynClass addr | watcher addr | array of child addresses | `List.UPDATE()` / `Item.UPDATE()` |
+| `DESCRIBE` | NTT instance -> Component | NTT addr | component addr | `{proto: schema, data: values}` | `Item.DESCRIBE()` |
+| `CONNECT` | Component -> Matrix | component addr | type name | - | `Matrix.connect()` |
+| `CREATE` | DynClass -> Backend | DynClass addr | backend URL | entity data | NetworkAdapter (HTTP POST) |
+| `UPDATE` | NTT instance -> Backend | NTT addr | backend URL | entity data | NetworkAdapter (HTTP PUT) |
+| `DELETE` | NTT instance -> Backend | NTT addr | backend URL | - | NetworkAdapter (HTTP DELETE) |
 | `ERROR` | NetworkAdapter -> source | backend URL | original source | error details | `TT._error_()` |
