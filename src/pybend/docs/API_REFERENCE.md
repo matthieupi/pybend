@@ -31,6 +31,10 @@ Base class for all PyBend models. Provides schema generation, validation, and op
 
 **Module**: `models.proto_model`
 
+#### Config
+
+ProtoModel sets `extra='allow'` in its Pydantic Config. This allows extra fields like `$schema` and `$id` to be included in serialized output without being rejected by FastAPI's response model validation.
+
 #### Class Variables
 
 ```python
@@ -45,16 +49,28 @@ class MyModel(ProtoModel):
 
 Returns the complete JSON schema for the model, including fields, methods, and referenced models.
 
+The schema output includes:
+- `$schema` at the top level, pointing to `{API_URL}/Schema`
+- `$id` at the top level, pointing to `{API_URL}/{ClassName}`
+- `$id` on each entry in `$defs`, pointing to `{API_URL}/{DefClassName}`
+
 **Returns**: Dictionary with OpenAPI-compatible schema
 
 **Example**:
 ```python
 schema = User.schema()
 # {
+#   "$schema": "http://localhost:8000/Schema",
+#   "$id": "http://localhost:8000/User",
 #   "type": "object",
 #   "properties": {...},
 #   "methods": {...},
-#   "$defs": {...}
+#   "$defs": {
+#     "User": {
+#       "$id": "http://localhost:8000/User",
+#       ...
+#     }
+#   }
 # }
 ```
 
@@ -95,6 +111,38 @@ user = User(name="Alice", email="alice@example.com")
 
 # Load from storage (lazy loading)
 user = User(id=1)  # Fetches from database
+```
+
+##### `model_dump(response: bool = False, **kwargs) -> Dict[str, Any]`
+
+Serializes the model to a dictionary. ProtoModel overrides Pydantic's `model_dump()` with an optional `response` keyword argument.
+
+**Parameters**:
+- `response` (bool, default=False): When `True`, injects `$schema` and `$id` at the top of the returned dict.
+  - `$schema` is set to the URL of the model's JSON Schema (e.g., `http://localhost:8000/Product`)
+  - `$id` is set to the URL of this specific instance (e.g., `http://localhost:8000/products/1`)
+- `**kwargs`: Additional keyword arguments passed to Pydantic's `model_dump()`
+
+**Returns**: Dictionary of field values, optionally with `$schema` and `$id` prepended.
+
+**Example**:
+```python
+product = Product.get(1)
+
+# Standard dump (no metadata)
+product.model_dump()
+# {"id": 1, "name": "Laptop", "price": 999.99, ...}
+
+# Response dump (with metadata)
+product.model_dump(response=True)
+# {
+#   "$schema": "http://localhost:8000/Product",
+#   "$id": "http://localhost:8000/products/1",
+#   "id": 1,
+#   "name": "Laptop",
+#   "price": 999.99,
+#   ...
+# }
 ```
 
 ---
@@ -361,11 +409,11 @@ storage = SQLiteStorage('myapp.db')
 Creates SQLite table with appropriate column types.
 
 **Type Mapping**:
-- `int` → `INTEGER`
-- `float` → `REAL`
-- `str` → `TEXT`
-- `BaseModel` → `INTEGER` (foreign key)
-- `List[...]` → `TEXT` (JSON serialized)
+- `int` -> `INTEGER`
+- `float` -> `REAL`
+- `str` -> `TEXT`
+- `BaseModel` -> `INTEGER` (foreign key)
+- `List[...]` -> `TEXT` (JSON serialized)
 
 ##### `migrate_table(model_class: Type[Any])`
 
@@ -494,7 +542,7 @@ Serializes to integer for storage.
 
 #### Schema Generation
 
-Automatically generates OpenAPI `$ref`:
+`__get_pydantic_json_schema__` outputs `$schema` and `$id` (instead of the old `__url__` and `__type__` fields) when generating the JSON schema for foreign key references:
 
 ```python
 # Model definition
@@ -604,7 +652,7 @@ app: Any = None   # Framework-specific app instance
 Registers all routes from registered models.
 
 **Parameters**:
-- `registered_models`: Dictionary of model name → model class
+- `registered_models`: Dictionary of model name -> model class
 
 ---
 
@@ -631,6 +679,10 @@ Automatically adds:
 - CORS middleware (all origins allowed)
 - OpenAPI/Swagger documentation
 - Automatic JSON serialization
+
+#### Route Handlers
+
+All CRUD route handlers in `routes_fastapi.py` call `.model_dump(response=True)` instead of `.model_dump()` or returning instances directly. This ensures every response includes `$schema` and `$id` metadata.
 
 #### Example
 
@@ -904,6 +956,7 @@ app = backend.get_app()
 # GET/POST /books
 # POST /books/{id}/publish
 # GET /books/search?query=Python
+# All GET responses include $schema and $id metadata
 ```
 
 ---

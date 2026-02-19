@@ -11,7 +11,7 @@ Each model section includes:
 1. **Model Overview** - Purpose and relationships
 2. **Schema Reference** - Available endpoints and fields
 3. **Field Details** - Types, constraints, validation
-4. **Example Requests/Responses** - Real-world usage
+4. **Example Requests/Responses** - Real-world usage (all responses include `$schema` and `$id`)
 5. **Frontend Integration** - TypeScript interfaces and usage patterns
 
 ---
@@ -36,6 +36,8 @@ User accounts in the system.
 
 ```json
 {
+  "$schema": "http://localhost:8000/Schema",
+  "$id": "http://localhost:8000/User",
   "type": "object",
   "properties": {
     "id": {
@@ -85,6 +87,8 @@ Content-Type: application/json
 **Response** (201 Created):
 ```json
 {
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/users/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -102,6 +106,8 @@ GET /users/1
 **Response** (200 OK):
 ```json
 {
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/users/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -120,12 +126,16 @@ GET /users
 ```json
 [
   {
+    "$schema": "http://localhost:8000/User",
+    "$id": "http://localhost:8000/users/1",
     "id": 1,
     "name": "Alice Johnson",
     "email": "alice@example.com",
     "age": 28
   },
   {
+    "$schema": "http://localhost:8000/User",
+    "$id": "http://localhost:8000/users/2",
     "id": 2,
     "name": "Bob Smith",
     "email": "bob@example.com",
@@ -149,6 +159,8 @@ Content-Type: application/json
 **Response** (200 OK):
 ```json
 {
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/users/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -188,6 +200,8 @@ Content-Type: application/json
 **Response** (200 OK):
 ```json
 {
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/users/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -210,6 +224,8 @@ Content-Type: application/json
 
 ```typescript
 interface User {
+  $schema: string;
+  $id: string;
   id: number;
   name: string;
   email: string;
@@ -218,7 +234,7 @@ interface User {
 
 // API Client
 class UserAPI {
-  async create(data: Omit<User, 'id'>): Promise<User> {
+  async create(data: Omit<User, 'id' | '$schema' | '$id'>): Promise<User> {
     const response = await fetch('/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -283,6 +299,8 @@ Products available in the system.
 
 ```json
 {
+  "$schema": "http://localhost:8000/Schema",
+  "$id": "http://localhost:8000/Product",
   "type": "object",
   "properties": {
     "id": {
@@ -309,7 +327,12 @@ Products available in the system.
       "default": []
     }
   },
-  "required": ["name", "price"]
+  "required": ["name", "price"],
+  "$defs": {
+    "Comment": {
+      "$id": "http://localhost:8000/Comment"
+    }
+  }
 }
 ```
 
@@ -340,6 +363,8 @@ Content-Type: application/json
 **Response** (201 Created):
 ```json
 {
+  "$schema": "http://localhost:8000/Product",
+  "$id": "http://localhost:8000/products/1",
   "id": 1,
   "name": "Laptop",
   "price": 999.99,
@@ -363,6 +388,8 @@ Content-Type: application/json
 **Response** (200 OK):
 ```json
 {
+  "$schema": "http://localhost:8000/Product",
+  "$id": "http://localhost:8000/products/1",
   "id": 1,
   "name": "Laptop",
   "price": 899.99,
@@ -394,6 +421,8 @@ Content-Type: application/json
 **Response** (200 OK):
 ```json
 {
+  "$schema": "http://localhost:8000/Comment",
+  "$id": "http://localhost:8000/comments/1",
   "id": 1,
   "name": "Great product!",
   "description": "Very satisfied with this purchase",
@@ -406,6 +435,8 @@ Content-Type: application/json
 
 ```typescript
 interface Product {
+  $schema: string;
+  $id: string;
   id: number;
   name: string;
   price: number;
@@ -420,7 +451,7 @@ interface CommentData {
 }
 
 class ProductAPI {
-  async create(data: Omit<Product, 'id'>): Promise<Product> {
+  async create(data: Omit<Product, 'id' | '$schema' | '$id'>): Promise<Product> {
     const response = await fetch('/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -463,7 +494,7 @@ class ProductAPI {
 
 ## Comment Model
 
-Comments on products.
+Comments on products. The Comment model uses `id` as its primary key field (consistent with Product and User).
 
 ### Endpoints
 
@@ -482,6 +513,8 @@ Comments on products.
 
 ```json
 {
+  "$schema": "http://localhost:8000/Schema",
+  "$id": "http://localhost:8000/Comment",
   "type": "object",
   "properties": {
     "id": {
@@ -534,6 +567,8 @@ Content-Type: application/json
 **Response** (201 Created):
 ```json
 {
+  "$schema": "http://localhost:8000/Comment",
+  "$id": "http://localhost:8000/comments/1",
   "id": 1,
   "name": "Great product!",
   "description": "Very satisfied",
@@ -555,6 +590,8 @@ GET /products/1/comments
 ```json
 [
   {
+    "$schema": "http://localhost:8000/Comment",
+    "$id": "http://localhost:8000/comments/1",
     "id": 1,
     "name": "Great product!",
     "description": "Very satisfied",
@@ -562,6 +599,8 @@ GET /products/1/comments
     "product_id": 1
   },
   {
+    "$schema": "http://localhost:8000/Comment",
+    "$id": "http://localhost:8000/comments/2",
     "id": 2,
     "name": "Fast shipping",
     "description": "Arrived quickly",
@@ -581,6 +620,8 @@ GET /products/1/comments/1
 **Response** (200 OK):
 ```json
 {
+  "$schema": "http://localhost:8000/Comment",
+  "$id": "http://localhost:8000/comments/1",
   "id": 1,
   "name": "Great product!",
   "description": "Very satisfied",
@@ -604,6 +645,8 @@ Content-Type: application/json
 **Response** (200 OK):
 ```json
 {
+  "$schema": "http://localhost:8000/Comment",
+  "$id": "http://localhost:8000/comments/1",
   "id": 1,
   "name": "Great product!",
   "description": "Updated: Very satisfied with this purchase!",
@@ -630,6 +673,8 @@ DELETE /products/1/comments/1
 
 ```typescript
 interface Comment {
+  $schema: string;
+  $id: string;
   id: number;
   name: string;
   description?: string;
@@ -638,7 +683,7 @@ interface Comment {
 }
 
 class CommentAPI {
-  async create(productId: number, data: Omit<Comment, 'id' | 'product_id'>): Promise<Comment> {
+  async create(productId: number, data: Omit<Comment, 'id' | 'product_id' | '$schema' | '$id'>): Promise<Comment> {
     const response = await fetch(`/products/${productId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -684,6 +729,8 @@ class CommentAPI {
 import React, { useState, useEffect } from 'react';
 
 interface User {
+  $schema: string;
+  $id: string;
   id: number;
   name: string;
   email: string;
@@ -691,6 +738,8 @@ interface User {
 }
 
 interface Product {
+  $schema: string;
+  $id: string;
   id: number;
   name: string;
   price: number;
@@ -698,6 +747,8 @@ interface Product {
 }
 
 interface Comment {
+  $schema: string;
+  $id: string;
   id: number;
   name: string;
   description?: string;
@@ -815,11 +866,11 @@ class Comment(ProtoModel):
 ```typescript
 // 1. Get comment
 const comment = await fetch('/products/1/comments/1').then(r => r.json());
-// { id: 1, user_owner: 1, ... }
+// { $schema: "...", $id: "...", id: 1, user_owner: 1, ... }
 
 // 2. Get the user
 const user = await fetch(`/users/${comment.user_owner}`).then(r => r.json());
-// { id: 1, name: "Alice", email: "alice@example.com" }
+// { $schema: "...", $id: "...", id: 1, name: "Alice", email: "alice@example.com" }
 ```
 
 ### Helper Function for Resolving Foreign Keys
@@ -850,7 +901,7 @@ const enriched = await resolveRelations(comment, {
 });
 
 console.log(enriched.user_owner); // 1
-console.log(enriched.user_owner_obj); // { id: 1, name: "Alice", ... }
+console.log(enriched.user_owner_obj); // { $schema: "...", $id: "...", id: 1, name: "Alice", ... }
 ```
 
 ---
@@ -934,9 +985,11 @@ GET /{ModelName}
 ```
 
 This returns the complete schema including:
+- `$schema` pointing to `{API_URL}/Schema`
+- `$id` pointing to `{API_URL}/{ModelName}`
 - All fields with types and constraints
 - Required fields
 - Custom methods and their parameters
-- Referenced models in `$defs`
+- Referenced models in `$defs` (each with their own `$id`)
 
 Use this to build dynamic frontends that adapt to backend changes automatically.

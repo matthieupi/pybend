@@ -155,11 +155,13 @@ Frontend request body:
 
 Custom endpoints can return:
 
-1. **Model Instance** - Returns full object as JSON
-2. **List of Models** - Returns array of objects
-3. **dict** - Returns custom JSON structure
+1. **Model Instance** - Returns full object as JSON with `$schema` and `$id` metadata (via `.model_dump(response=True)`)
+2. **List of Models** - Returns array of objects, each with `$schema` and `$id`
+3. **dict** - Returns custom JSON structure (no automatic metadata)
 4. **str** - Returns plain string (wrapped in JSON)
 5. **None** - Returns null
+
+When a custom endpoint returns a model instance, the route handler calls `.model_dump(response=True)` to inject `$schema` and `$id` metadata into the response.
 
 ### Examples
 
@@ -176,6 +178,8 @@ def some_action(self) -> Product:
 **Frontend Response**:
 ```json
 {
+  "$schema": "http://localhost:8000/Product",
+  "$id": "http://localhost:8000/products/1",
   "id": 1,
   "name": "Product",
   "price": 99.99
@@ -195,8 +199,8 @@ def filter_products(cls, min_price: float) -> List[Product]:
 **Frontend Response**:
 ```json
 [
-  {"id": 1, "name": "Laptop", "price": 999.99},
-  {"id": 2, "name": "Phone", "price": 699.99}
+  {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/products/1", "id": 1, "name": "Laptop", "price": 999.99},
+  {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/products/2", "id": 2, "name": "Phone", "price": 699.99}
 ]
 ```
 

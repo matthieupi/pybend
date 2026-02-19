@@ -68,6 +68,9 @@ The foundation of PyBend's model system. All models inherit from `ProtoModel`.
 
 ```python
 class ProtoModel(PydanticBaseModel):
+    class Config:
+        extra = 'allow'  # Allow $schema and $id to survive FastAPI validation
+    
     # Automatic storage injection
     def __init_subclass__(cls, **kwargs):
         if cls.__storable__:
@@ -80,15 +83,25 @@ class ProtoModel(PydanticBaseModel):
     @classmethod
     def schema(cls) -> Dict[str, Any]:
         # Returns complete JSON schema including:
+        # - $schema (pointing to {API_URL}/Schema)
+        # - $id (pointing to {API_URL}/{ClassName})
         # - Fields (from Pydantic)
         # - Methods (from @expose_route)
-        # - Referenced models (in $defs)
+        # - Referenced models in $defs (each with $id)
+    
+    # Overridden model_dump with response kwarg
+    def model_dump(self, response: bool = False, **kwargs) -> dict:
+        # When response=True, injects:
+        # - $schema: URL to model's JSON Schema
+        # - $id: URL to this specific instance
 ```
 
 **Design Decisions**:
 - Uses `__init_subclass__` for automatic mixin injection
 - Leverages Pydantic for validation and schema generation
 - Separate `schema()` from `referenced_json_schema()` to avoid circular references
+- Config `extra='allow'` permits `$schema` and `$id` metadata fields to pass through FastAPI response validation
+- `model_dump(response=True)` provides opt-in JSON-LD style self-describing responses
 
 ### 2. StorableMixin
 
@@ -170,6 +183,7 @@ class ForeignKey(Generic[T]):
     # Custom Pydantic schema for OpenAPI
     @classmethod
     def __get_pydantic_json_schema__(cls, ...):
+        # Outputs $schema and $id instead of the old __url__ and __type__
         return {
             "type": "$ref",
             "$ref": f"#/$defs/{target.__name__}"
@@ -232,15 +246,20 @@ Dynamically generates routes from model definitions.
 
 **Route Factories**:
 
+All route factories call `.model_dump(response=True)` to include `$schema` and `$id` metadata in responses:
+
 ```python
 def make_create_instance(model_class):
     # Returns async function for POST /model
+    # Calls .model_dump(response=True)
     
 def make_get_all_instances(model_class):
     # Returns async function for GET /model
+    # Calls .model_dump(response=True) on each instance
 
 def make_get_instance(model_class):
     # Returns async function for GET /model/{id}
+    # Calls .model_dump(response=True)
 
 # ... etc
 ```
@@ -324,10 +343,11 @@ HTTP GET /users/1
 └────────┬────────┘
          │
          ▼
-┌─────────────────┐
-│ Serialize JSON  │
-│ model.model_dump()
-└────────┬────────┘
+┌──────────────────────────┐
+│ Serialize JSON           │
+│ model.model_dump(response=True)
+│ (injects $schema, $id)  │
+└────────────┬─────────────┘
          │
          ▼
     HTTP 200 OK

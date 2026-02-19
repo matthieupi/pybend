@@ -2,6 +2,8 @@
 
 This document describes the auto-generated CRUD endpoints available for every storable model in PyBend.
 
+All CRUD route handlers call `.model_dump(response=True)`, which injects `$schema` and `$id` metadata into every response. This makes each response self-describing.
+
 ## Endpoint Pattern
 
 For a model with `__tablename__ = 'users'`, PyBend generates:
@@ -39,10 +41,12 @@ GET /{ModelName}
 
 **Status**: 200 OK
 
-**Body**: JSON schema object
+**Body**: JSON schema object with `$schema` and `$id` at the top level, and `$id` on each `$defs` entry.
 
 ```json
 {
+  "$schema": "http://localhost:8000/Schema",
+  "$id": "http://localhost:8000/User",
   "type": "object",
   "properties": {
     "id": {
@@ -80,7 +84,9 @@ GET /{ModelName}
     }
   },
   "$defs": {
-    // Referenced models appear here
+    "User": {
+      "$id": "http://localhost:8000/User"
+    }
   }
 }
 ```
@@ -96,6 +102,10 @@ GET /{ModelName}
 ```javascript
 // Fetch schema to build dynamic form
 const schema = await fetch('http://localhost:8000/User').then(r => r.json());
+
+// Schema includes $schema and $id at top level
+console.log(schema['$schema']); // "http://localhost:8000/Schema"
+console.log(schema['$id']);     // "http://localhost:8000/User"
 
 // Extract required fields
 const requiredFields = schema.required; // ["name", "email"]
@@ -152,10 +162,12 @@ Example for User model:
 
 **Success Status**: 201 Created
 
-**Success Body**: Created resource with assigned ID
+**Success Body**: Created resource with assigned ID, plus `$schema` and `$id` metadata
 
 ```json
 {
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/users/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -194,7 +206,10 @@ async function createUser(userData) {
     return null;
   }
   
-  return await response.json(); // { id: 1, name: "Alice Johnson", ... }
+  const user = await response.json();
+  // user.$schema === "http://localhost:8000/User"
+  // user.$id === "http://localhost:8000/users/1"
+  return user;
 }
 ```
 
@@ -220,17 +235,21 @@ GET /{resource}
 
 **Status**: 200 OK
 
-**Body**: Array of resource objects
+**Body**: Array of resource objects, each with `$schema` and `$id`
 
 ```json
 [
   {
+    "$schema": "http://localhost:8000/User",
+    "$id": "http://localhost:8000/users/1",
     "id": 1,
     "name": "Alice Johnson",
     "email": "alice@example.com",
     "age": 28
   },
   {
+    "$schema": "http://localhost:8000/User",
+    "$id": "http://localhost:8000/users/2",
     "id": 2,
     "name": "Bob Smith",
     "email": "bob@example.com",
@@ -255,6 +274,7 @@ console.log(`Found ${users.length} users`);
 
 // Display in UI
 users.forEach(user => {
+  console.log(user['$id']); // e.g., "http://localhost:8000/users/1"
   renderUserCard(user);
 });
 ```
@@ -284,10 +304,12 @@ GET /{resource}/{id}
 
 **Success Status**: 200 OK
 
-**Success Body**: Resource object
+**Success Body**: Resource object with `$schema` and `$id`
 
 ```json
 {
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/users/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -319,6 +341,7 @@ async function getUser(userId) {
 // Usage
 const user = await getUser(1);
 if (user) {
+  console.log(user['$schema']); // "http://localhost:8000/User"
   displayUserProfile(user);
 }
 ```
@@ -361,10 +384,12 @@ PUT /{resource}/{id}
 
 **Success Status**: 200 OK
 
-**Success Body**: Updated resource (complete object)
+**Success Body**: Updated resource (complete object) with `$schema` and `$id`
 
 ```json
 {
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/users/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -401,7 +426,7 @@ async function updateUserEmail(userId, newEmail) {
     return null;
   }
   
-  return await response.json(); // Complete updated object
+  return await response.json(); // Complete updated object with $schema and $id
 }
 
 // Update multiple fields
@@ -534,6 +559,8 @@ POST /{parent_resource}/{parent_id}/{child_resource}
 **Response** (201 Created):
 ```json
 {
+  "$schema": "http://localhost:8000/Comment",
+  "$id": "http://localhost:8000/comments/1",
   "id": 1,
   "text": "Great product!",
   "rating": 5,
@@ -555,12 +582,16 @@ Returns only child resources belonging to specified parent:
 ```json
 [
   {
+    "$schema": "http://localhost:8000/Comment",
+    "$id": "http://localhost:8000/comments/1",
     "id": 1,
     "text": "Great product!",
     "product_id": 5,
     "user": 1
   },
   {
+    "$schema": "http://localhost:8000/Comment",
+    "$id": "http://localhost:8000/comments/2",
     "id": 2,
     "text": "Fast shipping",
     "product_id": 5,
@@ -624,7 +655,8 @@ const product = await fetch('http://localhost:8000/products', {
   })
 }).then(r => r.json());
 
-console.log('Created:', product); // { id: 1, name: "Laptop", ... }
+console.log('Created:', product);
+// { "$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/products/1", "id": 1, "name": "Laptop", ... }
 
 // 2. Get all products
 const allProducts = await fetch('http://localhost:8000/products')
@@ -637,6 +669,7 @@ const retrievedProduct = await fetch('http://localhost:8000/products/1')
   .then(r => r.json());
 
 console.log('Retrieved:', retrievedProduct);
+// Includes $schema and $id
 
 // 4. Update product price
 const updated = await fetch('http://localhost:8000/products/1', {
@@ -658,6 +691,7 @@ const comment = await fetch('http://localhost:8000/products/1/comments', {
 }).then(r => r.json());
 
 console.log('Comment added:', comment);
+// Includes $schema and $id
 
 // 6. Get product's comments
 const comments = await fetch('http://localhost:8000/products/1/comments')
@@ -682,6 +716,8 @@ Generate TypeScript interfaces from schemas:
 ```typescript
 // Fetch schema and generate types
 interface User {
+  $schema: string;
+  $id: string;
   id: number;
   name: string;
   email: string;
@@ -694,7 +730,7 @@ async function getUser(id: number): Promise<User> {
   return await response.json();
 }
 
-async function createUser(data: Omit<User, 'id'>): Promise<User> {
+async function createUser(data: Omit<User, 'id' | '$schema' | '$id'>): Promise<User> {
   const response = await fetch('http://localhost:8000/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -739,7 +775,7 @@ async function updateUser(userId, updates) {
     
     if (!result.ok) throw new Error('Update failed');
     
-    // 3. Confirm with server response
+    // 3. Confirm with server response (includes $schema and $id)
     const confirmedState = await result.json();
     updateUIWithNewState(confirmedState);
     

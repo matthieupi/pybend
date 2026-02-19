@@ -2,6 +2,8 @@
 
 Real-world examples demonstrating PyBend's capabilities.
 
+**Note**: All CRUD and custom endpoint responses include `$schema` and `$id` metadata at the top of each object. Route handlers call `.model_dump(response=True)` to inject these fields automatically.
+
 ## Table of Contents
 
 - [E-commerce Platform](#e-commerce-platform)

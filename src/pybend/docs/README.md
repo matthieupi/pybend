@@ -4,14 +4,15 @@
 
 ## Features
 
-- 🚀 **Declarative Model Definition** - Define models using Pydantic with automatic API generation
-- 🔄 **Automatic CRUD Operations** - GET, POST, PUT, DELETE endpoints generated automatically
-- 🗄️ **Flexible Storage Backends** - SQLite, JSON, or implement your own
-- 🔗 **Foreign Key Support** - Type-safe relationships between models
-- 📋 **Auto-Generated Documentation** - OpenAPI/Swagger compatible schemas
-- 🎯 **Custom Endpoints** - Easily add custom business logic with decorators
-- 🔀 **Multiple Backend Support** - FastAPI or Flask (with easy extensibility)
-- 🔍 **Auto-Migration** - Database schema updates automatically
+- **Declarative Model Definition** - Define models using Pydantic with automatic API generation
+- **Automatic CRUD Operations** - GET, POST, PUT, DELETE endpoints generated automatically
+- **Flexible Storage Backends** - SQLite, JSON, or implement your own
+- **Foreign Key Support** - Type-safe relationships between models
+- **Auto-Generated Documentation** - OpenAPI/Swagger compatible schemas
+- **Custom Endpoints** - Easily add custom business logic with decorators
+- **Multiple Backend Support** - FastAPI or Flask (with easy extensibility)
+- **Auto-Migration** - Database schema updates automatically
+- **JSON-LD Style Responses** - All responses include `$schema` and `$id` metadata for self-describing resources
 
 ## Quick Start
 
@@ -84,6 +85,19 @@ Your API now has:
 - `DELETE /users/{id}` - Delete a user
 - `GET /User` - Get the JSON schema for the User model
 
+All CRUD responses include `$schema` and `$id` metadata:
+
+```json
+{
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/users/1",
+  "id": 1,
+  "name": "Alice Johnson",
+  "email": "alice@example.com",
+  "age": 28
+}
+```
+
 ## Core Concepts
 
 ### Models
@@ -100,6 +114,17 @@ class Product(ProtoModel):
     price: float
     description: str = ''
 ```
+
+ProtoModel's Config sets `extra='allow'` so that metadata fields like `$schema` and `$id` survive FastAPI's response model validation.
+
+### Response Metadata
+
+All CRUD route handlers call `.model_dump(response=True)` to include self-describing metadata in every response:
+
+- `$schema` - URL pointing to this model's JSON Schema (e.g., `http://localhost:8000/Product`)
+- `$id` - URL pointing to this specific resource instance (e.g., `http://localhost:8000/products/1`)
+
+This enables clients to discover the schema for any resource directly from the response payload.
 
 ### Storage Backends
 
@@ -207,33 +232,33 @@ This creates a `products_comments` table with proper foreign keys.
 PyBend follows a modular architecture with clear separation of concerns:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   API Layer                         │
-│  (FastAPI/Flask Backend)                            │
-│  • Route Registration                               │
-│  • Request/Response Handling                        │
-└──────────────────┬──────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────┐
-│                Model Layer                          │
-│  (ProtoModel + Mixins)                              │
-│  • Schema Generation                                │
-│  • Validation (Pydantic)                            │
-│  • Business Logic                                   │
-└──────────────────┬──────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────┐
-│              Storage Layer                          │
-│  (StorableMixin + AbstractStorage)                  │
-│  • CRUD Operations                                  │
-│  • Data Persistence                                 │
-│  • Auto-Migration                                   │
-└─────────────────────────────────────────────────────┘
++---------------------------------------------------------+
+|                   API Layer                              |
+|  (FastAPI/Flask Backend)                                 |
+|  - Route Registration                                    |
+|  - Request/Response Handling (model_dump(response=True)) |
++--------------------------+------------------------------+
+                           |
++--------------------------v------------------------------+
+|                Model Layer                               |
+|  (ProtoModel + Mixins)                                   |
+|  - Schema Generation ($schema, $id)                      |
+|  - Validation (Pydantic)                                 |
+|  - Business Logic                                        |
++--------------------------+------------------------------+
+                           |
++--------------------------v------------------------------+
+|              Storage Layer                                |
+|  (StorableMixin + AbstractStorage)                       |
+|  - CRUD Operations                                       |
+|  - Data Persistence                                      |
+|  - Auto-Migration                                        |
++---------------------------------------------------------+
 ```
 
 ### Key Components
 
-- **ProtoModel**: Base model with schema generation and optional storage
+- **ProtoModel**: Base model with schema generation, optional storage, and `model_dump(response=True)` for metadata injection
 - **StorableMixin**: Provides CRUD operations via dependency injection
 - **AbstractStorage**: Interface for storage backends (SQLite, JSON, etc.)
 - **Registrar**: Central registry for models and join tables
@@ -272,6 +297,8 @@ curl http://localhost:8000/User
 Response:
 ```json
 {
+  "$schema": "http://localhost:8000/Schema",
+  "$id": "http://localhost:8000/User",
   "type": "object",
   "properties": {
     "id": {"type": "integer"},
@@ -288,9 +315,16 @@ Response:
       },
       "returns": {"$ref": "#/$defs/User"}
     }
+  },
+  "$defs": {
+    "User": {
+      "$id": "http://localhost:8000/User"
+    }
   }
 }
 ```
+
+The `schema()` method adds `$schema` (pointing to `{API_URL}/Schema`) and `$id` (pointing to `{API_URL}/{ClassName}`) to the top-level schema dict, and `$id` to each `$defs` entry.
 
 ### Generate Markdown Docs
 
@@ -410,7 +444,7 @@ register_model(Article, storage=storage)
 # 3. Use the API
 # POST /articles - Create article
 # GET /articles - List all articles
-# GET /articles/1 - Get article by ID
+# GET /articles/1 - Get article by ID (response includes $schema and $id)
 # PUT /articles/1 - Update article
 # DELETE /articles/1 - Delete article
 ```
@@ -523,6 +557,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-- 📫 Email: support@pybend.dev
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/pybend/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/yourusername/pybend/discussions)
+- Email: support@pybend.dev
+- Issues: [GitHub Issues](https://github.com/yourusername/pybend/issues)
+- Discussions: [GitHub Discussions](https://github.com/yourusername/pybend/discussions)

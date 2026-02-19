@@ -15,9 +15,9 @@ PyBend automatically generates a complete REST API from your Python model defini
 
 Each PyBend model becomes a REST resource with automatic CRUD endpoints. For example:
 
-- `User` model → `/users` endpoints
-- `Product` model → `/products` endpoints
-- `Comment` model → `/comments` endpoints
+- `User` model -> `/users` endpoints
+- `Product` model -> `/products` endpoints
+- `Comment` model -> `/comments` endpoints
 
 ### Automatic Endpoint Generation
 
@@ -30,13 +30,22 @@ For every model marked as `__storable__ = True`, PyBend generates:
 5. **Update** - Update existing resource
 6. **Delete** - Delete resource
 
+### Response Metadata
+
+All CRUD route handlers call `.model_dump(response=True)`, which injects two metadata fields at the top of every response object:
+
+- `$schema` - URL to the model's JSON Schema (e.g., `http://localhost:8000/User`)
+- `$id` - URL to this specific resource instance (e.g., `http://localhost:8000/users/1`)
+
+This makes every response self-describing, allowing clients to discover schema information directly from the payload.
+
 ### Custom Endpoints
 
 Models can expose additional endpoints using the `@expose_route` decorator. These appear as:
 
-- Static methods → `/{resource}{custom_path}`
-- Class methods → `/{resource}{custom_path}`
-- Instance methods → `/{resource}/{id}{custom_path}`
+- Static methods -> `/{resource}{custom_path}`
+- Class methods -> `/{resource}{custom_path}`
+- Instance methods -> `/{resource}/{id}{custom_path}`
 
 ### Nested Resources (Many-to-Many)
 
@@ -57,7 +66,18 @@ All requests must use:
 
 ### Response Format
 
-All successful responses return JSON with the resource data.
+All successful responses return JSON with `$schema` and `$id` metadata at the top, followed by the resource data:
+
+```json
+{
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/users/1",
+  "id": 1,
+  "name": "Alice Johnson",
+  "email": "alice@example.com",
+  "age": 28
+}
+```
 
 All error responses return:
 ```json
@@ -78,10 +98,10 @@ All error responses return:
 
 | Method | Purpose | Idempotent | Safe |
 |--------|---------|------------|------|
-| GET | Retrieve resource(s) | ✓ | ✓ |
-| POST | Create resource or trigger action | ✗ | ✗ |
-| PUT | Update entire resource | ✓ | ✗ |
-| DELETE | Remove resource | ✓ | ✗ |
+| GET | Retrieve resource(s) | Yes | Yes |
+| POST | Create resource or trigger action | No | No |
+| PUT | Update entire resource | Yes | No |
+| DELETE | Remove resource | Yes | No |
 
 ### Status Codes
 
@@ -115,13 +135,14 @@ class Comment(ProtoModel):
 }
 ```
 
-**In Responses** - Receive the ID as an integer:
+**In Responses** - Receive the ID as an integer, along with `$schema` and `$id` metadata:
 ```json
 {
+  "$schema": "http://localhost:8000/Comment",
+  "$id": "http://localhost:8000/comments/1",
   "id": 1,
   "text": "Great product!",
-  "user": 1,
-  "created_at": "2025-01-15T10:00:00Z"
+  "user": 1
 }
 ```
 
@@ -152,9 +173,11 @@ This creates:
 **Important**: The child resource gets additional foreign key field automatically:
 ```json
 {
+  "$schema": "http://localhost:8000/Comment",
+  "$id": "http://localhost:8000/comments/1",
   "id": 1,
   "text": "Great!",
-  "product_id": 5,  // Automatically added
+  "product_id": 5,
   "user": 1
 }
 ```
@@ -233,7 +256,6 @@ Request:
 ```json
 {
   "name": "Product"
-  // Missing required "price" field
 }
 ```
 
@@ -390,6 +412,8 @@ GET /User
 Response:
 ```json
 {
+  "$schema": "http://localhost:8000/Schema",
+  "$id": "http://localhost:8000/User",
   "type": "object",
   "properties": {
     "id": {"type": "integer"},
@@ -404,9 +428,16 @@ Response:
       "parameters": {...},
       "returns": {...}
     }
+  },
+  "$defs": {
+    "User": {
+      "$id": "http://localhost:8000/User"
+    }
   }
 }
 ```
+
+The `schema()` method adds `$schema` (pointing to `{API_URL}/Schema`) and `$id` (pointing to `{API_URL}/{ClassName}`) to the top-level schema dict, and `$id` to each `$defs` entry.
 
 This is useful for:
 - Dynamic form generation
