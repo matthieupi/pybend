@@ -105,7 +105,7 @@ export class NTTElement extends Component {
     }
     if (data !== this.value){
       this.#data = data;
-      if (this._type)
+      if (this.$schema)
         this.render();
     }
   }

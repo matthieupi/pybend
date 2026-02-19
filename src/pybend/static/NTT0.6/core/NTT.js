@@ -340,7 +340,7 @@ export class NTT extends TT {
      * stores it in registry, replays queued messages, triggers initial READ.
      */
     static SCHEMA(data, tx) {
-        const addr = data.__name__ || data.__type__;
+        const addr = data.__name__;
         const href = data.__tablename__
             ? `${config.API_URL}/${data.__tablename__}`
             : `${config.API_URL}/${addr}`;
@@ -351,7 +351,7 @@ export class NTT extends TT {
                 if (key === addr) continue; // Main model handled below
                 if (value.type === 'object' && value.properties && !NTT.has(key)) {
                     Logging.debug(`[NTT.SCHEMA] Registering nested schema: ${key}`);
-                    const defHref = value.__url__ || `${config.API_URL}/${key}`;
+                    const defHref = value['$id'] || `${config.API_URL}/${key}`;
                     const DC = prototype(key, value, defHref);
                     NTT.#prototypes.set(key, DC);
                     NTT.#replayWaiting(key, DC);
@@ -550,8 +550,8 @@ function prototype(addr, schema, href) {
               return undefined
           }
           let data = this._data;
-          data["@context"] = this.href;
-          data["@type"] = this.constructor.addr
+          data["$schema"] = `${config.API_URL}/${this.constructor.addr}`;
+          data["$id"] = this.href;
           return this._data;
       }
       set value(val) {

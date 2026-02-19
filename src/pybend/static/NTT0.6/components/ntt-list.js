@@ -7,9 +7,14 @@ import Observable from "../core/Observable.js";
 import Actor from "../core/Actor.js";
 
 export class List extends NTTElement {
-  
+
   constructor() {
     super();
+    const $link = document.createElement('link');
+    $link.setAttribute('rel', 'stylesheet');
+    $link.setAttribute('href', new URL('./ntt-list.css', import.meta.url));
+    this.shadowRoot.appendChild($link);
+    this.$styles = $link;
   }
   
   connectedCallback() {
@@ -45,21 +50,20 @@ export class List extends NTTElement {
     console.warn(`Rendering List of ${this.model} with ${this.value.length} items.`)
     
     this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: grid;
-          gap: 1rem;
-        }
-      </style>
-      <h1>List of ${this.model}</h1>
+      <div class="list-header">
+        <h1>${this.model}s</h1>
+        <span class="list-count">${this.value.length}</span>
+      </div>
+      <div class="list-grid"></div>
     `;
-    
+    this.shadowRoot.appendChild(this.$styles);
+
+    const grid = this.shadowRoot.querySelector('.list-grid');
     this.value.forEach(item => {
       const el = document.createElement('ntt-item');
       Logging.debug(`Describing item with model: ${this.model}`, [typeof item, item.addr, item]);
-      console.warn(item)
-      el.ref = item
-      this.shadowRoot.appendChild(el);
+      el.ref = item;
+      grid.appendChild(el);
     });
   }
 }

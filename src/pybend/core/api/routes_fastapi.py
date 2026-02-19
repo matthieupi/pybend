@@ -35,7 +35,8 @@ def make_create_instance(model_class):
                 data_dict[fk_field] = parent_id
 
             instance = model_class(**data_dict)
-            return model_class.create(instance)
+            result = model_class.create(instance)
+            return result.serialize() if result else result
         except Exception as e:
             raise HTTPException(status_code=400, detail=get_traceback_info(e) )
 
@@ -59,9 +60,9 @@ def make_get_all_instances(model_class):
 
         if parent_id:
             fk_field = f"{target_cls.__owner__.__name__.lower()}_id"
-            return [r for r in results if getattr(r, fk_field, None) == parent_id]
+            return [r.serialize() for r in results if getattr(r, fk_field, None) == parent_id]
 
-        return results
+        return [r.serialize() for r in results]
 
     return list_all_instances
 
@@ -79,7 +80,7 @@ def make_get_instance(model_class):
         instance = model_class.get(id)
         if not instance:
             raise HTTPException(status_code=404, detail="Not found")
-        return instance.model_dump()
+        return instance.serialize()
     return read_instance
 
 
@@ -93,7 +94,7 @@ def make_update_instance(model_class):
                 data_dict[fk_field] = parent_id
             print(f"[UPDATE] Attempting to update {model_class.__name__} ID={id} with data: {data_dict}")
             updated = model_class.update(id, data_dict)
-            return updated
+            return updated.serialize()
         except Exception as e:
             print(f"[ERROR] Failed to update {model_class.__name__} ID={id}: {e}")
             raise HTTPException(status_code=400, detail=str(e))

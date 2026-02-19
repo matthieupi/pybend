@@ -1,119 +1,183 @@
+/* ntt-item — Entity card */
+
 :host {
-  display: block;
-  margin: 1.5rem 0;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
+    display: block;
+    animation: fadeIn 0.3s var(--ease, cubic-bezier(0.4, 0, 0.2, 1)) both;
 }
 
+/* ── Card ── */
 .card {
-  background: var(--bg-glass);
-  border: 1px solid var(--border-color);
-  border-radius: 1.25rem;
-  padding: 2rem;
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(16px);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
+    position: relative;
+    background: var(--surface-2, #151822);
+    border: 1px solid var(--border, rgba(255,255,255,0.06));
+    border-radius: var(--radius-lg, 16px);
+    padding: 1.5rem 1.75rem 1.25rem;
+    transition: border-color 0.25s, box-shadow 0.25s;
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  border-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--border-hover, rgba(255,255,255,0.12));
+    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,.4));
 }
 
+/* ── Edit button ── */
 .edit-btn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  font-size: 1.1rem;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.3s;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    font-size: 0.9rem;
+    background: var(--surface-3, #1c2030);
+    border: 1px solid var(--border, rgba(255,255,255,0.06));
+    border-radius: var(--radius-sm, 8px);
+    color: var(--text-2, #8891ab);
+    cursor: pointer;
+    padding: 0;
+    box-shadow: none;
+    transition: all 0.2s;
 }
 
 .edit-btn:hover {
-  color: var(--accent-primary);
+    color: var(--accent, #22d3c5);
+    border-color: var(--border-accent, rgba(34,211,197,0.30));
+    background: var(--accent-dim, rgba(34,211,197,0.12));
+    transform: none;
+    box-shadow: none;
 }
 
-/* Typography */
+/* ── Typography inside cards ── */
+h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-0, #f0f2f8);
+    margin-bottom: 0.15rem;
+    padding-right: 2.5rem;
+    letter-spacing: -0.01em;
+}
+
+h4 {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--text-2, #8891ab);
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+}
+
+/* ── Labels ── */
 label {
-  display: block;
-  margin: 1.2rem 0 0.4rem;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
+    display: block;
+    margin: 0.9rem 0 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-3, #555e78);
 }
 
-/* Inputs and Textareas */
-input,
+/* ── Field values (display mode) ── */
+label + div {
+    font-size: 0.9rem;
+    color: var(--text-1, #c4c9da);
+    padding: 0.35rem 0;
+    line-height: 1.5;
+}
+
+/* ── Inputs (edit mode) ── */
+input, textarea {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: var(--text-0, #f0f2f8);
+    background: var(--surface-1, #0e1018);
+    border: 1px solid var(--border, rgba(255,255,255,0.06));
+    border-radius: var(--radius-sm, 8px);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, textarea:focus {
+    border-color: var(--accent, #22d3c5);
+    box-shadow: 0 0 0 3px var(--accent-dim, rgba(34,211,197,0.12));
+}
+
+input[type="checkbox"] {
+    width: auto;
+    accent-color: var(--accent, #22d3c5);
+}
+
 textarea {
-  width: 75%;
-  padding: 0.65rem 1rem;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
-  font-family: inherit;
+    min-height: 72px;
+    resize: vertical;
 }
 
-input:focus,
-textarea:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-  background: var(--bg-secondary);
-  outline: none;
+/* ── Name input in edit mode ── */
+input[data-key="name"] {
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border-color: transparent;
+    border-bottom: 2px solid var(--border, rgba(255,255,255,0.06));
+    border-radius: 0;
 }
 
-textarea {
-  min-height: 90px;
-  resize: vertical;
+input[data-key="name"]:focus {
+    border-color: transparent;
+    border-bottom-color: var(--accent, #22d3c5);
+    box-shadow: none;
 }
 
-/* Array items */
-.array-field {
-  margin-top: 1rem;
+/* ── ListRef / nested items ── */
+.list-field {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border, rgba(255,255,255,0.06));
 }
 
-.array-item {
-  padding: 0.6rem 1rem;
-  margin-bottom: 0.6rem;
-  background: var(--bg-secondary);
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+.list-field > label {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    color: var(--accent-text, #5eeadf);
+    font-size: 0.65rem;
 }
 
-/* Method Buttons */
-.method-btn {
-  display: inline-block;
-  margin-top: 1rem;
-  padding: 0.55rem 1.2rem;
-  border-radius: 8px;
-  background: var(--gradient-secondary);
-  border: none;
-  color: var(--text-primary);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-sm);
+.list-field ntt-item {
+    margin: 0.4rem 0;
 }
 
-.method-btn:hover {
-  background: var(--gradient-accent);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+.list-field ntt-item .card {
+    background: var(--surface-1, #0e1018);
+    border-color: var(--border, rgba(255,255,255,0.06));
+    padding: 1rem 1.25rem 0.75rem;
+    border-radius: var(--radius-md, 12px);
 }
 
-/* State Colors for References */
+/* ── References ── */
 .ref {
-  font-style: italic;
-  color: var(--text-muted);
+    font-style: italic;
+    color: var(--text-3, #555e78);
+    font-size: 0.85rem;
+}
+
+/* ── Method buttons ── */
+ntt-method {
+    display: inline-block;
+    margin-top: 0.75rem;
+    margin-right: 0.5rem;
+}
+
+/* ── Separator between fields ── */
+label:first-of-type {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border, rgba(255,255,255,0.06));
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
 }

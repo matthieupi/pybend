@@ -9,20 +9,20 @@
 </head>
 <body>
 
-    <div class="container">
-        <div class="framework-info">
-            <h1>🔧 NTTTX - Matrix</h1>
-            <p class="subtitle">Matrix - Actor-Based Distributed Entity Management</p>
-            <div class="version">v0.6.0 - Matrix Architecture</div>
-        </div>
+    <div class="page">
+        <header class="header">
+            <div class="header-brand">
+                <div class="header-logo">N3</div>
+                <h1>NTT<span>TX</span></h1>
+            </div>
+            <p class="header-sub">Actor-Based Distributed Entity Management</p>
+            <div class="header-tag">Matrix v0.6.0</div>
+        </header>
+
+        <ntt-list model="Product" id="product-list"></ntt-list>
     </div>
 
-    <ntt-list model="Product" id="product-list"></ntt-list>
-
-
-    <!-- Import NTTTX Framework -->
     <script type="module">
-        // Import core NTTTX modules
         console.info("Loading NTTTX Framework v0.6...");
 
         import {Matrix, matrix} from './core/Matrix.js';
@@ -30,16 +30,7 @@
         import { config } from './config.js';
         import './components/ntt-item.js';
         import './components/ntt-list.js';
-
-        //matrix.spawn("Product", NTT, config.API_URL)
-        //let ProductClass = NTT.get("Product")
-
-
-
     </script>
-
-    <div>
-    </div>
 
 </body>
 </html>

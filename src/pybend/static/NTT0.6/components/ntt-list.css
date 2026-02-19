@@ -1,20 +1,48 @@
+/* ntt-list — Entity collection */
+
 :host {
-  display: block;
+    display: block;
+    animation: fadeIn 0.35s var(--ease, cubic-bezier(0.4, 0, 0.2, 1)) both;
 }
 
-.title {
-  color: var(--text-primary);
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 1.2rem;
-  padding-left: 0.75rem;
-  border-left: 4px solid var(--accent-primary);
-  letter-spacing: -0.02rem;
+.list-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
 }
 
-.container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
-  gap: 1.5rem;
-  align-items: start;
+.list-header h1 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-1, #c4c9da);
+}
+
+.list-count {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 100px;
+    background: var(--accent-dim, rgba(34,211,197,0.12));
+    color: var(--accent-text, #5eeadf);
+    letter-spacing: 0.02em;
+}
+
+.list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 1rem;
+    align-items: start;
+}
+
+@media (max-width: 480px) {
+    .list-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
 }

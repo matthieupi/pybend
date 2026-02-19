@@ -18,7 +18,7 @@ export class Item extends NTTElement {
     $link.setAttribute('href', new URL('./ntt-item.css', import.meta.url));
     this.shadowRoot.appendChild($link);
     this.$styles = $link
-    this._type = undefined
+    this.$schema = undefined
 
   }
   
@@ -26,15 +26,16 @@ export class Item extends NTTElement {
     console.warn(`Received UPDATE for Item: ${this.model}`)
     console.error(data)
     console.log(this)
-    assert(this, "@type" in data, "UPDATE data missing $type field");
+    assert(this, "$schema" in data, "UPDATE data missing $schema field");
     Logging.dev(`[NTT-ITEM] ${this.schema.__name__} - Updated Item value: ${this.value}`, data);
     this.value = data;
-    if (this._type !== data['@type']){
-        this._type = data['@type'];
+    const schemaName = data['$schema']?.split('/').pop();
+    if (this.$schema !== schemaName){
+        this.$schema = schemaName;
         this.send(new TX({
             name: 'CONNECT',
             source: this.addr,
-            target: this._type
+            target: this.$schema
         }))
     }
   }

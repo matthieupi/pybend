@@ -73,6 +73,16 @@ class ProtoModel(PydanticBaseModel):
         self.__owner__ = kwargs.get('__owner__', None)
 
 
+    def serialize(self) -> Dict[str, Any]:
+        """Returns model data with JSON Schema $schema and $id."""
+        tablename = getattr(self.__class__, '__tablename__', self.__class__.__name__.lower())
+        instance_id = getattr(self, 'id', None)
+        return {
+            '$schema': f"{config.API_URL}/{self.__class__.__name__}",
+            '$id': f"{config.API_URL}/{tablename}/{instance_id}" if instance_id is not None else None,
+            **self.model_dump()
+        }
+
     @classmethod
     def __pybend_methods_json_signature__(cls) -> dict:
         """
@@ -149,8 +159,15 @@ class ProtoModel(PydanticBaseModel):
                 # Add methods to the model's schema
                 schema['$defs'][model.__name__]['methods'] = ref_methods
 
-            # Add the model's JSON schema to the $defs
-        # List all exposed method along with their doc
+            # Add $id to each $defs entry
+            for model in referenced_models:
+                if model.__name__ in schema['$defs']:
+                    schema['$defs'][model.__name__]['$id'] = f"{config.API_URL}/{model.__name__}"
+
+        # Add JSON Schema metadata
+        schema['$schema'] = f"{config.API_URL}/Schema"
+        schema['$id'] = f"{config.API_URL}/{cls.__name__}"
+
         return schema
 
 
@@ -185,8 +202,8 @@ class ProtoModel(PydanticBaseModel):
         # Prevent infinite recursion when circular inclusion are present
         schema = super().__get_pydantic_json_schema__(core_schema, handler)
         # Add custom metadata
-        schema['__url__'] = f"{config.HOST}:{config.PORT}/{cls.__name__}"
-        schema['__type__'] = 'schema'
+        schema['$schema'] = f"{config.API_URL}/Schema"
+        schema['$id'] = f"{config.API_URL}/{cls.__name__}"
         schema['__name__'] = cls.__name__
         schema['__owner__'] = cls.__owner__.__name__ if hasattr(cls, '__owner__') else None
         schema['__parent__'] = cls.__parent__.__name__ if hasattr(cls, '__parent__') else None
