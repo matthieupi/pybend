@@ -9,6 +9,8 @@
 | name | string | Yes | — |
 | description | string | No |  |
 | user_owner | integer | No | None |
+| replies | object | No | [] |
+| likes | object | No | [] |
 | id | object | No | None |
 | product_id | integer | Yes | — |
 

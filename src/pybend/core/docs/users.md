@@ -17,4 +17,12 @@
 #### Parameters:
 - `email`: *string*
 - `password`: *string*
-**Returns**: `$ref`
+**Returns**: `string`
+
+### `/register` [POST] (instancemethod)
+**Method**: `register`
+#### Parameters:
+- `name`: *string*
+- `email`: *string*
+- `password`: *string*
+**Returns**: `string`

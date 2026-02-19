@@ -146,6 +146,13 @@ def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
         # Check for ListRef[T] (Annotated with _ListRefMarker)
         ref_model = _unwrap_listref(field_type)
         if ref_model is not None:
+            # Resolve forward reference strings to actual classes
+            if isinstance(ref_model, str):
+                import sys
+                module = sys.modules.get(model_class.__module__)
+                ref_model = getattr(module, ref_model, None) if module else None
+                if ref_model is None:
+                    continue
             results.append((field_name, ref_model))
             continue
 

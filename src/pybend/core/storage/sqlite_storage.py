@@ -93,7 +93,10 @@ class SQLiteStorage(AbstractStorage):
             for field_name, child_class in list_fields:
                 effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
                 child_table = effective_cls.__tablename__
-                fk_col = f"{model_class.__name__.lower()}_id"
+                if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
+                    fk_col = f"{effective_cls.__owner__.__name__.lower()}_id"
+                else:
+                    fk_col = f"{model_class.__name__.lower()}_id"
                 try:
                     cursor.execute(
                         f"SELECT id FROM {child_table} WHERE {fk_col} = ?",
@@ -159,7 +162,10 @@ class SQLiteStorage(AbstractStorage):
         for field_name, child_class in get_list_fields(model_class):
             effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
             child_table = effective_cls.__tablename__
-            fk_col = f"{model_class.__name__.lower()}_id"
+            if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
+                fk_col = f"{effective_cls.__owner__.__name__.lower()}_id"
+            else:
+                fk_col = f"{model_class.__name__.lower()}_id"
             try:
                 cursor.execute(
                     f"SELECT id FROM {child_table} WHERE {fk_col} = ?", (id,)

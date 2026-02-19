@@ -18,6 +18,17 @@ class StorableMixin:
     __tablename__: ClassVar[str]
     storage: ClassVar[StorageInterface] = None  # This will be injected
 
+    def _storage_dict(self, exclude_unset: bool = True) -> dict:
+        """Extract all field values for storage, including Pydantic-excluded fields."""
+        data = self.model_dump(exclude_unset=exclude_unset)
+        # Re-add any fields marked exclude=True (hidden from API but needed in DB)
+        for name, fi in self.model_fields.items():
+            if fi.exclude and name not in data:
+                val = getattr(self, name, None)
+                if val is not None or not exclude_unset:
+                    data[name] = val
+        return data
+
     def save(self):
         """
         Saves the current instance using the storage backend.
@@ -54,7 +65,7 @@ class StorableMixin:
             if key in join_models:
                 join_cls = join_models[key]
                 fk_field = f"{parent.__class__.__name__.lower()}_id"
-                join_data = {**data.model_dump(exclude_unset=True), fk_field: parent.id}
+                join_data = {**data._storage_dict(exclude_unset=True), fk_field: parent.id}
                 for k, v in join_data.items():
                     if hasattr(v, '__class__') and v.__class__.__name__ == "ForeignKey":
                         join_data[k] = int(v)  # unwrap FK to plain int
@@ -62,7 +73,7 @@ class StorableMixin:
                 return join_cls.create(join_cls(**join_data))
 
         # Fallback to normal behavior
-        data_dict = data.model_dump(exclude_unset=True)
+        data_dict = data._storage_dict(exclude_unset=True)
         for k, v in data_dict.items():
             if hasattr(v, '__class__') and v.__class__.__name__ == "ForeignKey":
                 data_dict[k] = int(v)  # unwrap FK to plain int

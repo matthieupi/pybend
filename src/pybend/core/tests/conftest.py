@@ -1,18 +1,22 @@
 # tests/conftest.py
 
 import pytest
-from app import app as flask_app
-from server.storage.sqlite_storage import SQLiteStorage
-from server.utils.registrar import registered_models
 import tempfile
 import os
 
+import config
+from storage.sqlite_storage import SQLiteStorage
+from utils.registrar import registered_models
 
-@pytest.fixture
-def app():
-    # Override the database for testing
-    db_fd, db_path = tempfile.mkstemp()
-    flask_app.config['TESTING'] = True
+
+@pytest.fixture(autouse=True)
+def isolated_db(monkeypatch):
+    """Every test gets its own temporary database. The real DB is never touched."""
+    db_fd, db_path = tempfile.mkstemp(suffix='.db')
+
+    # Redirect config so nothing can accidentally use the real DB
+    monkeypatch.setattr(config, 'SQLITE_DB_FILE', db_path)
+
     storage_backend = SQLiteStorage(database=db_path)
 
     # Re-register models with the test storage backend
@@ -21,12 +25,7 @@ def app():
             model.set_storage(storage_backend)
             model.create_table()
 
-    yield flask_app
+    yield db_path
 
     os.close(db_fd)
     os.unlink(db_path)
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()

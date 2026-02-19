@@ -42,6 +42,10 @@ class BaseBackend(ABC, BaseModel):
 
 # app/backends/fastapi_backend.py
 class FastAPIBackend(BaseBackend):
+    # Paths that do not require authentication
+    AUTH_EXEMPT_PATHS: ClassVar[tuple] = ("/login", "/register", "/docs", "/openapi.json", "/redoc")
+    AUTH_EXEMPT_EXTENSIONS: ClassVar[tuple] = (".html", ".js", ".css", ".png", ".ico", ".svg", ".woff", ".woff2", ".ttf")
+
     def __init__(self, **data):
         super().__init__(**data)
         from fastapi import FastAPI
@@ -59,6 +63,43 @@ class FastAPIBackend(BaseBackend):
             allow_methods=["*"],
             allow_headers=["*"],
         )
+        self._add_auth_middleware()
+
+    def _add_auth_middleware(self):
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.responses import JSONResponse
+        from auth import decode_token
+
+        exempt_paths = self.AUTH_EXEMPT_PATHS
+        exempt_extensions = self.AUTH_EXEMPT_EXTENSIONS
+
+        class JWTAuthMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                path = request.url.path
+
+                # Skip auth for exempt paths and static files
+                if any(path.endswith(ext) for ext in exempt_extensions):
+                    return await call_next(request)
+                if any(exempt in path for exempt in exempt_paths):
+                    return await call_next(request)
+
+                token = request.headers.get("x-access-token")
+                if not token:
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Missing authentication token"},
+                    )
+                try:
+                    payload = decode_token(token)
+                    request.state.user = payload
+                except Exception:
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Invalid or expired token"},
+                    )
+                return await call_next(request)
+
+        self.app.add_middleware(JWTAuthMiddleware)
 
     def register_routes(self, registered_models: dict[str, type]):
         from api.routes_fastapi import register_routes, register_route
@@ -76,8 +117,8 @@ class FastAPIBackend(BaseBackend):
         if not static_dir.is_dir():
             return
 
-        # Serve the 3 HTML pages at the root
-        for html_file in ("schema.html", "example.html", "matrix.html"):
+        # Serve HTML pages at the root
+        for html_file in ("schema.html", "example.html", "matrix.html", "login.html", "register.html"):
             html_path = static_dir / html_file
             if html_path.exists():
                 self.app.get(f"/{html_file}", include_in_schema=False)(

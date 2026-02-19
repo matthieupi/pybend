@@ -74,7 +74,7 @@ class ForeignKey(Generic[T]):
             ),
             json_schema=core_schema.int_schema(),
             serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda v: int(v)
+                lambda v: int(v) if v is not None else None
             )
         )
 

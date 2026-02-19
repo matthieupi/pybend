@@ -204,14 +204,16 @@ def register_routes():
         for attr_name in dir(model_class):
             attr = getattr(model_class, attr_name)
             if callable(attr) and hasattr(attr, '__endpoint__'):
-                # Check if method is classmethod or staticmethod
+                # Check if method needs an instance (has 'self' param) → needs {id}
                 route_info = attr.__endpoint__
                 route = route_info['route']
                 methods = route_info['methods']
-                if isinstance(attr, (classmethod, staticmethod)):
-                    full_route = f"{endpoint_base}{route}"
-                else:
+                sig = signature(attr)
+                is_instance_method = 'self' in sig.parameters
+                if is_instance_method:
                     full_route = f"{endpoint_base}/{{id}}{route}"
+                else:
+                    full_route = f"{endpoint_base}{route}"
 
                 from typing import get_origin, get_args, ForwardRef
                 return_type = attr.__annotations__.get('return', None)

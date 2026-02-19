@@ -29,7 +29,7 @@ export default class HTTP {
                 return resp.json();
             }
             else if(this.checkIfUnauthorized(resp)) {
-                window.location = "/#login";
+                window.location = "/login.html";
             }
             else if (resp.status == 404) {
                 console.warn("Resource not found: " + url);
@@ -83,7 +83,7 @@ export default class HTTP {
                 return resp.json();
             }
             else if(this.checkIfUnauthorized(resp)) {
-                window.location = "/#login";
+                window.location = "/login.html";
             }
             else {
                 resp.json().then((json) => {
@@ -125,7 +125,7 @@ export default class HTTP {
                 return resp.json();
             }
             else if(this.checkIfUnauthorized(resp)) {
-                window.location = "/#login";
+                window.location = "/login.html";
             }
             else {
                 resp.json().then((json) => {
@@ -158,7 +158,7 @@ export default class HTTP {
                 return resp.json();
             }
             else if(this.checkIfUnauthorized(resp)) {
-                window.location = "/#login";
+                window.location = "/login.html";
             }
             else {
                 resp.json().then((json) => {

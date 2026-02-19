@@ -4,6 +4,7 @@ import os
 import config
 from api.routes_fastapi import register_route
 from models.comment_model import Comment
+from models.like_model import Like
 from models.product_model import Product
 from api.backend import FastAPIBackend, FlaskBackend
 from models.user_model import User
@@ -18,6 +19,8 @@ storage_backend = SQLiteStorage(config.SQLITE_DB_FILE)
 register_model(Product, storage=storage_backend)
 register_model(User, storage=storage_backend)
 register_model(generate_join_model(Product, Comment), storage=storage_backend)
+register_model(generate_join_model(Comment, Comment), storage=storage_backend)   # CommentComment (replies)
+register_model(generate_join_model(Comment, Like), storage=storage_backend)      # CommentLike (likes)
 
 if os.getenv("GENERATE_DOCS", "true").lower() in ("1", "true"):
     generate_docs()

@@ -40,7 +40,7 @@ class ProtoModel(PydanticBaseModel):
                 cls.__bases__ = (StorableMixin,) + cls.__bases__
                 # FK Injection: rewrite fields that are Pydantic models into ForeignKey
                 new_annotations = {}
-                for name, annotation in get_type_hints(cls, include_extras=True).items():
+                for name, annotation in get_type_hints(cls, localns={cls.__name__: cls}, include_extras=True).items():
                     # If is list, get origin and args
                     if isinstance(annotation, type) and issubclass(annotation, BaseModel) and annotation != cls:
                         new_annotations[name] = ForeignKey[annotation]
@@ -145,6 +145,14 @@ class ProtoModel(PydanticBaseModel):
         referenced_models = collect_all_referenced_models(cls)
         schema = cls.model_json_schema(ref_template="#/$defs/{model}")
 
+        # Strip hidden fields from schema properties
+        hidden = getattr(cls, '__hidden_fields__', set())
+        if hidden and 'properties' in schema:
+            for name in hidden:
+                schema['properties'].pop(name, None)
+            if 'required' in schema:
+                schema['required'] = [r for r in schema['required'] if r not in hidden]
+
         # Add methods signature to schema
         schema['methods'] = cls.__pybend_methods_json_signature__()
         # Add referenced models to $defs
@@ -154,15 +162,20 @@ class ProtoModel(PydanticBaseModel):
                 schema['$defs'] = {}
             # Add all referenced models to $defs
             for model in referenced_models:
-                #if model.__name__ not in schema['$defs']:
                 # Bubble up the $defs from the referenced model
                 ref_schema = model.referenced_json_schema()
                 ref_methods = model.__pybend_methods_json_signature__()
                 defs = ref_schema.pop('$defs', {})  # Remove $defs to avoid circular references
                 schema['$defs'] = {**defs, **schema['$defs']} if defs else schema['$defs']
-                schema['$defs'][model.__name__] = ref_schema
-                # Add methods to the model's schema
-                schema['$defs'][model.__name__]['methods'] = ref_methods
+                # Only overwrite if ref_schema has actual properties
+                # (self-referencing models like Comment become bare $refs after pop)
+                if 'properties' in ref_schema:
+                    schema['$defs'][model.__name__] = ref_schema
+                elif model.__name__ not in schema['$defs']:
+                    schema['$defs'][model.__name__] = ref_schema
+                # Add methods to the model's $def entry
+                if model.__name__ in schema['$defs']:
+                    schema['$defs'][model.__name__]['methods'] = ref_methods
 
             # Add $id to each $defs entry
             for model in referenced_models:
@@ -184,13 +197,14 @@ class ProtoModel(PydanticBaseModel):
         """
         schema = cls.model_json_schema()
         # 💡 Resolve ForeignKey field schemas into proper $ref
-        for field_name, field_info in cls.model_fields.items():
-            field_type = field_info.annotation
-            if get_origin(field_type) is ForeignKey:
-                target = get_args(field_type)[0]
-                if target.__name__ not in cls._referenced_models:
-                    record_model_type(cls, target)
-                schema['properties'][field_name] = {"type": "$ref", "$ref": f"#/$defs/{target.__name__}"}
+        if 'properties' in schema:
+            for field_name, field_info in cls.model_fields.items():
+                field_type = field_info.annotation
+                if get_origin(field_type) is ForeignKey:
+                    target = get_args(field_type)[0]
+                    if target.__name__ not in cls._referenced_models:
+                        record_model_type(cls, target)
+                    schema['properties'][field_name] = {"type": "$ref", "$ref": f"#/$defs/{target.__name__}"}
 
         return schema
 
