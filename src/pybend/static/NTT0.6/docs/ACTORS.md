@@ -429,7 +429,7 @@ constructor(data) {
 }
 
 get value() {
-  // Returns this._data with @context (href) and @type (class name) injected
+  // Returns this._data with $id (instance URL) and $schema (schema URL) injected
 }
 
 set value(val) {

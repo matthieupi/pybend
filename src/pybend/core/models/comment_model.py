@@ -19,7 +19,7 @@ class Comment(ProtoModel):
     name: str
     description: str = ''
     user_owner: User = Field(default=None, alias='user_owner', description="User who owns the comment")
-    id: Optional[int] = Field(default=None, alias='comment_id')
+    id: Optional[int] = Field(default=None)
 
     """
     @staticmethod

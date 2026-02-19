@@ -679,7 +679,7 @@ Renders a single entity as an editable card with form fields.
 | Handler | Data | Behavior |
 |---------|------|----------|
 | `DESCRIBE(data)` | `{proto: schema, data: entity}` | Sets schema + value, renders |
-| `UPDATE(data)` | Entity data with `@type` | Updates value, re-renders |
+| `UPDATE(data)` | Entity data with `$schema` | Updates value, re-renders |
 
 **Modes:**
 
@@ -896,7 +896,7 @@ All settings in `config.js`:
 | "CORS error" in console | Backend doesn't allow frontend origin | Add CORS middleware to FastAPI backend |
 | Cards render but show "Placeholder" | Schema loaded but READ failed | Check backend `/tablename` endpoint returns an array |
 | Edit + Save does nothing | NTT update flow not connected | Check browser console for TX routing errors |
-| `@type` assertion error on save | Response bypassing NTT, going directly to Item | Hard-refresh browser (Ctrl+Shift+R) to clear cached JS |
+| `$schema` assertion error on save | Response bypassing NTT, going directly to Item | Hard-refresh browser (Ctrl+Shift+R) to clear cached JS |
 
 ### Debugging Tips
 

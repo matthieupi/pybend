@@ -96,7 +96,7 @@ constructor(defaultValue={}) {
 | `ref` | `string` | Reference address. Setting this sends ATTACH to NTT. |
 | `proto` | `DynClass` | The DynClass prototype (set via `define()`). |
 | `schema` | `object` | JSON schema from proto. Cached in `_schema`. |
-| `value` | `object` | Current entity data. Setting triggers `render()` if `_type` is set. |
+| `value` | `object` | Current entity data. Setting triggers `render()` if `$schema` is set. |
 
 ### Attribute Change Behavior
 
@@ -210,7 +210,7 @@ constructor() {
   super({});  // NTTElement with empty object as default value
   this.mode = this.getAttribute('mode') || 'display';
   // Attaches ntt-item.css stylesheet to shadow DOM
-  this._type = undefined;  // Guards render() until type is known
+  this.$schema = undefined;  // Guards render() until type is known
 }
 ```
 
@@ -218,7 +218,7 @@ constructor() {
 
 | Handler | Trigger | Behavior |
 |---------|---------|----------|
-| `UPDATE(data)` | TT watcher notification | Validates `@type` field exists. Sets value. If type changed, sends CONNECT to the new type. |
+| `UPDATE(data)` | TT watcher notification | Validates `$schema` field exists. Sets value. If type changed, sends CONNECT to the new type (class name extracted from `$schema` URL via `.split("/").pop()`). |
 | `DESCRIBE(data)` | NTT responds to ATTACH | Sets `this.schema = data.proto`, `this.value = data.data`, calls `render()`. |
 
 ### Render

@@ -114,7 +114,6 @@ function getListInput(ntt, key, mode = 'display') {
     }
 
     html.push(`<div class="list-field">`);
-    html.push(`<label>${def.title || key}</label>`);
 
     if (Array.isArray(value)) {
         value.forEach(item => {

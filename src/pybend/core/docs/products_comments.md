@@ -9,7 +9,7 @@
 | name | string | Yes | — |
 | description | string | No |  |
 | user_owner | integer | No | None |
-| comment_id | object | No | None |
+| id | object | No | None |
 | product_id | integer | Yes | — |
 
 ## Routes

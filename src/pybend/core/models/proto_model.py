@@ -24,6 +24,7 @@ class ProtoModel(PydanticBaseModel):
 
     class Config:
         arbitrary_types_allowed = True  # allows ForeignKey through
+        extra = 'allow'  # allows $schema/$id to pass through FastAPI response model
         json_encoders = {
             ForeignKey: lambda fk: int(fk),
         }
@@ -73,15 +74,19 @@ class ProtoModel(PydanticBaseModel):
         self.__owner__ = kwargs.get('__owner__', None)
 
 
-    def serialize(self) -> Dict[str, Any]:
-        """Returns model data with JSON Schema $schema and $id."""
-        tablename = getattr(self.__class__, '__tablename__', self.__class__.__name__.lower())
-        instance_id = getattr(self, 'id', None)
-        return {
-            '$schema': f"{config.API_URL}/{self.__class__.__name__}",
-            '$id': f"{config.API_URL}/{tablename}/{instance_id}" if instance_id is not None else None,
-            **self.model_dump()
-        }
+    def model_dump(self, *, response: bool = False, **kwargs) -> Dict[str, Any]:
+        """Override to optionally inject $schema and $id for API responses.
+        Default returns plain data for DB. response=True adds JSON Schema metadata."""
+        data = super().model_dump(**kwargs)
+        if response:
+            tablename = getattr(self.__class__, '__tablename__', self.__class__.__name__.lower())
+            instance_id = getattr(self, 'id', None)
+            data = {
+                '$schema': f"{config.API_URL}/{self.__class__.__name__}",
+                '$id': f"{config.API_URL}/{tablename}/{instance_id}" if instance_id is not None else None,
+                **data
+            }
+        return data
 
     @classmethod
     def __pybend_methods_json_signature__(cls) -> dict:
