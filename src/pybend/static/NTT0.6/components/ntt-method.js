@@ -36,7 +36,7 @@ export class NTTMethod extends HTMLElement {
     if (!this.proto) return console.error(`[ntt-method] Model not found: ${this.model}`);
 
     if (this.uuid) {
-      this.ntt = await this.proto.get(this.uuid);
+      this.ntt = NTT.get(this.model + '/' + this.uuid);
       if (!this.ntt) return console.error(`[ntt-method] Instance not found: ${this.uuid}`);
     }
 
@@ -50,37 +50,42 @@ export class NTTMethod extends HTMLElement {
   handleInput(e) {
     const name = e.target.name;
     let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    this.value[name] = val;
+    if (name.includes('.')) {
+      const [param, field] = name.split('.');
+      if (!this.value[param]) this.value[param] = {};
+      this.value[param][field] = val;
+    } else {
+      this.value[name] = val;
+    }
     if (this.mode === 'auto') this.callMethod();
   }
 
-  async callMethod() {
+  callMethod() {
     const payload = { ...this.value };
     const target = this.schema.scope === 'instancemethod' ? this.ntt : this.proto;
     if (!target || !target.call) return console.warn(`[ntt-method] Invalid call target.`);
 
-    try {
-      const result = await target.call(this.method, payload);
-      this.response = result;
-      this.render();
-
-      if (this.forward) {
-        const forwardTarget = NTT.get(this.forward);
-        if (forwardTarget?.call) {
-          forwardTarget.call('UPDATE', result);
-        } else {
-          console.warn(`[ntt-method] Forward target not found at ${this.forward}`);
-        }
-      }
-    } catch (err) {
-      this.response = { error: err.message || err };
-      this.render();
-    }
+    target.call(this.method, payload, { inbox: '_response_' });
+    this.response = { status: 'sent' };
+    this.render();
   }
 
   render() {
     const fields = Object.entries(this.schema.parameters || {});
+    const defs = this.proto?.schema?.$defs || {};
     const formInputs = fields.map(([key, def]) => {
+      if (def.type === '$ref' && def.$ref) {
+        const refName = def.$ref.replace('#/$defs/', '');
+        const refSchema = defs[refName];
+        if (!refSchema?.properties) return `<label>${key} (unresolved)</label>`;
+        const required = refSchema.required || [];
+        return Object.entries(refSchema.properties)
+          .filter(([k]) => required.includes(k))
+          .map(([k, p]) => `
+            <label>${p.title || k}</label>
+            <input name="${key}.${k}" type="${p.type === 'number' ? 'number' : 'text'}" value="${this.value?.[key]?.[k] || ''}" />
+          `).join('');
+      }
       return `
         <label>${def.title || key}</label>
         <input name="${key}" type="${def.type || 'text'}" value="${this.value[key] || ''}" />

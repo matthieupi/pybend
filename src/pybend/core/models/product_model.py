@@ -38,6 +38,7 @@ class Product(ProtoModel):
         """
         print(f"Adding comment to product {self.id}: {comment}")
         print(type(comment))
+        comment.user_owner = 1  # TODO: use actual authenticated user
         comment.__owner__ = self
         comment.save()
         return comment.model_dump_json()

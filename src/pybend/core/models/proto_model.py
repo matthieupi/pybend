@@ -228,9 +228,8 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
     fk_field = f"{owner_name.lower()}_id"
 
     print(f"[{owner_cls.__name__}.{ref_model.__name__}] Generating join model '{class_name}' with table '{tablename}'", flush=True)
-    # Construct __annotations__ and field definitions separately
-    annotations = dict(ref_model.__annotations__)
-    annotations[fk_field] = int
+    # Only annotate the new FK field — inherited fields keep their defaults
+    annotations = {fk_field: int}
 
     fields = {
         "__tablename__": tablename,

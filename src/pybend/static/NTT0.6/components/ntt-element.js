@@ -1,6 +1,6 @@
 import './ntt-item.js';
 import {NTT} from '../core/NTT.js';
-import {isEmpty, generateId} from "../core/Utils.js";
+import {isEmpty, generateId, isUrl} from "../core/Utils.js";
 import Logging from "../utils/Logging.js";
 import {matrix} from "../core/Matrix.js";
 import {Component} from "../core/Component.js";
@@ -38,12 +38,22 @@ export class NTTElement extends Component {
   get ref() { return this.#href; }
   set ref(href) {
     this.#href = href;
-    this.send(new TX({
-        name: 'ATTACH',
-        source: this.addr,
-        target: 'NTT',
-        data: href,
-        }))
+    if (isUrl(href)) {
+      // Direct URL href — fetch the resource directly
+      this.send(new TX({
+          name: 'READ',
+          source: this.addr,
+          target: href,
+      }));
+    } else {
+      // NTT address — existing ATTACH flow
+      this.send(new TX({
+          name: 'ATTACH',
+          source: this.addr,
+          target: 'NTT',
+          data: href,
+      }));
+    }
   }
  
   

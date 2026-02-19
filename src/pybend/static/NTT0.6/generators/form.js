@@ -81,7 +81,7 @@ function getInput(ntt, key, mode = 'display') {
         } else if (type === 'number') {
             html.push(`<input type="number" id="${key}" data-key="${key}" data-type="${type}" value="${value}">`);
         } else if (type === 'array') {
-            //html.push(getArrayInput(ntt, def, key, value));
+            html.push(getListInput(ntt, key, mode));
         } else {
             html.push(`<input type="${type}" data-key="${key}" data-type="${type}" value="${value}" id="${key}">`);
         }
@@ -89,12 +89,43 @@ function getInput(ntt, key, mode = 'display') {
         if (type === '$ref' || def?.$ref) {
             html.push(`<div>[Reference: ${value?.name || value?.id || JSON.stringify(value)}]</div>`);
         } else if (type === 'array') {
-            //html.push(getArrayInput(ntt, def, key, mode));
+            html.push(getListInput(ntt, key, mode));
         } else {
             html.push(`<div>${value}</div>`);
         }
     }
     
+    return html.join('');
+}
+
+function getListInput(ntt, key, mode = 'display') {
+    const def = ntt.schema.properties?.[key];
+    const items = def.items || {};
+    const value = ntt.value?.[key] || [];
+    let html = [];
+
+    // Extract model name from $ref in items schema
+    let modelName = null;
+    if (items.$ref) {
+        modelName = items.$ref.split('/').pop();
+    } else if (items.anyOf) {
+        const refEntry = items.anyOf.find(a => a.$ref);
+        if (refEntry) modelName = refEntry.$ref.split('/').pop();
+    }
+
+    html.push(`<div class="list-field">`);
+    html.push(`<label>${def.title || key}</label>`);
+
+    if (Array.isArray(value)) {
+        value.forEach(item => {
+            if (typeof item === 'string') {
+                // href string — render as ntt-item
+                html.push(`<ntt-item ref="${item}"${modelName ? ` data-model="${modelName}"` : ''}></ntt-item>`);
+            }
+        });
+    }
+
+    html.push(`</div>`);
     return html.join('');
 }
 
@@ -150,5 +181,6 @@ export const Formidable = {
     refInput,
     getForm,
     getInput,
+    getListInput,
     getArrayInput
 }

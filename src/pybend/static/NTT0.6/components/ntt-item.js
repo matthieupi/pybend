@@ -1,4 +1,5 @@
 import { NTTElement} from "./ntt-element.js";
+import {NTT} from '../core/NTT.js';
 import {NTTMethod} from "./ntt-method.js";
 import {Formidable} from '../generators/form.js';
 import Logging from "../utils/Logging.js";
@@ -38,6 +39,17 @@ export class Item extends NTTElement {
     }
   }
   
+  READ(data) {
+    // Response from direct URL href fetch (ListRef resolution)
+    const modelName = this.getAttribute('data-model');
+    const DynClass = modelName ? NTT.get(modelName) : null;
+    if (DynClass) {
+        this.schema = DynClass._schema;
+        this.value = data;
+        this.render();
+    }
+  }
+
   DESCRIBE(data) {
     Logging.dev(`[NTT-ITEM ${this.model}] Received DESCRIBE`, data);
     this.schema = data.proto
@@ -123,18 +135,16 @@ render() {
     const methodSchema = methods[methodName];
     const label = methodSchema.title || methodName;
     
-    /**
     if (this.mode !== 'edit') {
       html.push(`
         <ntt-method
-          model="${this.model}"
-          uuid="${this.value?.addr || ''}"
+          model="${this.schema?.__name__ || ''}"
+          uuid="${this.value?.id || ''}"
           method="${methodName}"
           label="${label}">
         </ntt-method>
       `);
     }
-     */
   }
   
   this.shadowRoot.innerHTML = `<div class="card">${html.join('')}</div>`;
