@@ -1,0 +1,107 @@
+/**
+ * NTTElement — Single entity base class.
+ *
+ * Handles the data lifecycle for one entity instance:
+ *   - Receives data via UPDATE, DESCRIBE, READ message handlers
+ *   - Provides save() to push changes back to the backend
+ *   - Auto-renders when value changes and schema is available
+ *
+ * Subclass and override render() to build custom entity components.
+ * The built-in NTTItem (ntt-item.js) provides a zero-config default.
+ */
+import {Component} from '../core/Component.js';
+import {NTT} from '../core/NTT.js';
+import Logging from '../utils/Logging.js';
+import assert from '../utils/Assert.js';
+import TX from '../core/TX.js';
+
+
+export class NTTElement extends Component {
+
+  // Track the schema name for CONNECT flow
+  $schema = undefined;
+
+  constructor() {
+    super({});  // Default value: single entity object
+  }
+
+  /** ─────────────────────────────────────────── **/
+  /**         Value Override (auto-render)          **/
+  /** ─────────────────────────────────────────── **/
+
+  set value(data) {
+    super.value = data;
+    // Auto-render when we have both schema and data
+    if (this.schema && this.schema.__name__) {
+      this.render();
+    }
+  }
+  get value() { return super.value; }
+
+
+  /** ─────────────────────────────────────────── **/
+  /**         Message Handlers                     **/
+  /** ─────────────────────────────────────────── **/
+
+  /**
+   * Receives entity data push (e.g. from DynamicClass watcher notification,
+   * or from another component sending an UPDATE).
+   */
+  UPDATE(data) {
+    Logging.dev(`[NTTElement] ${this.schema.__name__} — UPDATE`, data);
+    assert(this, "$schema" in data, "UPDATE data missing $schema field");
+    this.value = data;
+
+    // If the schema source changed, send CONNECT to resolve it
+    const schemaName = data['$schema']?.split('/').pop();
+    if (this.$schema !== schemaName) {
+      this.$schema = schemaName;
+      this.send(new TX({
+        name: 'CONNECT',
+        source: this.addr,
+        target: this.$schema
+      }));
+    }
+  }
+
+  /**
+   * Receives proto + data together (from NTT instance ATTACH response).
+   */
+  DESCRIBE(data) {
+    Logging.dev(`[NTTElement ${this.model}] — DESCRIBE`, data);
+    this.schema = data.proto;
+    this.value = data.data;
+    this.render();
+  }
+
+  /**
+   * Receives data from a direct URL fetch (ListRef href resolution).
+   */
+  READ(data) {
+    const modelName = this.getAttribute('data-model');
+    const DynClass = modelName ? NTT.get(modelName) : null;
+    if (DynClass) {
+      this.schema = DynClass._schema;
+      this.value = data;
+      this.render();
+    }
+  }
+
+
+  /** ─────────────────────────────────────────── **/
+  /**         Save                                 **/
+  /** ─────────────────────────────────────────── **/
+
+  /**
+   * Sends the current value as an UPDATE TX back to the entity's ref.
+   * Call this from your component when the user commits edits.
+   */
+  save() {
+    this.send(new TX({
+      name: 'UPDATE',
+      source: this.addr,
+      target: this.ref,
+      data: this.value
+    }));
+  }
+}
