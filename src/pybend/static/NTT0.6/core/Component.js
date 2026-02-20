@@ -30,6 +30,10 @@ export class Component extends HTMLElement {
   #detach = undefined;
   #unsubscribe = undefined;
 
+  // ── Adaptive display ──
+  #displayMode = 'card';
+  #resizeObserver = null;
+
   // ── Stylesheet ──
   $styles = null;
 
@@ -201,6 +205,67 @@ export class Component extends HTMLElement {
 
 
   /** ─────────────────────────────────────────── **/
+  /**         Adaptive Display Mode                **/
+  /** ─────────────────────────────────────────── **/
+
+  /**
+   * Breakpoint thresholds (px) for display mode resolution.
+   * Override in subclass to customize. Keys are mode names,
+   * values are minimum widths. Evaluated largest-first.
+   * @returns {Object}
+   */
+  get displayBreakpoints() {
+    return { page: 800, card: 400, 'list-item': 200, chip: 0 };
+  }
+
+  /**
+   * Current display mode based on component width.
+   * Use in render() to adapt layout: this.displayMode === 'card', etc.
+   * @returns {string}
+   */
+  get displayMode() { return this.#displayMode; }
+
+  /**
+   * Hook called when displayMode changes due to resize.
+   * Default: re-renders if schema is available.
+   * Override for custom behavior (e.g. CSS-only swap).
+   * @param {string} oldMode
+   * @param {string} newMode
+   */
+  displayModeChanged(oldMode, newMode) {
+    if (this._schema || this.#proto?.schema) {
+      this.render();
+    }
+  }
+
+  /**
+   * Start the ResizeObserver that tracks displayMode.
+   * Called automatically from connectedCallback.
+   */
+  #startResizeObserver() {
+    if (this.#resizeObserver) return;
+    this.#resizeObserver = new ResizeObserver(([entry]) => {
+      const width = entry.contentRect.width;
+      if (width === 0) return; // not laid out yet
+      const bp = this.displayBreakpoints;
+      const sorted = Object.entries(bp).sort(([, a], [, b]) => b - a);
+      const newMode = sorted.find(([, min]) => width >= min)?.[0] || 'chip';
+      if (newMode !== this.#displayMode) {
+        const oldMode = this.#displayMode;
+        this.#displayMode = newMode;
+        this.displayModeChanged(oldMode, newMode);
+      }
+    });
+    this.#resizeObserver.observe(this);
+  }
+
+  #stopResizeObserver() {
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = null;
+  }
+
+
+  /** ─────────────────────────────────────────── **/
   /**         Subscription Helpers                 **/
   /** ─────────────────────────────────────────── **/
 
@@ -230,9 +295,12 @@ export class Component extends HTMLElement {
   /**         Web Component Lifecycle              **/
   /** ─────────────────────────────────────────── **/
 
-  connectedCallback() {}
+  connectedCallback() {
+    this.#startResizeObserver();
+  }
 
   disconnectedCallback() {
+    this.#stopResizeObserver();
     this.#detach?.();
     this.#unsubscribe?.();
   }

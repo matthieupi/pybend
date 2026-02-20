@@ -297,8 +297,9 @@ Merges current `Component` + `NTTElement`. Single class, single file.
 - Ref resolution: `ref` attr → ATTACH TX (NTT address) or READ TX (URL)
 - `value` storage: getter/setter with type guard, **no auto-render**
 - Stylesheet hook: `get styles()` returns CSS URL, base handles `<link>` injection
+- Adaptive display: `displayMode`, `displayBreakpoints`, `displayModeChanged()` via ResizeObserver (§8)
 - `observedAttributes`: `['addr', 'hash', 'model', 'ref']`
-- Lifecycle: `connectedCallback`, `disconnectedCallback` (cleanup)
+- Lifecycle: `connectedCallback` (starts ResizeObserver), `disconnectedCallback` (cleanup)
 - Abstract `render()` (single declaration)
 
 **Removed:**
@@ -351,12 +352,13 @@ customElements.define('ntt-list', NTTList);
 
 | File | Action | Lines |
 |---|---|---|
-| `core/Component.js` | **Rewritten** — merged old Component + old NTTElement | 249 |
-| `components/NTTElement.js` | **New** — entity base extracted from old Item | 103 |
-| `components/ListElement.js` | **New** — collection base extracted from old List | 129 |
+| `core/Component.js` | **Rewritten** — merged base + adaptive display (§8) | 317 |
+| `components/NTTElement.js` | **New** — entity base extracted from old Item | 107 |
+| `components/ListElement.js` | **New** — collection base extracted from old List | 131 |
 | `components/ntt-item.js` | **Slimmed** — thin NTTItem default over NTTElement | 115 |
 | `components/ntt-list.js` | **Slimmed** — thin NTTList default over ListElement | 19 |
 | `components/ntt-element.js` | **Deleted** — absorbed into `core/Component.js` | - |
+| `generators/form.js` | **Enhanced** — field_order, widget, groups, validation (§4, §11) | 268 |
 
 ### Issues Resolved
 
@@ -372,11 +374,11 @@ customElements.define('ntt-list', NTTList);
 
 ### Unchanged Files
 
-`core/NTT.js`, `core/Matrix.js`, `core/Actor.js`, `core/Observable.js`, `core/TX.js`, `generators/form.js`, `components/ntt-method.js` — the data layer and message infrastructure are untouched.
+`core/Matrix.js`, `core/Actor.js`, `core/Observable.js`, `core/TX.js`, `components/ntt-method.js` — the actor system and message infrastructure remain untouched. `core/NTT.js` was modified for SSR pre-loading (§7). `generators/form.js` was enhanced with UI hint consumption, field ordering, widget mapping, and grouped rendering (§4, §11).
 
 ---
 
-## 4. Enhancement: Schema UI Extensions (Backend)
+## 4. Enhancement: Schema UI Extensions (Backend) — DONE
 
 ### Goal
 
@@ -449,9 +451,21 @@ if ui_config:
 
 Pydantic already passes `json_schema_extra` through to the schema output under each property — no backend work needed for per-field hints. The `ui` key in `json_schema_extra` just becomes a convention.
 
-### Frontend Consumption
+### Frontend Consumption — DONE
 
-Formidable and default renderers read `schema.ui` for layout decisions. Custom components access `this.schema.ui?.groups` etc. if they want the hints, or ignore them entirely.
+Formidable (`generators/form.js`) now consumes all three model-level UI hints:
+
+**`field_order`**: `getForm()` renders fields in `schema.ui.field_order` order instead of `Object.keys()` order. Fields not listed in `field_order` are appended at the end (safety net for schema additions).
+
+**`groups`**: When `schema.ui.groups` is defined, fields are wrapped in `<fieldset class="ntt-group ntt-group-{name}">` with `<legend>` per group. Fields not belonging to any group render ungrouped at the end. New helper: `renderGroupedFields(ntt, renderableFields, groups, mode)`.
+
+**`widget`** (per-field): The `ui.widget` hint takes priority over `type` for rendering decisions in `getInput()`:
+- `widget: 'textarea'` → `<textarea>` in edit mode, `<div class="text-block">` in display (regardless of `type: 'string'`)
+- `widget: 'currency'` → `<input type="number" step="0.01">` with `$` prefix in edit, `$X.XX` formatted in display
+
+**`placeholder`** (per-field): `ui.placeholder` is already consumed via `validationAttrs()` and applied to inputs.
+
+The existing `ui.display: false` check (§9) integrates with field ordering — excluded fields are filtered out before ordering/grouping runs.
 
 ### Design Principle
 
@@ -459,7 +473,7 @@ Formidable and default renderers read `schema.ui` for layout decisions. Custom c
 
 ---
 
-## 5. Enhancement: Slot-Based Child Templates
+## 5. Enhancement: Slot-Based Child Templates — DONE (in P0)
 
 ### Goal
 
@@ -580,7 +594,7 @@ Backend naming frontend component tags creates coupling. This is acceptable beca
 
 ---
 
-## 7. Enhancement: SSR Pre-Loading
+## 7. Enhancement: SSR Pre-Loading — DONE
 
 ### Problem
 
@@ -602,37 +616,20 @@ Server-rendered pages can inline both schema and data as JSON:
 <ntt-list model="Product"></ntt-list>
 ```
 
-### NTT Core Change
+### Implementation (completed)
 
-In `NTT.ATTACH` (or a new bootstrap check), before sending SCHEMA TX over network:
+Two private static helper methods added to `NTT` class in `core/NTT.js`:
 
-```js
-static ATTACH(data, tx) {
-  const model = addr.split('/')[0];
-  const DC = NTT.#prototypes.get(model);
+- **`#consumePreloadedSchema(model)`** — Checks `document.querySelector('script[data-ntt-schema="ModelName"]')`. If found, parses JSON, feeds to `NTT.SCHEMA()` directly, removes the script tag (one-shot consumption). Returns `true` if pre-loaded schema was found.
+- **`#consumePreloadedData(tablename)`** — Checks `document.querySelector('script[data-ntt-data="tablename"]')`. If found, parses JSON, removes script tag, returns data array. Returns `null` if not found.
 
-  if (DC) { /* exists — forward */ }
-  else if (DC === null) { /* in flight — queue */ }
-  else {
-    // Check for pre-loaded schema before network fetch
-    const preloaded = document.querySelector(`script[data-ntt-schema="${model}"]`);
-    if (preloaded) {
-      NTT.SCHEMA(JSON.parse(preloaded.textContent));
-      // Also check for pre-loaded data
-      const preloadedData = document.querySelector(`script[data-ntt-data="${model.toLowerCase()}s"]`);
-      if (preloadedData) {
-        const DC = NTT.#prototypes.get(model);
-        DC.READ(JSON.parse(preloadedData.textContent));
-      }
-      return;
-    }
-    // No pre-load — normal network bootstrap
-    NTT.#prototypes.set(model, null);
-    NTT.#waiting.set(model, [tx]);
-    matrix.dispatch(new TX({ name: 'SCHEMA', source: 'NTT', target: `${config.API_URL}/${model}`, meta: {remote: true} }));
-  }
-}
-```
+**Wired into three bootstrap paths:**
+
+1. `NTT.attach()` — "Never seen" branch: tries `#consumePreloadedSchema(addr)` before sending SCHEMA TX
+2. `NTT.ATTACH()` — "Never seen" branch: same pre-load check before network fetch
+3. `NTT.SCHEMA()` — After creating DynamicClass: tries `#consumePreloadedData(tablename)` and calls `DC.READ(data)` directly instead of `DC.call('READ')` if found
+
+**Queue-then-consume pattern**: Both `attach()` and `ATTACH()` set up the waiting queue *before* calling `#consumePreloadedSchema()`. This ensures that when `NTT.SCHEMA()` runs synchronously and replays the queue, all pending callbacks/TXs are already queued.
 
 ### Backend Support
 
@@ -654,11 +651,11 @@ async def model_page(model_name: str):
 
 ### Impact
 
-Eliminates both network round-trips for server-rendered pages. For SPA-style navigation (no server page render), the existing fetch flow works unchanged. No changes to the component layer.
+Eliminates both network round-trips for server-rendered pages. For SPA-style navigation (no server page render), the existing fetch flow works unchanged. Only `core/NTT.js` was modified — no changes to the component layer.
 
 ---
 
-## 8. Enhancement: Adaptive Display Modes
+## 8. Enhancement: Adaptive Display Modes — DONE (Phase 2)
 
 ### Goal
 
@@ -681,43 +678,34 @@ A single component renders differently (page / card / list-item / chip) based on
 
 **Layer B — JS mode switching** (different HTML structures per mode):
 
-Built into Component base or as a mixin. Uses ResizeObserver to track container width and expose `this.displayMode`:
+### Implementation (completed — Phase 2)
 
+Added to `core/Component.js` base class. Every component gets space-awareness for free.
+
+**Private state:**
+- `#displayMode = 'card'` — current mode, initialized to `'card'`
+- `#resizeObserver = null` — ResizeObserver instance
+
+**Public API:**
+
+- **`get displayBreakpoints()`** — Override in subclass to customize. Returns `{page: 800, card: 400, 'list-item': 200, chip: 0}`. Keys are mode names, values are minimum widths (px). Evaluated largest-first.
+
+- **`get displayMode()`** — Returns the current mode string. Use in `render()` to adapt layout.
+
+- **`displayModeChanged(oldMode, newMode)`** — Hook called when mode changes due to resize. Default behavior: re-renders if schema is available. Override for custom behavior (e.g., CSS-class-only swap without full re-render).
+
+**Lifecycle wiring:**
+- `connectedCallback()` calls `#startResizeObserver()` which creates a ResizeObserver watching `this`. Skips width=0 (not yet laid out).
+- `disconnectedCallback()` calls `#stopResizeObserver()` which disconnects and nulls the observer.
+
+**Mode resolution logic:**
 ```js
-// In Component (base class) or as opt-in mixin
-#displayObserver;
-#displayMode = 'card';
-
-get displayBreakpoints() {
-  // Override in subclass to customize
-  return { page: 800, card: 400, 'list-item': 200, chip: 0 };
-}
-
-get displayMode() { return this.#displayMode; }
-
-connectedCallback() {
-  super.connectedCallback();
-  this.#displayObserver = new ResizeObserver(([entry]) => {
-    const width = entry.contentRect.width;
-    const bp = this.displayBreakpoints;
-    const newMode = Object.entries(bp)
-      .sort(([,a], [,b]) => b - a)
-      .find(([, min]) => width >= min)?.[0] || 'chip';
-    if (newMode !== this.#displayMode) {
-      this.#displayMode = newMode;
-      this.render();
-    }
-  });
-  this.#displayObserver.observe(this);
-}
-
-disconnectedCallback() {
-  this.#displayObserver?.disconnect();
-  super.disconnectedCallback();
-}
+// Inside ResizeObserver callback
+const sorted = Object.entries(bp).sort(([,a], [,b]) => b - a);
+const newMode = sorted.find(([, min]) => width >= min)?.[0] || 'chip';
 ```
 
-### Schema Integration
+### Schema Integration (future — Phase 3)
 
 Pairs with §4 (Schema UI Extensions). Schema can define which fields to show per mode:
 
@@ -732,7 +720,7 @@ __ui__: ClassVar[dict] = {
 }
 ```
 
-This allows Formidable (or a new adaptive renderer) to auto-generate the right HTML for each mode from schema alone — without the developer writing four separate render methods.
+This allows Formidable (or a new adaptive renderer) to auto-generate the right HTML for each mode from schema alone — without the developer writing four separate render methods. Not yet implemented.
 
 ### Developer Experience
 
@@ -753,24 +741,29 @@ class ProductView extends NTTElement {
   renderChip() { /* just name */ }
 }
 
-// Option B: Schema-driven adaptive (no render override needed)
-// If schema defines display_modes, the default renderer picks fields per mode automatically
-class ProductView extends NTTElement {}  // Adaptive rendering comes free from schema
+// Option B: Custom breakpoints
+class CompactProduct extends NTTElement {
+  get displayBreakpoints() {
+    return { full: 500, compact: 200, chip: 0 };
+  }
+}
+
+// Option C: CSS-only mode switch (no re-render)
+class StyledProduct extends NTTElement {
+  displayModeChanged(oldMode, newMode) {
+    this.shadowRoot.host.setAttribute('data-mode', newMode);
+    // No render() call — CSS handles the rest via [data-mode="card"] selectors
+  }
+}
 ```
 
-### Phasing
+### Decision: Component base (implemented)
 
-- Phase 1: CSS Container Queries support in base styles (low effort, immediate benefit)
-- Phase 2: `displayMode` via ResizeObserver in Component (medium effort)
-- Phase 3: Schema-driven adaptive rendering with Formidable (high effort, pairs with §4 and §10)
-
-### Decision: Component base vs opt-in mixin
-
-Recommended: **Component base**. The ResizeObserver is cheap. Exposing `this.displayMode` to every component costs nothing if unused. Components that don't override `render()` per mode simply ignore it. This follows the principle that a primitive should be available without requiring opt-in boilerplate.
+**Component base**, not opt-in mixin. The ResizeObserver is cheap. `this.displayMode` is available to every component at zero cost if unused. Components that don't check `displayMode` in `render()` simply ignore it.
 
 ---
 
-## 9. Enhancement: Field Exclusion Conventions
+## 9. Enhancement: Field Exclusion Conventions — DONE
 
 ### Problem
 
@@ -893,7 +886,7 @@ This can be a Python utility in `src/pybend/core/utils/scaffold.py` that both th
 
 ---
 
-## 11. Enhancement: Schema-Driven Validation
+## 11. Enhancement: Schema-Driven Validation — DONE
 
 ### Goal
 
@@ -1055,23 +1048,24 @@ These are tooling that helps developers be productive. They're separate from the
 | Priority | Enhancement | §  | Status | Depends on |
 |---|---|---|---|---|
 | ~~**P0**~~ | ~~Component layer refactor~~ | ~~§3~~ | **DONE** | ~~Nothing~~ |
-| **P1** | Field exclusion conventions | §9 | Pending | `ProtoModel.schema()` |
-| **P1** | Schema UI extensions (`__ui__`) | §4 | Pending | `ProtoModel.schema()` |
-| **P1** | Slot-based child templates | §5 | Pending | ~~P0~~ (done) |
-| **P2** | Schema renderer hints | §6 | Pending | §4 |
-| **P2** | Schema-driven validation | §11 | Pending | §4, `form.js` |
-| **P2** | SSR pre-loading | §7 | Pending | `NTT.js` change only |
-| **P3** | Scaffolding / template generation | §10 | Pending | ~~P0~~ (done), §4 |
-| **P3** | Adaptive display modes | §8 | Pending | ~~P0~~ (done), §4 |
+| ~~**P1**~~ | ~~Field exclusion conventions~~ | ~~§9~~ | **DONE** | ~~`ProtoModel.schema()`~~ |
+| ~~**P1**~~ | ~~Schema UI extensions (`__ui__`)~~ | ~~§4~~ | **DONE** | ~~`ProtoModel.schema()`~~ |
+| ~~**P1**~~ | ~~Slot-based child templates~~ | ~~§5~~ | **DONE** (in P0) | ~~P0~~ |
+| **P2** | Schema renderer hints | §6 | Pending | ~~§4~~ (done) |
+| ~~**P2**~~ | ~~Schema-driven validation~~ | ~~§11~~ | **DONE** | ~~§4, `form.js`~~ |
+| ~~**P2**~~ | ~~SSR pre-loading~~ | ~~§7~~ | **DONE** | ~~`NTT.js` change only~~ |
+| ~~**P2**~~ | ~~Formidable UI hints (field_order, widget, groups)~~ | ~~§4~~ | **DONE** | ~~§4, `form.js`~~ |
+| ~~**P2**~~ | ~~Adaptive display modes~~ | ~~§8~~ | **DONE** | ~~P0, §4~~ |
+| **P3** | Scaffolding / template generation | §10 | Pending | ~~P0, §4~~ (done) |
 | **P3** | Relationship-aware defaults | §13 | Pending | ~~P0~~ (done), `form.js` |
-| **P4** | Schema-driven permissions | §12 | Pending | §4, auth system |
+| **P4** | Schema-driven permissions | §12 | Pending | ~~§4~~ (done), auth system |
 
 ### Recommended Implementation Order
 
 1. ~~**P0**: Component refactor~~ — **DONE**
-2. **P1 batch** (next): Field exclusion + `__ui__` schema extensions + slot templates → quick wins that make the framework immediately more useful
-3. **P2 batch**: Renderer hints + validation + pre-loading → deeper schema integration and performance
-4. **P3 batch**: Scaffolding + adaptive modes + relationship defaults → developer experience and advanced rendering
+2. ~~**P1 batch**: Field exclusion + `__ui__` schema extensions + slot templates + validation~~ — **DONE**
+3. ~~**P2 batch**: Formidable UI hints + SSR pre-loading + adaptive display modes~~ — **DONE**
+4. **P3 batch** (next): Scaffolding + renderer hints + relationship defaults → developer experience and advanced rendering
 5. **P4**: Permissions → after auth system is stable
 
 ---
@@ -1088,7 +1082,7 @@ These are tooling that helps developers be productive. They're separate from the
 
 4. **Don't break existing.** `<ntt-list model="Product">` and `<ntt-item>` must continue to work throughout. The built-in defaults (NTTItem, NTTList) are thin shells over the new bases.
 
-5. **Minimize changes to the data layer.** `NTT.js`, `Matrix.js`, `Actor.js`, `Observable.js`, `TX.js` should remain untouched unless absolutely necessary (the only exception is the pre-loading check in §7, which is a small addition to `NTT.ATTACH`).
+5. **Minimize changes to the data layer.** `NTT.js`, `Matrix.js`, `Actor.js`, `Observable.js`, `TX.js` should remain untouched unless absolutely necessary. The only exception so far is the SSR pre-loading check in §7 (two private static helpers + three guard clauses in `NTT.attach()`, `NTT.ATTACH()`, and `NTT.SCHEMA()`).
 
 ### Backend Directives
 

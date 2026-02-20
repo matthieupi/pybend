@@ -16,6 +16,27 @@ from utils.typer import Ref, _SelfRefMarker
 from .storable_mixin import StorableMixin
 
 
+_AUTO_HIDE_FIELDS = {'id', 'created_at', 'updated_at'}
+
+def _apply_field_exclusion(schema: dict):
+    """Apply ui.display=false convention to *_id, id, and timestamp fields."""
+    if 'properties' not in schema:
+        return
+    for field_name, field_def in schema['properties'].items():
+        if not isinstance(field_def, dict):
+            continue
+        is_auto_hide = (
+            field_name in _AUTO_HIDE_FIELDS
+            or (field_name.endswith('_id') and field_name != 'id')
+        )
+        if is_auto_hide:
+            existing_ui = field_def.get('ui', {})
+            if 'display' not in existing_ui:
+                if 'ui' not in field_def:
+                    field_def['ui'] = {}
+                field_def['ui']['display'] = False
+
+
 class ProtoModel(PydanticBaseModel):
     """
     Base model that optionally adds StorableMixin based on the 'storable' class attribute.
@@ -194,6 +215,26 @@ class ProtoModel(PydanticBaseModel):
         # Add access rules to schema
         from authorize.schema import access_schema
         schema['access'] = access_schema(cls)
+
+        # Apply field exclusion conventions: auto-set ui.display=false for internal fields
+        _apply_field_exclusion(schema)
+
+        # Also apply to $defs entries
+        if '$defs' in schema:
+            for def_schema in schema['$defs'].values():
+                _apply_field_exclusion(def_schema)
+
+        # Inject __ui__ hints into schema (model-level)
+        ui_config = getattr(cls, '__ui__', None)
+        if ui_config:
+            schema['ui'] = dict(ui_config)
+
+        # Inject __ui__ from referenced models into their $defs entries
+        if referenced_models and '$defs' in schema:
+            for model in referenced_models:
+                ref_ui = getattr(model, '__ui__', None)
+                if ref_ui and model.__name__ in schema['$defs']:
+                    schema['$defs'][model.__name__]['ui'] = dict(ref_ui)
 
         # Add JSON Schema metadata
         schema['$schema'] = f"{config.API_URL}/Schema"

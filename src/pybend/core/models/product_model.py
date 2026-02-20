@@ -17,9 +17,17 @@ class Product(ProtoModel):
     """
     __tablename__: ClassVar[str] = 'products'
     __storable__: ClassVar[bool] = True
-    name: str
-    price: float
-    description: str = ''
+    __ui__: ClassVar[dict] = {
+        'field_order': ['name', 'price', 'description', 'comments'],
+        'groups': {
+            'main': ['name', 'description'],
+            'pricing': ['price'],
+            'relations': ['comments'],
+        },
+    }
+    name: str = Field(min_length=1, max_length=200, json_schema_extra={'ui': {'placeholder': 'Product name...'}})
+    price: float = Field(gt=0, json_schema_extra={'ui': {'widget': 'currency'}})
+    description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
     comments: Optional[ListRef[Comment]] = Field(default=[], alias='comments', description="List of comments associated with the product")
     id: Optional[int] = Field(default=None, alias='id')
 

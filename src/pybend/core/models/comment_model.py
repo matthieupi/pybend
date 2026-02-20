@@ -13,8 +13,11 @@ from .user_model import User
 class Comment(ProtoModel):
     __tablename__: ClassVar[str] = 'comments'
     __storable__: ClassVar[bool] = True
-    name: str
-    description: str = ''
+    __ui__: ClassVar[dict] = {
+        'field_order': ['name', 'description', 'likes'],
+    }
+    name: str = Field(min_length=1, max_length=500)
+    description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
     user_owner: User = Field(default=None, alias='user_owner', description="User who owns the comment")
     parent_id: Optional[Ref['self']] = Field(default=None, description="Parent comment for nesting")
     likes: Optional[ListRef[Like]] = Field(default=[], description="Likes on this comment")

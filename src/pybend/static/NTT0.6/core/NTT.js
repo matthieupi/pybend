@@ -234,6 +234,52 @@ export class NTT extends TT {
     }
 
     // ──────────────────────────────────────────────
+    // STATIC: SSR Pre-loading
+    // ──────────────────────────────────────────────
+
+    /**
+     * Check for an inline <script data-ntt-schema="ModelName"> in the document.
+     * If found, parse and feed to NTT.SCHEMA() directly, skipping network fetch.
+     * The script tag is removed after consumption (one-shot).
+     * @param {string} model - Model name (e.g. "Product")
+     * @returns {boolean} true if pre-loaded schema was found and consumed
+     */
+    static #consumePreloadedSchema(model) {
+        const el = document.querySelector(`script[data-ntt-schema="${model}"]`);
+        if (!el) return false;
+        try {
+            const data = JSON.parse(el.textContent);
+            el.remove();
+            Logging.debug(`[NTT] Pre-loaded schema for ${model}`);
+            NTT.SCHEMA(data);
+            return true;
+        } catch (e) {
+            console.error(`[NTT] Failed to parse pre-loaded schema for ${model}:`, e);
+            return false;
+        }
+    }
+
+    /**
+     * Check for an inline <script data-ntt-data="tablename"> in the document.
+     * If found, parse and return the data array. The script tag is removed.
+     * @param {string} tablename - Table/collection name (e.g. "products")
+     * @returns {Array|null} Pre-loaded data or null
+     */
+    static #consumePreloadedData(tablename) {
+        const el = document.querySelector(`script[data-ntt-data="${tablename}"]`);
+        if (!el) return null;
+        try {
+            const data = JSON.parse(el.textContent);
+            el.remove();
+            Logging.debug(`[NTT] Pre-loaded data for ${tablename}`);
+            return data;
+        } catch (e) {
+            console.error(`[NTT] Failed to parse pre-loaded data for ${tablename}:`, e);
+            return null;
+        }
+    }
+
+    // ──────────────────────────────────────────────
     // STATIC: Registry
     // ──────────────────────────────────────────────
 
@@ -284,15 +330,17 @@ export class NTT extends TT {
             // Schema in flight → queue callback
             NTT.#waiting.get(addr).push({_attachCallback: callback});
         } else {
-            // Never seen → bootstrap + queue callback
+            // Never seen → queue callback, then try pre-loaded before network
             NTT.#prototypes.set(addr, null);
             NTT.#waiting.set(addr, [{_attachCallback: callback}]);
-            matrix.dispatch(new TX({
-                name: 'SCHEMA',
-                source: 'NTT',
-                target: `${config.API_URL}/${addr}`,
-                meta: {remote: true}
-            }));
+            if (!NTT.#consumePreloadedSchema(addr)) {
+                matrix.dispatch(new TX({
+                    name: 'SCHEMA',
+                    source: 'NTT',
+                    target: `${config.API_URL}/${addr}`,
+                    meta: {remote: true}
+                }));
+            }
         }
     }
 
@@ -323,15 +371,17 @@ export class NTT extends TT {
             // Schema in flight → queue
             NTT.#waiting.get(model).push(tx);
         } else {
-            // Never seen → bootstrap + queue
+            // Never seen → queue TX, then try pre-loaded before network
             NTT.#prototypes.set(model, null);
             NTT.#waiting.set(model, [tx]);
-            matrix.dispatch(new TX({
-                name: 'SCHEMA',
-                source: 'NTT',
-                target: `${config.API_URL}/${model}`,
-                meta: {remote: true}
-            }));
+            if (!NTT.#consumePreloadedSchema(model)) {
+                matrix.dispatch(new TX({
+                    name: 'SCHEMA',
+                    source: 'NTT',
+                    target: `${config.API_URL}/${model}`,
+                    meta: {remote: true}
+                }));
+            }
         }
     }
 
@@ -366,8 +416,14 @@ export class NTT extends TT {
         // Replay queued messages + callbacks
         NTT.#replayWaiting(addr, DC);
 
-        // Trigger initial data fetch
-        DC.call('READ', {});
+        // Check for pre-loaded data before network fetch
+        const tablename = data.__tablename__ || addr.toLowerCase() + 's';
+        const preloadedData = NTT.#consumePreloadedData(tablename);
+        if (preloadedData) {
+            DC.READ(preloadedData);
+        } else {
+            DC.call('READ', {});
+        }
     }
 
     /**

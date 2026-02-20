@@ -15,16 +15,62 @@
   function getForm(ntt, mode="display") {
       const schema = ntt.schema;
       const fields = schema.properties || {};
-      const model = ntt.value.name
-      // We want to put the name and desc first, and use h2 for name and h4 for desc
+      const ui = schema.ui || {};
+      const headerFields = ['name', 'id', 'description'];
+
+      // Determine field order: schema.ui.field_order > Object.keys fallback
+      const fieldOrder = ui.field_order
+          ? ui.field_order.filter(k => k in fields)
+          : Object.keys(fields);
+      // Add any fields not in field_order (safety net)
+      for (const k of Object.keys(fields)) {
+          if (!fieldOrder.includes(k)) fieldOrder.push(k);
+      }
+
       let $header = getHeader(ntt, mode);
-      let $fields = Object.keys(fields).map(key => {
-          if (['name', 'id', 'description'].includes(key)) return '';
+
+      // Filter renderable fields (exclude header fields and ui.display=false)
+      const renderableFields = fieldOrder.filter(key => {
+          if (headerFields.includes(key)) return false;
           const def = fields[key];
-          const value = ntt.value?.[key] ?? '';
-          return getInput(ntt, key, mode);
-      }).join('');
+          if (def?.ui?.display === false) return false;
+          return true;
+      });
+
+      // Render with groups if schema.ui.groups is defined
+      let $fields;
+      if (ui.groups && typeof ui.groups === 'object') {
+          $fields = renderGroupedFields(ntt, renderableFields, ui.groups, mode);
+      } else {
+          $fields = renderableFields.map(key => getInput(ntt, key, mode)).join('');
+      }
+
       return $header.concat($fields).join('');
+  }
+
+  /**
+   * Render fields organized into fieldset groups.
+   * Fields not in any group are appended at the end ungrouped.
+   */
+  function renderGroupedFields(ntt, renderableFields, groups, mode) {
+      const grouped = new Set();
+      const html = [];
+
+      for (const [groupName, groupFields] of Object.entries(groups)) {
+          const fieldsInGroup = groupFields.filter(k => renderableFields.includes(k));
+          if (fieldsInGroup.length === 0) continue;
+          fieldsInGroup.forEach(k => grouped.add(k));
+          html.push(`<fieldset class="ntt-group ntt-group-${groupName}">`);
+          html.push(`<legend>${groupName}</legend>`);
+          html.push(fieldsInGroup.map(key => getInput(ntt, key, mode)).join(''));
+          html.push(`</fieldset>`);
+      }
+
+      // Ungrouped fields
+      const ungrouped = renderableFields.filter(k => !grouped.has(k));
+      html.push(ungrouped.map(key => getInput(ntt, key, mode)).join(''));
+
+      return html.join('');
   }
  
   
@@ -52,43 +98,75 @@
     
   }
   
+/**
+ * Build an HTML attribute string from JSON Schema validation constraints.
+ * Maps: minLength, maxLength, minimum, maximum, exclusiveMinimum,
+ *       exclusiveMaximum, pattern, required → HTML5 validation attrs.
+ * Returns a string like ' required minlength="3" maxlength="100"' (leading space).
+ */
+function validationAttrs(def, isRequired = false) {
+    const attrs = [];
+    if (isRequired) attrs.push('required');
+    if (def.minLength != null) attrs.push(`minlength="${def.minLength}"`);
+    if (def.maxLength != null) attrs.push(`maxlength="${def.maxLength}"`);
+    if (def.minimum != null) attrs.push(`min="${def.minimum}"`);
+    if (def.exclusiveMinimum != null) attrs.push(`min="${def.exclusiveMinimum}"`);
+    if (def.maximum != null) attrs.push(`max="${def.maximum}"`);
+    if (def.exclusiveMaximum != null) attrs.push(`max="${def.exclusiveMaximum}"`);
+    if (def.pattern) attrs.push(`pattern="${def.pattern}"`);
+    if (def.ui?.placeholder) attrs.push(`placeholder="${def.ui.placeholder}"`);
+    return attrs.length ? ' ' + attrs.join(' ') : '';
+}
+
 function getInput(ntt, key, mode = 'display') {
     const schema = ntt.schema;
     const def = schema.properties?.[key]
     const model = ntt.name
     const label = def.title || key;
     const value = ntt.value?.[key] ?? '';
+    const widget = def.ui?.widget;  // Widget hint from schema (takes priority)
     let html = [];
-    
+
     // Handle special cases when the type is a complex type like anyOf : [{...}, {...}, ...]
     if (def.anyOf) {
         Object.assign(def, resolveAnyOf(def));
     }
-    
+
     const type = def.type || 'string';
-    
-    
+
     if (key !== 'name' && key !== 'id')
         html.push(`<label class="${model} ${model}-form-item">${label}</label>`);
-    
+
     if (mode === 'edit') {
-        if (type === 'boolean') {
-            html.push(`<input type="checkbox" id="${key}" data-key="${key}" data-type="${type}"  ${value ? 'checked' : ''}>`);
+        // Build HTML5 validation attributes from schema constraints
+        const v = validationAttrs(def, schema.required?.includes(key));
+
+        // Widget hint takes priority over type for edit rendering
+        if (widget === 'textarea' || type === 'text') {
+            html.push(`<textarea id="${key}" data-key="${key}" data-type="string"${v}>${value}</textarea>`);
+        } else if (widget === 'currency') {
+            html.push(`<div class="currency-input"><span class="currency-symbol">$</span><input type="number" step="0.01" id="${key}" data-key="${key}" data-type="number" value="${value}"${v}></div>`);
+        } else if (type === 'boolean') {
+            html.push(`<input type="checkbox" id="${key}" data-key="${key}" data-type="${type}" ${value ? 'checked' : ''}${v}>`);
         } else if (type === 'string') {
-            html.push(`<input type="text" id="${key}" data-key="${key}" data-type="${type}" value="${value}">`);
-        } else if (type === 'text') {
-            html.push(`<textarea id="${key}" data-key="${key}" data-type="${type}">${value}</textarea>`);
+            html.push(`<input type="text" id="${key}" data-key="${key}" data-type="${type}" value="${value}"${v}>`);
         } else if (type === 'number') {
-            html.push(`<input type="number" id="${key}" data-key="${key}" data-type="${type}" value="${value}">`);
+            html.push(`<input type="number" id="${key}" data-key="${key}" data-type="${type}" value="${value}"${v}>`);
         } else if (type === 'selfref') {
-            html.push(`<input type="number" id="${key}" data-key="${key}" data-type="selfref" value="${value || ''}" placeholder="Parent ID (optional)">`);
+            html.push(`<input type="number" id="${key}" data-key="${key}" data-type="selfref" value="${value || ''}" placeholder="Parent ID (optional)"${v}>`);
         } else if (type === 'array') {
             html.push(getListInput(ntt, key, mode));
         } else {
-            html.push(`<input type="${type}" data-key="${key}" data-type="${type}" value="${value}" id="${key}">`);
+            html.push(`<input type="${type}" data-key="${key}" data-type="${type}" value="${value}" id="${key}"${v}>`);
         }
     } else {
-        if (type === '$ref' || def?.$ref) {
+        // Widget hint takes priority for display rendering too
+        if (widget === 'currency') {
+            const formatted = typeof value === 'number' ? `$${value.toFixed(2)}` : value;
+            html.push(`<div class="currency-display">${formatted}</div>`);
+        } else if (widget === 'textarea') {
+            html.push(`<div class="text-block">${value}</div>`);
+        } else if (type === '$ref' || def?.$ref) {
             html.push(`<div>[Reference: ${value?.name || value?.id || JSON.stringify(value)}]</div>`);
         } else if (type === 'selfref') {
             html.push(`<div>${value ? `[Parent: #${value}]` : '(top-level)'}</div>`);
@@ -98,7 +176,7 @@ function getInput(ntt, key, mode = 'display') {
             html.push(`<div>${value}</div>`);
         }
     }
-    
+
     return html.join('');
 }
 
@@ -181,9 +259,11 @@ function resolveAnyOf(def) {
   }
 
 export const Formidable = {
+    validationAttrs,
     refInput,
     getForm,
     getInput,
     getListInput,
-    getArrayInput
+    getArrayInput,
+    renderGroupedFields
 }

@@ -197,5 +197,31 @@ Always run backend commands from `src/pybend/core/` (that's where `main.py` and 
 
 ### Testing Changes
 1. Start server: `cd /workspace/src/pybend/core && python3 main.py`
-2. Test API: `curl http://localhost:5000/products` (list), `curl http://localhost:5000/Product` (schema)
+2. Test API (see auth examples below)
 3. Test frontend: Open `http://localhost:5000/static/NTT0.6/matrix.html`
+
+### Authentication for Testing
+Most endpoints require a JWT token. Schema endpoints (`GET /{ClassName}`) are public.
+
+**Seed users** (created by `python3 seed.py`):
+| Email | Password | Role |
+|---|---|---|
+| `alice@example.com` | `alice123` | `user` |
+| `bob@example.com` | `bob123` | `user` |
+| `charlie@example.com` | `charlie123` | `user` |
+
+**Get a token:**
+```bash
+TOKEN=$(curl -s -X POST http://localhost:5000/users/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"alice@example.com","password":"alice123"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+```
+
+**Use it:**
+```bash
+# Authenticated request
+curl -s http://localhost:5000/products -H "x-access-token: $TOKEN"
+
+# Schema (no auth needed)
+curl -s http://localhost:5000/Product
+```
