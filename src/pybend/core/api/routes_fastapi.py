@@ -5,9 +5,26 @@ from typing import Dict, Type, Any, List
 from models.storable_mixin import StorableMixin
 from utils.erroring import get_traceback_info
 from utils.registrar import registered_models, join_models
-from utils.typer import flatten_foreign_keys
+from utils.typer import flatten_refs
+from authorize import AccessContext, DefaultResolver, AccessDenied
 
 router = APIRouter()
+_resolver = DefaultResolver()
+
+
+def _get_user(request: Request) -> dict:
+    """Extract user dict from request.state, set by JWTAuthMiddleware."""
+    return getattr(request.state, 'user', {}) or {}
+
+
+def _build_context(request, model_class, action, resource=None, parent_id=None):
+    return AccessContext(
+        user=_get_user(request),
+        action=action,
+        model_class=model_class,
+        resource=resource,
+        parent_id=parent_id,
+    )
 
 def register_route(path, fn, method='GET'):
     if method == 'GET':
@@ -26,10 +43,15 @@ def register_route(path, fn, method='GET'):
 def make_create_instance(model_class):
     param_class = model_class.__parent__ if hasattr(model_class, '__parent__') else model_class
 
-    async def create_instance(data: param_class, parent_id: int = None) -> model_class:
+    async def create_instance(request: Request, data: param_class, parent_id: int = None) -> model_class:
+        ctx = _build_context(request, model_class, "create", parent_id=parent_id)
+        try:
+            _resolver.authorize(ctx)
+        except AccessDenied as e:
+            raise HTTPException(status_code=403, detail=str(e))
         print(f"[CREATE] Attempting to create {model_class.__name__} with data: {data}, parent_id: {parent_id}", flush=True)
         try:
-            data_dict = flatten_foreign_keys(data)
+            data_dict = flatten_refs(data)
             if parent_id:
                 fk_field = f"{model_class.__owner__.__name__.lower()}_id"
                 data_dict[fk_field] = parent_id
@@ -44,7 +66,13 @@ def make_create_instance(model_class):
 
 
 def make_get_all_instances(model_class):
-    async def list_all_instances(parent_id: int = None) -> List[model_class]:
+    async def list_all_instances(request: Request, parent_id: int = None) -> List[model_class]:
+        ctx = _build_context(request, model_class, "list", parent_id=parent_id)
+        try:
+            auth_filter = _resolver.sql_filter_for(ctx)
+        except AccessDenied as e:
+            raise HTTPException(status_code=403, detail=str(e))
+
         target_cls = model_class
 
         if parent_id:
@@ -54,9 +82,8 @@ def make_get_all_instances(model_class):
                     target_cls = join_cls
                     break
 
-        results = target_cls.list()
+        results = target_cls.list(sql_filter=auth_filter)
         print(f"[LIST] Fetching all instances of {target_cls.__name__} (parent_id={parent_id})")
-        print(results)
 
         if parent_id:
             fk_field = f"{target_cls.__owner__.__name__.lower()}_id"
@@ -75,20 +102,33 @@ def make_get_schema(model_class):
 
 
 def make_get_instance(model_class):
-    async def read_instance(id: int) -> model_class:
+    async def read_instance(request: Request, id: int) -> model_class:
         print(f"[READ] Attempting to read {model_class.__name__} ID={id}")
         instance = model_class.get(id)
         if not instance:
             raise HTTPException(status_code=404, detail="Not found")
+        ctx = _build_context(request, model_class, "read", resource=instance)
+        try:
+            _resolver.authorize(ctx)
+        except AccessDenied as e:
+            raise HTTPException(status_code=403, detail=str(e))
         return instance.model_dump(response=True)
     return read_instance
 
 
 def make_update_instance(model_class):
     param_class = model_class.__parent__ if hasattr(model_class, '__parent__') else model_class
-    async def update_instance(id: int, data: param_class, parent_id: int = None) -> model_class:
+    async def update_instance(request: Request, id: int, data: param_class, parent_id: int = None) -> model_class:
+        instance = model_class.get(id)
+        if not instance:
+            raise HTTPException(status_code=404, detail="Not found")
+        ctx = _build_context(request, model_class, "update", resource=instance, parent_id=parent_id)
         try:
-            data_dict = flatten_foreign_keys(data)
+            _resolver.authorize(ctx)
+        except AccessDenied as e:
+            raise HTTPException(status_code=403, detail=str(e))
+        try:
+            data_dict = flatten_refs(data)
             if parent_id:
                 fk_field = f"{model_class.__owner__.__name__.lower()}_id"
                 data_dict[fk_field] = parent_id
@@ -102,7 +142,15 @@ def make_update_instance(model_class):
 
 
 def make_delete_instance(model_class):
-    async def delete_instance(id: int) -> Dict[str, str]:
+    async def delete_instance(request: Request, id: int) -> Dict[str, str]:
+        instance = model_class.get(id)
+        if not instance:
+            raise HTTPException(status_code=404, detail="Not found")
+        ctx = _build_context(request, model_class, "delete", resource=instance)
+        try:
+            _resolver.authorize(ctx)
+        except AccessDenied as e:
+            raise HTTPException(status_code=403, detail=str(e))
         print(f"[DELETE] Attempting to delete {model_class.__name__} ID={id}")
         model_class.delete(id)
         return {"message": "Deleted successfully"}
@@ -121,13 +169,29 @@ def make_custom_post(attr, model_class, route_path):
     is_class_method = 'cls' in sig.parameters
     is_static_method = isinstance(attr, staticmethod)
 
+    endpoint_info = getattr(attr, '__endpoint__', {})
+    custom_access = endpoint_info.get('access', None)
+
+    def _check_access(request, model_class, action, resource=None):
+        ctx = _build_context(request, model_class, action, resource=resource)
+        try:
+            if custom_access:
+                if not custom_access.evaluate(ctx):
+                    raise AccessDenied(action=action, model=model_class.__name__, user_id=ctx.user_id)
+            else:
+                _resolver.authorize(ctx)
+        except AccessDenied as e:
+            raise HTTPException(status_code=403, detail=str(e))
+
     async def post_with_id(
+        request: Request,
         id: int = Path(..., description=f"{model_class.__name__} ID"),
         data: Dict[str, Any] = Body(...),
     ):
         instance = model_class.get(id)
         if not instance:
             raise HTTPException(status_code=404, detail="Not found")
+        _check_access(request, model_class, attr.__name__, resource=instance)
 
         parsed_args = {}
         for name, param in sig.parameters.items():
@@ -148,8 +212,11 @@ def make_custom_post(attr, model_class, route_path):
         return attr(instance, **parsed_args)
 
     async def post_no_id(
+        request: Request,
         data: Dict[str, Any] = Body(...),
     ):
+        _check_access(request, model_class, attr.__name__)
+
         parsed_args = {}
         for name, param in sig.parameters.items():
             if name in ('self', 'cls'):

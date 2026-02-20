@@ -3,6 +3,20 @@
 # 0.7.0 (2026-02)
 
 ## Backend
+- [x] **[Authorization & Authentication](src/pybend/docs/AUTHORIZATION.md)** — standalone `authorize/` package
+  - Added ABAC (Attribute-Based Access Control) with composable rule objects and operator overloading (`|`, `&`, `~`)
+  - Built-in rules: `ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE(*roles)`, `Where(**conditions)` with comparison operators (`__lt`, `__gt`, `__lte`, `__gte`, `__ne`, `__in`)
+  - SQL pushdown: rules produce `(WHERE_clause, params)` for efficient list-level filtering
+  - `AuthorizationResolver` Protocol for swappable resolution strategies; `DefaultResolver` reads `__access__` from models
+  - Schema exposure: access rules serialize to JSON in schema responses for frontend UI adaptation
+  - JWT authentication: bcrypt password hashing, token create/decode with `role` in payload
+  - `JWTAuthMiddleware` in `FastAPIBackend` — validates tokens, populates `request.state.user`
+  - `configure()` function for JWT settings — package has zero PyBend imports, reads env vars by default
+  - `access=` parameter on `@expose_route()` for per-method authorization
+  - `sql_filter` parameter threaded through `list()` in storage, mixin, and route layers
+  - `User.role` field with validator to coerce NULL/empty to `'user'`
+  - `Like` model and `CommentLike` join model; `Comment.parent_id` for self-referential nesting via `Ref['self']`
+  - Seed data: users, products, comments, nested replies
 - [x] **[ForeignKey Hydration](src/pybend/core/docs/features/01_ForeignKey_Hydration.md)**
   - Added SQLite migration system (`sqlite_migration.py`) with Rails-style run/rollback
   - Added `ListRef[T]` type (`models/ref.py`) for FK hydration — collection fields return href arrays instead of embedded objects
@@ -22,6 +36,8 @@
 - Added favicon (SVG)
 
 ## Documentation
+- Added `docs/AUTHORIZATION.md` — full reference for the authorize package (quick start, rules, composition, architecture, extending, reference)
+- Updated `CLAUDE.md` with authorize package in key files, ABAC pattern, standalone/configure notes
 - Created comprehensive README.md for NTT 0.6 (quickstart, architecture, dataflow, CRUD, components)
 - Documented FK hydration across README.md, ARCHITECTURE.md, ACTORS.md, COMPONENTS.md, MESSAGE_PROTOCOL.md, TRANSPORT.md
 - Added PTT/NTT merge report (`docs/PTT_NTT_MERGE.md`)

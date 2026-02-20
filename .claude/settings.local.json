@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(npx @playwright/mcp@latest:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(echo:*)",
+      "Bash(python3:*)",
+      "Bash(PATH=\"$HOME/.local/bin:$PATH\" python3:*)",
+      "Bash(claude mcp:*)",
+      "Bash(npx playwright install:*)",
+      "Bash(npx playwright install-deps:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(sqlite3:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(grep:*)",
+      "Bash(kill:*)",
+      "Bash(xargs:*)",
+      "Bash(fuser:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "playwright"
+  ]
+}

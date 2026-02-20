@@ -13,7 +13,7 @@ Complete reference for all PyBend classes, methods, and decorators.
   - [SQLiteStorage](#sqlitestorage)
   - [JSONStorage](#jsonstorage)
 - [Types](#types)
-  - [ForeignKey](#foreignkey)
+  - [Ref](#ref)
 - [Decorators](#decorators)
   - [@expose_route](#expose_route)
 - [Backends](#backends)
@@ -76,7 +76,7 @@ schema = User.schema()
 
 ##### `referenced_json_schema() -> Dict[str, Any]`
 
-Returns a schema suitable for inclusion in `$defs`. Resolves ForeignKey fields to `$ref` pointers.
+Returns a schema suitable for inclusion in `$defs`. Resolves Ref fields to `$ref` pointers.
 
 **Returns**: Schema dictionary without circular references
 
@@ -498,7 +498,7 @@ Removes record from JSON array.
 
 ## Types
 
-### ForeignKey
+### Ref
 
 Generic type-safe wrapper for foreign key relationships.
 
@@ -507,7 +507,7 @@ Generic type-safe wrapper for foreign key relationships.
 #### Constructor
 
 ```python
-ForeignKey[T](value: Optional[Any] = None)
+Ref[T](value: Optional[Any] = None)
 ```
 
 **Parameters**:
@@ -518,10 +518,10 @@ ForeignKey[T](value: Optional[Any] = None)
 
 **Example**:
 ```python
-from utils.typer import ForeignKey
+from utils.typer import Ref
 
 class Comment(ProtoModel):
-    user: ForeignKey[User]  # Type-safe foreign key
+    user: Ref[User]  # Type-safe foreign key
 ```
 
 #### Methods
@@ -547,7 +547,7 @@ Serializes to integer for storage.
 ```python
 # Model definition
 class Comment(ProtoModel):
-    user: ForeignKey[User]
+    user: Ref[User]
 
 # Generated schema
 {
@@ -850,7 +850,7 @@ PyBend provides type hints for all public APIs. Use with mypy or pyright for sta
 from typing import ClassVar, Optional, List
 from models.proto_model import ProtoModel
 from storage.abstract_storage import AbstractStorage
-from utils.typer import ForeignKey
+from utils.typer import Ref
 
 # All types are properly annotated
 storage: AbstractStorage = SQLiteStorage('db.db')
@@ -903,7 +903,7 @@ All route handlers automatically catch exceptions and return structured errors:
 ```python
 from models.proto_model import ProtoModel
 from utils.decorators import expose_route
-from utils.typer import ForeignKey
+from utils.typer import Ref
 from typing import ClassVar, Optional, List
 
 class Author(ProtoModel):
@@ -921,7 +921,7 @@ class Book(ProtoModel):
     id: Optional[int] = None
     title: str
     isbn: str
-    author: ForeignKey[Author]
+    author: Ref[Author]
     
     @expose_route('/publish', methods=['POST'])
     def publish(self) -> Book:

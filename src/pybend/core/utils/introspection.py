@@ -5,7 +5,7 @@ from typing import Dict, Any, Callable, List, Tuple, Type, get_type_hints, get_a
 from pydantic import BaseModel, create_model
 from pydantic.json_schema import model_json_schema
 
-from utils.typer import ForeignKey
+from utils.typer import Ref, _SelfRefMarker
 
 
 def pydantic_schema_for_type(t) -> Dict[str, Any]:
@@ -14,7 +14,7 @@ def pydantic_schema_for_type(t) -> Dict[str, Any]:
     """
     if hasattr(t, '__origin__'):
         print(f"[ORIGIN] Processing type: {t}, origin: {get_origin(t)}", flush=True)
-    if hasattr(t, '__origin__') and t.__origin__ is ForeignKey:
+    if hasattr(t, '__origin__') and t.__origin__ is Ref:
         target_type = get_args(t)[0]
         return {"type": "$ref", "$ref": f"#/$defs/{target_type.__name__}"}
 
@@ -162,3 +162,17 @@ def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
             if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
                 results.append((field_name, args[0]))
     return results
+
+
+def _is_self_ref(field_type) -> bool:
+    """Check if a field type is Ref['self'] (Annotated[int, _SelfRefMarker]).
+    Unwraps Optional transparently."""
+    origin = get_origin(field_type)
+    # Unwrap Optional[...]
+    if origin is Union and type(None) in get_args(field_type):
+        field_type = get_args(field_type)[0]
+    if hasattr(field_type, '__metadata__'):
+        for meta in field_type.__metadata__:
+            if isinstance(meta, _SelfRefMarker):
+                return True
+    return False

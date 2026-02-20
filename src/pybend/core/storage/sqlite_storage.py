@@ -68,14 +68,21 @@ class SQLiteStorage(AbstractStorage):
     # LIST
     # ──────────────────────────────────────────────
 
-    def list(self, model_class: Type[Any]) -> List[Any]:
+    def list(self, model_class: Type[Any], sql_filter: tuple = None) -> List[Any]:
         table_name = model_class.__tablename__
         list_fields = get_list_fields(model_class)
 
         select_sql = f"SELECT * FROM {table_name}"
+        filter_params = []
+        if sql_filter is not None:
+            clause, params = sql_filter
+            if clause:
+                select_sql += f" WHERE {clause}"
+                filter_params = params
+
         conn = sqlite3.connect(self.database)
         cursor = conn.cursor()
-        cursor.execute(select_sql)
+        cursor.execute(select_sql, filter_params)
         rows = cursor.fetchall()
         columns = [column[0] for column in cursor.description]
 

@@ -854,7 +854,7 @@ When a model has a foreign key:
 
 ```python
 class Comment(ProtoModel):
-    user_owner: ForeignKey[User]
+    user_owner: Ref[User]
 ```
 
 **In the API**:

@@ -80,6 +80,8 @@ function getInput(ntt, key, mode = 'display') {
             html.push(`<textarea id="${key}" data-key="${key}" data-type="${type}">${value}</textarea>`);
         } else if (type === 'number') {
             html.push(`<input type="number" id="${key}" data-key="${key}" data-type="${type}" value="${value}">`);
+        } else if (type === 'selfref') {
+            html.push(`<input type="number" id="${key}" data-key="${key}" data-type="selfref" value="${value || ''}" placeholder="Parent ID (optional)">`);
         } else if (type === 'array') {
             html.push(getListInput(ntt, key, mode));
         } else {
@@ -88,6 +90,8 @@ function getInput(ntt, key, mode = 'display') {
     } else {
         if (type === '$ref' || def?.$ref) {
             html.push(`<div>[Reference: ${value?.name || value?.id || JSON.stringify(value)}]</div>`);
+        } else if (type === 'selfref') {
+            html.push(`<div>${value ? `[Parent: #${value}]` : '(top-level)'}</div>`);
         } else if (type === 'array') {
             html.push(getListInput(ntt, key, mode));
         } else {

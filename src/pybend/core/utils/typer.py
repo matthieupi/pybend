@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar, Optional, Any, get_args, get_origin
+from typing import Generic, TypeVar, Optional, Any, get_args, get_origin, Annotated
 from pydantic import BaseModel, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from pydantic.json_schema import JsonSchemaValue
@@ -6,31 +6,45 @@ from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
-def flatten_foreign_keys(obj: BaseModel) -> dict:
+
+class _SelfRefMarker:
+    """Metadata tag to identify Ref['self'] fields during schema generation and migration."""
+    pass
+
+
+def flatten_refs(obj: BaseModel) -> dict:
     """
-    Recursively flatten any ForeignKey[...] fields to plain ints for storage/validation purposes.
+    Recursively flatten any Ref[...] fields to plain ints for storage/validation purposes.
     """
     flat = obj.model_dump()
     for field, value in flat.items():
-        if isinstance(value, ForeignKey):
+        if isinstance(value, Ref):
             flat[field] = int(value)
         elif isinstance(value, BaseModel):
-            flat[field] = flatten_foreign_keys(value)
+            flat[field] = flatten_refs(value)
         elif isinstance(value, list):
             flat[field] = [
-                int(v) if isinstance(v, ForeignKey) else v for v in value
+                int(v) if isinstance(v, Ref) else v for v in value
             ]
     return flat
 
 
-class ForeignKey(Generic[T]):
+class Ref(Generic[T]):
     """
     A generic wrapper for foreign key fields that enforces type safety,
     emits OpenAPI $ref, and stores just the FK id.
+
+    Usage:
+        user_owner: Ref[User]       # cross-model FK
+        parent_id: Ref['self']      # self-referential parent_id
     """
 
+    def __class_getitem__(cls, params):
+        if params == 'self':
+            return Annotated[int, _SelfRefMarker()]
+        return super().__class_getitem__(params)
+
     def __init__(self, value: Optional[Any] = None):
-        print(f"[FOREIGNKEY] Initializing with value: {value}")
         if isinstance(value, BaseModel):
             self.id = getattr(value, 'id', None)
             self._model = value
@@ -50,7 +64,7 @@ class ForeignKey(Generic[T]):
         return str(self.id)
 
     def __str__(self):
-        return f"<ForeignKey id={self.id}>"
+        return f"<Ref id={self.id}>"
 
     def __json__(self):
         """
@@ -70,7 +84,7 @@ class ForeignKey(Generic[T]):
     def __get_pydantic_core_schema__(cls, source_type, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
         return core_schema.json_or_python_schema(
             python_schema=core_schema.no_info_plain_validator_function(
-                lambda v: int(v) if isinstance(v, ForeignKey) else v
+                lambda v: int(v) if isinstance(v, Ref) else v
             ),
             json_schema=core_schema.int_schema(),
             serialization=core_schema.plain_serializer_function_ser_schema(

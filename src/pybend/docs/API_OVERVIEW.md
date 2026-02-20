@@ -124,7 +124,7 @@ When a model has a foreign key reference:
 
 ```python
 class Comment(ProtoModel):
-    user: ForeignKey[User]  # Foreign key to User
+    user: Ref[User]  # Foreign key to User
 ```
 
 **In Requests** - Send the ID as an integer:
@@ -196,7 +196,7 @@ This creates:
 | `bool` | boolean | `true` |
 | `Optional[T]` | T or null | `"value"` or `null` |
 | `List[T]` | array | `[1, 2, 3]` |
-| `ForeignKey[Model]` | number | `1` |
+| `Ref[Model]` | number | `1` |
 | `datetime` (as string) | string (ISO 8601) | `"2025-01-15T10:00:00Z"` |
 | `Enum` | string | `"pending"` |
 

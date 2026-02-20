@@ -68,7 +68,7 @@ class FastAPIBackend(BaseBackend):
     def _add_auth_middleware(self):
         from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.responses import JSONResponse
-        from auth import decode_token
+        from authorize import decode_token
 
         exempt_paths = self.AUTH_EXEMPT_PATHS
         exempt_extensions = self.AUTH_EXEMPT_EXTENSIONS

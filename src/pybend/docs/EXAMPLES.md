@@ -25,7 +25,7 @@ A complete e-commerce API with products, orders, and inventory management.
 
 ```python
 from models.proto_model import ProtoModel
-from utils.typer import ForeignKey
+from utils.typer import Ref
 from utils.decorators import expose_route
 from typing import ClassVar, Optional, List
 from datetime import datetime
@@ -56,7 +56,7 @@ class Product(ProtoModel):
     description: str
     price: float
     stock: int
-    category: ForeignKey[Category]
+    category: Ref[Category]
     sku: str
     
     @expose_route('/check-stock', methods=['GET'])
@@ -98,7 +98,7 @@ class Order(ProtoModel):
     __tablename__: ClassVar[str] = 'orders'
     
     id: Optional[int] = None
-    customer: ForeignKey[Customer]
+    customer: Ref[Customer]
     status: OrderStatus = OrderStatus.PENDING
     total: float
     created_at: str  # ISO datetime
@@ -131,8 +131,8 @@ class OrderItem(ProtoModel):
     __tablename__: ClassVar[str] = 'order_items'
     
     id: Optional[int] = None
-    order: ForeignKey[Order]
-    product: ForeignKey[Product]
+    order: Ref[Order]
+    product: Ref[Product]
     quantity: int
     price: float  # Price at time of purchase
 ```
@@ -273,7 +273,7 @@ class Post(ProtoModel):
     
     id: Optional[int] = None
     content: str
-    author: ForeignKey[User]
+    author: Ref[User]
     created_at: str
     likes_count: int = 0
     comments_count: int = 0
@@ -304,8 +304,8 @@ class Comment(ProtoModel):
     
     id: Optional[int] = None
     content: str
-    author: ForeignKey[User]
-    post: ForeignKey[Post]
+    author: Ref[User]
+    post: Ref[Post]
     created_at: str
 
 class Follow(ProtoModel):
@@ -376,7 +376,7 @@ class Page(ProtoModel):
     slug: str
     content: str
     status: ContentStatus = ContentStatus.DRAFT
-    author: ForeignKey[User]
+    author: Ref[User]
     created_at: str
     updated_at: str
     meta_description: str = ''
@@ -413,8 +413,8 @@ class Article(ProtoModel):
     content: str
     featured_image: str = ''
     status: ContentStatus = ContentStatus.DRAFT
-    author: ForeignKey[User]
-    category: ForeignKey[Category]
+    author: Ref[User]
+    category: Ref[Category]
     tags: str = ''  # Comma-separated
     published_at: Optional[str] = None
     
@@ -435,7 +435,7 @@ class Media(ProtoModel):
     url: str
     mime_type: str
     size: int  # bytes
-    uploaded_by: ForeignKey[User]
+    uploaded_by: Ref[User]
     uploaded_at: str
 ```
 
@@ -467,7 +467,7 @@ class Board(ProtoModel):
     id: Optional[int] = None
     name: str
     description: str
-    owner: ForeignKey[User]
+    owner: Ref[User]
 
 class Task(ProtoModel):
     __storable__: ClassVar[bool] = True
@@ -478,8 +478,8 @@ class Task(ProtoModel):
     description: str
     status: TaskStatus = TaskStatus.TODO
     priority: TaskPriority = TaskPriority.MEDIUM
-    board: ForeignKey[Board]
-    assignee: Optional[ForeignKey[User]] = None
+    board: Ref[Board]
+    assignee: Optional[Ref[User]] = None
     due_date: Optional[str] = None
     created_at: str
     
@@ -513,8 +513,8 @@ class Comment(ProtoModel):
     __tablename__: ClassVar[str] = 'task_comments'
     
     id: Optional[int] = None
-    task: ForeignKey[Task]
-    author: ForeignKey[User]
+    task: Ref[Task]
+    author: Ref[User]
     content: str
     created_at: str
 ```
@@ -607,7 +607,7 @@ class Session(ProtoModel):
     __tablename__: ClassVar[str] = 'sessions'
     
     id: Optional[int] = None
-    user: ForeignKey[User]
+    user: Ref[User]
     token: str
     expires_at: str
     created_at: str

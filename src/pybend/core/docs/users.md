@@ -9,6 +9,7 @@
 | id | integer | No | None |
 | name | string | Yes | — |
 | email | string | Yes | — |
+| role | string | No | user |
 | age | object | No | None |
 
 ## Routes

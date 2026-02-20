@@ -10,6 +10,7 @@ from typing import Any, List, Type, Union, get_args, get_origin
 from pydantic import BaseModel
 
 from .sqlite_helpers import get_parent_fk_columns
+from utils.introspection import _is_self_ref
 
 
 class Migration(ABC):
@@ -120,6 +121,11 @@ class SQLiteMigration:
                 continue
 
             origin_type = getattr(field_type, '__origin__', None)
+            # Handle Ref['self'] fields — self-referential FK stored as INTEGER
+            if _is_self_ref(field_type):
+                columns.append(f"{field_name} INTEGER")
+                continue
+
             # Handle Optional[T]
             if origin_type is Union and type(None) in get_args(field_type):
                 field_type = get_args(field_type)[0]
@@ -194,6 +200,18 @@ class SQLiteMigration:
 
         for field_name, field_info in list(model_columns.items()):
             field_type = field_info.annotation
+
+            # Handle Ref['self'] fields — self-referential FK stored as INTEGER
+            if _is_self_ref(field_type):
+                if field_name == 'id' or field_name in existing_columns:
+                    continue
+                try:
+                    alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} INTEGER DEFAULT NULL"
+                    cursor.execute(alter_sql)
+                    print(f"[MIGRATE] Added selfref column '{field_name}' to '{table_name}' as INTEGER")
+                except sqlite3.OperationalError as e:
+                    print(f"[MIGRATE] Failed to add selfref column {field_name} to {table_name}: {e}")
+                continue
 
             origin_type = getattr(field_type, '__origin__', None)
             base_type = field_type

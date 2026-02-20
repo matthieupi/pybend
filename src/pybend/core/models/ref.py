@@ -1,5 +1,7 @@
 from typing import Annotated, List, Union
 
+from utils.typer import Ref
+
 
 class _ListRefMarker:
     """Metadata tag to identify ListRef fields during schema generation."""

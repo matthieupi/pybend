@@ -49,7 +49,7 @@ Create `models/blog_models.py`:
 
 ```python
 from models.proto_model import ProtoModel
-from utils.typer import ForeignKey
+from utils.typer import Ref
 from typing import ClassVar, Optional, List
 
 class User(ProtoModel):
@@ -69,7 +69,7 @@ class Post(ProtoModel):
     title: str
     content: str
     published: bool = False
-    author: ForeignKey[User]  # Foreign key to User
+    author: Ref[User]  # Foreign key to User
 ```
 
 That's it! No manual SQL, no migrations scripts, no route definitions needed.
@@ -267,7 +267,7 @@ class Post(ProtoModel):
     title: str
     content: str
     published: bool = False
-    author: ForeignKey[User]
+    author: Ref[User]
     
     @expose_route('/publish', methods=['POST'])
     def publish(self) -> Post:

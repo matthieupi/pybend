@@ -2,9 +2,9 @@
 from __future__ import annotations
 from .proto_model import ProtoModel
 from typing import ClassVar, Optional
-from pydantic import Field
+from pydantic import Field, field_validator
 from utils.decorators import expose_route
-from auth import hash_password, verify_password, create_token
+from authorize import ANYONE, hash_password, verify_password, create_token
 
 
 class Bot(ProtoModel):
@@ -25,6 +25,15 @@ class User(ProtoModel):
     id: int = None
     name: str
     email: str
+    role: str = Field(default='user', description="User role: user, admin, moderator")
+
+    @field_validator('role', mode='before')
+    @classmethod
+    def _coerce_role(cls, v):
+        if v is None or v == '' or v == "''":
+            return 'user'
+        return v
+
     age: Optional[int] = None
     password_hash: Optional[str] = Field(default=None, exclude=True)
 
@@ -41,7 +50,7 @@ class User(ProtoModel):
         return super().create(data)
 
     @staticmethod
-    @expose_route('/login', methods=['POST'])
+    @expose_route('/login', methods=['POST'], access=ANYONE)
     def login(email: str, password: str) -> dict:
         """
         User login endpoint.
@@ -73,11 +82,11 @@ class User(ProtoModel):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         if not verify_password(password, user.password_hash):
             raise HTTPException(status_code=401, detail="Invalid credentials")
-        token = create_token(user.id, user.email)
+        token = create_token(user.id, user.email, user.role)
         return {"token": token, "user": user.model_dump(response=True)}
 
     @staticmethod
-    @expose_route('/register', methods=['POST'])
+    @expose_route('/register', methods=['POST'], access=ANYONE)
     def register(name: str, email: str, password: str) -> dict:
         """
         User registration endpoint.
@@ -113,5 +122,5 @@ class User(ProtoModel):
         user = User(name=name, email=email)
         user._plain_password = password
         created = User.create(user)
-        token = create_token(created.id, created.email)
+        token = create_token(created.id, created.email, created.role)
         return {"token": token, "user": created.model_dump(response=True)}

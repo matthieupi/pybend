@@ -1,6 +1,6 @@
-# `products_comments` Model
+# `comments_comments` Model
 
-**Endpoint**: `GET /products_comments` (returns schema)
+**Endpoint**: `GET /comments_comments` (returns schema)
 
 ## Fields
 
@@ -9,9 +9,9 @@
 | name | string | Yes | — |
 | description | string | No |  |
 | user_owner | integer | No | None |
-| parent_id | selfref | No | — |
+| replies | object | No | [] |
 | likes | object | No | [] |
 | id | object | No | None |
-| product_id | integer | Yes | — |
+| comment_id | integer | Yes | — |
 
 ## Routes

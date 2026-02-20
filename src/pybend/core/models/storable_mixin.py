@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from storage.abstract_storage import AbstractStorage as StorageInterface
 from utils.registrar import join_models
+from utils.typer import Ref
 
 
 
@@ -67,7 +68,7 @@ class StorableMixin:
                 fk_field = f"{parent.__class__.__name__.lower()}_id"
                 join_data = {**data._storage_dict(exclude_unset=True), fk_field: parent.id}
                 for k, v in join_data.items():
-                    if hasattr(v, '__class__') and v.__class__.__name__ == "ForeignKey":
+                    if isinstance(v, Ref):
                         join_data[k] = int(v)  # unwrap FK to plain int
 
                 return join_cls.create(join_cls(**join_data))
@@ -75,18 +76,19 @@ class StorableMixin:
         # Fallback to normal behavior
         data_dict = data._storage_dict(exclude_unset=True)
         for k, v in data_dict.items():
-            if hasattr(v, '__class__') and v.__class__.__name__ == "ForeignKey":
+            if isinstance(v, Ref):
                 data_dict[k] = int(v)  # unwrap FK to plain int
 
         print(f'Creating {cls.__name__} with data: {data_dict}')
         return cls.storage.create(cls, data_dict)
 
     @classmethod
-    def list(cls) -> List[Any]:
+    def list(cls, sql_filter: tuple = None) -> List[Any]:
         """
         Retrieves all records using the storage backend.
+        Optional sql_filter: (where_clause, params) for authorization pushdown.
         """
-        return cls.storage.list(cls)
+        return cls.storage.list(cls, sql_filter=sql_filter)
 
     @classmethod
     def get(cls, id: int, as_dict: bool = False) -> Any:

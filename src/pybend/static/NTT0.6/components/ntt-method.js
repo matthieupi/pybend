@@ -74,6 +74,12 @@ export class NTTMethod extends HTMLElement {
     const fields = Object.entries(this.schema.parameters || {});
     const defs = this.proto?.schema?.$defs || {};
     const formInputs = fields.map(([key, def]) => {
+      if (def.type === 'selfref') {
+        return `
+          <label>${def.title || key}</label>
+          <input name="${key}" type="number" value="${this.value[key] || ''}" placeholder="Parent ID (optional)" />
+        `;
+      }
       if (def.type === '$ref' && def.$ref) {
         const refName = def.$ref.replace('#/$defs/', '');
         const refSchema = defs[refName];

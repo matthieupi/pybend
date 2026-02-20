@@ -11,8 +11,8 @@ from pydantic_core import CoreSchema
 import config
 from utils.registrar import register_model
 from utils.decorators import expose_route
-from utils.introspection import pydantic_schema_for_type, collect_all_referenced_models, record_model_type
-from utils.typer import ForeignKey
+from utils.introspection import pydantic_schema_for_type, collect_all_referenced_models, record_model_type, _is_self_ref
+from utils.typer import Ref, _SelfRefMarker
 from .storable_mixin import StorableMixin
 
 
@@ -23,10 +23,10 @@ class ProtoModel(PydanticBaseModel):
     __fk_models__: ClassVar[Dict[str, Type]] = {}
 
     class Config:
-        arbitrary_types_allowed = True  # allows ForeignKey through
+        arbitrary_types_allowed = True  # allows Ref through
         extra = 'allow'  # allows $schema/$id to pass through FastAPI response model
         json_encoders = {
-            ForeignKey: lambda fk: int(fk),
+            Ref: lambda fk: int(fk),
         }
 
     def __init_subclass__(cls, **kwargs):
@@ -43,7 +43,7 @@ class ProtoModel(PydanticBaseModel):
                 for name, annotation in get_type_hints(cls, localns={cls.__name__: cls}, include_extras=True).items():
                     # If is list, get origin and args
                     if isinstance(annotation, type) and issubclass(annotation, BaseModel) and annotation != cls:
-                        new_annotations[name] = ForeignKey[annotation]
+                        new_annotations[name] = Ref[annotation]
                         # TODO - Differentiate between join model and ForeignKey and generate model programatically
                         #generate_join_model(owner_cls=cls, ref_model=annotation, field_name=name)
                 # Rewrite annotations dynamically
@@ -126,13 +126,16 @@ class ProtoModel(PydanticBaseModel):
             else:
                 method_type = 'instancemethod'
 
-            methods[method_name] = {
+            method_entry = {
                 'route': endpoint_info['route'],
                 'methods': endpoint_info['methods'],
                 'scope': method_type,
                 'parameters': parameters,
                 'returns': return_type_schema,
             }
+            if endpoint_info.get('access') and hasattr(endpoint_info['access'], 'to_dict'):
+                method_entry['access'] = endpoint_info['access'].to_dict()
+            methods[method_name] = method_entry
 
         return methods
 
@@ -182,6 +185,16 @@ class ProtoModel(PydanticBaseModel):
                 if model.__name__ in schema['$defs']:
                     schema['$defs'][model.__name__]['$id'] = f"{config.API_URL}/{model.__name__}"
 
+        # Patch Ref['self'] fields to emit {"type": "selfref"}
+        if 'properties' in schema:
+            for field_name, field_info in cls.model_fields.items():
+                if _is_self_ref(field_info.annotation):
+                    schema['properties'][field_name] = {"type": "selfref"}
+
+        # Add access rules to schema
+        from authorize.schema import access_schema
+        schema['access'] = access_schema(cls)
+
         # Add JSON Schema metadata
         schema['$schema'] = f"{config.API_URL}/Schema"
         schema['$id'] = f"{config.API_URL}/{cls.__name__}"
@@ -192,15 +205,17 @@ class ProtoModel(PydanticBaseModel):
     @classmethod
     def referenced_json_schema(cls) -> Dict[str, Any]:
         """
-        Returns the schema for the ForeignKey field.
-        This is a convenience method to expose the ForeignKey schema.
+        Returns the schema for the Ref field.
+        This is a convenience method to expose the Ref schema.
         """
         schema = cls.model_json_schema()
-        # 💡 Resolve ForeignKey field schemas into proper $ref
+        # Resolve Ref field schemas into proper $ref
         if 'properties' in schema:
             for field_name, field_info in cls.model_fields.items():
                 field_type = field_info.annotation
-                if get_origin(field_type) is ForeignKey:
+                if _is_self_ref(field_type):
+                    schema['properties'][field_name] = {"type": "selfref"}
+                elif get_origin(field_type) is Ref:
                     target = get_args(field_type)[0]
                     if target.__name__ not in cls._referenced_models:
                         record_model_type(cls, target)
@@ -230,7 +245,9 @@ class ProtoModel(PydanticBaseModel):
         # Reset referenced models for the next call
         for field_name, field_info in cls.model_fields.items():
             field_type = field_info.annotation
-            if get_origin(field_type) is ForeignKey:
+            if _is_self_ref(field_type):
+                continue
+            if get_origin(field_type) is Ref:
                 target = get_args(field_type)[0]
                 if target.__name__ not in cls._referenced_models:
                     record_model_type(cls, target)

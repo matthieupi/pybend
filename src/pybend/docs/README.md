@@ -169,7 +169,7 @@ class MyStorage(AbstractStorage):
 PyBend automatically handles relationships between models:
 
 ```python
-from utils.typer import ForeignKey
+from utils.typer import Ref
 
 class Comment(ProtoModel):
     __storable__: ClassVar[bool] = True
@@ -177,10 +177,10 @@ class Comment(ProtoModel):
     
     id: Optional[int] = None
     text: str
-    user: ForeignKey[User]  # Type-safe foreign key
+    user: Ref[User]  # Type-safe foreign key
 ```
 
-When `__storable__` is True, PyBend automatically converts Pydantic model references to `ForeignKey` types.
+When `__storable__` is True, PyBend automatically converts Pydantic model references to `Ref` types.
 
 ### Custom Endpoints
 
@@ -263,7 +263,7 @@ PyBend follows a modular architecture with clear separation of concerns:
 - **AbstractStorage**: Interface for storage backends (SQLite, JSON, etc.)
 - **Registrar**: Central registry for models and join tables
 - **Backend Adapters**: FastAPI/Flask integration layer
-- **ForeignKey**: Type-safe foreign key wrapper with schema generation
+- **Ref**: Type-safe foreign key wrapper with schema generation
 
 ## Configuration
 
@@ -413,7 +413,7 @@ pybend/
 ├── utils/
 │   ├── decorators.py           # @expose_route decorator
 │   ├── registrar.py            # Model registration
-│   ├── typer.py                # ForeignKey type wrapper
+│   ├── typer.py                # Ref type wrapper
 │   ├── introspection.py        # Schema introspection
 │   ├── erroring.py             # Error handling utilities
 │   └── generate_docs.py        # Documentation generator
@@ -434,7 +434,7 @@ class Article(ProtoModel):
     id: Optional[int] = None
     title: str
     content: str
-    author: ForeignKey[User]
+    author: Ref[User]
     published: bool = False
 
 # 2. Register model

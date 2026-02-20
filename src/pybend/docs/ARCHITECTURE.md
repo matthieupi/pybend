@@ -76,7 +76,7 @@ class ProtoModel(PydanticBaseModel):
         if cls.__storable__:
             # Inject StorableMixin
             cls.__bases__ = (StorableMixin,) + cls.__bases__
-            # Transform Pydantic models to ForeignKey
+            # Transform Pydantic models to Ref
             # Register with storage backend
     
     # Schema generation with method signatures
@@ -164,14 +164,14 @@ class AbstractStorage(ABC):
 - Auto-incrementing IDs
 - Human-readable format
 
-### 4. ForeignKey Type
+### 4. Ref Type
 
 **Location**: `utils/typer.py`
 
 Type-safe foreign key wrapper with OpenAPI schema generation.
 
 ```python
-class ForeignKey(Generic[T]):
+class Ref(Generic[T]):
     def __init__(self, value: Optional[Any] = None):
         if isinstance(value, BaseModel):
             self.id = value.id
@@ -365,7 +365,7 @@ HTTP GET /users/1
 ┌─────────────────┐
 │ __init_subclass │
 │ Detects BaseModel
-│ → user: ForeignKey[User]
+│ → user: Ref[User]
 └────────┬────────┘
          │
          ▼
@@ -658,6 +658,6 @@ register_model(User, storage=storage)
 PyBend's architecture prioritizes:
 - **Modularity**: Swappable components at every layer
 - **Declarative**: Models define behavior, not implementation
-- **Type Safety**: Pydantic + ForeignKey for compile-time checks
+- **Type Safety**: Pydantic + Ref for compile-time checks
 - **Extensibility**: Clear extension points for customization
 - **Simplicity**: Minimal boilerplate for common cases
