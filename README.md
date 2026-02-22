@@ -13,9 +13,11 @@
 9. [API Documentation](#api-documentation)
 10. [Usage Examples](#usage-examples)
 11. [Schema Endpoint Responses](#schema-endpoint-responses)
-12. [Extending the Application](#extending-the-application)
-13. [Why PyBend?](#why-pybend)
-14. [Testing](#testing)
+12. [Schema-Driven Development](#schema-driven-development)
+13. [Schema-Driven Architecture](#schema-driven-architecture)
+14. [Extending the Application](#extending-the-application)
+15. [Why PyBend?](#why-pybend)
+16. [Testing](#testing)
 
 ---
 
@@ -224,6 +226,133 @@ Returns:
 * JSON schema
 * Referenced types via `$defs`
 * Custom method metadata (`/comment`, `/login`, etc.)
+
+---
+
+## **Schema-Driven Development**
+
+PyBend's core idea: **write a Python model, get a working full-stack application**. The model definition is the only thing a developer writes. Everything else — API, validation, storage, UI, permissions, navigation — is derived from the JSON Schema that model produces.
+
+### The model is the app
+
+A single model class encodes the entire application concern:
+
+```python
+class Product(ProtoModel):
+    __tablename__ = 'products'
+    __storable__ = True
+    __ui__ = {
+        'field_order': ['name', 'price', 'description', 'comments'],
+        'groups': {'main': ['name', 'description', 'price'], 'Social': ['comments']},
+        'renderer': {'item': 'ntt-item', 'list': 'ntt-list'},
+    }
+    __access__ = {
+        'read': ANYONE, 'create': AUTHENTICATED,
+        'update': OWNER | ROLE('admin'), 'delete': ROLE('admin'),
+    }
+
+    name: str = Field(min_length=1, max_length=200,
+                      json_schema_extra={'ui': {'placeholder': 'Product name...'}})
+    price: float = Field(gt=0,
+                         json_schema_extra={'ui': {'widget': 'currency'},
+                                            'access': {'view': 'anyone', 'edit': 'admin'}})
+    description: str = Field(default='',
+                             json_schema_extra={'ui': {'widget': 'textarea'}})
+    comments: ListRef[Comment] = Field(default=[])
+
+    @expose_route('/comment', methods=['POST'])
+    def comment(self, comment: Comment) -> str: ...
+```
+
+From this single definition, `ProtoModel.schema()` generates a JSON Schema that carries **everything the frontend needs**: field types, validation rules, UI rendering hints, access control policies, callable methods, and relationship structure.
+
+### What gets generated automatically
+
+| Concern | Generated from | No code required |
+|---------|---------------|-----------------|
+| CRUD API endpoints | `__tablename__`, model fields | Routes auto-registered |
+| JSON Schema | Field types, validators, `json_schema_extra` | Pydantic generates it |
+| DB table + migrations | `__storable__`, field annotations | SQLite auto-migrates |
+| FK hydration (href arrays) | `ListRef[T]` fields | Storage resolves on read |
+| Access control (backend) | `__access__`, `@expose_route(access=...)` | Middleware enforces |
+| Access control (frontend) | `access` in schema | UI hides/shows controls |
+| Frontend entity classes | Schema properties, methods | DynamicClass created at runtime |
+| Form rendering | `properties`, `ui.widget`, `ui.placeholder` | Form generator reads schema |
+| Field ordering + grouping | `ui.field_order`, `ui.groups` | Fieldsets rendered automatically |
+| Edit/delete button visibility | `access.update`, `access.delete` | Permissions checked from schema |
+| Method action buttons | `schema.methods` | `<ntt-method>` renders them |
+| Component tag resolution | `ui.renderer.item`, `ui.renderer.detail` | Router resolves on navigation |
+
+### The workflow
+
+1. Define or modify a Python model
+2. Restart the server
+3. Open the frontend — it fetches the schema, creates entity classes, renders everything
+4. No frontend code changed. No routes added. No forms built. No permissions wired.
+
+---
+
+## **Schema-Driven Architecture**
+
+The JSON Schema served at `GET /{ClassName}` is the **universal contract** between backend and frontend. It carries not just type information but the complete specification of how an entity behaves, renders, and is controlled.
+
+### Schema anatomy
+
+```
+GET /Product -> JSON Schema
+|-- $schema         -> meta-schema URL
+|-- $id             -> this schema's URL (http://localhost:5000/Product)
+|-- __name__        -> "Product" (class name)
+|-- __tablename__   -> "products" (API collection path)
+|-- properties      -> field definitions
+|   +-- each field:
+|       |-- type, format, validation constraints (Pydantic standard)
+|       |-- ui.widget       -> rendering hint (currency, textarea, ...)
+|       |-- ui.placeholder  -> input placeholder text
+|       |-- ui.display      -> false to hide from UI
+|       +-- access          -> field-level permission rules
+|-- ui              -> model-level UI configuration
+|   |-- field_order -> render fields in this sequence
+|   |-- groups      -> group fields into fieldsets
+|   +-- renderer    -> { item, list, detail } component tags
+|-- access          -> model-level ABAC rules (serialized to JSON)
+|-- methods         -> callable endpoints with signatures and access rules
+|-- $defs           -> nested/related model schemas (each with their own $id)
++-- required        -> required field names
+```
+
+### How it flows through the stack
+
+```
+1. Model Definition (Python)
+   Product(ProtoModel) with fields, __ui__, __access__, @expose_route
+                    |
+2. Schema Generation (Backend)
+   ProtoModel.schema() -> Pydantic JSON Schema + methods + access + ui + $defs
+                    |
+3. Schema Endpoint
+   GET /Product -> JSON response (public, no auth required)
+                    |
+4. Frontend Bootstrap
+   NTT.SCHEMA(data) -> prototype() -> DynamicClass
+   |  Creates typed class with getters, setters, callable methods
+   |  Registers nested $defs as additional DynamicClasses
+                    |
+5. Component Rendering
+   |  form.js reads schema.properties -> builds form HTML
+   |  Permissions.js reads schema.access -> shows/hides controls
+   |  <ntt-method> reads schema.methods -> renders action buttons
+   |  ntt-router reads schema.ui.renderer -> resolves navigation targets
+                    |
+6. Entity Responses
+   model_dump(response=True) injects $schema + $id per record
+   |  Every entity is self-describing and independently resolvable
+   |  Collection fields return href arrays for lazy resolution
+```
+
+### Why this matters
+
+**Adding a field** to a model automatically adds a DB column, includes it in API responses, generates a form input, and validates on both sides. **Changing `__access__`** propagates to the frontend: the edit button appears or disappears, list queries filter differently. **Adding `@expose_route`** creates an API endpoint and a clickable button in the UI. The schema carries intent, not just structure.
 
 ---
 

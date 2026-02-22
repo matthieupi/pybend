@@ -1,3 +1,4 @@
+import { permissions } from '../utils/Permissions.js';
 
   function refInput(ref) {
     const ptt = NTT.get(ref);
@@ -12,7 +13,7 @@
   }
   
   
-  function getForm(ntt, mode="display") {
+  function getForm(ntt, mode="display", attachedMethods = {}) {
       const schema = ntt.schema;
       const fields = schema.properties || {};
       const ui = schema.ui || {};
@@ -29,20 +30,33 @@
 
       let $header = getHeader(ntt, mode);
 
-      // Filter renderable fields (exclude header fields and ui.display=false)
+      // Filter renderable fields (exclude header fields, ui.display=false, and access-denied)
       const renderableFields = fieldOrder.filter(key => {
           if (headerFields.includes(key)) return false;
           const def = fields[key];
           if (def?.ui?.display === false) return false;
+          if (!permissions.canView(def)) return false;
           return true;
       });
 
       // Render with groups if schema.ui.groups is defined
       let $fields;
       if (ui.groups && typeof ui.groups === 'object') {
-          $fields = renderGroupedFields(ntt, renderableFields, ui.groups, mode);
+          $fields = renderGroupedFields(ntt, renderableFields, ui.groups, mode, attachedMethods);
       } else {
-          $fields = renderableFields.map(key => getInput(ntt, key, mode)).join('');
+          // Ungrouped: render fields, then append attached methods after their target field
+          let fieldsHtml = renderableFields.map(key => {
+              let html = getInput(ntt, key, mode);
+              if (mode !== 'edit') {
+                  for (const [methodName, methodDef] of Object.entries(attachedMethods)) {
+                      if (methodDef.ui?.attach_to === key) {
+                          html += renderAttachedMethod(ntt, methodName, methodDef);
+                      }
+                  }
+              }
+              return html;
+          }).join('');
+          $fields = fieldsHtml;
       }
 
       return $header.concat($fields).join('');
@@ -52,7 +66,21 @@
    * Render fields organized into fieldset groups.
    * Fields not in any group are appended at the end ungrouped.
    */
-  function renderGroupedFields(ntt, renderableFields, groups, mode) {
+  function renderAttachedMethod(ntt, methodName, methodDef) {
+      const ui = methodDef.ui || {};
+      return `<ntt-method
+          model="${ntt.schema.__name__}"
+          uuid="${ntt.value?.id || ''}"
+          method="${methodName}"
+          layout="${ui.layout || 'fieldset'}"
+          placeholder="${ui.placeholder || ''}"
+          button-label="${ui.button_label || 'Run'}"
+          widget="${ui.widget || ''}"
+          label="${methodDef.title || methodName}">
+      </ntt-method>`;
+  }
+
+  function renderGroupedFields(ntt, renderableFields, groups, mode, attachedMethods = {}) {
       const grouped = new Set();
       const html = [];
 
@@ -63,12 +91,32 @@
           html.push(`<fieldset class="ntt-group ntt-group-${groupName}">`);
           html.push(`<legend>${groupName}</legend>`);
           html.push(fieldsInGroup.map(key => getInput(ntt, key, mode)).join(''));
+
+          // Inject attached methods whose attach_to field is in this group
+          if (mode !== 'edit') {
+              for (const [methodName, methodDef] of Object.entries(attachedMethods)) {
+                  const mUi = methodDef.ui || {};
+                  if (groupFields.includes(mUi.attach_to)) {
+                      html.push(renderAttachedMethod(ntt, methodName, methodDef));
+                  }
+              }
+          }
+
           html.push(`</fieldset>`);
       }
 
-      // Ungrouped fields
+      // Ungrouped fields + their attached methods
       const ungrouped = renderableFields.filter(k => !grouped.has(k));
-      html.push(ungrouped.map(key => getInput(ntt, key, mode)).join(''));
+      ungrouped.forEach(key => {
+          html.push(getInput(ntt, key, mode));
+          if (mode !== 'edit') {
+              for (const [methodName, methodDef] of Object.entries(attachedMethods)) {
+                  if (methodDef.ui?.attach_to === key) {
+                      html.push(renderAttachedMethod(ntt, methodName, methodDef));
+                  }
+              }
+          }
+      });
 
       return html.join('');
   }
@@ -132,12 +180,15 @@ function getInput(ntt, key, mode = 'display') {
         Object.assign(def, resolveAnyOf(def));
     }
 
+    // Downgrade to display if user lacks edit permission for this field
+    const effectiveMode = (mode === 'edit' && !permissions.canEdit(def)) ? 'display' : mode;
+
     const type = def.type || 'string';
 
-    if (key !== 'name' && key !== 'id')
+    if (key !== 'name' && key !== 'id' && type !== 'array')
         html.push(`<label class="${model} ${model}-form-item">${label}</label>`);
 
-    if (mode === 'edit') {
+    if (effectiveMode === 'edit') {
         // Build HTML5 validation attributes from schema constraints
         const v = validationAttrs(def, schema.required?.includes(key));
 
@@ -181,9 +232,11 @@ function getInput(ntt, key, mode = 'display') {
 }
 
 function getListInput(ntt, key, mode = 'display') {
+    const VISIBLE_COUNT = 2;
     const def = ntt.schema.properties?.[key];
     const items = def.items || {};
     const value = ntt.value?.[key] || [];
+    const defs = ntt.schema?.$defs || {};
     let html = [];
 
     // Extract model name from $ref in items schema
@@ -195,15 +248,33 @@ function getListInput(ntt, key, mode = 'display') {
         if (refEntry) modelName = refEntry.$ref.split('/').pop();
     }
 
-    html.push(`<div class="list-field">`);
+    // Resolve child component tag from referenced model's renderer hints
+    let childTag = 'ntt-item';
+    if (modelName && defs[modelName]?.ui?.renderer?.item) {
+        childTag = defs[modelName].ui.renderer.item;
+    }
+
+    const count = Array.isArray(value) ? value.filter(v => typeof v === 'string').length : 0;
+
+    html.push(`<div class="list-field" data-model="${modelName || ''}">`);
+    html.push(`<div class="list-field-header">`);
+    html.push(`<span class="list-field-label">${def.title || modelName || key}</span>`);
+    html.push(`<span class="list-field-count">${count}</span>`);
+    html.push(`</div>`);
 
     if (Array.isArray(value)) {
-        value.forEach(item => {
+        value.forEach((item, i) => {
             if (typeof item === 'string') {
-                // href string — render as ntt-item
-                html.push(`<ntt-item ref="${item}"${modelName ? ` data-model="${modelName}"` : ''}></ntt-item>`);
+                if (i === VISIBLE_COUNT) {
+                    html.push(`<div class="nested-collapsed">`);
+                }
+                html.push(`<${childTag} ref="${item}" display="sm"${modelName ? ` data-model="${modelName}"` : ''}></${childTag}>`);
             }
         });
+        if (count > VISIBLE_COUNT) {
+            html.push(`</div>`);
+            html.push(`<button type="button" class="show-more-btn">Show ${count - VISIBLE_COUNT} more</button>`);
+        }
     }
 
     html.push(`</div>`);
@@ -221,7 +292,7 @@ function getArrayInput(ntt, def, key, mode = 'display') {
     
     const addr = `/${ntt.addr}/${ntt.id}/${model}`;
     html.push(`<div class="array-field">`);
-    html.push(`<ntt-list model="${model}" addr="${addr}" class="array-item"></ntt-list>`);
+    html.push(`<ntt-list model="${model}" addr="${addr}" class="array-item" display="md"></ntt-list>`);
     
   
     if (!Array.isArray(value)) value = [];

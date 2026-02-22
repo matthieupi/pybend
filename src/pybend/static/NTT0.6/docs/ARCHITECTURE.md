@@ -28,7 +28,7 @@ The key design goals:
 ```
 +----------------------------------------------------------+
 |  UI Layer (Web Components)                               |
-|  Component > NTTElement > List, Item, NTTMethod           |
+|  Component > NTTElement / ListElement > NTTItem, NTTList  |
 +-----------------------------+----------------------------+
                               |  TX messages (ATTACH, UPDATE,
                               |  DESCRIBE, CONNECT, READ...)
@@ -63,6 +63,8 @@ Actor                          # Base actor: addr, inbox, send, children, spawn
   |
   +-- Matrix                   # Singleton root actor, message router + network gateway
   |
+  +-- Router                   # Navigation state actor (route, history stack, hash sync, Observable)
+  |
   +-- TT (Transfer Type)       # Actor with href (remote endpoint) + watcher/notify pattern
   |     |
   |     +-- NTT                # Type registry (static) + entity base class (instance)
@@ -71,21 +73,22 @@ Actor                          # Base actor: addr, inbox, send, children, spawn
   |                 |
   |                 +-- instances  # Per-entity NTT instances (Product/1, Product/2, ...)
   |
-  +-- Component (HTMLElement)  # Web component base, registered in Matrix
+  +-- Component (HTMLElement)  # Unified web component base (Actor + Shadow DOM + schema + adaptive display)
         |
-        +-- NTTElement         # Component with model/schema/value binding
-              |
-              +-- List         # Renders a list of <ntt-item> elements
-              |
-              +-- Item         # Renders a single entity card with form fields
+        +-- NTTElement         # Single entity lifecycle (UPDATE, DESCRIBE, READ, save)
+        |     |
+        |     +-- NTTItem      # Built-in default: Formidable auto-render + edit toggle
+        |
+        +-- ListElement        # Collection lifecycle (subscribe, UPDATE, SELECT, childTag/template resolution)
+        |     |
+        |     +-- NTTList      # Built-in default: grid of children (19 lines)
+        |
+        +-- NTTRouter          # Generic view container ("mini browser"), controlled via Router
 
 Observable                     # Mixin: signal(), observe(), notify() - applied via Actor.subclass()
 ```
 
-All classes with `Actor.subclass(Class)` at the bottom of their module get:
-- Static `addr`, `children`, `send`, `inbox`, `register`
-- Instance `children`, `send`, `inbox`
-- Optional mixin application (e.g., `Actor.subclass(NTT, Observable)`)
+`Actor.subclass(Component)` is called once on Component. All subclasses (NTTElement, ListElement, NTTItem, NTTList, and developer custom components) inherit it. Do not call `Actor.subclass()` on any other component class.
 
 ---
 
@@ -93,32 +96,39 @@ All classes with `Actor.subclass(Class)` at the bottom of their module get:
 
 ```
 NTT0.6/
-  config.js                  # API_URL, WS_URL, event name constants (config.E), debug flags
+  config.js                    # API_URL, WS_URL, event name constants (config.E), debug flags
   core/
-    Actor.js                 # Actor base class + subclass() metaclass helper
-    Matrix.js                # Root actor singleton, message router
-    TX.js                    # Transaction envelope (name, source, target, data, meta, hash)
-    Observable.js            # Mixin: signal/observe/notify reactivity
-    NTT.js                   # TT, NTT classes + prototype() DynClass factory
-    Component.js             # HTMLElement + Actor base for web components
-    Utils.js                 # generateId, simpleHash, isTypeCompatible, deepEqual, isUrl
+    Actor.js                   # Actor base class + subclass() metaclass helper
+    Matrix.js                  # Root actor singleton, message router
+    Router.js                  # Navigation state actor (route stack, hash sync, Observable)
+    TX.js                      # Transaction envelope (name, source, target, data, meta, hash)
+    Observable.js              # Mixin: signal/observe/notify reactivity
+    NTT.js                     # TT, NTT classes + prototype() DynClass factory + SSR pre-loading
+    Component.js               # Unified base: HTMLElement + Actor + schema + adaptive display + stylesheet hook
+    Utils.js                   # generateId, simpleHash, isTypeCompatible, deepEqual, isUrl
     transport/
-      NetworkAdapter.js      # Matrix's network bridge (HTTP/WS mode switching)
-      HTTP.js                # Static fetch wrapper (get/post/put/remove)
-      Socket.js              # WebSocket client with heartbeat, reconnect, message queue
+      NetworkAdapter.js        # Matrix's network bridge (HTTP/WS mode switching)
+      HTTP.js                  # Static fetch wrapper (get/post/put/remove)
+      Socket.js                # WebSocket client with heartbeat, reconnect, message queue
   components/
-    ntt-element.js           # NTTElement: base component with model/schema/value
-    ntt-list.js              # List: renders <ntt-item> per entity
-    ntt-item.js              # Item: renders entity card with form
-    ntt-method.js            # NTTMethod: renders method invocation form
-    *.css                    # Component styles
+    NTTElement.js              # Single entity base (UPDATE, DESCRIBE, READ, save, auto-render)
+    ListElement.js             # Collection base (subscribe, UPDATE, SELECT, childTag, createChild, render)
+    ntt-item.js                # NTTItem: built-in default entity (Formidable + edit toggle + SELECT click)
+    ntt-list.js                # NTTList: built-in default collection (19 lines, styles only)
+    ntt-router.js              # NTTRouter: generic view container ("mini browser")
+    ntt-router.css             # Router chrome styles (back button, title, content area)
+    ntt-method.js              # NTTMethod: renders method invocation form
+    ntt-element.css            # Base component styles (loading, error, empty states)
+    ntt-item.css               # Item card styles (glass, fields, list-field, nested, groups)
+    ntt-list.css               # List grid styles
   generators/
-    form.js                  # Formidable: schema-driven HTML form generator
+    form.js                    # Formidable: schema-driven HTML/form generator
+                               #   field ordering, groups, widgets, validation, relationship rendering
   utils/
-    Assert.js                # assert(), caution(), inform() with configurable trigger level
-    Logging.js               # Logging with caller detection, styled console output
+    Assert.js                  # assert(), caution(), inform() with configurable trigger level
+    Logging.js                 # Logging with caller detection, styled console output
     Snippets.js, DateFormat.js, str_utils.js  # General utilities
-  docs/                      # This documentation
+  docs/                        # This documentation
 ```
 
 ---
@@ -140,19 +150,30 @@ When `matrix.html` loads:
    - window.NTT = NTT exposed globally
 
 3. Component.js executes
-   - Actor.subclass(Component)
-   - matrix.register(Component)  -- Component class registered as Matrix child
+   - Actor.subclass(Component)         -- applied ONCE, all subclasses inherit
+   - matrix.register(Component)        -- Component class registered as Matrix child
 
-4. ntt-element.js, ntt-list.js, ntt-item.js execute
-   - Actor.subclass(List)
-   - customElements.define('ntt-list', List)
-   - customElements.define('ntt-item', Item)
-   - customElements.define('ntt-element', NTTElement)
+4. NTTElement.js, ListElement.js execute
+   - Define base classes (no Actor.subclass, no customElements.define)
 
-5. Browser parses <ntt-list model="Product">
-   - List constructor runs:
-     - super() -> NTTElement -> Component -> HTMLElement
-     - Component registers itself in Matrix and in Component.children
+5. Router.js executes
+   - Actor.subclass(Router, Observable)  -- Router gets send/inbox + signal/observe/notify
+
+6. ntt-item.js, ntt-list.js, ntt-router.js execute
+   - customElements.define('ntt-item', NTTItem)     -- extends NTTElement
+   - customElements.define('ntt-list', NTTList)      -- extends ListElement
+   - customElements.define('ntt-router', NTTRouter)  -- extends Component
+
+7. Browser parses <ntt-router name="main" hash>
+   - NTTRouter constructor: Component base (shadow DOM, actor identity)
+   - connectedCallback: creates Router("main", {hash:true}), observes 'route'
+   - Sets router="main" on child <ntt-list>
+
+8. Browser parses <ntt-list model="Product">
+   - NTTList constructor runs:
+     - super() -> ListElement -> Component -> HTMLElement
+     - Component: attachShadow, actor identity, matrix.register, stylesheet link
+     - connectedCallback: starts ResizeObserver for adaptive display
    - attributeChangedCallback fires for model="Product"
      - Sends TX { name: ATTACH, source: <list-addr>, target: NTT, data: "Product" }
 ```
@@ -211,11 +232,12 @@ DynClass.READ(data):
   | Notifies all watchers (the list)
   | TX { UPDATE, source: Product, target: <list-addr>, data: ["Product/1","Product/2",...] }
   v
-List.UPDATE(data):
+ListElement.UPDATE(data):
   | this.value = array of address strings
-  | this.render() creates <ntt-item> for each, sets el.ref = "Product/1"
+  | this.render() creates child elements via createChild(addr), sets el.ref = "Product/1"
+  |   (child resolution: template > item-tag attr > childTag property > schema hint > 'ntt-item')
   v
-Item.ref setter:
+NTTItem.ref setter (inherited from Component):
   | TX { ATTACH, source: <item-addr>, target: NTT, data: "Product/1" }
   v
 NTT.ATTACH() -> "Product" exists in #prototypes -> forwards to DynClass
@@ -225,34 +247,112 @@ NTT.ATTACH() -> "Product" exists in #prototypes -> forwards to DynClass
   |   - this.watch(item-addr, false)
   |   - TX { DESCRIBE, source: 1, target: <item-addr>, data: {proto: schema, data: values} }
   v
-Item.DESCRIBE(data):
+NTTItem.DESCRIBE(data) (inherited from NTTElement):
   | this.schema = data.proto
   | this.value = data.data
-  | this.render() -> Formidable.getForm({schema, value}) -> HTML card
+  | this.render() -> Formidable.getForm({schema, value}, mode) -> HTML card
+  |   (respects field_order, groups, widget hints, validation, field exclusion)
+```
+
+---
+
+## Navigation Flow
+
+When a user clicks a product card to navigate to a detail view:
+
+```
+User clicks card (not on interactive element)
+  |
+  | NTTItem.#bindEvents() click handler fires
+  | Reads select-target attribute → list's addr
+  | TX { SELECT, source: item-addr, target: list-addr, data: "Product/3" }
+  v
+ListElement.SELECT(data):
+  | this.toggle("Product/3") → adds to #selected Set
+  | Reads router attribute → "main"
+  | TX { NAVIGATE, source: list-addr, target: "main", data: "Product/3" }
+  v
+Matrix.inbox() → routes to Router actor "main"
+  |
+  | Router.NAVIGATE("Product/3"):
+  |   - Push current (null) onto #stack
+  |   - Set #current = "Product/3"
+  |   - Update location.hash = "Product/3"
+  |   - notify('route', "Product/3", null)
+  v
+NTTRouter observes 'route' → render()
+  |
+  | #mountView("Product/3"):
+  |   - Resolve tag: schema.ui.renderer.detail || 'ntt-item'
+  |   - Build chrome: back button + title "Product"
+  |   - Create <ntt-item ref="Product/3">
+  |   - Mount in shadow DOM .router-content
+  v
+NTTItem resolves ref="Product/3" → ATTACH → DESCRIBE → render()
+```
+
+Going back:
+
+```
+User clicks back button (or browser back)
+  |
+  | TX { BACK, source: router-addr, target: "main" }
+  v
+Router.BACK():
+  | Pop #stack → null
+  | Set #current = null
+  | Clear location.hash
+  | notify('route', null, "Product/3")
+  v
+NTTRouter observes 'route' → render()
+  |
+  | #showSlot():
+  |   - Remove dynamic view element
+  |   - Restore <slot></slot>
+  |   - Light DOM <ntt-list> re-projects instantly (no re-fetch)
 ```
 
 ---
 
 ## Current Status
 
-**Working:**
+**Working — Core:**
 - Actor base class with subclass() metaclass, hierarchical routing, mixin system
 - Matrix as root actor with NetworkAdapter bridge to PyBend backend
-- NTT type registry with null-pointer bootstrap and universal ATTACH router
+- Router: pure navigation state Actor with history stack, hash sync, Observable
+- NTT type registry with null-pointer bootstrap, universal ATTACH router, SSR pre-loading
 - DynClass generation via `prototype()` with typed properties and methods
-- Observable mixin (signal/observe/notify) applied to NTT and DynClass (both instance and static level)
+- Observable mixin (signal/observe/notify) applied to NTT, DynClass, and Router
 - TX message envelope with hash, serialization, event type subclasses
-- Component base class integrated into Actor system
-- NTTElement with model/schema/value binding, ref-based ATTACH protocol
-- List rendering with UPDATE handler
-- Item rendering with DESCRIBE handler and Formidable form generation
-- FK Hydration: collection fields (e.g., `comments`) return href arrays instead of embedded objects. Each href is independently resolvable via nested routes (`/tablename/:id/field/:child_id`).
+
+**Working — Component Layer (refactored):**
+- Unified Component base class: Actor bridge + Shadow DOM + schema resolution + adaptive display (xs–xl) + stylesheet hook
+- Adaptive display: abstract sizes (`xs`–`xl`) with semantic aliases (`pill`, `card`, etc.), forced mode via `display` attribute, ResizeObserver auto-mode
+- NTTElement (entity base): UPDATE/DESCRIBE/READ handlers, save(), auto-render on value change
+- ListElement (collection base): subscribe to proto, UPDATE handler, SELECT handler, selection API (Set-based), child resolution chain, size cascade
+- NTTItem (built-in default): size methods (`xs`–`xl`) return HTML, `render()` dispatches + binds events, click-to-select, heuristic field selection via `#topFields()`
+- NTTList (built-in default): 19-line thin shell over ListElement
+- NTTRouter: generic view container, loads any component dynamically via Router, slot persistence for instant back-navigation
+
+**Working — Schema-Driven Primitives:**
+- `__ui__` ClassVar: field ordering, groups, renderer hints injected into schema
+- Per-field UI hints via `json_schema_extra`: widget, placeholder, display
+- Field exclusion conventions: `*_id`, `id`, timestamps auto-hidden
+- Schema-driven validation: HTML5 attrs from minLength/maxLength/min/max/pattern/required
+- Widget rendering: textarea, currency (with format), placeholder
+- Grouped fields: `<fieldset>` with `<legend>` per schema group
+- Relationship rendering: schema-aware child tags, count badge, collapse/expand
+- Scaffolding: CLI (`python -m utils.scaffold`) + API (`?scaffold=item`) generates starter components
+
+**Working — SSR Pre-Loading:**
+- Inline `<script data-ntt-schema="Model">` consumed before network fetch
+- Inline `<script data-ntt-data="tablename">` consumed after DynClass creation
+- Eliminates both network round-trips for server-rendered pages
 
 **WIP / Incomplete:**
 - NTT constructor has most initialization commented out (detach, meta, observer setup)
-- `<ntt-method>` rendering is commented out in Item.render()
-- Array input rendering is commented out in form.js
-- Component.connectedCallback() is empty (initial bootstrapping relies on attributeChangedCallback)
+- Adaptive display schema integration (§8 phase 3): backend `__ui__.display_modes` for per-mode field selection — frontend heuristic (`#topFields`) works now, schema override not yet consumed
+- `lg` and `xl` size methods delegate to `md` — future: show normally-hidden fields, expanded metadata
 - Debug logging throughout (console.warn, console.error) not cleaned up
 - example.html references old architecture and is broken against v0.6
 - No automated tests exist; testing is manual via browser + console

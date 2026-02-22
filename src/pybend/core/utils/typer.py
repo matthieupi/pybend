@@ -84,11 +84,11 @@ class Ref(Generic[T]):
     def __get_pydantic_core_schema__(cls, source_type, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
         return core_schema.json_or_python_schema(
             python_schema=core_schema.no_info_plain_validator_function(
-                lambda v: int(v) if isinstance(v, Ref) else v
+                lambda v: v if isinstance(v, str) else (int(v) if isinstance(v, Ref) else v)
             ),
             json_schema=core_schema.int_schema(),
             serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda v: int(v) if v is not None else None
+                lambda v: v if isinstance(v, str) else (int(v) if v is not None else None)
             )
         )
 

@@ -374,7 +374,7 @@ customElements.define('ntt-list', NTTList);
 
 ### Unchanged Files
 
-`core/Matrix.js`, `core/Actor.js`, `core/Observable.js`, `core/TX.js`, `components/ntt-method.js` — the actor system and message infrastructure remain untouched. `core/NTT.js` was modified for SSR pre-loading (§7). `generators/form.js` was enhanced with UI hint consumption, field ordering, widget mapping, and grouped rendering (§4, §11).
+`core/Matrix.js`, `core/Actor.js`, `core/Observable.js`, `core/TX.js`, `components/ntt-method.js` — the actor system and message infrastructure remain untouched. `core/NTT.js` was modified for SSR pre-loading (§7). `generators/form.js` was enhanced with UI hint consumption, field ordering, widget mapping, grouped rendering (§4, §11), schema-aware relationship rendering (§13), and field-level access control (§12). `utils/Permissions.js` was added for frontend permissions (§12).
 
 ---
 
@@ -550,7 +550,7 @@ The `<template>` approach is preferred because the developer can pre-configure t
 
 ---
 
-## 6. Enhancement: Schema Renderer Hints
+## 6. Enhancement: Schema Renderer Hints — DONE
 
 ### Goal
 
@@ -579,13 +579,20 @@ class Product(ProtoModel):
 }
 ```
 
-### Integration
+### Implementation — DONE
 
-This slots into the child resolution chain from §5 at priority level 4. `ListElement.childTag` checks `this.schema?.ui?.renderer?.item` before falling back to `'ntt-item'`.
+**Frontend**: `ListElement.childTag` checks `this.schema?.ui?.renderer?.item` at priority level 4 in the resolution chain. Formidable's `getListInput()` also resolves the child tag from `$defs[modelName].ui.renderer.item` when rendering inline ListRef fields.
 
-It also affects which component `<ntt-list>` itself might delegate to if a schema specifies a custom list renderer — but this is opt-in. `<ntt-list model="Product">` always works with the built-in default regardless of schema hints.
-
-### Concern
+**Backend**: Product model includes `renderer` in `__ui__`:
+```python
+__ui__: ClassVar[dict] = {
+    'renderer': {
+        'item': 'ntt-item',
+        'list': 'ntt-list',
+    },
+    ...
+}
+```
 
 Backend naming frontend component tags creates coupling. This is acceptable because:
 - It's completely optional (no `__ui__` = no coupling)
@@ -655,54 +662,110 @@ Eliminates both network round-trips for server-rendered pages. For SPA-style nav
 
 ---
 
-## 8. Enhancement: Adaptive Display Modes — DONE (Phase 2)
+## 8. Enhancement: Adaptive Display Modes — DONE (Phase 2 + Phase 2.5)
 
 ### Goal
 
-A single component renders differently (page / card / list-item / chip) based on the space its parent allocates, not the screen size. This makes components truly context-aware — the same `<product-view>` works in a dashboard grid, a detail page, a sidebar, or an inline mention.
+A single component renders differently based on the space its parent allocates, not the screen size. This makes components truly context-aware — the same `<ntt-item>` works in a dashboard grid, a detail page, a sidebar, or an inline mention.
 
-### Two Layers
+### Size System
 
-**Layer A — CSS Container Queries** (styling within a fixed structure):
+Abstract sizes (`xs`–`xl`) with semantic aliases for readability:
 
-```css
-:host { container-type: inline-size; }
+| Size | Alias | Breakpoint | NTTItem Default |
+|------|-------|-----------|-----------------|
+| `xs` | `pill` | 0px+ | Name badge only |
+| `sm` | `list-item` | 200px+ | Compact row: name + 2–3 key fields |
+| `md` | `card` | 400px+ | Full card: edit + form + methods |
+| `lg` | `detail` | 600px+ | Detail (delegates to `md`; future: hidden fields) |
+| `xl` | `page` | 800px+ | Page (delegates to `md`; future: metadata) |
 
-@container (min-width: 600px) {
-  .fields { display: grid; grid-template-columns: 1fr 1fr; }
-}
-@container (max-width: 200px) {
-  .description, .meta { display: none; }
-}
+### Two Modes of Operation
+
+**Auto mode (default):** ResizeObserver measures the component's content width and resolves to the largest matching breakpoint. No attribute needed.
+
+**Forced mode:** Set the `display` attribute (or property) to lock a specific size:
+
+```html
+<ntt-item display="xs"></ntt-item>    <!-- abstract name -->
+<ntt-item display="pill"></ntt-item>  <!-- semantic alias -->
+<ntt-item display="auto"></ntt-item>  <!-- back to auto -->
 ```
 
-**Layer B — JS mode switching** (different HTML structures per mode):
+When forced, the ResizeObserver still runs but its updates are ignored.
 
-### Implementation (completed — Phase 2)
+### Implementation — Component.js (Phase 2)
 
 Added to `core/Component.js` base class. Every component gets space-awareness for free.
 
+**Static members:**
+- `Component.SIZES = ['xs', 'sm', 'md', 'lg', 'xl']`
+- `Component.ALIASES = {pill: 'xs', 'list-item': 'sm', card: 'md', detail: 'lg', page: 'xl'}`
+- `Component.normalizeDisplay(value)` — resolves abstract or semantic name to abstract size, returns `null` for `'auto'` or unrecognized values
+
 **Private state:**
-- `#displayMode = 'card'` — current mode, initialized to `'card'`
+- `#displayMode = 'md'` — current mode, initialized to `'md'`
 - `#resizeObserver = null` — ResizeObserver instance
 
 **Public API:**
 
-- **`get displayBreakpoints()`** — Override in subclass to customize. Returns `{page: 800, card: 400, 'list-item': 200, chip: 0}`. Keys are mode names, values are minimum widths (px). Evaluated largest-first.
-
-- **`get displayMode()`** — Returns the current mode string. Use in `render()` to adapt layout.
-
-- **`displayModeChanged(oldMode, newMode)`** — Hook called when mode changes due to resize. Default behavior: re-renders if schema is available. Override for custom behavior (e.g., CSS-class-only swap without full re-render).
+- **`get displayBreakpoints()`** — Override in subclass to customize. Returns `{xl: 800, lg: 600, md: 400, sm: 200, xs: 0}`. Evaluated largest-first.
+- **`get displayMode()`** — Returns the current abstract size string.
+- **`get display()` / `set display(value)`** — Gets/sets the `display` attribute. Accepts abstract or semantic names.
+- **`displayModeChanged(oldMode, newMode)`** — Hook called when mode changes. Default: re-renders if schema available.
 
 **Lifecycle wiring:**
-- `connectedCallback()` calls `#startResizeObserver()` which creates a ResizeObserver watching `this`. Skips width=0 (not yet laid out).
-- `disconnectedCallback()` calls `#stopResizeObserver()` which disconnects and nulls the observer.
+- `connectedCallback()` applies forced mode if `display` attribute is set, then starts ResizeObserver.
+- `disconnectedCallback()` stops ResizeObserver, cleans up subscriptions.
+- `attributeChangedCallback` for `'display'` normalizes value and updates `#displayMode`.
 
-**Mode resolution logic:**
+**ResizeObserver guard:**
 ```js
-// Inside ResizeObserver callback
-const sorted = Object.entries(bp).sort(([,a], [,b]) => b - a);
-const newMode = sorted.find(([, min]) => width >= min)?.[0] || 'chip';
+// Skip if display mode is forced via attribute
+if (Component.normalizeDisplay(this.getAttribute('display'))) return;
+```
+
+### Implementation — NTTItem Size Methods (Phase 2.5)
+
+Size methods return HTML strings; `render()` dispatches and handles DOM + events.
+
+```js
+xs() { return `<span class="pill-label">${name}</span>`; }
+sm() { return `<span class="sm-name">${name}</span><span class="sm-fields">...</span>`; }
+md() { return editButton + Formidable.getForm(...) + methodButtons; }
+lg() { return this.md(); }  // future: more fields
+xl() { return this.md(); }  // future: metadata
+
+render() {
+  const size = this.displayMode;
+  const html = (this[size] || this.md).call(this);
+  this.shadowRoot.innerHTML = `<div class="card" data-display="${size}">${html}</div>`;
+  this.#bindEvents();
+  this[`${size}_mounted`]?.call(this);  // optional post-render hook
+}
+```
+
+**Heuristic field selection** (`#topFields(count)`): For `sm`, picks the top N visible, non-header, non-array fields using `ui.field_order` if available, otherwise schema property order. Respects `ui.display` and permissions.
+
+**CSS scoping**: `.card[data-display="xs"]`, `.card[data-display="sm"]`, etc. Each size has distinct layout rules in `ntt-item.css`. Host-level: `:host([display="xs"]) { display: inline-block; }`.
+
+### Implementation — ListElement Size Cascade (Phase 2.5)
+
+Children receive a display size from their parent to prevent cards-within-cards:
+
+```js
+static SIZE_CASCADE = { xl: 'md', lg: 'sm', md: 'xs', sm: 'xs', xs: 'xs' };
+
+get childDisplay() {
+  return this.getAttribute('item-display') || SIZE_CASCADE[this.displayMode] || 'xs';
+}
+```
+
+`createChild()` stamps `display` on each child element. Nested items in Formidable's `getListInput()` also get `display="xs"`.
+
+Override with `item-display` attribute:
+```html
+<ntt-list model="Product" item-display="sm"></ntt-list>
 ```
 
 ### Schema Integration (future — Phase 3)
@@ -712,39 +775,31 @@ Pairs with §4 (Schema UI Extensions). Schema can define which fields to show pe
 ```python
 __ui__: ClassVar[dict] = {
     'display_modes': {
-        'page': {'fields': '*', 'layout': 'full'},
-        'card': {'fields': ['name', 'price', 'description'], 'layout': 'card'},
-        'list-item': {'fields': ['name', 'price'], 'layout': 'inline'},
-        'chip': {'fields': ['name'], 'layout': 'chip'},
+        'xl': {'fields': '*', 'layout': 'full'},
+        'md': {'fields': ['name', 'price', 'description'], 'layout': 'card'},
+        'sm': {'fields': ['name', 'price'], 'layout': 'inline'},
+        'xs': {'fields': ['name'], 'layout': 'chip'},
     }
 }
 ```
 
-This allows Formidable (or a new adaptive renderer) to auto-generate the right HTML for each mode from schema alone — without the developer writing four separate render methods. Not yet implemented.
+When present, `display_modes` overrides the heuristic field selection. This allows Formidable to auto-generate the right HTML for each mode from schema alone. Not yet implemented — the frontend heuristic (`#topFields`) handles field selection for now.
 
 ### Developer Experience
 
 ```js
-// Option A: Developer implements per-mode rendering
-class ProductView extends NTTElement {
-  render() {
-    switch (this.displayMode) {
-      case 'page':      return this.renderPage();
-      case 'card':      return this.renderCard();
-      case 'list-item': return this.renderCompact();
-      case 'chip':      return this.renderChip();
-    }
+// Option A: Override a single size method
+class ProductCard extends NTTItem {
+  xs() {
+    return `<span class="pill-label">${this.value.name} — $${this.value.price}</span>`;
   }
-  renderPage() { /* all fields, full layout */ }
-  renderCard() { /* name, price, image */ }
-  renderCompact() { /* name + price inline */ }
-  renderChip() { /* just name */ }
+  // sm, md, lg, xl inherited from NTTItem
 }
 
 // Option B: Custom breakpoints
 class CompactProduct extends NTTElement {
   get displayBreakpoints() {
-    return { full: 500, compact: 200, chip: 0 };
+    return { xl: 600, lg: 400, md: 250, sm: 120, xs: 0 };
   }
 }
 
@@ -752,7 +807,6 @@ class CompactProduct extends NTTElement {
 class StyledProduct extends NTTElement {
   displayModeChanged(oldMode, newMode) {
     this.shadowRoot.host.setAttribute('data-mode', newMode);
-    // No render() call — CSS handles the rest via [data-mode="card"] selectors
   }
 }
 ```
@@ -815,74 +869,54 @@ Object.keys(fields).map(key => {
 
 ---
 
-## 10. Enhancement: Scaffolding / Template Generation
+## 10. Enhancement: Scaffolding / Template Generation — DONE
 
 ### Problem
 
 Today: you either use Formidable's auto-render (zero customization) or write a component from scratch (full effort). There's no middle ground.
 
-### Solution: Generate Starting Templates
+### Solution: Generate Starting Templates — Implemented
 
-**Mechanism A — CLI scaffolding** (primary):
+**Mechanism A — CLI scaffolding**:
 
 ```bash
-$ python -m pybend scaffold Product
-Generated:
-  static/NTT0.6/components/product-card.js
-  static/NTT0.6/components/product-card.css
-  static/NTT0.6/components/product-grid.js
+$ cd /workspace/src/pybend/core
+$ python -m utils.scaffold Product
+  WRITE .../components/product-card.js
+  WRITE .../components/product-card.css
+  WRITE .../components/product-grid.js
+  WRITE .../components/product-grid.css
 ```
 
-Where `product-card.js` contains a fully working, explicitly rendered component:
-
-```js
-import { NTTElement } from './NTTElement.js';
-
-class ProductCard extends NTTElement {
-  get styles() { return new URL('./product-card.css', import.meta.url).href; }
-
-  render() {
-    const { name, price, description, comments } = this.value || {};
-    this.shadowRoot.innerHTML = `
-      <div class="product-card">
-        <h2 class="product-name">${name ?? ''}</h2>
-        <p class="product-description">${description ?? ''}</p>
-        <span class="product-price">${price ?? ''}</span>
-        <div class="product-comments">
-          ${(comments ?? []).map(c =>
-            `<ntt-item ref="${c}"></ntt-item>`
-          ).join('')}
-        </div>
-      </div>
-    `;
-  }
-}
-
-customElements.define('product-card', ProductCard);
-```
-
-And `product-card.css` contains a starter stylesheet based on the schema fields.
+Generates four files: item component (extends NTTElement), list component (extends ListElement), and starter CSS for both. All immediately functional.
 
 **Mechanism B — Dev-mode API endpoint**:
 
 ```
-GET /Product?scaffold=item    → returns JS component source as text
-GET /Product?scaffold=list    → returns JS list component source
-GET /Product?scaffold=css     → returns starter CSS
+GET /Product?scaffold=item       → JS item component source (text/plain)
+GET /Product?scaffold=list       → JS list component source
+GET /Product?scaffold=css        → Item starter CSS
+GET /Product?scaffold=list-css   → List starter CSS
 ```
 
-Works from the browser or curl — no CLI install needed. Good for rapid iteration.
+Works from the browser or curl — no CLI install needed.
 
-### Implementation
+### Implementation Details
+
+**File**: `src/pybend/core/utils/scaffold.py`
 
 The scaffolding reads the model's `schema()` output and generates code:
-- Iterates `properties` → destructures in `render()`
-- Checks field types → picks appropriate HTML (input, textarea, checkbox, etc.)
-- Checks `ListRef` fields → renders as nested components
-- Checks `methods` → generates method button placeholders
-- Applies `ui` hints if present (groups, order, widgets)
+- Respects `ui.field_order` for field rendering order
+- Applies `ui.widget` hints: `currency` → `$X.XX` formatting, `textarea` → `<p>` blocks
+- Applies `ui.display: false` → skips hidden fields
+- Detects `ListRef` fields via `items.$ref` → renders as nested `<ntt-item>` (or custom tag from renderer hints)
+- Generates `<ntt-method>` buttons for schema methods
+- Header fields (`name`, `description`) rendered as `<h2>` / `<p>`, body fields with `<label>` + display element
+- CSS includes glass morphism base card, field-specific selectors, and stagger animation
 
-This can be a Python utility in `src/pybend/core/utils/scaffold.py` that both the CLI and the API endpoint call.
+**API integration**: `make_get_schema()` in `routes_fastapi.py` checks for `?scaffold=` query parameter. When present, returns `PlainTextResponse` from `scaffold_single()` instead of JSON schema.
+
+**Programmatic use**: `scaffold_single(model_name, kind, schema)` for inline use, `scaffold_model(model_name)` for writing files.
 
 ---
 
@@ -937,79 +971,90 @@ The browser handles validation natively. No custom validation code needed for st
 
 ---
 
-## 12. Enhancement: Schema-Driven Permissions
+## 12. Enhancement: Schema-Driven Permissions — DONE
 
 ### Goal
 
 Show/hide/disable fields and actions based on user role, driven by the schema.
 
-### Backend API
+### Backend Implementation
+
+**Per-field access** via `json_schema_extra`:
 
 ```python
-price: float = Field(json_schema_extra={
-    'access': {'view': 'authenticated', 'edit': 'admin'}
+price: float = Field(gt=0, json_schema_extra={
+    'ui': {'widget': 'currency'},
+    'access': {'view': 'anyone', 'edit': 'admin'}
+})
+
+user_owner: User = Field(json_schema_extra={
+    'access': {'view': 'authenticated', 'edit': 'owner'}
 })
 ```
 
-The `access` key in the schema already exists at the model level (from `authorize.schema.access_schema(cls)` in `ProtoModel.schema()`). This extends it to field level.
+**User identity endpoint**: `GET /auth/me` returns `{ user_id, email, role }` from the JWT token. The middleware already decodes the token into `request.state.user`.
 
-### Frontend Consumption
+**Model-level access** was already serialized via `authorize.schema.access_schema()` into `schema.access`. No changes needed.
 
-The component (or Formidable) checks the current user's role against field-level access rules:
-- `view` permission missing → field not rendered at all
-- `edit` permission missing → field rendered as read-only even in edit mode
+### Frontend Implementation
 
-### Dependency
+**`utils/Permissions.js`** — Singleton module:
+- `permissions.init()` — Fetches `/auth/me` using the JWT from `localStorage['jwtToken']`. Non-blocking; deduplicates.
+- `permissions.user` — Current user object or null.
+- `permissions.role` — Current role string ('anonymous' if not logged in).
+- `permissions.canView(fieldDef)` — Checks `fieldDef.access.view` against user.
+- `permissions.canEdit(fieldDef)` — Checks `fieldDef.access.edit` against user.
+- `permissions.canAction(accessDict, action)` — Checks model-level `schema.access[action]` against user. Handles composite rules (or/and/not).
 
-Requires the auth system to expose the current user's roles to the frontend. This is a later enhancement (P4) that builds on the existing `access` schema infrastructure.
+**Rule evaluation**:
+- `'anyone'` → always true
+- `'authenticated'` → true if logged in
+- `'owner'` → true if logged in (ownership enforced server-side)
+- Any other string → treated as role name, matched against `permissions.role`
+- Composite rules: `{op: 'or', rules: [...]}`, `{op: 'and', rules: [...]}`, `{op: 'not', rule: {...}}`
+
+**Formidable integration** (`generators/form.js`):
+- `getForm()` filters out fields where `permissions.canView(def)` returns false
+- `getInput()` downgrades edit mode to display mode if `permissions.canEdit(def)` returns false
+
+**NTTItem integration** (`components/ntt-item.js`):
+- Edit button hidden if `permissions.canAction(schema.access, 'update')` returns false
+- `toggleMode()` blocked if user lacks update permission
+
+**Bootstrap**: `permissions.init()` called in `matrix.html` module script. Non-blocking — components degrade gracefully (show everything by default, apply restrictions once identity resolves).
 
 ---
 
-## 13. Enhancement: Relationship-Aware Smart Defaults
+## 13. Enhancement: Relationship-Aware Smart Defaults — DONE
 
 ### Goal
 
-When Formidable encounters a `ListRef[Comment]` field, auto-render it as a proper nested list component instead of raw hrefs.
+When Formidable encounters a `ListRef[Comment]` field, auto-render it as a proper nested list component with schema-aware child resolution.
 
-### Current Behavior
+### Implementation
 
-`form.js` `getListInput()` already handles this partially — it stamps `<ntt-item ref="...">` for each href string in the array. But it doesn't render as a `<ntt-list>` and doesn't provide the parent context.
+`getListInput()` in `form.js` now provides:
 
-### Improved Behavior
+1. **Schema-aware child tag resolution**: Looks up the referenced model's `$defs` entry for `ui.renderer.item`. If `Comment` has `renderer.item: 'comment-bubble'`, the list field stamps `<comment-bubble>` instead of `<ntt-item>`.
 
-For `ListRef` fields (detected via `items.$ref` in the schema), render a scoped list:
+2. **Count header**: Renders a `.list-field-header` with model name label and count badge.
+
+3. **Collapse/expand**: Items beyond `VISIBLE_COUNT` (2) are wrapped in `.nested-collapsed` with a show-more button.
 
 ```js
-function getListInput(ntt, key, mode) {
-  const def = ntt.schema.properties[key];
-  const items = def.items || {};
-  const value = ntt.value[key] || [];
-
-  let modelName = items.$ref?.split('/').pop()
-    || items.anyOf?.find(a => a.$ref)?.$ref.split('/').pop();
-
-  if (!modelName) return '<!-- unknown list type -->';
-
-  // Render as a mini-list with proper item components
-  const children = value.map(item => {
-    if (typeof item === 'string') {
-      return `<ntt-item ref="${item}" data-model="${modelName}"></ntt-item>`;
-    }
-    return '';
-  }).join('');
-
-  return `
-    <div class="list-field" data-model="${modelName}">
-      <div class="list-field-header">
-        <span class="list-field-count">${value.length}</span>
-      </div>
-      ${children}
-    </div>
-  `;
+// Resolution: $defs[modelName].ui.renderer.item → 'ntt-item' fallback
+let childTag = 'ntt-item';
+if (modelName && defs[modelName]?.ui?.renderer?.item) {
+    childTag = defs[modelName].ui.renderer.item;
 }
 ```
 
-This pairs with §6 (schema renderer hints) — if `Comment` has `ui.renderer.item: 'comment-bubble'`, the list field would use that component instead of `<ntt-item>`.
+### CSS Support
+
+New CSS classes in `ntt-item.css`:
+- `.list-field-header` — flex row with label + count
+- `.list-field-label` — uppercase accent-colored model name
+- `.list-field-count` — pill badge with item count
 
 ---
 
@@ -1051,22 +1096,25 @@ These are tooling that helps developers be productive. They're separate from the
 | ~~**P1**~~ | ~~Field exclusion conventions~~ | ~~§9~~ | **DONE** | ~~`ProtoModel.schema()`~~ |
 | ~~**P1**~~ | ~~Schema UI extensions (`__ui__`)~~ | ~~§4~~ | **DONE** | ~~`ProtoModel.schema()`~~ |
 | ~~**P1**~~ | ~~Slot-based child templates~~ | ~~§5~~ | **DONE** (in P0) | ~~P0~~ |
-| **P2** | Schema renderer hints | §6 | Pending | ~~§4~~ (done) |
+| ~~**P2**~~ | ~~Schema renderer hints~~ | ~~§6~~ | **DONE** | ~~§4~~ (done) |
 | ~~**P2**~~ | ~~Schema-driven validation~~ | ~~§11~~ | **DONE** | ~~§4, `form.js`~~ |
 | ~~**P2**~~ | ~~SSR pre-loading~~ | ~~§7~~ | **DONE** | ~~`NTT.js` change only~~ |
 | ~~**P2**~~ | ~~Formidable UI hints (field_order, widget, groups)~~ | ~~§4~~ | **DONE** | ~~§4, `form.js`~~ |
-| ~~**P2**~~ | ~~Adaptive display modes~~ | ~~§8~~ | **DONE** | ~~P0, §4~~ |
-| **P3** | Scaffolding / template generation | §10 | Pending | ~~P0, §4~~ (done) |
-| **P3** | Relationship-aware defaults | §13 | Pending | ~~P0~~ (done), `form.js` |
-| **P4** | Schema-driven permissions | §12 | Pending | ~~§4~~ (done), auth system |
+| ~~**P2**~~ | ~~Adaptive display modes (Phase 2: infra)~~ | ~~§8~~ | **DONE** | ~~P0, §4~~ |
+| ~~**P2.5**~~ | ~~Adaptive display (Phase 2.5: size methods, cascade, forced mode)~~ | ~~§8~~ | **DONE** | ~~P2~~ |
+| ~~**P3**~~ | ~~Scaffolding / template generation~~ | ~~§10~~ | **DONE** | ~~P0, §4~~ (done) |
+| ~~**P3**~~ | ~~Relationship-aware defaults~~ | ~~§13~~ | **DONE** | ~~P0~~ (done), `form.js` |
+| ~~**P4**~~ | ~~Schema-driven permissions~~ | ~~§12~~ | **DONE** | ~~§4~~ (done), ~~auth system~~ (done) |
 
 ### Recommended Implementation Order
 
 1. ~~**P0**: Component refactor~~ — **DONE**
 2. ~~**P1 batch**: Field exclusion + `__ui__` schema extensions + slot templates + validation~~ — **DONE**
-3. ~~**P2 batch**: Formidable UI hints + SSR pre-loading + adaptive display modes~~ — **DONE**
-4. **P3 batch** (next): Scaffolding + renderer hints + relationship defaults → developer experience and advanced rendering
-5. **P4**: Permissions → after auth system is stable
+3. ~~**P2 batch**: Formidable UI hints + SSR pre-loading + adaptive display modes + renderer hints~~ — **DONE**
+4. ~~**P3 batch**: Scaffolding + relationship defaults~~ — **DONE**
+5. ~~**P4**: Permissions~~ — **DONE**
+
+### All enhancements complete.
 
 ---
 

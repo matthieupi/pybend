@@ -72,31 +72,32 @@ class FastAPIBackend(BaseBackend):
 
         exempt_paths = self.AUTH_EXEMPT_PATHS
         exempt_extensions = self.AUTH_EXEMPT_EXTENSIONS
+        models = self.registered_models
 
         class JWTAuthMiddleware(BaseHTTPMiddleware):
             async def dispatch(self, request, call_next):
                 path = request.url.path
 
-                # Skip auth for exempt paths and static files
+                # Skip token processing for static files
                 if any(path.endswith(ext) for ext in exempt_extensions):
                     return await call_next(request)
-                if any(exempt in path for exempt in exempt_paths):
-                    return await call_next(request)
 
+                # Extract and validate token if present.
+                # Route handlers enforce authorization via ABAC rules;
+                # the middleware only decodes identity.
                 token = request.headers.get("x-access-token")
-                if not token:
-                    return JSONResponse(
-                        status_code=401,
-                        content={"detail": "Missing authentication token"},
-                    )
-                try:
-                    payload = decode_token(token)
-                    request.state.user = payload
-                except Exception:
-                    return JSONResponse(
-                        status_code=401,
-                        content={"detail": "Invalid or expired token"},
-                    )
+                if token:
+                    try:
+                        payload = decode_token(token)
+                        request.state.user = payload
+                    except Exception:
+                        return JSONResponse(
+                            status_code=401,
+                            content={"detail": "Invalid or expired token"},
+                        )
+                else:
+                    request.state.user = {}
+
                 return await call_next(request)
 
         self.app.add_middleware(JWTAuthMiddleware)

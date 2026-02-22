@@ -188,7 +188,7 @@ Step 3: Item receives DESCRIBE
   Item.DESCRIBE(data):
     this.schema = data.proto    // JSON schema
     this.value = data.data      // Entity data {id, name, price, ...}
-    this.render()               // Formidable generates HTML form
+    // value setter auto-renders when schema is available
 ```
 
 ---
@@ -254,6 +254,64 @@ TX { name: comment, source: <ntt-addr>, target: http://localhost:8000/products/<
 
 ---
 
+## Protocol: Navigation
+
+Triggered when a user clicks an item in a list that has a `router` attribute.
+
+```
+Step 1: User clicks a product card
+  NTTItem.#bindEvents() click handler fires
+  Reads select-target attribute → list's addr
+  TX { name: SELECT, source: <item-addr>, target: <list-addr>, data: "Product/3" }
+
+Step 2: List handles selection and forwards to Router
+  ListElement.SELECT("Product/3"):
+    this.toggle("Product/3") → adds to #selected Set
+    Reads router attribute → "main"
+  TX { name: NAVIGATE, source: <list-addr>, target: "main", data: "Product/3" }
+
+Step 3: Matrix routes to Router actor
+  Router.NAVIGATE("Product/3"):
+    Push current (null) onto #stack
+    Set #current = "Product/3"
+    Update location.hash = "Product/3"
+    notify('route', "Product/3", null)
+
+Step 4: NTTRouter observes route change
+  NTTRouter.render():
+    #mountView("Product/3"):
+      Resolve tag from schema → 'ntt-item'
+      Build chrome (back button + title "Product")
+      Create <ntt-item ref="Product/3">
+      Mount in shadow DOM .router-content
+
+Step 5: Mounted item resolves data
+  NTTItem ref="Product/3" → ATTACH → DESCRIBE → render()
+```
+
+### Going Back
+
+```
+Step 1: User clicks back button (or browser back)
+  TX { name: BACK, source: <router-component-addr>, target: "main" }
+
+Step 2: Router pops stack
+  Router.BACK():
+    Pop #stack → null
+    Set #current = null
+    Clear location.hash
+    notify('route', null, "Product/3")
+
+Step 3: NTTRouter restores slot
+  NTTRouter.render():
+    #showSlot():
+      Remove dynamic view element
+      Restore <slot></slot>
+      Light DOM <ntt-list> re-projects instantly (no re-fetch)
+```
+
+---
+
 ## Message Reference Table
 
 | Name | Direction | Source | Target | Data | Handler |
@@ -271,4 +329,7 @@ TX { name: comment, source: <ntt-addr>, target: http://localhost:8000/products/<
 | `CREATE` | DynClass -> Backend | DynClass addr | backend URL | entity data | NetworkAdapter (HTTP POST) |
 | `UPDATE` | NTT instance -> Backend | NTT addr | backend URL | entity data | NetworkAdapter (HTTP PUT) |
 | `DELETE` | NTT instance -> Backend | NTT addr | backend URL | - | NetworkAdapter (HTTP DELETE) |
+| `SELECT` | NTTItem -> ListElement | item addr | list addr (via `select-target` attribute) | entity ref string (e.g., `"Product/3"`) | `ListElement.SELECT()` |
+| `NAVIGATE` | ListElement -> Router | list addr | router addr (via `router` attribute) | route data (string or object) | `Router.NAVIGATE()` |
+| `BACK` | NTTRouter -> Router | router component addr | router actor addr | (ignored) | `Router.BACK()` |
 | `ERROR` | NetworkAdapter -> source | backend URL | original source | error details | `TT._error_()` |

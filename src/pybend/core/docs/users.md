@@ -6,7 +6,8 @@
 
 | Name | Type | Required | Default |
 |------|------|----------|---------|
-| id | integer | No | None |
+| id | integer | No | 0 |
+| image | string | No | https://ui-avatars.com/api/?name=User&background=94a3b8&color=fff&size=128&rounded=true |
 | name | string | Yes | — |
 | email | string | Yes | — |
 | role | string | No | user |

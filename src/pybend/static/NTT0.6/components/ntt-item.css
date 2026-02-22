@@ -1,4 +1,4 @@
-/* ntt-item — Entity card */
+/* ntt-item — Entity component with adaptive display sizes */
 
 :host {
     display: block;
@@ -6,23 +6,232 @@
     animation-delay: var(--stagger-delay, 0ms);
 }
 
-/* ── Card — Glass morphism ── */
-.card {
-    position: relative;
-    background: var(--glass-bg, rgba(14, 16, 24, 0.55));
-    backdrop-filter: blur(var(--glass-blur, 16px));
-    -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
-    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
-    border-radius: var(--radius-lg, 16px);
-    padding: 1.5rem 1.75rem 1.25rem;
-    transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s var(--ease, cubic-bezier(0.4, 0, 0.2, 1));
+
+/* ═══════════════════════════════════════════════════
+   xs — Pill: inline badge with entity name
+   ═══════════════════════════════════════════════════ */
+
+:host([display="xs"]),
+:host([display="pill"]) {
+    display: inline-block;
+    animation: none;
 }
 
-.card:hover {
-    border-color: var(--glass-border-hover, rgba(255,255,255,0.14));
-    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,.4)), 0 0 30px rgba(34, 211, 197, 0.05);
-    transform: translateY(-2px);
+.card[data-display="xs"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    background: var(--surface-2, rgba(22, 26, 38, 0.7));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+    backdrop-filter: blur(var(--glass-blur-sm, 8px));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm, 8px));
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
 }
+
+.card[data-display="xs"]:hover {
+    border-color: var(--glass-border-hover, rgba(255,255,255,0.14));
+    background: var(--surface-3, #1c2030);
+    transform: none;
+    box-shadow: none;
+}
+
+.card[data-display="xs"] .pill-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-1, #c4c9da);
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   sm — Compact row: name + inline field values
+   ═══════════════════════════════════════════════════ */
+
+.card[data-display="sm"] {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.55rem 1rem;
+    border-radius: var(--radius-sm, 8px);
+    background: var(--glass-bg, rgba(14, 16, 24, 0.55));
+    backdrop-filter: blur(var(--glass-blur-sm, 10px));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm, 10px));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+    cursor: pointer;
+    box-shadow: var(--shadow-xs, 0 1px 2px rgba(0,0,0,.3));
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.card[data-display="sm"]:hover {
+    border-color: var(--glass-border-hover, rgba(255,255,255,0.16));
+    background: var(--glass-bg-hover, rgba(20, 24, 36, 0.70));
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.4)), var(--shadow-accent-sm, 0 2px 12px rgba(34,211,197,0.10));
+    transform: none;
+}
+
+.card[data-display="sm"] .sm-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-0, #f0f2f8);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.card[data-display="sm"] .sm-fields {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.card[data-display="sm"] .sm-field {
+    font-size: 0.8rem;
+    color: var(--text-2, #9ba3bd);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card[data-display="sm"] .sm-fields .sm-field + .sm-field::before {
+    content: "\00b7";
+    margin-right: 0.5rem;
+    color: var(--text-3, #555e78);
+}
+
+.card[data-display="sm"] .sm-ref {
+    display: inline-flex;
+    align-items: center;
+}
+
+.card[data-display="sm"] .sm-ref ntt-item {
+    display: inline-block;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   md — Card: the default glass morphism card
+   ═══════════════════════════════════════════════════ */
+
+.card[data-display="md"] {
+    position: relative;
+    background: var(--glass-bg, rgba(14, 16, 24, 0.55));
+    background-image: var(--glass-gradient, none);
+    backdrop-filter: blur(var(--glass-blur, 18px));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 18px));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+    border-top-color: var(--light-highlight, rgba(255,255,255,0.12));
+    border-radius: var(--radius-lg, 16px);
+    padding: 1.5rem 1.75rem 1.25rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,.4));
+    transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s var(--ease, cubic-bezier(0.4, 0, 0.2, 1)), background 0.3s;
+}
+
+.card[data-display="md"]:hover {
+    border-color: var(--glass-border-hover, rgba(255,255,255,0.16));
+    background: var(--glass-bg-hover, rgba(20, 24, 36, 0.70));
+    box-shadow: var(--shadow-lg, 0 12px 40px rgba(0,0,0,.45)), var(--shadow-accent-md, 0 4px 24px rgba(34,211,197,0.18));
+    transform: translateY(-3px);
+}
+
+
+/* ═══════════════════════════════════════════════════
+   lg — Detail: wider card with more breathing room
+   ═══════════════════════════════════════════════════ */
+
+.card[data-display="lg"] {
+    position: relative;
+    background: var(--glass-bg, rgba(14, 16, 24, 0.55));
+    background-image: var(--glass-gradient, none);
+    backdrop-filter: blur(var(--glass-blur, 18px));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 18px));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+    border-top-color: var(--light-highlight, rgba(255,255,255,0.12));
+    border-radius: var(--radius-lg, 16px);
+    padding: 2rem 2.25rem 1.5rem;
+    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,.4));
+    transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s var(--ease, cubic-bezier(0.4, 0, 0.2, 1)), background 0.3s;
+}
+
+.card[data-display="lg"]:hover {
+    border-color: var(--glass-border-hover, rgba(255,255,255,0.16));
+    background: var(--glass-bg-hover, rgba(20, 24, 36, 0.70));
+    box-shadow: var(--shadow-lg, 0 12px 40px rgba(0,0,0,.45)), var(--shadow-accent-md, 0 4px 24px rgba(34,211,197,0.18));
+    transform: translateY(-3px);
+}
+
+
+/* ═══════════════════════════════════════════════════
+   xl — Page: full-width, spacious layout
+   ═══════════════════════════════════════════════════ */
+
+.card[data-display="xl"] {
+    position: relative;
+    background: var(--glass-bg, rgba(14, 16, 24, 0.55));
+    background-image: var(--glass-gradient, none);
+    backdrop-filter: blur(var(--glass-blur-lg, 28px));
+    -webkit-backdrop-filter: blur(var(--glass-blur-lg, 28px));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+    border-top-color: var(--light-highlight, rgba(255,255,255,0.12));
+    border-radius: var(--radius-lg, 16px);
+    padding: 2.5rem 3rem 2rem;
+    box-shadow: var(--shadow-lg, 0 12px 40px rgba(0,0,0,.45));
+    transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+}
+
+.card[data-display="xl"]:hover {
+    border-color: var(--glass-border-hover, rgba(255,255,255,0.16));
+    background: var(--glass-bg-hover, rgba(20, 24, 36, 0.70));
+    box-shadow: var(--shadow-xl, 0 24px 60px rgba(0,0,0,.5)), var(--shadow-accent-md, 0 4px 24px rgba(34,211,197,0.18));
+    transform: none;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   Images
+   ═══════════════════════════════════════════════════ */
+
+/* md/lg/xl — Card image banner */
+.card-image {
+    width: calc(100% + 3.5rem);
+    margin: -1.5rem -1.75rem 1rem;
+    border-radius: var(--radius-lg, 16px) var(--radius-lg, 16px) 0 0;
+    display: block;
+    height: 180px;
+    object-fit: cover;
+}
+
+.card[data-display="lg"] .card-image {
+    margin: -2rem -2.25rem 1.25rem;
+    width: calc(100% + 4.5rem);
+    height: 220px;
+}
+
+.card[data-display="xl"] .card-image {
+    margin: -2.5rem -3rem 1.5rem;
+    width: calc(100% + 6rem);
+    height: 260px;
+}
+
+/* sm — Thumbnail circle */
+.sm-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+}
+
+
+/* ═══════════════════════════════════════════════════
+   Shared element styles (md, lg, xl)
+   ═══════════════════════════════════════════════════ */
 
 /* ── Edit button — SVG icon via CSS ── */
 .edit-btn {
@@ -148,12 +357,14 @@ input[data-key="name"]:focus {
 /* ── Glass fieldsets ── */
 fieldset.ntt-group {
     background: var(--glass-bg-light, rgba(22, 26, 38, 0.45));
+    background-image: var(--glass-gradient, none);
     backdrop-filter: blur(var(--glass-blur-sm, 8px));
     -webkit-backdrop-filter: blur(var(--glass-blur-sm, 8px));
     border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
     border-radius: var(--radius-md, 12px);
     padding: 1rem 1.25rem 0.75rem;
     margin: 0.75rem 0 0;
+    box-shadow: var(--shadow-xs, 0 1px 2px rgba(0,0,0,.3));
 }
 
 fieldset.ntt-group legend {
@@ -206,28 +417,9 @@ fieldset.ntt-group legend {
     text-align: center;
 }
 
-/* Nested items as compact chips instead of full cards */
+/* Nested items */
 .list-field ntt-item {
     margin: 0.25rem 0;
-}
-
-.list-field ntt-item .card {
-    background: var(--surface-1, #0e1018);
-    padding: 0.6rem 1rem;
-    border-radius: var(--radius-sm, 8px);
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-/* Hide edit button in nested compact items */
-.list-field ntt-item .edit-btn {
-    position: static;
-    width: 1.5rem;
-    height: 1.5rem;
-    margin-left: auto;
-    order: 99;
 }
 
 /* Collapsed items */
@@ -275,6 +467,13 @@ ntt-method {
     display: inline-block;
     margin-top: 0.75rem;
     margin-right: 0.5rem;
+}
+
+/* Methods inside group fieldsets: full width, no inline-block */
+fieldset.ntt-group ntt-method {
+    display: block;
+    margin-top: 0.5rem;
+    margin-right: 0;
 }
 
 /* ── Separator between fields ── */

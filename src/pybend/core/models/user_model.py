@@ -10,7 +10,6 @@ from authorize import ANYONE, hash_password, verify_password, create_token
 class Bot(ProtoModel):
     __storable__: ClassVar[bool] = True
     __tablename__: ClassVar[str] = 'bots'
-    id: int = None
     name: str
     description: str
     owner: str
@@ -22,7 +21,7 @@ class Bot(ProtoModel):
 class User(ProtoModel):
     __storable__: ClassVar[bool] = True
     __tablename__: ClassVar[str] = 'users'
-    id: int = None
+    image: str = Field(default='https://ui-avatars.com/api/?name=User&background=94a3b8&color=fff&size=128&rounded=true')
     name: str
     email: str
     role: str = Field(default='user', description="User role: user, admin, moderator")

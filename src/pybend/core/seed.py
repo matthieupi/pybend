@@ -30,9 +30,12 @@ def seed():
 
     # ── Users ──
     users = [
-        {"name": "Alice Martin",   "email": "alice@example.com",   "password": "alice123",  "age": 28},
-        {"name": "Bob Johnson",    "email": "bob@example.com",     "password": "bob123",    "age": 34},
-        {"name": "Charlie Lee",    "email": "charlie@example.com", "password": "charlie123", "age": 22},
+        {"name": "Alice Martin",   "email": "alice@example.com",   "password": "alice123",  "age": 28,
+         "image": "https://api.dicebear.com/9.x/avataaars/svg?seed=Alice"},
+        {"name": "Bob Johnson",    "email": "bob@example.com",     "password": "bob123",    "age": 34,
+         "image": "https://api.dicebear.com/9.x/avataaars/svg?seed=Bob"},
+        {"name": "Charlie Lee",    "email": "charlie@example.com", "password": "charlie123", "age": 22,
+         "image": "https://api.dicebear.com/9.x/avataaars/svg?seed=Charlie"},
     ]
 
     created_users = []
@@ -46,11 +49,16 @@ def seed():
 
     # ── Products ──
     products = [
-        {"name": "Wireless Headphones", "price": 79.99,  "description": "Noise-cancelling over-ear headphones with 30h battery life."},
-        {"name": "Mechanical Keyboard", "price": 129.50, "description": "Cherry MX Brown switches, RGB backlight, TKL layout."},
-        {"name": "USB-C Hub",           "price": 45.00,  "description": "7-in-1 hub: HDMI, USB-A x3, SD, microSD, PD charging."},
-        {"name": "Standing Desk Mat",   "price": 39.99,  "description": "Anti-fatigue ergonomic mat, 20x34 inches."},
-        {"name": "Monitor Light Bar",   "price": 54.95,  "description": "Asymmetric LED light bar, adjustable color temperature."},
+        {"name": "Wireless Headphones", "price": 79.99,  "description": "Noise-cancelling over-ear headphones with 30h battery life.",
+         "image": "https://picsum.photos/seed/headphones/400/300"},
+        {"name": "Mechanical Keyboard", "price": 129.50, "description": "Cherry MX Brown switches, RGB backlight, TKL layout.",
+         "image": "https://picsum.photos/seed/keyboard/400/300"},
+        {"name": "USB-C Hub",           "price": 45.00,  "description": "7-in-1 hub: HDMI, USB-A x3, SD, microSD, PD charging.",
+         "image": "https://picsum.photos/seed/usbhub/400/300"},
+        {"name": "Standing Desk Mat",   "price": 39.99,  "description": "Anti-fatigue ergonomic mat, 20x34 inches.",
+         "image": "https://picsum.photos/seed/deskmat/400/300"},
+        {"name": "Monitor Light Bar",   "price": 54.95,  "description": "Asymmetric LED light bar, adjustable color temperature.",
+         "image": "https://picsum.photos/seed/lightbar/400/300"},
     ]
 
     created_products = []

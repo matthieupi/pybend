@@ -8,6 +8,7 @@ from .ref import ListRef, Ref
 from .like_model import Like
 from typing import ClassVar, Optional
 from .user_model import User
+from utils.decorators import expose_route
 
 
 class Comment(ProtoModel):
@@ -18,9 +19,18 @@ class Comment(ProtoModel):
     }
     name: str = Field(min_length=1, max_length=500)
     description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
-    user_owner: User = Field(default=None, alias='user_owner', description="User who owns the comment")
+    user_owner: User = Field(default=None, alias='user_owner', description="User who owns the comment",
+                             json_schema_extra={'access': {'view': 'authenticated', 'edit': 'owner'}})
     parent_id: Optional[Ref['self']] = Field(default=None, description="Parent comment for nesting")
-    likes: Optional[ListRef[Like]] = Field(default=[], description="Likes on this comment")
-    id: Optional[int] = Field(default=None)
+    likes: ListRef[Like] = Field(default=[], description="Likes on this comment")
+
+    @expose_route('/like', methods=['POST'])
+    def like(self, like: Like) -> str:
+        """
+        Add a like to the comment.
+        """
+        like.__owner__ = self
+        like.save()
+        return like.model_dump_json()
 
 Comment.model_rebuild()

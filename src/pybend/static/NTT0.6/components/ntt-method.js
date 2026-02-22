@@ -13,7 +13,8 @@ export class NTTMethod extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['model', 'method', 'uuid', 'mode', 'label', 'forward'];
+    return ['model', 'method', 'uuid', 'mode', 'label', 'forward',
+            'layout', 'placeholder', 'button-label', 'widget'];
   }
 
   connectedCallback() {
@@ -31,6 +32,10 @@ export class NTTMethod extends HTMLElement {
     this.mode = this.getAttribute('mode') || 'manual';
     this.label = this.getAttribute('label') || this.method;
     this.forward = this.getAttribute('forward');
+    this.layout = this.getAttribute('layout') || 'fieldset';
+    this.placeholderText = this.getAttribute('placeholder') || '';
+    this.buttonLabel = this.getAttribute('button-label') || 'Run';
+    this.widgetOverride = this.getAttribute('widget') || '';
 
     this.proto = NTT.get(this.model);
     if (!this.proto) return console.error(`[ntt-method] Model not found: ${this.model}`);
@@ -67,10 +72,24 @@ export class NTTMethod extends HTMLElement {
 
     target.call(this.method, payload, { inbox: '_response_' });
     this.response = { status: 'sent' };
-    this.render();
+
+    // For inline layout: clear inputs after submit instead of showing response
+    if (this.layout === 'inline') {
+      this.value = {};
+      this.response = null;
+      this.shadowRoot.querySelectorAll('input, textarea').forEach(el => { el.value = ''; });
+    } else {
+      this.render();
+    }
   }
 
   render() {
+    if (this.layout === 'inline') return this.renderInline();
+    return this.renderFieldset();
+  }
+
+  /** Default fieldset layout (existing behavior). */
+  renderFieldset() {
     const fields = Object.entries(this.schema.parameters || {});
     const defs = this.proto?.schema?.$defs || {};
     const formInputs = fields.map(([key, def]) => {
@@ -103,63 +122,197 @@ export class NTTMethod extends HTMLElement {
       : '';
 
     this.shadowRoot.innerHTML = `
-      <style>
-        :host { display: block; margin: 1rem 0; }
-        fieldset {
-          border: 1px solid var(--border-color);
-          border-radius: 1rem;
-          padding: 1rem;
-          background: var(--bg-glass);
-        }
-        legend { font-weight: bold; padding: 0 0.5rem; }
-        label { display: block; margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem; }
-        input {
-          width: 100%; padding: 0.5rem 0.8rem;
-          background: var(--bg-tertiary);
-          color: var(--text-primary);
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-        }
-        button {
-          margin-top: 1rem;
-          background: var(--gradient-accent);
-          border: none;
-          border-radius: 8px;
-          padding: 0.6rem 1.2rem;
-          color: white;
-          cursor: pointer;
-        }
-        .output {
-          margin-top: 1rem;
-          font-family: monospace;
-          background: var(--bg-tertiary);
-          padding: 0.8rem;
-          border-radius: 0.5rem;
-          border: 1px solid var(--border-color);
-        }
-      </style>
+      <style>${NTTMethod.baseStyles}</style>
       <fieldset>
         <legend>${this.label}</legend>
         <form>
           ${formInputs}
-          ${this.mode === 'manual' ? '<button type="submit">Run</button>' : ''}
+          ${this.mode === 'manual' ? `<button type="submit">${this.buttonLabel}</button>` : ''}
         </form>
         ${output}
       </fieldset>
     `;
 
-    this.shadowRoot.querySelectorAll('input').forEach(el => {
+    this.#bindInputs();
+  }
+
+  /** Inline layout: no fieldset, no legend, no labels. Compact textarea/input + button. */
+  renderInline() {
+    const fields = Object.entries(this.schema.parameters || {});
+    const defs = this.proto?.schema?.$defs || {};
+    const placeholder = this.placeholderText;
+    const useTextarea = this.widgetOverride === 'textarea';
+    let formInputs = '';
+
+    // Build inputs — for $ref params, render only required fields from referenced schema
+    if (fields.length === 1) {
+      const [key, def] = fields[0];
+      if (def.type === '$ref' && def.$ref) {
+        const refName = def.$ref.replace('#/$defs/', '');
+        const refSchema = defs[refName];
+        if (refSchema?.properties) {
+          const required = refSchema.required || [];
+          const reqFields = Object.entries(refSchema.properties).filter(([k]) => required.includes(k));
+          if (reqFields.length === 1 || useTextarea) {
+            // Single required field or textarea mode: render one input
+            const [fk] = reqFields[0];
+            if (useTextarea) {
+              formInputs = `<textarea name="${key}.${fk}" placeholder="${placeholder}">${this.value?.[key]?.[fk] || ''}</textarea>`;
+            } else {
+              formInputs = `<div class="method-inline-row">
+                <input name="${key}.${fk}" type="text" value="${this.value?.[key]?.[fk] || ''}" placeholder="${placeholder}" />
+                <button type="submit">${this.buttonLabel}</button>
+              </div>`;
+            }
+          } else {
+            // Multiple required fields: stacked inputs with placeholders
+            formInputs = reqFields.map(([fk, fp]) =>
+              `<input name="${key}.${fk}" type="${fp.type === 'number' ? 'number' : 'text'}" value="${this.value?.[key]?.[fk] || ''}" placeholder="${fp.title || fk}" />`
+            ).join('');
+          }
+        }
+      } else {
+        // Simple param
+        if (useTextarea) {
+          formInputs = `<textarea name="${key}" placeholder="${placeholder}">${this.value[key] || ''}</textarea>`;
+        } else {
+          formInputs = `<div class="method-inline-row">
+            <input name="${key}" type="${def.type || 'text'}" value="${this.value[key] || ''}" placeholder="${placeholder}" />
+            <button type="submit">${this.buttonLabel}</button>
+          </div>`;
+        }
+      }
+    } else {
+      // Multiple params: stacked
+      formInputs = fields.map(([key, def]) =>
+        `<input name="${key}" type="${def.type || 'text'}" value="${this.value[key] || ''}" placeholder="${def.title || key}" />`
+      ).join('');
+    }
+
+    // For textarea or multi-field, put button below
+    const needsExternalButton = useTextarea || fields.length > 1 ||
+      (fields.length === 1 && fields[0][1].type === '$ref' && !formInputs.includes('method-inline-row'));
+    const buttonHtml = needsExternalButton
+      ? `<div class="actions"><button type="submit">${this.buttonLabel}</button></div>`
+      : '';
+
+    this.shadowRoot.innerHTML = `
+      <style>${NTTMethod.baseStyles}${NTTMethod.inlineStyles}</style>
+      <div class="method-inline">
+        <form>
+          ${formInputs}
+          ${buttonHtml}
+        </form>
+      </div>
+    `;
+
+    this.#bindInputs();
+  }
+
+  /** Bind input listeners and form submit. */
+  #bindInputs() {
+    this.shadowRoot.querySelectorAll('input, textarea').forEach(el => {
       el.addEventListener('input', e => this.handleInput(e));
     });
 
     const form = this.shadowRoot.querySelector('form');
-    if (form && this.mode === 'manual') {
+    if (form) {
       form.onsubmit = e => {
         e.preventDefault();
         this.callMethod();
-      }
+      };
     }
   }
+
+  static baseStyles = `
+    :host { display: block; margin: 1rem 0; }
+    fieldset {
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1rem;
+      background: var(--glass-bg);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    legend { font-weight: bold; padding: 0 0.5rem; color: var(--text-0); }
+    label { display: block; margin-top: 1rem; color: var(--text-2); font-size: 0.9rem; }
+    input {
+      width: 100%; padding: 0.5rem 0.8rem;
+      background: var(--surface-3);
+      color: var(--text-0);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    button {
+      margin-top: 1rem;
+      background: var(--gradient-accent);
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.2rem;
+      color: white;
+      cursor: pointer;
+    }
+    .output {
+      margin-top: 1rem;
+      font-family: monospace;
+      background: var(--surface-3);
+      padding: 0.8rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      color: var(--text-1);
+    }
+  `;
+
+  static inlineStyles = `
+    .method-inline {
+      margin-top: 0.75rem;
+    }
+    .method-inline textarea {
+      width: 100%;
+      min-height: 80px;
+      resize: vertical;
+      padding: 0.6rem 0.8rem;
+      background: var(--surface-3);
+      color: var(--text-0);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      box-sizing: border-box;
+    }
+    .method-inline textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .method-inline .actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 0.5rem;
+    }
+    .method-inline button {
+      background: var(--gradient-accent);
+      border: none;
+      border-radius: 8px;
+      padding: 0.5rem 1.2rem;
+      color: white;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-top: 0;
+    }
+    .method-inline-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .method-inline-row input {
+      flex: 1;
+    }
+    .method-inline-row button {
+      margin-top: 0;
+    }
+  `;
 }
 
 customElements.define('ntt-method', NTTMethod);

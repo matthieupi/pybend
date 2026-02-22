@@ -6,9 +6,10 @@
 
 | Name | Type | Required | Default |
 |------|------|----------|---------|
+| id | integer | No | 0 |
+| image | string | No |  |
 | user | integer | Yes | — |
 | created_at | string | No |  |
-| id | object | No | None |
 | comment_id | integer | Yes | — |
 
 ## Routes

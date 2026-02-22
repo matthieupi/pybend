@@ -17,6 +17,26 @@ import TX from "./TX.js";
 
 export class Component extends HTMLElement {
 
+  // ── Size constants ──
+  static SIZES = ['xs', 'sm', 'md', 'lg', 'xl'];
+  static ALIASES = {
+    pill: 'xs',
+    'list-item': 'sm',
+    card: 'md',
+    detail: 'lg',
+    page: 'xl',
+  };
+
+  /**
+   * Normalize a display value to an abstract size (xs–xl).
+   * Accepts both abstract ('sm') and semantic ('pill') names.
+   * Returns null for 'auto' or unrecognized values.
+   */
+  static normalizeDisplay(value) {
+    if (!value || value === 'auto') return null;
+    return Component.ALIASES[value] || (Component.SIZES.includes(value) ? value : null);
+  }
+
   // ── Actor identity ──
   #addr;
   #hash;
@@ -31,7 +51,7 @@ export class Component extends HTMLElement {
   #unsubscribe = undefined;
 
   // ── Adaptive display ──
-  #displayMode = 'card';
+  #displayMode = 'md';
   #resizeObserver = null;
 
   // ── Stylesheet ──
@@ -77,22 +97,33 @@ export class Component extends HTMLElement {
   /** ─────────────────────────────────────────── **/
 
   static get observedAttributes() {
-    return ['model', 'addr', 'hash', 'ref'];
+    return ['model', 'addr', 'hash', 'ref', 'display'];
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
     if (oldVal === newVal) return;
     Logging.debug(`[Component] ${this.constructor.name}.${name}: ${oldVal} => ${newVal}`);
 
-    if (name === 'model') {
+    if (name === 'display') {
+      const normalized = Component.normalizeDisplay(newVal);
+      if (normalized && normalized !== this.#displayMode) {
+        const old = this.#displayMode;
+        this.#displayMode = normalized;
+        this.displayModeChanged(old, normalized);
+      }
+      return;
+    } else if (name === 'model') {
+      this[name] = newVal;
       this.send(new TX({
         name: 'ATTACH',
         source: this.addr,
         target: 'NTT',
         data: newVal
       }));
+      return;
     } else if (name === 'ref') {
       this.ref = newVal;
+      return;
     }
     this[name] = newVal;
   }
@@ -210,20 +241,35 @@ export class Component extends HTMLElement {
 
   /**
    * Breakpoint thresholds (px) for display mode resolution.
-   * Override in subclass to customize. Keys are mode names,
+   * Override in subclass to customize. Keys are size names (xs–xl),
    * values are minimum widths. Evaluated largest-first.
    * @returns {Object}
    */
   get displayBreakpoints() {
-    return { page: 800, card: 400, 'list-item': 200, chip: 0 };
+    return { xl: 800, lg: 600, md: 400, sm: 200, xs: 0 };
   }
 
   /**
-   * Current display mode based on component width.
-   * Use in render() to adapt layout: this.displayMode === 'card', etc.
+   * Current display mode (xs, sm, md, lg, xl).
+   * Driven by ResizeObserver unless forced via the `display` attribute.
    * @returns {string}
    */
   get displayMode() { return this.#displayMode; }
+
+  /**
+   * The `display` attribute value (or 'auto' if unset).
+   * Set to a size name or semantic alias to force a display mode.
+   */
+  get display() {
+    return this.getAttribute('display') || 'auto';
+  }
+  set display(value) {
+    if (!value || value === 'auto') {
+      this.removeAttribute('display');
+    } else {
+      this.setAttribute('display', value);
+    }
+  }
 
   /**
    * Hook called when displayMode changes due to resize.
@@ -245,11 +291,14 @@ export class Component extends HTMLElement {
   #startResizeObserver() {
     if (this.#resizeObserver) return;
     this.#resizeObserver = new ResizeObserver(([entry]) => {
+      // Skip if display mode is forced via attribute
+      if (Component.normalizeDisplay(this.getAttribute('display'))) return;
+
       const width = entry.contentRect.width;
       if (width === 0) return; // not laid out yet
       const bp = this.displayBreakpoints;
       const sorted = Object.entries(bp).sort(([, a], [, b]) => b - a);
-      const newMode = sorted.find(([, min]) => width >= min)?.[0] || 'chip';
+      const newMode = sorted.find(([, min]) => width >= min)?.[0] || 'xs';
       if (newMode !== this.#displayMode) {
         const oldMode = this.#displayMode;
         this.#displayMode = newMode;
@@ -296,6 +345,13 @@ export class Component extends HTMLElement {
   /** ─────────────────────────────────────────── **/
 
   connectedCallback() {
+    // Apply forced display mode if set before connect
+    const forced = Component.normalizeDisplay(this.getAttribute('display'));
+    if (forced && forced !== this.#displayMode) {
+      const old = this.#displayMode;
+      this.#displayMode = forced;
+      this.displayModeChanged(old, forced);
+    }
     this.#startResizeObserver();
   }
 

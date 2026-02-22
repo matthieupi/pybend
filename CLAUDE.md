@@ -56,7 +56,7 @@ NTT.js               Core entity system. Bootstraps by fetching schema from back
   |
   v
 ntt-list.js          <ntt-list model="Product"> - fetches and renders entity list
-ntt-item.js          <ntt-item> - renders single entity card with edit mode
+ntt-item.js          <ntt-item> - adaptive entity rendering (xs pill → xl page)
 ntt-element.js       Base web component class for all NTT elements
 ntt-method.js        Renders callable methods as buttons
 form.js              Formidable generator - builds forms from schema properties
@@ -70,6 +70,166 @@ form.js              Formidable generator - builds forms from schema properties
 4. DynamicClass triggers `READ` -> `GET /products`
 5. Backend returns list of dicts with `$schema` and `$id` (via `model_dump(response=True)`)
 6. Frontend creates instances, renders via `ntt-item` components
+
+## Schema-Driven Development
+
+PyBend's core idea: **write a Python model, get a working full-stack application**. The model definition is the only thing a developer writes. Everything else — API, validation, storage, UI, permissions, navigation — is derived from the schema that model produces.
+This also means that any project can be transformed into aa full stack 
+application, just by turning a few classes into models!
+
+### What a model definition carries
+
+A single model class encodes the entire application concern:
+
+```python
+class Product(ProtoModel):
+    __tablename__ = 'products'
+    __storable__ = True
+    __ui__ = {
+        'field_order': ['name', 'price', 'description', 'comments'],
+        'groups': {'main': ['name', 'description', 'price'], 'Social': ['comments']},
+        'renderer': {'item': 'ntt-item', 'list': 'ntt-list'},
+    }
+    __access__ = {
+        'read': ANYONE, 'create': AUTHENTICATED,
+        'update': OWNER | ROLE('admin'), 'delete': ROLE('admin'),
+    }
+
+    name: str = Field(min_length=1, max_length=200,
+                      json_schema_extra={'ui': {'placeholder': 'Product name...'}})
+    price: float = Field(gt=0,
+                         json_schema_extra={'ui': {'widget': 'currency'},
+                                            'access': {'view': 'anyone', 'edit': 'admin'}})
+    description: str = Field(default='',
+                             json_schema_extra={'ui': {'widget': 'textarea'}})
+    comments: ListRef[Comment] = Field(default=[])
+
+    @expose_route('/comment', methods=['POST'])
+    def comment(self, comment: Comment) -> str: ...
+```
+
+From this definition, `ProtoModel.schema()` generates a JSON Schema document that carries **everything the frontend needs** — no separate API documentation, no frontend config files, no component wiring.
+
+### What gets generated (zero code required)
+
+| Concern | Generated from | Where it happens |
+|---------|---------------|-----------------|
+| CRUD API endpoints | `__tablename__`, model fields | `register_routes()` in `routes_fastapi.py` |
+| JSON Schema | Field types, validators, `json_schema_extra` | `ProtoModel.schema()` via Pydantic |
+| DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
+| FK hydration (href arrays) | `ListRef[T]` fields, `__fk_models__` | `sqlite_storage.py` on read |
+| Access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth injection |
+| Frontend entity classes | Schema properties, methods | `NTT.SCHEMA()` → `prototype()` → DynamicClass |
+| Form rendering | `properties`, `ui.widget`, `ui.placeholder` | `Formidable.getForm()` reads schema |
+| Field order + grouping | `ui.field_order`, `ui.groups` | `form.js` renders fieldsets |
+| Show/hide fields | `ui.display`, field-level `access` | `form.js` + `Permissions.js` |
+| Edit button visibility | `access.update` | `ntt-item.js` checks `permissions.canAction()` |
+| Method buttons | `schema.methods` | `<ntt-method>` reads method signatures |
+| Component tag resolution | `ui.renderer.item`, `ui.renderer.detail` | `ntt-router.js` resolves tags for navigation |
+| Adaptive display sizes | Schema properties, field order | `ntt-item.js` size methods (xs/sm/md/lg/xl) |
+
+### The development workflow
+
+1. Define or modify a Python model
+2. Restart the server — `ProtoModel.schema()` generates the updated JSON Schema, `register_routes()` creates endpoints, migrations run
+3. Open `matrix.html` — the frontend fetches the schema, creates DynamicClasses, renders everything
+4. No frontend code changed. No routes added. No forms built. No permissions wired.
+
+To customize, override at any level: swap a widget via `json_schema_extra`, control layout via `__ui__`, change permissions via `__access__`, or write a custom component that extends `NTTElement`.
+
+---
+
+## Schema as Universal Contract
+
+The JSON Schema returned by `GET /{ClassName}` is the **single contract between backend and frontend**. It is not just a type description — it is the complete specification of how an entity behaves, renders, and is controlled.
+
+### Schema anatomy
+
+```
+GET /Product → JSON Schema
+├── $schema         → "http://localhost:5000/Schema"          (meta-schema URL)
+├── $id             → "http://localhost:5000/Product"         (this schema's URL)
+├── __name__        → "Product"                               (class name)
+├── __tablename__   → "products"                              (API collection path)
+├── properties      → { name: {type, minLength, ui, ...}, ...}  (field definitions)
+│   └── each field carries:
+│       ├── type, format, validation (Pydantic standard)
+│       ├── ui.widget       → rendering hint (currency, textarea, ...)
+│       ├── ui.placeholder  → input placeholder text
+│       ├── ui.display      → false to hide from UI
+│       └── access          → field-level permission rules
+├── ui              → model-level UI configuration
+│   ├── field_order → render fields in this sequence
+│   ├── groups      → group fields into fieldsets
+│   └── renderer    → { item: 'ntt-item', list: 'ntt-list', detail: '...' }
+├── access          → model-level ABAC rules (serialized)
+│   ├── create      → { rule: "authenticated" }
+│   ├── read        → { rule: "anyone" }
+│   ├── update      → { op: "or", rules: [{rule: "owner"}, {rule: "role", roles: ["admin"]}] }
+│   └── delete      → { rule: "role", roles: ["admin"] }
+├── methods         → callable endpoints
+│   └── comment     → { route, methods, scope, parameters, returns, access }
+├── $defs           → nested/related model schemas
+│   └── Comment     → { $id, properties, methods, ui, access, ... }
+└── required        → required field names
+```
+
+### How each schema section is consumed
+
+**Frontend reads schema once, adapts everything at runtime:**
+
+| Schema section | Frontend consumer | What it controls |
+|---------------|------------------|-----------------|
+| `properties` | `prototype()` in NTT.js | Creates typed getters/setters on DynamicClass |
+| `properties[field].type` | `form.js` → `getInput()` | Chooses input type (text, number, checkbox, ...) |
+| `properties[field].ui.widget` | `form.js` → `getInput()` | Specialized rendering (currency prefix, textarea) |
+| `properties[field].ui.display` | `form.js` → field filtering | Hides internal fields (IDs, timestamps, FKs) |
+| `properties[field].ui.placeholder` | `form.js` → input attrs | Sets placeholder text on inputs |
+| `properties[field].access` | `Permissions.js` → `canView()` | Field-level visibility per user role |
+| `ui.field_order` | `form.js` → `getForm()` | Controls field rendering sequence |
+| `ui.groups` | `form.js` → `renderGroupedFields()` | Wraps fields in `<fieldset>` groups |
+| `ui.renderer.*` | `ntt-router.js` → `#resolveTag()` | Chooses component tag for navigation views |
+| `access` | `Permissions.js` → `canAction()` | Shows/hides edit button, method buttons |
+| `methods` | `prototype()` + `<ntt-method>` | Creates callable methods + renders action buttons |
+| `$defs` | `NTT.SCHEMA()` | Registers nested DynamicClasses (Comment, etc.) |
+| `$id` / `$schema` | DynamicClass value getter | Injected into every entity instance for self-description |
+
+### Schema propagation lifecycle
+
+```
+1. Model Definition (Python)
+   Product(ProtoModel) with fields, __ui__, __access__, @expose_route
+                    │
+2. Schema Generation (Backend, on GET /Product)
+   ProtoModel.schema() → Pydantic JSON Schema + methods + access + ui + $defs
+                    │
+3. Network Transport
+   HTTP GET /Product → JSON response
+                    │
+4. Schema Bootstrap (Frontend)
+   NTT.SCHEMA(data) → prototype(addr, schema, href) → DynamicClass
+   │  Creates typed class with getters, setters, methods from schema
+   │  Registers nested $defs as additional DynamicClasses
+                    │
+5. Component Rendering (Frontend)
+   NTTItem.DESCRIBE() receives { proto: schema, data: values }
+   │  form.js reads schema.properties → builds form HTML
+   │  Permissions.js reads schema.access → shows/hides controls
+   │  ntt-method reads schema.methods → renders action buttons
+   │  ntt-router reads schema.ui.renderer → resolves navigation targets
+                    │
+6. Entity Responses (Backend, on GET /products)
+   model_dump(response=True) injects $schema + $id into each record
+   │  Frontend DynamicClass value getter preserves these for self-description
+   │  Any entity can be independently resolved: GET $id → full entity
+   │  Collection fields return href arrays: ["http://.../products/1/comments/1", ...]
+```
+
+### Why this matters
+
+**Adding a field** to a model automatically: adds a DB column, includes it in API responses, generates a form input, validates on both sides. **Changing `__access__`** propagates to the frontend: the edit button appears or disappears, list queries filter differently. **Adding `@expose_route`** creates an API endpoint and a clickable button in the UI. The schema carries intent, not just structure — the frontend doesn't interpret types, it follows instructions.
+
+---
 
 ## Key Files by Area
 
@@ -100,13 +260,16 @@ form.js              Formidable generator - builds forms from schema properties
 - `src/pybend/core/utils/registrar.py` - `registered_models` dict, `join_models` dict
 
 ### Frontend (NTT 0.6)
-- `src/pybend/static/NTT0.6/core/NTT.js` - Core: NTT class, prototype() factory, SCHEMA handler
+- `src/pybend/static/NTT0.6/core/NTT.js` - Core: NTT class, prototype() factory, SCHEMA handler, DynamicClass creation
 - `src/pybend/static/NTT0.6/core/Matrix.js` - Message bus / actor system
 - `src/pybend/static/NTT0.6/core/Actor.js` - Base actor class
-- `src/pybend/static/NTT0.6/components/ntt-item.js` - Item component (display/edit)
+- `src/pybend/static/NTT0.6/core/Router.js` - Navigation state Actor (hash sync, history stack, Observable)
+- `src/pybend/static/NTT0.6/components/ntt-item.js` - Item component: size methods (xs–xl), render dispatch, edit toggle, click-to-select
 - `src/pybend/static/NTT0.6/components/ntt-list.js` - List component
+- `src/pybend/static/NTT0.6/components/ntt-router.js` - Generic view container (loads any component via Router)
 - `src/pybend/static/NTT0.6/components/ntt-element.js` - Base component class
-- `src/pybend/static/NTT0.6/generators/form.js` - Formidable form generator
+- `src/pybend/static/NTT0.6/generators/form.js` - Formidable: schema-driven form generator
+- `src/pybend/static/NTT0.6/utils/Permissions.js` - Reads schema access rules for UI permission checks
 
 ### Config & Entry
 - `src/pybend/core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE

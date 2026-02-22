@@ -5,21 +5,18 @@
     <title>NTTTX - Matrix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="./dark-theme.css">
+    <link rel="stylesheet" href="./light-theme.css">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <script type="module" src="./utils/theme.js"></script>
 </head>
 <body>
 
-    <div class="page">
-        <header class="header">
-            <div class="header-brand">
-                <div class="header-logo">N3</div>
-                <h1>NTT<span>TX</span></h1>
-            </div>
-            <p class="header-sub">Actor-Based Distributed Entity Management</p>
-            <div class="header-tag">Matrix v0.6.0</div>
-        </header>
+    <ntt-topbar></ntt-topbar>
 
-        <ntt-list model="Product" id="product-list"></ntt-list>
+    <div class="page">
+        <ntt-router name="main" hash>
+            <ntt-list model="Product" id="product-list"></ntt-list>
+        </ntt-router>
     </div>
 
     <script type="module">
@@ -28,8 +25,15 @@
         import {Matrix, matrix} from './core/Matrix.js';
         import { NTT } from './core/NTT.js';
         import { config } from './config.js';
+        import { permissions } from './utils/Permissions.js';
         import './components/ntt-item.js';
         import './components/ntt-list.js';
+        import './components/ntt-router.js';
+        import './components/ntt-topbar.js';
+        import './components/ntt-profile.js';
+
+        // Initialize permissions (non-blocking — components degrade gracefully)
+        permissions.init();
     </script>
 
 </body>

@@ -11,14 +11,37 @@
  * The built-in NTTList (ntt-list.js) provides a zero-config default.
  */
 import {Component} from '../core/Component.js';
+import TX from '../core/TX.js';
 import Logging from '../utils/Logging.js';
 
 
 export class ListElement extends Component {
 
+  // Size cascade: parent display mode → child display mode
+  static SIZE_CASCADE = {
+    xl: 'md',
+    lg: 'sm',
+    md: 'sm',
+    sm: 'xs',
+    xs: 'xs',
+  };
+
+  #selected = new Set();
+
   constructor() {
     super([]);  // Default value: array
   }
+
+
+  /** ─────────────────────────────────────────── **/
+  /**         Selection API                        **/
+  /** ─────────────────────────────────────────── **/
+
+  get selected()    { return this.#selected; }
+  select(addr)      { this.#selected.add(addr); }
+  deselect(addr)    { this.#selected.delete(addr); }
+  toggle(addr)      { this.#selected.has(addr) ? this.deselect(addr) : this.select(addr); }
+  clearSelection()  { this.#selected.clear(); }
 
   /**
    * Called when the DynamicClass prototype arrives.
@@ -43,6 +66,18 @@ export class ListElement extends Component {
       this.render();
     } else {
       console.warn('[ListElement] UPDATE expected array, got:', typeof data);
+    }
+  }
+
+  /**
+   * Receives a SELECT TX from a child item.
+   * Toggles selection state and forwards as NAVIGATE if router is configured.
+   */
+  SELECT(data, tx) {
+    this.toggle(data);
+    const routerAddr = this.getAttribute('router');
+    if (routerAddr) {
+      this.send(new TX({ name: 'NAVIGATE', source: this.addr, target: routerAddr, data: data }));
     }
   }
 
@@ -88,8 +123,19 @@ export class ListElement extends Component {
   }
 
   /**
+   * Resolved display mode for child items.
+   * Priority: item-display attribute > auto cascade from parent's displayMode.
+   */
+  get childDisplay() {
+    const explicit = this.getAttribute('item-display');
+    if (explicit) return Component.normalizeDisplay(explicit) || explicit;
+    return ListElement.SIZE_CASCADE[this.displayMode] || 'xs';
+  }
+
+  /**
    * Creates a child element for a given address.
    * Checks for a <template item-template> in light DOM first.
+   * Stamps the resolved childDisplay on each child.
    */
   createChild(addr) {
     // Priority 1: <template item-template> in light DOM
@@ -97,11 +143,14 @@ export class ListElement extends Component {
     if (template) {
       const el = template.content.firstElementChild.cloneNode(true);
       el.setAttribute('ref', addr);
+      el.setAttribute('select-target', this.addr);
       return el;
     }
     // Priority 2: childTag resolution chain
     const el = document.createElement(this.childTag);
     el.ref = addr;
+    el.setAttribute('display', this.childDisplay);
+    el.setAttribute('select-target', this.addr);
     return el;
   }
 
@@ -124,8 +173,10 @@ export class ListElement extends Component {
     if (this.$styles) this.shadowRoot.appendChild(this.$styles);
 
     const grid = this.shadowRoot.querySelector('.list-grid');
-    this.value.forEach(addr => {
-      grid.appendChild(this.createChild(addr));
+    this.value.forEach((addr, i) => {
+      const child = this.createChild(addr);
+      child.style.setProperty('--stagger-delay', `${i * 50}ms`);
+      grid.appendChild(child);
     });
   }
 }

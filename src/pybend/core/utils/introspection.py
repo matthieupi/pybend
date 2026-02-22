@@ -59,8 +59,8 @@ def record_model_type(cls_, type_):
 def collect_all_referenced_models(cls_, seen: set = None) -> set:
     """
     Recursively collects all models referenced by the given ProtModel cls_.
-    This recursively inspect classes in the method signatures of the exposed methods. It does not include the references
-    from the class fields, as those are already included by pydantic's model_json_schema().
+    This recursively inspect classes in the method signatures of the exposed methods
+    and Ref[T] field types (single FK references to other models).
     """
     assert issubclass(cls_, BaseModel), "cls_ must be a subclass of BaseModel"
     assert hasattr(cls_, '__pybend_methods_json_signature__'), "cls_ must have a methods_json method to gather referenced models"
@@ -77,6 +77,10 @@ def collect_all_referenced_models(cls_, seen: set = None) -> set:
     #        be optimized both for performance (it is called again in the cls.schema) and to remove the coupling with
     #        the cls._referenced_models, which could easily lead to bugs in the future.
     _ = cls_.__pybend_methods_json_signature__()
+
+    # Also collect Ref[T] targets (single FK references to other models)
+    for field_name, target_cls in get_ref_fields(cls_):
+        cls_._referenced_models.add(target_cls)
 
     # Recurse into referenced models
     for model in cls_._referenced_models.copy():
@@ -111,11 +115,18 @@ def pydantic_method_signature(method: Callable) -> Dict[str, Any]:
     }
 
 
-def _unwrap_listref(field_type):
+def _unwrap_listref(field_type, field_metadata=None):
     """If field_type is ListRef[T] (Annotated with a model_type marker), return T.
+    Checks both the type's __metadata__ (Annotated) and Pydantic's FieldInfo.metadata.
     Otherwise return None."""
+    # Check type-level Annotated metadata
     if hasattr(field_type, '__metadata__'):
         for meta in field_type.__metadata__:
+            if hasattr(meta, 'model_type'):
+                return meta.model_type
+    # Check Pydantic FieldInfo.metadata (Pydantic v2 separates Annotated metadata here)
+    if field_metadata:
+        for meta in field_metadata:
             if hasattr(meta, 'model_type'):
                 return meta.model_type
     return None
@@ -144,7 +155,7 @@ def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
             origin = get_origin(field_type)
 
         # Check for ListRef[T] (Annotated with _ListRefMarker)
-        ref_model = _unwrap_listref(field_type)
+        ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
         if ref_model is not None:
             # Resolve forward reference strings to actual classes
             if isinstance(ref_model, str):
@@ -158,6 +169,31 @@ def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
 
         # Fallback: plain List[BaseModel]
         if origin is list:
+            args = get_args(field_type)
+            if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
+                results.append((field_name, args[0]))
+    return results
+
+
+def get_ref_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
+    """
+    Returns a list of (field_name, target_model_class) for every
+    field typed as Ref[SomeBaseModel] (single FK reference, not self-ref).
+    Unwraps Optional transparently.
+    """
+    results = []
+    for field_name, field_info in model_class.model_fields.items():
+        field_type = field_info.annotation
+        origin = get_origin(field_type)
+        # Unwrap Optional[...]
+        if origin is Union and type(None) in get_args(field_type):
+            field_type = get_args(field_type)[0]
+            origin = get_origin(field_type)
+        # Skip self-refs
+        if _is_self_ref(field_info.annotation):
+            continue
+        # Check for Ref[T] (generic alias with origin Ref)
+        if origin is Ref:
             args = get_args(field_type)
             if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
                 results.append((field_name, args[0]))

@@ -7,7 +7,7 @@ from models.viewable_mixin import ViewableMixin
 from .comment_model import Comment
 from .proto_model import ProtoModel
 from .ref import ListRef
-from typing import ClassVar, Optional
+from typing import ClassVar
 from utils.decorators import expose_route
 
 
@@ -20,16 +20,28 @@ class Product(ProtoModel):
     __ui__: ClassVar[dict] = {
         'field_order': ['name', 'price', 'description', 'comments'],
         'groups': {
-            'main': ['name', 'description'],
-            'pricing': ['price'],
-            'relations': ['comments'],
+            'main': ['name', 'description', 'price'],
+            'Social': ['comments'],
+        },
+        'methods': {
+            'comment': {
+                'layout': 'inline',
+                'attach_to': 'comments',
+                'button_label': 'Post',
+                'placeholder': 'Add your comment...',
+                'widget': 'textarea',
+            }
+        },
+        'renderer': {
+            'item': 'ntt-item',      # Custom component tag for single entity views
+            'list': 'ntt-list',      # Custom component tag for collection views
         },
     }
+    image: str = Field(default='https://placehold.co/400x300/e2e8f0/64748b?text=No+Image')
     name: str = Field(min_length=1, max_length=200, json_schema_extra={'ui': {'placeholder': 'Product name...'}})
-    price: float = Field(gt=0, json_schema_extra={'ui': {'widget': 'currency'}})
+    price: float = Field(gt=0, json_schema_extra={'ui': {'widget': 'currency'}, 'access': {'view': 'anyone', 'edit': 'admin'}})
     description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
-    comments: Optional[ListRef[Comment]] = Field(default=[], alias='comments', description="List of comments associated with the product")
-    id: Optional[int] = Field(default=None, alias='id')
+    comments: ListRef[Comment] = Field(default=[], alias='comments', description="List of comments associated with the product")
 
     """
     @field_validator('comments', mode='before')

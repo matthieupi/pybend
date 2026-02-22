@@ -174,6 +174,9 @@ export default class HTTP {
 
     static checkIfUnauthorized(res) {
         if(res.status == 401) {
+            // Clear the expired/invalid token to prevent redirect loops
+            // (login.html would otherwise see the stale token and bounce back)
+            window.localStorage.removeItem('jwtToken');
             return true;
         }
         return false;

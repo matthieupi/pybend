@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login — PyBend</title>
   <link rel="stylesheet" href="./dark-theme.css" />
+  <link rel="stylesheet" href="./light-theme.css" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <script type="module" src="./utils/theme.js"></script>
   <style>
     .auth-page {
       position: relative;
@@ -20,11 +22,15 @@
     .auth-card {
       width: 100%;
       max-width: 400px;
-      background: var(--surface-1);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
+      background: var(--glass-bg);
+      background-image: var(--glass-gradient);
+      backdrop-filter: blur(var(--glass-blur-lg, 28px)) saturate(1.2);
+      -webkit-backdrop-filter: blur(var(--glass-blur-lg, 28px)) saturate(1.2);
+      border: 1px solid var(--glass-border);
+      border-top-color: var(--light-highlight);
+      border-radius: var(--radius-xl);
       padding: 2.5rem;
-      box-shadow: var(--shadow-lg);
+      box-shadow: var(--shadow-xl);
     }
 
     .auth-header {
@@ -148,16 +154,30 @@
 
         const data = await resp.json();
         window.localStorage.setItem('jwtToken', data.token);
-        window.location.href = '/schema.html';
+        window.location.href = '/matrix.html';
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
       }
     });
 
-    // If already logged in, redirect
-    if (window.localStorage.getItem('jwtToken')) {
-      window.location.href = '/schema.html';
+    // If already logged in, validate token then redirect
+    const existingToken = window.localStorage.getItem('jwtToken');
+    if (existingToken) {
+      // Probe a non-static endpoint to check if the token is still valid.
+      // The auth middleware returns 401 for expired/invalid tokens.
+      fetch('/Product', { headers: { 'x-access-token': existingToken } })
+        .then(resp => {
+          if (resp.ok) {
+            window.location.href = '/matrix.html';
+          } else {
+            // Token is expired/invalid — clear it and stay on login
+            window.localStorage.removeItem('jwtToken');
+          }
+        })
+        .catch(() => {
+          window.localStorage.removeItem('jwtToken');
+        });
     }
   </script>
 </body>

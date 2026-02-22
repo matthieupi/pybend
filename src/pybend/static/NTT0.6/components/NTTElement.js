@@ -70,8 +70,7 @@ export class NTTElement extends Component {
   DESCRIBE(data) {
     Logging.dev(`[NTTElement ${this.model}] — DESCRIBE`, data);
     this.schema = data.proto;
-    this.value = data.data;
-    this.render();
+    this.value = data.data;   // value setter auto-renders when schema is available
   }
 
   /**

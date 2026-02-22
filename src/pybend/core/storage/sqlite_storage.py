@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 import config
 from utils.registrar import registered_models
-from utils.introspection import get_list_fields
+from utils.introspection import get_list_fields, get_ref_fields
 from .abstract_storage import AbstractStorage
 from .sqlite_migration import SQLiteMigration
 
@@ -71,6 +71,7 @@ class SQLiteStorage(AbstractStorage):
     def list(self, model_class: Type[Any], sql_filter: tuple = None) -> List[Any]:
         table_name = model_class.__tablename__
         list_fields = get_list_fields(model_class)
+        ref_fields = get_ref_fields(model_class)
 
         select_sql = f"SELECT * FROM {table_name}"
         filter_params = []
@@ -89,6 +90,20 @@ class SQLiteStorage(AbstractStorage):
         results = []
         for row in rows:
             record = dict(zip(columns, row))
+
+            # Coerce NULL values to field defaults
+            for key, val in record.items():
+                if val is None and key in model_class.model_fields:
+                    field = model_class.model_fields[key]
+                    if field.default is not None:
+                        record[key] = field.default
+
+            # Hydrate Ref[T] fields as href URLs
+            for field_name, target_cls in ref_fields:
+                val = record.get(field_name)
+                if val is not None:
+                    target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
+                    record[field_name] = f"{config.API_URL}/{target_table}/{val}"
 
             # If no List[BaseModel] fields, fast path
             if not list_fields:
@@ -165,6 +180,13 @@ class SQLiteStorage(AbstractStorage):
                     except Exception:
                         pass
 
+        # ── Hydrate Ref[T] fields as href URLs ──
+        for field_name, target_cls in get_ref_fields(model_class):
+            val = data.get(field_name)
+            if val is not None:
+                target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
+                data[field_name] = f"{config.API_URL}/{target_table}/{val}"
+
         # ── Hydrate collection fields as href arrays ──
         for field_name, child_class in get_list_fields(model_class):
             effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
@@ -208,7 +230,7 @@ class SQLiteStorage(AbstractStorage):
         collection_field_names = {name for name, _cls in get_list_fields(model_class)}
 
         # Validate and filter the fields based on model annotations
-        valid_fields = [f for f in model_class.__annotations__.keys()
+        valid_fields = [f for f in model_class.model_fields.keys()
                         if f != 'id' and f not in collection_field_names]
         fields_to_update = [field for field in data.keys() if field in valid_fields]
 

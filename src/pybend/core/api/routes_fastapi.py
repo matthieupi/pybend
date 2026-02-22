@@ -95,7 +95,15 @@ def make_get_all_instances(model_class):
 
 
 def make_get_schema(model_class):
-    async def get_model_schema() -> Dict[str, Any]:
+    async def get_model_schema(scaffold: str = None):
+        if scaffold:
+            from fastapi.responses import PlainTextResponse
+            from utils.scaffold import scaffold_single
+            try:
+                source = scaffold_single(model_class.__name__, kind=scaffold, schema=model_class.schema())
+                return PlainTextResponse(source, media_type='text/plain')
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
         print(f"[SCHEMA] Fetching schema for {model_class.__name__}")
         return model_class.schema()
     return get_model_schema
@@ -239,6 +247,19 @@ def make_custom_post(attr, model_class, route_path):
             return attr(**parsed_args)
 
     return post_with_id if is_instance_method else post_no_id
+
+
+@router.get("/auth/me", tags=["Auth"])
+async def auth_me(request: Request):
+    """Return the current user's identity from the JWT token."""
+    user = _get_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return {
+        "user_id": user.get("user_id"),
+        "email": user.get("email"),
+        "role": user.get("role", "user"),
+    }
 
 
 def register_routes():

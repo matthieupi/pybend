@@ -60,6 +60,10 @@ export const config = {
         // Notifications
         notify: "NOTIFY",
         alert: "ALERT",
+        // Navigation / Selection
+        SELECT: "SELECT",
+        NAVIGATE: "NAVIGATE",
+        BACK: "BACK",
     },
    
 }

@@ -26,9 +26,22 @@ section.
 - [x] **Implement Base Auth system**
 - [ ] **Add @type and @context to schema and records returns**
 No tasks yet.
+- [ ] **Layout as a schema**
+  - Have a Layout model, that manages rendering, and that integrate with our 
+    current structure
+  - The layout can be edited via an admin panel
+- [ ] **DB-based, compiled models**
+  - Enables admin, no code or low code changes directly to the system
+- 
 
 ## Frontend
 
+- [ ] **Implement editable visibility only when permisisons allow it**
+- [ ] **Improve NTT method implementation**
+  - Show methods only when permissions allows it
+  - Be able to customize positioning
+  - Improve fine grain display otions ( button -> form, form directly, etc)
+- [ ] **Silent sections** Have section that are titleless
 - [ ] **Add visual feedback for error handling**
 - [ ] **Improve error flow through the actor system**
 - [ ] **Add full URL support for href (list, items)**

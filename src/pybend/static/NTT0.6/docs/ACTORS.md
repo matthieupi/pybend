@@ -6,11 +6,12 @@ Detailed documentation of each class in the Actor/Matrix system.
 
 1. [Actor](#actor)
 2. [Matrix](#matrix)
-3. [TX](#tx)
-4. [Observable](#observable)
-5. [TT (Transfer Type)](#tt-transfer-type)
-6. [NTT (Named Transfer Type)](#ntt-named-transfer-type)
-7. [DynamicClass (DynClass)](#dynamicclass-dynclass)
+3. [Router](#router)
+4. [TX](#tx)
+5. [Observable](#observable)
+6. [TT (Transfer Type)](#tt-transfer-type)
+7. [NTT (Named Transfer Type)](#ntt-named-transfer-type)
+8. [DynamicClass (DynClass)](#dynamicclass-dynclass)
 
 ---
 
@@ -146,14 +147,95 @@ On construction:
 
 ### Children
 
-The Matrix's children map contains **classes** (not instances):
+The Matrix's children map contains **classes and instances**:
 - `NTT` (registered via `Actor.subclass(NTT)`)
 - `Component` (registered via `Actor.subclass(Component)`)
 - `TT` (registered via `Actor.subclass(TT)`)
-- `List`, `Item` (registered via `Actor.subclass(List)`)
+- `Router` (registered via `Actor.subclass(Router)`)
 - Each DynClass (e.g., `Product`) is registered when `Actor.subclass(DynClass)` runs inside `prototype()`
+- Each Router instance (e.g., `"main"`) is registered via `matrix.register(this)` in the Router constructor
 
-This means a message targeting `"NTT"` routes to `NTT.inbox()` (the static method), which handles it at the class level. A message targeting `"Product"` routes to the DynClass's static `inbox()`.
+This means a message targeting `"NTT"` routes to `NTT.inbox()` (the static method), which handles it at the class level. A message targeting `"Product"` routes to the DynClass's static `inbox()`. A message targeting `"main"` routes to the Router instance's `inbox()`.
+
+---
+
+## Router
+
+**File:** `core/Router.js`
+
+Pure navigation state Actor. Manages the current route, a history stack, and optional `location.hash` synchronization. No DOM — view management is the ntt-router component's responsibility.
+
+### Construction
+
+```javascript
+Actor.subclass(Router, Observable)
+
+const router = new Router('main', { hash: true });
+```
+
+On construction:
+1. Calls `super(addr)` (Actor identity)
+2. Calls `matrix.register(this)` (registered as a Matrix child, routable by addr)
+3. If `hash: true`, listens for `hashchange` and reads initial hash
+4. Registers in module-level `routers` Map for lookup via `getRouter(addr)`
+
+### Instance Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `current` | `string\|object\|null` | Current route data. `null` = home. |
+| `canGoBack` | `boolean` | Whether the history stack has entries. |
+
+### Private State
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `#current` | `any` | Current route data. |
+| `#stack` | `Array` | History stack (previous routes, most recent last). |
+| `#hashSync` | `boolean` | Whether to sync string routes to `location.hash`. |
+
+### TX Handlers
+
+| Handler | Data | Behavior |
+|---------|------|----------|
+| `NAVIGATE(data, tx)` | `string` or `object` | Dedup check (identity + deep equality for objects). Push old route to `#stack`. Set `#current = data`. Update hash if syncing. `notify('route', new, old)`. |
+| `BACK(data, tx)` | (ignored) | Guard `canGoBack`. Pop `#stack`. Set `#current = popped`. Update hash. `notify('route', new, old)`. |
+
+### Observable
+
+```javascript
+router.observe('route', (newRoute, oldRoute) => {
+    console.log('Navigated:', oldRoute, '->', newRoute);
+});
+```
+
+The `'route'` property is notified on every NAVIGATE and BACK. Callbacks receive `(newValue, oldValue, propertyName, actor)` per the Observable protocol.
+
+### Hash Sync
+
+| Route type | Hash behavior |
+|------------|---------------|
+| String (`"Product/3"`) | `location.hash = "Product/3"` |
+| Object (`{ tag, attrs }`) | No hash representation (programmatic only) |
+| `null` (home) | Hash cleared via `history.replaceState` |
+| Browser back/forward | `hashchange` triggers `#fromHash()` → updates state + notifies |
+
+### Registry
+
+```javascript
+import { getRouter } from './core/Router.js';
+const router = getRouter('main');
+```
+
+### Routing Path
+
+Router instances are registered in the Matrix's children map via `matrix.register(this)`. Messages targeting the Router's addr (e.g., `"main"`) are routed by the Matrix to the Router's `inbox`, which dispatches to `NAVIGATE` or `BACK`.
+
+### Mixins Applied
+
+```javascript
+Actor.subclass(Router, Observable)  // Gets full actor wiring + signal/observe/notify
+```
 
 ---
 
@@ -197,7 +279,8 @@ All event names are defined in `config.js` under `config.E`. Both lowercase and 
 ```
 CONNECT, ENABLE, DISABLE, UPDATE, GET, DESCRIBE, CONNECTED, SCHEMA,
 CREATE, READ, DELETE, EVOLVE, COMMIT, ROLLBACK, SUBSCRIBE, OBSERVE,
-LOAD, ERROR, PING, PONG, HEARTBEAT, LOGIN, LOGOUT, REGISTER, NOTIFY, ALERT
+LOAD, ERROR, PING, PONG, HEARTBEAT, LOGIN, LOGOUT, REGISTER, NOTIFY, ALERT,
+SELECT, NAVIGATE, BACK
 ```
 
 ---

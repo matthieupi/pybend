@@ -16,7 +16,7 @@ from utils.typer import Ref, _SelfRefMarker
 from .storable_mixin import StorableMixin
 
 
-_AUTO_HIDE_FIELDS = {'id', 'created_at', 'updated_at'}
+_AUTO_HIDE_FIELDS = {'id', 'image', 'created_at', 'updated_at'}
 
 def _apply_field_exclusion(schema: dict):
     """Apply ui.display=false convention to *_id, id, and timestamp fields."""
@@ -42,6 +42,8 @@ class ProtoModel(PydanticBaseModel):
     Base model that optionally adds StorableMixin based on the 'storable' class attribute.
     """
     __fk_models__: ClassVar[Dict[str, Type]] = {}
+    id: int = Field(default=0)
+    image: str = Field(default='')
 
     class Config:
         arbitrary_types_allowed = True  # allows Ref through
@@ -228,6 +230,11 @@ class ProtoModel(PydanticBaseModel):
         ui_config = getattr(cls, '__ui__', None)
         if ui_config:
             schema['ui'] = dict(ui_config)
+            # Inject method UI hints into method schema entries
+            method_ui = ui_config.get('methods', {})
+            for method_name, hints in method_ui.items():
+                if method_name in schema.get('methods', {}):
+                    schema['methods'][method_name]['ui'] = dict(hints)
 
         # Inject __ui__ from referenced models into their $defs entries
         if referenced_models and '$defs' in schema:
