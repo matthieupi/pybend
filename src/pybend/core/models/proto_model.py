@@ -131,7 +131,7 @@ class ProtoModel(PydanticBaseModel):
             # Extract parameter schemas and record model types
             parameters = {}
             for name, param in sig.parameters.items():
-                if name in ('cls', 'self'):
+                if name in ('cls', 'self', 'user'):
                     continue
                 ptype = type_hints.get(name, param.annotation)
                 parameters[name] = pydantic_schema_for_type(ptype)

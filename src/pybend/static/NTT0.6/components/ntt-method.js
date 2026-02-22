@@ -78,6 +78,8 @@ export class NTTMethod extends HTMLElement {
       this.value = {};
       this.response = null;
       this.shadowRoot.querySelectorAll('input, textarea').forEach(el => { el.value = ''; });
+      // Re-fetch the parent entity so the list updates
+      if (this.ntt) setTimeout(() => this.ntt.pull(), 300);
     } else {
       this.render();
     }

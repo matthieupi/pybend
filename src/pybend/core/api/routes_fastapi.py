@@ -1,6 +1,6 @@
 import traceback
 
-from fastapi import APIRouter, Request, HTTPException, status, Body, Path
+from fastapi import APIRouter, Request, HTTPException, status, Body, Path, Query
 from typing import Dict, Type, Any, List
 from models.storable_mixin import StorableMixin
 from utils.erroring import get_traceback_info
@@ -66,7 +66,12 @@ def make_create_instance(model_class):
 
 
 def make_get_all_instances(model_class):
-    async def list_all_instances(request: Request, parent_id: int = None) -> List[model_class]:
+    async def list_all_instances(
+        request: Request,
+        parent_id: int = None,
+        limit: int = Query(default=None, ge=1, le=100),
+        offset: int = Query(default=None, ge=0),
+    ):
         ctx = _build_context(request, model_class, "list", parent_id=parent_id)
         try:
             auth_filter = _resolver.sql_filter_for(ctx)
@@ -82,14 +87,25 @@ def make_get_all_instances(model_class):
                     target_cls = join_cls
                     break
 
-        results = target_cls.list(sql_filter=auth_filter)
-        print(f"[LIST] Fetching all instances of {target_cls.__name__} (parent_id={parent_id})")
+        result = target_cls.list(sql_filter=auth_filter, limit=limit, offset=offset)
 
+        # Paginated response: {data: [...], meta: {...}}
+        if isinstance(result, dict) and 'data' in result:
+            items = result['data']
+            if parent_id:
+                fk_field = f"{target_cls.__owner__.__name__.lower()}_id"
+                items = [r for r in items if getattr(r, fk_field, None) == parent_id]
+            return {
+                'data': [r.model_dump(response=True) for r in items],
+                'meta': result['meta'],
+            }
+
+        # Unpaginated response: plain array (backward compatible)
         if parent_id:
             fk_field = f"{target_cls.__owner__.__name__.lower()}_id"
-            return [r.model_dump(response=True) for r in results if getattr(r, fk_field, None) == parent_id]
+            return [r.model_dump(response=True) for r in result if getattr(r, fk_field, None) == parent_id]
 
-        return [r.model_dump(response=True) for r in results]
+        return [r.model_dump(response=True) for r in result]
 
     return list_all_instances
 
@@ -169,6 +185,29 @@ from inspect import signature
 from pydantic import BaseModel
 from typing import get_type_hints
 
+
+def _resolve_user(type_hint, request):
+    """Bridge auth-layer identity to model-layer entity.
+
+    The auth system (middleware / JWT) speaks plain dicts:
+        {"user_id": int, "email": str, "role": str}
+
+    Model methods may need the full User model instance.
+    Resolution:
+      - type_hint is a storable model class (e.g. User) → fetch via .get(user_id)
+      - type_hint is dict or unrecognized → return the raw JWT dict as-is
+      - no authenticated user → return None
+    """
+    user_dict = _get_user(request)
+    if not user_dict or not user_dict.get('user_id'):
+        return None
+    if (isinstance(type_hint, type)
+            and issubclass(type_hint, StorableMixin)
+            and hasattr(type_hint, 'get')):
+        return type_hint.get(user_dict['user_id'])
+    return user_dict
+
+
 def make_custom_post(attr, model_class, route_path):
     sig = signature(attr)
     type_hints = get_type_hints(attr)
@@ -203,7 +242,7 @@ def make_custom_post(attr, model_class, route_path):
 
         parsed_args = {}
         for name, param in sig.parameters.items():
-            if name in ('self', 'cls'):
+            if name in ('self', 'cls', 'user'):
                 continue
             param_type = type_hints.get(name, str)
             raw = data.get(name)
@@ -216,6 +255,11 @@ def make_custom_post(attr, model_class, route_path):
                     parsed_args[name] = param_type(raw)
             except Exception as e:
                 raise HTTPException(status_code=422, detail=f"Invalid field '{name}': {e}")
+
+        if 'user' in sig.parameters:
+            user = _resolve_user(type_hints.get('user'), request)
+            if user is not None:
+                parsed_args['user'] = user
 
         return attr(instance, **parsed_args)
 
@@ -227,7 +271,7 @@ def make_custom_post(attr, model_class, route_path):
 
         parsed_args = {}
         for name, param in sig.parameters.items():
-            if name in ('self', 'cls'):
+            if name in ('self', 'cls', 'user'):
                 continue
             param_type = type_hints.get(name, str)
             raw = data.get(name)
@@ -240,6 +284,11 @@ def make_custom_post(attr, model_class, route_path):
                     parsed_args[name] = param_type(raw)
             except Exception as e:
                 raise HTTPException(status_code=422, detail=f"Invalid field '{name}': {e}")
+
+        if 'user' in sig.parameters:
+            user = _resolve_user(type_hints.get('user'), request)
+            if user is not None:
+                parsed_args['user'] = user
 
         if is_class_method:
             return attr(model_class, **parsed_args)

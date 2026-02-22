@@ -42,18 +42,20 @@ The main outbound method. Called by `Matrix.inbox()` when a target cannot be res
 
 Maps TX event names to HTTP methods:
 
-| `tx.name` (uppercase) | HTTP Method | URL |
-|------------------------|-------------|-----|
-| `LOAD` | GET | `{target}` |
-| `READ` | GET | `{target}` |
-| `SCHEMA` | GET | `{target}` |
-| `CREATE` | POST | `{target}` |
-| `UPDATE` | PUT | `{target}` |
-| `DELETE` | DELETE | `{target}` |
-| `TEST` | GET | `{target}` |
-| (anything else) | POST | `{target}/{name}` |
+| `tx.name` (uppercase) | HTTP Method | URL | Data Handling |
+|------------------------|-------------|-----|---------------|
+| `LOAD` | GET | `{target}` | Ignored |
+| `READ` | GET | `{target}?{data as query params}` | Object → URL query params |
+| `SCHEMA` | GET | `{target}` | Ignored |
+| `CREATE` | POST | `{target}` | JSON body |
+| `UPDATE` | PUT | `{target}` | JSON body |
+| `DELETE` | DELETE | `{target}` | Ignored |
+| `TEST` | GET | `{target}` | Ignored |
+| (anything else) | POST | `{target}/{name}` | JSON body |
 
 The `target` field of the TX is used directly as the URL (it's already a full URL like `http://localhost:5000/products`).
+
+**READ query param encoding**: When `tx.data` is a non-null object for a READ event, its entries are encoded as URL query parameters. For example, `{limit: 20, offset: 0}` becomes `?limit=20&offset=0`. Null values are skipped. If the URL already contains a query string, params are appended with `&`.
 
 **Note:** FK hydration hrefs (e.g., `http://localhost:5000/products/1/comments/2`)
 are also valid targets. They resolve via the same nested routes registered by the

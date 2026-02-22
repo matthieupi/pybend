@@ -114,23 +114,26 @@ Provides CRUD operations through dependency injection.
 ```python
 class StorableMixin:
     storage: ClassVar[StorageInterface] = None  # Injected
-    
+
     @classmethod
     def create(cls, data: Any) -> Any:
         return cls.storage.create(cls, data)
-    
+
     @classmethod
-    def list(cls) -> List[Any]:
-        return cls.storage.list(cls)
-    
+    def list(cls, sql_filter=None, limit=None, offset=None):
+        return cls.storage.list(cls, sql_filter=sql_filter, limit=limit, offset=offset)
+
     # ... other CRUD methods
 ```
+
+**Pagination**: When `limit` is provided, `list()` returns `{"data": [...], "meta": {"total", "limit", "offset", "has_more"}}`. When omitted, returns a plain list (backward compatible).
 
 **Key Features**:
 - Storage backend agnostic
 - Automatic join model support
 - Foreign key unwrapping before persistence
 - Lazy loading optimization
+- Optional pagination with total count
 
 ### 3. AbstractStorage
 
@@ -252,9 +255,11 @@ All route factories call `.model_dump(response=True)` to include `$schema` and `
 def make_create_instance(model_class):
     # Returns async function for POST /model
     # Calls .model_dump(response=True)
-    
+
 def make_get_all_instances(model_class):
-    # Returns async function for GET /model
+    # Returns async function for GET /model?limit=N&offset=M
+    # Supports optional pagination via query params
+    # Returns plain array (no params) or {data, meta} (with limit)
     # Calls .model_dump(response=True) on each instance
 
 def make_get_instance(model_class):
@@ -271,7 +276,16 @@ def make_custom_post(attr, model_class, route_path):
     # Inspects method signature
     # Generates appropriate async function
     # Handles parameter parsing and validation
+    # Auto-injects authenticated user for methods with `user` parameter
 ```
+
+**User Resolution Bridge** (`_resolve_user`):
+
+Bridges the auth layer (JWT dicts) to the model layer (entity instances). When a custom method declares a `user` parameter:
+- If the type hint is a `StorableMixin` subclass (e.g., `User`), fetches the full model instance via `.get(user_id)`
+- Otherwise, passes the raw JWT dict `{"user_id", "email", "role"}`
+
+This keeps the `authorize` package (zero PyBend imports) decoupled from model definitions.
 
 ## Data Flow
 

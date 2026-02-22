@@ -134,17 +134,24 @@ Step 5: Requester receives the replayed ATTACH
 Triggered after schema discovery completes and a List component's watcher/callback kicks in.
 
 ```
-Step 1: DynClass fetches data
-  DynClass.call('READ', {})
-  TX { name: READ, source: Product, target: http://localhost:8000/products }
+Step 1: DynClass fetches data (paginated)
+  DynClass.call('READ', { limit: 20, offset: 0 }, { inbox: 'UPDATE' })
+  TX { name: READ, source: Product, target: http://localhost:8000/products,
+       data: { limit: 20, offset: 0 }, meta: { inbox: 'UPDATE' } }
 
-Step 2: Backend responds
-  HTTP GET /products -> returns [{id:1, name:"Keyboard", ...}, ...]
-  httpCallback: swaps source/target
-  TX { name: READ, source: http://.../products, target: Product, data: [...] }
+Step 2: NetworkAdapter encodes data as query params for READ
+  HTTP GET /products?limit=20&offset=0
+  Backend returns: { data: [{id:1, ...}, ...], meta: { total, limit, offset, has_more } }
 
-Step 3: DynClass processes response
+Step 3: httpCallback swaps source/target, uses meta.inbox as event name
+  TX { name: UPDATE, source: http://.../products, target: Product,
+       data: { data: [...], meta: {...} } }
+
+Step 4: DynClass processes response
   DynClass.READ(data):
+    Detects paginated shape: { data: Array, meta: Object }
+      -> Stores meta as DynClass._paginationMeta
+      -> Extracts data array for processing
     For each item in array:
       - Creates new DynClass(item) -> NTT instance
       - Stores in DynClass.instances
@@ -152,14 +159,16 @@ Step 3: DynClass processes response
     Notifies all watchers with instance addresses:
     TX { name: UPDATE, source: Product, target: <list-addr>, data: ["Product/1","Product/2",...] }
 
-Step 4: List renders
+Step 5: List renders
   List.UPDATE(data):
     this.value = data (array of address strings)
     this.render():
+      Reads this.proto._paginationMeta for count/total display
       For each address string:
         const el = document.createElement('ntt-item')
         el.ref = address
         shadowRoot.appendChild(el)
+      If has_more: renders "Load More" button → loadMore() → READ with offset += pageSize
 ```
 
 ---
@@ -238,9 +247,29 @@ Item sends: TX { UPDATE, target: "Product/1", data: {...} }
 ### Delete
 
 ```
-ntt.call('DELETE', {})
-TX { name: DELETE, source: <ntt-addr>, target: http://localhost:8000/products/<id> }
--> HTTP DELETE /products/<id>
+Step 1: NTTItem sends DELETE TX
+  Item.deleteItem():
+    Checks permissions.canAction(schema.access, 'delete')
+    Shows confirm() dialog
+    TX { name: DELETE, source: <item-addr>, target: http://localhost:8000/products/<id> }
+
+Step 2: NetworkAdapter sends HTTP DELETE
+  HTTP DELETE /products/<id>
+  Backend returns: { message: "Deleted successfully" }
+
+Step 3: httpCallback routes response back
+  TX { name: DELETE, source: http://.../products/<id>, target: <item-addr>,
+       data: { message: "Deleted successfully" } }
+  Routes through Matrix → DynClass (static)
+
+Step 4: DynClass.DELETE handler cleans up
+  DynClass.DELETE(data, tx):
+    Parses entity ID from tx.source URL → removes from DynClass.instances
+    Re-notifies all watchers with updated address list:
+    TX { name: UPDATE, source: Product, target: <list-addr>, data: [remaining addresses] }
+
+Step 5: ListElement re-renders
+  List.UPDATE() → render() — deleted item no longer in list
 ```
 
 ### Custom Method (e.g., comment)
@@ -328,7 +357,8 @@ Step 3: NTTRouter restores slot
 | `CONNECT` | Component -> Matrix | component addr | type name | - | `Matrix.connect()` |
 | `CREATE` | DynClass -> Backend | DynClass addr | backend URL | entity data | NetworkAdapter (HTTP POST) |
 | `UPDATE` | NTT instance -> Backend | NTT addr | backend URL | entity data | NetworkAdapter (HTTP PUT) |
-| `DELETE` | NTT instance -> Backend | NTT addr | backend URL | - | NetworkAdapter (HTTP DELETE) |
+| `DELETE` | NTTItem -> Backend | item addr | entity `$id` URL | - | NetworkAdapter (HTTP DELETE) |
+| `DELETE` | Backend -> DynClass | entity URL | DynClass addr | `{message}` | `DynClass.DELETE()` — removes instance, re-notifies watchers |
 | `SELECT` | NTTItem -> ListElement | item addr | list addr (via `select-target` attribute) | entity ref string (e.g., `"Product/3"`) | `ListElement.SELECT()` |
 | `NAVIGATE` | ListElement -> Router | list addr | router addr (via `router` attribute) | route data (string or object) | `Router.NAVIGATE()` |
 | `BACK` | NTTRouter -> Router | router component addr | router actor addr | (ignored) | `Router.BACK()` |

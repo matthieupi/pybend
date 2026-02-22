@@ -91,9 +91,13 @@ class NTTTopbar extends HTMLElement {
     const themeIcon = isDark ? ICON_SUN : ICON_MOON;
     const themeLabel = isDark ? 'Light mode' : 'Dark mode';
 
+    const avatarHtml = user.image
+      ? `<img class="user-avatar" src="${user.image}" alt="${initial}" />`
+      : `<div class="user-avatar">${initial}</div>`;
+
     return `
       <div class="user-pill">
-        <div class="user-avatar">${initial}</div>
+        ${avatarHtml}
         <span class="user-name">${displayName}</span>
         <span class="user-chevron">${CHEVRON}</span>
         <div class="user-dropdown">

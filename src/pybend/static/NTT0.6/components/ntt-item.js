@@ -13,6 +13,7 @@
  * For custom rendering, extend NTTElement directly instead.
  */
 import {NTTElement} from './NTTElement.js';
+import {NTT} from '../core/NTT.js';
 import {Formidable} from '../generators/form.js';
 import {permissions} from '../utils/Permissions.js';
 import TX from '../core/TX.js';
@@ -38,6 +39,18 @@ export class NTTItem extends NTTElement {
         </div>
       `;
     }
+  }
+
+  /** ── Delete ── **/
+
+  deleteItem() {
+    if (!permissions.canAction(this.schema?.access, 'delete')) return;
+    if (!confirm(`Delete this ${this.schema.__name__}?`)) return;
+    this.send(new TX({
+      name: 'DELETE',
+      source: this.addr,
+      target: this.value.$id,
+    }));
   }
 
   /** ── Edit / Save toggle ── **/
@@ -87,38 +100,96 @@ export class NTTItem extends NTTElement {
     return `<span class="pill-label">${name}</span>`;
   }
 
-  /** sm — Compact row: thumbnail + name + 2–3 key field values inline (no labels). */
+  /**
+   * sm — Compact row: leading element + name + inline field values.
+   *
+   * Respects field_order. If the first renderable field is a $ref,
+   * it renders as a leading avatar/pill. Otherwise falls back to
+   * the entity's image thumbnail. 'name' renders as the identity text.
+   * Remaining fields fill the right side (up to 3 total).
+   */
   sm() {
-    const name = this.value.name || this.value.title || this.schema.__name__;
-    const fields = this.#topFields(3);
-    const fieldHtml = fields.map(([key, def]) => {
+    const schema = this.schema;
+    const props = schema.properties || {};
+    const renderable = this.#smFields();
+
+    let leadingHtml = '';
+    let nameHtml = '';
+    const smFields = [];
+
+    for (const key of renderable) {
+      const def = props[key];
       const val = this.value[key] ?? '';
+
+      // First $ref field → leading avatar (thumb position)
+      if (!leadingHtml && (def?.type === '$ref' || def?.$ref)
+          && typeof val === 'string' && val.startsWith('http')) {
+        const refModel = (def.$ref || '').split('/').pop();
+        const childTag = this.#resolveChildTag(refModel);
+        leadingHtml = `<${childTag} ref="${val}" display="xs" data-model="${refModel}"></${childTag}>`;
+        continue;
+      }
+
+      // 'name' field → sm-name identity text
+      if (key === 'name' && !nameHtml) {
+        nameHtml = `<span class="sm-name">${val || schema.__name__}</span>`;
+        continue;
+      }
+
+      // Everything else → sm-field
+      if (smFields.length >= 3) break;
       if ((def?.type === '$ref' || def?.$ref) && typeof val === 'string' && val.startsWith('http')) {
         const refModel = (def.$ref || '').split('/').pop();
-        return `<span class="sm-field sm-ref"><ntt-item ref="${val}" display="xs" data-model="${refModel}"></ntt-item></span>`;
+        const childTag = this.#resolveChildTag(refModel);
+        smFields.push(`<span class="sm-field sm-ref"><${childTag} ref="${val}" display="xs" data-model="${refModel}"></${childTag}></span>`);
+      } else {
+        const display = def?.ui?.widget === 'currency' && typeof val === 'number'
+          ? `$${val.toFixed(2)}` : val;
+        smFields.push(`<span class="sm-field">${display}</span>`);
       }
-      const display = def.ui?.widget === 'currency' && typeof val === 'number'
-        ? `$${val.toFixed(2)}` : val;
-      return `<span class="sm-field">${display}</span>`;
-    }).join('');
+    }
 
-    const thumb = this.value.image
-      ? `<img class="sm-thumb" src="${this.value.image}" alt="" />`
-      : '';
+    // Fallbacks
+    if (!leadingHtml && this.value.image) {
+      leadingHtml = `<img class="sm-thumb" src="${this.value.image}" alt="" />`;
+    }
+    if (!nameHtml) {
+      const name = this.value.name || this.value.title || schema.__name__;
+      nameHtml = `<span class="sm-name">${name}</span>`;
+    }
+
+    // When a $ref leads, stack name + fields vertically beside it
+    if (leadingHtml && leadingHtml.includes('display="xs"')) {
+      return `
+        ${leadingHtml}
+        <div class="sm-body">
+          ${nameHtml}
+          <span class="sm-fields">${smFields.join('')}</span>
+        </div>
+      `;
+    }
     return `
-      ${thumb}
-      <span class="sm-name">${name}</span>
-      <span class="sm-fields">${fieldHtml}</span>
+      ${leadingHtml}
+      ${nameHtml}
+      <span class="sm-fields">${smFields.join('')}</span>
     `;
   }
 
-  /** md — Card: image + edit button + full form + methods (current default). */
+  /** md — Card: image + edit/delete buttons + full form + methods (current default). */
   md() {
     const html = [];
     const canUpdate = permissions.canAction(this.schema.access, 'update');
-    if (canUpdate) {
-      const modeClass = this.mode === 'edit' ? 'mode-edit' : 'mode-display';
-      html.push(`<button class="edit-btn ${modeClass}" title="${this.mode === 'edit' ? 'Save' : 'Edit'}"></button>`);
+    const canDelete = permissions.canAction(this.schema.access, 'delete');
+    if (canUpdate || canDelete) {
+      html.push('<div class="card-actions">');
+      if (canDelete) {
+        html.push('<button class="delete-btn" title="Delete"></button>');
+      }
+      if (canUpdate) {
+        const modeClass = this.mode === 'edit' ? 'mode-edit' : 'mode-display';
+        html.push(`<button class="edit-btn ${modeClass}" title="${this.mode === 'edit' ? 'Save' : 'Edit'}"></button>`);
+      }
+      html.push('</div>');
     }
     if (this.value.image) {
       html.push(`<img class="card-image" src="${this.value.image}" alt="${this.value.name || ''}" />`);
@@ -178,6 +249,12 @@ export class NTTItem extends NTTElement {
     // Edit button
     this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', () => this.toggleMode());
 
+    // Delete button
+    this.shadowRoot.querySelector('.delete-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.deleteItem();
+    });
+
     // Input changes
     this.shadowRoot.querySelectorAll('input, textarea').forEach(el => {
       const event = (el.type === 'checkbox') ? 'change' : 'input';
@@ -212,35 +289,42 @@ export class NTTItem extends NTTElement {
   }
 
   /**
-   * Return the top N visible, non-header, non-array fields as [key, def] pairs.
-   * Respects ui.field_order and ui.display.
+   * Return ordered renderable field keys for sm() display.
+   * Respects ui.field_order. Skips only id, hidden, array, and selfref fields.
    */
-  #topFields(count) {
+  #smFields() {
     const schema = this.schema;
     const fields = schema.properties || {};
     const ui = schema.ui || {};
-    const skip = new Set(['name', 'id']);
 
     const order = ui.field_order
       ? ui.field_order.filter(k => k in fields)
       : Object.keys(fields);
-    // Safety: include any fields not in field_order
     for (const k of Object.keys(fields)) {
       if (!order.includes(k)) order.push(k);
     }
 
-    return order
-      .filter(key => {
-        if (skip.has(key)) return false;
-        const def = fields[key];
-        if (def?.ui?.display === false) return false;
-        if (def?.type === 'array') return false;
-        if (def?.type === 'selfref') return false;
-        if (!permissions.canView(def)) return false;
-        return true;
-      })
-      .slice(0, count)
-      .map(key => [key, fields[key]]);
+    return order.filter(key => {
+      if (key === 'id') return false;
+      const def = fields[key];
+      if (def?.ui?.display === false) return false;
+      if (def?.type === 'array') return false;
+      if (def?.type === 'selfref') return false;
+      if (!permissions.canView(def)) return false;
+      return true;
+    });
+  }
+
+  /**
+   * Resolve the child component tag for a $ref model.
+   * Checks local $defs first, falls back to NTT registry.
+   */
+  #resolveChildTag(refModel) {
+    const defs = this.schema?.$defs || {};
+    const fromDefs = defs[refModel]?.ui?.renderer?.item;
+    if (fromDefs) return fromDefs;
+    const DC = NTT.get(refModel);
+    return DC?.schema?.ui?.renderer?.item || 'ntt-item';
   }
 
   /** Build HTML for standalone method buttons (those without ui.attach_to). */

@@ -15,7 +15,7 @@ class Comment(ProtoModel):
     __tablename__: ClassVar[str] = 'comments'
     __storable__: ClassVar[bool] = True
     __ui__: ClassVar[dict] = {
-        'field_order': ['name', 'description', 'likes'],
+        'field_order': ['user_owner', 'name', 'description', 'likes'],
     }
     name: str = Field(min_length=1, max_length=500)
     description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
@@ -25,10 +25,11 @@ class Comment(ProtoModel):
     likes: ListRef[Like] = Field(default=[], description="Likes on this comment")
 
     @expose_route('/like', methods=['POST'])
-    def like(self, like: Like) -> str:
+    def like(self, like: Like, user: User = None) -> str:
         """
         Add a like to the comment.
         """
+        like.user = user.id if user else None
         like.__owner__ = self
         like.save()
         return like.model_dump_json()

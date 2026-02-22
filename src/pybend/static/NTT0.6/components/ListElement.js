@@ -27,6 +27,8 @@ export class ListElement extends Component {
   };
 
   #selected = new Set();
+  #pageSize = 20;
+  #offset = 0;
 
   constructor() {
     super([]);  // Default value: array
@@ -49,7 +51,16 @@ export class ListElement extends Component {
    */
   definedCallback() {
     this.subscribe(this.proto, 'UPDATE', this.update.bind(this));
-    this.proto.call('READ', {}, {inbox: 'UPDATE'});
+    this.#offset = 0;
+    this.proto.call('READ', { limit: this.#pageSize, offset: 0 }, {inbox: 'UPDATE'});
+  }
+
+  /**
+   * Load next page of results and append to the current list.
+   */
+  loadMore() {
+    this.#offset += this.#pageSize;
+    this.proto.call('READ', { limit: this.#pageSize, offset: this.#offset }, {inbox: 'UPDATE'});
   }
 
   /** ─────────────────────────────────────────── **/
@@ -163,12 +174,17 @@ export class ListElement extends Component {
     if (!this.schema || !Array.isArray(this.value)) return;
     Logging.debug(`[ListElement] Rendering ${this.model} — ${this.value.length} items`);
 
+    const meta = this.proto?._paginationMeta;
+    const total = meta?.total ?? this.value.length;
+    const hasMore = meta?.has_more ?? false;
+
     this.shadowRoot.innerHTML = `
       <div class="list-header">
         <h1>${this.model}s</h1>
-        <span class="list-count">${this.value.length}</span>
+        <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span>
       </div>
       <div class="list-grid"></div>
+      ${hasMore ? '<button class="load-more-btn">Load More</button>' : ''}
     `;
     if (this.$styles) this.shadowRoot.appendChild(this.$styles);
 
@@ -178,5 +194,7 @@ export class ListElement extends Component {
       child.style.setProperty('--stagger-delay', `${i * 50}ms`);
       grid.appendChild(child);
     });
+
+    this.shadowRoot.querySelector('.load-more-btn')?.addEventListener('click', () => this.loadMore());
   }
 }

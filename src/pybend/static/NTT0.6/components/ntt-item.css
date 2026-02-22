@@ -112,6 +112,14 @@
     display: inline-block;
 }
 
+/* sm — Two-column body: stacks name + fields vertically beside a leading avatar */
+.card[data-display="sm"] .sm-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 0.1rem;
+}
+
 
 /* ═══════════════════════════════════════════════════
    md — Card: the default glass morphism card
@@ -218,11 +226,11 @@
     height: 260px;
 }
 
-/* sm — Thumbnail circle */
+/* sm — Thumbnail (square with rounded edges by default) */
 .sm-thumb {
     width: 32px;
     height: 32px;
-    border-radius: 50%;
+    border-radius: var(--radius-sm, 8px);
     object-fit: cover;
     flex-shrink: 0;
     border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
@@ -233,11 +241,19 @@
    Shared element styles (md, lg, xl)
    ═══════════════════════════════════════════════════ */
 
-/* ── Edit button — SVG icon via CSS ── */
-.edit-btn {
+/* ── Card actions container ── */
+.card-actions {
     position: absolute;
     top: 1rem;
     right: 1rem;
+    display: flex;
+    gap: 0.35rem;
+    z-index: 1;
+}
+
+/* ── Action button base (shared by edit + delete) ── */
+.edit-btn,
+.delete-btn {
     width: 2rem;
     height: 2rem;
     display: grid;
@@ -254,6 +270,24 @@
     background-repeat: no-repeat;
     background-position: center;
     background-size: 14px;
+}
+
+/* ── Delete button — trash icon ── */
+.delete-btn {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238891ab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'/%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3C/svg%3E");
+}
+
+.delete-btn:hover {
+    border-color: rgba(239, 68, 68, 0.40);
+    background-color: rgba(239, 68, 68, 0.15);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'/%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3C/svg%3E");
+    transform: none;
+    box-shadow: none;
+}
+
+/* ── Edit button — SVG icon via CSS ── */
+.edit-btn {
+    /* position now handled by .card-actions container */
 }
 
 .edit-btn.mode-display {

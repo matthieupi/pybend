@@ -365,8 +365,9 @@ export class NTT extends TT {
         const DC = NTT.#prototypes.get(model);
 
         if (DC) {
-            // DynamicClass exists → forward TX
-            DC.inbox({...tx.repr(), target: addr});
+            // DynamicClass exists → call ATTACH directly (bypasses Actor routing
+            // which would throw for instance-level targets when instance doesn't exist)
+            DC.ATTACH(addr, tx);
         } else if (DC === null) {
             // Schema in flight → queue
             NTT.#waiting.get(model).push(tx);
@@ -438,11 +439,15 @@ export class NTT extends TT {
             if (entry._attachCallback) {
                 DC.signal(entry._attachCallback);
             } else {
-                // Rewrite target from 'NTT' to the entity address so DC.inbox
-                // dispatches locally instead of bouncing back through the router.
                 const repr = entry instanceof TX ? entry.repr() : {...entry};
                 repr.target = typeof repr.data === 'string' ? repr.data : addr;
-                DC.inbox(repr);
+                if (repr.name === 'ATTACH') {
+                    // Route ATTACH directly to DC.ATTACH (avoids Actor routing
+                    // throw when instance doesn't exist yet)
+                    DC.ATTACH(repr.data || repr.target, new TX(repr));
+                } else {
+                    DC.inbox(repr);
+                }
             }
         }
         NTT.#waiting.delete(addr);
@@ -764,14 +769,29 @@ function prototype(addr, schema, href) {
         const addr = typeof data === 'string' ? data : tx.data;
 
         if (addr && addr.includes('/')) {
-            // Instance-level → forward to instance
+            // Instance-level ATTACH
             const id = addr.split('/')[1];
             const instance = DynamicClass.children.get(id);
             if (instance) {
-                instance.inbox(tx instanceof TX ? tx.repr() : tx);
+                // Instance exists — forward directly
+                const reprTx = tx instanceof TX ? tx.repr() : {...tx};
+                reprTx.target = `/${id}`;
+                instance.inbox(reprTx);
             } else {
                 // Instance not yet created — queue for replay after READ
-                DynamicClass._pendingAttaches.push({id, tx: tx.repr()});
+                const queuedTx = tx instanceof TX ? tx.repr() : {...tx};
+                queuedTx.target = `/${id}`;
+                DynamicClass._pendingAttaches.push({id, tx: queuedTx});
+                // Trigger individual fetch if not already in-flight
+                if (!DynamicClass._fetchingIds) DynamicClass._fetchingIds = new Set();
+                if (!DynamicClass._fetchingIds.has(id)) {
+                    DynamicClass._fetchingIds.add(id);
+                    const fetchUrl = tx.meta?.href || `${DynamicClass.href}/${id}`;
+                    DynamicClass.send(new TX({
+                        name: 'READ',
+                        target: fetchUrl,
+                    }));
+                }
             }
         } else {
             // Type-level → add watcher
@@ -796,6 +816,17 @@ function prototype(addr, schema, href) {
      * Replays pending instance ATTACHes, then notifies all watchers.
      */
     DynamicClass.READ = function(data) {
+        // Detect paginated response: {data: [...], meta: {...}}
+        if (data && !Array.isArray(data) && Array.isArray(data.data) && data.meta) {
+            DynamicClass._paginationMeta = data.meta;
+            data = data.data;
+        }
+
+        // Normalize: single entity response → array
+        if (data && typeof data === 'object' && !Array.isArray(data) && data.id !== undefined) {
+            data = [data];
+        }
+
         if (Array.isArray(data)) {
             for (const value of data) {
                 const id = value.id;
@@ -817,14 +848,27 @@ function prototype(addr, schema, href) {
             }
         }
 
-        // Replay pending instance ATTACHes
+        // Clean up in-flight tracking for any instances just created
+        if (DynamicClass._fetchingIds) {
+            for (const id of DynamicClass.instances.keys()) {
+                DynamicClass._fetchingIds.delete(String(id));
+            }
+        }
+
+        // Replay pending instance ATTACHes (only for instances that now exist)
         if (DynamicClass._pendingAttaches.length > 0) {
             const pending = DynamicClass._pendingAttaches.splice(0);
+            const remaining = [];
             for (const {id, tx} of pending) {
                 const instance = DynamicClass.children.get(id);
                 if (instance) {
                     instance.inbox(tx);
+                } else {
+                    remaining.push({id, tx});
                 }
+            }
+            if (remaining.length > 0) {
+                DynamicClass._pendingAttaches.push(...remaining);
             }
         }
 
@@ -848,6 +892,30 @@ function prototype(addr, schema, href) {
      */
     DynamicClass.UPDATE = function(data, tx) {
         DynamicClass.READ(data, tx);
+    };
+
+    /**
+     * Static DELETE — removes instance from registry and notifies watchers.
+     * Called after a successful backend DELETE response.
+     * The httpCallback swaps source/target, so tx.source is the entity URL.
+     */
+    DynamicClass.DELETE = function(data, tx) {
+        const id = parseInt(tx.source?.split('/').pop());
+        if (!isNaN(id)) {
+            DynamicClass.instances.delete(id);
+        }
+        // Re-notify watchers with updated instance list
+        const childrenAddrs = [...DynamicClass.instances.keys()].map(
+            id => `${DynamicClass.addr}/${id}`
+        );
+        DynamicClass._watchers.forEach(addr => {
+            DynamicClass.send(new TX({
+                name: E.update,
+                source: DynamicClass.addr,
+                target: addr,
+                data: childrenAddrs
+            }));
+        });
     };
 
 

@@ -217,21 +217,31 @@ async function createUser(userData) {
 
 ## List Resources
 
-Retrieve all instances of a resource.
+Retrieve instances of a resource, with optional pagination.
 
 ### Request
 
 ```
 GET /{resource}
+GET /{resource}?limit=20&offset=0
 ```
 
 **Path Parameters**: None
 
-**Query Parameters**: None (filtering not implemented by default)
+**Query Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `limit` | integer (1–100) | No | Maximum number of records to return. Enables paginated response format. |
+| `offset` | integer (>= 0) | No | Number of records to skip. Used with `limit` for page navigation. |
 
 **Request Body**: None
 
 ### Response
+
+#### Without pagination (backward compatible)
+
+When no `limit` parameter is provided, returns a plain array:
 
 **Status**: 200 OK
 
@@ -258,15 +268,62 @@ GET /{resource}
 ]
 ```
 
-**Edge Cases**:
-- Empty database returns empty array: `[]`
-- No pagination by default (all records returned)
-- No sorting by default (order is implementation-defined)
+#### With pagination
 
-### Example
+When `limit` is provided, returns a wrapped object with `data` and `meta`:
+
+**Status**: 200 OK
+
+**Body**:
+
+```json
+{
+  "data": [
+    {
+      "$schema": "http://localhost:8000/User",
+      "$id": "http://localhost:8000/users/1",
+      "id": 1,
+      "name": "Alice Johnson",
+      "email": "alice@example.com",
+      "age": 28
+    },
+    {
+      "$schema": "http://localhost:8000/User",
+      "$id": "http://localhost:8000/users/2",
+      "id": 2,
+      "name": "Bob Smith",
+      "email": "bob@example.com",
+      "age": 32
+    }
+  ],
+  "meta": {
+    "total": 47,
+    "limit": 20,
+    "offset": 0,
+    "has_more": true
+  }
+}
+```
+
+**Meta fields**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total` | integer | Total number of matching records in the database. |
+| `limit` | integer | The limit that was requested. |
+| `offset` | integer | The offset that was applied. |
+| `has_more` | boolean | `true` if there are more records beyond this page. |
+
+**Edge Cases**:
+- Empty database returns empty array `[]` (unpaginated) or `{"data": [], "meta": {"total": 0, ...}}` (paginated)
+- No sorting by default (order is implementation-defined)
+- `limit` without `offset` defaults to offset 0
+- `offset` without `limit` is ignored (no effect)
+
+### Examples
 
 ```javascript
-// Get all users
+// Get all users (unpaginated — backward compatible)
 const users = await fetch('http://localhost:8000/users')
   .then(r => r.json());
 
@@ -279,7 +336,29 @@ users.forEach(user => {
 });
 ```
 
-**Performance Note**: For large datasets, implement custom paginated endpoints (see Custom Endpoints documentation).
+```javascript
+// Paginated request — first page
+const page1 = await fetch('http://localhost:8000/users?limit=20&offset=0')
+  .then(r => r.json());
+
+console.log(`Showing ${page1.data.length} of ${page1.meta.total} users`);
+
+// Load next page if available
+if (page1.meta.has_more) {
+  const page2 = await fetch('http://localhost:8000/users?limit=20&offset=20')
+    .then(r => r.json());
+  console.log(`Page 2: ${page2.data.length} users`);
+}
+```
+
+```bash
+# curl examples
+curl http://localhost:8000/users                      # All records (plain array)
+curl 'http://localhost:8000/users?limit=10'           # First 10 (paginated)
+curl 'http://localhost:8000/users?limit=10&offset=10' # Next 10
+```
+
+**Note**: The frontend `<ntt-list>` component uses pagination automatically, requesting 20 items at a time and rendering a "Load More" button when `has_more` is true.
 
 ---
 
@@ -746,13 +825,13 @@ async function createUser(data: Omit<User, 'id' | '$schema' | '$id'>): Promise<U
 
 ### Response Times
 
-- **List operations** can be slow with large datasets (no pagination by default)
+- **List operations**: Use `?limit=N&offset=M` for large datasets. The COUNT query runs before the SELECT, so paginated requests are efficient.
 - **Get by ID** is fast (single database lookup)
 - **Create/Update/Delete** are typically fast
 
 ### Best Practices
 
-1. **For large lists**: Implement custom paginated endpoints
+1. **Use pagination**: Pass `?limit=20` for list endpoints with many records
 2. **Caching**: Consider caching GET responses in frontend
 3. **Optimistic updates**: Update UI immediately, revert on error
 4. **Batch operations**: For multiple creates, consider custom batch endpoint

@@ -115,7 +115,18 @@ export class NetworkAdapter {
     
     if (this.mode === 'http') {
       if (name.toUpperCase() === config.E.load) HTTP.get(target, callback, onError);
-      else if (name.toUpperCase() === 'READ') HTTP.get(target, callback, onError);
+      else if (name.toUpperCase() === 'READ') {
+        let url = target;
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          const params = new URLSearchParams();
+          for (const [k, v] of Object.entries(data)) {
+            if (v != null) params.set(k, v);
+          }
+          const qs = params.toString();
+          if (qs) url += (url.includes('?') ? '&' : '?') + qs;
+        }
+        HTTP.get(url, callback, onError);
+      }
       else if (name.toUpperCase() === 'SCHEMA') HTTP.get(`${target}`, callback, onError);
       else if (name.toUpperCase() === 'CREATE') HTTP.post(target, data, callback, onError);
       else if (name.toUpperCase() === 'UPDATE') HTTP.put(target, data, callback, onError);

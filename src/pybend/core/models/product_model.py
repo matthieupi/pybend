@@ -6,6 +6,7 @@ from pydantic import Field, field_validator
 from models.viewable_mixin import ViewableMixin
 from .comment_model import Comment
 from .proto_model import ProtoModel
+from .user_model import User
 from .ref import ListRef
 from typing import ClassVar
 from utils.decorators import expose_route
@@ -52,13 +53,11 @@ class Product(ProtoModel):
 
 
     @expose_route('/comment', methods=['POST'])
-    def comment(self, comment: Comment) -> str:
+    def comment(self, comment: Comment, user: User = None) -> str:
         """
         Add a comment to the product.
         """
-        print(f"Adding comment to product {self.id}: {comment}")
-        print(type(comment))
-        comment.user_owner = 1  # TODO: use actual authenticated user
+        comment.user_owner = user.id if user else 1
         comment.__owner__ = self
         comment.save()
         return comment.model_dump_json()

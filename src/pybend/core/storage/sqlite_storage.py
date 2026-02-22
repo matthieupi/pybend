@@ -68,7 +68,8 @@ class SQLiteStorage(AbstractStorage):
     # LIST
     # ──────────────────────────────────────────────
 
-    def list(self, model_class: Type[Any], sql_filter: tuple = None) -> List[Any]:
+    def list(self, model_class: Type[Any], sql_filter: tuple = None,
+             limit: int = None, offset: int = None) -> List[Any]:
         table_name = model_class.__tablename__
         list_fields = get_list_fields(model_class)
         ref_fields = get_ref_fields(model_class)
@@ -79,11 +80,30 @@ class SQLiteStorage(AbstractStorage):
             clause, params = sql_filter
             if clause:
                 select_sql += f" WHERE {clause}"
-                filter_params = params
+                filter_params = list(params) if params else []
+
+        # Count total matching rows (before pagination)
+        total = None
+        if limit is not None:
+            count_sql = select_sql.replace("SELECT *", "SELECT COUNT(*)", 1)
+            conn = sqlite3.connect(self.database)
+            cursor = conn.cursor()
+            cursor.execute(count_sql, filter_params[:])
+            total = cursor.fetchone()[0]
+            conn.close()
+
+        # Apply pagination
+        paginated_params = filter_params[:]
+        if limit is not None:
+            select_sql += " LIMIT ?"
+            paginated_params.append(limit)
+            if offset is not None and offset > 0:
+                select_sql += " OFFSET ?"
+                paginated_params.append(offset)
 
         conn = sqlite3.connect(self.database)
         cursor = conn.cursor()
-        cursor.execute(select_sql, filter_params)
+        cursor.execute(select_sql, paginated_params)
         rows = cursor.fetchall()
         columns = [column[0] for column in cursor.description]
 
@@ -135,6 +155,18 @@ class SQLiteStorage(AbstractStorage):
             results.append(model_class(**record))
 
         conn.close()
+
+        if limit is not None:
+            effective_offset = offset or 0
+            return {
+                'data': results,
+                'meta': {
+                    'total': total,
+                    'limit': limit,
+                    'offset': effective_offset,
+                    'has_more': effective_offset + len(results) < total,
+                }
+            }
         return results
 
     # ──────────────────────────────────────────────

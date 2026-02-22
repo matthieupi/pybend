@@ -67,9 +67,9 @@ form.js              Formidable generator - builds forms from schema properties
 1. Frontend `<ntt-list model="Product">` triggers schema fetch -> `GET /Product`
 2. Backend returns JSON Schema with `$schema`, `$id`, `properties`, `$defs`, `methods`
 3. Frontend creates DynamicClass from schema, registers nested `$defs` models
-4. DynamicClass triggers `READ` -> `GET /products`
-5. Backend returns list of dicts with `$schema` and `$id` (via `model_dump(response=True)`)
-6. Frontend creates instances, renders via `ntt-item` components
+4. DynamicClass triggers `READ` -> `GET /products?limit=20&offset=0` (paginated)
+5. Backend returns `{data: [...], meta: {total, limit, offset, has_more}}` with `$schema`/`$id` on each item
+6. Frontend creates instances, renders via `ntt-item` components with "Load More" button if `has_more`
 
 ## Schema-Driven Development
 
@@ -124,6 +124,9 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 | Field order + grouping | `ui.field_order`, `ui.groups` | `form.js` renders fieldsets |
 | Show/hide fields | `ui.display`, field-level `access` | `form.js` + `Permissions.js` |
 | Edit button visibility | `access.update` | `ntt-item.js` checks `permissions.canAction()` |
+| Delete button visibility | `access.delete` | `ntt-item.js` checks `permissions.canAction()` |
+| Pagination (list endpoints) | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
+| Authenticated user injection | `user: User` param on `@expose_route` methods | `_resolve_user()` in `routes_fastapi.py` |
 | Method buttons | `schema.methods` | `<ntt-method>` reads method signatures |
 | Component tag resolution | `ui.renderer.item`, `ui.renderer.detail` | `ntt-router.js` resolves tags for navigation |
 | Adaptive display sizes | Schema properties, field order | `ntt-item.js` size methods (xs/sm/md/lg/xl) |
@@ -235,7 +238,7 @@ GET /Product → JSON Schema
 
 ### Models & Serialization
 - `src/pybend/core/models/proto_model.py` - Base model, schema generation, `model_dump(response=True)`, `generate_join_model()`
-- `src/pybend/core/models/storable_mixin.py` - CRUD operations (create/get/list/update/delete)
+- `src/pybend/core/models/storable_mixin.py` - CRUD operations (create/get/list/update/delete). `list()` supports `limit`/`offset` pagination.
 - `src/pybend/core/models/ref.py` - `ListRef[T]` type for collection references
 - `src/pybend/core/utils/typer.py` - `Ref` type (`Ref[T]`, `Ref['self']`), `flatten_refs()`
 
@@ -255,7 +258,7 @@ GET /Product → JSON Schema
 - `src/pybend/docs/AUTHORIZATION.md` - Full authorization system documentation
 
 ### API / Routes
-- `src/pybend/core/api/routes_fastapi.py` - Route factories with authorization injection (make_create_instance, etc.)
+- `src/pybend/core/api/routes_fastapi.py` - Route factories with authorization injection, pagination, and user resolution bridge (`_resolve_user`)
 - `src/pybend/core/utils/decorators.py` - `@expose_route()` for custom method endpoints (supports `access=` parameter)
 - `src/pybend/core/utils/registrar.py` - `registered_models` dict, `join_models` dict
 
@@ -334,6 +337,16 @@ def like(self) -> str:
     ...
 ```
 Appears in schema under `methods`, frontend renders via `<ntt-method>`. The `access=` parameter controls authorization (optional, defaults to model's `__access__` or `AUTHENTICATED`).
+
+### Authenticated User Injection
+Custom methods can receive the authenticated user by declaring a `user` parameter:
+```python
+@expose_route('/comment', methods=['POST'])
+def comment(self, comment: Comment, user: User = None) -> str:
+    comment.user_owner = user.id if user else 1
+    ...
+```
+The route layer's `_resolve_user()` bridge resolves the type hint: if it's a `StorableMixin` subclass (e.g., `User`), it fetches the full model instance via `.get(user_id)`. Otherwise it passes the raw JWT dict. The `user` param is never read from the request body — it's injected server-side from the JWT token. This maintains the auth/model boundary: the `authorize` package stays standalone (zero PyBend imports).
 
 ### Self-Referential Nesting
 ```python

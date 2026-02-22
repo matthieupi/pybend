@@ -271,11 +271,25 @@ constructor() {
 2. NTT resolves DynamicClass → Component.define(DC) → definedCallback()
 3. definedCallback():
    - subscribe(this.proto, 'UPDATE', this.update)
-   - this.proto.call('READ', {}, {inbox: 'UPDATE'})
-4. Backend responds → DynClass.READ → creates instances → notifies watchers
+   - this.proto.call('READ', { limit: 20, offset: 0 }, {inbox: 'UPDATE'})
+4. Backend responds with paginated data → DynClass.READ detects {data, meta} shape
+   → stores _paginationMeta → creates instances → notifies watchers
 5. ListElement.UPDATE(["Product/1", "Product/2", ...])
-6. render() stamps child elements per address
+6. render() stamps child elements per address + "Load More" button if has_more
 ```
+
+### Pagination
+
+ListElement requests paginated data automatically. The initial `definedCallback()` sends `READ` with `{limit: 20, offset: 0}`. The `render()` method reads `this.proto._paginationMeta` to display count/total in the header and a "Load More" button when `has_more` is true.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `#pageSize` | `number` | Items per page (default: 20). |
+| `#offset` | `number` | Current offset into the collection. |
+
+| Method | Description |
+|--------|-------------|
+| `loadMore()` | Increments offset by pageSize, sends another paginated READ. |
 
 ### Message Handlers
 
@@ -352,12 +366,17 @@ Children receive a `select-target` attribute (set automatically by `createChild(
 
 ```javascript
 render() {
+  const meta = this.proto?._paginationMeta;
+  const total = meta?.total ?? this.value.length;
+  const hasMore = meta?.has_more ?? false;
+
   this.shadowRoot.innerHTML = `
     <div class="list-header">
       <h1>${this.model}s</h1>
-      <span class="list-count">${this.value.length}</span>
+      <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span>
     </div>
     <div class="list-grid"></div>
+    ${hasMore ? '<button class="load-more-btn">Load More</button>' : ''}
   `;
   const grid = this.shadowRoot.querySelector('.list-grid');
   this.value.forEach((addr, i) => {
@@ -365,8 +384,12 @@ render() {
     child.style.setProperty('--stagger-delay', `${i * 50}ms`);
     grid.appendChild(child);
   });
+  this.shadowRoot.querySelector('.load-more-btn')
+    ?.addEventListener('click', () => this.loadMore());
 }
 ```
+
+The count badge shows `"5 / 47"` when paginated (current / total) or just `"5"` when unpaginated.
 
 ### Developer Pattern
 
@@ -416,6 +439,7 @@ Built-in zero-config single entity component. Extends NTTElement with adaptive s
 - **Adaptive display**: Size methods (`xs`, `sm`, `md`, `lg`, `xl`) return HTML strings; `render()` dispatches and binds events.
 - **Schema-driven form**: Uses `Formidable.getForm()` for `md`/`lg`/`xl` — field ordering, groups, widgets, validation, field exclusion all automatic.
 - **Edit/display toggle**: Click edit button → inputs, click save → sends UPDATE TX (md+ sizes only).
+- **Delete button**: Trash icon button, gated by `permissions.canAction(schema.access, 'delete')`. Shows confirmation dialog, then sends DELETE TX to the entity's `$id` URL. The DynamicClass DELETE handler removes the instance and re-notifies list watchers.
 - **Method buttons**: Renders `<ntt-method>` for each method in schema (md+ sizes only).
 - **Show-more toggle**: Nested ListRef fields collapse after 2 items with expand button.
 
@@ -455,11 +479,17 @@ render() {
 
 The `data-display` attribute on `.card` drives CSS scoping (e.g. `.card[data-display="xs"]`).
 
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `deleteItem()` | Checks delete permission, shows `confirm()` dialog, sends `DELETE` TX to `this.value.$id`. |
+
 ### Private Helpers
 
 | Helper | Description |
 |--------|-------------|
-| `#bindEvents()` | Binds edit button click, input/textarea change, show-more toggle. Selector-based — tolerant of missing elements. |
+| `#bindEvents()` | Binds edit button click, delete button click, input/textarea change, show-more toggle. Selector-based — tolerant of missing elements. |
 | `#topFields(count)` | Returns the top N visible, non-header, non-array fields as `[key, def]` pairs. Respects `ui.field_order`, `ui.display`, and permissions. |
 | `#methodsHtml()` | Generates `<ntt-method>` HTML for all schema methods. |
 

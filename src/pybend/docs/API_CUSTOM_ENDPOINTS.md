@@ -108,6 +108,76 @@ console.log('New price:', updated.price);
 
 ---
 
+## Automatic User Injection
+
+Custom methods can receive the authenticated user automatically by declaring a `user` parameter. The route layer bridges the auth-layer identity (JWT dict) to the model-layer entity, respecting the separation of concerns between the `authorize` package and PyBend models.
+
+### How It Works
+
+When a custom method declares a `user` parameter, the route handler:
+
+1. Skips `user` during request body parsing (it's never read from the POST body)
+2. Extracts the JWT identity from the request (`request.state.user`)
+3. Resolves the type based on the parameter's type hint:
+   - **Model class** (e.g., `User`) — fetches the full model instance via `User.get(user_id)`
+   - **`dict`** — passes the raw JWT payload `{"user_id", "email", "role"}`
+   - **No type hint** — passes the raw JWT dict
+
+### Example
+
+**Backend**:
+```python
+from .user_model import User
+
+class Product(ProtoModel):
+    @expose_route('/comment', methods=['POST'])
+    def comment(self, comment: Comment, user: User = None) -> str:
+        comment.user_owner = user.id if user else 1
+        comment.__owner__ = self
+        comment.save()
+        return comment.model_dump_json()
+```
+
+**Frontend** — `user` is NOT included in the request body:
+```javascript
+// POST /products/1/comment
+await fetch('http://localhost:8000/products/1/comment', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-access-token': jwtToken
+  },
+  body: JSON.stringify({
+    comment: { name: "Great product!" }
+    // No "user" field — injected server-side from JWT
+  })
+});
+```
+
+### Design: Auth/Model Boundary
+
+The `authorize` package is standalone — it speaks plain dicts (`{"user_id", "email", "role"}`) and has zero PyBend model imports. The `_resolve_user()` bridge in the route layer translates between these two worlds:
+
+```
+JWT Middleware (authorize)          Route Layer (_resolve_user)         Model Layer
+─────────────────────────          ─────────────────────────          ─────────────
+request.state.user =          →    type hint is User?            →    User.get(user_id)
+  {"user_id": 1,                     Yes → fetch model instance        → full User instance
+   "email": "alice@...",             No  → pass raw dict               → plain dict
+   "role": "user"}
+```
+
+This keeps the auth package decoupled from models while giving model methods access to the full entity when needed.
+
+### Rules
+
+- `user` is a reserved parameter name — never included in request body parsing
+- The `user` parameter should have a default of `None` for unauthenticated endpoints
+- Works in both instance methods (`post_with_id`) and class/static methods (`post_no_id`)
+- The type hint drives resolution: `User` → model instance, `dict` → raw JWT payload
+
+---
+
 ## Request Format
 
 ### HTTP Method
@@ -145,7 +215,7 @@ Frontend request body:
 - Parameter names must match exactly (case-sensitive)
 - All parameters without defaults are required
 - Parameters with defaults are optional
-- `self` and `cls` are never included in request body
+- `self`, `cls`, and `user` are never included in request body (see [Automatic User Injection](#automatic-user-injection))
 
 ---
 

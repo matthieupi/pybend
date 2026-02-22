@@ -21,6 +21,11 @@ class Bot(ProtoModel):
 class User(ProtoModel):
     __storable__: ClassVar[bool] = True
     __tablename__: ClassVar[str] = 'users'
+    __ui__: ClassVar[dict] = {
+        'renderer': {
+            'item': 'ntt-user',
+        },
+    }
     image: str = Field(default='https://ui-avatars.com/api/?name=User&background=94a3b8&color=fff&size=128&rounded=true')
     name: str
     email: str

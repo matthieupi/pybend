@@ -186,15 +186,26 @@ export class Component extends HTMLElement {
   get ref() { return this.#href; }
   set ref(href) {
     this.#href = href;
-    if (isUrl(href)) {
-      // Direct URL — fetch the resource
+    const model = this.getAttribute('data-model');
+    if (isUrl(href) && model) {
+      // URL ref with known model — route through ATTACH for caching + dedup
+      const id = href.split('/').pop();
+      this.send(new TX({
+        name: 'ATTACH',
+        source: this.addr,
+        target: 'NTT',
+        data: `${model}/${id}`,
+        meta: {href: href},
+      }));
+    } else if (isUrl(href)) {
+      // Direct URL, no model hint — fall back to direct fetch
       this.send(new TX({
         name: 'READ',
         source: this.addr,
         target: href,
       }));
     } else {
-      // NTT address — ATTACH flow
+      // NTT address — ATTACH flow (existing)
       this.send(new TX({
         name: 'ATTACH',
         source: this.addr,
