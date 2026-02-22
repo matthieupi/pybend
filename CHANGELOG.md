@@ -3,6 +3,14 @@
 # 0.7.0 (2026-02)
 
 ## Backend
+- [x] **Pagination** — list endpoints accept `?limit=N&offset=M` query params
+  - `sqlite_storage.list()` returns `{data: [...], meta: {total, limit, offset, has_more}}` when paginated
+  - `storable_mixin.list()` passes `limit`/`offset` through to storage
+  - Backward-compatible: unpaginated when no params provided
+- [x] **Authenticated user injection** — `@expose_route` methods can declare a `user: User` parameter
+  - `_resolve_user()` in `routes_fastapi.py` resolves the JWT user and injects the User instance
+  - `Product.comment()` and `Comment.like()` updated to use injected user instead of hardcoded IDs
+- [x] **User model UI hints** — added `__ui__` with `renderer` config pointing to `ntt-user` component
 - [x] **[Authorization & Authentication](src/pybend/docs/AUTHORIZATION.md)** — standalone `authorize/` package
   - Added ABAC (Attribute-Based Access Control) with composable rule objects and operator overloading (`|`, `&`, `~`)
   - Built-in rules: `ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE(*roles)`, `Where(**conditions)` with comparison operators (`__lt`, `__gt`, `__lte`, `__gte`, `__ne`, `__in`)
@@ -26,6 +34,25 @@
   - Added nested routes for child entity access (`/tablename/:id/field/:child_id`)
 
 ## Frontend
+- [x] **Pagination UI** — `ListElement` tracks page size/offset, renders "Load More" button when `has_more`
+  - Count display shows "current / total" when paginated
+  - `NetworkAdapter` encodes `tx.data` objects as URL query params for READ transactions
+- [x] **Delete support** — delete button in `ntt-item` `md()` with confirmation dialog and ABAC check
+  - `NTT.js` DynamicClass implements DELETE handler: removes instance, notifies watchers
+- [x] **`<ntt-user>` component** — custom NTTItem subclass with circular avatar rendering (xs/sm)
+  - Fallback to ui-avatars.com when no image is set
+  - User model `__ui__.renderer` wires it automatically
+- [x] **ATTACH routing improvements** — `NTT.js` fetches individual entities on ATTACH for non-existent instances
+  - Pending ATTACH queue replayed after READ completes
+  - `Component.ref` setter routes URL refs through ATTACH when `data-model` attribute is present
+- [x] **`ntt-item` sm display refinements** — respects `field_order`, renders `$ref` fields as leading avatars
+  - Replaced `#topFields()` with `#smFields()` for better field selection
+  - `#resolveChildTag()` looks up child component tags from schema
+- [x] **Kitchen sink page** — complete rewrite of `schema.html` into a full component showcase
+  - Adaptive display demo (xs pill, sm row, md card, lg detail)
+  - Live `ntt-list` + `ntt-router` with click-to-navigate
+  - User model at xs/sm, collapsible JSON schema inspector, ABAC permission panel
+  - Glass morphism sections, `ks-` prefixed CSS, responsive layout
 - [x] **[Refactor PTT into NTT](src/pybend/static/NTT0.6/docs/PTT_NTT_MERGE.md)**
   - Merged PTT into NTT — NTT is now the universal type registry, schema proxy, and ATTACH router
   - Added null-pointer bootstrap pattern with TX message queueing for async schema loading
@@ -36,8 +63,15 @@
 - Added favicon (SVG)
 
 ## Documentation
+- Updated `CLAUDE.md` with pagination lifecycle, user injection, and delete in generated capabilities table
+- Updated `API_CRUD_ENDPOINTS.md` with pagination query params, response format, and examples
+- Updated `API_CUSTOM_ENDPOINTS.md` with `user` parameter injection pattern
+- Updated `ARCHITECTURE.md` data flow to reflect pagination
+- Updated `COMPONENTS.md` with ntt-user, delete button, and ListElement pagination docs
+- Updated `MESSAGE_PROTOCOL.md` with DELETE handling and paginated READ format
+- Updated `TRANSPORT.md` with query parameter encoding for READ
+- Added `ROADMAP.md` with v0.8.0 plans
 - Added `docs/AUTHORIZATION.md` — full reference for the authorize package (quick start, rules, composition, architecture, extending, reference)
-- Updated `CLAUDE.md` with authorize package in key files, ABAC pattern, standalone/configure notes
 - Created comprehensive README.md for NTT 0.6 (quickstart, architecture, dataflow, CRUD, components)
 - Documented FK hydration across README.md, ARCHITECTURE.md, ACTORS.md, COMPONENTS.md, MESSAGE_PROTOCOL.md, TRANSPORT.md
 - Added PTT/NTT merge report (`docs/PTT_NTT_MERGE.md`)
