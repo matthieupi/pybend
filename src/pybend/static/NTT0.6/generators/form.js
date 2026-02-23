@@ -257,7 +257,7 @@ function getListInput(ntt, key, mode = 'display') {
 
     const count = Array.isArray(value) ? value.filter(v => typeof v === 'string').length : 0;
 
-    html.push(`<div class="list-field" data-model="${modelName || ''}">`);
+    html.push(`<div class="list-field" data-model="${modelName || ''}" data-value="${key}">`);
     html.push(`<div class="list-field-header">`);
     html.push(`<span class="list-field-label">${def.title || modelName || key}</span>`);
     html.push(`<span class="list-field-count">${count}</span>`);

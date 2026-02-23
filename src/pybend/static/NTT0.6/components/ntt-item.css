@@ -543,3 +543,48 @@ label:first-of-type {
     from { opacity: 0; transform: translateY(12px) scale(0.98); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+
+/* ═══════════════════════════════════════════════════
+   Skeleton shimmer placeholders
+   ═══════════════════════════════════════════════════ */
+
+/* Bone base — each placeholder bar */
+.bone {
+    display: block;
+    background: var(--surface-3, #1c2030);
+    border-radius: var(--radius-sm, 8px);
+    overflow: hidden;
+    position: relative;
+}
+
+.bone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* xs skeleton — pill shape */
+.card.skeleton[data-display="xs"] {
+    pointer-events: none;
+}
+
+/* sm skeleton — row with avatar + text bones */
+.card.skeleton[data-display="sm"] {
+    pointer-events: none;
+}
+
+/* md/lg/xl skeleton — card with title + field bones */
+.card.skeleton[data-display="md"],
+.card.skeleton[data-display="lg"],
+.card.skeleton[data-display="xl"] {
+    pointer-events: none;
+    min-height: 5rem;
+}
+
+@keyframes shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}

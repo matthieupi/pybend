@@ -28,16 +28,32 @@ export class NTTItem extends NTTElement {
 
   connectedCallback() {
     super.connectedCallback();
-    // Show placeholder only if no schema has been set yet (via define() or DESCRIBE)
+    // Show skeleton placeholder only if no schema has been set yet (via define() or DESCRIBE)
     if (!this.schema?.__name__) {
-      this.shadowRoot.innerHTML = `
-        <div class="card">
-          <button class="edit-btn mode-display" title="Edit"></button>
-          <h1>${this.model ? this.model : "Item"} Placeholder</h1>
-          <h4>Mode: ${this.mode}</h4>
-          <div class="content"></div>
-        </div>
-      `;
+      const size = this.displayMode;
+      this.shadowRoot.innerHTML =
+        `<div class="card skeleton" data-display="${size}">${this.placeholder(size)}</div>`;
+      if (this.$styles) this.shadowRoot.appendChild(this.$styles);
+    }
+  }
+
+  /** Return layout-matching bone HTML for the skeleton placeholder. */
+  placeholder(size) {
+    switch (size) {
+      case 'xs':
+        return '<span class="bone" style="width:4rem;height:0.9rem;border-radius:999px"></span>';
+      case 'sm':
+        return `
+          <span class="bone" style="width:28px;height:28px;border-radius:50%;flex-shrink:0"></span>
+          <div style="display:flex;flex-direction:column;gap:0.3rem;min-width:0;flex:1">
+            <span class="bone" style="width:45%;height:0.7rem"></span>
+            <span class="bone" style="width:30%;height:0.55rem"></span>
+          </div>`;
+      default: // md, lg, xl
+        return `
+          <span class="bone" style="width:55%;height:0.85rem;margin-bottom:0.6rem"></span>
+          <span class="bone" style="width:100%;height:0.6rem;margin-bottom:0.45rem"></span>
+          <span class="bone" style="width:70%;height:0.6rem"></span>`;
     }
   }
 
@@ -59,6 +75,23 @@ export class NTTItem extends NTTElement {
         target: target,
         meta: { inbox: 'DELETE' },
       }));
+    }
+
+    // Optimistic parent update: if this item lives inside another ntt-item's
+    // shadow DOM (e.g. a comment inside a product card), remove the deleted
+    // ref from the parent's array field so the UI updates immediately.
+    const parentHost = this.getRootNode()?.host;
+    if (parentHost?.value && parentHost?.schema && this.ref) {
+      const parentProps = parentHost.schema.properties || {};
+      for (const [key, def] of Object.entries(parentProps)) {
+        if (def?.type !== 'array') continue;
+        const arr = parentHost.value[key];
+        if (!Array.isArray(arr) || !arr.includes(this.ref)) continue;
+        // Found the array field containing this ref — update parent value
+        const updated = { ...parentHost.value, [key]: arr.filter(r => r !== this.ref) };
+        parentHost.value = updated;
+        break;
+      }
     }
   }
 
@@ -258,13 +291,18 @@ export class NTTItem extends NTTElement {
   update(prev, next) {
     if (!prev || !next) return false;
     const root = this.shadowRoot;
-    if (!root?.querySelector('.card[data-display]')) return false;  // Placeholder or no DOM → full render
+    if (!this._rendered) return false;  // Skeleton placeholder or no DOM → full render
 
     const props = this.schema.properties || {};
 
     for (const key of Object.keys(props)) {
       if (prev[key] === next[key]) continue;  // No change
-      if (props[key]?.type === 'array') return false;  // Structural → full render
+
+      // Array fields: reconcile child elements in the list-field container
+      if (props[key]?.type === 'array') {
+        if (!this.#updateListField(root, key, prev[key], next[key])) return false;
+        continue;
+      }
 
       // Display mode: find data-value element
       const el = root.querySelector(`[data-value="${key}"]`);
@@ -289,6 +327,91 @@ export class NTTItem extends NTTElement {
     return true;
   }
 
+  /**
+   * Surgically reconcile children in a .list-field container.
+   *
+   * DOM structure (from form.js getListInput, VISIBLE_COUNT=2):
+   *   .list-field
+   *     .list-field-header
+   *     ntt-item (visible 0)
+   *     ntt-item (visible 1)
+   *     .nested-collapsed
+   *       ntt-item (2+)
+   *     .show-more-btn
+   *
+   * Returns false if container not found (bail to full render).
+   */
+  #updateListField(root, key, prevArr, nextArr) {
+    const VISIBLE_COUNT = 2;
+    const container = root.querySelector(`.list-field[data-value="${key}"]`);
+    if (!container) return false;
+
+    const prevRefs = Array.isArray(prevArr) ? prevArr.filter(v => typeof v === 'string') : [];
+    const nextRefs = Array.isArray(nextArr) ? nextArr.filter(v => typeof v === 'string') : [];
+    const prevSet = new Set(prevRefs);
+    const nextSet = new Set(nextRefs);
+    const collapsed = container.querySelector('.nested-collapsed');
+
+    // Removals
+    for (const ref of prevRefs) {
+      if (!nextSet.has(ref)) {
+        const el = container.querySelector(`[ref="${ref}"]`);
+        if (el) el.remove();
+      }
+    }
+
+    // After removals, promote collapsed items to visible slots if needed
+    if (collapsed) {
+      const visibleItems = Array.from(container.children)
+        .filter(c => c.matches?.('ntt-item, ntt-user'));
+      while (visibleItems.length < VISIBLE_COUNT && collapsed.firstElementChild) {
+        container.insertBefore(collapsed.firstElementChild, collapsed);
+        visibleItems.push(visibleItems); // just bump count
+      }
+    }
+
+    // Additions
+    const modelName = container.dataset.model;
+    const childTag = this.#resolveChildTag(modelName) || 'ntt-item';
+    for (const ref of nextRefs) {
+      if (!prevSet.has(ref)) {
+        const el = document.createElement(childTag);
+        el.setAttribute('display', 'sm');
+        if (modelName) el.setAttribute('data-model', modelName);
+        // Place inside .nested-collapsed if it exists, otherwise at end
+        if (collapsed) {
+          collapsed.appendChild(el);
+        } else {
+          container.appendChild(el);
+        }
+        // Set ref last — setAttribute triggers attributeChangedCallback
+        // → ref setter → ATTACH/READ flow, and keeps the HTML attribute
+        // in sync for querySelector-based removal.
+        el.setAttribute('ref', ref);
+      }
+    }
+
+    // Update count badge
+    const countEl = container.querySelector('.list-field-count');
+    if (countEl) countEl.textContent = nextRefs.length;
+
+    // Update or remove show-more button
+    const showMore = container.querySelector('.show-more-btn');
+    const collapsedCount = collapsed ? collapsed.children.length : 0;
+    if (collapsedCount > 0 && showMore) {
+      // Update text only if not currently expanded
+      if (!collapsed.classList.contains('expanded')) {
+        showMore.textContent = `Show ${collapsedCount} more`;
+      }
+    } else if (collapsedCount === 0) {
+      // No more collapsed items — remove both
+      collapsed?.remove();
+      showMore?.remove();
+    }
+
+    return true;
+  }
+
 
   /** ─────────────────────────────────────────── **/
   /**         Render Dispatch                      **/
@@ -305,6 +428,7 @@ export class NTTItem extends NTTElement {
     const layoutSize = (this.mode === 'edit' && (size === 'sm' || size === 'xs')) ? 'md' : size;
     this.shadowRoot.innerHTML = `<div class="card" data-display="${layoutSize}">${html}</div>`;
     if (this.$styles) this.shadowRoot.appendChild(this.$styles);
+    this._rendered = true;
 
     this.#bindEvents();
     this[`${size}_mounted`]?.call(this);
