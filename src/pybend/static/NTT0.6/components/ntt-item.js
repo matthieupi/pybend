@@ -106,7 +106,7 @@ export class NTTItem extends NTTElement {
   /** xs — Pill: entity name as a compact badge. */
   xs() {
     const name = this.value.name || this.value.title || this.schema.__name__;
-    return `<span class="pill-label">${name}</span>`;
+    return `<span class="pill-label" data-value="name">${name}</span>`;
   }
 
   /**
@@ -158,7 +158,7 @@ export class NTTItem extends NTTElement {
 
       // 'name' field → sm-name identity text
       if (key === 'name' && !nameHtml) {
-        nameHtml = `<span class="sm-name">${val || schema.__name__}</span>`;
+        nameHtml = `<span class="sm-name" data-value="name">${val || schema.__name__}</span>`;
         continue;
       }
 
@@ -167,11 +167,11 @@ export class NTTItem extends NTTElement {
       if ((def?.type === '$ref' || def?.$ref) && typeof val === 'string' && val.startsWith('http')) {
         const refModel = (def.$ref || '').split('/').pop();
         const childTag = this.#resolveChildTag(refModel);
-        smFields.push(`<span class="sm-field sm-ref"><${childTag} ref="${val}" display="xs" data-model="${refModel}"></${childTag}></span>`);
+        smFields.push(`<span class="sm-field sm-ref" data-value="${key}"><${childTag} ref="${val}" display="xs" data-model="${refModel}"></${childTag}></span>`);
       } else {
         const display = def?.ui?.widget === 'currency' && typeof val === 'number'
           ? `$${val.toFixed(2)}` : val;
-        smFields.push(`<span class="sm-field">${display}</span>`);
+        smFields.push(`<span class="sm-field" data-value="${key}">${display}</span>`);
       }
     }
 
@@ -181,7 +181,7 @@ export class NTTItem extends NTTElement {
     }
     if (!nameHtml) {
       const name = this.value.name || this.value.title || schema.__name__;
-      nameHtml = `<span class="sm-name">${name}</span>`;
+      nameHtml = `<span class="sm-name" data-value="name">${name}</span>`;
     }
 
     // When a $ref leads, stack name + fields vertically beside it
@@ -247,6 +247,46 @@ export class NTTItem extends NTTElement {
   /** xl — Page: same as card (future: full metadata, expanded children). */
   xl() {
     return this.md();
+  }
+
+
+  /** ─────────────────────────────────────────── **/
+  /**         Surgical DOM Update                  **/
+  /** ─────────────────────────────────────────── **/
+
+  /** Patch individual DOM values in-place. Returns false → full render(). */
+  update(prev, next) {
+    if (!prev || !next) return false;
+    const root = this.shadowRoot;
+    if (!root?.querySelector('.card[data-display]')) return false;  // Placeholder or no DOM → full render
+
+    const props = this.schema.properties || {};
+
+    for (const key of Object.keys(props)) {
+      if (prev[key] === next[key]) continue;  // No change
+      if (props[key]?.type === 'array') return false;  // Structural → full render
+
+      // Display mode: find data-value element
+      const el = root.querySelector(`[data-value="${key}"]`);
+      if (el) {
+        el.textContent = Formidable.formatDisplayValue(props[key], key, next[key]);
+        continue;
+      }
+
+      // Edit mode: find data-key input (skip if user is typing in it)
+      const input = root.querySelector(`[data-key="${key}"]`);
+      if (input) {
+        if (root.activeElement !== input) {
+          if (input.type === 'checkbox') input.checked = !!next[key];
+          else input.value = next[key] ?? '';
+        }
+        continue;
+      }
+
+      // Element not found for this key (e.g. 'id') — skip
+    }
+
+    return true;
   }
 
 

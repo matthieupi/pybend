@@ -137,9 +137,9 @@ import { permissions } from '../utils/Permissions.js';
               headerHtml.push(`<textarea id="description" data-key="description" data-type="text">${desc}</textarea>`);
         
       } else {
-          headerHtml.push(`<h2 class="${schema.name}">${name}</h2>`);
+          headerHtml.push(`<h2 class="${schema.name}" data-value="name">${name}</h2>`);
           if (desc) {
-              headerHtml.push(`<h4>${desc}</h4>`);
+              headerHtml.push(`<h4 data-value="description">${desc}</h4>`);
           }
       }
     
@@ -215,17 +215,17 @@ function getInput(ntt, key, mode = 'display') {
         // Widget hint takes priority for display rendering too
         if (widget === 'currency') {
             const formatted = typeof value === 'number' ? `$${value.toFixed(2)}` : value;
-            html.push(`<div class="currency-display">${formatted}</div>`);
+            html.push(`<div class="currency-display" data-value="${key}">${formatted}</div>`);
         } else if (widget === 'textarea') {
-            html.push(`<div class="text-block">${value}</div>`);
+            html.push(`<div class="text-block" data-value="${key}">${value}</div>`);
         } else if (type === '$ref' || def?.$ref) {
-            html.push(`<div>[Reference: ${value?.name || value?.id || JSON.stringify(value)}]</div>`);
+            html.push(`<div data-value="${key}">[Reference: ${value?.name || value?.id || JSON.stringify(value)}]</div>`);
         } else if (type === 'selfref') {
-            html.push(`<div>${value ? `[Parent: #${value}]` : '(top-level)'}</div>`);
+            html.push(`<div data-value="${key}">${value ? `[Parent: #${value}]` : '(top-level)'}</div>`);
         } else if (type === 'array') {
             html.push(getListInput(ntt, key, mode));
         } else {
-            html.push(`<div>${value}</div>`);
+            html.push(`<div data-value="${key}">${value}</div>`);
         }
     }
 
@@ -330,6 +330,19 @@ function resolveAnyOf(def) {
     }
   }
 
+/**
+ * Return the formatted display string for a single field value.
+ * Mirrors the display branch logic of getInput — used by update() patches.
+ */
+function formatDisplayValue(def, key, value) {
+    const widget = def?.ui?.widget;
+    const type = def?.type || 'string';
+    if (widget === 'currency') return typeof value === 'number' ? `$${value.toFixed(2)}` : value;
+    if (type === '$ref' || def?.$ref) return `[Reference: ${value?.name || value?.id || JSON.stringify(value)}]`;
+    if (type === 'selfref') return value ? `[Parent: #${value}]` : '(top-level)';
+    return value ?? '';
+}
+
 export const Formidable = {
     validationAttrs,
     refInput,
@@ -337,5 +350,6 @@ export const Formidable = {
     getInput,
     getListInput,
     getArrayInput,
-    renderGroupedFields
+    renderGroupedFields,
+    formatDisplayValue
 }

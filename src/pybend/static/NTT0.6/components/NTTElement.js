@@ -30,13 +30,19 @@ export class NTTElement extends Component {
   /** ─────────────────────────────────────────── **/
 
   set value(data) {
+    const prev = super.value;
     super.value = data;
     // Auto-render when we have both schema and data
     if (this.schema && this.schema.__name__) {
-      this.render();
+      if (!this.update(prev, data)) {
+        this.render();
+      }
     }
   }
   get value() { return super.value; }
+
+  /** Surgical DOM update. Override in subclasses. Returns false → full render(). */
+  update(prev, next) { return false; }
 
 
   /** ─────────────────────────────────────────── **/
@@ -96,8 +102,7 @@ export class NTTElement extends Component {
     const DynClass = modelName ? NTT.get(modelName) : null;
     if (DynClass) {
       this.schema = DynClass._schema;
-      this.value = data;
-      this.render();
+      this.value = data;  // value setter handles render via update() fallback
     }
   }
 

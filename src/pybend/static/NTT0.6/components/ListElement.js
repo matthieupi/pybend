@@ -50,7 +50,7 @@ export class ListElement extends Component {
    * Subscribes to the proto's UPDATE observable and triggers the initial READ.
    */
   definedCallback() {
-    this.subscribe(this.proto, 'UPDATE', this.update.bind(this));
+    this.subscribe(this.proto, 'UPDATE', (data) => this.UPDATE(data));
     this.#offset = 0;
     this.proto.call('READ', { limit: this.#pageSize, offset: 0 }, {inbox: 'UPDATE'});
   }
@@ -73,8 +73,9 @@ export class ListElement extends Component {
   UPDATE(data) {
     Logging.dev(`[ListElement] ${this.schema.__name__} — UPDATE`, data);
     if (Array.isArray(data)) {
+      const prev = this.value;
       this.value = data;
-      this.render();
+      if (!this.update(prev, data)) this.render();
     } else {
       console.warn('[ListElement] UPDATE expected array, got:', typeof data);
     }
@@ -96,16 +97,6 @@ export class ListElement extends Component {
   /** ─────────────────────────────────────────── **/
   /**         Collection Helpers                   **/
   /** ─────────────────────────────────────────── **/
-
-  /**
-   * Internal update handler (bound and passed to subscribe).
-   */
-  update(data) {
-    if (Array.isArray(data)) {
-      this.value = data;
-      this.render();
-    }
-  }
 
   /**
    * Append items to the collection.
@@ -167,6 +158,46 @@ export class ListElement extends Component {
 
 
   /** ─────────────────────────────────────────── **/
+  /**         Surgical DOM Update                  **/
+  /** ─────────────────────────────────────────── **/
+
+  /** Patch list DOM in-place: remove deletions, append additions. Returns false → full render(). */
+  update(prev, next) {
+    if (!Array.isArray(prev) || !Array.isArray(next)) return false;
+    const grid = this.shadowRoot?.querySelector('.list-grid');
+    if (!grid) return false;
+
+    const prevSet = new Set(prev);
+    const nextSet = new Set(next);
+
+    // Deletions: remove children whose addr is no longer in list
+    const deletions = prev.filter(addr => !nextSet.has(addr));
+    for (const addr of deletions) {
+      const el = grid.querySelector(`[data-value="${addr}"]`);
+      if (el) el.remove();
+    }
+
+    // Additions: create and append children for new addrs
+    const additions = next.filter(addr => !prevSet.has(addr));
+    for (const addr of additions) {
+      const child = this.createChild(addr);
+      child.setAttribute('data-value', addr);
+      grid.appendChild(child);
+    }
+
+    // Update count
+    const countEl = this.shadowRoot.querySelector('.list-count');
+    if (countEl) {
+      const meta = this.proto?._paginationMeta;
+      const total = meta?.total ?? next.length;
+      countEl.textContent = `${next.length}${meta ? ` / ${total}` : ''}`;
+    }
+
+    return true;
+  }
+
+
+  /** ─────────────────────────────────────────── **/
   /**         Default Render                       **/
   /** ─────────────────────────────────────────── **/
 
@@ -191,6 +222,7 @@ export class ListElement extends Component {
     const grid = this.shadowRoot.querySelector('.list-grid');
     this.value.forEach((addr, i) => {
       const child = this.createChild(addr);
+      child.setAttribute('data-value', addr);
       child.style.setProperty('--stagger-delay', `${i * 50}ms`);
       grid.appendChild(child);
     });
