@@ -159,6 +159,12 @@ class _Owner(AccessRule):
         owner_val = getattr(ctx.resource, field, None)
         if hasattr(owner_val, 'id'):
             owner_val = owner_val.id
+        elif isinstance(owner_val, str) and '/' in owner_val:
+            # FK-hydrated href (e.g. "http://.../users/3") → extract trailing ID
+            try:
+                owner_val = int(owner_val.rstrip('/').rsplit('/', 1)[-1])
+            except (ValueError, IndexError):
+                pass
         return owner_val == ctx.user_id
 
     def sql_filter(self, ctx: AccessContext) -> Optional[Tuple[str, List[Any]]]:

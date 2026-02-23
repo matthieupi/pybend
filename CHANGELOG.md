@@ -11,6 +11,14 @@
   - `_resolve_user()` in `routes_fastapi.py` resolves the JWT user and injects the User instance
   - `Product.comment()` and `Comment.like()` updated to use injected user instead of hardcoded IDs
 - [x] **User model UI hints** — added `__ui__` with `renderer` config pointing to `ntt-user` component
+- [x] **Protected fields** — `__protected_fields__` class variable prevents API mutation of backend-owned fields
+  - `user_owner` auto-injected from JWT on create for models declaring it as protected
+  - Protected fields stripped from update payloads in route layer
+  - Schema marks protected fields with `ui.protected = true` for frontend consumption
+- [x] **OWNER rule FK-hydrated href support** — `_Owner.evaluate()` extracts trailing ID from href strings
+  - Handles `user_owner` values like `http://.../users/3` after FK hydration
+- [x] **Comment model ABAC** — added `__access__` rules (ANYONE read, AUTHENTICATED create, OWNER|admin update/delete)
+- [x] **$defs access rule injection** — `proto_model.schema()` now injects access rules from referenced models into their `$defs` entries
 - [x] **[Authorization & Authentication](src/pybend/docs/AUTHORIZATION.md)** — standalone `authorize/` package
   - Added ABAC (Attribute-Based Access Control) with composable rule objects and operator overloading (`|`, `&`, `~`)
   - Built-in rules: `ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE(*roles)`, `Where(**conditions)` with comparison operators (`__lt`, `__gt`, `__lte`, `__gte`, `__ne`, `__in`)
@@ -34,6 +42,29 @@
   - Added nested routes for child entity access (`/tablename/:id/field/:child_id`)
 
 ## Frontend
+- [x] **Resource-aware OWNER checks** — `Permissions.canAction()` now accepts entity data for real OWNER evaluation
+  - `#evaluateOwner()` compares resource's owner field to current user ID
+  - Handles FK-hydrated href strings (e.g., `http://.../users/3` → extract trailing ID)
+  - All `canAction()` call sites in `ntt-item.js` pass `this.value` for per-entity checks
+  - Edit/delete buttons now appear only for actual owners (not just any authenticated user)
+- [x] **Entity signal subscriptions** — `NTTElement.DESCRIBE()` subscribes to entity signal for live updates
+  - Components auto-update when entity data changes (e.g., after `pull()`)
+  - Subscription cleanup in `disconnectedCallback()`
+  - Instance `_response_` handler auto-pulls after method calls (replaces manual `setTimeout`)
+  - Instance `READ` handler for `pull()` responses
+- [x] **Protected fields** — backend-owned fields excluded from edit forms
+  - `__protected_fields__` class variable on models marks fields as server-managed
+  - Schema marks protected fields with `ui.protected = true`
+  - `form.js` hides protected fields in edit mode
+  - Route layer auto-injects `user_owner` from JWT on create, strips protected fields on update
+- [x] **CREATE handler** — `DynamicClass.CREATE` registers new instances and notifies list watchers
+- [x] **Delete flow improvements** — routes through DynamicClass for proper registry cleanup
+  - Uses `ref` (actual API endpoint URL) instead of `$id` for nested entities
+  - `NetworkAdapter.js` fixed: DELETE no longer sends request body
+- [x] **sm() action buttons** — edit/delete buttons on hover in sm size with CSS transitions
+  - sm edit mode delegates to md() for full form experience
+  - Layout size adjustment when editing in compact sizes
+- [x] **$defs access rules** — referenced model access rules now injected into `$defs` schema entries
 - [x] **Pagination UI** — `ListElement` tracks page size/offset, renders "Load More" button when `has_more`
   - Count display shows "current / total" when paginated
   - `NetworkAdapter` encodes `tx.data` objects as URL query params for READ transactions
@@ -63,6 +94,10 @@
 - Added favicon (SVG)
 
 ## Documentation
+- Updated `AUTHORIZATION.md` with protected fields section, OWNER href handling note
+- Updated `COMPONENTS.md` with entity signal subscriptions, protected fields, resource-aware OWNER checks, sm action buttons
+- Updated `MESSAGE_PROTOCOL.md` with CREATE handler, delete flow through DynClass, `_response_` handler, updated reference table
+- Updated `ARCHITECTURE.md` with protected field auto-injection in route factories
 - Updated `CLAUDE.md` with pagination lifecycle, user injection, and delete in generated capabilities table
 - Updated `API_CRUD_ENDPOINTS.md` with pagination query params, response format, and examples
 - Updated `API_CUSTOM_ENDPOINTS.md` with `user` parameter injection pattern

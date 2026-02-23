@@ -130,7 +130,7 @@ export class NetworkAdapter {
       else if (name.toUpperCase() === 'SCHEMA') HTTP.get(`${target}`, callback, onError);
       else if (name.toUpperCase() === 'CREATE') HTTP.post(target, data, callback, onError);
       else if (name.toUpperCase() === 'UPDATE') HTTP.put(target, data, callback, onError);
-      else if (name.toUpperCase() === 'DELETE') HTTP.remove(target, data, callback, onError);
+      else if (name.toUpperCase() === 'DELETE') HTTP.remove(target, callback, onError);
       else if (name.toUpperCase() === 'TEST') HTTP.get(target, data, callback, onError);
       else {
         HTTP.post(`${target}/${name.toLowerCase()}`, data, callback, onError);

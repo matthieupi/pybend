@@ -44,19 +44,28 @@ export class NTTItem extends NTTElement {
   /** ── Delete ── **/
 
   deleteItem() {
-    if (!permissions.canAction(this.schema?.access, 'delete')) return;
+    if (!permissions.canAction(this.schema?.access, 'delete', this.value)) return;
     if (!confirm(`Delete this ${this.schema.__name__}?`)) return;
-    this.send(new TX({
-      name: 'DELETE',
-      source: this.addr,
-      target: this.value.$id,
-    }));
+    // Use ref (the actual API endpoint URL) when available, otherwise fall back
+    // to value.$id. For nested entities (e.g. comments inside products), ref holds
+    // the correct CRUD path while $id may point to the schema-derived DynamicClass URL.
+    const target = (this.ref && this.ref.startsWith('http')) ? this.ref : this.value.$id;
+    // Route through DynamicClass so the response triggers DC.DELETE,
+    // which removes the instance from the registry and notifies list watchers.
+    const DC = NTT.get(this.schema.__name__);
+    if (DC) {
+      DC.send(new TX({
+        name: 'DELETE',
+        target: target,
+        meta: { inbox: 'DELETE' },
+      }));
+    }
   }
 
   /** ── Edit / Save toggle ── **/
 
   toggleMode() {
-    if (!permissions.canAction(this.schema?.access, 'update')) return;
+    if (!permissions.canAction(this.schema?.access, 'update', this.value)) return;
     const isEdit = this.mode === 'edit';
     if (isEdit) this.save();
     this.mode = isEdit ? 'display' : 'edit';
@@ -109,6 +118,9 @@ export class NTTItem extends NTTElement {
    * Remaining fields fill the right side (up to 3 total).
    */
   sm() {
+    // In edit mode, delegate to md() for the full form experience
+    if (this.mode === 'edit') return this.md();
+
     const schema = this.schema;
     const props = schema.properties || {};
     const renderable = this.#smFields();
@@ -116,6 +128,20 @@ export class NTTItem extends NTTElement {
     let leadingHtml = '';
     let nameHtml = '';
     const smFields = [];
+
+    // Action buttons (edit/delete) gated by permissions (resource-aware OWNER check)
+    const canUpdate = permissions.canAction(schema.access, 'update', this.value);
+    const canDelete = permissions.canAction(schema.access, 'delete', this.value);
+    let actionsHtml = '';
+    if (canUpdate || canDelete) {
+      let btns = '';
+      if (canDelete) btns += '<button class="delete-btn" title="Delete"></button>';
+      if (canUpdate) {
+        const modeClass = this.mode === 'edit' ? 'mode-edit' : 'mode-display';
+        btns += `<button class="edit-btn ${modeClass}" title="${this.mode === 'edit' ? 'Save' : 'Edit'}"></button>`;
+      }
+      actionsHtml = `<span class="sm-actions">${btns}</span>`;
+    }
 
     for (const key of renderable) {
       const def = props[key];
@@ -166,20 +192,22 @@ export class NTTItem extends NTTElement {
           ${nameHtml}
           <span class="sm-fields">${smFields.join('')}</span>
         </div>
+        ${actionsHtml}
       `;
     }
     return `
       ${leadingHtml}
       ${nameHtml}
       <span class="sm-fields">${smFields.join('')}</span>
+      ${actionsHtml}
     `;
   }
 
   /** md — Card: image + edit/delete buttons + full form + methods (current default). */
   md() {
     const html = [];
-    const canUpdate = permissions.canAction(this.schema.access, 'update');
-    const canDelete = permissions.canAction(this.schema.access, 'delete');
+    const canUpdate = permissions.canAction(this.schema.access, 'update', this.value);
+    const canDelete = permissions.canAction(this.schema.access, 'delete', this.value);
     if (canUpdate || canDelete) {
       html.push('<div class="card-actions">');
       if (canDelete) {
@@ -232,7 +260,10 @@ export class NTTItem extends NTTElement {
     const size = this.displayMode;
     const html = (this[size] || this.md).call(this);
 
-    this.shadowRoot.innerHTML = `<div class="card" data-display="${size}">${html}</div>`;
+    // When editing in compact sizes, sm() delegates to md() for the full form.
+    // Match the card layout so CSS styles apply correctly.
+    const layoutSize = (this.mode === 'edit' && (size === 'sm' || size === 'xs')) ? 'md' : size;
+    this.shadowRoot.innerHTML = `<div class="card" data-display="${layoutSize}">${html}</div>`;
     if (this.$styles) this.shadowRoot.appendChild(this.$styles);
 
     this.#bindEvents();

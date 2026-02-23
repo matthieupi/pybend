@@ -9,11 +9,19 @@ from .like_model import Like
 from typing import ClassVar, Optional
 from .user_model import User
 from utils.decorators import expose_route
+from authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 
 
 class Comment(ProtoModel):
     __tablename__: ClassVar[str] = 'comments'
     __storable__: ClassVar[bool] = True
+    __protected_fields__: ClassVar[set] = {'user_owner'}
+    __access__: ClassVar[dict] = {
+        'read': ANYONE,
+        'create': AUTHENTICATED,
+        'update': OWNER | ROLE('admin'),
+        'delete': OWNER | ROLE('admin'),
+    }
     __ui__: ClassVar[dict] = {
         'field_order': ['user_owner', 'name', 'description', 'likes'],
     }

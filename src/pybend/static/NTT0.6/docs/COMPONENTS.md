@@ -211,8 +211,14 @@ set value(data) {
 | Handler | Trigger | Behavior |
 |---------|---------|----------|
 | `UPDATE(data)` | TT watcher notification | Validates `$schema` field, sets value. If schema source changed, sends CONNECT. |
-| `DESCRIBE(data)` | NTT instance ATTACH response | Sets `schema = data.proto`, `value = data.data`, renders. |
+| `DESCRIBE(data)` | NTT instance ATTACH response | Sets `schema = data.proto`, `value = data.data`, renders. Also subscribes to entity signal for live updates — future value changes (e.g., after `pull()`) automatically re-render. |
 | `READ(data)` | Direct URL fetch response | Looks up DynamicClass from `data-model` attribute, sets schema + value. |
+
+### Entity Signal Subscription
+
+When `DESCRIBE` is called, the component subscribes to the NTT entity's signal. This means:
+- After a method call (e.g., `comment`), the entity's `_response_` handler triggers `pull()`, which re-fetches data and notifies the component via the signal.
+- The subscription is cleaned up in `disconnectedCallback()` to prevent memory leaks.
 
 ### Save
 
@@ -439,7 +445,7 @@ Built-in zero-config single entity component. Extends NTTElement with adaptive s
 - **Adaptive display**: Size methods (`xs`, `sm`, `md`, `lg`, `xl`) return HTML strings; `render()` dispatches and binds events.
 - **Schema-driven form**: Uses `Formidable.getForm()` for `md`/`lg`/`xl` — field ordering, groups, widgets, validation, field exclusion all automatic.
 - **Edit/display toggle**: Click edit button → inputs, click save → sends UPDATE TX (md+ sizes only).
-- **Delete button**: Trash icon button, gated by `permissions.canAction(schema.access, 'delete')`. Shows confirmation dialog, then sends DELETE TX to the entity's `$id` URL. The DynamicClass DELETE handler removes the instance and re-notifies list watchers.
+- **Delete button**: Trash icon button, gated by `permissions.canAction(schema.access, 'delete', this.value)`. Shows confirmation dialog, then routes DELETE through DynamicClass for proper registry cleanup. Uses `ref` (actual API endpoint URL) for nested entities where `$id` may point to the schema-derived URL.
 - **Method buttons**: Renders `<ntt-method>` for each method in schema (md+ sizes only).
 - **Show-more toggle**: Nested ListRef fields collapse after 2 items with expand button.
 
@@ -450,7 +456,7 @@ Each method returns an HTML string. `render()` dispatches to the current `displa
 | Method | Rendering |
 |--------|-----------|
 | `xs()` | Pill — entity name as a compact badge (`<span class="pill-label">`). |
-| `sm()` | Compact row — name + top 2–3 fields inline. Uses `#topFields(3)` heuristic. |
+| `sm()` | Compact row — name + 2–3 key fields + hover-reveal action buttons (edit/delete, ABAC-gated with resource-aware OWNER check). In edit mode, delegates to `md()` for full form. |
 | `md()` | Card — edit button + `Formidable.getForm()` + method buttons. The current default. |
 | `lg()` | Detail — delegates to `md()`. Future: show normally-hidden fields. |
 | `xl()` | Page — delegates to `md()`. Future: full metadata, expanded children. |
@@ -483,7 +489,7 @@ The `data-display` attribute on `.card` drives CSS scoping (e.g. `.card[data-dis
 
 | Method | Description |
 |--------|-------------|
-| `deleteItem()` | Checks delete permission, shows `confirm()` dialog, sends `DELETE` TX to `this.value.$id`. |
+| `deleteItem()` | Checks delete permission (resource-aware OWNER), shows `confirm()` dialog, routes `DELETE` TX through DynamicClass using `ref` URL. |
 
 ### Private Helpers
 
@@ -754,6 +760,10 @@ Fields are wrapped in `<fieldset class="ntt-group ntt-group-{name}">` with `<leg
 ### Field Exclusion
 
 Fields with `ui.display === false` are skipped. Applied automatically by backend conventions (`*_id`, `id`, timestamps) or explicitly via `json_schema_extra`.
+
+### Protected Fields
+
+Fields with `ui.protected === true` are backend-owned and cannot be modified via the UI. In edit mode, protected fields are hidden from the form. In display mode, they render normally. This is set by the backend's `__protected_fields__` class variable (e.g., `user_owner` on Comment).
 
 ### Relationship Rendering
 

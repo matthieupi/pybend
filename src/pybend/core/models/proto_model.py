@@ -221,10 +221,27 @@ class ProtoModel(PydanticBaseModel):
         # Apply field exclusion conventions: auto-set ui.display=false for internal fields
         _apply_field_exclusion(schema)
 
+        # Mark protected fields in schema
+        protected = getattr(cls, '__protected_fields__', set())
+        if protected and 'properties' in schema:
+            for field_name in protected:
+                if field_name in schema['properties']:
+                    schema['properties'][field_name].setdefault('ui', {})['protected'] = True
+
         # Also apply to $defs entries
         if '$defs' in schema:
             for def_schema in schema['$defs'].values():
                 _apply_field_exclusion(def_schema)
+
+            # Mark protected fields in $defs entries
+            if referenced_models:
+                for model in referenced_models:
+                    ref_protected = getattr(model, '__protected_fields__', set())
+                    if ref_protected and model.__name__ in schema['$defs']:
+                        def_props = schema['$defs'][model.__name__].get('properties', {})
+                        for field_name in ref_protected:
+                            if field_name in def_props:
+                                def_props[field_name].setdefault('ui', {})['protected'] = True
 
         # Inject __ui__ hints into schema (model-level)
         ui_config = getattr(cls, '__ui__', None)
@@ -236,12 +253,15 @@ class ProtoModel(PydanticBaseModel):
                 if method_name in schema.get('methods', {}):
                     schema['methods'][method_name]['ui'] = dict(hints)
 
-        # Inject __ui__ from referenced models into their $defs entries
+        # Inject __ui__ and access rules from referenced models into their $defs entries
         if referenced_models and '$defs' in schema:
             for model in referenced_models:
+                if model.__name__ not in schema['$defs']:
+                    continue
                 ref_ui = getattr(model, '__ui__', None)
-                if ref_ui and model.__name__ in schema['$defs']:
+                if ref_ui:
                     schema['$defs'][model.__name__]['ui'] = dict(ref_ui)
+                schema['$defs'][model.__name__]['access'] = access_schema(model)
 
         # Add JSON Schema metadata
         schema['$schema'] = f"{config.API_URL}/Schema"

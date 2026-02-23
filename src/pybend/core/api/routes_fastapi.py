@@ -56,6 +56,14 @@ def make_create_instance(model_class):
                 fk_field = f"{model_class.__owner__.__name__.lower()}_id"
                 data_dict[fk_field] = parent_id
 
+            # Auto-inject user_owner from JWT on create
+            protected = getattr(model_class, '__protected_fields__', None) or \
+                        getattr(param_class, '__protected_fields__', set())
+            if 'user_owner' in protected:
+                user = _get_user(request)
+                if user and user.get('user_id'):
+                    data_dict['user_owner'] = user['user_id']
+
             instance = model_class(**data_dict)
             result = model_class.create(instance)
             return result.model_dump(response=True) if result else result
@@ -153,6 +161,11 @@ def make_update_instance(model_class):
             raise HTTPException(status_code=403, detail=str(e))
         try:
             data_dict = flatten_refs(data)
+            # Strip backend-owned fields that cannot be modified via API
+            protected = getattr(model_class, '__protected_fields__', None) or \
+                        getattr(param_class, '__protected_fields__', set())
+            for field in protected:
+                data_dict.pop(field, None)
             if parent_id:
                 fk_field = f"{model_class.__owner__.__name__.lower()}_id"
                 data_dict[fk_field] = parent_id

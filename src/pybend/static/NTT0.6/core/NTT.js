@@ -895,6 +895,33 @@ function prototype(addr, schema, href) {
     };
 
     /**
+     * Static CREATE — adds new instance to registry and notifies watchers.
+     * Called after a successful backend CREATE (POST) response.
+     */
+    DynamicClass.CREATE = function(data, tx) {
+        if (data && data.id !== undefined) {
+            if (!DynamicClass.instances.has(data.id)) {
+                const instance = new DynamicClass(data);
+                DynamicClass.instances.set(data.id, instance);
+            } else {
+                DynamicClass.instances.get(data.id).update(data);
+            }
+        }
+        // Re-notify watchers with updated instance list
+        const childrenAddrs = [...DynamicClass.instances.keys()].map(
+            id => `${DynamicClass.addr}/${id}`
+        );
+        DynamicClass._watchers.forEach(addr => {
+            DynamicClass.send(new TX({
+                name: E.update,
+                source: DynamicClass.addr,
+                target: addr,
+                data: childrenAddrs
+            }));
+        });
+    };
+
+    /**
      * Static DELETE — removes instance from registry and notifies watchers.
      * Called after a successful backend DELETE response.
      * The httpCallback swaps source/target, so tx.source is the entity URL.
@@ -916,6 +943,24 @@ function prototype(addr, schema, href) {
                 data: childrenAddrs
             }));
         });
+    };
+
+    /**
+     * Instance READ — handles pull() responses for individual entities.
+     * Without this, pull() responses hit "no handler for READ" because
+     * the inherited _read_ doesn't match the uppercase event name.
+     */
+    DynamicClass.prototype.READ = function(data) {
+        this.update(data);
+    };
+
+    /**
+     * Instance _response_ — handles method call responses (e.g. comment).
+     * After a method executes server-side, re-pull the entity so child
+     * lists (comments, etc.) reflect the new state.
+     */
+    DynamicClass.prototype._response_ = function(data, tx) {
+        this.pull();
     };
 
 

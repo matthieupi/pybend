@@ -70,6 +70,8 @@ export class NTTMethod extends HTMLElement {
     const target = this.schema.scope === 'instancemethod' ? this.ntt : this.proto;
     if (!target || !target.call) return console.warn(`[ntt-method] Invalid call target.`);
 
+    // _response_ handler on the entity triggers pull() when the backend responds,
+    // which re-fetches the entity and propagates updates to watching components.
     target.call(this.method, payload, { inbox: '_response_' });
     this.response = { status: 'sent' };
 
@@ -78,8 +80,6 @@ export class NTTMethod extends HTMLElement {
       this.value = {};
       this.response = null;
       this.shadowRoot.querySelectorAll('input, textarea').forEach(el => { el.value = ''; });
-      // Re-fetch the parent entity so the list updates
-      if (this.ntt) setTimeout(() => this.ntt.pull(), 300);
     } else {
       this.render();
     }

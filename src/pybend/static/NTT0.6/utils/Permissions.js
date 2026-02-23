@@ -108,13 +108,14 @@ class Permissions {
    *
    * @param {Object} accessDict — schema.access object
    * @param {string} action — 'read', 'create', 'update', 'delete'
+   * @param {Object} [resource] — entity instance data (needed for OWNER checks)
    * @returns {boolean}
    */
-  canAction(accessDict, action) {
+  canAction(accessDict, action, resource) {
     if (!accessDict) return true;
     const rule = accessDict[action] || accessDict['*'];
     if (!rule) return true;
-    return this.#evaluateCompositeRule(rule);
+    return this.#evaluateCompositeRule(rule, resource);
   }
 
   // ── Internal ──
@@ -133,15 +134,17 @@ class Permissions {
 
   /**
    * Evaluate a composite rule object (from authorize.schema serialization).
+   * @param {Object} rule — serialized rule from schema
+   * @param {Object} [resource] — entity data for OWNER evaluation
    */
-  #evaluateCompositeRule(rule) {
+  #evaluateCompositeRule(rule, resource) {
     if (!rule || typeof rule !== 'object') return true;
 
     // Simple rule: { rule: 'anyone' }
     if (rule.rule) {
       if (rule.rule === 'anyone') return true;
       if (rule.rule === 'authenticated') return this.authenticated;
-      if (rule.rule === 'owner') return this.authenticated;
+      if (rule.rule === 'owner') return this.#evaluateOwner(rule, resource);
       if (rule.rule === 'role') {
         return Array.isArray(rule.roles) && rule.roles.includes(this.role);
       }
@@ -150,16 +153,35 @@ class Permissions {
 
     // Composite: { op: 'or'|'and'|'not', rules: [...] }
     if (rule.op === 'or') {
-      return (rule.rules || []).some(r => this.#evaluateCompositeRule(r));
+      return (rule.rules || []).some(r => this.#evaluateCompositeRule(r, resource));
     }
     if (rule.op === 'and') {
-      return (rule.rules || []).every(r => this.#evaluateCompositeRule(r));
+      return (rule.rules || []).every(r => this.#evaluateCompositeRule(r, resource));
     }
     if (rule.op === 'not') {
-      return !this.#evaluateCompositeRule(rule.rule);
+      return !this.#evaluateCompositeRule(rule.rule, resource);
     }
 
     return true;
+  }
+
+  /**
+   * Evaluate OWNER rule against actual entity data.
+   * Compares resource's owner field to current user_id.
+   * Falls back to authenticated-only when no resource is available.
+   */
+  #evaluateOwner(rule, resource) {
+    if (!this.authenticated) return false;
+    if (!resource) return true; // No resource context (e.g. create) → allow if authenticated
+    const field = rule.field || 'user_owner';
+    let ownerVal = resource[field];
+    if (ownerVal == null) return false;
+    // Handle FK-hydrated hrefs (e.g. "http://.../users/3")
+    if (typeof ownerVal === 'string' && ownerVal.includes('/')) {
+      const id = parseInt(ownerVal.replace(/\/+$/, '').split('/').pop());
+      if (!isNaN(id)) ownerVal = id;
+    }
+    return ownerVal === this.#user?.user_id;
   }
 }
 

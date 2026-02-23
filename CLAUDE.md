@@ -123,8 +123,10 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 | Form rendering | `properties`, `ui.widget`, `ui.placeholder` | `Formidable.getForm()` reads schema |
 | Field order + grouping | `ui.field_order`, `ui.groups` | `form.js` renders fieldsets |
 | Show/hide fields | `ui.display`, field-level `access` | `form.js` + `Permissions.js` |
-| Edit button visibility | `access.update` | `ntt-item.js` checks `permissions.canAction()` |
-| Delete button visibility | `access.delete` | `ntt-item.js` checks `permissions.canAction()` |
+| Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update; `form.js` hides in edit mode |
+| Edit button visibility | `access.update` + resource OWNER check | `ntt-item.js` checks `permissions.canAction(access, 'update', value)` |
+| Delete button visibility | `access.delete` + resource OWNER check | `ntt-item.js` checks `permissions.canAction(access, 'delete', value)` |
+| $defs access rules | Referenced model `__access__` | `proto_model.schema()` injects into `$defs` entries |
 | Pagination (list endpoints) | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
 | Authenticated user injection | `user: User` param on `@expose_route` methods | `_resolve_user()` in `routes_fastapi.py` |
 | Method buttons | `schema.methods` | `<ntt-method>` reads method signatures |
@@ -160,6 +162,7 @@ GET /Product → JSON Schema
 │       ├── ui.widget       → rendering hint (currency, textarea, ...)
 │       ├── ui.placeholder  → input placeholder text
 │       ├── ui.display      → false to hide from UI
+│       ├── ui.protected    → true for backend-owned fields (hidden in edit forms)
 │       └── access          → field-level permission rules
 ├── ui              → model-level UI configuration
 │   ├── field_order → render fields in this sequence
@@ -187,12 +190,13 @@ GET /Product → JSON Schema
 | `properties[field].type` | `form.js` → `getInput()` | Chooses input type (text, number, checkbox, ...) |
 | `properties[field].ui.widget` | `form.js` → `getInput()` | Specialized rendering (currency prefix, textarea) |
 | `properties[field].ui.display` | `form.js` → field filtering | Hides internal fields (IDs, timestamps, FKs) |
+| `properties[field].ui.protected` | `form.js` → field filtering | Hides backend-owned fields in edit mode (display-only) |
 | `properties[field].ui.placeholder` | `form.js` → input attrs | Sets placeholder text on inputs |
 | `properties[field].access` | `Permissions.js` → `canView()` | Field-level visibility per user role |
 | `ui.field_order` | `form.js` → `getForm()` | Controls field rendering sequence |
 | `ui.groups` | `form.js` → `renderGroupedFields()` | Wraps fields in `<fieldset>` groups |
 | `ui.renderer.*` | `ntt-router.js` → `#resolveTag()` | Chooses component tag for navigation views |
-| `access` | `Permissions.js` → `canAction()` | Shows/hides edit button, method buttons |
+| `access` | `Permissions.js` → `canAction(access, action, resource)` | Shows/hides edit/delete buttons with resource-aware OWNER evaluation |
 | `methods` | `prototype()` + `<ntt-method>` | Creates callable methods + renders action buttons |
 | `$defs` | `NTT.SCHEMA()` | Registers nested DynamicClasses (Comment, etc.) |
 | `$id` / `$schema` | DynamicClass value getter | Injected into every entity instance for self-description |

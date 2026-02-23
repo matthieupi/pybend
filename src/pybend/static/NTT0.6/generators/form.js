@@ -35,6 +35,7 @@ import { permissions } from '../utils/Permissions.js';
           if (headerFields.includes(key)) return false;
           const def = fields[key];
           if (def?.ui?.display === false) return false;
+          if (mode === 'edit' && def?.ui?.protected) return false;
           if (!permissions.canView(def)) return false;
           return true;
       });
@@ -180,8 +181,8 @@ function getInput(ntt, key, mode = 'display') {
         Object.assign(def, resolveAnyOf(def));
     }
 
-    // Downgrade to display if user lacks edit permission for this field
-    const effectiveMode = (mode === 'edit' && !permissions.canEdit(def)) ? 'display' : mode;
+    // Protected fields are always display-only (backend-owned)
+    const effectiveMode = (mode === 'edit' && (def.ui?.protected || !permissions.canEdit(def))) ? 'display' : mode;
 
     const type = def.type || 'string';
 

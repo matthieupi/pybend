@@ -254,6 +254,7 @@ All route factories call `.model_dump(response=True)` to include `$schema` and `
 ```python
 def make_create_instance(model_class):
     # Returns async function for POST /model
+    # Auto-injects user_owner from JWT for models with __protected_fields__
     # Calls .model_dump(response=True)
 
 def make_get_all_instances(model_class):

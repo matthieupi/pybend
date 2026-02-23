@@ -112,6 +112,28 @@
     display: inline-block;
 }
 
+/* sm — Action buttons: right-aligned, visible on hover */
+.card[data-display="sm"] .sm-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.card[data-display="sm"]:hover .sm-actions {
+    opacity: 1;
+}
+
+.card[data-display="sm"] .sm-actions .edit-btn,
+.card[data-display="sm"] .sm-actions .delete-btn {
+    width: 1.5rem;
+    height: 1.5rem;
+    background-size: 11px;
+}
+
 /* sm — Two-column body: stacks name + fields vertically beside a leading avatar */
 .card[data-display="sm"] .sm-body {
     display: flex;

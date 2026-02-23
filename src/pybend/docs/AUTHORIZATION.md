@@ -143,6 +143,32 @@ __access__ = {
 
 **No `__access__` at all:** Falls back to `AUTHENTICATED` for all actions (backward compatible).
 
+### Protected Fields
+
+Models can declare `__protected_fields__` to mark fields as backend-owned:
+
+```python
+class Comment(ProtoModel):
+    __protected_fields__: ClassVar[set] = {'user_owner'}
+    __access__ = {
+        'read': ANYONE,
+        'create': AUTHENTICATED,
+        'update': OWNER | ROLE('admin'),
+        'delete': OWNER | ROLE('admin'),
+    }
+```
+
+**What protected fields do:**
+
+| Layer | Behavior |
+|-------|----------|
+| **Create** | Route layer auto-injects `user_owner` from JWT payload (`user_id`) |
+| **Update** | Route layer strips protected fields from incoming data — cannot be modified via API |
+| **Schema** | Marked with `ui.protected = true` in JSON Schema properties |
+| **Frontend** | `form.js` hides protected fields in edit mode; display mode shows them normally |
+
+This ensures that ownership assignment is server-authoritative — clients can never set or change `user_owner` directly.
+
 ### Declaring Access Rules on Methods
 
 Custom methods use the `access=` parameter on `@expose_route()`:
@@ -166,7 +192,7 @@ If no `access=` is provided, the method falls back to the model's `__access__` d
 |---|---|---|
 | `ANYONE` | Always | `1=1` (no filter) |
 | `AUTHENTICATED` | User has a valid JWT | `1=1` (middleware handles) |
-| `OWNER` | `resource.{owner_field} == user.id` | `{owner_field} = ?` |
+| `OWNER` | `resource.{owner_field} == user.id` (handles FK-hydrated hrefs) | `{owner_field} = ?` |
 | `ROLE('admin')` | `user.role == 'admin'` | `1=1` if match, `1=0` if not |
 | `ROLE('a', 'b')` | `user.role in {'a', 'b'}` | Same |
 | `Where(field=val)` | `resource.field == val` | `field = ?` |

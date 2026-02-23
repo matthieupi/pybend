@@ -66,11 +66,26 @@ export class NTTElement extends Component {
 
   /**
    * Receives proto + data together (from NTT instance ATTACH response).
+   * Also subscribes to the NTT entity's signal so future value changes
+   * (e.g. after pull()) automatically re-render this component.
    */
   DESCRIBE(data) {
     Logging.dev(`[NTTElement ${this.model}] — DESCRIBE`, data);
     this.schema = data.proto;
     this.value = data.data;   // value setter auto-renders when schema is available
+
+    // Subscribe to entity signal for live updates
+    const id = data.data?.id;
+    const model = data.proto?.__name__;
+    if (model && id !== undefined) {
+      const entity = NTT.get(`${model}/${id}`);
+      if (entity?.signal) {
+        this._entityUnsub?.();
+        this._entityUnsub = entity.signal((ent) => {
+          if (ent.value) this.value = ent.value;
+        }, true);  // wait=true: don't fire immediately, DESCRIBE already set value
+      }
+    }
   }
 
   /**
@@ -102,5 +117,10 @@ export class NTTElement extends Component {
       target: this.ref,
       data: this.value
     }));
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._entityUnsub?.();
   }
 }

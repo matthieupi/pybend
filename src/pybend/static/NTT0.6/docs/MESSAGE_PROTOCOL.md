@@ -211,6 +211,12 @@ DynClass.call('CREATE', entityData)
 TX { name: CREATE, source: Product, target: http://localhost:8000/products, data: {...} }
 -> NetworkAdapter -> HTTP POST /products
 -> Response routed back to DynClass
+
+DynClass.CREATE(data):
+  If instance doesn't exist → creates new DynClass(data), adds to instances map
+  If instance exists → updates with new data
+  Re-notifies all watchers with updated address list
+  → Lists automatically show the new entity
 ```
 
 ### Read (single)
@@ -247,20 +253,21 @@ Item sends: TX { UPDATE, target: "Product/1", data: {...} }
 ### Delete
 
 ```
-Step 1: NTTItem sends DELETE TX
+Step 1: NTTItem sends DELETE TX (routed through DynClass)
   Item.deleteItem():
-    Checks permissions.canAction(schema.access, 'delete')
+    Checks permissions.canAction(schema.access, 'delete', this.value)  ← resource-aware OWNER check
     Shows confirm() dialog
-    TX { name: DELETE, source: <item-addr>, target: http://localhost:8000/products/<id> }
+    Resolves target: uses ref (API endpoint URL) for nested entities, falls back to $id
+    Routes through DynClass (not directly to backend):
+    DC.send(TX { name: DELETE, target: <api-url>, meta: { inbox: 'DELETE' } })
 
 Step 2: NetworkAdapter sends HTTP DELETE
-  HTTP DELETE /products/<id>
+  HTTP DELETE /products/<id>  (no request body)
   Backend returns: { message: "Deleted successfully" }
 
-Step 3: httpCallback routes response back
-  TX { name: DELETE, source: http://.../products/<id>, target: <item-addr>,
+Step 3: httpCallback routes response back to DynClass
+  TX { name: DELETE, source: <api-url>, target: DynClass,
        data: { message: "Deleted successfully" } }
-  Routes through Matrix → DynClass (static)
 
 Step 4: DynClass.DELETE handler cleans up
   DynClass.DELETE(data, tx):
@@ -277,8 +284,15 @@ Step 5: ListElement re-renders
 ```
 ntt.comment({name: "Great!", description: "..."})
 // DynClass prototype method calls:
-TX { name: comment, source: <ntt-addr>, target: http://localhost:8000/products/<id> }
+TX { name: comment, source: <ntt-addr>, target: http://localhost:8000/products/<id>,
+     meta: { inbox: '_response_' } }
 -> NetworkAdapter: unrecognized name -> HTTP POST /products/<id>/comment
+-> Response routed back to NTT instance
+
+Instance._response_(data):
+  this.pull()  → re-fetches entity from backend
+  → Entity signal fires → watching NTTElement components auto-update
+  → No manual setTimeout needed
 ```
 
 ---
@@ -356,9 +370,11 @@ Step 3: NTTRouter restores slot
 | `DESCRIBE` | NTT instance -> Component | NTT addr | component addr | `{proto: schema, data: values}` | `Item.DESCRIBE()` |
 | `CONNECT` | Component -> Matrix | component addr | type name | - | `Matrix.connect()` |
 | `CREATE` | DynClass -> Backend | DynClass addr | backend URL | entity data | NetworkAdapter (HTTP POST) |
+| `CREATE` | Backend -> DynClass | backend URL | DynClass addr | created entity | `DynClass.CREATE()` — registers instance, notifies watchers |
 | `UPDATE` | NTT instance -> Backend | NTT addr | backend URL | entity data | NetworkAdapter (HTTP PUT) |
-| `DELETE` | NTTItem -> Backend | item addr | entity `$id` URL | - | NetworkAdapter (HTTP DELETE) |
+| `DELETE` | NTTItem -> DynClass | DynClass addr | entity API URL (via `ref`) | - | Routed through DynClass to NetworkAdapter (HTTP DELETE, no body) |
 | `DELETE` | Backend -> DynClass | entity URL | DynClass addr | `{message}` | `DynClass.DELETE()` — removes instance, re-notifies watchers |
+| `_response_` | Backend -> NTT instance | backend URL | instance addr | method result | `instance._response_()` — triggers `pull()` for live update |
 | `SELECT` | NTTItem -> ListElement | item addr | list addr (via `select-target` attribute) | entity ref string (e.g., `"Product/3"`) | `ListElement.SELECT()` |
 | `NAVIGATE` | ListElement -> Router | list addr | router addr (via `router` attribute) | route data (string or object) | `Router.NAVIGATE()` |
 | `BACK` | NTTRouter -> Router | router component addr | router actor addr | (ignored) | `Router.BACK()` |
