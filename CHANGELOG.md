@@ -3,6 +3,22 @@
 # 0.7.0 (2026-02)
 
 ## Backend
+- [x] **Social features — Like/Favorite toggle** — `Comment.like()` and `Product.favorite()` rewritten as toggle endpoints (create if not liked/favorited, delete if already exists)
+  - Uses `join_models` registry to query/delete via join tables (`CommentLike`, `ProductLike`)
+  - Empty body allowed (`Body(default={})`) — no payload needed for toggle actions
+  - Returns `{"action": "liked"}` / `{"action": "unliked"}` (or `favorited`/`unfavorited`)
+- [x] **Comment reply method** — `Comment.reply()` creates a child comment with `parent_id` set to the replied-to comment
+  - Resolves product parent for correct join table insertion
+  - Access restricted to `AUTHENTICATED` users
+- [x] **ProductLike join model** — `generate_join_model(Product, Like)` registered in `main.py` for product favorites
+- [x] **Collection routes for join models** — `GET /products/comments`, `GET /products/likes` return all records across parents
+  - `make_collection_list()` factory with auth, pagination, and populate support
+  - Registered in Pass 1 (before CRUD routes) to avoid `{id:int}` path conflict with static segments
+- [x] **Typed path parameters** — all route paths use `{id:int}` and `{parent_id:int}` for proper FastAPI type coercion
+- [x] **StorableMixin MRO walk** — `save()` walks `__mro__` to find matching join key, fixing nested saves for join model instances (e.g., ProductComment saving a child Comment)
+- [x] **Method UI hints in $defs** — `proto_model.schema()` injects `__ui__.methods` hints into `$defs` method entries for referenced models
+- [x] **Like model protected fields** — `user` field marked as `__protected_fields__` (server-injected, not client-editable)
+- [x] **Seed data expansion** — added likes on comments (5) and favorites on products (5) to seed script
 - [x] **Pagination** — list endpoints accept `?limit=N&offset=M` query params
   - `sqlite_storage.list()` returns `{data: [...], meta: {total, limit, offset, has_more}}` when paginated
   - `storable_mixin.list()` passes `limit`/`offset` through to storage
@@ -42,6 +58,29 @@
   - Added nested routes for child entity access (`/tablename/:id/field/:child_id`)
 
 ## Frontend
+- [x] **`<ntt-method>` button layout** — new compact icon + count pill rendering for social actions (like, favorite)
+  - SVG icon library (heart, star, reply, default) with hover/active states
+  - `count-field` attribute reads collection length from entity data (supports populated wrappers)
+  - `renderButton()` method alongside existing `renderFieldset()` and `renderInline()`
+  - Click handler routes through NTT Actor with `_response_` inbox for auto-refresh
+- [x] **sm() social method buttons** — like/favorite/reply buttons rendered inline in sm card layout
+  - Button-layout methods detected from schema `methods[name].ui.layout === 'button'`
+  - Reply button shows inline input box with submit (Enter key or button click)
+  - Reply triggers parent entity re-fetch for immediate UI update
+- [x] **Reply indent** — comments with `parent_id` (selfref) get `reply-indent` CSS class with left border + margin
+- [x] **Populated wrapper normalization** — frontend handles both href strings and populated objects (`{$id, ...}`)
+  - `sm()` extracts `$id` from populated `$ref` fields for avatar rendering
+  - `form.js` `getListInput()` normalizes `{data: [...], meta: {...}}` wrappers to plain arrays
+  - `#patchListField()` extracts `$id` from items for diff comparison
+  - Instance `READ` handler runs `normalizePopulated()` on pull responses
+- [x] **Instance href from $id** — `DynamicClass` instances use entity `$id` for `href` (correct nested CRUD path like `/products/1/comments/3`)
+  - ATTACH handler updates `href` from `meta.href` when a more specific URL is known
+- [x] **`<ntt-favorites>` component** — simple page wrapper mounting `<ntt-list model="ProductLike">` at `#@favorites` route
+- [x] **Topbar Favorites link** — authenticated users see a "Favorites" nav link in `<ntt-topbar>`
+  - `topbar-nav` CSS block with hover transitions
+- [x] **JSON render depth guard** — `ntt-logs.js` caps recursion at depth 8 to prevent stack overflow on circular structures
+- [x] **Playwright tests** — `test_routing.py` (URL path correctness) and `test_social.py` (API + frontend rendering validation)
+- [x] **CLAUDE.md improvements** — reformatted long lines, added Development Workflow section (consistency, bug fix philosophy)
 - [x] **Resource-aware OWNER checks** — `Permissions.canAction()` now accepts entity data for real OWNER evaluation
   - `#evaluateOwner()` compares resource's owner field to current user ID
   - Handles FK-hydrated href strings (e.g., `http://.../users/3` → extract trailing ID)
@@ -93,7 +132,14 @@
 - Added `save()` method on `<ntt-item>` with NTT-mediated update path
 - Added favicon (SVG)
 
+## Tests
+- [x] **test_routing.py** — Playwright test verifying like/reply/favorite POST to correct nested API paths
+- [x] **test_social.py** — Playwright test suite (15 checks): schema validation, toggle actions, reply creation, collection routes, frontend rendering (star/heart/reply buttons, reply indent, favorites navigation)
+
 ## Documentation
+- Updated `CLAUDE.md` — reformatted long lines for readability, added Development Workflow section (consistency principles, bug fix philosophy)
+- Updated auto-generated docs: `products.md` (favorites field, favorite method), `products_comments.md` (like toggle, reply method), `products_likes.md` (new)
+- Updated `index.md` with `products_likes` entry
 - Updated `AUTHORIZATION.md` with protected fields section, OWNER href handling note
 - Updated `COMPONENTS.md` with entity signal subscriptions, protected fields, resource-aware OWNER checks, sm action buttons
 - Updated `MESSAGE_PROTOCOL.md` with CREATE handler, delete flow through DynClass, `_response_` handler, updated reference table
