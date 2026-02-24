@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="./dark-theme.css">
     <link rel="stylesheet" href="./light-theme.css">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="modulepreload" href="./config.js">
+    <link rel="modulepreload" href="./utils/Assert.js">
+    <link rel="modulepreload" href="./utils/Logging.js">
+    <link rel="modulepreload" href="./core/Utils.js">
+    <link rel="modulepreload" href="./core/TX.js">
+    <link rel="modulepreload" href="./core/Observable.js">
     <script type="module" src="./utils/theme.js"></script>
 </head>
 <body>
@@ -19,8 +25,11 @@
         </ntt-router>
     </div>
 
+    <ntt-logs></ntt-logs>
+
     <script type="module">
-        console.info("Loading NTTTX Framework v0.6...");
+        import Logging from './utils/Logging.js';
+        Logging.init("Loading NTTTX Framework v0.6...");
 
         import {Matrix, matrix} from './core/Matrix.js';
         import { NTT } from './core/NTT.js';
@@ -32,6 +41,7 @@
         import './components/ntt-router.js';
         import './components/ntt-topbar.js';
         import './components/ntt-profile.js';
+        import './components/ntt-logs.js';
 
         // Initialize permissions (non-blocking — components degrade gracefully)
         permissions.init();

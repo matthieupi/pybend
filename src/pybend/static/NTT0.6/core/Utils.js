@@ -2,6 +2,7 @@
  * Utility functions for NTT system
  * Provides common functionality used across NTT components
  */
+import Logging from '../utils/Logging.js';
 
 /**
  * Deep equality check for objects
@@ -66,7 +67,7 @@ function notifySubscribers(instance, oldData, newData) {
     try {
       callback(newData, oldData, instance);
     } catch (error) {
-      console.error('[NTT] Subscriber error:', error);
+      Logging.error('[NTT] Subscriber error', error);
     }
   });
 
@@ -77,7 +78,7 @@ function notifySubscribers(instance, oldData, newData) {
         try {
           callback(newData[property], oldData[property], property, instance);
         } catch (error) {
-          console.error(`[NTT] Property observer error for ${property}:`, error);
+          Logging.error(`[NTT] Property observer error for ${property}`, error);
         }
       });
     }

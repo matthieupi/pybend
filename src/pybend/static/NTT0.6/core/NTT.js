@@ -73,7 +73,7 @@ class TT extends Actor{
     }
 
     ATTACH(data, tx) {
-        console.log("ATTACHING")
+        Logging.dev("[TT] ATTACHING")
         this.watch(tx.source)
     }
 
@@ -186,11 +186,7 @@ class TT extends Actor{
     }
 
     _error_(event) {
-        console.groupCollapsed(`[TT] Error received from ${event.source}:`, event.name);
-        console.error(`[TT] Error received from ${event.source}->${event.target}`);
-        console.warn(`[TT] Error data:`, event.data);
-        console.warn(`[TT] Event meta:`, event.meta);
-        console.groupEnd()
+        Logging.error(`[TT] Error from ${event.source}->${event.target}`, event.data);
     }
 }
 
@@ -254,7 +250,7 @@ export class NTT extends TT {
             NTT.SCHEMA(data);
             return true;
         } catch (e) {
-            console.error(`[NTT] Failed to parse pre-loaded schema for ${model}:`, e);
+            Logging.error(`[NTT] Failed to parse pre-loaded schema for ${model}`, e);
             return false;
         }
     }
@@ -274,7 +270,7 @@ export class NTT extends TT {
             Logging.debug(`[NTT] Pre-loaded data for ${tablename}`);
             return data;
         } catch (e) {
-            console.error(`[NTT] Failed to parse pre-loaded data for ${tablename}:`, e);
+            Logging.error(`[NTT] Failed to parse pre-loaded data for ${tablename}`, e);
             return null;
         }
     }
@@ -529,12 +525,12 @@ export class NTT extends TT {
     update(data) {
         this.value = {...this.#data, ...data};
         if (data.hasOwnProperty('name') && data.name === "error") {
-            console.warn(`[NTT] Error received from ${this.addr}:`, data.message || data.error || "Unknown error")
+            Logging.warn(`[NTT] Error received from ${this.addr}`, data.message || data.error || "Unknown error")
         }
     }
 
     ERROR(event) {
-        console.error(`[NTT] ${event.name} from ${event.source}:`, event.data);
+        Logging.error(`[NTT] ${event.name} from ${event.source}`, event.data);
     }
 
     _read_(data) {
@@ -583,7 +579,7 @@ export class NTT extends TT {
  */
 function prototype(addr, schema, href) {
 
-    console.log(`[NTT] Creating DynamicClass for ${addr}`);
+    Logging.debug(`[NTT] Creating DynamicClass for ${addr}`);
     const fields = Object.keys(schema.properties || {});
     const methods = Object.keys(schema.methods || {});
     const className = addr;
@@ -603,7 +599,7 @@ function prototype(addr, schema, href) {
         super(className, data.id);
         this.value = data;
         this.href = `${href}/${this.id}`;
-        console.warn(`Created instance of ${className} with addr ${this.addr}`)
+        Logging.dev(`[NTT] Created instance of ${className}`, this.addr)
       }
 
       get value() {
@@ -876,7 +872,7 @@ function prototype(addr, schema, href) {
         const childrenAddrs = [...DynamicClass.instances.keys()].map(
             id => id.toString().startsWith(`${DynamicClass.addr}/`) ? id : `${DynamicClass.addr}/${id}`
         );
-        console.warn("CHILDREN ADDR", childrenAddrs);
+        Logging.dev("[NTT] CHILDREN ADDR", childrenAddrs);
         DynamicClass._watchers.forEach(addr => {
             DynamicClass.send(new TX({
                 name: E.update,

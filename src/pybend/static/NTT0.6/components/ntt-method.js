@@ -1,5 +1,6 @@
 // components/ntt-method.js
 import { NTT } from '../core/NTT.js';
+import Logging from '../utils/Logging.js';
 
 export class NTTMethod extends HTMLElement {
   constructor() {
@@ -38,15 +39,15 @@ export class NTTMethod extends HTMLElement {
     this.widgetOverride = this.getAttribute('widget') || '';
 
     this.proto = NTT.get(this.model);
-    if (!this.proto) return console.error(`[ntt-method] Model not found: ${this.model}`);
+    if (!this.proto) return Logging.error(`[ntt-method] Model not found`, this.model);
 
     if (this.uuid) {
       this.ntt = NTT.get(this.model + '/' + this.uuid);
-      if (!this.ntt) return console.error(`[ntt-method] Instance not found: ${this.uuid}`);
+      if (!this.ntt) return Logging.error(`[ntt-method] Instance not found`, this.uuid);
     }
 
     const methodSchema = this.proto.schema?.methods?.[this.method];
-    if (!methodSchema) return console.error(`[ntt-method] Method schema not found for ${this.method}`);
+    if (!methodSchema) return Logging.error(`[ntt-method] Method schema not found`, this.method);
     this.schema = methodSchema;
 
     this.render();
@@ -68,7 +69,7 @@ export class NTTMethod extends HTMLElement {
   callMethod() {
     const payload = { ...this.value };
     const target = this.schema.scope === 'instancemethod' ? this.ntt : this.proto;
-    if (!target || !target.call) return console.warn(`[ntt-method] Invalid call target.`);
+    if (!target || !target.call) return Logging.warn(`[ntt-method] Invalid call target`);
 
     // _response_ handler on the entity triggers pull() when the backend responds,
     // which re-fetches the entity and propagates updates to watching components.

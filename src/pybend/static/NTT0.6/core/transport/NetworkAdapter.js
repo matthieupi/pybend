@@ -1,5 +1,4 @@
 import HTTP from './HTTP.js';
-import Socket from './Socket.js';
 import assert from "../../utils/Assert.js";
 import {Utils} from "../Utils.js";
 import {config} from "../../config.js";
@@ -13,7 +12,9 @@ export class NetworkAdapter {
     this.socket = null;
     this.url = url || config.API_URL;
     if (mode === 'ws') {
-      this.socket = new Socket("localhost:8765");
+      import('./Socket.js').then(({ default: Socket }) => {
+        this.socket = new Socket("localhost:8765");
+      });
     }
     this.send = this.send.bind(this);
   }
@@ -40,9 +41,7 @@ export class NetworkAdapter {
    * @param response (Object) - The response object containing error details.
    */
   onError(event, response) {
-    console.group(`Remote error on event:`, event);
-    console.error(`Error Response:\n${response}`);
-    console.groupEnd()
+    Logging.error(`[NetworkAdapter] Remote error on ${event.name}`, response);
     let {name, data, meta, source, target, id, timestamp} = event;
     let errorCallback = {
         'name': "ERROR",
@@ -75,7 +74,7 @@ export class NetworkAdapter {
     try {
       callback(event);
     } catch (error) {
-      console.error(`Error in callback for ${event.target}:`, error);
+      Logging.error(`[NetworkAdapter] Callback error for ${event.target}`, error);
     }
   }
   
@@ -147,6 +146,5 @@ export class NetworkAdapter {
 
 
 export const remote = new NetworkAdapter('http');
-console.log(`Registering remote transport manager to window: `, remote.mode, '\n',
-            remote.socket ? remote.socket.url : 'No socket available');
+Logging.dev(`[NetworkAdapter] Registered remote transport`, remote.mode);
 window.remote = remote;

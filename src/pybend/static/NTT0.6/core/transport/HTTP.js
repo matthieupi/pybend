@@ -1,3 +1,5 @@
+import Logging from '../../utils/Logging.js';
+
 export default class HTTP {
     
     constructor() {
@@ -32,7 +34,7 @@ export default class HTTP {
                 window.location = "/login.html";
             }
             else if (resp.status == 404) {
-                console.warn("Resource not found: " + url);
+                Logging.warn("[HTTP] Resource not found", url);
                 onError(resp);
                 return new Promise((resolve, reject) => {
                     return {};
@@ -51,8 +53,7 @@ export default class HTTP {
             onSuccess(response);
 
         }).catch((e) => {
-            console.error("Error fetching data from " + url + ": " + e.message);
-            console.error(e)
+            Logging.error("[HTTP] Error fetching " + url, e.message);
             onError(e.message);
         });
 
@@ -71,8 +72,7 @@ export default class HTTP {
         // 0.2 Header
         header.append('Content-Type', 'application/json');
         // 0.3 Debug print
-        console.log("PUT: "+ url)
-        console.log(JSON.parse(data))
+        Logging.dev("[HTTP] PUT", url);
 
         fetch(url, {
             method: 'PUT',
@@ -96,7 +96,7 @@ export default class HTTP {
             }
             onSuccess(resp);
         }).catch((e) => {
-            console.log(e)
+            Logging.error("[HTTP] PUT error", e.message);
             onError(e.message);
         });
     }
@@ -114,7 +114,7 @@ export default class HTTP {
         // 0.2 Header
         header.append('Content-Type', 'application/json');
         // 0.3 Debug print
-        console.log("POST: "+ url, JSON.parse(data))
+        Logging.dev("[HTTP] POST", url);
 
         fetch(url, {
             method: 'POST',
@@ -138,7 +138,7 @@ export default class HTTP {
             }
             onSuccess(resp);
         }).catch((e) => {
-            console.log(e)
+            Logging.error("[HTTP] POST error", e.message);
             onError(e.message);
         });
     }
@@ -184,15 +184,15 @@ export default class HTTP {
     
     static checkValidCode(res) {
         if (res.status==200){
-            console.log("OK")
+            Logging.dev("[HTTP] OK")
             return true
         }
         else if (res.status==201){
-            console.log("CREATED")
+            Logging.dev("[HTTP] CREATED")
             return true
         }
         else if (res.status==203){
-            console.log("ACCEPTED")
+            Logging.dev("[HTTP] ACCEPTED")
             return true
         }
         else if (res.status >= 200 && res.status < 300) {
@@ -204,19 +204,19 @@ export default class HTTP {
     static checkRessource(res){
         switch (res.status) {
             case 404:
-                console.log("Ressource not found");
+                Logging.warn("[HTTP] Resource not found");
                 return false
             case 301:
-                console.log("Moved permanently");
+                Logging.warn("[HTTP] Moved permanently");
                 return false
             case 308:
-                console.log("Permanent redirect");
+                Logging.warn("[HTTP] Permanent redirect");
                 return false
             case 400:
-                console.log("Bad Request");
+                Logging.error("[HTTP] Bad Request");
                 return false
             case 500:
-                console.log("Internal Server Error");
+                Logging.error("[HTTP] Internal Server Error");
                 return false
         }
         return true

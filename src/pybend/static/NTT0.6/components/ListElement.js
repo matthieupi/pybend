@@ -77,7 +77,7 @@ export class ListElement extends Component {
       this.value = data;
       if (!this.update(prev, data)) this.render();
     } else {
-      console.warn('[ListElement] UPDATE expected array, got:', typeof data);
+      Logging.warn('[ListElement] UPDATE expected array, got', typeof data);
     }
   }
 
@@ -105,7 +105,7 @@ export class ListElement extends Component {
     if (Array.isArray(data)) {
       this.value = [...this.value, ...data];
     } else {
-      console.warn('[ListElement] append() expects an array');
+      Logging.warn('[ListElement] append() expects an array');
     }
   }
 

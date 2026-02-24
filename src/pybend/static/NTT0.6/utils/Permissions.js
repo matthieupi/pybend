@@ -12,6 +12,7 @@
  *   permissions.user;                // → { user_id, email, role } or null
  */
 import { config } from '../config.js';
+import Logging from './Logging.js';
 
 class Permissions {
 
@@ -57,7 +58,7 @@ class Permissions {
         this.#user = null;
       }
     } catch (e) {
-      console.warn('[Permissions] Failed to fetch /auth/me:', e.message);
+      Logging.warn('[Permissions] Failed to fetch /auth/me', e.message);
       this.#user = null;
     }
 

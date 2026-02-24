@@ -39,7 +39,7 @@ export class Matrix extends Actor {
             // Forward to local child actor
             //console.log(`[MATRIX] Forwarding event '${tx.name}' to local actor at address:`, targetAddr)
             //tx.target = tx.target.replace(`${targetAddr}`, '').replace(/^\/+/,''); // Remove the processed prefix
-            console.log(this.children)
+            Logging.dev(`[MATRIX] Forwarding '${tx.name}' to ${targetAddr}`)
             tx = this.children.get(targetAddr).inbox(tx.repr())
         } else {
             tx = this.remote.send(tx);

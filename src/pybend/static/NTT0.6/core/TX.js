@@ -28,8 +28,10 @@ export default class TX {
 		this.data = data
 		this.meta = meta
 		this.tst = timestamp
-		this.hash = simpleHash(this.repr())
+		this._hash = null
 	}
+
+	get hash() { return this._hash ??= simpleHash(this.repr()); }
 
 	/**
 	 * Dispatch the event through the transport layer.
@@ -47,7 +49,7 @@ export default class TX {
 		obj.target = this.target
 		obj.data = this.data
 		obj.meta = this.meta
-		obj.hash = this.hash
+		obj.hash = this._hash
 		obj.tst = this.tst
 		return obj
 	}

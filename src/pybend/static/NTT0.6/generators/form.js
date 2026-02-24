@@ -1,9 +1,10 @@
 import { permissions } from '../utils/Permissions.js';
+import Logging from '../utils/Logging.js';
 
   function refInput(ref) {
     const ptt = NTT.get(ref);
     if (!ptt) {
-      console.error(`No NTT found for reference: ${ref}`);
+      Logging.error(`[form] No NTT found for reference`, ref);
       return `<input type="text" placeholder="Invalid reference">`;
     }
     // Assuming ptt has a schema with properties

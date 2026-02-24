@@ -1,4 +1,5 @@
 import {config} from "../config.js";
+import Logging from "./Logging.js";
 
 class AssertionError extends Error {
     constructor(message) {
@@ -16,9 +17,9 @@ export default function assert(caller, condition, message, trigger='error') {
             else
                 throw new AssertionError(`${message || ''}`);
         } else if (trigger === 'warn') {
-            console.warn(`${caller ? `[${caller.name}]` : ''} Assertion warning\n    ${message || ''}`);
+            Logging.warn(`${caller ? `[${caller.name}]` : ''} Assertion warning`, message || '');
         } else if (trigger === 'info') {
-            console.info(`${caller ? `[${caller.name}]` : ''} Assertion info\n    ${message || ''}`);
+            Logging.debug(`${caller ? `[${caller.name}]` : ''} Assertion info`, message || '');
         } else {
         }
 };

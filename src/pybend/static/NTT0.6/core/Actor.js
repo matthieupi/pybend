@@ -62,8 +62,7 @@ export default class Actor {
     static _send(event) {
         // Normalize to TX
         let tx = event instanceof TX ? event : new TX(event);
-        console.warn(`[Actor.${this.addr}_send] Sending event '${tx.name}' to target: ${tx.target}`)
-        console.log(this.children)
+        Logging.dev(`[Actor.${this.addr}_send] Sending '${tx.name}' to ${tx.target}`)
         // Ensure the system is properly INIT
         if (!ROOT_ACTOR) {
             throw new Error(
@@ -93,7 +92,7 @@ export default class Actor {
                 tx.target = rawTarget.replace(typeAddr, "");
                 children.get(targetChild).inbox(tx.repr());
             } else {
-                console.error(this, this.children)
+                Logging.error(`[Actor.${this.addr}_send] Cannot route to ${targetChild}`)
                 throw new Error(
                     `[Actor.${this.addr}_send] Cannot route message to target: ${targetChild}. No such child actor.`
                 );
@@ -141,8 +140,7 @@ export default class Actor {
             } else if(tx.name in Prototype){
                 return Prototype[tx.name].call(this, tx.data);
             } else {
-                console.warn(this)
-                console.log(tx.name)
+                Logging.warn(`[${this.addr}._inbox] No handler for event ${tx.name}`)
                 throw new Error(`[${this.addr}._inbox] No handler for event ${tx.name}.`);
             }
         } else {
@@ -157,7 +155,7 @@ export default class Actor {
      * Call this from the base-class constructor (e.g. Component's constructor).
      */
     static _register(actor) {
-        console.warn(`[Actor._register] Registering actor at address: ${actor.addr} in parent: ${this.addr}`);
+        Logging.dev(`[Actor._register] Registering ${actor.addr} in ${this.addr}`);
         // 1. When caller context is a class, register actor in its parent type's children map
         if (typeof this === "function"){
             assert(this, actor, `[Actor.register] Actor to register must be provided when called from a Class`)
@@ -193,7 +191,7 @@ export default class Actor {
         const Type = ChildClass;
         // Idempotent – do nothing if already done
         if (Type.__isActor) {
-            console.warn(`Actor.subclass: Type ${Type.name} is already an Actor subclass.`)
+            Logging.warn(`Actor.subclass: ${Type.name} is already an Actor subclass`)
             return Type;
         }
         // ------------- STATIC CLASS ATTRIBUTE SETUP -------------- //
@@ -334,7 +332,7 @@ export default class Actor {
         }
         const child = new ActorClass(addr, ...args);
         this.#children.set(addr, child);
-        console.info(`Spawned child actor at address: ${addr}`);
+        Logging.dev(`[Actor] Spawned child at ${addr}`);
         return child;
     }
     
