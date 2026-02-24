@@ -8,3 +8,4 @@ src/pybend.egg-info/
 dist/
 *.db
 .env
+node_modules/
