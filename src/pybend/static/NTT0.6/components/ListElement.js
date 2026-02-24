@@ -52,7 +52,9 @@ export class ListElement extends Component {
   definedCallback() {
     this.subscribe(this.proto, 'UPDATE', (data) => this.UPDATE(data));
     this.#offset = 0;
-    this.proto.call('READ', { limit: this.#pageSize, offset: 0 }, {inbox: 'UPDATE'});
+    const popDepth = this.proto._schema?.ui?.populate?.depth ?? 1;
+    const popParams = popDepth > 0 ? {depth: popDepth} : {};
+    this.proto.call('READ', { limit: this.#pageSize, offset: 0, ...popParams }, {inbox: 'UPDATE'});
   }
 
   /**
@@ -60,7 +62,9 @@ export class ListElement extends Component {
    */
   loadMore() {
     this.#offset += this.#pageSize;
-    this.proto.call('READ', { limit: this.#pageSize, offset: this.#offset }, {inbox: 'UPDATE'});
+    const popDepth = this.proto._schema?.ui?.populate?.depth ?? 1;
+    const popParams = popDepth > 0 ? {depth: popDepth} : {};
+    this.proto.call('READ', { limit: this.#pageSize, offset: this.#offset, ...popParams }, {inbox: 'UPDATE'});
   }
 
   /** ─────────────────────────────────────────── **/

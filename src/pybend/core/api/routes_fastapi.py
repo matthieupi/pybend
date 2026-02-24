@@ -6,6 +6,7 @@ from models.storable_mixin import StorableMixin
 from utils.erroring import get_traceback_info
 from utils.registrar import registered_models, join_models
 from utils.typer import flatten_refs
+from utils.populate import parse_populate
 from authorize import AccessContext, DefaultResolver, AccessDenied
 
 router = APIRouter()
@@ -25,6 +26,15 @@ def _build_context(request, model_class, action, resource=None, parent_id=None):
         resource=resource,
         parent_id=parent_id,
     )
+
+def _serialize(instance):
+    """Serialize a model instance, overlaying any populated (eager-loaded) data."""
+    data = instance.model_dump(response=True)
+    populated = instance.__dict__.get('_populated')
+    if populated:
+        data.update(populated)
+    return data
+
 
 def register_route(path, fn, method='GET'):
     if method == 'GET':
@@ -79,6 +89,8 @@ def make_get_all_instances(model_class):
         parent_id: int = None,
         limit: int = Query(default=None, ge=1, le=100),
         offset: int = Query(default=None, ge=0),
+        populate: str = Query(default=None),
+        depth: int = Query(default=None, ge=0, le=3),
     ):
         ctx = _build_context(request, model_class, "list", parent_id=parent_id)
         try:
@@ -86,6 +98,7 @@ def make_get_all_instances(model_class):
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e))
 
+        pop_spec = parse_populate(populate, depth)
         target_cls = model_class
 
         if parent_id:
@@ -95,7 +108,7 @@ def make_get_all_instances(model_class):
                     target_cls = join_cls
                     break
 
-        result = target_cls.list(sql_filter=auth_filter, limit=limit, offset=offset)
+        result = target_cls.list(sql_filter=auth_filter, limit=limit, offset=offset, populate=pop_spec)
 
         # Paginated response: {data: [...], meta: {...}}
         if isinstance(result, dict) and 'data' in result:
@@ -104,16 +117,16 @@ def make_get_all_instances(model_class):
                 fk_field = f"{target_cls.__owner__.__name__.lower()}_id"
                 items = [r for r in items if getattr(r, fk_field, None) == parent_id]
             return {
-                'data': [r.model_dump(response=True) for r in items],
+                'data': [_serialize(r) for r in items],
                 'meta': result['meta'],
             }
 
         # Unpaginated response: plain array (backward compatible)
         if parent_id:
             fk_field = f"{target_cls.__owner__.__name__.lower()}_id"
-            return [r.model_dump(response=True) for r in result if getattr(r, fk_field, None) == parent_id]
+            return [_serialize(r) for r in result if getattr(r, fk_field, None) == parent_id]
 
-        return [r.model_dump(response=True) for r in result]
+        return [_serialize(r) for r in result]
 
     return list_all_instances
 
@@ -134,9 +147,15 @@ def make_get_schema(model_class):
 
 
 def make_get_instance(model_class):
-    async def read_instance(request: Request, id: int) -> model_class:
+    async def read_instance(
+        request: Request,
+        id: int,
+        populate: str = Query(default=None),
+        depth: int = Query(default=None, ge=0, le=3),
+    ):
         print(f"[READ] Attempting to read {model_class.__name__} ID={id}")
-        instance = model_class.get(id)
+        pop_spec = parse_populate(populate, depth)
+        instance = model_class.get(id, populate=pop_spec)
         if not instance:
             raise HTTPException(status_code=404, detail="Not found")
         ctx = _build_context(request, model_class, "read", resource=instance)
@@ -144,7 +163,7 @@ def make_get_instance(model_class):
             _resolver.authorize(ctx)
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e))
-        return instance.model_dump(response=True)
+        return _serialize(instance)
     return read_instance
 
 

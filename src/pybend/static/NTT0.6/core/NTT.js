@@ -419,7 +419,8 @@ export class NTT extends TT {
         if (preloadedData) {
             DC.READ(preloadedData);
         } else {
-            DC.call('READ', {});
+            const popDepth = data.ui?.populate?.depth ?? 1;
+            DC.call('READ', popDepth > 0 ? {depth: popDepth} : {});
         }
     }
 
@@ -560,12 +561,93 @@ export class NTT extends TT {
 
     pull() {
         assert(this, isUrl(this.href), `[NTT] ${this.addr} HREF must be a valid HTTP URL, got: ${this.href}`);
-        this.call('READ', {}, {remote: true});
+        const popDepth = this.constructor._schema?.ui?.populate?.depth ?? 1;
+        this.call('READ', popDepth > 0 ? {depth: popDepth} : {}, {remote: true});
         return this;
     }
 
 }
 
+
+// ──────────────────────────────────────────────
+// Populate normalization helpers
+// ──────────────────────────────────────────────
+
+/**
+ * Resolve the child model name from a schema property definition.
+ * Handles $ref in items, anyOf with $ref, etc.
+ */
+function resolveModelName(def) {
+    const items = def.items || {};
+    if (items.$ref) return items.$ref.split('/').pop();
+    if (items.anyOf) {
+        const ref = items.anyOf.find(a => a.$ref);
+        return ref ? ref.$ref.split('/').pop() : null;
+    }
+    return null;
+}
+
+/**
+ * Register an entity in a DynamicClass's instance cache.
+ * Updates existing instances or creates new ones.
+ */
+function registerInstance(DC, data) {
+    const id = data.id;
+    if (DC.instances.has(id)) {
+        DC.instances.get(id).update(data);
+    } else {
+        const inst = new DC(data);
+        DC.instances.set(id, inst);
+    }
+}
+
+/**
+ * Normalize populated (eager-loaded) data in an entity response.
+ * Converts inline objects back to href strings and pre-registers
+ * the children as NTT instances so downstream code works unchanged.
+ *
+ * Handles two cases:
+ * 1. Populated collection: {data: [...], meta: {...}} → href array
+ * 2. Populated single Ref: inline object with $id → href string
+ */
+function normalizePopulated(entity, schema) {
+    if (!entity || !schema?.properties) return;
+    for (const [key, def] of Object.entries(schema.properties)) {
+        const val = entity[key];
+        if (!val) continue;
+
+        // Case 1: Populated collection with pagination wrapper {data: [...], meta: {...}}
+        if (def.type === 'array' && !Array.isArray(val) && Array.isArray(val?.data) && val?.meta) {
+            const childModelName = resolveModelName(def);
+            const ChildDC = childModelName ? NTT.get(childModelName) : null;
+            const hrefs = [];
+            for (const item of val.data) {
+                if (item && typeof item === 'object' && item.$id) {
+                    if (ChildDC) {
+                        normalizePopulated(item, ChildDC._schema);
+                        registerInstance(ChildDC, item);
+                    }
+                    hrefs.push(item.$id);
+                } else if (typeof item === 'string') {
+                    hrefs.push(item);
+                }
+            }
+            entity[key] = hrefs;
+            continue;
+        }
+
+        // Case 2: Populated single Ref — inline object with $id
+        if (def.$ref && typeof val === 'object' && val.$id) {
+            const refModelName = def.$ref.split('/').pop();
+            const RefDC = refModelName ? NTT.get(refModelName) : null;
+            if (RefDC) {
+                normalizePopulated(val, RefDC._schema);
+                registerInstance(RefDC, val);
+            }
+            entity[key] = val.$id;
+        }
+    }
+}
 
 /**
  * Generate a DynamicClass — a runtime NTT subclass for a specific model type.
@@ -783,9 +865,11 @@ function prototype(addr, schema, href) {
                 if (!DynamicClass._fetchingIds.has(id)) {
                     DynamicClass._fetchingIds.add(id);
                     const fetchUrl = tx.meta?.href || `${DynamicClass.href}/${id}`;
+                    const popDepth = DynamicClass._schema?.ui?.populate?.depth ?? 1;
                     DynamicClass.send(new TX({
                         name: 'READ',
                         target: fetchUrl,
+                        data: popDepth > 0 ? {depth: popDepth} : {},
                     }));
                 }
             }
@@ -825,6 +909,7 @@ function prototype(addr, schema, href) {
 
         if (Array.isArray(data)) {
             for (const value of data) {
+                normalizePopulated(value, DynamicClass._schema);
                 const id = value.id;
                 if (DynamicClass.instances.has(id)) {
                     DynamicClass.instances.get(id).update(value);
@@ -835,6 +920,7 @@ function prototype(addr, schema, href) {
             }
         } else if (typeof data === 'object') {
             for (const [id, value] of Object.entries(data)) {
+                normalizePopulated(value, DynamicClass._schema);
                 if (DynamicClass.instances.has(id)) {
                     DynamicClass.instances.get(id).update(value);
                 } else {

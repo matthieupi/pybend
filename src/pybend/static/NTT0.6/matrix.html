@@ -7,12 +7,32 @@
     <link rel="stylesheet" href="./dark-theme.css">
     <link rel="stylesheet" href="./light-theme.css">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <!-- Modulepreload entire dependency tree — eliminates import waterfall -->
+    <!-- Leaves -->
     <link rel="modulepreload" href="./config.js">
     <link rel="modulepreload" href="./utils/Assert.js">
     <link rel="modulepreload" href="./utils/Logging.js">
+    <link rel="modulepreload" href="./utils/Permissions.js">
+    <!-- Core -->
     <link rel="modulepreload" href="./core/Utils.js">
     <link rel="modulepreload" href="./core/TX.js">
     <link rel="modulepreload" href="./core/Observable.js">
+    <link rel="modulepreload" href="./core/Actor.js">
+    <link rel="modulepreload" href="./core/Matrix.js">
+    <link rel="modulepreload" href="./core/Component.js">
+    <link rel="modulepreload" href="./core/Router.js">
+    <link rel="modulepreload" href="./core/NTT.js">
+    <!-- Transport -->
+    <link rel="modulepreload" href="./core/transport/HTTP.js">
+    <link rel="modulepreload" href="./core/transport/NetworkAdapter.js">
+    <!-- Components -->
+    <link rel="modulepreload" href="./components/NTTElement.js">
+    <link rel="modulepreload" href="./components/ListElement.js">
+    <link rel="modulepreload" href="./components/ntt-item.js">
+    <link rel="modulepreload" href="./components/ntt-list.js">
+    <link rel="modulepreload" href="./components/ntt-router.js">
+    <link rel="modulepreload" href="./components/ntt-method.js">
+    <link rel="modulepreload" href="./generators/form.js">
     <script type="module" src="./utils/theme.js"></script>
 </head>
 <body>

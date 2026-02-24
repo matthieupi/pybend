@@ -33,6 +33,7 @@ class Product(ProtoModel):
                 'widget': 'textarea',
             }
         },
+        'populate': {'depth': 2},
         'renderer': {
             'item': 'ntt-item',      # Custom component tag for single entity views
             'list': 'ntt-list',      # Custom component tag for collection views

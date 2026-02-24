@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import config
 from utils.registrar import registered_models
 from utils.introspection import get_list_fields, get_ref_fields
+from utils.populate import PopulateSpec
 from .abstract_storage import AbstractStorage
 from .sqlite_migration import SQLiteMigration
 
@@ -69,7 +70,7 @@ class SQLiteStorage(AbstractStorage):
     # ──────────────────────────────────────────────
 
     def list(self, model_class: Type[Any], sql_filter: tuple = None,
-             limit: int = None, offset: int = None) -> List[Any]:
+             limit: int = None, offset: int = None, populate: PopulateSpec = None) -> List[Any]:
         table_name = model_class.__tablename__
         list_fields = get_list_fields(model_class)
         ref_fields = get_ref_fields(model_class)
@@ -154,6 +155,9 @@ class SQLiteStorage(AbstractStorage):
 
             results.append(model_class(**record))
 
+        if populate and not populate.is_empty:
+            self._populate_fields(model_class, results, populate, conn)
+
         conn.close()
 
         if limit is not None:
@@ -173,7 +177,7 @@ class SQLiteStorage(AbstractStorage):
     # GET
     # ──────────────────────────────────────────────
 
-    def get(self, model_class: Type[Any], id: int, as_dict: bool = False) -> Any:
+    def get(self, model_class: Type[Any], id: int, as_dict: bool = False, populate: PopulateSpec = None) -> Any:
         table_name = model_class.__tablename__
         select_sql = f"SELECT * FROM {table_name} WHERE id = ?"
         conn = sqlite3.connect(self.database)
@@ -240,11 +244,226 @@ class SQLiteStorage(AbstractStorage):
                 # Child table or FK column may not exist yet
                 data[field_name] = []
 
+        instance = model_class(**data) if not as_dict else None
+
+        if populate and not populate.is_empty and instance:
+            self._populate_fields(model_class, [instance], populate, conn)
+
         conn.close()
 
         if as_dict:
             return data
-        return model_class(**data)
+        return instance
+
+    # ──────────────────────────────────────────────
+    # POPULATE (eager loading)
+    # ──────────────────────────────────────────────
+
+    def _populate_fields(self, model_class, instances, populate, conn, _visited=None):
+        """Batch-load related entities for a list of parent instances.
+
+        Args:
+            model_class: The parent model class
+            instances: List of parent model instances
+            populate: PopulateSpec controlling which fields to load
+            conn: Open sqlite3 connection to reuse
+            _visited: Set of model names already populated in this chain (cycle prevention)
+        """
+        if not instances:
+            return
+
+        if _visited is None:
+            _visited = set()
+        _visited = _visited | {model_class.__name__}  # immutable copy per branch
+
+        list_fields = get_list_fields(model_class)
+        ref_fields = get_ref_fields(model_class)
+        cursor = conn.cursor()
+
+        # ── Populate ListRef fields (collections) ──
+        for field_name, child_class in list_fields:
+            if not populate.should_populate(field_name):
+                continue
+
+            effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
+            actual_child_class = getattr(effective_cls, '__parent__', effective_cls)
+
+            # Cycle check
+            if actual_child_class.__name__ in _visited:
+                continue
+
+            child_table = effective_cls.__tablename__
+            if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
+                fk_col = f"{effective_cls.__owner__.__name__.lower()}_id"
+            else:
+                fk_col = f"{model_class.__name__.lower()}_id"
+
+            # Collect parent IDs
+            parent_ids = [getattr(inst, 'id', None) for inst in instances]
+            parent_ids = [pid for pid in parent_ids if pid is not None]
+            if not parent_ids:
+                continue
+
+            # Batch query: SELECT * FROM child_table WHERE fk_col IN (?, ?, ...)
+            placeholders = ",".join(["?"] * len(parent_ids))
+            try:
+                cursor.execute(
+                    f"SELECT * FROM {child_table} WHERE {fk_col} IN ({placeholders})",
+                    parent_ids
+                )
+                rows = cursor.fetchall()
+                columns = [col[0] for col in cursor.description]
+            except sqlite3.OperationalError:
+                continue
+
+            # Group by parent FK
+            grouped = {}
+            for row in rows:
+                record = dict(zip(columns, row))
+                parent_fk = record.get(fk_col)
+                grouped.setdefault(parent_fk, []).append(record)
+
+            child_spec = populate.child_spec(field_name)
+
+            # Build child instances, apply per-parent limit, build {data, meta} wrapper
+            for inst in instances:
+                pid = getattr(inst, 'id', None)
+                child_records = grouped.get(pid, [])
+                total = len(child_records)
+                capped = child_records[:child_spec.limit]
+
+                # Build child model instances and serialize
+                child_dicts = []
+                child_instances = []
+                for rec in capped:
+                    # Coerce NULLs to defaults
+                    for key, val in rec.items():
+                        if val is None and key in effective_cls.model_fields:
+                            field_info = effective_cls.model_fields[key]
+                            if field_info.default is not None:
+                                rec[key] = field_info.default
+
+                    # Hydrate Ref[T] fields on child as href URLs
+                    for ref_name, target_cls in get_ref_fields(effective_cls):
+                        val = rec.get(ref_name)
+                        if val is not None:
+                            target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
+                            rec[ref_name] = f"{config.API_URL}/{target_table}/{val}"
+
+                    # Hydrate child's own ListRef fields as href arrays (for serialization)
+                    for child_list_name, child_list_cls in get_list_fields(effective_cls):
+                        child_effective = getattr(effective_cls, '__fk_models__', {}).get(child_list_name, child_list_cls)
+                        child_list_table = child_effective.__tablename__
+                        if hasattr(child_effective, '__owner__') and child_effective.__owner__ is not None:
+                            child_fk = f"{child_effective.__owner__.__name__.lower()}_id"
+                        else:
+                            child_fk = f"{effective_cls.__name__.lower()}_id"
+                        try:
+                            cursor.execute(
+                                f"SELECT id FROM {child_list_table} WHERE {child_fk} = ?",
+                                (rec.get('id'),)
+                            )
+                            child_sub_rows = cursor.fetchall()
+                            rec[child_list_name] = [
+                                f"{config.API_URL}/{effective_cls.__tablename__}/{rec['id']}/{child_list_name}/{r[0]}"
+                                for r in child_sub_rows
+                            ]
+                        except sqlite3.OperationalError:
+                            rec[child_list_name] = []
+
+                    try:
+                        child_inst = effective_cls(**rec)
+                        child_instances.append(child_inst)
+                        dumped = child_inst.model_dump(response=True)
+                        # Use parent-scoped URL for $id
+                        dumped['$id'] = f"{config.API_URL}/{model_class.__tablename__}/{pid}/{field_name}/{rec.get('id')}"
+                        child_dicts.append(dumped)
+                    except Exception:
+                        pass
+
+                populated_wrapper = {
+                    'data': child_dicts,
+                    'meta': {
+                        'total': total,
+                        'limit': child_spec.limit,
+                        'offset': 0,
+                        'has_more': total > child_spec.limit,
+                    }
+                }
+
+                if not hasattr(inst, '_populated') or inst._populated is None:
+                    inst.__dict__['_populated'] = {}
+                inst.__dict__['_populated'][field_name] = populated_wrapper
+
+                # Recurse for nested populate
+                if child_instances and not child_spec.is_empty:
+                    self._populate_fields(effective_cls, child_instances, child_spec, conn, _visited)
+                    # Overlay recursive population onto already-serialized dicts
+                    for child_inst, child_dict in zip(child_instances, child_dicts):
+                        nested_pop = getattr(child_inst, '_populated', None) or child_inst.__dict__.get('_populated')
+                        if nested_pop:
+                            child_dict.update(nested_pop)
+
+        # ── Populate Ref fields (single FK) ──
+        for field_name, target_cls in ref_fields:
+            if not populate.should_populate(field_name):
+                continue
+            if target_cls.__name__ in _visited:
+                continue
+
+            target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
+
+            # Collect FK values (these are currently href strings — extract the ID)
+            fk_ids = []
+            for inst in instances:
+                val = getattr(inst, field_name, None)
+                if val is not None:
+                    if isinstance(val, str) and '/' in val:
+                        fk_id = val.rsplit('/', 1)[-1]
+                    else:
+                        fk_id = val
+                    try:
+                        fk_ids.append(int(fk_id))
+                    except (ValueError, TypeError):
+                        pass
+
+            if not fk_ids:
+                continue
+
+            unique_ids = list(set(fk_ids))
+            placeholders = ",".join(["?"] * len(unique_ids))
+            try:
+                cursor.execute(
+                    f"SELECT * FROM {target_table} WHERE id IN ({placeholders})",
+                    unique_ids
+                )
+                rows = cursor.fetchall()
+                columns = [col[0] for col in cursor.description]
+            except sqlite3.OperationalError:
+                continue
+
+            lookup = {}
+            for row in rows:
+                record = dict(zip(columns, row))
+                try:
+                    ref_inst = target_cls(**record)
+                    dumped = ref_inst.model_dump(response=True)
+                    lookup[record['id']] = dumped
+                except Exception:
+                    pass
+
+            for inst in instances:
+                val = getattr(inst, field_name, None)
+                if val is not None:
+                    if isinstance(val, str) and '/' in val:
+                        fk_id = int(val.rsplit('/', 1)[-1])
+                    else:
+                        fk_id = int(val)
+                    ref_data = lookup.get(fk_id)
+                    if ref_data:
+                        if not hasattr(inst, '_populated') or inst._populated is None:
+                            inst.__dict__['_populated'] = {}
+                        inst.__dict__['_populated'][field_name] = ref_data
 
     # ──────────────────────────────────────────────
     # UPDATE
