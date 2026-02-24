@@ -34,14 +34,18 @@ PyBend is a modular, extensible backend framework built with Python. It supports
 * 🧠 Model auto-registration with dynamic route generation
 * 🔄 Auto-generated CRUD + custom endpoints using `@expose_route`
 * 🔗 Automatic Join Model Generation for relationships
-* 🧩 ForeignKey support with schema resolution
+* 🧩 ForeignKey support with schema resolution and FK hydration (href arrays)
 * 📃 Integrated OpenAPI (Swagger) docs
 * 🛢️ Pluggable storage backends (SQLite, JSON)
 * 🚀 Schema introspection at runtime via `/ModelName`
 * 🧪 Auto-migrating storage schema (SQLite)
-* 📄 Schema includes full method metadata and $defs resolution
+* 📄 Schema includes full method metadata, UI hints, and $defs resolution
+* 🔐 ABAC (Attribute-Based Access Control) with composable rules (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`)
+* 🔁 Toggle endpoints (like/favorite) with join table lookups
+* 📂 Collection routes for join models (`GET /products/comments`, `GET /products/likes`)
+* 📄 Pagination with `?limit=N&offset=M` on list endpoints
 * ✅ Typed end-to-end using Pydantic v2
-* 🧪 Built-in tests via PyTest
+* 🧪 Built-in tests via PyTest + Playwright frontend tests
 
 ---
 
@@ -94,6 +98,8 @@ from models.proto_model import generate_join_model
 register_model(Product, storage=storage_backend)
 register_model(User, storage=storage_backend)
 register_model(generate_join_model(Product, Comment), storage=storage_backend)
+register_model(generate_join_model(Comment, Like), storage=storage_backend)
+register_model(generate_join_model(Product, Like), storage=storage_backend)
 ```
 
 ---
@@ -205,9 +211,39 @@ GET /products/list
 ```http
 POST /products/1/comment
 {
-  "name": "Nice product",
-  "description": "Really liked this!"
+  "comment": {"name": "Nice product", "description": "Really liked this!"}
 }
+```
+
+### Toggle Favorite on a Product
+
+```http
+POST /products/1/favorite
+{}
+```
+
+Returns `{"action": "favorited"}` or `{"action": "unfavorited"}`.
+
+### Toggle Like on a Comment
+
+```http
+POST /products/1/comments/3/like
+{}
+```
+
+Returns `{"action": "liked"}` or `{"action": "unliked"}`.
+
+### Reply to a Comment
+
+```http
+POST /products/1/comments/3/reply
+{"text": "I agree, great product!"}
+```
+
+### List All Comments Across Products (Collection Route)
+
+```http
+GET /products/comments
 ```
 
 ---
@@ -242,8 +278,12 @@ class Product(ProtoModel):
     __tablename__ = 'products'
     __storable__ = True
     __ui__ = {
-        'field_order': ['name', 'price', 'description', 'comments'],
-        'groups': {'main': ['name', 'description', 'price'], 'Social': ['comments']},
+        'field_order': ['name', 'price', 'description', 'comments', 'favorites'],
+        'groups': {'main': ['name', 'description', 'price'], 'Social': ['comments', 'favorites']},
+        'methods': {
+            'comment': {'layout': 'inline', 'attach_to': 'comments', ...},
+            'favorite': {'layout': 'button', 'icon': 'star', 'count_field': 'favorites', ...},
+        },
         'renderer': {'item': 'ntt-item', 'list': 'ntt-list'},
     }
     __access__ = {
@@ -259,9 +299,15 @@ class Product(ProtoModel):
     description: str = Field(default='',
                              json_schema_extra={'ui': {'widget': 'textarea'}})
     comments: ListRef[Comment] = Field(default=[])
+    favorites: ListRef[Like] = Field(default=[], description="Users who favorited this product")
 
     @expose_route('/comment', methods=['POST'])
-    def comment(self, comment: Comment) -> str: ...
+    def comment(self, comment: Comment, user: User = None) -> str: ...
+
+    @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+    def favorite(self, user: User = None) -> str:
+        """Toggle favorite — add if not favorited, remove if already favorited."""
+        ...
 ```
 
 From this single definition, `ProtoModel.schema()` generates a JSON Schema that carries **everything the frontend needs**: field types, validation rules, UI rendering hints, access control policies, callable methods, and relationship structure.
@@ -280,7 +326,10 @@ From this single definition, `ProtoModel.schema()` generates a JSON Schema that 
 | Form rendering | `properties`, `ui.widget`, `ui.placeholder` | Form generator reads schema |
 | Field ordering + grouping | `ui.field_order`, `ui.groups` | Fieldsets rendered automatically |
 | Edit/delete button visibility | `access.update`, `access.delete` | Permissions checked from schema |
-| Method action buttons | `schema.methods` | `<ntt-method>` renders them |
+| Method action buttons | `schema.methods` | `<ntt-method>` renders them (fieldset, inline, or button layout) |
+| Method UI hints | `__ui__.methods` (icon, layout, count_field) | Button-layout methods (like, favorite) render as icon+count pills |
+| Toggle endpoints | `@expose_route` + join table logic | Like/favorite toggle via create/delete on join models |
+| Collection routes | Join model `__tablename__` | `GET /products/comments`, `GET /products/likes` across all parents |
 | Component tag resolution | `ui.renderer.item`, `ui.renderer.detail` | Router resolves on navigation |
 
 ### The workflow
@@ -316,8 +365,8 @@ GET /Product -> JSON Schema
 |   |-- groups      -> group fields into fieldsets
 |   +-- renderer    -> { item, list, detail } component tags
 |-- access          -> model-level ABAC rules (serialized to JSON)
-|-- methods         -> callable endpoints with signatures and access rules
-|-- $defs           -> nested/related model schemas (each with their own $id)
+|-- methods         -> callable endpoints with signatures, access rules, and UI hints
+|-- $defs           -> nested/related model schemas (each with $id, methods, ui, access)
 +-- required        -> required field names
 ```
 
@@ -391,10 +440,19 @@ register_model(generate_join_model(OwnerModel, SubModel))
 
 ## **Testing**
 
-Run with:
+### Backend
 
 ```bash
-pytest
+cd src/pybend/core
+pytest tests/
+```
+
+### Frontend (Playwright)
+
+```bash
+cd src/pybend/core
+python3 test_social.py      # Social features: like, favorite, reply, collection routes
+python3 test_routing.py     # URL path correctness for nested methods
 ```
 
 Tests include:
@@ -403,6 +461,10 @@ Tests include:
 * Schema endpoint behavior
 * Storage backend logic
 * Custom method invocation
+* Social feature toggle actions (like/favorite)
+* Reply creation with parent_id nesting
+* Collection routes (`/products/comments`, `/products/likes`)
+* Frontend rendering validation (star/heart/reply buttons, reply indent, favorites navigation)
 
 ---
 
@@ -417,5 +479,3 @@ MIT
 
 
 ---
-
-Let me know if you'd like this committed to your project file directly or exported elsewhere.

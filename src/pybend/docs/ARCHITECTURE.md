@@ -270,6 +270,16 @@ def make_get_instance(model_class):
 # ... etc
 ```
 
+**Collection Route Factory**:
+
+```python
+def make_collection_list(model_class, child_model):
+    # Returns async function for GET /parent_table/child_table
+    # Lists all child records across all parents
+    # Supports auth, pagination, and populate
+    # Registered in Pass 1 (before CRUD routes) to avoid {id:int} path conflict
+```
+
 **Custom Routes**:
 
 ```python
@@ -278,6 +288,7 @@ def make_custom_post(attr, model_class, route_path):
     # Generates appropriate async function
     # Handles parameter parsing and validation
     # Auto-injects authenticated user for methods with `user` parameter
+    # Supports Body(default={}) for empty-body toggle endpoints
 ```
 
 **User Resolution Bridge** (`_resolve_user`):
@@ -481,7 +492,23 @@ def login(email: str, password: str):
 # Adds: method.__endpoint__ = {'route': '/login', 'methods': ['POST']}
 ```
 
-### 6. Adapter Pattern
+### 6. Two-Pass Route Registration
+
+Routes are registered in two passes to avoid path conflicts:
+
+```
+Pass 1: Collection routes (static segments)
+  /products/comments     (GET — all comments across products)
+  /products/likes        (GET — all favorites across products)
+
+Pass 2: CRUD routes (parameterized segments)
+  /products/{id}         (GET/PUT/DELETE)
+  /products/{parent_id}/comments/{id}  (nested CRUD)
+```
+
+This ensures `/products/comments` is matched as a collection route, not as `/products/{id}` with `id="comments"`.
+
+### 7. Adapter Pattern
 
 Backend adapters translate between frameworks:
 
@@ -657,6 +684,26 @@ class MockStorage(AbstractStorage):
 storage = MockStorage()
 register_model(User, storage=storage)
 ```
+
+## Social Feature Patterns
+
+### Toggle Endpoints
+
+Like/favorite actions use a toggle pattern: POST with empty body creates or deletes a join table record.
+
+```python
+@expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+def favorite(self, user: User = None) -> str:
+    # Query join table for existing record
+    # If exists → delete → return {"action": "unfavorited"}
+    # If not → create → return {"action": "favorited"}
+```
+
+The route layer uses `join_models` registry to resolve the correct join model (e.g., `ProductLike`), queries by parent + user, and creates/deletes accordingly. `Body(default={})` allows empty POST bodies.
+
+### Self-Referential Nesting (Replies)
+
+Comments support nesting via `parent_id: Ref['self']`. The `reply()` method creates a child comment with `parent_id` set, resolves the product parent for join table insertion, and restricts access to `AUTHENTICATED` users.
 
 ## Future Enhancements
 

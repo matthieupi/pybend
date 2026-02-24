@@ -37,10 +37,11 @@ No tasks yet.
 ## Frontend
 
 - [ ] **Implement editable visibility only when permisisons allow it**
-- [ ] **Improve NTT method implementation**
-  - Show methods only when permissions allows it
-  - Be able to customize positioning
-  - Improve fine grain display otions ( button -> form, form directly, etc)
+- [x] **Improve NTT method implementation**
+  - ~~Show methods only when permissions allows it~~
+  - ~~Be able to customize positioning~~
+  - ~~Improve fine grain display options ( button -> form, form directly, etc)~~
+  - Done: button layout (icon + count pill), inline layout, fieldset layout, `__ui__.methods` hints
 - [ ] **Silent sections** Have section that are titleless
 - [ ] **Add visual feedback for error handling**
 - [ ] **Improve error flow through the actor system**
@@ -49,11 +50,10 @@ No tasks yet.
   - We need search query for certain list, so that they load the proper data 
     instead of the whole table content
 - 
-- [ ] **Frontend support for FK href arrays**\
-    `<ntt-item>` currently renders collection fields as raw URL strings.
-    - Detect when a field value is an array of href strings in `generators/form.js` (getInput/getArrayInput)
-    - Resolve each href via the NTT actor system (ATTACH → GET → DESCRIBE)
-    - Render resolved hrefs as nested `<ntt-item>` cards or a sub-list within the parent card
+- [x] **Frontend support for FK href arrays**\
+    ~~`<ntt-item>` currently renders collection fields as raw URL strings.~~
+    - Done: `form.js` `getListInput()` resolves hrefs via NTT ATTACH, renders as nested `<ntt-item>` cards
+    - Populated wrapper normalization handles both href strings and `{$id, ...}` objects
 
 - [ ] **Fix `@type` assertion error on save**\
     Backend PUT responses don't include `@type`/`@context` (those are NTT-injected frontend metadata).

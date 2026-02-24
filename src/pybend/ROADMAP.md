@@ -7,56 +7,21 @@
 
 ## Quick Wins (Tighten What Exists)
 
-### 1. Fix `user_owner = 1` hardcoding in Product.comment()
+### ~~1. Fix `user_owner = 1` hardcoding in Product.comment()~~ DONE (v0.7.0)
 
-**Problem:** `product_model.py:61` hardcodes `comment.user_owner = 1` instead of using the authenticated user.
-
-**Root cause:** `make_custom_post()` in `routes_fastapi.py` extracts the user via `_get_user(request)` for access checks but never passes it to the model method. The method signature `comment(self, comment: Comment)` has no way to receive user context.
-
-**Fix (2 files):**
-- `routes_fastapi.py`: In `make_custom_post()`, detect if the method type-hints a `user` parameter; if so, inject `_get_user(request)` as a kwarg before calling `attr(instance, **parsed_args)`
-- `product_model.py`: Change signature to `comment(self, comment: Comment, user: dict = None)` and set `comment.user_owner = user['user_id']`
-- Same pattern applies to `Comment.like()`
-
-**Effort:** ~1 hour | **Difficulty:** Low
+Implemented `_resolve_user()` bridge in `routes_fastapi.py`. Custom methods declare `user: User = None` and receive the full model instance resolved from JWT. Applied to `Product.comment()`, `Comment.like()`, and `Product.favorite()`.
 
 ---
 
-### 2. Pagination on List Endpoints
+### ~~2. Pagination on List Endpoints~~ DONE (v0.7.0)
 
-**Problem:** `StorableMixin.list()` -> `SQLiteStorage.list()` -> `SELECT * FROM table` with no LIMIT/OFFSET. All records returned always.
-
-**Current state:** Zero pagination anywhere in the stack. Frontend `ListElement.definedCallback()` calls `proto.call('READ', {})` with no page args. `NetworkAdapter` sends READ as bare `HTTP.get(target)`.
-
-**Implementation layers:**
-
-| Layer | File | Change |
-|-------|------|--------|
-| SQL | `sqlite_storage.py` | Add `LIMIT ? OFFSET ?`, return `{data, meta: {total, limit, offset, has_more}}` |
-| Mixin | `storable_mixin.py` | Add `limit`/`offset` params to `list()` |
-| Route | `routes_fastapi.py` | Add `limit: int = 20, offset: int = 0` query params to `make_get_all_instances()` |
-| Transport | `NetworkAdapter.js` | Encode `tx.data` as query params for READ |
-| List | `ListElement.js` | Store pagination meta, add "Load More" button |
-| DynamicClass | `NTT.js` | Handle new `{data: [], meta: {}}` response shape in `READ()` |
-
-**Key design decision:** Response format changes from flat array to `{data: [], meta: {}}`. `DynamicClass.READ()` must detect the new shape.
-
-**UI pattern:** "Load More" button (simpler, fits card grid). Infinite scroll is a future enhancement.
-
-**Effort:** ~5 hours | **Difficulty:** Medium
+Full-stack pagination implemented: `sqlite_storage.py` COUNT + LIMIT/OFFSET, `storable_mixin.py` passthrough, `routes_fastapi.py` query params, `NetworkAdapter.js` query param encoding, `NTT.js` `{data, meta}` detection, `ListElement` "Load More" button with count/total display.
 
 ---
 
-### 3. DELETE Action in Frontend UI
+### ~~3. DELETE Action in Frontend UI~~ DONE (v0.7.0)
 
-**Problem:** Backend DELETE is 100% implemented (route, auth, handler). Frontend has transport (`NetworkAdapter` routes DELETE -> `HTTP.remove()`), permissions (`canAction(schema.access, 'delete')`), and config (`E.delete`). Only the UI button is missing.
-
-**Implementation (3 files):**
-- `ntt-item.js`: Add trash icon button in `md()` next to edit button, gated by `permissions.canAction(schema.access, 'delete')`. Add click handler -> `confirm()` -> send `TX { name: 'DELETE', target: this.value.$id }`
-- `ntt-item.css`: Add `.delete-btn` styles (trash icon, red hover)
-- `ListElement.js` or `DynamicClass`: Post-delete cleanup — remove from `instances` Map, re-notify watchers
-
-**Effort:** ~2 hours | **Difficulty:** Low
+Delete button in `ntt-item` md/lg/xl sizes with confirmation dialog and ABAC check. Routes through DynamicClass for proper registry cleanup. Uses `ref` URL for nested entities. Delete also works in sm size with hover-reveal action buttons.
 
 ---
 
@@ -189,19 +154,19 @@ __ui__ = {
 
 | # | Area | Effort | Difficulty | Backend Ready? | Frontend Ready? |
 |---|------|--------|-----------|----------------|-----------------|
-| 1 | Fix user_owner | ~1h | Low | Route needs user injection | N/A |
-| 2 | Pagination | ~5h | Medium | Needs SQL + response format | Needs scroll UI |
-| 3 | DELETE UI | ~2h | Low | **100% done** | Needs button + handler |
+| ~~1~~ | ~~Fix user_owner~~ | ~~Done~~ | ~~Done~~ | ~~Done~~ | ~~N/A~~ |
+| ~~2~~ | ~~Pagination~~ | ~~Done~~ | ~~Done~~ | ~~Done~~ | ~~Done~~ |
+| ~~3~~ | ~~DELETE UI~~ | ~~Done~~ | ~~Done~~ | ~~Done~~ | ~~Done~~ |
 | 4 | display_modes | ~4h | Low-Med | Schema extension | Size methods read config |
 | 5 | Search/Filter | ~5h | Medium | sql_filter exists, needs wiring | Needs search bar |
 | 6 | Image upload | ~5h | Medium | New endpoint needed | New widget type |
-| 7 | Test suite | ~7h | Medium | Foundation exists, thin coverage | Zero frontend tests |
+| 7 | Test suite | ~7h | Medium | Foundation exists, thin coverage | Playwright tests added (v0.7.0) |
 | 8 | Multi-model | ~4h | Low-Med | Need /models endpoint | Need selector UI |
 | 9 | Debug cleanup | ~3h | Low | ~63 prints | ~79 console.* |
 
 **Suggested execution order (quickest wins first):**
-1. DELETE UI (#3) — all backend done, just wire the button
-2. Fix user_owner (#1) — 1-hour bug fix
+1. ~~DELETE UI (#3) — DONE in v0.7.0~~
+2. ~~Fix user_owner (#1) — DONE in v0.7.0~~
 3. Debug cleanup (#9) — mechanical, immediate polish
 4. Multi-model (#8) — showcases framework generality
 5. display_modes (#4) — schema power, isolated change

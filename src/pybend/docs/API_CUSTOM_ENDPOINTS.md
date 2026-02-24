@@ -568,7 +568,41 @@ const result = await fetch('/products/bulk-update', {
 console.log(`Updated ${result.updated} products`);
 ```
 
-### 6. Complex Queries
+### 6. Toggle Actions (Like/Favorite)
+
+Toggle endpoints create or delete a join table record. Empty body allowed — no payload needed.
+
+```python
+@expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+def favorite(self, user: User = None) -> str:
+    """Toggle — create if not favorited, remove if already favorited."""
+    existing = ProductLike.find(product_id=self.id, user_id=user.id)
+    if existing:
+        existing.delete()
+        return json.dumps({"action": "unfavorited"})
+    else:
+        ProductLike.create(...)
+        return json.dumps({"action": "favorited"})
+```
+
+**Frontend**:
+```javascript
+// POST /products/1/favorite — empty body
+const result = await fetch('/products/1/favorite', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-access-token': jwtToken
+  },
+  body: JSON.stringify({})
+}).then(r => r.json());
+
+console.log(result.action); // "favorited" or "unfavorited"
+```
+
+The frontend `<ntt-method>` component renders toggle methods as compact icon + count pills (heart for like, star for favorite) using the `button` layout hint from `__ui__.methods`.
+
+### 7. Complex Queries
 
 ```python
 @expose_route('/related-products', methods=['GET'])

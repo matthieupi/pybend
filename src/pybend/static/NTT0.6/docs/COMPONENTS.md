@@ -456,7 +456,7 @@ Each method returns an HTML string. `render()` dispatches to the current `displa
 | Method | Rendering |
 |--------|-----------|
 | `xs()` | Pill — entity name as a compact badge (`<span class="pill-label">`). |
-| `sm()` | Compact row — name + 2–3 key fields + hover-reveal action buttons (edit/delete, ABAC-gated with resource-aware OWNER check). In edit mode, delegates to `md()` for full form. |
+| `sm()` | Compact row — name + 2–3 key fields + hover-reveal action buttons (edit/delete, ABAC-gated with resource-aware OWNER check). Renders button-layout methods (like/favorite) and reply button inline. Reply button toggles inline input box with submit (Enter key or click). In edit mode, delegates to `md()` for full form. Comments with `parent_id` (selfref) get `reply-indent` CSS class (left border + margin indent). |
 | `md()` | Card — edit button + `Formidable.getForm()` + method buttons. The current default. |
 | `lg()` | Detail — delegates to `md()`. Future: show normally-hidden fields. |
 | `xl()` | Page — delegates to `md()`. Future: full metadata, expanded children. |
@@ -496,7 +496,7 @@ The `data-display` attribute on `.card` drives CSS scoping (e.g. `.card[data-dis
 | Helper | Description |
 |--------|-------------|
 | `#bindEvents()` | Binds edit button click, delete button click, input/textarea change, show-more toggle. Selector-based — tolerant of missing elements. |
-| `#topFields(count)` | Returns the top N visible, non-header, non-array fields as `[key, def]` pairs. Respects `ui.field_order`, `ui.display`, and permissions. |
+| `#smFields()` | Returns visible fields for sm rendering. Respects `ui.field_order`, renders `$ref` fields as leading avatars. |
 | `#methodsHtml()` | Generates `<ntt-method>` HTML for all schema methods. |
 
 ### Input Handling
@@ -555,12 +555,65 @@ Renders a form for invoking a custom method on a model or instance.
 | `label` | Display label for the fieldset. |
 | `forward` | Optional DynamicClass address to forward results to. |
 
+### Additional Attributes (Button Layout)
+
+| Attribute | Description |
+|-----------|-------------|
+| `icon` | SVG icon name (`heart`, `star`, `reply`, or default). |
+| `count-field` | Entity field name whose collection length is shown as a count pill. |
+| `layout` | Rendering layout: `fieldset` (default), `inline`, or `button`. |
+
+### Layouts
+
+| Layout | Rendering | Use Case |
+|--------|-----------|----------|
+| `fieldset` | Full form with submit button | Methods with parameters (comment) |
+| `inline` | Compact single-line input | Quick input (reply) |
+| `button` | Icon + count pill, compact | Toggle actions (like, favorite) |
+
+Button layout uses an SVG icon library (heart, star, reply, default) with hover/active states. The `count-field` attribute reads the collection length from entity data, handling both populated wrappers (`{data, meta}`) and plain arrays.
+
 ### Behavior
 
 1. `load()`: Resolves DynamicClass via `NTT.get(this.model)`, optionally resolves NTT instance, reads method schema.
-2. `render()`: Generates form inputs from `schema.parameters`. Resolves `$ref` parameters via `$defs`.
+2. `render()`: Dispatches to `renderFieldset()`, `renderInline()`, or `renderButton()` based on layout attribute.
 3. `callMethod()`: Calls `target.call(method, payload)` on the NTT instance or DynamicClass.
-4. Displays response as JSON pre block.
+4. `#postCall()`: Shared post-invoke logic across all layouts — displays response, triggers entity re-fetch via `_response_` handler.
+
+---
+
+## NTTUser
+
+**File:** `components/ntt-user.js`
+**Tag:** `<ntt-user>`
+
+Custom NTTItem subclass with circular avatar rendering for User entities. Wired automatically via `User.__ui__.renderer` config.
+
+### Rendering
+
+| Size | Display |
+|------|---------|
+| `xs` | Circular avatar image (fallback to ui-avatars.com) |
+| `sm` | Circular avatar + name |
+| `md+` | Delegates to NTTItem default |
+
+---
+
+## NTTFavorites
+
+**File:** `components/ntt-favorites.js`
+**Tag:** `<ntt-favorites>`
+
+Simple page wrapper that mounts `<ntt-list model="ProductLike">` at the `#@favorites` route. Accessible via the Favorites nav link in `<ntt-topbar>`.
+
+---
+
+## NTTTopbar
+
+**File:** `components/ntt-topbar.js`
+**Tag:** `<ntt-topbar>`
+
+Navigation bar component with auth status display, login/logout, and navigation links. Authenticated users see a "Favorites" nav link (`topbar-nav` CSS block with hover transitions).
 
 ---
 

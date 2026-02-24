@@ -113,6 +113,8 @@ The backend auto-generates endpoints from your Pydantic models:
 | `PUT /tablename/:id` | Updates a record |
 | `DELETE /tablename/:id` | Deletes a record |
 | `GET /tablename/:id/field/:child_id` | Gets a nested child record (FK hydration) |
+| `GET /tablename/childtable` | Collection route — all children across parents |
+| `POST /tablename/:id/method` | Custom method (toggle, comment, reply, etc.) |
 
 > **Convention:** `/Product` (PascalCase) = schema. `/products` (lowercase plural from `__tablename__`) = CRUD.
 
@@ -536,6 +538,7 @@ product.call('DELETE', {});
 | `UPDATE` | PUT | `{API_URL}/tablename/id` |
 | `DELETE` | DELETE | `{API_URL}/tablename/id` |
 | `(custom)` | POST | `{API_URL}/tablename/id/methodname` |
+| `_response_` | (internal) | Auto-pulls entity after method call |
 
 ---
 
@@ -930,7 +933,10 @@ NTT0.6/
     ntt-element.js              <- NTTElement: base with model/schema/value
     ntt-list.js                 <- <ntt-list>: renders entity grid
     ntt-item.js                 <- <ntt-item>: renders entity card + form
-    ntt-method.js               <- <ntt-method>: custom method invocation
+    ntt-method.js               <- <ntt-method>: custom method invocation (fieldset/inline/button)
+    ntt-favorites.js            <- <ntt-favorites>: favorites page (wraps ProductLike list)
+    ntt-topbar.js               <- <ntt-topbar>: navigation bar with auth + favorites link
+    ntt-user.js                 <- <ntt-user>: circular avatar rendering (xs/sm)
     *.css                       <- Component styles (shadow DOM)
   generators/
     form.js                     <- Formidable: schema -> HTML form generator

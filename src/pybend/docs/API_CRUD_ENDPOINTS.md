@@ -720,6 +720,41 @@ async function deleteComment(productId, commentId) {
 
 ---
 
+## Collection Routes
+
+When join models are registered (e.g., `ProductComment`, `ProductLike`), PyBend generates **collection routes** that return all child records across all parents.
+
+### Pattern
+
+```
+GET /{parent_table}/{child_table}
+```
+
+### Examples
+
+| Route | Returns |
+|-------|---------|
+| `GET /products/comments` | All comments across all products |
+| `GET /products/likes` | All favorites across all products |
+
+### Response
+
+Collection routes support the same pagination as regular list endpoints:
+
+```bash
+# All comments (unpaginated)
+GET /products/comments
+
+# Paginated
+GET /products/comments?limit=20&offset=0
+```
+
+Response format matches the standard list endpoint (plain array without params, `{data, meta}` with pagination).
+
+**Note**: Collection routes are registered before CRUD routes (Pass 1) to avoid path conflicts with `{id:int}` segments. This ensures `/products/comments` is not interpreted as `/products/{id}` with `id="comments"`.
+
+---
+
 ## Complete CRUD Workflow Example
 
 ```javascript

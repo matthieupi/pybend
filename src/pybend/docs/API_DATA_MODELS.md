@@ -294,6 +294,9 @@ Products available in the system.
 | PUT | `/products/{id}` | Update product |
 | DELETE | `/products/{id}` | Delete product |
 | POST | `/products/{id}/comment` | Custom: Add comment |
+| POST | `/products/{id}/favorite` | Custom: Toggle favorite |
+| GET | `/products/comments` | Collection: All comments across products |
+| GET | `/products/likes` | Collection: All favorites across products |
 
 ### Schema
 
@@ -344,7 +347,8 @@ Products available in the system.
 | `name` | string | Yes | - | Product name |
 | `price` | float | Yes | Must be positive | Price in USD |
 | `description` | string | No | - | Product description |
-| `comments` | array | No | List of Comment IDs | Related comments |
+| `comments` | array | No | ListRef[Comment] href array | Related comments |
+| `favorites` | array | No | ListRef[Like] href array | Users who favorited |
 
 ### Create Product
 
@@ -400,23 +404,23 @@ Content-Type: application/json
 
 ### Custom: Add Comment
 
-Add a comment to a product.
+Add a comment to a product. The `user` parameter is injected server-side from the JWT token (not sent in the request body).
 
 **Request**:
 ```bash
 POST /products/1/comment
 Content-Type: application/json
+x-access-token: <JWT>
 
 {
   "comment": {
     "name": "Great product!",
-    "description": "Very satisfied with this purchase",
-    "user_owner": 1
+    "description": "Very satisfied with this purchase"
   }
 }
 ```
 
-**Note**: The `comment` parameter is a nested object matching the Comment schema.
+**Note**: The `comment` parameter is a nested object matching the Comment schema. `user_owner` is auto-injected from the JWT.
 
 **Response** (200 OK):
 ```json
@@ -429,6 +433,29 @@ Content-Type: application/json
   "user_owner": 1,
   "product_id": 1
 }
+```
+
+### Custom: Toggle Favorite
+
+Toggle product favorite status. No request body needed. Requires authentication.
+
+**Request**:
+```bash
+POST /products/1/favorite
+Content-Type: application/json
+x-access-token: <JWT>
+
+{}
+```
+
+**Response** (200 OK):
+```json
+{"action": "favorited"}
+```
+
+Or if already favorited:
+```json
+{"action": "unfavorited"}
 ```
 
 ### TypeScript Interface
@@ -506,8 +533,10 @@ Comments on products. The Comment model uses `id` as its primary key field (cons
 | GET | `/products/{parent_id}/comments/{id}` | Get specific comment |
 | PUT | `/products/{parent_id}/comments/{id}` | Update comment |
 | DELETE | `/products/{parent_id}/comments/{id}` | Delete comment |
+| POST | `/products/{parent_id}/comments/{id}/like` | Toggle like on comment |
+| POST | `/products/{parent_id}/comments/{id}/reply` | Reply to comment |
 
-**Note**: Comments are a nested resource under Products.
+**Note**: Comments are a nested resource under Products. Like and reply are custom methods on comment instances.
 
 ### Schema
 
@@ -545,10 +574,12 @@ Comments on products. The Comment model uses `id` as its primary key field (cons
 | `id` | integer | No (auto) | Read-only | Unique identifier |
 | `name` | string | Yes | - | Comment title |
 | `description` | string | No | - | Comment text |
-| `user_owner` | integer | Yes | Must be valid User ID | Comment author |
+| `user_owner` | integer | Yes (protected) | Must be valid User ID | Comment author (auto-injected from JWT) |
+| `parent_id` | integer | No | Ref['self'] | Parent comment ID for nesting (replies) |
+| `likes` | array | No | ListRef[Like] href array | Users who liked this comment |
 | `product_id` | integer | Auto | Set from parent | Product this comment belongs to |
 
-**Important**: `product_id` is automatically set from the URL path parameter when creating comments.
+**Important**: `product_id` is automatically set from the URL path parameter when creating comments. `user_owner` is a protected field — auto-injected from JWT on create, stripped from update payloads.
 
 ### Create Comment for Product
 
@@ -718,6 +749,64 @@ class CommentAPI {
   }
 }
 ```
+
+### Custom: Toggle Like
+
+Toggle like on a comment. No request body needed. Requires authentication.
+
+**Request**:
+```bash
+POST /products/1/comments/3/like
+x-access-token: <JWT>
+
+{}
+```
+
+**Response** (200 OK):
+```json
+{"action": "liked"}
+```
+
+### Custom: Reply to Comment
+
+Create a reply to a comment. The reply is a child comment with `parent_id` set.
+
+**Request**:
+```bash
+POST /products/1/comments/3/reply
+Content-Type: application/json
+x-access-token: <JWT>
+
+{"text": "I agree, great product!"}
+```
+
+**Response** (200 OK): Returns the created reply comment as JSON.
+
+---
+
+## Like Model
+
+Represents a like/favorite action by a user.
+
+### Endpoints
+
+Like is always a nested resource, accessed through join models:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/products/{parent_id}/comments/{id}/likes` | List likes on a comment |
+| GET | `/products/likes` | Collection: all product favorites |
+
+**Note**: Likes are created/deleted via toggle endpoints (`POST .../like` or `POST .../favorite`), not via direct CRUD.
+
+### Field Details
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| `id` | integer | No (auto) | Read-only | Unique identifier |
+| `user` | integer | Yes (protected) | Must be valid User ID | User who liked (auto-injected from JWT) |
+
+`user` is a protected field — never sent in the request body.
 
 ---
 
