@@ -8,6 +8,7 @@ Usage:
 
 import os
 import sys
+from datetime import datetime
 
 import config
 from storage.sqlite_storage import SQLiteStorage
@@ -16,7 +17,7 @@ from models.comment_model import Comment
 from models.like_model import Like
 from models.user_model import User, Bot
 from models.proto_model import generate_join_model
-from utils.registrar import register_model
+from utils.registrar import register_model, join_models
 from authorize import hash_password
 
 
@@ -27,6 +28,7 @@ def seed():
     register_model(User, storage=storage)
     register_model(generate_join_model(Product, Comment), storage=storage)
     register_model(generate_join_model(Comment, Like), storage=storage)
+    register_model(generate_join_model(Product, Like), storage=storage)
 
     # ── Users ──
     users = [
@@ -111,8 +113,43 @@ def seed():
         reply.save()
         print(f"  + Reply to '{parent.name}' by {user.name}: {r['name']}")
 
+    # ── Likes on comments ──
+    like_data = [
+        {"comment_idx": 0, "user_idx": 0},  # Alice likes "Great sound"
+        {"comment_idx": 0, "user_idx": 2},  # Charlie likes "Great sound"
+        {"comment_idx": 2, "user_idx": 1},  # Bob likes "Perfect for coding"
+        {"comment_idx": 4, "user_idx": 1},  # Bob likes "Works perfectly"
+        {"comment_idx": 6, "user_idx": 2},  # Charlie likes "No more eye strain"
+    ]
+
+    for ld in like_data:
+        comment = created_comments[ld["comment_idx"]]
+        user = created_users[ld["user_idx"]]
+        like = Like(user=user.id, created_at=datetime.now().isoformat())
+        like.__owner__ = comment
+        like.save()
+        print(f"  + Like on '{comment.name}' by {user.name}")
+
+    # ── Favorites on products ──
+    fav_data = [
+        {"product_idx": 0, "user_idx": 0},  # Alice favorites Headphones
+        {"product_idx": 1, "user_idx": 0},  # Alice favorites Keyboard
+        {"product_idx": 0, "user_idx": 1},  # Bob favorites Headphones
+        {"product_idx": 2, "user_idx": 2},  # Charlie favorites USB-C Hub
+        {"product_idx": 4, "user_idx": 1},  # Bob favorites Monitor Light Bar
+    ]
+
+    for fd in fav_data:
+        product = created_products[fd["product_idx"]]
+        user = created_users[fd["user_idx"]]
+        fav = Like(user=user.id, created_at=datetime.now().isoformat())
+        fav.__owner__ = product
+        fav.save()
+        print(f"  + Favorite '{product.name}' by {user.name}")
+
     print(f"\nDone. Seeded {len(created_users)} users, {len(created_products)} products, "
-          f"{len(comments)} comments, {len(replies)} replies.")
+          f"{len(comments)} comments, {len(replies)} replies, "
+          f"{len(like_data)} likes, {len(fav_data)} favorites.")
 
 
 if __name__ == "__main__":

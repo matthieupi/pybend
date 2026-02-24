@@ -209,6 +209,7 @@ class NTTLogs extends HTMLElement {
 
   /** Render a JSON value as a collapsible, syntax-highlighted tree */
   #renderJson(value, depth = 0) {
+    if (depth > 8) return '<span class="json-str">"[max depth]"</span>';
     if (value === null) return '<span class="json-null">null</span>';
     if (typeof value === 'boolean') return `<span class="json-bool">${value}</span>`;
     if (typeof value === 'number') return `<span class="json-num">${value}</span>`;

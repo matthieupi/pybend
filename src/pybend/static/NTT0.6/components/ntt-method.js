@@ -2,6 +2,14 @@
 import { NTT } from '../core/NTT.js';
 import Logging from '../utils/Logging.js';
 
+// SVG icons for button layout
+const ICONS = {
+  heart: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+  star: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  reply: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>`,
+  default: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`,
+};
+
 export class NTTMethod extends HTMLElement {
   constructor() {
     super();
@@ -15,7 +23,8 @@ export class NTTMethod extends HTMLElement {
 
   static get observedAttributes() {
     return ['model', 'method', 'uuid', 'mode', 'label', 'forward',
-            'layout', 'placeholder', 'button-label', 'widget'];
+            'layout', 'placeholder', 'button-label', 'widget',
+            'icon', 'count-field'];
   }
 
   connectedCallback() {
@@ -37,7 +46,8 @@ export class NTTMethod extends HTMLElement {
     this.placeholderText = this.getAttribute('placeholder') || '';
     this.buttonLabel = this.getAttribute('button-label') || 'Run';
     this.widgetOverride = this.getAttribute('widget') || '';
-
+    this.iconName = this.getAttribute('icon') || '';
+    this.countField = this.getAttribute('count-field') || '';
     this.proto = NTT.get(this.model);
     if (!this.proto) return Logging.error(`[ntt-method] Model not found`, this.model);
 
@@ -68,15 +78,26 @@ export class NTTMethod extends HTMLElement {
 
   callMethod() {
     const payload = { ...this.value };
-    const target = this.schema.scope === 'instancemethod' ? this.ntt : this.proto;
-    if (!target || !target.call) return Logging.warn(`[ntt-method] Invalid call target`);
 
-    // _response_ handler on the entity triggers pull() when the backend responds,
-    // which re-fetches the entity and propagates updates to watching components.
-    target.call(this.method, payload, { inbox: '_response_' });
-    this.response = { status: 'sent' };
+    // Instance methods: route through the NTT Actor (href is authoritative
+    // after the $id fix — works for both top-level and nested entities).
+    if (this.ntt?.call && this.schema.scope === 'instancemethod') {
+      this.ntt.call(this.method, payload, { inbox: '_response_' });
+      this.response = { status: 'sent' };
+      this.#postCall();
+      return;
+    }
 
-    // For inline layout: clear inputs after submit instead of showing response
+    // Class/static methods
+    const target = this.proto;
+    if (target?.call) {
+      target.call(this.method, payload, { inbox: '_response_' });
+      this.response = { status: 'sent' };
+      this.#postCall();
+    }
+  }
+
+  #postCall() {
     if (this.layout === 'inline') {
       this.value = {};
       this.response = null;
@@ -88,7 +109,39 @@ export class NTTMethod extends HTMLElement {
 
   render() {
     if (this.layout === 'inline') return this.renderInline();
+    if (this.layout === 'button') return this.renderButton();
     return this.renderFieldset();
+  }
+
+  /** Button layout: compact icon + count pill. */
+  renderButton() {
+    const icon = ICONS[this.iconName] || ICONS.default;
+    let count = '';
+    if (this.countField) {
+      const val = this.ntt?.value ?? this.getRootNode()?.host?.value;
+      const raw = val?.[this.countField];
+      // Handle both plain arrays and populated wrappers ({data: [...], meta: {total}})
+      if (Array.isArray(raw)) {
+        count = raw.length;
+      } else if (raw && typeof raw === 'object' && Array.isArray(raw.data)) {
+        count = raw.meta?.total ?? raw.data.length;
+      } else {
+        count = 0;
+      }
+    }
+
+    this.shadowRoot.innerHTML = `
+      <style>${NTTMethod.buttonStyles}</style>
+      <button class="method-btn" title="${this.label}">
+        <span class="method-btn-icon">${icon}</span>
+        ${count !== '' ? `<span class="method-btn-count">${count}</span>` : ''}
+      </button>
+    `;
+
+    this.shadowRoot.querySelector('.method-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.callMethod();
+    });
   }
 
   /** Default fieldset layout (existing behavior). */
@@ -314,6 +367,44 @@ export class NTTMethod extends HTMLElement {
     }
     .method-inline-row button {
       margin-top: 0;
+    }
+  `;
+
+  static buttonStyles = `
+    :host {
+      display: inline-block;
+      margin: 0;
+    }
+    .method-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 100px;
+      border: 1px solid var(--border, rgba(255,255,255,0.06));
+      background: var(--surface-2, rgba(22, 26, 38, 0.7));
+      color: var(--text-2, #9ba3bd);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      font-family: inherit;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    .method-btn:hover {
+      border-color: var(--accent-dim, rgba(34,211,197,0.25));
+      background: var(--accent-dim, rgba(34,211,197,0.08));
+      color: var(--accent-text, #5eeadf);
+    }
+    .method-btn:active {
+      transform: scale(0.95);
+    }
+    .method-btn-icon {
+      display: flex;
+      align-items: center;
+    }
+    .method-btn-count {
+      font-variant-numeric: tabular-nums;
     }
   `;
 }

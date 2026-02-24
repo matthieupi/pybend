@@ -77,6 +77,34 @@
 
 
 /* ═══════════════════════════════════════════════════
+   Navigation — center links
+   ═══════════════════════════════════════════════════ */
+
+.topbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: auto;
+    margin-right: 1.5rem;
+}
+
+.topbar-nav-link {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-2, #8891ab);
+    text-decoration: none;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.topbar-nav-link:hover {
+    color: var(--text-0, #f0f2f8);
+    background: var(--glass-bg-light, rgba(255, 255, 255, 0.05));
+}
+
+
+/* ═══════════════════════════════════════════════════
    Actions — right side
    ═══════════════════════════════════════════════════ */
 

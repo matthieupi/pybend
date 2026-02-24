@@ -62,16 +62,19 @@ class StorableMixin:
         parent = getattr(data, '__owner__', None)
 
         if parent:
-            key = (parent.__class__.__name__, cls.__name__)
-            if key in join_models:
-                join_cls = join_models[key]
-                fk_field = f"{parent.__class__.__name__.lower()}_id"
-                join_data = {**data._storage_dict(exclude_unset=True), fk_field: parent.id}
-                for k, v in join_data.items():
-                    if isinstance(v, Ref):
-                        join_data[k] = int(v)  # unwrap FK to plain int
+            # Walk MRO to find matching join key — handles join model instances
+            # (e.g. ProductComment → Comment) where direct class name doesn't match.
+            for ancestor in parent.__class__.__mro__:
+                key = (ancestor.__name__, cls.__name__)
+                if key in join_models:
+                    join_cls = join_models[key]
+                    fk_field = f"{ancestor.__name__.lower()}_id"
+                    join_data = {**data._storage_dict(exclude_unset=True), fk_field: parent.id}
+                    for k, v in join_data.items():
+                        if isinstance(v, Ref):
+                            join_data[k] = int(v)  # unwrap FK to plain int
+                    return join_cls.create(join_cls(**join_data))
 
-                return join_cls.create(join_cls(**join_data))
 
         # Fallback to normal behavior
         data_dict = data._storage_dict(exclude_unset=True)

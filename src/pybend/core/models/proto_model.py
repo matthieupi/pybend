@@ -261,6 +261,12 @@ class ProtoModel(PydanticBaseModel):
                 ref_ui = getattr(model, '__ui__', None)
                 if ref_ui:
                     schema['$defs'][model.__name__]['ui'] = dict(ref_ui)
+                    # Also inject method UI hints into this $def's method entries
+                    ref_method_ui = ref_ui.get('methods', {})
+                    def_methods = schema['$defs'][model.__name__].get('methods', {})
+                    for method_name, hints in ref_method_ui.items():
+                        if method_name in def_methods:
+                            def_methods[method_name]['ui'] = dict(hints)
                 schema['$defs'][model.__name__]['access'] = access_schema(model)
 
         # Add JSON Schema metadata

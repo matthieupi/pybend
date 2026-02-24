@@ -67,6 +67,9 @@ class NTTTopbar extends HTMLElement {
         <span class="topbar-title">NTT<span class="accent">TX</span></span>
         <span class="topbar-tag">v0.6</span>
       </a>
+      <div class="topbar-nav">
+        ${user ? '<a href="#@favorites" class="topbar-nav-link">Favorites</a>' : ''}
+      </div>
       <div class="topbar-actions">
         ${actionsHtml}
       </div>

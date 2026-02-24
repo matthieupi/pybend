@@ -181,12 +181,19 @@ export class NTTItem extends NTTElement {
       const val = this.value[key] ?? '';
 
       // First $ref field → leading avatar (thumb position)
-      if (!leadingHtml && (def?.type === '$ref' || def?.$ref)
-          && typeof val === 'string' && val.startsWith('http')) {
-        const refModel = (def.$ref || '').split('/').pop();
-        const childTag = this.#resolveChildTag(refModel);
-        leadingHtml = `<${childTag} ref="${val}" display="xs" data-model="${refModel}"></${childTag}>`;
-        continue;
+      if (!leadingHtml && (def?.type === '$ref' || def?.$ref)) {
+        let refUrl = null;
+        if (typeof val === 'string' && val.startsWith('http')) {
+          refUrl = val;
+        } else if (val && typeof val === 'object' && val.$id) {
+          refUrl = val.$id;
+        }
+        if (refUrl) {
+          const refModel = (def.$ref || '').split('/').pop();
+          const childTag = this.#resolveChildTag(refModel);
+          leadingHtml = `<${childTag} ref="${refUrl}" display="xs" data-model="${refModel}"></${childTag}>`;
+          continue;
+        }
       }
 
       // 'name' field → sm-name identity text
@@ -197,15 +204,20 @@ export class NTTItem extends NTTElement {
 
       // Everything else → sm-field
       if (smFields.length >= 3) break;
-      if ((def?.type === '$ref' || def?.$ref) && typeof val === 'string' && val.startsWith('http')) {
-        const refModel = (def.$ref || '').split('/').pop();
-        const childTag = this.#resolveChildTag(refModel);
-        smFields.push(`<span class="sm-field sm-ref" data-value="${key}"><${childTag} ref="${val}" display="xs" data-model="${refModel}"></${childTag}></span>`);
-      } else {
-        const display = def?.ui?.widget === 'currency' && typeof val === 'number'
-          ? `$${val.toFixed(2)}` : val;
-        smFields.push(`<span class="sm-field" data-value="${key}">${display}</span>`);
+      if ((def?.type === '$ref' || def?.$ref)) {
+        let refUrl = null;
+        if (typeof val === 'string' && val.startsWith('http')) refUrl = val;
+        else if (val && typeof val === 'object' && val.$id) refUrl = val.$id;
+        if (refUrl) {
+          const refModel = (def.$ref || '').split('/').pop();
+          const childTag = this.#resolveChildTag(refModel);
+          smFields.push(`<span class="sm-field sm-ref" data-value="${key}"><${childTag} ref="${refUrl}" display="xs" data-model="${refModel}"></${childTag}></span>`);
+        }
+        continue;  // Skip plain-text fallback for $ref fields (avoid [object Object])
       }
+      const display = def?.ui?.widget === 'currency' && typeof val === 'number'
+        ? `$${val.toFixed(2)}` : val;
+      smFields.push(`<span class="sm-field" data-value="${key}">${display}</span>`);
     }
 
     // Fallbacks
@@ -217,6 +229,34 @@ export class NTTItem extends NTTElement {
       nameHtml = `<span class="sm-name" data-value="name">${name}</span>`;
     }
 
+    // Button-layout methods (like, favorite) for sm row
+    const methods = schema.methods || {};
+    let methodsHtml = '';
+    for (const [name, def] of Object.entries(methods)) {
+      if (def.ui?.layout === 'button') {
+        methodsHtml += `<ntt-method
+          model="${schema.__name__}"
+          uuid="${this.value?.id || ''}"
+          method="${name}"
+          layout="button"
+          icon="${def.ui.icon || ''}"
+          count-field="${def.ui.count_field || ''}"
+          label="${def.title || name}">
+        </ntt-method>`;
+      }
+    }
+
+    // Reply button (if reply method exists)
+    const hasReply = Object.entries(methods).some(([, def]) =>
+      def.ui?.layout === 'inline' && def.ui?.placeholder?.toLowerCase().includes('reply'));
+    if (hasReply) {
+      methodsHtml += `<button class="sm-reply-btn" title="Reply">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+      </button>`;
+    }
+
+    const smMethodsHtml = methodsHtml ? `<span class="sm-methods">${methodsHtml}</span>` : '';
+
     // When a $ref leads, stack name + fields vertically beside it
     if (leadingHtml && leadingHtml.includes('display="xs"')) {
       return `
@@ -225,6 +265,7 @@ export class NTTItem extends NTTElement {
           ${nameHtml}
           <span class="sm-fields">${smFields.join('')}</span>
         </div>
+        ${smMethodsHtml}
         ${actionsHtml}
       `;
     }
@@ -232,6 +273,7 @@ export class NTTItem extends NTTElement {
       ${leadingHtml}
       ${nameHtml}
       <span class="sm-fields">${smFields.join('')}</span>
+      ${smMethodsHtml}
       ${actionsHtml}
     `;
   }
@@ -265,7 +307,7 @@ export class NTTItem extends NTTElement {
       else standalone[name] = def;
     }
 
-    html.push(Formidable.getForm({schema: this.schema, value: this.value}, this.mode, attached));
+    html.push(Formidable.getForm({schema: this.schema, value: this.value, ref: this.ref}, this.mode, attached));
     if (this.mode !== 'edit') {
       html.push(this.#standaloneMethodsHtml(standalone));
     }
@@ -346,8 +388,11 @@ export class NTTItem extends NTTElement {
     const container = root.querySelector(`.list-field[data-value="${key}"]`);
     if (!container) return false;
 
-    const prevRefs = Array.isArray(prevArr) ? prevArr.filter(v => typeof v === 'string') : [];
-    const nextRefs = Array.isArray(nextArr) ? nextArr.filter(v => typeof v === 'string') : [];
+    // Normalize: populated wrappers {data: [...], meta: {...}} → extract array
+    const normArr = (v) => Array.isArray(v) ? v : (v?.data && Array.isArray(v.data)) ? v.data : [];
+    const toRef = (v) => typeof v === 'string' ? v : v?.$id || null;
+    const prevRefs = normArr(prevArr).map(toRef).filter(Boolean);
+    const nextRefs = normArr(nextArr).map(toRef).filter(Boolean);
     const prevSet = new Set(prevRefs);
     const nextSet = new Set(nextRefs);
     const collapsed = container.querySelector('.nested-collapsed');
@@ -426,7 +471,10 @@ export class NTTItem extends NTTElement {
     // When editing in compact sizes, sm() delegates to md() for the full form.
     // Match the card layout so CSS styles apply correctly.
     const layoutSize = (this.mode === 'edit' && (size === 'sm' || size === 'xs')) ? 'md' : size;
-    this.shadowRoot.innerHTML = `<div class="card" data-display="${layoutSize}">${html}</div>`;
+    // Check for reply indent (comments with parent_id)
+    const isReply = this.value?.parent_id && this.schema?.properties?.parent_id?.type === 'selfref';
+    const indentClass = isReply ? ' reply-indent' : '';
+    this.shadowRoot.innerHTML = `<div class="card${indentClass}" data-display="${layoutSize}">${html}</div>`;
     if (this.$styles) this.shadowRoot.appendChild(this.$styles);
     this._rendered = true;
 
@@ -469,10 +517,68 @@ export class NTTItem extends NTTElement {
       });
     });
 
+    // Reply button toggle — shows/hides inline reply input under the card
+    this.shadowRoot.querySelector('.sm-reply-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = this.shadowRoot.querySelector('.card');
+      let replyBox = this.shadowRoot.querySelector('.reply-input-box');
+      if (replyBox) {
+        replyBox.remove();
+        return;
+      }
+      // Find the reply method name from schema
+      const methods = this.schema?.methods || {};
+      const replyEntry = Object.entries(methods).find(([, def]) =>
+        def.ui?.layout === 'inline' && def.ui?.placeholder?.toLowerCase().includes('reply'));
+      if (!replyEntry) return;
+      const [methodName, methodDef] = replyEntry;
+
+      replyBox = document.createElement('div');
+      replyBox.className = 'reply-input-box';
+      replyBox.innerHTML = `
+        <input type="text" class="reply-input" placeholder="${methodDef.ui.placeholder || 'Write a reply...'}" />
+        <button class="reply-submit-btn">${methodDef.ui.button_label || 'Reply'}</button>
+      `;
+      card.after(replyBox);
+
+      const input = replyBox.querySelector('.reply-input');
+      const btn = replyBox.querySelector('.reply-submit-btn');
+      input.focus();
+
+      const submit = () => {
+        const text = input.value.trim();
+        if (!text) return;
+        // Route through the NTT Actor — href is authoritative (carries correct
+        // nested URL like /products/1/comments/3) after the $id fix.
+        const entity = NTT.get(this.schema.__name__ + '/' + this.value.id);
+        if (entity?.call) {
+          entity.call(methodName, { text }, { inbox: '_response_' });
+          // _response_ handler calls pull() on the entity, but we also need the
+          // parent (e.g. Product) to re-fetch so the new reply appears in its list.
+          const parentHost = this.getRootNode()?.host;
+          const parentModel = parentHost?.schema?.__name__;
+          const parentId = parentHost?.value?.id;
+          if (parentModel && parentId) {
+            const parent = NTT.get(`${parentModel}/${parentId}`);
+            if (parent) {
+              // Small delay to let the backend process the reply before re-fetching
+              setTimeout(() => parent.pull(), 300);
+            }
+          }
+        }
+        replyBox.remove();
+      };
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); submit(); });
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
+        if (ev.key === 'Escape') replyBox.remove();
+      });
+    });
+
     // Card click → SELECT (skip interactive elements and edit mode)
     if (this.mode !== 'edit') {
       this.shadowRoot.querySelector('.card')?.addEventListener('click', (e) => {
-        if (e.target.closest('button, input, textarea, select, a, ntt-method')) return;
+        if (e.target.closest('button, input, textarea, select, a, ntt-method, .reply-input-box')) return;
         const target = this.getAttribute('select-target');
         if (target) {
           this.send(new TX({
@@ -526,11 +632,15 @@ export class NTTItem extends NTTElement {
   #standaloneMethodsHtml(methods) {
     return Object.entries(methods).map(([name, def]) => {
       const label = def.title || name;
+      const ui = def.ui || {};
       return `
         <ntt-method
           model="${this.schema?.__name__ || ''}"
           uuid="${this.value?.id || ''}"
           method="${name}"
+          layout="${ui.layout || 'fieldset'}"
+          icon="${ui.icon || ''}"
+          count-field="${ui.count_field || ''}"
           label="${label}">
         </ntt-method>
       `;

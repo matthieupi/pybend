@@ -131,6 +131,34 @@ def make_get_all_instances(model_class):
     return list_all_instances
 
 
+def make_collection_list(model_class):
+    """GET-only collection route for join models — lists all records across parents."""
+    async def collection_list(
+        request: Request,
+        limit: int = Query(default=None, ge=1, le=100),
+        offset: int = Query(default=None, ge=0),
+        populate: str = Query(default=None),
+        depth: int = Query(default=None, ge=0, le=3),
+    ):
+        ctx = _build_context(request, model_class, "list")
+        try:
+            auth_filter = _resolver.sql_filter_for(ctx)
+        except AccessDenied as e:
+            raise HTTPException(status_code=403, detail=str(e))
+
+        pop_spec = parse_populate(populate, depth)
+        result = model_class.list(sql_filter=auth_filter, limit=limit, offset=offset, populate=pop_spec)
+
+        if isinstance(result, dict) and 'data' in result:
+            return {
+                'data': [_serialize(r) for r in result['data']],
+                'meta': result['meta'],
+            }
+        return [_serialize(r) for r in result]
+
+    return collection_list
+
+
 def make_get_schema(model_class):
     async def get_model_schema(scaffold: str = None):
         if scaffold:
@@ -265,7 +293,7 @@ def make_custom_post(attr, model_class, route_path):
     async def post_with_id(
         request: Request,
         id: int = Path(..., description=f"{model_class.__name__} ID"),
-        data: Dict[str, Any] = Body(...),
+        data: Dict[str, Any] = Body(default={}),
     ):
         instance = model_class.get(id)
         if not instance:
@@ -297,7 +325,7 @@ def make_custom_post(attr, model_class, route_path):
 
     async def post_no_id(
         request: Request,
-        data: Dict[str, Any] = Body(...),
+        data: Dict[str, Any] = Body(default={}),
     ):
         _check_access(request, model_class, attr.__name__)
 
@@ -344,6 +372,21 @@ async def auth_me(request: Request):
 
 
 def register_routes():
+    # Pass 1: Register static collection routes for join models FIRST.
+    # These must come before parent model's /{table}/{id:int} routes because
+    # FastAPI matches routes by registration order, and {id:int} would match
+    # "comments" before the static /products/comments route gets a chance.
+    # Route path uses __tablename__ to match the DynamicClass href the frontend
+    # constructs from the schema's __tablename__ field.
+    for model_name, model_class in registered_models.items():
+        parent_class = getattr(model_class, '__owner__', None)
+        if parent_class and issubclass(model_class, StorableMixin):
+            tag = parent_class.__tablename__.capitalize()
+            collection_path = f"/{model_class.__tablename__}"
+            router.get(collection_path, tags=[tag])(make_collection_list(model_class))
+            print(f"[ROUTES] Collection route: GET {collection_path}")
+
+    # Pass 2: Register all model routes (schema, CRUD, custom methods)
     for model_name, model_class in registered_models.items():
         # Extract model metadata
         print(f"[ROUTES] Registering routes for model: {model_name} ({model_class.__name__})")
@@ -357,7 +400,7 @@ def register_routes():
         else:
             tag = model_class.__owner__.__tablename__.capitalize()
             parent_name = parent_class.__name__.lower()
-            endpoint_base = f"/{parent_class.__tablename__}/{{parent_id}}/{model_class.__tagname__}"
+            endpoint_base = f"/{parent_class.__tablename__}/{{parent_id:int}}/{model_class.__tagname__}"
 
         # Register basic GET route for schema
         router.get(f"/{model_class.__name__}", tags=[tag])(make_get_schema(model_class))
@@ -365,9 +408,9 @@ def register_routes():
         if is_storable:
             router.post(endpoint_base, tags=[tag], status_code=201)(make_create_instance(model_class))
             router.get(endpoint_base, tags=[tag])(make_get_all_instances(model_class))
-            router.get(f"{endpoint_base}/{{id}}", tags=[tag])(make_get_instance(model_class))
-            router.put(f"{endpoint_base}/{{id}}", tags=[tag])(make_update_instance(model_class))
-            router.delete(f"{endpoint_base}/{{id}}", tags=[tag])(make_delete_instance(model_class))
+            router.get(f"{endpoint_base}/{{id:int}}", tags=[tag])(make_get_instance(model_class))
+            router.put(f"{endpoint_base}/{{id:int}}", tags=[tag])(make_update_instance(model_class))
+            router.delete(f"{endpoint_base}/{{id:int}}", tags=[tag])(make_delete_instance(model_class))
 
         # Custom @expose_route handlers
         for attr_name in dir(model_class):
@@ -380,7 +423,7 @@ def register_routes():
                 sig = signature(attr)
                 is_instance_method = 'self' in sig.parameters
                 if is_instance_method:
-                    full_route = f"{endpoint_base}/{{id}}{route}"
+                    full_route = f"{endpoint_base}/{{id:int}}{route}"
                 else:
                     full_route = f"{endpoint_base}{route}"
 
@@ -407,7 +450,7 @@ def register_routes():
                         router.add_api_route(full_route, custom_get, methods=['GET'], tags=[model_title], name=attr.__name__)
                         custom_method = custom_get
                     elif 'POST' in methods:
-                        async def custom_post(data: Dict[str, Any] = Body(...), attr=attr) -> return_type:
+                        async def custom_post(data: Dict[str, Any] = Body(default={}), attr=attr) -> return_type:
                             print(f"[POST] Custom POST handler for {attr.__name__} at {full_route} with data: {data}")
                             return attr(**data)
                         custom_method = custom_post
@@ -422,7 +465,7 @@ def register_routes():
                     elif 'POST' in methods:
                         async def custom_post(
                                 id: int = Path(..., description=f"{model_name.capitalize()} primary key"),
-                                data: Dict[str, Any] = Body(...),
+                                data: Dict[str, Any] = Body(default={}),
                                 attr=attr
                         ) -> return_type:
                             print(f"[POST] Custom POST handler for {attr.__name__} ID={id} at {full_route} with data: {data}")

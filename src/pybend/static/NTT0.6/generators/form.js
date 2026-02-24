@@ -78,6 +78,8 @@ import Logging from '../utils/Logging.js';
           placeholder="${ui.placeholder || ''}"
           button-label="${ui.button_label || 'Run'}"
           widget="${ui.widget || ''}"
+          icon="${ui.icon || ''}"
+          count-field="${ui.count_field || ''}"
           label="${methodDef.title || methodName}">
       </ntt-method>`;
   }
@@ -237,9 +239,15 @@ function getListInput(ntt, key, mode = 'display') {
     const VISIBLE_COUNT = 2;
     const def = ntt.schema.properties?.[key];
     const items = def.items || {};
-    const value = ntt.value?.[key] || [];
+    const rawValue = ntt.value?.[key] || [];
     const defs = ntt.schema?.$defs || {};
     let html = [];
+
+    // Normalize: populated wrapper {data: [...], meta: {...}} → plain array
+    let value = rawValue;
+    if (!Array.isArray(value) && value && typeof value === 'object' && Array.isArray(value.data)) {
+        value = value.data;
+    }
 
     // Extract model name from $ref in items schema
     let modelName = null;
@@ -256,7 +264,9 @@ function getListInput(ntt, key, mode = 'display') {
         childTag = defs[modelName].ui.renderer.item;
     }
 
-    const count = Array.isArray(value) ? value.filter(v => typeof v === 'string').length : 0;
+    // Count refs — items can be href strings or populated objects with $id
+    const refs = Array.isArray(value) ? value.filter(v => typeof v === 'string' || (v && typeof v === 'object' && v.$id)) : [];
+    const count = refs.length;
 
     html.push(`<div class="list-field" data-model="${modelName || ''}" data-value="${key}">`);
     html.push(`<div class="list-field-header">`);
@@ -266,11 +276,13 @@ function getListInput(ntt, key, mode = 'display') {
 
     if (Array.isArray(value)) {
         value.forEach((item, i) => {
-            if (typeof item === 'string') {
+            // Extract href: plain string or populated object's $id
+            const ref = typeof item === 'string' ? item : (item?.$id || null);
+            if (ref) {
                 if (i === VISIBLE_COUNT) {
                     html.push(`<div class="nested-collapsed">`);
                 }
-                html.push(`<${childTag} ref="${item}" display="sm"${modelName ? ` data-model="${modelName}"` : ''}></${childTag}>`);
+                html.push(`<${childTag} ref="${ref}" display="sm"${modelName ? ` data-model="${modelName}"` : ''}></${childTag}>`);
             }
         });
         if (count > VISIBLE_COUNT) {

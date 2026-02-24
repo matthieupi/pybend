@@ -19,5 +19,11 @@
 ### `/like` [POST] (instancemethod)
 **Method**: `like`
 #### Parameters:
-- `like`: *$ref*
+- *(none)*
+**Returns**: `string`
+
+### `/reply` [POST] (instancemethod)
+**Method**: `reply`
+#### Parameters:
+- `text`: *string*
 **Returns**: `string`

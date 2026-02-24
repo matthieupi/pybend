@@ -2,21 +2,109 @@
 
 ## Philosophy
 
-PyBend absorbs the data plumbing — storage, fetching, state, serialization — so developers focus on what makes their app unique. Define a model, get an API, a schema, a working UI. The things that Redux, GraphQL, fetch(), and most of React solve become non-problems.
+PyBend absorbs the data plumbing — storage, fetching, state,
+serialization — so developers focus on what makes their app unique.
+Define a model, get an API, a schema, a working UI. The things that
+Redux, GraphQL, fetch(), and most of React solve become non-problems.
 
 ### Core Principles
 
-**The model is the app.** A Python model definition is the single source of truth for the entire stack: data structure, validation, API endpoints, JSON Schema, access control, UI rendering. Write the model; the framework derives everything else. If the schema can carry it, the developer shouldn't have to repeat it.
+**The model is the app.** A Python model definition is the single
+source of truth for the entire stack: data structure, validation, API
+endpoints, JSON Schema, access control, UI rendering. Write the model;
+the framework derives everything else. If the schema can carry it, the
+developer shouldn't have to repeat it.
 
-**Zero to working, then customize.** Everything works out of the box with no configuration. Customization is additive — override one piece without rebuilding the rest. Use the auto-generated UI as-is, or override `render()`, or drop to raw messages. Each level down gives more control without losing what the levels above provided. The framework should never force a developer to understand the whole stack just to change one thing.
+**Zero to working, then customize.** Everything works out of the box
+with no configuration. Customization is additive — override one piece
+without rebuilding the rest. Use the auto-generated UI as-is, or
+override `render()`, or drop to raw messages. Each level down gives
+more control without losing what the levels above provided. The
+framework should never force a developer to understand the whole stack
+just to change one thing.
 
-**Primitives, not opinions.** The framework provides composable building blocks — base classes, schema extensions, rendering utilities — not a rigid component library. Developers extend and compose. The framework owns the data lifecycle; developers own presentation and interaction. Think LitElement's approach to Web Components: powerful base, zero dictation.
+**Primitives, not opinions.** The framework provides composable
+building blocks — base classes, schema extensions, rendering
+utilities — not a rigid component library. Developers extend and
+compose. The framework owns the data lifecycle; developers own
+presentation and interaction. Think LitElement's approach to Web
+Components: powerful base, zero dictation.
 
-**Backend is authoritative.** The backend defines models, schemas, access rules, relationships, and UI hints. The frontend reads these at runtime and adapts. Deploying a new model or changing a field propagates to the UI automatically. The frontend never duplicates what the backend already knows.
+**Backend is authoritative.** The backend defines models, schemas,
+access rules, relationships, and UI hints. The frontend reads these at
+runtime and adapts. Deploying a new model or changing a field
+propagates to the UI automatically. The frontend never duplicates what
+the backend already knows.
 
-**Transparent, not magical.** Nothing is hidden behind abstractions you can't see through. Actor messaging, schema resolution, DynamicClass creation — all inspectable, all overridable. The value is not in hiding complexity but in not making you do it by hand. A developer should be able to trace any behavior from the HTML tag to the network request in under a minute.
+**Transparent, not magical.** Nothing is hidden behind abstractions
+you can't see through. Actor messaging, schema resolution, DynamicClass
+creation — all inspectable, all overridable. The value is not in hiding
+complexity but in not making you do it by hand. A developer should be
+able to trace any behavior from the HTML tag to the network request in
+under a minute.
 
-**Modular where it simplifies, coupled where it must.** Architectural parts that can stand alone should stand alone. The `authorize` package has zero PyBend imports — it works as a generic ABAC library and happens to plug into PyBend. StorableMixin is injected, not inherited. The Actor system knows nothing about HTML. When a boundary is real (auth doesn't need to know about storage, messaging doesn't need to know about DOM), enforce it — separate packages, no cross-imports, clean interfaces. But don't split things that are genuinely one concern into two packages for the sake of modularity. A class with one consumer doesn't need its own file. An abstraction layer that just passes through adds indirection without value. The test: does this boundary make the code easier to read, easier to test, or easier to replace one side without touching the other? If yes, decouple. If it just adds a hop, keep it together.
+**Modular where it simplifies, coupled where it must.** Architectural
+parts that can stand alone should stand alone. The `authorize` package
+has zero PyBend imports — it works as a generic ABAC library and
+happens to plug into PyBend. StorableMixin is injected, not inherited.
+The Actor system knows nothing about HTML. When a boundary is real
+(auth doesn't need to know about storage, messaging doesn't need to
+know about DOM), enforce it — separate packages, no cross-imports,
+clean interfaces. But don't split things that are genuinely one concern
+into two packages for the sake of modularity. A class with one consumer
+doesn't need its own file. An abstraction layer that just passes
+through adds indirection without value. The test: does this boundary
+make the code easier to read, easier to test, or easier to replace one
+side without touching the other? If yes, decouple. If it just adds a
+hop, keep it together.
+
+## Development Workflow
+
+### Before Making Changes
+
+Before writing any code, review the area you are about to change.
+Understand the intent behind the existing implementation — why it was
+built this way, what patterns it follows, and how it fits into the
+larger system. Changes must be consistent with the architecture already
+in place. Do not work around the framework; work with it.
+
+**Consistency is paramount.** PyBend's power comes from a small number
+of patterns applied uniformly across the entire stack. A single
+inconsistency — a hand-rolled route bypassing `register_routes()`, a
+frontend component fetching data outside the schema flow, a model that
+stores data differently from every other model — creates confusion,
+breaks assumptions, and compounds into real bugs over time. Every
+change should reinforce the existing architecture, not erode it. When
+in doubt, look at how the same thing is done elsewhere in the codebase
+and follow that pattern.
+
+### Bug Fixes
+
+Standard bug fix procedure applies: reproduce, isolate, fix, verify.
+But before jumping to a fix, ask **why** the bug exists in the first
+place.
+
+Most bugs introduced by developers are not simple typos — they are
+symptoms of a deeper misalignment. There are typically two root causes:
+
+1. **The developer didn't understand the architecture.** They built
+   something that works in isolation but conflicts with how the system
+   actually operates. The fix here is not just patching the symptom —
+   it's understanding the correct pattern and rewriting the change to
+   be consistent with the architecture. If this keeps happening in the
+   same area, the documentation needs to be improved so the intent is
+   clearer.
+
+2. **The architecture doesn't support what they're trying to do.** The
+   developer understood the system but found no clean way to achieve
+   their goal, so they hacked around it. The fix here is not to patch
+   the hack — it's to step back and ask: what should the architecture
+   provide so this can be done elegantly? Then make that deeper change.
+
+In both cases, the response to a bug is: first identify its root
+cause, then decide whether the fix is a code correction, a
+documentation improvement, or an architectural enhancement. Never just
+silence the symptom.
 
 ## Architecture Overview
 

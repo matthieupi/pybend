@@ -24,6 +24,7 @@ register_model(Product, storage=storage_backend)
 register_model(User, storage=storage_backend)
 register_model(generate_join_model(Product, Comment), storage=storage_backend)
 register_model(generate_join_model(Comment, Like), storage=storage_backend)      # CommentLike (likes)
+register_model(generate_join_model(Product, Like), storage=storage_backend)      # ProductLike (favorites)
 
 if os.getenv("GENERATE_DOCS", "true").lower() in ("1", "true"):
     generate_docs()

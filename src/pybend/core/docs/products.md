@@ -12,10 +12,17 @@
 | price | number | Yes | — |
 | description | string | No |  |
 | comments | array | No | [] |
+| favorites | array | No | [] |
 
 ## Routes
 ### `/comment` [POST] (instancemethod)
 **Method**: `comment`
 #### Parameters:
 - `comment`: *$ref*
+**Returns**: `string`
+
+### `/favorite` [POST] (instancemethod)
+**Method**: `favorite`
+#### Parameters:
+- *(none)*
 **Returns**: `string`

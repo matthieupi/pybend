@@ -680,7 +680,11 @@ function prototype(addr, schema, href) {
         Logging.init(`Dynamic ${className} ${data.id}`, data)
         super(className, data.id);
         this.value = data;
-        this.href = `${href}/${this.id}`;
+        // Use the entity's $id (context-specific URL) when available.
+        // For nested entities (e.g. comments inside products), $id carries
+        // the correct CRUD path (/products/1/comments/3) while the
+        // DynamicClass-level href points to the standalone collection (/comments).
+        this.href = data.$id || `${href}/${this.id}`;
         Logging.dev(`[NTT] Created instance of ${className}`, this.addr)
       }
 
@@ -851,6 +855,12 @@ function prototype(addr, schema, href) {
             const id = addr.split('/')[1];
             const instance = DynamicClass.children.get(id);
             if (instance) {
+                // Update href if the attaching component knows a more specific URL
+                // (e.g. a nested entity whose href was set from DynamicClass default
+                // but meta.href carries the correct parent-scoped URL)
+                if (tx.meta?.href && tx.meta.href !== instance.href) {
+                    instance.href = tx.meta.href;
+                }
                 // Instance exists — forward directly
                 const reprTx = tx instanceof TX ? tx.repr() : {...tx};
                 reprTx.target = `/${id}`;
@@ -1029,10 +1039,13 @@ function prototype(addr, schema, href) {
 
     /**
      * Instance READ — handles pull() responses for individual entities.
-     * Without this, pull() responses hit "no handler for READ" because
-     * the inherited _read_ doesn't match the uppercase event name.
+     * Normalizes populated wrappers ({data, meta} → href arrays) and
+     * pre-registers child instances, same as the class-level READ.
+     * Without this, pull() responses would store raw wrappers, breaking
+     * components that expect href arrays for collection fields.
      */
     DynamicClass.prototype.READ = function(data) {
+        normalizePopulated(data, DynamicClass._schema);
         this.update(data);
     };
 
