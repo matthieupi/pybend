@@ -1,0 +1,441 @@
+/* ── Kitchen Sink — Page-specific styles ──
+ * Prefix: ks-
+ * Builds on design system vars from dark-theme.css / light-theme.css.
+ * Reuses .header-glass, .header-brand, .header-logo, .header-sub, .header-tag.
+ */
+
+
+/* ── Sections ── */
+
+.ks-section {
+  position: relative;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.ks-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--glass-bg);
+  background-image: var(--glass-gradient);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-top-color: var(--light-highlight);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  z-index: -1;
+}
+
+.ks-section-title {
+  margin-bottom: 0.25rem;
+}
+
+.ks-section-desc {
+  color: var(--text-2);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.ks-section-desc code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82em;
+  padding: 0.15em 0.45em;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent-text);
+}
+
+
+/* ── Subsections ── */
+
+.ks-subsection {
+  margin-bottom: 1.5rem;
+}
+
+.ks-subsection:last-child {
+  margin-bottom: 0;
+}
+
+.ks-sub-title {
+  color: var(--text-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.75rem;
+}
+
+
+/* ── xs: Pill row ── */
+
+.ks-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ks-pill-row ntt-item {
+  display: inline-flex;
+}
+
+
+/* ── sm: Compact stacked rows ── */
+
+.ks-sm-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ks-sm-stack ntt-item {
+  display: block;
+}
+
+
+/* ── md: Card grid ── */
+
+.ks-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.ks-card-grid ntt-item {
+  display: block;
+  min-width: 0;
+}
+
+
+/* ── lg: Detail (single item) ── */
+
+.ks-detail {
+  max-width: 720px;
+}
+
+.ks-detail ntt-item {
+  display: block;
+}
+
+
+/* ── Auth badge in hero ── */
+
+.ks-auth-badge {
+  margin-left: 0.5rem;
+}
+
+.ks-auth-badge.ks-auth-ok {
+  background: rgba(52, 211, 153, 0.15);
+  border-color: rgba(52, 211, 153, 0.25);
+  color: var(--success);
+}
+
+.ks-auth-badge.ks-auth-anon {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.20);
+  color: var(--error);
+}
+
+
+/* ── Schema Inspector ── */
+
+.ks-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ks-inspector-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.ks-select {
+  flex: 1;
+  max-width: 280px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--text-0);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  outline: none;
+  box-shadow: var(--shadow-inset);
+  transition: border-color var(--duration-normal) var(--ease);
+  cursor: pointer;
+}
+
+.ks-select:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-inset), 0 0 0 3px var(--accent-dim);
+}
+
+.ks-select option {
+  background: var(--surface-2);
+  color: var(--text-0);
+}
+
+.ks-btn {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--surface-0);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 1.25rem;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease);
+  box-shadow: var(--shadow-sm);
+}
+
+.ks-btn:hover {
+  box-shadow: var(--shadow-md), var(--shadow-accent-md);
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.ks-schema-output {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  max-height: 520px;
+  overflow-y: auto;
+  color: var(--text-1);
+}
+
+
+/* ── JSON tree ── */
+
+.jt-root {
+  /* root wrapper */
+}
+
+.jt-children {
+  margin-left: 1.25rem;
+  border-left: 1px solid var(--border);
+  padding-left: 0.75rem;
+}
+
+.jt {
+  margin: 0;
+}
+
+.jt > summary {
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease);
+  list-style: none;
+}
+
+.jt > summary::-webkit-details-marker { display: none; }
+
+.jt > summary::before {
+  content: '\25B6';
+  display: inline-block;
+  font-size: 0.6em;
+  margin-right: 0.5em;
+  transition: transform var(--duration-fast) var(--ease);
+  color: var(--text-3);
+}
+
+.jt[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.jt > summary:hover {
+  background: var(--accent-dim);
+}
+
+.jt-hint {
+  color: var(--text-3);
+  font-weight: 400;
+  margin-left: 0.5em;
+  font-size: 0.9em;
+}
+
+.jt-leaf {
+  padding: 0.15rem 0.4rem;
+}
+
+.jt-item {
+  padding: 0.1rem 0;
+}
+
+.jk {
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+.jv-str  { color: var(--success); }
+.jv-num  { color: var(--warm); }
+.jv-bool { color: #c084fc; }
+.jv-null { color: var(--text-3); font-style: italic; }
+.jv-bracket { color: var(--text-3); }
+
+
+/* ── Auth & Permissions panel ── */
+
+.ks-auth-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ks-auth-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.4rem 0;
+}
+
+.ks-auth-label {
+  min-width: 80px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+
+.ks-auth-value {
+  font-size: 0.9rem;
+  color: var(--text-0);
+}
+
+.ks-text-warn {
+  color: var(--warning);
+}
+
+.ks-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+}
+
+.ks-auth-hint {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.ks-perm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.ks-perm-check {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.ks-perm-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--text-1);
+}
+
+.ks-perm-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 100px;
+}
+
+.ks-perm-yes {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--success);
+}
+
+.ks-perm-no {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--error);
+}
+
+
+/* ── Loading / Empty / Error states ── */
+
+.ks-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-3);
+}
+
+.ks-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: var(--text-2);
+}
+
+.ks-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: ks-spin 0.8s linear infinite;
+}
+
+@keyframes ks-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ks-error {
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  color: var(--error);
+  text-align: center;
+}
+
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .ks-section {
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .ks-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ks-inspector-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ks-select {
+    max-width: none;
+  }
+
+  .ks-perm-grid {
+    grid-template-columns: 1fr;
+  }
+}
