@@ -2,7 +2,6 @@ import Logging from '../../utils/Logging.js';
 import { showToast } from '../../utils/Toast.js';
 
 export default class HTTP {
-    
     constructor() {
     }
     

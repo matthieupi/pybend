@@ -1,4 +1,5 @@
 # app/models/base_model.py
+import copy
 import inspect
 import json
 import logging
@@ -45,6 +46,19 @@ class ProtoModel(PydanticBaseModel):
     Base model that optionally adds StorableMixin based on the 'storable' class attribute.
     """
     __fk_models__: ClassVar[Dict[str, Type]] = {}
+
+    # --- Performance caches (class-level, shared across all subclasses) ---
+    # Schema generation is expensive (Pydantic introspection, reference collection,
+    # field exclusion, access rules, UI hints). Cache the result per model class
+    # so GET /{ClassName} is a dict copy instead of a full rebuild each time.
+    # Keyed by the class object itself (not name or id()) so that distinct classes
+    # with the same name (common in tests) never collide.
+    _schema_cache: ClassVar[dict] = {}
+    # model_dump(response=True) injects $schema and $id on every instance.
+    # The class-level parts ($schema URL, tablename prefix) never change at runtime,
+    # so we compute them once and reuse.
+    _response_meta_cache: ClassVar[dict] = {}
+
     id: int = Field(default=0)
     image: str = Field(default='')
 
@@ -105,11 +119,19 @@ class ProtoModel(PydanticBaseModel):
         Default returns plain data for DB. response=True adds JSON Schema metadata."""
         data = super().model_dump(**kwargs)
         if response:
-            tablename = getattr(self.__class__, '__tablename__', self.__class__.__name__.lower())
+            cls = self.__class__
+            # Cache the class-level URL parts — these never change at runtime.
+            if cls not in ProtoModel._response_meta_cache:
+                tablename = getattr(cls, '__tablename__', cls.__name__.lower())
+                ProtoModel._response_meta_cache[cls] = {
+                    'schema_url': f"{config.API_URL}/{cls.__name__}",
+                    'base_url': f"{config.API_URL}/{tablename}",
+                }
+            meta = ProtoModel._response_meta_cache[cls]
             instance_id = getattr(self, 'id', None)
             data = {
-                '$schema': f"{config.API_URL}/{self.__class__.__name__}",
-                '$id': f"{config.API_URL}/{tablename}/{instance_id}" if instance_id is not None else None,
+                '$schema': meta['schema_url'],
+                '$id': f"{meta['base_url']}/{instance_id}" if instance_id is not None else None,
                 **data
             }
         return data
@@ -166,11 +188,23 @@ class ProtoModel(PydanticBaseModel):
         return methods
 
     @classmethod
+    def invalidate_schema_cache(cls):
+        """Clear cached schema for this model (e.g., during tests or after
+        dynamic model redefinition). In normal operation schemas are immutable
+        once the server starts, so this is rarely needed."""
+        ProtoModel._schema_cache.pop(cls, None)
+
+    @classmethod
     #@expose_route('/schema', methods=['GET'])
     def schema(cls) -> Dict[str, Any]:
         """
         Returns the schema for this model.
         """
+        # Return cached schema if available. deepcopy because some callers
+        # mutate the returned dict (e.g., ref_schema.pop('$defs')).
+        if cls in ProtoModel._schema_cache:
+            return copy.deepcopy(ProtoModel._schema_cache[cls])
+
         referenced_models = collect_all_referenced_models(cls)
         schema = cls.model_json_schema(ref_template="#/$defs/{model}")
 
@@ -276,7 +310,10 @@ class ProtoModel(PydanticBaseModel):
         schema['$schema'] = f"{config.API_URL}/Schema"
         schema['$id'] = f"{config.API_URL}/{cls.__name__}"
 
-        return schema
+        # Cache the fully-built schema. Subsequent calls return a deepcopy
+        # of this snapshot, avoiding the expensive rebuild above.
+        ProtoModel._schema_cache[cls] = schema
+        return copy.deepcopy(schema)
 
 
     @classmethod

@@ -661,7 +661,6 @@ function normalizePopulated(entity, schema) {
  * @returns {class} DynamicClass extends NTT
  */
 function prototype(addr, schema, href) {
-
     Logging.debug(`[NTT] Creating DynamicClass for ${addr}`);
     const fields = Object.keys(schema.properties || {});
     const methods = Object.keys(schema.methods || {});

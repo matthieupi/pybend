@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyBend Profiling Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+    --border: #30363d; --text: #c9d1d9; --text-dim: #8b949e;
+    --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --mono: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* Layout */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header .pill { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--accent); color: #000; font-weight: 600; }
+  nav { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 24px; }
+  nav button { background: none; border: none; color: var(--text-dim); font-size: 13px; padding: 10px 16px;
+    cursor: pointer; border-bottom: 2px solid transparent; font-family: var(--font); }
+  nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  nav button:hover { color: var(--text); }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  .tab { display: none; }
+  .tab.active { display: block; }
+
+  /* Cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 16px; }
+  .card .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .value { font-size: 28px; font-weight: 600; margin-top: 4px; }
+  .card .sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  th { background: var(--surface); color: var(--text-dim); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; }
+  td { font-family: var(--mono); font-size: 12px; }
+  tr:hover { background: var(--surface2); }
+  .num { text-align: right; }
+  .pos { color: var(--red); }
+  .neg { color: var(--green); }
+  .tier-header td { background: var(--surface2); font-weight: 600; font-family: var(--font); color: var(--accent); }
+
+  /* Bars */
+  .bar-container { display: flex; align-items: center; gap: 8px; }
+  .bar { height: 18px; border-radius: 3px; min-width: 2px; transition: width 0.3s; }
+  .bar.a { background: var(--accent); opacity: 0.6; }
+  .bar.b { background: var(--accent); }
+  .bar-label { font-size: 11px; color: var(--text-dim); min-width: 50px; }
+
+  /* Run panel */
+  .run-panel { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+  input[type="text"] { background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 6px; font-size: 13px; width: 200px; }
+  input[type="text"]:focus { outline: none; border-color: var(--accent); }
+  button.btn { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer;
+    font-size: 13px; font-family: var(--font); transition: all 0.15s; }
+  button.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { opacity: 0.85; }
+  button.btn:not(.primary) { background: var(--surface); color: var(--text); }
+  button.btn:not(.primary):hover { background: var(--surface2); }
+  button.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .status-msg { font-size: 13px; color: var(--text-dim); }
+  .status-msg.running { color: var(--yellow); }
+  .status-msg.done { color: var(--green); }
+  .status-msg.error { color: var(--red); }
+
+  /* Log viewer */
+  pre.logs { background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    padding: 16px; font-size: 11px; line-height: 1.5; overflow: auto; max-height: 600px;
+    color: var(--text-dim); white-space: pre-wrap; word-break: break-all; }
+
+  /* Compare selectors */
+  select { background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+  select:focus { outline: none; border-color: var(--accent); }
+
+  /* History table extras */
+  .clickable { cursor: pointer; }
+  .clickable:hover { color: var(--accent); text-decoration: underline; }
+
+  /* Scaling chart */
+  .scaling-chart { display: grid; grid-template-columns: 120px 1fr 1fr 80px; gap: 4px 12px; align-items: center; margin: 16px 0; }
+  .scaling-chart .tier-name { font-size: 12px; font-weight: 600; }
+  .scaling-chart .bar-wrap { height: 24px; display: flex; align-items: center; }
+  .scaling-chart .ms-label { font-size: 11px; color: var(--text-dim); text-align: right; }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+  .empty-state p { margin-top: 8px; font-size: 14px; }
+  .section-title { font-size: 14px; font-weight: 600; margin: 24px 0 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PyBend Profiling Dashboard</h1>
+  <span class="pill">v1</span>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('dashboard')">Dashboard</button>
+  <button onclick="showTab('run')">Run</button>
+  <button onclick="showTab('history')">History</button>
+  <button onclick="showTab('compare')">Compare</button>
+  <button onclick="showTab('logs')">Logs</button>
+</nav>
+
+<main>
+
+<!-- Dashboard Tab -->
+<div id="tab-dashboard" class="tab active">
+  <div class="cards" id="summary-cards">
+    <div class="card"><div class="label">Last Run</div><div class="value" id="last-label">--</div><div class="sub" id="last-time">--</div></div>
+    <div class="card"><div class="label">Total Ops</div><div class="value" id="last-ops">--</div><div class="sub">across all tiers</div></div>
+    <div class="card"><div class="label">Grand Total</div><div class="value" id="last-total">--</div><div class="sub">milliseconds</div></div>
+    <div class="card"><div class="label">Errors</div><div class="value" id="last-errors" style="color:var(--text)">--</div><div class="sub">unexpected responses</div></div>
+    <div class="card"><div class="label">History</div><div class="value" id="history-count">--</div><div class="sub">recorded runs</div></div>
+  </div>
+  <div class="section-title">Latest Run — Scaling by Tier</div>
+  <div id="dashboard-scaling"></div>
+  <div class="section-title">Latest Run — API Per-Operation Breakdown</div>
+  <div id="dashboard-detail" style="max-height:500px;overflow:auto"></div>
+  <div class="section-title">Latest Run — Frontend (Playwright) Breakdown</div>
+  <div id="dashboard-frontend" style="max-height:500px;overflow:auto"></div>
+</div>
+
+<!-- Run Tab -->
+<div id="tab-run" class="tab">
+  <div class="run-panel">
+    <input type="text" id="run-label" placeholder="Label (e.g. baseline)" value="baseline">
+    <button class="btn primary" id="run-btn" onclick="startRun('all')">Run All</button>
+    <button class="btn" id="run-btn-api" onclick="startRun('api')">Run Backend</button>
+    <button class="btn" id="run-btn-e2e" onclick="startRun('e2e')">Run Frontend</button>
+    <span class="status-msg" id="run-status"></span>
+  </div>
+  <pre class="logs" id="run-output" style="min-height:200px">(output will appear here)</pre>
+</div>
+
+<!-- History Tab -->
+<div id="tab-history" class="tab">
+  <div id="history-table"></div>
+</div>
+
+<!-- Compare Tab -->
+<div id="tab-compare" class="tab">
+  <div class="run-panel">
+    <select id="compare-a"></select>
+    <span style="color:var(--text-dim)">vs</span>
+    <select id="compare-b"></select>
+    <button class="btn primary" onclick="runCompare()">Compare</button>
+  </div>
+  <div id="compare-scaling"></div>
+  <div id="compare-results" style="max-height:600px;overflow:auto"></div>
+</div>
+
+<!-- Logs Tab -->
+<div id="tab-logs" class="tab">
+  <div class="run-panel">
+    <select id="logs-label" onchange="loadLogs()"></select>
+    <button class="btn" onclick="loadLogs()">Refresh Logs</button>
+    <span id="logs-file" style="font-size:11px;color:var(--text-dim)"></span>
+  </div>
+  <pre class="logs" id="logs-content">(loading...)</pre>
+</div>
+
+</main>
+
+<script>
+const API = '';
+
+// ── Tab switching ──
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b => {
+    if (b.textContent.toLowerCase() === name) b.classList.add('active');
+  });
+  if (name === 'history') loadHistory();
+  if (name === 'compare') loadCompareOptions();
+  if (name === 'logs') { document.getElementById('logs-label').innerHTML = ''; loadLogs(); }
+}
+
+// ── Dashboard ──
+async function loadDashboard() {
+  const history = await fetch(API + '/api/history').then(r => r.json());
+  document.getElementById('history-count').textContent = history.length;
+
+  if (history.length === 0) {
+    document.getElementById('last-label').textContent = '--';
+    document.getElementById('dashboard-scaling').innerHTML = '<div class="empty-state"><p>No runs yet. Go to Run tab to start profiling.</p></div>';
+    return;
+  }
+
+  const latest = history[history.length - 1];
+  document.getElementById('last-label').textContent = latest.label;
+  document.getElementById('last-time').textContent = latest.timestamp;
+  document.getElementById('last-ops').textContent = latest.summary?.grand_ops || '--';
+  document.getElementById('last-total').textContent = (latest.summary?.grand_total_ms || 0).toFixed(0) + 'ms';
+  const errCount = latest.summary?.grand_errors || 0;
+  const errEl = document.getElementById('last-errors');
+  errEl.textContent = errCount || '0';
+  errEl.style.color = errCount > 0 ? 'var(--red)' : 'var(--green)';
+
+  // Load full API run for detail
+  const run = await fetch(API + '/api/run/' + encodeURIComponent(latest.label)).then(r => r.json());
+  if (run.results) {
+    renderScalingChart('dashboard-scaling', run);
+    renderResultsTable('dashboard-detail', run.results);
+  }
+
+  // Load frontend run if available
+  loadFrontendResults(latest.label, 'dashboard-frontend');
+}
+
+function renderScalingChart(containerId, run) {
+  const el = document.getElementById(containerId);
+  const tiers = run.summary?.tiers || {};
+  const maxMs = Math.max(...Object.values(tiers).map(t => t.total_ms), 1);
+
+  let html = '<div class="scaling-chart">';
+  for (const tier of ['empty', 'small', 'medium', 'large', 'full']) {
+    const t = tiers[tier];
+    if (!t) continue;
+    const pct = (t.total_ms / maxMs * 100).toFixed(0);
+    const recs = t.db_records != null ? t.db_records : '?';
+    html += `<div class="tier-name">${tier} <span style="font-weight:400;font-size:11px;color:var(--text-dim)">(${recs} recs)</span></div>`;
+    html += `<div class="bar-wrap"><div class="bar b" style="width:${pct}%"></div></div>`;
+    html += `<div class="ms-label">${t.total_ms.toFixed(0)}ms</div>`;
+    html += `<div class="ms-label">${t.ops} ops</div>`;
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function renderResultsTable(containerId, results) {
+  const el = document.getElementById(containerId);
+  let currentTier = null;
+  let html = '<table><tr><th>Operation</th><th>Method</th><th class="num">Status</th><th class="num">Duration (ms)</th></tr>';
+  for (const r of results) {
+    if (r.tier !== currentTier) {
+      currentTier = r.tier;
+      html += `<tr class="tier-header"><td colspan="4">Tier: ${r.tier}</td></tr>`;
+    }
+    const isErr = r.error || (r.status >= 400);
+    const statusCls = isErr ? ' class="num pos"' : ' class="num"';
+    const nameCls = isErr ? ' style="color:var(--red)"' : '';
+    html += `<tr><td${nameCls}>${r.name}${isErr ? ' !!' : ''}</td><td>${r.method}</td><td${statusCls}>${r.status}</td><td class="num">${r.duration_ms.toFixed(2)}</td></tr>`;
+  }
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+async function loadFrontendResults(label, containerId) {
+  const el = document.getElementById(containerId);
+  try {
+    const resp = await fetch(API + '/api/frontend-run/' + encodeURIComponent(label));
+    if (!resp.ok) { el.innerHTML = '<div class="empty-state"><p>No frontend profiling data for this run.</p></div>'; return; }
+    const data = await resp.json();
+    if (!data.results || data.results.length === 0) { el.innerHTML = '<div class="empty-state"><p>No frontend measurements recorded.</p></div>'; return; }
+    // Render as a simple results table (frontend results have no tier grouping)
+    let html = '<table><tr><th>Operation</th><th class="num">Duration (ms)</th><th class="num">Status</th></tr>';
+    for (const r of data.results) {
+      if (r.name.startsWith('js:') || r.name.startsWith('bootstrap:js:') ||
+          r.name.startsWith('detail:js:') || r.name.startsWith('warm_reload:js:')) continue;
+      const isErr = r.error;
+      const nameCls = isErr ? ' style="color:var(--red)"' : '';
+      const statusStr = r.status ? String(r.status) : '--';
+      html += `<tr><td${nameCls}>${r.name}${isErr ? ' !!' : ''}</td><td class="num">${r.duration_ms.toFixed(2)}</td><td class="num">${statusStr}</td></tr>`;
+    }
+    html += '</table>';
+    if (data.errors) html += `<div style="margin-top:8px;color:var(--red);font-size:12px">${data.errors} operation(s) with unexpected status</div>`;
+    el.innerHTML = html;
+  } catch { el.innerHTML = '<div class="empty-state"><p>No frontend profiling data for this run.</p></div>'; }
+}
+
+// ── Run ──
+let pollInterval = null;
+function setRunButtons(disabled) {
+  for (const id of ['run-btn', 'run-btn-api', 'run-btn-e2e']) {
+    document.getElementById(id).disabled = disabled;
+  }
+}
+async function startRun(mode) {
+  const label = document.getElementById('run-label').value.trim() || 'run';
+  const status = document.getElementById('run-status');
+  const output = document.getElementById('run-output');
+
+  setRunButtons(true);
+  status.className = 'status-msg running';
+  status.textContent = 'Starting...';
+  output.textContent = '';
+
+  const modeLabels = { all: 'API + E2E', api: 'API backend', e2e: 'Playwright frontend' };
+
+  try {
+    const resp = await fetch(API + '/api/start', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({label, mode}),
+    });
+    const data = await resp.json();
+    if (!resp.ok) { throw new Error(data.error || 'Failed to start'); }
+
+    status.textContent = `Running ${modeLabels[mode] || mode} profiling...`;
+    pollInterval = setInterval(async () => {
+      const job = await fetch(API + '/api/job/' + encodeURIComponent(label)).then(r => r.json());
+      output.textContent = job.output || '(waiting for output...)';
+      output.scrollTop = output.scrollHeight;
+      if (!job.running) {
+        clearInterval(pollInterval);
+        setRunButtons(false);
+        if (job.exit_code === 0) {
+          status.className = 'status-msg done';
+          status.textContent = 'Done! Completed at ' + (job.finished || '');
+        } else {
+          status.className = 'status-msg error';
+          status.textContent = 'Failed (exit ' + job.exit_code + ')';
+        }
+        loadDashboard();
+      }
+    }, 2000);
+  } catch (e) {
+    status.className = 'status-msg error';
+    status.textContent = e.message;
+    setRunButtons(false);
+  }
+}
+
+// ── History ──
+async function loadHistory() {
+  const history = await fetch(API + '/api/history').then(r => r.json());
+  const el = document.getElementById('history-table');
+  if (history.length === 0) {
+    el.innerHTML = '<div class="empty-state"><p>No profiling runs recorded yet.</p></div>';
+    return;
+  }
+
+  let html = '<table><tr><th>#</th><th>Label</th><th>Timestamp</th><th class="num">Ops</th><th class="num">Total (ms)</th><th>Tiers</th></tr>';
+  history.forEach((run, i) => {
+    const s = run.summary || {};
+    html += `<tr>`;
+    html += `<td>${i + 1}</td>`;
+    html += `<td class="clickable" onclick="viewRun(${i})">${run.label}</td>`;
+    html += `<td>${run.timestamp}</td>`;
+    html += `<td class="num">${s.grand_ops || '--'}</td>`;
+    html += `<td class="num">${(s.grand_total_ms || 0).toFixed(0)}</td>`;
+    html += `<td>${(run.tiers || []).join(', ')}</td>`;
+    html += `</tr>`;
+  });
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+async function viewRun(index) {
+  const run = await fetch(API + '/api/run-by-index/' + index).then(r => r.json());
+  if (run.error) { alert(run.error); return; }
+  // Switch to dashboard and show this run
+  showTab('dashboard');
+  document.getElementById('last-label').textContent = run.label;
+  document.getElementById('last-time').textContent = run.timestamp;
+  document.getElementById('last-ops').textContent = run.summary?.grand_ops || '--';
+  document.getElementById('last-total').textContent = (run.summary?.grand_total_ms || 0).toFixed(0) + 'ms';
+  const errCount = run.summary?.grand_errors || 0;
+  const errEl = document.getElementById('last-errors');
+  errEl.textContent = errCount || '0';
+  errEl.style.color = errCount > 0 ? 'var(--red)' : 'var(--green)';
+  renderScalingChart('dashboard-scaling', run);
+  renderResultsTable('dashboard-detail', run.results);
+  loadFrontendResults(run.label, 'dashboard-frontend');
+}
+
+// ── Compare ──
+async function loadCompareOptions() {
+  const history = await fetch(API + '/api/history').then(r => r.json());
+  const selA = document.getElementById('compare-a');
+  const selB = document.getElementById('compare-b');
+  const labels = [...new Set(history.map(r => r.label))];
+
+  selA.innerHTML = labels.map(l => `<option value="${l}">${l}</option>`).join('');
+  selB.innerHTML = labels.map(l => `<option value="${l}">${l}</option>`).join('');
+  if (labels.length >= 2) selB.selectedIndex = labels.length - 1;
+}
+
+async function runCompare() {
+  const a = document.getElementById('compare-a').value;
+  const b = document.getElementById('compare-b').value;
+  if (!a || !b) { alert('Select two runs to compare'); return; }
+
+  const data = await fetch(API + `/api/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`).then(r => r.json());
+  if (data.error) { alert(data.error); return; }
+
+  // Render scaling comparison
+  const scalingEl = document.getElementById('compare-scaling');
+  const maxMs = Math.max(...data.scaling.map(s => Math.max(s.a, s.b)), 1);
+  let shtml = `<div class="section-title">Scaling: ${data.label_a} vs ${data.label_b}</div><div class="scaling-chart">`;
+  for (const s of data.scaling) {
+    const pctA = (s.a / maxMs * 100).toFixed(0);
+    const pctB = (s.b / maxMs * 100).toFixed(0);
+    const cls = s.pct < -5 ? 'neg' : (s.pct > 5 ? 'pos' : '');
+    const recs = s.db_records != null ? s.db_records : '?';
+    shtml += `<div class="tier-name">${s.tier} <span style="font-weight:400;font-size:11px;color:var(--text-dim)">(${recs} recs)</span></div>`;
+    shtml += `<div class="bar-wrap"><div class="bar a" style="width:${pctA}%" title="${data.label_a}: ${s.a}ms"></div></div>`;
+    shtml += `<div class="bar-wrap"><div class="bar b" style="width:${pctB}%" title="${data.label_b}: ${s.b}ms"></div></div>`;
+    shtml += `<div class="ms-label ${cls}">${s.pct > 0 ? '+' : ''}${s.pct.toFixed(1)}%</div>`;
+  }
+  shtml += '</div><div style="font-size:11px;color:var(--text-dim);margin-bottom:16px">Faded bar = ' + data.label_a + ' &nbsp; Solid bar = ' + data.label_b + '</div>';
+  scalingEl.innerHTML = shtml;
+
+  // Render detail table
+  const el = document.getElementById('compare-results');
+  let currentTier = null;
+  let html = `<table><tr><th>Operation</th><th class="num">${data.label_a} (ms)</th><th class="num">${data.label_b} (ms)</th><th class="num">Delta</th><th class="num">Change</th></tr>`;
+  for (const r of data.rows) {
+    if (r.tier !== currentTier) {
+      currentTier = r.tier;
+      html += `<tr class="tier-header"><td colspan="5">Tier: ${r.tier}</td></tr>`;
+    }
+    const cls = r.pct < -10 ? 'neg' : (r.pct > 10 ? 'pos' : '');
+    const sign = r.delta > 0 ? '+' : '';
+    html += `<tr>`;
+    html += `<td>${r.name}</td>`;
+    html += `<td class="num">${r.a.toFixed(2)}</td>`;
+    html += `<td class="num">${r.b.toFixed(2)}</td>`;
+    html += `<td class="num ${cls}">${sign}${r.delta.toFixed(2)}</td>`;
+    html += `<td class="num ${cls}">${sign}${r.pct.toFixed(1)}%</td>`;
+    html += `</tr>`;
+  }
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+// ── Logs ──
+async function loadLogs() {
+  const sel = document.getElementById('logs-label');
+  // Populate dropdown if empty
+  if (sel.options.length === 0) {
+    const labels = await fetch(API + '/api/log-labels').then(r => r.json());
+    if (labels.length === 0) {
+      document.getElementById('logs-content').textContent = '(no log files yet)';
+      return;
+    }
+    sel.innerHTML = labels.map(l => `<option value="${l}">${l}</option>`).join('');
+  }
+  const label = sel.value;
+  const qs = label ? `?label=${encodeURIComponent(label)}` : '';
+  const data = await fetch(API + '/api/logs' + qs).then(r => r.json());
+  document.getElementById('logs-content').textContent = data.content || '(empty)';
+  document.getElementById('logs-file').textContent = data.label ? `perf_run_${data.label}.log` : '';
+}
+
+// ── Init ──
+loadDashboard();
+</script>
+</body>
+</html>

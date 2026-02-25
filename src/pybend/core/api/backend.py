@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any, ClassVar
 
 from pybend.core.utils.registrar import registered_models
@@ -73,6 +74,10 @@ class FastAPIBackend(BaseBackend):
             allow_headers=["*"],
         )
         self._add_auth_middleware()
+
+        if os.getenv('PYBEND_PROFILING', '').lower() in ('1', 'true'):
+            from pybend.core.tests.profiling.middleware import ProfilingMiddleware
+            self.app.add_middleware(ProfilingMiddleware)
 
     def _add_auth_middleware(self):
         from starlette.middleware.base import BaseHTTPMiddleware
