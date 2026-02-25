@@ -1,6 +1,6 @@
 # Frontend Test Suite Issues
 
-Discovered during in-depth review of the NTT 0.6 test suite (`src/pybend/static/NTT0.6/tests/`).
+Discovered during in-depth review of the NTT test suite (`src/pybend/static/tests/`).
 703 tests pass across 37 files, but structural problems undermine confidence.
 
 ---

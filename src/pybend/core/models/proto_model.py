@@ -1,6 +1,7 @@
 # app/models/base_model.py
 import inspect
 import json
+import logging
 
 from pydantic import BaseModel as PydanticBaseModel, GetJsonSchemaHandler, BaseModel, Field
 from typing import Any, ClassVar, Dict, Type, get_type_hints, get_origin, get_args, Union
@@ -8,12 +9,14 @@ from typing import Any, ClassVar, Dict, Type, get_type_hints, get_origin, get_ar
 from pydantic.json_schema import JsonSchemaValue, JsonSchemaMode, GenerateJsonSchema, DEFAULT_REF_TEMPLATE
 from pydantic_core import CoreSchema
 
-import config
-from utils.registrar import register_model
-from utils.decorators import expose_route
-from utils.introspection import pydantic_schema_for_type, collect_all_referenced_models, record_model_type, _is_self_ref
-from utils.typer import Ref, _SelfRefMarker
+from pybend.core import config
+from pybend.core.utils.registrar import register_model
+from pybend.core.utils.decorators import expose_route
+from pybend.core.utils.introspection import pydantic_schema_for_type, collect_all_referenced_models, record_model_type, _is_self_ref
+from pybend.core.utils.typer import Ref, _SelfRefMarker
 from .storable_mixin import StorableMixin
+
+logger = logging.getLogger('pybend.models')
 
 
 _AUTO_HIDE_FIELDS = {'id', 'image', 'created_at', 'updated_at'}
@@ -89,9 +92,9 @@ class ProtoModel(PydanticBaseModel):
                 kwargs['id'] = int(kwargs['id'])
                 # Then retrieve this
                 # instance from the storage
-                print(f"Retrieving {self.__class__.__name__} with id {kwargs['id']} from storage.", flush=True)
+                logger.debug("Retrieving %s with id %s from storage", self.__class__.__name__, kwargs['id'])
                 params = self.__class__.get(kwargs['id'], as_dict=True)  # This will call the get method of StorableMixin
-                print(params, flush=True)
+                logger.debug("Retrieved params: %s", params)
         super().__init__(*args, **params)
         # Set __owner__ if it exists in kwargs
         self.__owner__ = kwargs.get('__owner__', None)
@@ -215,7 +218,7 @@ class ProtoModel(PydanticBaseModel):
                     schema['properties'][field_name] = {"type": "selfref"}
 
         # Add access rules to schema
-        from authorize.schema import access_schema
+        from pybend.core.authorize.schema import access_schema
         schema['access'] = access_schema(cls)
 
         # Apply field exclusion conventions: auto-set ui.display=false for internal fields
@@ -333,7 +336,7 @@ class ProtoModel(PydanticBaseModel):
         """
         Returns the blueprint of registered models
         """
-        from utils.registrar import registered_models
+        from pybend.core.utils.registrar import registered_models
         blueprint = {}
         for model_name, model_cls in registered_models.items():
             blueprint[model_name] = model_cls.schema()
@@ -354,13 +357,24 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
     tablename = f"{owner_tablename}_{ref_tablename}"
     fk_field = f"{owner_name.lower()}_id"
 
-    print(f"[{owner_cls.__name__}.{ref_model.__name__}] Generating join model '{class_name}' with table '{tablename}'", flush=True)
+    logger.info("[%s.%s] Generating join model '%s' with table '%s'",
+                owner_cls.__name__, ref_model.__name__, class_name, tablename)
+
+    # Resolve field_name before creating the model — it determines the URL
+    # segment used in routes (e.g., "favorites" vs "likes")
+    if not field_name:
+        from pybend.core.utils.introspection import get_list_fields
+        for fname, child_cls in get_list_fields(owner_cls):
+            if child_cls is ref_model:
+                field_name = fname
+                break
+
     # Only annotate the new FK field — inherited fields keep their defaults
     annotations = {fk_field: int}
 
     fields = {
         "__tablename__": tablename,
-        "__tagname__": ref_model.__tablename__,
+        "__tagname__": field_name or ref_model.__tablename__,
         "__storable__": True,
         "__owner__": owner_cls,
         "__parent__": ref_model,
@@ -369,14 +383,6 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
         fk_field: Field(..., alias=fk_field, description=f"FK to {owner_name}")
     }
     join_model = type(class_name, (ref_model,), fields)
-
-    # Resolve field_name if not provided
-    if not field_name:
-        from utils.introspection import get_list_fields
-        for fname, child_cls in get_list_fields(owner_cls):
-            if child_cls is ref_model:
-                field_name = fname
-                break
 
     # Cache join model on the parent class for FK hydration
     if field_name:

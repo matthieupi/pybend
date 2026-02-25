@@ -4,7 +4,10 @@ import pytest
 from unittest.mock import MagicMock
 from dataclasses import FrozenInstanceError
 
-from authorize.context import AccessContext
+from pybend.core.authorize.context import AccessContext
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestAccessContextProperties:

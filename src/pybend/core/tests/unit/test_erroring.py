@@ -1,7 +1,10 @@
 """Tests for utils/erroring.py — get_traceback_info."""
 
 import pytest
-from utils.erroring import get_traceback_info
+from pybend.core.utils.erroring import get_traceback_info
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestGetTracebackInfo:

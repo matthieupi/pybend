@@ -26,11 +26,12 @@ def jwt_secret():
 @pytest.fixture
 def configure_auth(jwt_secret):
     """Configure the authorize package with test settings."""
-    from authorize.auth import configure
+    from pybend.core.authorize.auth import configure
+    from pybend.core import config
     configure(jwt_secret=jwt_secret, jwt_expiry_hours=1)
     yield
-    # Restore defaults
-    configure(jwt_secret='authorize-dev-secret-change-in-production', jwt_expiry_hours=24)
+    # Restore to the pybend config secret (not the authorize package default)
+    configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 
 @pytest.fixture
@@ -60,14 +61,14 @@ def anonymous_user_dict():
 @pytest.fixture
 def test_token(configure_auth, jwt_secret):
     """A valid JWT token for the test user."""
-    from authorize.auth import create_token
+    from pybend.core.authorize.auth import create_token
     return create_token(user_id=1, email='test@example.com', role='user')
 
 
 @pytest.fixture
 def admin_token(configure_auth, jwt_secret):
     """A valid JWT token for the admin user."""
-    from authorize.auth import create_token
+    from pybend.core.authorize.auth import create_token
     return create_token(user_id=2, email='admin@example.com', role='admin')
 
 

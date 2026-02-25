@@ -1,7 +1,10 @@
 """Tests for authorize/errors.py — AccessDenied exception."""
 
 import pytest
-from authorize.errors import AccessDenied
+from pybend.core.authorize.errors import AccessDenied
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestAccessDenied:

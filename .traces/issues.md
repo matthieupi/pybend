@@ -10,7 +10,7 @@ plus in-depth frontend review.
 ## F1. Permissions NOT Rule Always Returns True
 
 **Severity:** High (Security)
-**Location:** `src/pybend/static/NTT0.6/utils/Permissions.js:141-164` — `#evaluateCompositeRule()`
+**Location:** `src/pybend/static/utils/Permissions.js:141-164` — `#evaluateCompositeRule()`
 
 The `{ op: 'not', rule: {...} }` composite structure is evaluated incorrectly. The method checks `rule.rule` first (line 145, which is the sub-rule object — always truthy), entering the simple-rule branch and returning `true` without ever reaching the `op === 'not'` branch (line 162).
 
@@ -29,7 +29,7 @@ permissions.canAction({ delete: { op: 'not', rule: { rule: 'role', roles: ['bann
 ## F2. XSS Vulnerability — ntt-profile.js Template Literals
 
 **Severity:** High (Security)
-**Location:** `src/pybend/static/NTT0.6/components/ntt-profile.js:34-108`
+**Location:** `src/pybend/static/components/ntt-profile.js:34-108`
 
 User data (`user.email`, `user.name`, `user.role`) is interpolated directly into `innerHTML` via template literals with no HTML escaping:
 
@@ -53,7 +53,7 @@ If any user field contains HTML (e.g. `<img onerror="...">` in the name or email
 ## F3. XSS Vulnerability — ntt-topbar.js User Pill
 
 **Severity:** High (Security)
-**Location:** `src/pybend/static/NTT0.6/components/ntt-topbar.js:88-128` — `#userPillHtml()`
+**Location:** `src/pybend/static/components/ntt-topbar.js:88-128` — `#userPillHtml()`
 
 Same pattern as ntt-profile — user data goes directly into `innerHTML`:
 
@@ -75,7 +75,7 @@ return `
 ## F4. XSS Vulnerability — ntt-item.js Template Literals
 
 **Severity:** Medium (Security)
-**Location:** `src/pybend/static/NTT0.6/components/ntt-item.js` — `xs()`, `sm()`, `md()`
+**Location:** `src/pybend/static/components/ntt-item.js` — `xs()`, `sm()`, `md()`
 
 Entity field values are interpolated into `innerHTML` without escaping:
 
@@ -102,7 +102,7 @@ html.push(`<img class="card-image" src="${this.value.image}" alt="${this.value.n
 ## F5. XSS Vulnerability — form.js Display Values
 
 **Severity:** Medium (Security)
-**Location:** `src/pybend/static/NTT0.6/generators/form.js` — `getInput()`, `getHeader()`
+**Location:** `src/pybend/static/generators/form.js` — `getInput()`, `getHeader()`
 
 Form display mode renders values directly into HTML:
 
@@ -123,7 +123,7 @@ Edit mode is safer (values go into `value=""` attributes) but display mode has n
 ## F6. NetworkAdapter `emit()` References Undefined `callback`
 
 **Severity:** Medium
-**Location:** `src/pybend/static/NTT0.6/core/transport/NetworkAdapter.js` — `emit()`
+**Location:** `src/pybend/static/core/transport/NetworkAdapter.js` — `emit()`
 
 The `emit()` method references an undefined `callback` variable. The registry lines that would define it are commented out, causing assertion errors on background network error responses.
 
@@ -134,7 +134,7 @@ The `emit()` method references an undefined `callback` variable. The registry li
 ## F7. Observable/TT `notify()` Method Conflict
 
 **Severity:** Medium
-**Location:** `src/pybend/static/NTT0.6/core/Observable.js` + `src/pybend/static/NTT0.6/core/NTT.js`
+**Location:** `src/pybend/static/core/Observable.js` + `src/pybend/static/core/NTT.js`
 
 TT's `notify(value)` (sends UPDATE TX to watchers) shadows Observable's `notify(property, newValue, oldValue)` (calls registered observers). Observable.apply's guard (`!("notify" in proto)`) prevents overriding TT's version. This means instance-level property observers registered via `observe()` are never triggered by `notify()`.
 
@@ -145,7 +145,7 @@ TT's `notify(value)` (sends UPDATE TX to watchers) shadows Observable's `notify(
 ## F8. registrar.js `getRegistrar()` — Inverted Assertion
 
 **Severity:** Medium
-**Location:** `src/pybend/static/NTT0.6/utils/registrar.js:41`
+**Location:** `src/pybend/static/utils/registrar.js:41`
 
 ```javascript
 export function getRegistrar(key) {
@@ -164,7 +164,7 @@ The assertion `!registry.has(key)` throws when the key IS found (the success cas
 ## F9. ntt-user.js — Unvalidated External URL Construction
 
 **Severity:** Low-Medium (Security)
-**Location:** `src/pybend/static/NTT0.6/components/ntt-user.js:21-23`
+**Location:** `src/pybend/static/components/ntt-user.js:21-23`
 
 ```javascript
 #avatarUrl() {
@@ -184,7 +184,7 @@ The `encodeURIComponent` on the fallback path is correct but the primary path (`
 ## F10. Socket.js `disconnect()` — Reference Error
 
 **Severity:** Medium
-**Location:** `src/pybend/static/NTT0.6/core/transport/Socket.js:222-224`
+**Location:** `src/pybend/static/core/transport/Socket.js:222-224`
 
 ```javascript
 disconnect(){
@@ -204,7 +204,7 @@ Two bugs:
 ## F11. Form `description` Field Bypasses Widget System
 
 **Severity:** Low
-**Location:** `src/pybend/static/NTT0.6/generators/form.js` — `getForm()` / `getHeader()`
+**Location:** `src/pybend/static/generators/form.js` — `getForm()` / `getHeader()`
 
 Fields named `description` are included in `headerFields` and rendered as `<h4>` elements in display mode, bypassing the `getInput()` widget system. If a `description` field has `widget: 'textarea'`, the widget hint is ignored — it always renders as a plain `<h4>` header element.
 
@@ -215,7 +215,7 @@ Fields named `description` are included in `headerFields` and rendered as `<h4>`
 ## F12. form.js `getForm()` — Array/String Concatenation Bug
 
 **Severity:** Low
-**Location:** `src/pybend/static/NTT0.6/generators/form.js:64`
+**Location:** `src/pybend/static/generators/form.js:64`
 
 ```javascript
 return $header.concat($fields).join('');
@@ -230,7 +230,7 @@ return $header.concat($fields).join('');
 ## F13. Snippets.js — Debug Code Shipped to Production
 
 **Severity:** Low
-**Location:** `src/pybend/static/NTT0.6/utils/Snippets.js`
+**Location:** `src/pybend/static/utils/Snippets.js`
 
 ```javascript
 Object.keys(window).forEach(key => {

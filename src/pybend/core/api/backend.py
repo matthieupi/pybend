@@ -1,12 +1,15 @@
+import logging
 from typing import Any, ClassVar
 
-from utils.registrar import registered_models
+from pybend.core.utils.registrar import registered_models
 
 # app/adapters/base_adapter.py
 
 from abc import ABC, abstractmethod
 
 from pydantic import BaseModel
+
+logger = logging.getLogger('pybend.api')
 
 class BaseBackend(ABC, BaseModel):
     """
@@ -46,10 +49,16 @@ class FastAPIBackend(BaseBackend):
     AUTH_EXEMPT_PATHS: ClassVar[tuple] = ("/login", "/register", "/docs", "/openapi.json", "/redoc")
     AUTH_EXEMPT_EXTENSIONS: ClassVar[tuple] = (".html", ".js", ".css", ".png", ".ico", ".svg", ".woff", ".woff2", ".ttf")
 
-    def __init__(self, **data):
+    def __init__(self, cors_origins: list = None, **data):
         super().__init__(**data)
         from fastapi import FastAPI
         from fastapi.middleware.cors import CORSMiddleware
+
+        if cors_origins is None:
+            cors_origins = ["*"]
+
+        if "*" in cors_origins:
+            logger.warning("CORS allows all origins ('*'). Set explicit origins for production.")
 
         self.app = FastAPI(
             title=self.name,
@@ -58,7 +67,7 @@ class FastAPIBackend(BaseBackend):
         )
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=cors_origins,
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -68,7 +77,7 @@ class FastAPIBackend(BaseBackend):
     def _add_auth_middleware(self):
         from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.responses import JSONResponse
-        from authorize import decode_token
+        from pybend.core.authorize import decode_token
 
         exempt_paths = self.AUTH_EXEMPT_PATHS
         exempt_extensions = self.AUTH_EXEMPT_EXTENSIONS
@@ -103,22 +112,40 @@ class FastAPIBackend(BaseBackend):
         self.app.add_middleware(JWTAuthMiddleware)
 
     def register_routes(self, registered_models: dict[str, type]):
-        from api.routes_fastapi import register_routes, register_route
-        from api.routes_fastapi import router
+        from pybend.core.api.routes_fastapi import register_routes, register_route
+        from pybend.core.api.routes_fastapi import router
         register_routes()
         self.app.include_router(router)
 
-    def _mount_static(self):
+    def _mount_static(self, app_static_dirs=None):
         import os
         from pathlib import Path
         from fastapi.staticfiles import StaticFiles
         from fastapi.responses import FileResponse
 
-        static_dir = Path(__file__).resolve().parent.parent.parent / "static" / "NTT0.6"
+        static_dir = Path(__file__).resolve().parent.parent.parent / "static"
+
+        # Serve files from app-specific static directories as explicit routes.
+        # These take precedence over the framework catch-all mount, allowing
+        # app HTML pages and components to live alongside framework statics.
+        for app_dir in (app_static_dirs or []):
+            app_path = Path(app_dir)
+            if not app_path.is_dir():
+                continue
+            for file_path in app_path.rglob("*"):
+                if not file_path.is_file():
+                    continue
+                # URL path relative to the app static root
+                rel = file_path.relative_to(app_path)
+                url_path = "/" + "/".join(rel.parts)
+                self.app.get(url_path, include_in_schema=False)(
+                    lambda _path=str(file_path): FileResponse(_path)
+                )
+
         if not static_dir.is_dir():
             return
 
-        # Serve HTML pages at the root
+        # Serve framework HTML pages at the root
         for html_file in ("schema.html", "example.html", "matrix.html", "login.html", "register.html"):
             html_path = static_dir / html_file
             if html_path.exists():
@@ -126,12 +153,12 @@ class FastAPIBackend(BaseBackend):
                     lambda _path=str(html_path): FileResponse(_path)
                 )
 
-        # Mount the rest of NTT0.6 so JS/CSS imports resolve
+        # Mount the framework static directory so JS/CSS imports resolve
         self.app.mount("/", StaticFiles(directory=str(static_dir)), name="static")
 
-    def get_app(self):
+    def get_app(self, app_static_dirs=None):
         # Mount static last so HTML routes take precedence over the catch-all mount
-        self._mount_static()
+        self._mount_static(app_static_dirs=app_static_dirs)
         return self.app
 
 
@@ -146,7 +173,7 @@ class FlaskBackend(BaseBackend):
         Swagger(self.app)
 
     def register_routes(self, registered_models: dict[str, type]):
-        from api.routes_flask import create_api_blueprint
+        from pybend.core.api.routes_flask import create_api_blueprint
         blueprint = create_api_blueprint(registered_models)
         self.app.register_blueprint(blueprint)
 

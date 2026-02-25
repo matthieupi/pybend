@@ -4,11 +4,18 @@ import pytest
 import time
 import jwt as pyjwt
 
-from authorize.auth import (
+from pybend.core.authorize.auth import (
     configure, hash_password, verify_password,
     create_token, decode_token,
     _jwt_secret, _jwt_expiry_hours,
 )
+from pybend.core import config as _config
+
+pytestmark = pytest.mark.unit
+
+# Use the pybend config secret for restore, not the authorize package default
+_RESTORE_SECRET = _config.JWT_SECRET
+_RESTORE_EXPIRY = _config.JWT_EXPIRY_HOURS
 
 
 class TestConfigure:
@@ -19,14 +26,14 @@ class TestConfigure:
         decoded = decode_token(token)
         assert decoded['user_id'] == 1
         # Restore
-        configure(jwt_secret='authorize-dev-secret-change-in-production')
+        configure(jwt_secret=_RESTORE_SECRET)
 
     def test_sets_expiry_hours(self):
         configure(jwt_expiry_hours=2)
         token = create_token(user_id=1, email='a@b.com')
         decoded = decode_token(token)
         assert decoded['user_id'] == 1
-        configure(jwt_expiry_hours=24)
+        configure(jwt_expiry_hours=_RESTORE_EXPIRY)
 
     def test_none_does_not_change(self):
         old_secret = 'known-test-secret'
@@ -35,7 +42,7 @@ class TestConfigure:
         token = create_token(user_id=1, email='a@b.com')
         decoded = pyjwt.decode(token, old_secret, algorithms=['HS256'])
         assert decoded['user_id'] == 1
-        configure(jwt_secret='authorize-dev-secret-change-in-production')
+        configure(jwt_secret=_RESTORE_SECRET)
 
     def test_multiple_calls(self):
         configure(jwt_secret='first')
@@ -43,7 +50,7 @@ class TestConfigure:
         token = create_token(user_id=1, email='a@b.com')
         decoded = pyjwt.decode(token, 'second', algorithms=['HS256'])
         assert decoded['user_id'] == 1
-        configure(jwt_secret='authorize-dev-secret-change-in-production')
+        configure(jwt_secret=_RESTORE_SECRET)
 
 
 class TestHashPassword:
@@ -105,7 +112,7 @@ class TestCreateToken:
         configure(jwt_secret='test-create-token', jwt_expiry_hours=1)
 
     def teardown_method(self):
-        configure(jwt_secret='authorize-dev-secret-change-in-production', jwt_expiry_hours=24)
+        configure(jwt_secret=_RESTORE_SECRET, jwt_expiry_hours=_RESTORE_EXPIRY)
 
     def test_returns_string(self):
         token = create_token(user_id=1, email='a@b.com')
@@ -153,7 +160,7 @@ class TestDecodeToken:
         configure(jwt_secret='test-decode-token', jwt_expiry_hours=1)
 
     def teardown_method(self):
-        configure(jwt_secret='authorize-dev-secret-change-in-production', jwt_expiry_hours=24)
+        configure(jwt_secret=_RESTORE_SECRET, jwt_expiry_hours=_RESTORE_EXPIRY)
 
     def test_valid_token(self):
         token = create_token(user_id=1, email='a@b.com')

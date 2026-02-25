@@ -4,8 +4,8 @@ from typing import ClassVar, Any, List
 
 from pydantic import BaseModel
 
-from utils.decorators import expose_route
-from storage.abstract_storage import AbstractStorage as StorageInterface
+from pybend.core.utils.decorators import expose_route
+from pybend.core.storage.abstract_storage import AbstractStorage as StorageInterface
 
 
 viewables = {} # Global registry for viewable models

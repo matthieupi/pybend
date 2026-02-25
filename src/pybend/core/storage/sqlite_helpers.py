@@ -1,11 +1,14 @@
 # app/storage/sqlite_helpers.py
 
+import logging
 from typing import Any, List, Type, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from utils.registrar import registered_models
-from utils.introspection import get_list_fields, _unwrap_listref  # noqa: F401 — re-export
+from pybend.core.utils.registrar import registered_models
+from pybend.core.utils.introspection import get_list_fields, _unwrap_listref  # noqa: F401 — re-export
+
+logger = logging.getLogger('pybend.storage')
 
 
 def get_parent_fk_columns(child_model_class: Type[Any]) -> List[tuple]:

@@ -56,15 +56,61 @@ PyBend is a modular, extensible backend framework built with Python. It supports
 * Python 3.10+
 * Docker (optional)
 
-### Clone and Install
+### Install from Source (Development)
 
 ```bash
 git clone https://github.com/<your_repo>.git
 cd <your_repo>
-pip install -r requirements.txt
+pip install -e ".[dev]"     # editable install with dev dependencies
+```
+
+### Install from PyPI (when published)
+
+```bash
+pip install pybend
+```
+
+### Project Structure
+
+```
+src/pybend/
+    core/       Framework (models, storage, API, auth, app builder)
+    example/    Demo application (product catalog with comments/likes)
+    static/     Frontend components (JS/CSS web components)
 ```
 
 ---
+
+## **Quickstart**
+
+The fastest way to get a working app:
+
+```python
+from pybend import create_app, ProtoModel, expose_route
+from pybend.core.models.base_user import BaseUser
+from pydantic import Field
+
+class User(BaseUser):
+    __tablename__ = 'users'
+    __abstract__ = False
+
+class Product(ProtoModel):
+    __tablename__ = 'products'
+    __storable__ = True
+    name: str = Field(min_length=1)
+    price: float = Field(gt=0)
+
+app = create_app(models=[User, Product], storage="sqlite:///app.db")
+
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=5000)
+```
+
+See `src/pybend/example/` for a full working application with:
+- Product catalog with comments and likes
+- User authentication (login/register)
+- Schema-driven frontend
 
 ## **Configuration**
 
@@ -78,22 +124,29 @@ STORAGE_BACKEND=sqlite
 You can also configure programmatically:
 
 ```python
-from storage.sqlite_storage import SQLiteStorage
-from storage.json_storage import JSONStorage
+from pybend.core.storage.sqlite_storage import SQLiteStorage
+from pybend.core.storage.json_storage import JSONStorage
 
 storage_backend = SQLiteStorage("database.db")
 # or
 storage_backend = JSONStorage(directory="data")
 ```
 
-Register your models with:
+Register your models with `create_app()` (recommended) or manually:
 
 ```python
-from models.product_model import Product
-from models.user_model import User
-from models.comment_model import Comment
-from utils.registrar import register_model
-from models.proto_model import generate_join_model
+from pybend import create_app
+
+# Recommended: one-liner
+app = create_app(
+    models=[User, Product],
+    join_models=[(Product, Comment), (Comment, Like), (Product, Like)],
+    storage="sqlite:///app.db",
+)
+
+# Or manual registration (Level 3):
+from pybend.core.utils.registrar import register_model
+from pybend.core.models.proto_model import generate_join_model
 
 register_model(Product, storage=storage_backend)
 register_model(User, storage=storage_backend)
@@ -107,10 +160,16 @@ register_model(generate_join_model(Product, Like), storage=storage_backend)
 ## **Running the Application**
 
 ```bash
-python main.py
-# or
-uvicorn main:app --reload
-# or
+# Run the example app:
+cd src/pybend/example && python3 main.py
+
+# Or as a module:
+python3 -m pybend.example.main
+
+# Or with uvicorn directly:
+uvicorn pybend.example.main:app --reload
+
+# Or with Docker:
 docker-compose up --build
 ```
 
@@ -131,8 +190,8 @@ Routes are automatically registered via `register_routes()`.
 ## **Switching Storage Backends**
 
 ```python
-from storage.sqlite_storage import SQLiteStorage
-from storage.json_storage import JSONStorage
+from pybend.core.storage.sqlite_storage import SQLiteStorage
+from pybend.core.storage.json_storage import JSONStorage
 
 storage_backend = SQLiteStorage("db.sqlite")
 register_model(MyModel, storage=storage_backend)
@@ -440,19 +499,25 @@ register_model(generate_join_model(OwnerModel, SubModel))
 
 ## **Testing**
 
-### Backend
+### Framework Unit Tests
 
 ```bash
 cd src/pybend/core
-pytest tests/
+pytest tests/unit/
 ```
 
-### Frontend (Playwright)
+### Integration Tests (Example App)
 
 ```bash
 cd src/pybend/core
-python3 test_social.py      # Social features: like, favorite, reply, collection routes
-python3 test_routing.py     # URL path correctness for nested methods
+pytest ../example/tests/
+```
+
+### Frontend (Jest)
+
+```bash
+cd src/pybend/static
+npm test
 ```
 
 Tests include:
@@ -461,10 +526,12 @@ Tests include:
 * Schema endpoint behavior
 * Storage backend logic
 * Custom method invocation
+* Authorization and access control
 * Social feature toggle actions (like/favorite)
 * Reply creation with parent_id nesting
 * Collection routes (`/products/comments`, `/products/likes`)
-* Frontend rendering validation (star/heart/reply buttons, reply indent, favorites navigation)
+* Pagination
+* Frontend component unit tests
 
 ---
 

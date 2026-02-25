@@ -5,7 +5,10 @@ from typing import Annotated, get_args
 
 from pydantic import BaseModel, Field
 
-from utils.typer import Ref, flatten_refs, _SelfRefMarker
+from pybend.core.utils.typer import Ref, flatten_refs, _SelfRefMarker
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestSelfRefMarker:

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .context import AccessContext
+
+logger = logging.getLogger('pybend.authorize')
 
 
 class AccessRule(ABC):

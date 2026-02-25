@@ -1,16 +1,27 @@
 # app/storage/sqlite_storage.py
 
+import logging
+import re
 import sqlite3
 from typing import Any, Dict, List, Type
 
 from pydantic import BaseModel
 
-import config
-from utils.registrar import registered_models
-from utils.introspection import get_list_fields, get_ref_fields
-from utils.populate import PopulateSpec
+from pybend.core import config
+from pybend.core.utils.registrar import registered_models
+from pybend.core.utils.introspection import get_list_fields, get_ref_fields
+from pybend.core.utils.populate import PopulateSpec
 from .abstract_storage import AbstractStorage
 from .sqlite_migration import SQLiteMigration
+
+logger = logging.getLogger('pybend.storage')
+
+
+def _validate_identifier(name: str) -> str:
+    """Validate and return a safe SQL identifier."""
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+        raise ValueError(f"Invalid SQL identifier: {name!r}")
+    return name
 
 
 class SQLiteStorage(AbstractStorage):
@@ -28,9 +39,11 @@ class SQLiteStorage(AbstractStorage):
     # ──────────────────────────────────────────────
 
     def create_table(self, model_class: Type[Any]):
+        _validate_identifier(model_class.__tablename__)
         self._migration.create_table(model_class)
 
     def migrate_table(self, model_class: Type[Any]):
+        _validate_identifier(model_class.__tablename__)
         self._migration.migrate_table(model_class)
 
     # ──────────────────────────────────────────────
@@ -38,15 +51,15 @@ class SQLiteStorage(AbstractStorage):
     # ──────────────────────────────────────────────
 
     def create(self, model_class: Type[Any], data: Dict[str, Any]) -> Any:
-        print("Creating a new record in the database for model class:", model_class.__name__, flush=True)
-        table_name = model_class.__tablename__
+        logger.info("Creating new %s record", model_class.__name__)
+        table_name = _validate_identifier(model_class.__tablename__)
 
         # Identify List[BaseModel] fields — these are NOT columns on this table
         collection_field_names = {name for name, _cls in get_list_fields(model_class)}
 
         fields = [f for f in model_class.model_fields.keys()
                   if f != 'id' and f not in collection_field_names]
-        print("Fields: ", fields)
+        logger.debug("Fields: %s", fields)
         placeholders = ", ".join(['?'] * len(fields))
         columns = ", ".join(fields)
         # Extract values
@@ -62,7 +75,7 @@ class SQLiteStorage(AbstractStorage):
         conn.commit()
         data['id'] = cursor.lastrowid
         conn.close()
-        print("Record created with ID:", data['id'], flush=True)
+        logger.info("Record created with ID: %s", data['id'])
         return model_class(**data)
 
     # ──────────────────────────────────────────────
@@ -71,7 +84,7 @@ class SQLiteStorage(AbstractStorage):
 
     def list(self, model_class: Type[Any], sql_filter: tuple = None,
              limit: int = None, offset: int = None, populate: PopulateSpec = None) -> List[Any]:
-        table_name = model_class.__tablename__
+        table_name = _validate_identifier(model_class.__tablename__)
         list_fields = get_list_fields(model_class)
         ref_fields = get_ref_fields(model_class)
 
@@ -135,11 +148,11 @@ class SQLiteStorage(AbstractStorage):
             parent_id = record.get('id')
             for field_name, child_class in list_fields:
                 effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
-                child_table = effective_cls.__tablename__
+                child_table = _validate_identifier(effective_cls.__tablename__)
                 if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
-                    fk_col = f"{effective_cls.__owner__.__name__.lower()}_id"
+                    fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
                 else:
-                    fk_col = f"{model_class.__name__.lower()}_id"
+                    fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
                 try:
                     cursor.execute(
                         f"SELECT id FROM {child_table} WHERE {fk_col} = ?",
@@ -178,7 +191,7 @@ class SQLiteStorage(AbstractStorage):
     # ──────────────────────────────────────────────
 
     def get(self, model_class: Type[Any], id: int, as_dict: bool = False, populate: PopulateSpec = None) -> Any:
-        table_name = model_class.__tablename__
+        table_name = _validate_identifier(model_class.__tablename__)
         select_sql = f"SELECT * FROM {table_name} WHERE id = ?"
         conn = sqlite3.connect(self.database)
         cursor = conn.cursor()
@@ -226,11 +239,11 @@ class SQLiteStorage(AbstractStorage):
         # ── Hydrate collection fields as href arrays ──
         for field_name, child_class in get_list_fields(model_class):
             effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
-            child_table = effective_cls.__tablename__
+            child_table = _validate_identifier(effective_cls.__tablename__)
             if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
-                fk_col = f"{effective_cls.__owner__.__name__.lower()}_id"
+                fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
             else:
-                fk_col = f"{model_class.__name__.lower()}_id"
+                fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
             try:
                 cursor.execute(
                     f"SELECT id FROM {child_table} WHERE {fk_col} = ?", (id,)
@@ -292,11 +305,11 @@ class SQLiteStorage(AbstractStorage):
             if actual_child_class.__name__ in _visited:
                 continue
 
-            child_table = effective_cls.__tablename__
+            child_table = _validate_identifier(effective_cls.__tablename__)
             if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
-                fk_col = f"{effective_cls.__owner__.__name__.lower()}_id"
+                fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
             else:
-                fk_col = f"{model_class.__name__.lower()}_id"
+                fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
 
             # Collect parent IDs
             parent_ids = [getattr(inst, 'id', None) for inst in instances]
@@ -353,11 +366,11 @@ class SQLiteStorage(AbstractStorage):
                     # Hydrate child's own ListRef fields as href arrays (for serialization)
                     for child_list_name, child_list_cls in get_list_fields(effective_cls):
                         child_effective = getattr(effective_cls, '__fk_models__', {}).get(child_list_name, child_list_cls)
-                        child_list_table = child_effective.__tablename__
+                        child_list_table = _validate_identifier(child_effective.__tablename__)
                         if hasattr(child_effective, '__owner__') and child_effective.__owner__ is not None:
-                            child_fk = f"{child_effective.__owner__.__name__.lower()}_id"
+                            child_fk = _validate_identifier(f"{child_effective.__owner__.__name__.lower()}_id")
                         else:
-                            child_fk = f"{effective_cls.__name__.lower()}_id"
+                            child_fk = _validate_identifier(f"{effective_cls.__name__.lower()}_id")
                         try:
                             cursor.execute(
                                 f"SELECT id FROM {child_list_table} WHERE {child_fk} = ?",
@@ -411,7 +424,7 @@ class SQLiteStorage(AbstractStorage):
             if target_cls.__name__ in _visited:
                 continue
 
-            target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
+            target_table = _validate_identifier(getattr(target_cls, '__tablename__', target_cls.__name__.lower()))
 
             # Collect FK values (these are currently href strings — extract the ID)
             fk_ids = []
@@ -475,7 +488,7 @@ class SQLiteStorage(AbstractStorage):
         using only the fields provided in the `data` dictionary.
         Prevents SQL injection by using parameterized queries.
         """
-        table_name = model_class.__tablename__
+        table_name = _validate_identifier(model_class.__tablename__)
 
         # Identify List[BaseModel] fields — these are NOT columns on this table
         collection_field_names = {name for name, _cls in get_list_fields(model_class)}
@@ -513,7 +526,7 @@ class SQLiteStorage(AbstractStorage):
     # ──────────────────────────────────────────────
 
     def delete(self, model_class: Type[Any], id: int):
-        table_name = model_class.__tablename__
+        table_name = _validate_identifier(model_class.__tablename__)
         delete_sql = f"DELETE FROM {table_name} WHERE id = ?"
         conn = sqlite3.connect(self.database)
         cursor = conn.cursor()

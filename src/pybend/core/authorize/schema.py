@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Type
 
 from .rules import AccessRule, AUTHENTICATED
+
+logger = logging.getLogger('pybend.authorize')
 
 
 def access_schema(model_class: Type[Any]) -> Dict[str, Any]:

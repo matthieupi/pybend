@@ -8,9 +8,12 @@ from unittest.mock import patch
 
 from pydantic import Field, BaseModel
 
-from storage.sqlite_storage import SQLiteStorage
-from models.proto_model import ProtoModel
-from utils.populate import PopulateSpec
+from pybend.core.storage.sqlite_storage import SQLiteStorage
+from pybend.core.models.proto_model import ProtoModel
+from pybend.core.utils.populate import PopulateSpec
+
+pytestmark = pytest.mark.unit
+
 
 
 @pytest.fixture

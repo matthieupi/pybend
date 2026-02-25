@@ -1,13 +1,23 @@
 import os
+import logging
+import warnings
 
 import jwt
 import bcrypt
 from datetime import datetime, timedelta, timezone
 
+logger = logging.getLogger('pybend.authorize')
+
 # ── Package-level configuration ──────────────────────────
 # Defaults read from env vars. Override via configure().
 _jwt_secret: str = os.getenv("JWT_SECRET", "authorize-dev-secret-change-in-production")
 _jwt_expiry_hours: int = int(os.getenv("JWT_EXPIRY_HOURS", "24"))
+
+INSECURE_SECRETS = {
+    'secret', 'your-secret-key', 'changeme', 'default-secret',
+    'pybend-secret', 'authorize-dev-secret-change-in-production',
+    'pybend-dev-secret-change-in-production',
+}
 
 
 def configure(*, jwt_secret: str = None, jwt_expiry_hours: int = None) -> None:
@@ -17,6 +27,12 @@ def configure(*, jwt_secret: str = None, jwt_expiry_hours: int = None) -> None:
         _jwt_secret = jwt_secret
     if jwt_expiry_hours is not None:
         _jwt_expiry_hours = jwt_expiry_hours
+    if _jwt_secret and _jwt_secret.lower() in INSECURE_SECRETS:
+        warnings.warn(
+            "Using a known default JWT secret. Set a unique JWT_SECRET environment variable for production.",
+            stacklevel=2,
+        )
+        logger.warning("Insecure JWT secret detected — set JWT_SECRET env var for production")
 
 
 def hash_password(plain: str) -> str:

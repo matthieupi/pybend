@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import logging
 import os
 import sqlite3
 from abc import ABC, abstractmethod
@@ -10,7 +11,9 @@ from typing import Any, List, Type, Union, get_args, get_origin
 from pydantic import BaseModel
 
 from .sqlite_helpers import get_parent_fk_columns
-from utils.introspection import _is_self_ref
+from pybend.core.utils.introspection import _is_self_ref
+
+logger = logging.getLogger('pybend.storage')
 
 
 class Migration(ABC):
@@ -208,9 +211,9 @@ class SQLiteMigration:
                 try:
                     alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} INTEGER DEFAULT NULL"
                     cursor.execute(alter_sql)
-                    print(f"[MIGRATE] Added selfref column '{field_name}' to '{table_name}' as INTEGER")
+                    logger.info("Added selfref column '%s' to '%s' as INTEGER", field_name, table_name)
                 except sqlite3.OperationalError as e:
-                    print(f"[MIGRATE] Failed to add selfref column {field_name} to {table_name}: {e}")
+                    logger.warning("Failed to add selfref column %s to %s: %s", field_name, table_name, e)
                 continue
 
             origin_type = getattr(field_type, '__origin__', None)
@@ -236,7 +239,7 @@ class SQLiteMigration:
             if field_name == 'id' or field_name in existing_columns:
                 continue
 
-            print(f"[MIGRATE] Processing field '{field_name}' of type '{field_type}' in model '{model_class.__name__}'")
+            logger.debug("Processing field '%s' of type '%s' in model '%s'", field_name, field_type, model_class.__name__)
 
             if isinstance(field_type, type) and issubclass(field_type, BaseModel):
                 sql_type = 'INTEGER'
@@ -260,18 +263,18 @@ class SQLiteMigration:
             try:
                 alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} {sql_type} DEFAULT {repr(default_value)}"
                 cursor.execute(alter_sql)
-                print(f"[MIGRATE] Added column '{field_name}' to '{table_name}' as {sql_type}")
+                logger.info("Added column '%s' to '%s' as %s", field_name, table_name, sql_type)
             except sqlite3.OperationalError as e:
-                print(f"[MIGRATE] Failed to add column {field_name} to {table_name}: {e}")
+                logger.warning("Failed to add column %s to %s: %s", field_name, table_name, e)
 
         # Remove orphaned columns
         for col in existing_columns:
             if col not in model_columns or col.startswith('_') or col.startswith('__'):
                 try:
                     cursor.execute(f"ALTER TABLE {table_name} DROP COLUMN {col}")
-                    print(f"[MIGRATE] Removed column '{col}' from '{table_name}'")
+                    logger.info("Removed column '%s' from '%s'", col, table_name)
                 except sqlite3.OperationalError as e:
-                    print(f"[MIGRATE] Failed to remove column {col} from {table_name}: {e}")
+                    logger.warning("Failed to remove column %s from %s: %s", col, table_name, e)
 
         # Auto-add FK columns for parent List[BaseModel] relationships
         model_col_names = set(model_columns.keys())
@@ -287,9 +290,9 @@ class SQLiteMigration:
                 try:
                     alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {fk_col} INTEGER DEFAULT 0"
                     cursor.execute(alter_sql)
-                    print(f"[MIGRATE] Added parent FK column '{fk_col}' to '{table_name}' as INTEGER")
+                    logger.info("Added parent FK column '%s' to '%s' as INTEGER", fk_col, table_name)
                 except sqlite3.OperationalError as e:
-                    print(f"[MIGRATE] FK column {fk_col} already exists or error: {e}")
+                    logger.warning("FK column %s already exists or error: %s", fk_col, e)
 
         conn.commit()
         conn.close()
@@ -364,7 +367,7 @@ class SQLiteMigration:
             if name in applied:
                 continue
 
-            print(f"[MIGRATION] Applying: {name}")
+            logger.info("Applying migration: %s", name)
             migration = self._load_migration_class(filename)
 
             conn = sqlite3.connect(self.database)
@@ -374,7 +377,7 @@ class SQLiteMigration:
                 self._record_migration(name, cursor)
                 conn.commit()
                 newly_applied.append(name)
-                print(f"[MIGRATION] Applied: {name}")
+                logger.info("Applied migration: %s", name)
             except Exception as e:
                 conn.rollback()
                 raise RuntimeError(
@@ -384,7 +387,7 @@ class SQLiteMigration:
                 conn.close()
 
         if not newly_applied:
-            print("[MIGRATION] No pending migrations.")
+            logger.debug("No pending migrations.")
 
         return newly_applied
 
@@ -414,7 +417,7 @@ class SQLiteMigration:
                     f"Cannot rollback '{name}'."
                 )
 
-            print(f"[MIGRATION] Rolling back: {name}")
+            logger.info("Rolling back migration: %s", name)
             migration = self._load_migration_class(filename)
 
             conn = sqlite3.connect(self.database)
@@ -424,7 +427,7 @@ class SQLiteMigration:
                 self._unrecord_migration(name, cursor)
                 conn.commit()
                 rolled_back.append(name)
-                print(f"[MIGRATION] Rolled back: {name}")
+                logger.info("Rolled back migration: %s", name)
             except Exception as e:
                 conn.rollback()
                 raise RuntimeError(
@@ -434,7 +437,7 @@ class SQLiteMigration:
                 conn.close()
 
         if not rolled_back:
-            print("[MIGRATION] Nothing to rollback.")
+            logger.debug("Nothing to rollback.")
 
         return rolled_back
 

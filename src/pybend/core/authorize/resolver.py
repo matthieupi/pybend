@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, List, Optional, Protocol, Tuple, Type, runtime_checkable
 
 from .context import AccessContext
 from .rules import AccessRule, AUTHENTICATED
 from .errors import AccessDenied
+
+logger = logging.getLogger('pybend.authorize')
 
 
 @runtime_checkable

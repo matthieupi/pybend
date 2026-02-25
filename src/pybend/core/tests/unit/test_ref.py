@@ -5,7 +5,10 @@ from typing import get_args, get_origin, Annotated, List, Union
 
 from pydantic import BaseModel, Field
 
-from models.ref import ListRef, _ListRefMarker
+from pybend.core.models.ref import ListRef, _ListRefMarker
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestListRefMarker:

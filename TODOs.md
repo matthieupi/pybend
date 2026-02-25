@@ -8,6 +8,18 @@ section.
 
 ---
 
+## v0.7.0 Restructuring
+
+- [x] **Phase 1: NTT0.5 deleted, NTT0.6 promoted to `static/`**
+- [x] **Phase 2: All bare imports converted to absolute package imports (`pybend.core.*`)**
+- [x] **Phase 3: New `PyBendApp` + `create_app()` factory in `core/app.py`**
+- [x] **Phase 4: New `BaseUser` abstract model in `core/models/base_user.py`**
+- [x] **Phase 5: Example app separated to `src/pybend/example/`**
+- [x] **Phase 7: Security fixes + logging migration**
+- [x] **Phase 9: Documentation updates for all phases above**
+
+---
+
 ## Documentation
 
 - [x] **Update README.md for NTT unification**\
@@ -23,7 +35,8 @@ section.
     - Reference `src/pybend/core/docs/features/FK_HYDRATION.md` for backend details
 
 ## Backend
-- [x] **Implement Base Auth system**
+- [ ] **Secure all XSS vulnerabilities** Sanitize all user input that may reach 
+  the DB as query.
 - [ ] **Add @type and @context to schema and records returns**
 No tasks yet.
 - [ ] **Layout as a schema**
@@ -35,7 +48,7 @@ No tasks yet.
 - 
 
 ## Frontend
-
+- [ ] **Make sure frontend is safe from XSS** 
 - [ ] **Implement editable visibility only when permisisons allow it**
 - [x] **Improve NTT method implementation**
   - ~~Show methods only when permissions allows it~~

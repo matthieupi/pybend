@@ -1,24 +1,2 @@
-# General packages
-python-dotenv==1.0.1
-typing_extensions==4.12.2
-PyYAML>=6.0.0
-rich==13.9.4
-# API packages
-Flask==3.1.0
-flasgger==0.9.7.1
-requests==2.32.3
-# ML/AI packages
-pyrofunc@git+https://github.com/matthieupi/pyrofunc.git
-openai==1.57.4
-pydantic~=2.7.2
-# Dev packages
-pytest~=8.2.1
-pytest-cov==6.0.0
-twine==6.0.1
-
-
-fastapi~=0.115.12
-uvicorn~=0.34.2
-# Auth packages
-PyJWT>=2.8.0
-bcrypt>=4.0.0
+# Dependencies are declared in pyproject.toml
+# Install with: pip install -e ".[dev]"

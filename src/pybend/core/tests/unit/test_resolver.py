@@ -3,10 +3,13 @@
 import pytest
 from unittest.mock import MagicMock
 
-from authorize.resolver import DefaultResolver, AuthorizationResolver
-from authorize.context import AccessContext
-from authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE
-from authorize.errors import AccessDenied
+from pybend.core.authorize.resolver import DefaultResolver, AuthorizationResolver
+from pybend.core.authorize.context import AccessContext
+from pybend.core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE
+from pybend.core.authorize.errors import AccessDenied
+
+pytestmark = pytest.mark.unit
+
 
 
 def _make_ctx(user_id=None, role='user', action='read',
@@ -146,3 +149,109 @@ class TestProtocol:
     def test_protocol_check(self):
         resolver = DefaultResolver()
         assert isinstance(resolver, AuthorizationResolver)
+
+
+class TestCustomResolver:
+    """UT-10: Custom resolver implementation tests."""
+
+    def test_custom_resolver_satisfies_protocol(self):
+        """A custom class implementing the protocol should be recognized."""
+        class CustomResolver:
+            def resolve_rule(self, model_class, action):
+                return ANYONE
+
+            def authorize(self, context):
+                pass
+
+            def sql_filter_for(self, context):
+                return ('1=1', [])
+
+        resolver = CustomResolver()
+        # Protocol structural check
+        assert hasattr(resolver, 'resolve_rule')
+        assert hasattr(resolver, 'authorize')
+        assert hasattr(resolver, 'sql_filter_for')
+
+    def test_custom_resolver_resolve_rule(self):
+        """Custom resolver can return any rule."""
+        class AlwaysAdminResolver:
+            def resolve_rule(self, model_class, action):
+                return ROLE('admin')
+            def authorize(self, context):
+                pass
+            def sql_filter_for(self, context):
+                return ('1=1', [])
+
+        resolver = AlwaysAdminResolver()
+        model = MagicMock()
+        rule = resolver.resolve_rule(model, 'read')
+        # Rule should be ROLE('admin')
+        assert rule.to_dict()['rule'] == 'role'
+
+
+class TestDefaultResolverEdgeCases:
+    """UT-10: Edge cases for DefaultResolver."""
+
+    def test_none_access_defaults_to_authenticated(self):
+        """__access__ = None should default to AUTHENTICATED."""
+        resolver = DefaultResolver()
+        model = MagicMock()
+        model.__access__ = None
+        rule = resolver.resolve_rule(model, 'read')
+        assert rule is AUTHENTICATED
+
+    def test_empty_access_dict(self):
+        """Empty __access__ dict — no matching action, no wildcard."""
+        resolver = DefaultResolver()
+        model = MagicMock()
+        model.__access__ = {}
+        rule = resolver.resolve_rule(model, 'read')
+        assert rule is AUTHENTICATED
+
+    def test_authorize_owner_with_resource(self):
+        """OWNER rule should check resource.user_owner."""
+        resolver = DefaultResolver()
+        model = MagicMock()
+        model.__access__ = {'update': OWNER}
+        model.__name__ = 'TestModel'
+        resource = MagicMock()
+        resource.user_owner = 5
+        ctx = AccessContext(
+            user={'user_id': 5, 'role': 'user'},
+            action='update',
+            model_class=model,
+            resource=resource,
+        )
+        # Should not raise
+        resolver.authorize(ctx)
+
+    def test_authorize_owner_denies_non_owner(self):
+        """OWNER rule should deny when user_id != resource.user_owner."""
+        resolver = DefaultResolver()
+        model = MagicMock()
+        model.__access__ = {'update': OWNER}
+        model.__name__ = 'TestModel'
+        resource = MagicMock()
+        resource.user_owner = 5
+        ctx = AccessContext(
+            user={'user_id': 99, 'role': 'user'},
+            action='update',
+            model_class=model,
+            resource=resource,
+        )
+        with pytest.raises(AccessDenied):
+            resolver.authorize(ctx)
+
+    def test_sql_filter_for_anyone_returns_1eq1(self):
+        """ANYONE rule should produce 1=1 filter."""
+        resolver = DefaultResolver()
+        model = MagicMock()
+        model.__access__ = {'read': ANYONE}
+        model.__name__ = 'TestModel'
+        ctx = AccessContext(
+            user={},
+            action='read',
+            model_class=model,
+        )
+        clause, params = resolver.sql_filter_for(ctx)
+        assert clause == '1=1'

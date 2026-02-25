@@ -1,7 +1,10 @@
 # app/utils/registrar.py
 
+import logging
 from typing import Dict, Type, Any
-from storage.abstract_storage import AbstractStorage as StorageInterface
+from pybend.core.storage.abstract_storage import AbstractStorage as StorageInterface
+
+logger = logging.getLogger('pybend.utils')
 
 registered_models: Dict[str, Type[Any]] = {}
 
@@ -9,6 +12,7 @@ join_models: Dict[tuple[str, str], Type[Any]] = {}
 
 
 def register_model(model_class: Type[Any], storage: StorageInterface = None ):
+    logger.info("Registering model: %s", model_class.__name__)
 
     if hasattr(model_class, '__owner__'):
         parent = model_class.__owner__

@@ -99,9 +99,50 @@ symptoms of a deeper misalignment. There are typically two root causes:
    developer understood the system but found no clean way to achieve
    their goal, so they hacked around it. The fix here is not to patch
    the hack — it's to step back and ask: what should the architecture
-   provide so this can be done elegantly? Then make that deeper change.
+   provide so this can be done simply, elegantly, while preserving the 
+   intent of the architecture and keeping it consistent? Then make that deeper 
+   change.
 
-In both cases, the response to a bug is: first identify its root
+3. **The system violates reasonable expectations.** The code does what
+   the developer wrote, but what they wrote violates what any
+   reasonable consumer — human or machine — would expect. The system
+   "works" in the narrow sense (no crash, no exception) but produces
+   behavior that is silently wrong, making the bug invisible at the
+   point of origin and visible only downstream, where it looks like
+   something else entirely.
+
+   **Case study: the 200-OK error.** Custom model methods like
+   `Product.favorite()` returned `'{"error": "authentication
+   required"}'` as a plain string with HTTP 200. The backend logged
+   "200 OK", the frontend received a successful response, the
+   `_response_` handler called `pull()` to refresh the entity — and
+   everything appeared to work. But the like was never created. The
+   user saw no error, the count didn't change, and the favorite didn't
+   appear on the favorites page. Debugging started at the UI (wrong
+   count), moved to the network layer (response looks fine), then to
+   the database (no record) — a three-layer wild goose chase caused by
+   a single violation: **an error was returned as a success**.
+
+   The root cause was not a typo or a misunderstanding. It was a
+   missing contract: the framework had no mechanism for model methods
+   to signal errors with proper HTTP semantics, so the developer did
+   the only thing available — returned an error string. The fix was
+   two-fold: (a) provide `MethodError`, a framework-level exception
+   that model methods can raise and the route layer catches and
+   converts to a proper HTTP error response, and (b) add frontend
+   toast notifications that surface errors visually, including
+   defensive detection of `{"error": ...}` in 200 bodies.
+
+   **The pattern to watch for:** any place where a failure is encoded
+   inside a success channel. Common forms: returning error dicts from
+   functions that normally return data, logging errors but continuing
+   as if nothing happened, swallowing exceptions and returning
+   defaults. The test: if a consumer ignores the content and only
+   checks the status/type, would they correctly know something went
+   wrong? If not, the contract is broken regardless of whether the
+   code "works."
+
+In all three cases, the response to a bug is: first identify its root
 cause, then decide whether the fix is a code correction, a
 documentation improvement, or an architectural enhancement. Never just
 silence the symptom.
@@ -112,8 +153,26 @@ PyBend is a schema-driven framework where **model definitions are the single sou
 
 ### Backend (Python/FastAPI)
 
+Three levels of bootstrapping (pick one):
+
 ```
-models/*.py          Define data models (extend ProtoModel)
+# Level 1 — One-liner via create_app():
+app = create_app(models=[Product, User], storage="sqlite:///app.db")
+
+# Level 2 — Builder via PyBendApp:
+pb = PyBendApp(storage="sqlite:///app.db")
+pb.model(Product).model(User).join(Product, Comment)
+app = pb.build()
+
+# Level 3 — Raw primitives (full manual control, existing main.py pattern):
+register_model(Product, storage=storage_backend)
+register_routes(registered_models)
+```
+
+Regardless of which level, the underlying flow is:
+
+```
+models/*.py          Define data models (extend ProtoModel / BaseUser)
      |
      v
 ProtoModel           Base class: injects StorableMixin, rewrites FK fields,
@@ -124,7 +183,7 @@ ProtoModel           Base class: injects StorableMixin, rewrites FK fields,
      +-- __init_subclass__()   Auto-injects StorableMixin for __storable__=True models
      |
      v
-register_model()     Registers model with storage backend (main.py)
+register_model()     Registers model with storage backend
      |
      v
 register_routes()    Auto-generates CRUD routes from registered models (routes_fastapi.py)
@@ -225,7 +284,7 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 
 1. Define or modify a Python model
 2. Restart the server — `ProtoModel.schema()` generates the updated JSON Schema, `register_routes()` creates endpoints, migrations run
-3. Open `matrix.html` — the frontend fetches the schema, creates DynamicClasses, renders everything
+3. Open `http://localhost:5000/static/matrix.html` — the frontend fetches the schema, creates DynamicClasses, renders everything
 4. No frontend code changed. No routes added. No forms built. No permissions wired.
 
 To customize, override at any level: swap a widget via `json_schema_extra`, control layout via `__ui__`, change permissions via `__access__`, or write a custom component that extends `NTTElement`.
@@ -330,6 +389,7 @@ GET /Product → JSON Schema
 
 ### Models & Serialization
 - `src/pybend/core/models/proto_model.py` - Base model, schema generation, `model_dump(response=True)`, `generate_join_model()`
+- `src/pybend/core/models/base_user.py` - Abstract base user model with login/register endpoints and password hashing
 - `src/pybend/core/models/storable_mixin.py` - CRUD operations (create/get/list/update/delete). `list()` supports `limit`/`offset` pagination.
 - `src/pybend/core/models/ref.py` - `ListRef[T]` type for collection references
 - `src/pybend/core/utils/typer.py` - `Ref` type (`Ref[T]`, `Ref['self']`), `flatten_refs()`
@@ -354,28 +414,55 @@ GET /Product → JSON Schema
 - `src/pybend/core/utils/decorators.py` - `@expose_route()` for custom method endpoints (supports `access=` parameter)
 - `src/pybend/core/utils/registrar.py` - `registered_models` dict, `join_models` dict
 
-### Frontend (NTT 0.6)
-- `src/pybend/static/NTT0.6/core/NTT.js` - Core: NTT class, prototype() factory, SCHEMA handler, DynamicClass creation
-- `src/pybend/static/NTT0.6/core/Matrix.js` - Message bus / actor system
-- `src/pybend/static/NTT0.6/core/Actor.js` - Base actor class
-- `src/pybend/static/NTT0.6/core/Router.js` - Navigation state Actor (hash sync, history stack, Observable)
-- `src/pybend/static/NTT0.6/components/ntt-item.js` - Item component: size methods (xs–xl), render dispatch, edit toggle, click-to-select
-- `src/pybend/static/NTT0.6/components/ntt-list.js` - List component
-- `src/pybend/static/NTT0.6/components/ntt-router.js` - Generic view container (loads any component via Router)
-- `src/pybend/static/NTT0.6/components/ntt-element.js` - Base component class
-- `src/pybend/static/NTT0.6/generators/form.js` - Formidable: schema-driven form generator
-- `src/pybend/static/NTT0.6/utils/Permissions.js` - Reads schema access rules for UI permission checks
+### Frontend (NTT)
+- `src/pybend/static/core/NTT.js` - Core: NTT class, prototype() factory, SCHEMA handler, DynamicClass creation
+- `src/pybend/static/core/Matrix.js` - Message bus / actor system
+- `src/pybend/static/core/Actor.js` - Base actor class
+- `src/pybend/static/core/Router.js` - Navigation state Actor (hash sync, history stack, Observable)
+- `src/pybend/static/components/ntt-item.js` - Item component: size methods (xs–xl), render dispatch, edit toggle, click-to-select
+- `src/pybend/static/components/ntt-list.js` - List component
+- `src/pybend/static/components/ntt-router.js` - Generic view container (loads any component via Router)
+- `src/pybend/static/components/ntt-element.js` - Base component class
+- `src/pybend/static/generators/form.js` - Formidable: schema-driven form generator
+- `src/pybend/static/utils/Permissions.js` - Reads schema access rules for UI permission checks
+
+### App Bootstrap
+- `src/pybend/core/app.py` - `PyBendApp` builder class + `create_app()` one-liner factory
+- `src/pybend/__init__.py` - Public API: re-exports `create_app`, `PyBendApp`, `ProtoModel`, `BaseUser`, `expose_route`, etc.
 
 ### Config & Entry
 - `src/pybend/core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE
-- `src/pybend/core/main.py` - App entry: register models, generate docs, start server
+- `src/pybend/core/main.py` - Backward-compat shim that delegates to `pybend.example.main`
+
+### Example Application
+- `src/pybend/example/main.py` - Example app entry point using `create_app()`
+- `src/pybend/example/models/` - Example models: `User`, `Product`, `Comment`, `Like`
+- `src/pybend/example/seed.py` - Seed data script (creates sample users, products, etc.)
+- `src/pybend/example/tests/` - Integration tests for the example app
 
 ### Documentation
 - `src/pybend/docs/` - Handwritten API docs + auto-generated model docs
-- `src/pybend/static/NTT0.6/docs/` - Frontend component/architecture docs
+- `src/pybend/static/docs/` - Frontend component/architecture docs
 - `src/pybend/core/utils/generate_docs.py` - Auto-doc generator (runs on startup)
 
+### Tests
+- `src/pybend/core/tests/unit/` - Framework unit tests (models, storage, auth, routes, etc.)
+- `src/pybend/example/tests/` - Integration tests (CRUD, auth flow, pagination, FK hydration, etc.)
+
 ## Key Patterns
+
+### BaseUser Pattern
+Application user models extend `BaseUser` to get login, register, and password hashing for free:
+```python
+from pybend.core.models.base_user import BaseUser
+
+class User(BaseUser):
+    __tablename__ = 'users'
+    __abstract__ = False          # Mark as concrete (BaseUser is abstract)
+    # Add app-specific fields:
+    image: Optional[str] = Field(default=None)
+```
+`BaseUser` provides: `name`, `email`, `role`, `password_hash` fields, plus `login()` and `register()` endpoints via `@expose_route`. Subclasses inherit everything and only add their own fields.
 
 ### Parent-Child Relationships
 ```python
@@ -383,7 +470,7 @@ GET /Product → JSON Schema
 class Product(ProtoModel):
     comments: Optional[ListRef[Comment]] = Field(default=[])
 
-# 2. Register join model in main.py
+# 2. Register join model (or use create_app with join_models=[(Product, Comment)])
 register_model(generate_join_model(Product, Comment), storage=storage_backend)
 ```
 This creates a `ProductComment` join model with auto-generated `product_id` FK column. Routes become `/products/{parent_id}/comments/{id}`.
@@ -457,21 +544,26 @@ Avoid aliasing the `id` field on models to prevent naming clashes with self-refe
 After completing any set of implementation tasks, ALWAYS update the relevant documentation:
 1. **Auto-generated docs**: Run the server or call `generate_docs()` to refresh `src/pybend/docs/{model}.md`
 2. **Handwritten API docs** (`src/pybend/docs/`): Update response examples, endpoint docs, and architecture descriptions
-3. **Frontend docs** (`src/pybend/static/NTT0.6/docs/`): Update component docs if frontend behavior changed
+3. **Frontend docs** (`src/pybend/static/docs/`): Update component docs if frontend behavior changed
 4. **This file** (`CLAUDE.md`): Update if architectural patterns or key file locations change
 
 ### Working Directory
-Always run backend commands from `src/pybend/core/` (that's where `main.py` and `config.py` live).
+For the **example app**, run from `src/pybend/example/` (that's where the example `main.py` lives).
+For **framework code**, `src/pybend/core/` contains `config.py` and the backward-compat `main.py` shim.
 
 ### Testing Changes
-1. Start server: `cd /workspace/src/pybend/core && python3 main.py`
-2. Test API (see auth examples below)
-3. Test frontend: Open `http://localhost:5000/static/NTT0.6/matrix.html`
+1. Start server: `cd /workspace/src/pybend/example && python3 main.py`
+   - Alternative: `cd /workspace && python3 -m pybend.example.main`
+   - Legacy: `cd /workspace/src/pybend/core && python3 main.py` (delegates to example app)
+2. Run framework unit tests: `cd /workspace/src/pybend/core && pytest tests/unit/`
+3. Run integration tests: `cd /workspace/src/pybend/core && pytest ../example/tests/`
+4. Test API (see auth examples below)
+5. Test frontend: Open `http://localhost:5000/static/matrix.html`
 
 ### Authentication for Testing
 Most endpoints require a JWT token. Schema endpoints (`GET /{ClassName}`) are public.
 
-**Seed users** (created by `python3 seed.py`):
+**Seed users** (created by `cd src/pybend/example && python3 seed.py`):
 | Email | Password | Role |
 |---|---|---|
 | `alice@example.com` | `alice123` | `user` |

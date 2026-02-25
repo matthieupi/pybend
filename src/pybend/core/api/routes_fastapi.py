@@ -1,13 +1,17 @@
+import logging
 import traceback
 
 from fastapi import APIRouter, Request, HTTPException, status, Body, Path, Query
 from typing import Dict, Type, Any, List
-from models.storable_mixin import StorableMixin
-from utils.erroring import get_traceback_info
-from utils.registrar import registered_models, join_models
-from utils.typer import flatten_refs
-from utils.populate import parse_populate
-from authorize import AccessContext, DefaultResolver, AccessDenied
+from pybend.core import config
+from pybend.core.models.storable_mixin import StorableMixin
+from pybend.core.utils.erroring import get_traceback_info, MethodError
+from pybend.core.utils.registrar import registered_models, join_models
+from pybend.core.utils.typer import flatten_refs
+from pybend.core.utils.populate import parse_populate
+from pybend.core.authorize import AccessContext, DefaultResolver, AccessDenied
+
+logger = logging.getLogger('pybend.api')
 
 router = APIRouter()
 _resolver = DefaultResolver()
@@ -59,7 +63,7 @@ def make_create_instance(model_class):
             _resolver.authorize(ctx)
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e))
-        print(f"[CREATE] Attempting to create {model_class.__name__} with data: {data}, parent_id: {parent_id}", flush=True)
+        logger.info("Creating %s with parent_id=%s", model_class.__name__, parent_id)
         try:
             data_dict = flatten_refs(data)
             if parent_id:
@@ -78,7 +82,9 @@ def make_create_instance(model_class):
             result = model_class.create(instance)
             return result.model_dump(response=True) if result else result
         except Exception as e:
-            raise HTTPException(status_code=400, detail=get_traceback_info(e) )
+            logger.error("Failed to create %s: %s", model_class.__name__, e, exc_info=True)
+            detail = get_traceback_info(e) if config.DEBUG else "Bad request"
+            raise HTTPException(status_code=400, detail=detail)
 
     return create_instance
 
@@ -163,13 +169,13 @@ def make_get_schema(model_class):
     async def get_model_schema(scaffold: str = None):
         if scaffold:
             from fastapi.responses import PlainTextResponse
-            from utils.scaffold import scaffold_single
+            from pybend.core.utils.scaffold import scaffold_single
             try:
                 source = scaffold_single(model_class.__name__, kind=scaffold, schema=model_class.schema())
                 return PlainTextResponse(source, media_type='text/plain')
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
-        print(f"[SCHEMA] Fetching schema for {model_class.__name__}")
+        logger.debug("Fetching schema for %s", model_class.__name__)
         return model_class.schema()
     return get_model_schema
 
@@ -181,7 +187,7 @@ def make_get_instance(model_class):
         populate: str = Query(default=None),
         depth: int = Query(default=None, ge=0, le=3),
     ):
-        print(f"[READ] Attempting to read {model_class.__name__} ID={id}")
+        logger.debug("Reading %s ID=%s", model_class.__name__, id)
         pop_spec = parse_populate(populate, depth)
         instance = model_class.get(id, populate=pop_spec)
         if not instance:
@@ -216,12 +222,13 @@ def make_update_instance(model_class):
             if parent_id:
                 fk_field = f"{model_class.__owner__.__name__.lower()}_id"
                 data_dict[fk_field] = parent_id
-            print(f"[UPDATE] Attempting to update {model_class.__name__} ID={id} with data: {data_dict}")
+            logger.info("Updating %s ID=%s", model_class.__name__, id)
             updated = model_class.update(id, data_dict)
             return updated.model_dump(response=True)
         except Exception as e:
-            print(f"[ERROR] Failed to update {model_class.__name__} ID={id}: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            logger.error("Failed to update %s ID=%s: %s", model_class.__name__, id, e, exc_info=True)
+            detail = str(e) if config.DEBUG else "Bad request"
+            raise HTTPException(status_code=400, detail=detail)
     return update_instance
 
 
@@ -235,7 +242,7 @@ def make_delete_instance(model_class):
             _resolver.authorize(ctx)
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e))
-        print(f"[DELETE] Attempting to delete {model_class.__name__} ID={id}")
+        logger.info("Deleting %s ID=%s", model_class.__name__, id)
         model_class.delete(id)
         return {"message": "Deleted successfully"}
     return delete_instance
@@ -321,7 +328,10 @@ def make_custom_post(attr, model_class, route_path):
             if user is not None:
                 parsed_args['user'] = user
 
-        return attr(instance, **parsed_args)
+        try:
+            return attr(instance, **parsed_args)
+        except MethodError as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
 
     async def post_no_id(
         request: Request,
@@ -350,10 +360,13 @@ def make_custom_post(attr, model_class, route_path):
             if user is not None:
                 parsed_args['user'] = user
 
-        if is_class_method:
-            return attr(model_class, **parsed_args)
-        else:
-            return attr(**parsed_args)
+        try:
+            if is_class_method:
+                return attr(model_class, **parsed_args)
+            else:
+                return attr(**parsed_args)
+        except MethodError as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
 
     return post_with_id if is_instance_method else post_no_id
 
@@ -384,12 +397,12 @@ def register_routes():
             tag = parent_class.__tablename__.capitalize()
             collection_path = f"/{model_class.__tablename__}"
             router.get(collection_path, tags=[tag])(make_collection_list(model_class))
-            print(f"[ROUTES] Collection route: GET {collection_path}")
+            logger.info("Collection route: GET %s", collection_path)
 
     # Pass 2: Register all model routes (schema, CRUD, custom methods)
     for model_name, model_class in registered_models.items():
         # Extract model metadata
-        print(f"[ROUTES] Registering routes for model: {model_name} ({model_class.__name__})")
+        logger.info("Registering routes for model: %s (%s)", model_name, model_class.__name__)
         model_title = model_name.capitalize()
         is_storable = issubclass(model_class, StorableMixin)
         parent_class = getattr(model_class, '__owner__', None)
@@ -445,19 +458,19 @@ def register_routes():
                 if isinstance(attr, (classmethod, staticmethod)):
                     if 'GET' in methods:
                         async def custom_get(attr=attr) -> return_type:
-                            print(f"[GET] Custom GET handler for {attr.__name__} at {full_route}")
+                            logger.debug("Custom GET handler for %s", attr.__name__)
                             return attr()
                         router.add_api_route(full_route, custom_get, methods=['GET'], tags=[model_title], name=attr.__name__)
                         custom_method = custom_get
                     elif 'POST' in methods:
                         async def custom_post(data: Dict[str, Any] = Body(default={}), attr=attr) -> return_type:
-                            print(f"[POST] Custom POST handler for {attr.__name__} at {full_route} with data: {data}")
+                            logger.debug("Custom POST handler for %s", attr.__name__)
                             return attr(**data)
                         custom_method = custom_post
                 else:
                     if 'GET' in methods:
                         async def custom_get(id: int = Path(..., description=f"{model_name.capitalize()} primary key"), attr=attr) -> return_type:
-                            print(f"[GET] Custom GET handler for {attr.__name__} ID={id} at {full_route}")
+                            logger.debug("Custom GET handler for %s ID=%s", attr.__name__, id)
                             instance = parent_class.get(id)
                             return attr(instance)
                         custom_method = custom_get
@@ -468,7 +481,7 @@ def register_routes():
                                 data: Dict[str, Any] = Body(default={}),
                                 attr=attr
                         ) -> return_type:
-                            print(f"[POST] Custom POST handler for {attr.__name__} ID={id} at {full_route} with data: {data}")
+                            logger.debug("Custom POST handler for %s ID=%s", attr.__name__, id)
                             instance = parent_class.get(id)
                             return attr(instance, **data)
                         custom_method = custom_post

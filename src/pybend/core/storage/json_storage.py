@@ -1,9 +1,12 @@
 # app/storage/json_storage.py
 
 import json
+import logging
 import os
 from typing import Any, Dict, List, Type
 from .abstract_storage import AbstractStorage
+
+logger = logging.getLogger('pybend.storage')
 
 
 class JSONStorage(AbstractStorage):

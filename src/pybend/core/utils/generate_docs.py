@@ -1,8 +1,11 @@
 # scripts/generate_docs.py
+import logging
 import os
-from models.proto_model import ProtoModel
-from utils.registrar import registered_models
+from pybend.core.models.proto_model import ProtoModel
+from .registrar import registered_models
 from pathlib import Path
+
+logger = logging.getLogger('pybend.utils')
 
 DOCS_DIR = Path("docs")
 DOCS_DIR.mkdir(exist_ok=True)

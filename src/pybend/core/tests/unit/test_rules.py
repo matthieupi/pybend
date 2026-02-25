@@ -6,13 +6,16 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from authorize.rules import (
+from pybend.core.authorize.rules import (
     AccessRule, ANYONE, AUTHENTICATED, OWNER, ROLE, Where,
     OrRule, AndRule, NotRule,
     _Anyone, _Authenticated, _Owner, _Role,
 )
-from authorize.context import AccessContext
-from models.proto_model import ProtoModel
+from pybend.core.authorize.context import AccessContext
+from pybend.core.models.proto_model import ProtoModel
+
+pytestmark = pytest.mark.unit
+
 
 
 def _make_ctx(user_id=None, role='user', email='test@test.com',

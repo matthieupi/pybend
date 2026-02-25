@@ -6,8 +6,11 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from models.proto_model import ProtoModel
-from utils.registrar import register_model, registered_models, join_models
+from pybend.core.models.proto_model import ProtoModel
+from pybend.core.utils.registrar import register_model, registered_models, join_models
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestRegisterModel:

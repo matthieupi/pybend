@@ -1,8 +1,11 @@
 """Tests for utils/decorators.py — @expose_route decorator."""
 
 import pytest
-from utils.decorators import expose_route
-from authorize.rules import AUTHENTICATED, ANYONE, OWNER
+from pybend.core.utils.decorators import expose_route
+from pybend.core.authorize.rules import AUTHENTICATED, ANYONE, OWNER
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestExposeRoute:

@@ -6,13 +6,16 @@ from typing import ClassVar, Dict, Any
 
 from pydantic import Field
 
-from api.routes_fastapi import (
+from pybend.core.api.routes_fastapi import (
     _get_user, _build_context, _serialize, _resolve_user,
     register_route,
 )
-from authorize.context import AccessContext
-from models.proto_model import ProtoModel
-from models.storable_mixin import StorableMixin
+from pybend.core.authorize.context import AccessContext
+from pybend.core.models.proto_model import ProtoModel
+from pybend.core.models.storable_mixin import StorableMixin
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestGetUser:
@@ -141,28 +144,28 @@ class TestResolveUser:
 class TestRegisterRoute:
 
     def test_get(self):
-        with patch('api.routes_fastapi.router') as mock_router:
+        with patch('pybend.core.api.routes_fastapi.router') as mock_router:
             def handler():
                 pass
             register_route('/test', handler, method='GET')
             mock_router.get.assert_called_once_with('/test')
 
     def test_post(self):
-        with patch('api.routes_fastapi.router') as mock_router:
+        with patch('pybend.core.api.routes_fastapi.router') as mock_router:
             def handler():
                 pass
             register_route('/test', handler, method='POST')
             mock_router.post.assert_called_once_with('/test')
 
     def test_put(self):
-        with patch('api.routes_fastapi.router') as mock_router:
+        with patch('pybend.core.api.routes_fastapi.router') as mock_router:
             def handler():
                 pass
             register_route('/test', handler, method='PUT')
             mock_router.put.assert_called_once_with('/test')
 
     def test_delete(self):
-        with patch('api.routes_fastapi.router') as mock_router:
+        with patch('pybend.core.api.routes_fastapi.router') as mock_router:
             def handler():
                 pass
             register_route('/test', handler, method='DELETE')

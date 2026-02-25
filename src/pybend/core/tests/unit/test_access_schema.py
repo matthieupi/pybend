@@ -3,8 +3,11 @@
 import pytest
 from unittest.mock import MagicMock
 
-from authorize.schema import access_schema
-from authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE, Where
+from pybend.core.authorize.schema import access_schema
+from pybend.core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE, Where
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestAccessSchema:

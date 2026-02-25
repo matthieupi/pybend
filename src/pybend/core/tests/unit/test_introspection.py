@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from pydantic import BaseModel, Field
 
-from utils.introspection import (
+from pybend.core.utils.introspection import (
     pydantic_schema_for_type,
     record_model_type,
     _is_self_ref,
@@ -14,9 +14,12 @@ from utils.introspection import (
     get_ref_fields,
     _unwrap_listref,
 )
-from utils.typer import Ref, _SelfRefMarker
-from models.ref import ListRef, _ListRefMarker
-from models.proto_model import ProtoModel
+from pybend.core.utils.typer import Ref, _SelfRefMarker
+from pybend.core.models.ref import ListRef, _ListRefMarker
+from pybend.core.models.proto_model import ProtoModel
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestPydanticSchemaForType:
@@ -193,3 +196,115 @@ class TestUnwrapListref:
         marker = _ListRefMarker(M)
         result = _unwrap_listref(str, field_metadata=[marker])
         assert result is M
+
+
+# ===================================================================
+# CG-7: Edge case tests for introspection.py
+# ===================================================================
+
+class TestPydanticSchemaForTypeEdgeCases:
+    """CG-7: Additional edge cases not covered above."""
+
+    def test_ref_type_produces_ref(self):
+        """Ref[SomeModel] should produce a $ref schema."""
+        class Target(BaseModel):
+            pass
+        ref_type = Ref[Target]
+        result = pydantic_schema_for_type(ref_type)
+        assert result['type'] == '$ref'
+        assert '$ref' in result
+
+    def test_list_of_basemodel(self):
+        class Target(BaseModel):
+            pass
+        result = pydantic_schema_for_type(List[Target])
+        assert result['type'] == 'array'
+        assert result['items']['type'] == '$ref'
+
+    def test_none_fallback(self):
+        """None type should fall back to string."""
+        result = pydantic_schema_for_type(type(None))
+        assert result == {'type': 'string'}
+
+
+class TestRecordModelTypeEdgeCases:
+    """CG-7: Edge cases for record_model_type."""
+
+    def test_optional_model(self):
+        """Optional[Model] should still record the model."""
+        class Target(BaseModel):
+            pass
+        class Host(BaseModel):
+            pass
+        Host._referenced_models = set()
+        record_model_type(Host, Optional[Target])
+        assert Target in Host._referenced_models
+
+    def test_set_of_models(self):
+        """set[Model] should record the model."""
+        from typing import Set
+        class Target(BaseModel):
+            pass
+        class Host(BaseModel):
+            pass
+        Host._referenced_models = set()
+        record_model_type(Host, Set[Target])
+        assert Target in Host._referenced_models
+
+    def test_dict_with_model_value(self):
+        """Dict[str, Model] should record the model."""
+        from typing import Dict
+        class Target(BaseModel):
+            pass
+        class Host(BaseModel):
+            pass
+        Host._referenced_models = set()
+        record_model_type(Host, Dict[str, Target])
+        assert Target in Host._referenced_models
+
+
+class TestGetListFieldsEdgeCases:
+    """CG-7: Edge cases for get_list_fields."""
+
+    def test_optional_listref(self):
+        """Optional[ListRef[T]] should still be detected."""
+        class Child(BaseModel):
+            name: str = ''
+        class Parent(BaseModel):
+            children: Optional[ListRef[Child]] = Field(default=[])
+        result = get_list_fields(Parent)
+        assert len(result) == 1
+        assert result[0][1] is Child
+
+    def test_plain_list_of_basemodel(self):
+        """List[BaseModel] without ListRef marker should still be detected."""
+        class Child(BaseModel):
+            name: str = ''
+        class Parent(BaseModel):
+            items: List[Child] = Field(default=[])
+        result = get_list_fields(Parent)
+        assert len(result) == 1
+        assert result[0][1] is Child
+
+    def test_plain_list_of_primitives_ignored(self):
+        """List[str] should NOT be returned."""
+        class Parent(BaseModel):
+            tags: List[str] = Field(default=[])
+        result = get_list_fields(Parent)
+        assert result == []
+
+
+class TestIsSelfRefEdgeCases:
+    """CG-7: Edge cases for _is_self_ref."""
+
+    def test_list_type_not_selfref(self):
+        assert _is_self_ref(List[int]) is False
+
+    def test_dict_type_not_selfref(self):
+        from typing import Dict
+        assert _is_self_ref(Dict[str, str]) is False
+
+    def test_basemodel_not_selfref(self):
+        class M(BaseModel):
+            pass
+        assert _is_self_ref(M) is False

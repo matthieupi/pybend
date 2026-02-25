@@ -123,7 +123,7 @@
   - Live `ntt-list` + `ntt-router` with click-to-navigate
   - User model at xs/sm, collapsible JSON schema inspector, ABAC permission panel
   - Glass morphism sections, `ks-` prefixed CSS, responsive layout
-- [x] **[Refactor PTT into NTT](src/pybend/static/NTT0.6/docs/PTT_NTT_MERGE.md)**
+- [x] **[Refactor PTT into NTT](src/pybend/static/docs/PTT_NTT_MERGE.md)**
   - Merged PTT into NTT — NTT is now the universal type registry, schema proxy, and ATTACH router
   - Added null-pointer bootstrap pattern with TX message queueing for async schema loading
   - Added `NTT.SCHEMA` static handler for bootstrap completion and DynamicClass generation

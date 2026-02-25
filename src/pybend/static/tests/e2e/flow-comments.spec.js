@@ -14,8 +14,17 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
   test('add comment to product and verify count increases', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
-    // Get current comment count
-    const beforeResp = await page.request.get('/products/1?depth=1', {
+    // Create a fresh product so comment count starts at 0
+    const createResp = await page.request.post('/products', {
+      headers: { 'x-access-token': token, 'Content-Type': 'application/json' },
+      data: { name: `Comment Count Test ${Date.now()}`, price: 1.0 },
+    });
+    expect(createResp.ok()).toBe(true);
+    const product = await createResp.json();
+    const pid = product.id;
+
+    // Get current comment count (should be 0)
+    const beforeResp = await page.request.get(`/products/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const beforeData = await beforeResp.json();
@@ -23,14 +32,14 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
 
     // Add comment
     const ts = Date.now();
-    const resp = await page.request.post('/products/1/comment', {
+    const resp = await page.request.post(`/products/${pid}/comment`, {
       headers: { 'x-access-token': token },
       data: { comment: { name: `Flow Comment ${ts}`, description: 'Written by Playwright flow test' } },
     });
     expect(resp.ok()).toBe(true);
 
     // Verify count increased
-    const afterResp = await page.request.get('/products/1?depth=1', {
+    const afterResp = await page.request.get(`/products/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const afterData = await afterResp.json();
@@ -310,9 +319,18 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const ts = Date.now();
 
+    // Create a fresh product so we don't hit pagination limits
+    const createResp = await page.request.post('/products', {
+      headers: { 'x-access-token': token, 'Content-Type': 'application/json' },
+      data: { name: `Rapid Comment Test ${ts}`, price: 1.0 },
+    });
+    expect(createResp.ok()).toBe(true);
+    const product = await createResp.json();
+    const pid = product.id;
+
     // Submit sequentially to avoid SQLite locking issues
     for (let i = 0; i < 5; i++) {
-      const resp = await page.request.post('/products/4/comment', {
+      const resp = await page.request.post(`/products/${pid}/comment`, {
         headers: { 'x-access-token': token },
         data: { comment: { name: `Rapid ${i} ${ts}`, description: `Comment ${i}` } },
       });
@@ -320,7 +338,7 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
     }
 
     // Verify all 5 were actually created by checking the product
-    const verifyResp = await page.request.get('/products/4?depth=1', {
+    const verifyResp = await page.request.get(`/products/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const data = await verifyResp.json();

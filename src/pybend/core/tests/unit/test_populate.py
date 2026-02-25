@@ -1,7 +1,10 @@
 """Tests for utils/populate.py — PopulateSpec and parse_populate."""
 
 import pytest
-from utils.populate import PopulateSpec, parse_populate, DEFAULT_CHILD_LIMIT
+from pybend.core.utils.populate import PopulateSpec, parse_populate, DEFAULT_CHILD_LIMIT
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestPopulateSpec:

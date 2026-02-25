@@ -180,13 +180,22 @@ test.describe('Data Integrity — Comment FK Relationship', () => {
     });
     const me = await meResp.json();
 
+    // Create a fresh product so newly added comment won't be pushed out by pagination
+    const createResp = await page.request.post('/products', {
+      headers: { 'x-access-token': token, 'Content-Type': 'application/json' },
+      data: { name: `Owner Check Product ${Date.now()}`, price: 1.0 },
+    });
+    expect(createResp.ok()).toBe(true);
+    const product = await createResp.json();
+    const pid = product.id;
+
     const ts = Date.now();
-    await page.request.post('/products/2/comment', {
+    await page.request.post(`/products/${pid}/comment`, {
       headers: { 'x-access-token': token },
       data: { comment: { name: `Owner Verify ${ts}`, description: 'Testing' } },
     });
 
-    const resp = await page.request.get('/products/2?depth=1', {
+    const resp = await page.request.get(`/products/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const data = await resp.json();

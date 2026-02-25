@@ -8,11 +8,14 @@ from typing import ClassVar, Optional
 
 from pydantic import Field, BaseModel
 
-import config
-from models.proto_model import ProtoModel, _apply_field_exclusion, _AUTO_HIDE_FIELDS, generate_join_model
-from models.storable_mixin import StorableMixin
-from utils.typer import Ref
-from models.ref import ListRef
+from pybend.core import config
+from pybend.core.models.proto_model import ProtoModel, _apply_field_exclusion, _AUTO_HIDE_FIELDS, generate_join_model
+from pybend.core.models.storable_mixin import StorableMixin
+from pybend.core.utils.typer import Ref
+from pybend.core.models.ref import ListRef
+
+pytestmark = pytest.mark.unit
+
 
 
 # ===================================================================
@@ -212,7 +215,7 @@ class TestMethodsJsonSignature:
 
     def test_access_rule_in_method(self):
         from utils.decorators import expose_route
-        from authorize.rules import AUTHENTICATED
+        from pybend.core.authorize.rules import AUTHENTICATED
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'mj_t5'
             @expose_route('/secure', methods=['POST'], access=AUTHENTICATED)
@@ -296,7 +299,7 @@ class TestSchema:
         assert 'methods' in schema
 
     def test_access_section(self):
-        from authorize.rules import ANYONE, AUTHENTICATED
+        from pybend.core.authorize.rules import ANYONE, AUTHENTICATED
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'sc_t7'
             __access__: ClassVar[dict] = {'read': ANYONE, 'create': AUTHENTICATED}
@@ -444,6 +447,92 @@ class TestGenerateJoinModel:
             text: str = Field(default='')
         with pytest.raises(AssertionError):
             generate_join_model(NotModel, C)
+
+    def test_ref_model_not_protomodel(self):
+        """UT-2: ref_model must also be a ProtoModel."""
+        class O(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_own5'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+        class NotModel:
+            pass
+        O.storage = MagicMock()
+        with pytest.raises(AssertionError):
+            generate_join_model(O, NotModel)
+
+    def test_owner_without_storable_raises(self):
+        """UT-2: Owner without __storable__ (non-storable) has no storage attr."""
+        class O(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_own6'
+            # __storable__ NOT set => no StorableMixin => no storage attr
+            name: str = Field(default='')
+        class C(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_ch6'
+            __storable__: ClassVar[bool] = True
+            text: str = Field(default='')
+        with pytest.raises(AssertionError, match="storage"):
+            generate_join_model(O, C)
+
+    def test_join_model_inherits_from_ref(self):
+        """UT-2: Join model is a subclass of the ref_model."""
+        class O(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_own7'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+        class C(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_ch7'
+            __storable__: ClassVar[bool] = True
+            text: str = Field(default='')
+        O.storage = MagicMock()
+        jm = generate_join_model(O, C)
+        assert issubclass(jm, C)
+
+    def test_join_model_is_storable(self):
+        """UT-2: Join model should have __storable__ = True."""
+        class O(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_own8'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+        class C(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_ch8'
+            __storable__: ClassVar[bool] = True
+            text: str = Field(default='')
+        O.storage = MagicMock()
+        jm = generate_join_model(O, C)
+        assert jm.__storable__ is True
+
+    def test_join_model_tagname(self):
+        """UT-2: __tagname__ should be set to child tablename."""
+        class O(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_own9'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+        class C(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_ch9'
+            __storable__: ClassVar[bool] = True
+            text: str = Field(default='')
+        O.storage = MagicMock()
+        jm = generate_join_model(O, C)
+        assert jm.__tagname__ == 'gj_ch9'
+
+    def test_join_model_inherits_methods(self):
+        """UT-2: Join model inherits exposed methods from ref_model."""
+        from utils.decorators import expose_route
+        class O(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_own10'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+        class C(ProtoModel):
+            __tablename__: ClassVar[str] = 'gj_ch10'
+            __storable__: ClassVar[bool] = True
+            text: str = Field(default='')
+            @expose_route('/custom', methods=['POST'])
+            def custom(self) -> str:
+                return 'inherited'
+        O.storage = MagicMock()
+        jm = generate_join_model(O, C)
+        assert hasattr(jm, 'custom')
+        assert hasattr(jm.custom, '__endpoint__')
 
 
 # ===================================================================

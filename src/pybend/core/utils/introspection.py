@@ -1,11 +1,14 @@
 import inspect
 import json
+import logging
 from typing import Dict, Any, Callable, List, Tuple, Type, get_type_hints, get_args, get_origin, Union
 
 from pydantic import BaseModel, create_model
 from pydantic.json_schema import model_json_schema
 
-from utils.typer import Ref, _SelfRefMarker
+from .typer import Ref, _SelfRefMarker
+
+logger = logging.getLogger('pybend.utils')
 
 
 def pydantic_schema_for_type(t) -> Dict[str, Any]:
@@ -13,7 +16,7 @@ def pydantic_schema_for_type(t) -> Dict[str, Any]:
     Extracts a Pydantic-style JSON schema or $ref for a given type.
     """
     if hasattr(t, '__origin__'):
-        print(f"[ORIGIN] Processing type: {t}, origin: {get_origin(t)}", flush=True)
+        logger.debug("Processing type: %s, origin: %s", t, get_origin(t))
     if hasattr(t, '__origin__') and t.__origin__ is Ref:
         target_type = get_args(t)[0]
         return {"type": "$ref", "$ref": f"#/$defs/{target_type.__name__}"}

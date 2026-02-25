@@ -1,7 +1,10 @@
 """Tests for storage/abstract_storage.py — AbstractStorage interface."""
 
 import pytest
-from storage.abstract_storage import AbstractStorage
+from pybend.core.storage.abstract_storage import AbstractStorage
+
+pytestmark = pytest.mark.unit
+
 
 
 class TestAbstractStorage:

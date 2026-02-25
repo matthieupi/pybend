@@ -1,12 +1,15 @@
 # app/models/storable_mixin.py
 
+import logging
 from typing import ClassVar, Any, List, Union
 
 from pydantic import BaseModel
 
-from storage.abstract_storage import AbstractStorage as StorageInterface
-from utils.registrar import join_models
-from utils.typer import Ref
+from pybend.core.storage.abstract_storage import AbstractStorage as StorageInterface
+from pybend.core.utils.registrar import join_models
+from pybend.core.utils.typer import Ref
+
+logger = logging.getLogger('pybend.models')
 
 
 
@@ -36,11 +39,11 @@ class StorableMixin:
         """
         if not self.id:
             # If no ID, create a new record
-            print(f'Saving new {self.__class__.__name__} instance: {self}')
+            logger.debug("Saving new %s instance", self.__class__.__name__)
             return self.create(self)
         else:
             # If ID exists, update the existing record
-            print(f'Updating existing {self.__class__.__name__} instance: {self}')
+            logger.debug("Updating existing %s instance", self.__class__.__name__)
             return self.update(self.id, self)
 
     @classmethod
@@ -82,7 +85,7 @@ class StorableMixin:
             if isinstance(v, Ref):
                 data_dict[k] = int(v)  # unwrap FK to plain int
 
-        print(f'Creating {cls.__name__} with data: {data_dict}')
+        logger.debug("Creating %s with data: %s", cls.__name__, data_dict)
         return cls.storage.create(cls, data_dict)
 
     @classmethod
@@ -109,7 +112,7 @@ class StorableMixin:
         """
         Updates a record using the storage backend.
         """
-        print(f'Updating {cls.__name__} ID={id} with data: {data}')
+        logger.debug("Updating %s ID=%s", cls.__name__, id)
         if isinstance(data, BaseModel):
             data_dict = data.model_dump(exclude_unset=True)
         elif isinstance(data, dict):

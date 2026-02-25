@@ -1,11 +1,14 @@
 # app/api/routes.py
+import logging
 import requests
 from flask import Blueprint, request, jsonify
 from flasgger import swag_from
 from functools import wraps
 import yaml
 
-from models.storable_mixin import StorableMixin
+from pybend.core.models.storable_mixin import StorableMixin
+
+logger = logging.getLogger('pybend.api')
 
 
 def create_api_blueprint(registered_models):

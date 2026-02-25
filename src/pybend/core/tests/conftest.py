@@ -20,21 +20,18 @@ _core_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _core_dir not in sys.path:
     sys.path.insert(0, _core_dir)
 
-import config
-import authorize
+from pybend.core import config
+from pybend.core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 # Import main to trigger model registration and route setup (uses production DB initially)
 os.environ["GENERATE_DOCS"] = "false"  # Skip doc generation during tests
-from main import app  # noqa: triggers model registration
+from pybend.core.main import app  # noqa: triggers model registration
 
-from storage.sqlite_storage import SQLiteStorage
-from utils.registrar import registered_models, join_models
-from models.product_model import Product
-from models.comment_model import Comment
-from models.like_model import Like
-from models.user_model import User
-from authorize import create_token
+from pybend.core.storage.sqlite_storage import SQLiteStorage
+from pybend.core.utils.registrar import registered_models, join_models
+from pybend.example.models import Product, Comment, Like, User
+from pybend.core.authorize import create_token
 
 
 def _setup_test_db(db_path):
@@ -215,6 +212,30 @@ def _seed_favorites(users, products):
 
 
 # ---------------------------------------------------------------------------
+# Fixture factories (SD-3)
+# ---------------------------------------------------------------------------
+
+def _make_product(client, token, name="Factory Product", price=19.99, **overrides):
+    """Create a product via the API and return the response data dict."""
+    from pybend.core.tests.helpers import auth_header
+    payload = {"name": name, "price": price, **overrides}
+    resp = client.post("/products", json=payload, headers=auth_header(token))
+    assert resp.status_code == 201, f"Failed to create product: {resp.text}"
+    return resp.json()
+
+
+def _make_comment(client, token, product_id, name="Factory Comment",
+                  description="Factory description", **overrides):
+    """Create a comment on a product via the API and return the response data dict."""
+    from pybend.core.tests.helpers import auth_header
+    payload = {"name": name, "description": description, **overrides}
+    resp = client.post(f"/products/{product_id}/comments", json=payload,
+                       headers=auth_header(token))
+    assert resp.status_code == 201, f"Failed to create comment: {resp.text}"
+    return resp.json()
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
@@ -297,3 +318,22 @@ def admin_token(seed_data):
     """JWT token for admin user."""
     admin = seed_data["users"]["admin"]
     return create_token(admin.id, admin.email, admin.role)
+
+
+@pytest.fixture(scope="session")
+def make_product(client, alice_token):
+    """Fixture factory for creating products via the API (SD-3)."""
+    def _factory(name="Factory Product", price=19.99, token=None, **overrides):
+        return _make_product(client, token or alice_token, name=name,
+                             price=price, **overrides)
+    return _factory
+
+
+@pytest.fixture(scope="session")
+def make_comment(client, alice_token):
+    """Fixture factory for creating comments via the API (SD-3)."""
+    def _factory(product_id, name="Factory Comment",
+                 description="Factory description", token=None, **overrides):
+        return _make_comment(client, token or alice_token, product_id,
+                             name=name, description=description, **overrides)
+    return _factory

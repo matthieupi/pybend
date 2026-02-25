@@ -1,6 +1,6 @@
 from typing import Annotated, List, Union
 
-from utils.typer import Ref
+from pybend.core.utils.typer import Ref
 
 
 class _ListRefMarker:
