@@ -1,3 +1,4 @@
+import functools
 import inspect
 import json
 import logging
@@ -135,6 +136,7 @@ def _unwrap_listref(field_type, field_metadata=None):
     return None
 
 
+@functools.lru_cache(maxsize=None)
 def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
     """
     Returns a list of (field_name, child_model_class) for every
@@ -178,6 +180,7 @@ def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
     return results
 
 
+@functools.lru_cache(maxsize=None)
 def get_ref_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
     """
     Returns a list of (field_name, target_model_class) for every

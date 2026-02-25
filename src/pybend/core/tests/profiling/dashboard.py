@@ -129,13 +129,14 @@ async def start_run(body: dict):
 
     def run_profiling():
         try:
-            profile_sh = SCRIPTS_DIR / 'profile.sh'
+            profile_sh = str(SCRIPTS_DIR / 'profile.sh')
             if mode == 'e2e':
-                cmd = ['bash', str(profile_sh), 'e2e', label]
+                cmd = ['bash', profile_sh, 'e2e', label]
             elif mode == 'api':
-                cmd = ['bash', str(profile_sh), 'api-only', label]
+                cmd = ['bash', profile_sh, 'api-only', label]
             else:
-                cmd = ['bash', str(profile_sh), label]  # baseline/optimized/full
+                # "all" = run API then E2E sequentially via two calls
+                cmd = ['bash', '-c', f'bash "{profile_sh}" api-only "{label}" && bash "{profile_sh}" e2e "{label}"']
             env = os.environ.copy()
             env['PYTHONUNBUFFERED'] = '1'
             proc = subprocess.Popen(

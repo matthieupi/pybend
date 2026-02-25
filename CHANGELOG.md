@@ -3,6 +3,12 @@
 # 0.7.0 (2026-02)
 
 ## Backend
+- [x] **[Performance Optimizations](src/pybend/core/docs/changelogs/03_Performance_Backend.md)**
+  - Schema caching: `ProtoModel.schema()` caches per class, returns `deepcopy` — O(1) after first call
+  - Batch FK hydration: replaced N+1 per-row queries with single `WHERE fk IN (?, ...)` per ListRef field
+  - Connection pooling: `queue.Queue`-based pool with WAL mode and `busy_timeout` for concurrent reads
+  - Field introspection caching: `@lru_cache` on `get_list_fields()` and `get_ref_fields()`
+  - FK indexes: `CREATE INDEX` on all parent FK and self-ref columns in `create_table()` / `migrate_table()`
 - [x] **Social features — Like/Favorite toggle** — `Comment.like()` and `Product.favorite()` rewritten as toggle endpoints (create if not liked/favorited, delete if already exists)
   - Uses `join_models` registry to query/delete via join tables (`CommentLike`, `ProductLike`)
   - Empty body allowed (`Body(default={})`) — no payload needed for toggle actions
@@ -58,6 +64,9 @@
   - Added nested routes for child entity access (`/tablename/:id/field/:child_id`)
 
 ## Frontend
+- [x] **[Performance Optimizations](src/pybend/static/docs/changelogs/04_Performance_Frontend.md)**
+  - Batched DOM insertion: `ListElement.render()` and `update()` use `DocumentFragment` for single-reflow child stamping
+  - Event listener cleanup: `NTTItem.#bindEvents()` uses `AbortController` to prevent listener accumulation across re-renders
 - [x] **`<ntt-method>` button layout** — new compact icon + count pill rendering for social actions (like, favorite)
   - SVG icon library (heart, star, reply, default) with hover/active states
   - `count-field` attribute reads collection length from entity data (supports populated wrappers)

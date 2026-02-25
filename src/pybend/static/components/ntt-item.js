@@ -24,6 +24,9 @@ export class NTTItem extends NTTElement {
 
   mode = 'display';
 
+  /** AbortController for event listeners — aborted on each re-render to prevent accumulation. */
+  #eventAC = null;
+
   get styles() { return new URL('./ntt-item.css', import.meta.url).href; }
 
   connectedCallback() {
@@ -489,19 +492,25 @@ export class NTTItem extends NTTElement {
 
   /** Bind event listeners to current shadow DOM contents. */
   #bindEvents() {
+    // Abort previous listeners before binding new ones.
+    // Prevents listener accumulation across re-renders.
+    this.#eventAC?.abort();
+    this.#eventAC = new AbortController();
+    const {signal} = this.#eventAC;
+
     // Edit button
-    this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', () => this.toggleMode());
+    this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', () => this.toggleMode(), {signal});
 
     // Delete button
     this.shadowRoot.querySelector('.delete-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.deleteItem();
-    });
+    }, {signal});
 
     // Input changes
     this.shadowRoot.querySelectorAll('input, textarea').forEach(el => {
       const event = (el.type === 'checkbox') ? 'change' : 'input';
-      el.addEventListener(event, e => this.handleInputChange(e));
+      el.addEventListener(event, e => this.handleInputChange(e), {signal});
     });
 
     // Show-more toggle
@@ -514,7 +523,7 @@ export class NTTItem extends NTTElement {
           btn.textContent = collapsed.classList.contains('expanded')
             ? 'Show less' : `Show ${count} more`;
         }
-      });
+      }, {signal});
     });
 
     // Reply button toggle — shows/hides inline reply input under the card
@@ -568,12 +577,12 @@ export class NTTItem extends NTTElement {
         }
         replyBox.remove();
       };
-      btn.addEventListener('click', (ev) => { ev.stopPropagation(); submit(); });
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); submit(); }, {signal});
       input.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
         if (ev.key === 'Escape') replyBox.remove();
-      });
-    });
+      }, {signal});
+    }, {signal});
 
     // Card click → SELECT (skip interactive elements and edit mode)
     if (this.mode !== 'edit') {
@@ -585,7 +594,7 @@ export class NTTItem extends NTTElement {
             name: 'SELECT', source: this.addr, target: target, data: this.ref
           }));
         }
-      });
+      }, {signal});
     }
   }
 

@@ -181,12 +181,16 @@ export class ListElement extends Component {
       if (el) el.remove();
     }
 
-    // Additions: create and append children for new addrs
+    // Additions: batch into a fragment so we only trigger one reflow
     const additions = next.filter(addr => !prevSet.has(addr));
-    for (const addr of additions) {
-      const child = this.createChild(addr);
-      child.setAttribute('data-value', addr);
-      grid.appendChild(child);
+    if (additions.length > 0) {
+      const fragment = document.createDocumentFragment();
+      for (const addr of additions) {
+        const child = this.createChild(addr);
+        child.setAttribute('data-value', addr);
+        fragment.appendChild(child);
+      }
+      grid.appendChild(fragment);
     }
 
     // Update count
@@ -223,13 +227,17 @@ export class ListElement extends Component {
     `;
     if (this.$styles) this.shadowRoot.appendChild(this.$styles);
 
+    // Batch all child elements into a DocumentFragment first so the browser
+    // only performs a single reflow when the fragment is appended to the grid.
     const grid = this.shadowRoot.querySelector('.list-grid');
+    const fragment = document.createDocumentFragment();
     this.value.forEach((addr, i) => {
       const child = this.createChild(addr);
       child.setAttribute('data-value', addr);
       child.style.setProperty('--stagger-delay', `${i * 50}ms`);
-      grid.appendChild(child);
+      fragment.appendChild(child);
     });
+    grid.appendChild(fragment);
 
     this.shadowRoot.querySelector('.load-more-btn')?.addEventListener('click', () => this.loadMore());
   }

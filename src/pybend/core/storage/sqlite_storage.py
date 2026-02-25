@@ -1,6 +1,8 @@
 # app/storage/sqlite_storage.py
 
+import contextlib
 import logging
+import queue
 import re
 import sqlite3
 from typing import Any, Dict, List, Type
@@ -28,11 +30,49 @@ class SQLiteStorage(AbstractStorage):
     """
     SQLite storage backend implementing the AbstractStorage.
     Delegates schema management to SQLiteMigration.
+
+    Uses a connection pool to avoid opening/closing a connection per operation,
+    and enables WAL mode so concurrent readers don't block on a writer.
     """
 
-    def __init__(self, database: str = 'database.db'):
+    def __init__(self, database: str = 'database.db', pool_size: int = 4):
         self.database = database
         self._migration = SQLiteMigration(database=database)
+
+        # Connection pool: reuse connections instead of open/close per operation.
+        # WAL mode is set on the first connection so it persists for the DB file.
+        # check_same_thread=False is required because FastAPI/Starlette may
+        # dispatch requests across threads; our pool handles thread safety.
+        self._pool = queue.Queue(maxsize=pool_size)
+        init_conn = sqlite3.connect(database, check_same_thread=False)
+        init_conn.execute("PRAGMA journal_mode=WAL")
+        init_conn.execute("PRAGMA busy_timeout=5000")
+        self._pool.put(init_conn)
+
+    def _get_conn(self):
+        """Get a connection from the pool, or create a new one if empty."""
+        try:
+            return self._pool.get_nowait()
+        except queue.Empty:
+            conn = sqlite3.connect(self.database, check_same_thread=False)
+            conn.execute("PRAGMA busy_timeout=5000")
+            return conn
+
+    def _put_conn(self, conn):
+        """Return a connection to the pool, or close it if the pool is full."""
+        try:
+            self._pool.put_nowait(conn)
+        except queue.Full:
+            conn.close()
+
+    @contextlib.contextmanager
+    def _connection(self):
+        """Context manager for pool-managed connections."""
+        conn = self._get_conn()
+        try:
+            yield conn
+        finally:
+            self._put_conn(conn)
 
     # ──────────────────────────────────────────────
     # SCHEMA (delegated to SQLiteMigration)
@@ -69,12 +109,11 @@ class SQLiteStorage(AbstractStorage):
                   if isinstance(value, BaseModel) and hasattr(value, 'id') else value
                   for value in values]
         insert_sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-        conn = sqlite3.connect(self.database)
-        cursor = conn.cursor()
-        cursor.execute(insert_sql, values)
-        conn.commit()
-        data['id'] = cursor.lastrowid
-        conn.close()
+        with self._connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(insert_sql, values)
+            conn.commit()
+            data['id'] = cursor.lastrowid
         logger.info("Record created with ID: %s", data['id'])
         return model_class(**data)
 
@@ -96,82 +135,90 @@ class SQLiteStorage(AbstractStorage):
                 select_sql += f" WHERE {clause}"
                 filter_params = list(params) if params else []
 
-        # Count total matching rows (before pagination)
-        total = None
-        if limit is not None:
-            count_sql = select_sql.replace("SELECT *", "SELECT COUNT(*)", 1)
-            conn = sqlite3.connect(self.database)
+        # Single pooled connection for count + query + hydration + populate
+        with self._connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(count_sql, filter_params[:])
-            total = cursor.fetchone()[0]
-            conn.close()
 
-        # Apply pagination
-        paginated_params = filter_params[:]
-        if limit is not None:
-            select_sql += " LIMIT ?"
-            paginated_params.append(limit)
-            if offset is not None and offset > 0:
-                select_sql += " OFFSET ?"
-                paginated_params.append(offset)
+            # Count total matching rows (before pagination)
+            total = None
+            if limit is not None:
+                count_sql = select_sql.replace("SELECT *", "SELECT COUNT(*)", 1)
+                cursor.execute(count_sql, filter_params[:])
+                total = cursor.fetchone()[0]
 
-        conn = sqlite3.connect(self.database)
-        cursor = conn.cursor()
-        cursor.execute(select_sql, paginated_params)
-        rows = cursor.fetchall()
-        columns = [column[0] for column in cursor.description]
+            # Apply pagination
+            paginated_params = filter_params[:]
+            if limit is not None:
+                select_sql += " LIMIT ?"
+                paginated_params.append(limit)
+                if offset is not None and offset > 0:
+                    select_sql += " OFFSET ?"
+                    paginated_params.append(offset)
 
-        results = []
-        for row in rows:
-            record = dict(zip(columns, row))
+            cursor.execute(select_sql, paginated_params)
+            rows = cursor.fetchall()
+            columns = [column[0] for column in cursor.description]
 
-            # Coerce NULL values to field defaults
-            for key, val in record.items():
-                if val is None and key in model_class.model_fields:
-                    field = model_class.model_fields[key]
-                    if field.default is not None:
-                        record[key] = field.default
+            # Build records from rows: coerce NULLs, hydrate Ref fields
+            records = []
+            for row in rows:
+                record = dict(zip(columns, row))
 
-            # Hydrate Ref[T] fields as href URLs
-            for field_name, target_cls in ref_fields:
-                val = record.get(field_name)
-                if val is not None:
-                    target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
-                    record[field_name] = f"{config.API_URL}/{target_table}/{val}"
+                # Coerce NULL values to field defaults
+                for key, val in record.items():
+                    if val is None and key in model_class.model_fields:
+                        field = model_class.model_fields[key]
+                        if field.default is not None:
+                            record[key] = field.default
 
-            # If no List[BaseModel] fields, fast path
-            if not list_fields:
-                results.append(model_class(**record))
-                continue
+                # Hydrate Ref[T] fields as href URLs
+                for field_name, target_cls in ref_fields:
+                    val = record.get(field_name)
+                    if val is not None:
+                        target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
+                        record[field_name] = f"{config.API_URL}/{target_table}/{val}"
 
-            # Hydrate collection fields as href arrays
-            parent_id = record.get('id')
-            for field_name, child_class in list_fields:
-                effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
-                child_table = _validate_identifier(effective_cls.__tablename__)
-                if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
-                    fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
-                else:
-                    fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
-                try:
-                    cursor.execute(
-                        f"SELECT id FROM {child_table} WHERE {fk_col} = ?",
-                        (parent_id,)
-                    )
-                    child_rows = cursor.fetchall()
-                    record[field_name] = [
-                        f"{config.API_URL}/{model_class.__tablename__}/{parent_id}/{field_name}/{row[0]}"
-                        for row in child_rows
-                    ]
-                except sqlite3.OperationalError:
-                    record[field_name] = []
+                records.append(record)
 
-            results.append(model_class(**record))
+            # Batch-hydrate collection fields: one query per ListRef field
+            # instead of one query per parent row per field (N×M → M queries).
+            if list_fields:
+                parent_ids = [r['id'] for r in records if r.get('id') is not None]
+                for field_name, child_class in list_fields:
+                    effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
+                    child_table = _validate_identifier(effective_cls.__tablename__)
+                    if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
+                        fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
+                    else:
+                        fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
 
-        if populate and not populate.is_empty:
-            self._populate_fields(model_class, results, populate, conn)
+                    # Single batch query for all parents
+                    grouped = {}
+                    if parent_ids:
+                        placeholders = ",".join(["?"] * len(parent_ids))
+                        try:
+                            cursor.execute(
+                                f"SELECT id, {fk_col} FROM {child_table} WHERE {fk_col} IN ({placeholders})",
+                                parent_ids
+                            )
+                            for child_id, parent_fk in cursor.fetchall():
+                                grouped.setdefault(parent_fk, []).append(child_id)
+                        except sqlite3.OperationalError:
+                            pass
 
-        conn.close()
+                    # Assign href arrays to each record
+                    for record in records:
+                        pid = record.get('id')
+                        child_ids = grouped.get(pid, [])
+                        record[field_name] = [
+                            f"{config.API_URL}/{model_class.__tablename__}/{pid}/{field_name}/{cid}"
+                            for cid in child_ids
+                        ]
+
+            results = [model_class(**record) for record in records]
+
+            if populate and not populate.is_empty:
+                self._populate_fields(model_class, results, populate, conn)
 
         if limit is not None:
             effective_offset = offset or 0
@@ -193,76 +240,74 @@ class SQLiteStorage(AbstractStorage):
     def get(self, model_class: Type[Any], id: int, as_dict: bool = False, populate: PopulateSpec = None) -> Any:
         table_name = _validate_identifier(model_class.__tablename__)
         select_sql = f"SELECT * FROM {table_name} WHERE id = ?"
-        conn = sqlite3.connect(self.database)
-        cursor = conn.cursor()
-        cursor.execute(select_sql, (id,))
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
-            return None
 
-        columns = [column[0] for column in cursor.description]
-        record = dict(zip(columns, row))
+        with self._connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(select_sql, (id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
 
-        data = {}
+            columns = [column[0] for column in cursor.description]
+            record = dict(zip(columns, row))
 
-        for field_name, field_info in model_class.model_fields.items():
-            value = record.get(field_name)
+            data = {}
 
-            if value is not None:
-                data[field_name] = value
-                continue
+            for field_name, field_info in model_class.model_fields.items():
+                value = record.get(field_name)
 
-            # If this is a nested Pydantic model (foreign key style)
-            field_type = field_info.annotation
-            if (
-                    isinstance(field_type, type)
-                    and issubclass(field_type, BaseModel)
-            ):
-                fk_field = f"{field_name}_id"
-                fk_value = record.get(fk_field)
+                if value is not None:
+                    data[field_name] = value
+                    continue
 
-                if fk_value is not None:
-                    try:
-                        fk_model = registered_models[field_type.__tablename__]
-                        data[field_name] = fk_model(id=fk_value)
-                    except Exception:
-                        pass
+                # If this is a nested Pydantic model (foreign key style)
+                field_type = field_info.annotation
+                if (
+                        isinstance(field_type, type)
+                        and issubclass(field_type, BaseModel)
+                ):
+                    fk_field = f"{field_name}_id"
+                    fk_value = record.get(fk_field)
 
-        # ── Hydrate Ref[T] fields as href URLs ──
-        for field_name, target_cls in get_ref_fields(model_class):
-            val = data.get(field_name)
-            if val is not None:
-                target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
-                data[field_name] = f"{config.API_URL}/{target_table}/{val}"
+                    if fk_value is not None:
+                        try:
+                            fk_model = registered_models[field_type.__tablename__]
+                            data[field_name] = fk_model(id=fk_value)
+                        except Exception:
+                            pass
 
-        # ── Hydrate collection fields as href arrays ──
-        for field_name, child_class in get_list_fields(model_class):
-            effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
-            child_table = _validate_identifier(effective_cls.__tablename__)
-            if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
-                fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
-            else:
-                fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
-            try:
-                cursor.execute(
-                    f"SELECT id FROM {child_table} WHERE {fk_col} = ?", (id,)
-                )
-                child_rows = cursor.fetchall()
-                data[field_name] = [
-                    f"{config.API_URL}/{model_class.__tablename__}/{id}/{field_name}/{row[0]}"
-                    for row in child_rows
-                ]
-            except sqlite3.OperationalError:
-                # Child table or FK column may not exist yet
-                data[field_name] = []
+            # ── Hydrate Ref[T] fields as href URLs ──
+            for field_name, target_cls in get_ref_fields(model_class):
+                val = data.get(field_name)
+                if val is not None:
+                    target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
+                    data[field_name] = f"{config.API_URL}/{target_table}/{val}"
 
-        instance = model_class(**data) if not as_dict else None
+            # ── Hydrate collection fields as href arrays ──
+            for field_name, child_class in get_list_fields(model_class):
+                effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
+                child_table = _validate_identifier(effective_cls.__tablename__)
+                if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
+                    fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
+                else:
+                    fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
+                try:
+                    cursor.execute(
+                        f"SELECT id FROM {child_table} WHERE {fk_col} = ?", (id,)
+                    )
+                    child_rows = cursor.fetchall()
+                    data[field_name] = [
+                        f"{config.API_URL}/{model_class.__tablename__}/{id}/{field_name}/{row[0]}"
+                        for row in child_rows
+                    ]
+                except sqlite3.OperationalError:
+                    # Child table or FK column may not exist yet
+                    data[field_name] = []
 
-        if populate and not populate.is_empty and instance:
-            self._populate_fields(model_class, [instance], populate, conn)
+            instance = model_class(**data) if not as_dict else None
 
-        conn.close()
+            if populate and not populate.is_empty and instance:
+                self._populate_fields(model_class, [instance], populate, conn)
 
         if as_dict:
             return data
@@ -345,45 +390,59 @@ class SQLiteStorage(AbstractStorage):
                 total = len(child_records)
                 capped = child_records[:child_spec.limit]
 
-                # Build child model instances and serialize
-                child_dicts = []
-                child_instances = []
+                # Coerce NULLs and hydrate Ref fields on all children first
+                child_ref_fields = get_ref_fields(effective_cls)
+                child_list_fields = get_list_fields(effective_cls)
                 for rec in capped:
-                    # Coerce NULLs to defaults
                     for key, val in rec.items():
                         if val is None and key in effective_cls.model_fields:
                             field_info = effective_cls.model_fields[key]
                             if field_info.default is not None:
                                 rec[key] = field_info.default
 
-                    # Hydrate Ref[T] fields on child as href URLs
-                    for ref_name, target_cls in get_ref_fields(effective_cls):
+                    for ref_name, target_cls in child_ref_fields:
                         val = rec.get(ref_name)
                         if val is not None:
                             target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
                             rec[ref_name] = f"{config.API_URL}/{target_table}/{val}"
 
-                    # Hydrate child's own ListRef fields as href arrays (for serialization)
-                    for child_list_name, child_list_cls in get_list_fields(effective_cls):
+                # Batch-hydrate child's own ListRef fields (one query per field,
+                # not per child instance — same N+1 fix as in list()).
+                if child_list_fields and capped:
+                    child_ids = [r['id'] for r in capped if r.get('id') is not None]
+                    for child_list_name, child_list_cls in child_list_fields:
                         child_effective = getattr(effective_cls, '__fk_models__', {}).get(child_list_name, child_list_cls)
                         child_list_table = _validate_identifier(child_effective.__tablename__)
                         if hasattr(child_effective, '__owner__') and child_effective.__owner__ is not None:
                             child_fk = _validate_identifier(f"{child_effective.__owner__.__name__.lower()}_id")
                         else:
                             child_fk = _validate_identifier(f"{effective_cls.__name__.lower()}_id")
-                        try:
-                            cursor.execute(
-                                f"SELECT id FROM {child_list_table} WHERE {child_fk} = ?",
-                                (rec.get('id'),)
-                            )
-                            child_sub_rows = cursor.fetchall()
-                            rec[child_list_name] = [
-                                f"{config.API_URL}/{effective_cls.__tablename__}/{rec['id']}/{child_list_name}/{r[0]}"
-                                for r in child_sub_rows
-                            ]
-                        except sqlite3.OperationalError:
-                            rec[child_list_name] = []
 
+                        sub_grouped = {}
+                        if child_ids:
+                            ph = ",".join(["?"] * len(child_ids))
+                            try:
+                                cursor.execute(
+                                    f"SELECT id, {child_fk} FROM {child_list_table} WHERE {child_fk} IN ({ph})",
+                                    child_ids
+                                )
+                                for sub_id, sub_fk in cursor.fetchall():
+                                    sub_grouped.setdefault(sub_fk, []).append(sub_id)
+                            except sqlite3.OperationalError:
+                                pass
+
+                        for rec in capped:
+                            rid = rec.get('id')
+                            sub_ids = sub_grouped.get(rid, [])
+                            rec[child_list_name] = [
+                                f"{config.API_URL}/{effective_cls.__tablename__}/{rid}/{child_list_name}/{sid}"
+                                for sid in sub_ids
+                            ]
+
+                # Build child model instances and serialize
+                child_dicts = []
+                child_instances = []
+                for rec in capped:
                     try:
                         child_inst = effective_cls(**rec)
                         child_instances.append(child_inst)
@@ -510,16 +569,13 @@ class SQLiteStorage(AbstractStorage):
         values.append(id)
 
         # Execute the update query
-        conn = sqlite3.connect(self.database)
-        cursor = conn.cursor()
-
-        try:
-            cursor.execute(update_sql, values)
-            conn.commit()
-        except sqlite3.Error as e:
-            raise RuntimeError(f"Database update failed: {e}")
-        finally:
-            conn.close()
+        with self._connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(update_sql, values)
+                conn.commit()
+            except sqlite3.Error as e:
+                raise RuntimeError(f"Database update failed: {e}")
 
     # ──────────────────────────────────────────────
     # DELETE
@@ -528,8 +584,7 @@ class SQLiteStorage(AbstractStorage):
     def delete(self, model_class: Type[Any], id: int):
         table_name = _validate_identifier(model_class.__tablename__)
         delete_sql = f"DELETE FROM {table_name} WHERE id = ?"
-        conn = sqlite3.connect(self.database)
-        cursor = conn.cursor()
-        cursor.execute(delete_sql, (id,))
-        conn.commit()
-        conn.close()
+        with self._connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(delete_sql, (id,))
+            conn.commit()

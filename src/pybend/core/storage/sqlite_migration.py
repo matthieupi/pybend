@@ -175,6 +175,14 @@ class SQLiteMigration:
         conn = sqlite3.connect(self.database)
         cursor = conn.cursor()
         cursor.execute(create_table_sql)
+
+        # Create indexes on FK columns for efficient hydration queries
+        for _parent_name, fk_col in get_parent_fk_columns(model_class):
+            cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{fk_col} ON {table_name} ({fk_col})")
+        for field_name, field_info in model_class.model_fields.items():
+            if _is_self_ref(field_info.annotation):
+                cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{field_name} ON {table_name} ({field_name})")
+
         conn.commit()
         conn.close()
 
@@ -293,6 +301,19 @@ class SQLiteMigration:
                     logger.info("Added parent FK column '%s' to '%s' as INTEGER", fk_col, table_name)
                 except sqlite3.OperationalError as e:
                     logger.warning("FK column %s already exists or error: %s", fk_col, e)
+
+        # Ensure FK columns have indexes for efficient hydration queries
+        for _parent_name, fk_col in get_parent_fk_columns(model_class):
+            try:
+                cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{fk_col} ON {table_name} ({fk_col})")
+            except sqlite3.OperationalError:
+                pass
+        for field_name, field_info in model_class.model_fields.items():
+            if _is_self_ref(field_info.annotation):
+                try:
+                    cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{field_name} ON {table_name} ({field_name})")
+                except sqlite3.OperationalError:
+                    pass
 
         conn.commit()
         conn.close()
