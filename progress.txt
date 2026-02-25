@@ -1,0 +1,39 @@
+## Progress Log
+
+### 2026-02-25 — Task: ui-integration-tests — Write comprehensive Playwright E2E integration test suite
+
+#### Summary
+Wrote 10 Playwright E2E integration test spec files with 200 total tests covering the full PyBend application. All 200 tests pass when run together (14.9 minutes, single worker).
+
+#### Files Created
+1. flow-auth-lifecycle.spec.js (18 tests) — Registration, login, session persistence, logout, multi-user switching, token edge cases
+2. flow-product-crud.spec.js (31 tests) — Create via API, read (anon/auth), update flow (serial), UI edit flow, edge cases (unicode, XSS, validation, max length)
+3. flow-comments.spec.js (16 tests) — Add comment via API/UI, nested replies, multi-user commenting, cross-product isolation, anonymous restrictions, edge cases
+4. flow-favorites-and-likes.spec.js (14 tests) — Favorite toggle via API, without auth, multiple users, UI star button, cross-product independence, comment likes, favorites page
+5. flow-social-chain.spec.js (16 tests) — Master integration: register -> create -> comment -> favorite -> cross-user -> update -> verify aggregate state
+6. flow-navigation-deep.spec.js (16 tests) — List-detail-back, deep links, browser history, hash changes, auth state + navigation, favorites flow, state consistency
+7. flow-permissions-matrix.spec.js (28 tests) — Anonymous API/UI, authenticated API/UI, schema access rules, role escalation prevention
+8. flow-error-resilience.spec.js (26 tests) — API error responses, UI error handling, validation, XSS prevention, edge data types, concurrent navigation
+9. flow-responsive-breakpoints.spec.js (19 tests) — Mobile 360, tablet 768, desktop 1280, widescreen 1920, viewport resize, display mode transitions
+10. flow-data-integrity.spec.js (16 tests) — Create/verify everywhere, update/verify everywhere, FK relationships, schema consistency, unique IDs, concurrent modifications
+
+#### Key Findings / Bugs Documented
+- Product model uses {"*": "authenticated"} wildcard access (no per-action rules, no owner check). Any authenticated user can update/delete any product.
+- Product list endpoint is public (200 OK without auth), but product detail requires auth (403 without token).
+- Comment and reply API responses are double-encoded JSON (model_dump_json returns string, FastAPI wraps again).
+- Comment creation via model_dump_json returns id:0 (model_dump_json called before save).
+- Rapid navigation triggers "[undefined] Assertion error: Callback for ... is not a function" from NTT actor system (known race condition).
+- Registration endpoint accepts empty name/email/password (no server-side validation for these fields).
+- Join model is named ProductComment (not Comment), so $schema URL contains /ProductComment.
+- user_owner field in depth=1 responses is an href string (e.g., "http://localhost:5000/users/1") not a numeric ID.
+
+#### Commands Run
+- Individual file runs: npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/{file}.spec.js
+- Full suite run: npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/flow-*.spec.js
+- Result: 200 passed (14.9m), 0 failed
+
+#### Tradeoffs / Assumptions
+- Tests use Date.now() timestamps for unique test data to avoid conflicts between runs.
+- Known NTT actor system race conditions during rapid navigation are filtered from error assertions (documented with BUG comments).
+- Tests adapted to actual API behavior rather than planned behavior (e.g., Product access rules differ from plan assumptions).
+- Shadow DOM access uses .evaluate() with shadowRoot.querySelector() patterns throughout.
