@@ -5,8 +5,8 @@
 > where agents, federation, and microservices are routing configurations, not features.
 
 **Generated**: 2026-02-26
-**Branch**: `v0.7.0`
-**Status**: Strategic architecture roadmap. Parallel work exists in `ROADMAP-A.md`.
+**Branch**: `v0.8`
+**Status**: In progress. Wave 0a complete.
 
 ---
 
@@ -306,47 +306,30 @@ This is the highest-leverage change in the entire roadmap because it transforms 
 
 Without Wave 0, each of Waves 1-3 requires building its own communication, routing, event, and state infrastructure. With Wave 0, they share one — the same one the frontend already proves works.
 
-### 0a. Schema Pipeline Decomposition (~2-3 days)
+### 0a. Schema Pipeline Decomposition ~~(~2-3 days)~~ DONE
 
-**The Problem**: `ProtoModel.schema()` is a 118-line monolithic classmethod that generates the entire JSON Schema in one pass. Every theme that needs to transform the schema (compile to HTML, translate to MCP tools, generate GraphQL SDL, add federation metadata, inject polymorphic `oneOf`) must work around this monolith.
+> **Completed**: 2026-02-28 — commit `324b95e` on `v0.8`
+> **Files**: `proto_schema.py` (new, 7 pure functions), `proto_model.py` (slimmed),
+>           `test_proto_schema.py` (new), `CLAUDE.md` (updated)
+> **Result**: 871 tests pass (485 unit + 386 integration), zero regression.
 
-**The Fix**: Decompose into 7 composable classmethods, each a `Dict -> Dict` endomorphism:
-
-```python
-# Current: one monolithic method
-@classmethod
-def schema(cls) -> dict:
-    # 118 lines of interleaved concerns...
-
-# Proposed: composable pipeline
-@classmethod
-def schema(cls) -> dict:
-    s = cls._schema_base()           # Pydantic core schema
-    s = cls._schema_strip_hidden(s)  # Remove display=False fields
-    s = cls._schema_methods(s)       # Inject @expose_route methods
-    s = cls._schema_defs(s)          # Process $defs (nested models)
-    s = cls._schema_access(s)        # Serialize ABAC rules
-    s = cls._schema_ui(s)            # Inject __ui__ configuration
-    s = cls._schema_metadata(s)      # Add $schema, $id, __name__, __tablename__
-    return s
-```
-
-**Why It Matters**: Once the pipeline is decomposed, adding a new transformation is trivial:
+Decomposed the 118-line monolithic `ProtoModel.schema()` into 7 composable
+`dict → dict` pure functions in `src/pybend/core/models/proto_schema.py`:
 
 ```python
-# MCP translation: just append one step
-s = cls._schema_mcp_tools(s)  # Add MCP-compatible tool definitions
-
-# Federation metadata: append one step
-s = cls._schema_federation(s)  # Add ActivityStreams @context mapping
-
-# Polymorphic unions: append one step
-s = cls._schema_discriminator(s)  # Wrap subtypes in oneOf + discriminator
+s = proto_schema.base(cls)           # Pydantic core schema
+s = proto_schema.strip_hidden(cls, s)# Remove display=False fields
+s = proto_schema.methods(cls, s)     # Inject @expose_route methods
+s = proto_schema.defs(cls, s)        # Process $defs (nested models)
+s = proto_schema.access(cls, s)      # Serialize ABAC rules
+s = proto_schema.ui(cls, s)          # Inject __ui__ configuration
+s = proto_schema.metadata(cls, s)    # Add $schema, $id, __name__, __tablename__
 ```
 
-Each step is independently testable, independently overridable by subclasses, and independently documentable. The pipeline is just a list -- themes don't compete for space in a monolith.
-
-This is a **pure refactor** with zero external behavior change. All existing tests must pass identically. It unblocks everything that follows — the Actor system, MCP, federation, polymorphism — because they all need to extend the schema.
+`ProtoModel.schema()` is now a 7-line orchestrator that calls the pipeline.
+Each stage is independently testable. `access()` and `ui()` live in
+`proto_schema` for now — they'll move to mixins (AccessMixin, ViewableMixin)
+when those are introduced, using standard MRO `super().schema()` chaining.
 
 ### 0b. Python Actor/Matrix/TX Core (~1 week)
 
@@ -1477,7 +1460,7 @@ This matrix shows which of the 13 research themes benefit from each Wave 0-2 cha
 ### Wave 0 (Foundation)
 - [ ] All existing tests pass (zero regression)
 - [ ] All existing URLs return identical responses
-- [ ] Schema pipeline: each stage independently testable with >=90% coverage
+- [x] Schema pipeline: each stage independently testable with >=90% coverage (0a)
 - [ ] TX message round-trip: send → route → handler → dispatch < 1ms overhead
 - [ ] ActorModel handles SCHEMA, READ, CREATE, UPDATE, DELETE via handler()
 - [ ] inbox() is fire-and-forget (no return value)
@@ -1521,7 +1504,7 @@ This matrix shows which of the 13 research themes benefit from each Wave 0-2 cha
 
 | File | Role | Waves |
 |------|------|:-----:|
-| `src/pybend/core/models/proto_model.py` | Base model, schema generation → pipeline decomposed into composable stages | W0 |
+| `src/pybend/core/models/proto_model.py` | Base model, schema orchestrator → pipeline decomposed (0a DONE) | W0 |
 | `src/pybend/core/models/base_user.py` | User model → gains DID fields (Wave 4+) | W3+ |
 | `src/pybend/core/models/storable_mixin.py` | CRUD ops — **unchanged**, ActorModel delegates to these methods | W0 |
 | `src/pybend/core/api/routes_fastapi.py` | Route factories → delegate to RouteActor bridge | W2, W1 |
@@ -1540,6 +1523,8 @@ This matrix shows which of the 13 research themes benefit from each Wave 0-2 cha
 
 | File | Wave | Purpose |
 |------|:----:|---------|
+| `src/pybend/core/models/proto_schema.py` | W0 | Schema pipeline — 7 composable `dict → dict` stages (0a DONE) |
+| `src/pybend/core/tests/unit/test_proto_schema.py` | W0 | Schema pipeline stage tests (0a DONE) |
 | `src/pybend/core/actors/__init__.py` | W0 | Actor system package |
 | `src/pybend/core/actors/actor.py` | W0 | Base Actor class |
 | `src/pybend/core/actors/matrix.py` | W0 | Matrix message bus |
@@ -1557,7 +1542,7 @@ This matrix shows which of the 13 research themes benefit from each Wave 0-2 cha
 | `src/pybend/core/tests/unit/test_access_algebra.py` | W1 | Boolean algebra law tests |
 | `src/pybend/core/tests/unit/test_storage_adjunction.py` | W3 | Storage round-trip tests |
 | `src/pybend/core/tests/unit/test_actor_system.py` | W0 | Actor/Matrix/TX unit tests (inbox, handler, send, register, routing) |
-| `src/pybend/core/tests/unit/test_schema_pipeline.py` | W0 | Schema pipeline stage tests (each stage + composition + regression) |
+| `src/pybend/core/tests/unit/test_schema_pipeline.py` | W0 | Schema pipeline stage tests — delivered as `test_proto_schema.py` (0a DONE) |
 | `src/pybend/core/tests/unit/test_actor_model.py` | W0 | ActorModel integration tests (CRUD, lifecycle, custom methods, errors) |
 | `src/pybend/core/tests/integration/test_mcp.py` | W1 | MCP adapter integration tests |
 | `src/pybend/core/tests/integration/test_federation.py` | W1 | Federation adapter integration tests |
