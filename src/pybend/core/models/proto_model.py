@@ -11,9 +11,10 @@ from pydantic.json_schema import JsonSchemaValue, JsonSchemaMode, GenerateJsonSc
 from pydantic_core import CoreSchema
 
 from pybend.core import config
+import pybend.core.models.proto_schema as proto_schema
 from pybend.core.utils.registrar import register_model
 from pybend.core.utils.decorators import expose_route
-from pybend.core.utils.introspection import pydantic_schema_for_type, collect_all_referenced_models, record_model_type, _is_self_ref
+from pybend.core.utils.introspection import pydantic_schema_for_type, record_model_type, _is_self_ref
 from pybend.core.utils.typer import Ref, _SelfRefMarker
 from .storable_mixin import StorableMixin
 
@@ -195,125 +196,26 @@ class ProtoModel(PydanticBaseModel):
         ProtoModel._schema_cache.pop(cls, None)
 
     @classmethod
-    #@expose_route('/schema', methods=['GET'])
     def schema(cls) -> Dict[str, Any]:
+        """Returns the schema for this model via composable pipeline.
+
+        All stages live in proto_schema. access() and ui() will move to
+        mixins (AccessMixin, ViewableMixin) when those are introduced —
+        each mixin's schema() calls super().schema() then applies its stage.
         """
-        Returns the schema for this model.
-        """
-        # Return cached schema if available. deepcopy because some callers
-        # mutate the returned dict (e.g., ref_schema.pop('$defs')).
         if cls in ProtoModel._schema_cache:
             return copy.deepcopy(ProtoModel._schema_cache[cls])
 
-        referenced_models = collect_all_referenced_models(cls)
-        schema = cls.model_json_schema(ref_template="#/$defs/{model}")
+        s = proto_schema.base(cls)
+        s = proto_schema.strip_hidden(cls, s)
+        s = proto_schema.methods(cls, s)
+        s = proto_schema.defs(cls, s)
+        s = proto_schema.access(cls, s)
+        s = proto_schema.ui(cls, s)
+        s = proto_schema.metadata(cls, s)
 
-        # Strip hidden fields from schema properties
-        hidden = getattr(cls, '__hidden_fields__', set())
-        if hidden and 'properties' in schema:
-            for name in hidden:
-                schema['properties'].pop(name, None)
-            if 'required' in schema:
-                schema['required'] = [r for r in schema['required'] if r not in hidden]
-
-        # Add methods signature to schema
-        schema['methods'] = cls.__pybend_methods_json_signature__()
-        # Add referenced models to $defs
-        if referenced_models:
-            # Add $defs if it was not already present
-            if not '$defs' in schema and referenced_models:
-                schema['$defs'] = {}
-            # Add all referenced models to $defs
-            for model in referenced_models:
-                # Bubble up the $defs from the referenced model
-                ref_schema = model.referenced_json_schema()
-                ref_methods = model.__pybend_methods_json_signature__()
-                defs = ref_schema.pop('$defs', {})  # Remove $defs to avoid circular references
-                schema['$defs'] = {**defs, **schema['$defs']} if defs else schema['$defs']
-                # Only overwrite if ref_schema has actual properties
-                # (self-referencing models like Comment become bare $refs after pop)
-                if 'properties' in ref_schema:
-                    schema['$defs'][model.__name__] = ref_schema
-                elif model.__name__ not in schema['$defs']:
-                    schema['$defs'][model.__name__] = ref_schema
-                # Add methods to the model's $def entry
-                if model.__name__ in schema['$defs']:
-                    schema['$defs'][model.__name__]['methods'] = ref_methods
-
-            # Add $id to each $defs entry
-            for model in referenced_models:
-                if model.__name__ in schema['$defs']:
-                    schema['$defs'][model.__name__]['$id'] = f"{config.API_URL}/{model.__name__}"
-
-        # Patch Ref['self'] fields to emit {"type": "selfref"}
-        if 'properties' in schema:
-            for field_name, field_info in cls.model_fields.items():
-                if _is_self_ref(field_info.annotation):
-                    schema['properties'][field_name] = {"type": "selfref"}
-
-        # Add access rules to schema
-        from pybend.core.authorize.schema import access_schema
-        schema['access'] = access_schema(cls)
-
-        # Apply field exclusion conventions: auto-set ui.display=false for internal fields
-        _apply_field_exclusion(schema)
-
-        # Mark protected fields in schema
-        protected = getattr(cls, '__protected_fields__', set())
-        if protected and 'properties' in schema:
-            for field_name in protected:
-                if field_name in schema['properties']:
-                    schema['properties'][field_name].setdefault('ui', {})['protected'] = True
-
-        # Also apply to $defs entries
-        if '$defs' in schema:
-            for def_schema in schema['$defs'].values():
-                _apply_field_exclusion(def_schema)
-
-            # Mark protected fields in $defs entries
-            if referenced_models:
-                for model in referenced_models:
-                    ref_protected = getattr(model, '__protected_fields__', set())
-                    if ref_protected and model.__name__ in schema['$defs']:
-                        def_props = schema['$defs'][model.__name__].get('properties', {})
-                        for field_name in ref_protected:
-                            if field_name in def_props:
-                                def_props[field_name].setdefault('ui', {})['protected'] = True
-
-        # Inject __ui__ hints into schema (model-level)
-        ui_config = getattr(cls, '__ui__', None)
-        if ui_config:
-            schema['ui'] = dict(ui_config)
-            # Inject method UI hints into method schema entries
-            method_ui = ui_config.get('methods', {})
-            for method_name, hints in method_ui.items():
-                if method_name in schema.get('methods', {}):
-                    schema['methods'][method_name]['ui'] = dict(hints)
-
-        # Inject __ui__ and access rules from referenced models into their $defs entries
-        if referenced_models and '$defs' in schema:
-            for model in referenced_models:
-                if model.__name__ not in schema['$defs']:
-                    continue
-                ref_ui = getattr(model, '__ui__', None)
-                if ref_ui:
-                    schema['$defs'][model.__name__]['ui'] = dict(ref_ui)
-                    # Also inject method UI hints into this $def's method entries
-                    ref_method_ui = ref_ui.get('methods', {})
-                    def_methods = schema['$defs'][model.__name__].get('methods', {})
-                    for method_name, hints in ref_method_ui.items():
-                        if method_name in def_methods:
-                            def_methods[method_name]['ui'] = dict(hints)
-                schema['$defs'][model.__name__]['access'] = access_schema(model)
-
-        # Add JSON Schema metadata
-        schema['$schema'] = f"{config.API_URL}/Schema"
-        schema['$id'] = f"{config.API_URL}/{cls.__name__}"
-
-        # Cache the fully-built schema. Subsequent calls return a deepcopy
-        # of this snapshot, avoiding the expensive rebuild above.
-        ProtoModel._schema_cache[cls] = schema
-        return copy.deepcopy(schema)
+        ProtoModel._schema_cache[cls] = s
+        return copy.deepcopy(s)
 
 
     @classmethod

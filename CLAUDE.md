@@ -176,9 +176,10 @@ models/*.py          Define data models (extend ProtoModel / BaseUser)
      |
      v
 ProtoModel           Base class: injects StorableMixin, rewrites FK fields,
-                      generates JSON Schema, handles serialization
+                      orchestrates schema pipeline, handles serialization
      |
-     +-- schema()              Returns JSON Schema with $schema, $id, $defs, methods
+     +-- schema()              Orchestrates proto_schema.* pipeline (base → strip_hidden →
+     |                         methods → defs → access → ui → metadata)
      +-- model_dump()          Plain dict (DB). model_dump(response=True) adds $schema/$id
      +-- __init_subclass__()   Auto-injects StorableMixin for __storable__=True models
      |
@@ -262,7 +263,7 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 | Concern | Generated from | Where it happens |
 |---------|---------------|-----------------|
 | CRUD API endpoints | `__tablename__`, model fields | `register_routes()` in `routes_fastapi.py` |
-| JSON Schema | Field types, validators, `json_schema_extra` | `ProtoModel.schema()` via Pydantic |
+| JSON Schema | Field types, validators, `json_schema_extra` | `ProtoModel.schema()` via `proto_schema` pipeline |
 | DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
 | FK hydration (href arrays) | `ListRef[T]` fields, `__fk_models__` | `sqlite_storage.py` on read |
 | Access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth injection |
@@ -273,7 +274,7 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update; `form.js` hides in edit mode |
 | Edit button visibility | `access.update` + resource OWNER check | `ntt-item.js` checks `permissions.canAction(access, 'update', value)` |
 | Delete button visibility | `access.delete` + resource OWNER check | `ntt-item.js` checks `permissions.canAction(access, 'delete', value)` |
-| $defs access rules | Referenced model `__access__` | `proto_model.schema()` injects into `$defs` entries |
+| $defs access rules | Referenced model `__access__` | `proto_schema.access()` injects into `$defs` entries |
 | Pagination (list endpoints) | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
 | Authenticated user injection | `user: User` param on `@expose_route` methods | `_resolve_user()` in `routes_fastapi.py` |
 | Method buttons | `schema.methods` | `<ntt-method>` reads method signatures |
@@ -355,7 +356,7 @@ GET /Product → JSON Schema
    Product(ProtoModel) with fields, __ui__, __access__, @expose_route
                     │
 2. Schema Generation (Backend, on GET /Product)
-   ProtoModel.schema() → Pydantic JSON Schema + methods + access + ui + $defs
+   ProtoModel.schema() → proto_schema pipeline (base → strip_hidden → methods → defs → access → ui → metadata)
                     │
 3. Network Transport
    HTTP GET /Product → JSON response
@@ -388,7 +389,8 @@ GET /Product → JSON Schema
 ## Key Files by Area
 
 ### Models & Serialization
-- `src/pybend/core/models/proto_model.py` - Base model, schema generation, `model_dump(response=True)`, `generate_join_model()`
+- `src/pybend/core/models/proto_model.py` - Base model, `model_dump(response=True)`, `generate_join_model()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
+- `src/pybend/core/models/proto_schema.py` - Schema pipeline: 7 composable `dict → dict` stages (`base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`)
 - `src/pybend/core/models/base_user.py` - Abstract base user model with login/register endpoints and password hashing
 - `src/pybend/core/models/storable_mixin.py` - CRUD operations (create/get/list/update/delete). `list()` supports `limit`/`offset` pagination.
 - `src/pybend/core/models/ref.py` - `ListRef[T]` type for collection references
