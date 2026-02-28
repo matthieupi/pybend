@@ -1,102 +1,259 @@
-"""Actor -- Base class for the actor system.
+"""ActorMeta — Metaclass approach for transparent class/instance dispatch.
 
-Direct port of frontend Actor.js. Python MI replaces JS Actor.subclass().
-Each actor has an address, parent, children, inbox, handler, and send.
+The goal: Product.inbox(tx) and product.inbox(tx) both work, same code.
+And: Product.children, product.children — same accessor, same behavior.
 
-Design constraints:
-- PrivateAttr for Pydantic V2 compatibility in MI with ProtoModel
-- __init_subclass__ creates per-class __children__, __addr__, auto-registers with root
-- _parent defaults to self.__class__ (mirrors JS: this.#parent = this.constructor)
-- register()/spawn() override _parent with the actual parent actor instance
-- Async inbox/handler/send built on asyncio
+The key insight: every actor operation is the SAME on classes and instances.
+The only difference is where the state lives (__children__ vs _children,
+__addr__ vs _addr). Two descriptors make this transparent:
+
+    actormethod   — binds target = cls or self, returns bound method
+    actorproperty — resolves to class or instance state, returns value
+
+    @actormethod
+    async def inbox(target, tx):   # target is cls OR self
+        await target.handler(tx)   # works for both
+
+    @actorproperty
+    def children(target):          # target is cls OR self
+        ...                        # returns __children__ or _children
+
+Architecture:
+    ActorMeta      (metaclass)   → class construction only (children, addr, auto-register)
+    actormethod    (descriptor)  → binds target = cls or self (for methods)
+    actorproperty  (descriptor)  → resolves class or instance state (for properties)
+    Actor          (class)       → fully unified API: everything works on both
+
+Usage:
+    class Product(Actor):
+        __tablename__ = 'products'
+
+        @classmethod
+        def SCHEMA(cls, data, tx):
+            return cls.schema()
+
+    # Everything works on both — same API, same behavior:
+    Product.addr              # 'products'
+    product.addr              # 'products/1'
+    Product.children          # class-level children dict
+    product.children          # instance-level children dict
+    Product.register(child)   # registers into class children
+    product.register(child)   # registers into instance children
+    await Product.inbox(tx)   # dispatches via class
+    await product.inbox(tx)   # dispatches via instance
 """
 
 import asyncio
 import logging
-from typing import Any, ClassVar, Optional
+from types import MethodType
+from typing import Any, ClassVar, Optional, TYPE_CHECKING
 
-from pydantic import BaseModel as PydanticBaseModel, PrivateAttr
+from pydantic import BaseModel as PydanticBaseModel, ConfigDict, PrivateAttr
 
 from pybend.core.actors.tx import TX
 
 logger = logging.getLogger('pybend.actors')
 
+# Pydantic's metaclass — extend it to stay compatible
+_PydanticMeta = type(PydanticBaseModel)
 
-class Actor(PydanticBaseModel):
-    """Base actor with address, parent, children, inbox, handler, send."""
+# ── Descriptors ───────────────────────────────────────────────────
 
-    # Class-level state (per-class via __init_subclass__)
+if TYPE_CHECKING:
+    # Static analysis: transparent passthrough — IDE sees original signatures
+    from typing import TypeVar
+
+    _F = TypeVar('_F')
+
+
+    def actormethod(fn: _F) -> _F:
+        ...  # noqa: E704
+
+
+    def actorproperty(fn: _F) -> _F:
+        ...  # noqa: E704
+else:
+    class actormethod:
+        """A method that works on both classes and instances.
+
+        The first parameter receives the class (when called as cls.method())
+        or the instance (when called as self.method()). One function, one
+        implementation — no dual paths.
+
+            @actormethod
+            async def inbox(target, tx):  # target is cls or self
+                await target.handler(tx)
+
+        Python mechanics:
+            Product.inbox  → __get__(None, Product) → MethodType(fn, Product)
+            product.inbox  → __get__(product, type) → MethodType(fn, product)
+        """
+
+        def __init__(self, fn):
+            self.fn = fn
+            self.__doc__ = fn.__doc__
+            self.__name__ = fn.__name__
+
+        def __set_name__(self, owner, name):
+            self.__name__ = name
+
+        def __get__(self, obj, cls=None):
+            target = obj if obj is not None else cls
+            return MethodType(self.fn, target)
+
+
+    class actorproperty:
+        """A property that works on both classes and instances.
+
+        The function receives the class or instance and returns a value.
+        Unlike actormethod, this returns the value directly — not a callable.
+
+            @actorproperty
+            def children(target):          # target is cls or self
+                if isinstance(target, type):
+                    return target.__children__
+                return target._children
+
+        Python mechanics:
+            Product.children  → __get__(None, Product) → fn(Product) → dict
+            product.children  → __get__(product, type)  → fn(product) → dict
+        """
+
+        def __init__(self, fn):
+            self.fn = fn
+            self.__doc__ = fn.__doc__
+
+        def __set_name__(self, owner, name):
+            self.__name__ = name
+
+        def __get__(self, obj, cls=None):
+            target = obj if obj is not None else cls
+            return self.fn(target)
+
+
+# ── ActorMeta metaclass ────────────────────────────────────────────
+
+class ActorMeta(_PydanticMeta):
+    """Metaclass for Actor class construction.
+
+    Handles per-class setup: __children__, __addr__, auto-registration.
+    Messaging lives on Actor via actormethod — NOT on the metaclass.
+    """
+
+    def __new__(mcs, name, bases, namespace, auto_register=True, **kwargs):
+        # Consume auto_register before it reaches type.__new__ / __init_subclass__
+        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+
+        # Each class gets its own children dict
+        cls.__children__ = {}
+
+        # Default __addr__ from __tablename__ or class name
+        if '__addr__' not in namespace:
+            cls.__addr__ = getattr(cls, '__tablename__', name)
+
+        # Auto-register with root Matrix if available
+        root = getattr(cls, '__matrix__', None)
+        if auto_register and root and name != 'Actor':
+            root._children[cls.__addr__] = cls
+
+        return cls
+
+
+# ── Actor class ─────────────────────────────────────────────────────
+
+class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
+    """Base actor with unified class/instance dispatch.
+
+    Everything works identically on classes and instances:
+
+        Product.addr / product.addr
+        Product.children / product.children
+        Product.parent / product.parent
+        Product.register(child) / product.register(child)
+        await Product.inbox(tx) / await product.inbox(tx)
+
+    Two descriptors make this possible:
+        actormethod   — binds target = cls or self (inbox, handler, send, register, spawn)
+        actorproperty — resolves to class or instance state (addr, children, parent)
+
+    State:
+        Class-level:    __addr__, __children__, __matrix__ (set by ActorMeta)
+        Instance-level: _addr, _children, _parent (Pydantic PrivateAttr)
+    """
+
+    # Tell Pydantic to ignore our custom descriptors
+    model_config = ConfigDict(ignored_types=(actormethod, actorproperty))
+
+    # Class-level state (managed by ActorMeta.__new__)
     __addr__: ClassVar[str] = ''
     __children__: ClassVar[dict] = {}
     __matrix__: ClassVar[Optional['Actor']] = None
 
-    # Instance-level state (Pydantic PrivateAttr)
+    # Instance-level state (Pydantic PrivateAttr for MI compatibility)
     _addr: str = PrivateAttr(default='')
     _children: dict = PrivateAttr(default_factory=dict)
     _parent: Optional[Any] = PrivateAttr(default=None)
-
-    def __init_subclass__(cls, auto_register=True, **kwargs):
-        super().__init_subclass__(**kwargs)
-        # Each subclass gets its own children dict (not shared with parent class)
-        cls.__children__ = {}
-        # Default __addr__ to __tablename__ (for models) or class name
-        if '__addr__' not in cls.__dict__:
-            cls.__addr__ = getattr(cls, '__tablename__', cls.__name__)
-        # Auto-register with root Matrix if available (class-level, not instance)
-        if auto_register and Actor.__matrix__:
-            Actor.__matrix__._children[cls.__addr__] = cls
 
     def __init__(self, *args, **kwargs):
         addr = kwargs.pop('addr', '')
         super().__init__(*args, **kwargs)
         self._addr = addr or self.__class__.__addr__ or self.__class__.__name__
-        # Default parent is the class itself (mirrors JS: this.#parent = this.constructor)
-        # spawn()/register() override this with the actual parent actor instance
+        # Default parent = class itself (mirrors JS: this.#parent = this.constructor)
         self._parent = self.__class__
 
-    # ── Properties ──
+    # ── Unified properties (class and instance) ──
 
-    @property
-    def addr(self) -> str:
-        return self._addr
+    @actorproperty
+    def addr(target) -> str:
+        """Actor address. Class: __addr__. Instance: _addr."""
+        if isinstance(target, type):
+            return target.__addr__
+        return target._addr
 
-    @property
-    def children(self) -> dict:
-        return self._children
+    @actorproperty
+    def children(target) -> dict:
+        """Children dict. Class: __children__. Instance: _children."""
+        if isinstance(target, type):
+            return target.__children__
+        return target._children
 
-    @property
-    def parent(self):
-        return self._parent
+    @actorproperty
+    def parent(target):
+        """Parent actor. Class: __matrix__ (root). Instance: _parent."""
+        if isinstance(target, type):
+            return target.__matrix__
+        return target._parent
 
     # ── Root actor (getter/setter) ──
 
     @classmethod
     def root(cls, actor: 'Actor' = None):
-        """Get or set the root actor (Matrix).
-
-        Actor.root()        -> returns the root actor
-        Actor.root(matrix)  -> sets the root actor
-        """
+        """Get or set the root actor (Matrix)."""
         if actor is None:
             return cls.__matrix__
         cls.__matrix__ = actor
 
-    # ── Instance messaging ──
+    # ── Core messaging (ONE implementation for both class and instance) ──
 
-    async def inbox(self, tx: TX) -> None:
-        """Receive a message. Fire-and-forget -- does NOT return a value."""
-        await self.handler(tx)
+    @actormethod
+    async def inbox(target, tx: TX) -> None:
+        """Receive a message. Fire-and-forget — does NOT return.
 
-    async def handler(self, tx: TX) -> None:
-        """Dispatch to named method, wrap return in reply TX, send.
-
-        Methods can return:
-        - dict       -> wrapped in tx.reply(data=...)
-        - TX         -> sent as-is (e.g., tx.error())
-        - other      -> wrapped as {'result': value}
-        - None       -> sends tx.reply() with empty data
+        Works on both classes and instances:
+            await Product.inbox(tx)   # target = Product
+            await product.inbox(tx)   # target = product
         """
-        method = getattr(self, tx.name, None)
+        await target.handler(tx)
+
+    @actormethod
+    async def handler(target, tx: TX) -> None:
+        """Dispatch to named method on target, wrap result, route reply.
+
+        getattr(target, tx.name) works on both classes and instances:
+        - Class:    getattr(Product, 'CREATE') → bound classmethod
+        - Instance: getattr(product, 'DUMP')   → bound instance method
+        """
+        method = getattr(target, tx.name, None)
         if method and callable(method):
             try:
                 if asyncio.iscoroutinefunction(method):
@@ -104,92 +261,93 @@ class Actor(PydanticBaseModel):
                 else:
                     result = method(tx.data, tx)
             except Exception as e:
-                logger.error(f"[{self.addr}] Error in {tx.name}: {e}")
-                await self.send(tx.error(str(e)))
+                logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
+                await target.send(tx.error(str(e)))
                 return
 
             if isinstance(result, TX):
-                await self.send(result)
+                await target.send(result)
             elif isinstance(result, dict):
-                await self.send(tx.reply(data=result))
+                await target.send(tx.reply(data=result))
             elif result is not None:
-                await self.send(tx.reply(data={'result': result}))
+                await target.send(tx.reply(data={'result': result}))
             else:
-                await self.send(tx.reply())
+                await target.send(tx.reply())
         else:
-            await self.send(tx.error(f"Unhandled message: {tx.name}"))
+            await target.send(tx.error(f"Unhandled message: {tx.name}"))
 
-    async def send(self, tx: TX) -> None:
-        """Send message through parent chain for routing.
+    @actormethod
+    async def send(target, tx: TX) -> None:
+        """Route message for delivery. Adapts to class or instance context.
 
-        _parent is either:
-        - self.__class__ (default) -> route via class-level send_cls()
-        - an Actor instance (set by spawn/register) -> route via parent.inbox()
+        Class:    route through children or bubble to parent (matrix)
+        Instance: route through parent chain
         """
-        if isinstance(self._parent, type):
-            # Parent is a class — use class-level routing
-            await self._parent.send_cls(tx)
-        elif self._parent:
-            # Parent is an actor instance (set by spawn/register)
-            await self._parent.inbox(tx)
+        if isinstance(target, type):
+            # ── Class-level routing (mirrors JS Actor._send) ──
+            children = target.children
+            addr = target.addr
+            segments = [s for s in (tx.target or '').split('/') if s]
+            seg_first = segments[0] if segments else ''
+            seg_second = segments[1] if len(segments) > 1 else ''
+
+            if seg_first and seg_first in children:
+                await children[seg_first].inbox(tx)
+            elif seg_first == addr and seg_second in children:
+                tx.target = '/'.join(segments[1:])
+                await children[seg_second].inbox(tx)
+            elif target.parent:
+                tx.source = f'{addr}/{tx.source}' if tx.source else addr
+                await target.parent.inbox(tx)
         else:
-            raise RuntimeError(
-                f"[{self.addr}] No parent or root actor. "
-                "Initialize a Matrix first."
-            )
+            # ── Instance-level routing (through parent chain) ──
+            parent = target.parent
+            if isinstance(parent, type):
+                await parent.send(tx)
+            elif parent:
+                await parent.inbox(tx)
+            else:
+                raise RuntimeError(
+                    f"[{target.addr}] No parent or root for routing. "
+                    "Initialize a Matrix first."
+                )
 
-    # ── Instance child management ──
+    # ── Unified child management ──
 
-    def register(self, child: 'Actor') -> 'Actor':
-        """Register a child actor (instance-level)."""
-        child._parent = self
-        self._children[child.addr] = child
+    @actormethod
+    def register(target, child: 'Actor') -> 'Actor':
+        """Register a child actor. Works on both classes and instances.
+
+            Product.register(child)   # into class __children__
+            product.register(child)   # into instance _children, sets child._parent
+        """
+        child_addr = child.addr
+
+        if isinstance(target, type):
+            target.__children__[child_addr] = child
+        else:
+            target._children[child_addr] = child
+
+        # Set parent on instance children
+        if not isinstance(child, type):
+            child._parent = target
+
         return child
 
-    def spawn(self, addr: str, actor_cls: type, *args, **kwargs) -> 'Actor':
+    @actormethod
+    def spawn(target, addr: str, actor_cls: type, *args, **kwargs) -> 'Actor':
         """Spawn and register a child actor."""
-        if addr in self._children:
+        if addr in target.children:
             raise ValueError(
-                f"[{self.addr}] Child actor with address '{addr}' already exists."
+                f"[{target.addr}] Child '{addr}' already exists."
             )
         child = actor_cls(*args, addr=addr, **kwargs)
-        return self.register(child)
+        return target.register(child)
 
-    # ── Class-level methods ──
-
-    @classmethod
-    def register_cls(cls, child: 'Actor'):
-        """Register into the class-level children registry."""
-        cls.__children__[child.addr] = child
-
-    @classmethod
-    async def send_cls(cls, tx: TX) -> None:
-        """Class-level send -- mirrors JS Actor._send().
-
-        Three routing cases:
-        1. Target's first segment matches a class child -> route directly
-        2. Target starts with this class's addr -> strip prefix, route to child
-        3. No match -> prefix source with class addr, bubble to root Matrix
-        """
-        children = cls.__children__
-        type_addr = cls.__addr__ or cls.__name__
-        segments = [s for s in (tx.target or '').split('/') if s]
-        target_parent = segments[0] if segments else ''
-        target_child = segments[1] if len(segments) > 1 else ''
-
-        # Case 1: target is directly one of our children
-        if target_parent and target_parent in children:
-            await children[target_parent].inbox(tx)
-
-        # Case 2: target starts with our addr — strip prefix, route to child
-        elif target_parent == type_addr and target_child and target_child in children:
-            tx.target = '/'.join(segments[1:])
-            await children[target_child].inbox(tx)
-
-        # Case 3: bubble to root Matrix with source prefix
-        elif Actor.__matrix__:
-            tx.source = f'{type_addr}/{tx.source}' if tx.source else type_addr
-            await Actor.__matrix__.inbox(tx)
+    @actormethod
+    def has(target, addr: str) -> bool:
+        """Check if a child exists by first address segment."""
+        return addr.split('/')[0] in target.children
 
     # ── Lifecycle hooks ──
 
@@ -198,3 +356,10 @@ class Actor(PydanticBaseModel):
 
     async def on_stop(self):
         """Called before actor is shut down. Override in subclasses."""
+
+
+
+actor = Actor()
+Actor.send(actor)
+Actor.send(Actor)
+actor.send()
