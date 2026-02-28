@@ -6,7 +6,7 @@
 
 **Generated**: 2026-02-26
 **Branch**: `v0.8`
-**Status**: In progress. Wave 0a complete.
+**Status**: In progress. Wave 0a, 0b complete.
 
 ---
 
@@ -331,7 +331,25 @@ Each stage is independently testable. `access()` and `ui()` live in
 `proto_schema` for now — they'll move to mixins (AccessMixin, ViewableMixin)
 when those are introduced, using standard MRO `super().schema()` chaining.
 
-### 0b. Python Actor/Matrix/TX Core (~1 week)
+### 0b. Python Actor/Matrix/TX Core ~~(~1 week)~~ DONE
+
+> **Completed**: 2026-02-28 — commits `e90ed2e` + `f32288e` on `v0.8`
+> **Files**: `actors/actor.py`, `actors/matrix.py`, `actors/tx.py`, `actors/__init__.py` (new),
+>           `test_actor_system.py` (new, 74 tests), `__init__.py` (updated exports),
+>           `CLAUDE.md` (updated), comparison trace (updated)
+> **Result**: 647 tests pass (74 new actor + 573 existing), zero regression.
+>
+> **Refinements from frontend comparison review (0b-actor-frontend-backend-comparison.md):**
+> - `__matrix__` ClassVar + `Actor.root()` getter/setter
+> - `__init_subclass__` auto-registration with `auto_register` kwarg
+> - `_parent` defaults to `self.__class__` (mirrors JS `this.#parent = this.constructor`)
+> - `send_cls()` 3-case routing with source prefix (mirrors JS `_send()`)
+> - `spawn()` duplicate address guard
+> - Matrix: `has()`, self-send guard, auto-register as root, module-level default instance
+>
+> **Testing insight**: Actor extends PydanticBaseModel, so `__setattr__`/`__delattr__`
+> prevent standard mock patching on instances. Tests use `object.__setattr__` via
+> `mock_method()` context manager to bypass Pydantic's protection.
 
 Port the frontend's proven patterns to Python, adapted for server-side concerns.
 
@@ -1461,10 +1479,11 @@ This matrix shows which of the 13 research themes benefit from each Wave 0-2 cha
 - [ ] All existing tests pass (zero regression)
 - [ ] All existing URLs return identical responses
 - [x] Schema pipeline: each stage independently testable with >=90% coverage (0a)
+- [x] Actor/Matrix/TX core: 74 unit tests, full coverage of TX, Actor init/subclass/register/spawn/inbox/handler/send/send_cls, Matrix routing/adapters (0b)
+- [x] inbox() is fire-and-forget (no return value) (0b)
+- [x] handler() looks up method, executes, wraps return in tx.reply(), dispatches via send() (0b)
 - [ ] TX message round-trip: send → route → handler → dispatch < 1ms overhead
 - [ ] ActorModel handles SCHEMA, READ, CREATE, UPDATE, DELETE via handler()
-- [ ] inbox() is fire-and-forget (no return value)
-- [ ] handler() looks up method, executes, wraps return in tx.reply(), dispatches via send()
 - [ ] Lifecycle events: ActorModel publishes after_create/update/delete TX messages
 - [ ] Schema extension: `@schema_extension` adds stage without modifying ProtoModel
 - [ ] No `model_dump(response=True)` calls remain — all converted to TX message types

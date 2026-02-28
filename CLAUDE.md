@@ -411,6 +411,12 @@ GET /Product → JSON Schema
 - `src/pybend/core/authorize/schema.py` - Serialize access rules to JSON for schema exposure
 - `src/pybend/docs/AUTHORIZATION.md` - Full authorization system documentation
 
+### Actor System (v0.8)
+- `src/pybend/core/actors/actor.py` - Base actor class: addr, children, parent, inbox, handler, send, register, spawn. Extends PydanticBaseModel via PrivateAttr. `__init_subclass__` auto-registers with Matrix. `send_cls()` 3-case routing (direct child, strip prefix, bubble to root).
+- `src/pybend/core/actors/matrix.py` - Root actor and message router. `has()`, self-send guard, adapter delegation. Module-level `matrix` instance created at import.
+- `src/pybend/core/actors/tx.py` - TX message envelope (dataclass): name, source, target, data, meta, timestamp, uuid. `reply()` swaps source/target with new uuid. `error()` creates ERROR TX. `is_error` property.
+- `src/pybend/core/actors/__init__.py` - Re-exports `TX`, `Actor`, `Matrix`, `matrix`
+
 ### API / Routes
 - `src/pybend/core/api/routes_fastapi.py` - Route factories with authorization injection, pagination, and user resolution bridge (`_resolve_user`)
 - `src/pybend/core/utils/decorators.py` - `@expose_route()` for custom method endpoints (supports `access=` parameter)
@@ -430,7 +436,7 @@ GET /Product → JSON Schema
 
 ### App Bootstrap
 - `src/pybend/core/app.py` - `PyBendApp` builder class + `create_app()` one-liner factory
-- `src/pybend/__init__.py` - Public API: re-exports `create_app`, `PyBendApp`, `ProtoModel`, `BaseUser`, `expose_route`, etc.
+- `src/pybend/__init__.py` - Public API: re-exports `create_app`, `PyBendApp`, `ProtoModel`, `BaseUser`, `expose_route`, `Actor`, `Matrix`, `TX`, etc.
 
 ### Config & Entry
 - `src/pybend/core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE
@@ -539,6 +545,31 @@ class Comment(ProtoModel):
 ### FK Column Naming Convention
 Parent FK columns: `{parent_class_name_lowercase}_id` (e.g., `product_id`).
 Avoid aliasing the `id` field on models to prevent naming clashes with self-referencing relationships.
+
+### Actor System (v0.8)
+The backend actor system mirrors the frontend's Actor/Matrix/TX pattern.
+
+**Actor base class** extends PydanticBaseModel:
+- `_addr`, `_children`, `_parent` as PrivateAttr (compatible with Pydantic V2 MI)
+- `_parent` defaults to `self.__class__` (mirrors JS `this.#parent = this.constructor`)
+- `__init_subclass__` creates per-class `__children__` dict, sets `__addr__` from `__tablename__` or class name, auto-registers with root Matrix if available
+- `auto_register=False` kwarg on subclass skips Matrix registration
+- `Actor.root()` getter/setter for `__matrix__` ClassVar
+- `send_cls()` three-case routing: (1) direct child match, (2) strip prefix + route, (3) prefix source + bubble to root
+
+**Matrix** extends Actor:
+- Auto-registers as root if no root exists (`Actor.root(self)` in `__init__`)
+- `has(addr)` checks child by first address segment
+- Self-send prevention (target == own addr -> log error, return)
+- `register_adapter()` for protocol adapters (HTTP, WS, MCP, AP)
+- Module-level `matrix` instance created at import time
+
+**TX** is a dataclass message envelope:
+- `reply(data, name)` swaps source/target, new uuid, stores original in `meta['in_reply_to']`
+- `error(message, code)` creates ERROR TX with `meta['error'] = True`
+- `is_error` property checks name or meta flag
+
+**Testing actors** — Pydantic's `__setattr__` prevents mock patching on instances. Use `object.__setattr__(instance, name, mock)` via the `mock_method()` context manager in `test_actor_system.py`.
 
 ## Directives
 
