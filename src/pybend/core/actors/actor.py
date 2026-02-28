@@ -148,6 +148,10 @@ class Actor(PydanticBaseModel):
 
     def spawn(self, addr: str, actor_cls: type, *args, **kwargs) -> 'Actor':
         """Spawn and register a child actor."""
+        if addr in self._children:
+            raise ValueError(
+                f"[{self.addr}] Child actor with address '{addr}' already exists."
+            )
         child = actor_cls(*args, addr=addr, **kwargs)
         return self.register(child)
 
@@ -160,11 +164,31 @@ class Actor(PydanticBaseModel):
 
     @classmethod
     async def send_cls(cls, tx: TX) -> None:
-        """Class-level send -- route to class children or root."""
-        target_addr = tx.target.split('/')[0]
-        if target_addr in cls.__children__:
-            await cls.__children__[target_addr].inbox(tx)
+        """Class-level send -- mirrors JS Actor._send().
+
+        Three routing cases:
+        1. Target's first segment matches a class child -> route directly
+        2. Target starts with this class's addr -> strip prefix, route to child
+        3. No match -> prefix source with class addr, bubble to root Matrix
+        """
+        children = cls.__children__
+        type_addr = cls.__addr__ or cls.__name__
+        segments = [s for s in (tx.target or '').split('/') if s]
+        target_parent = segments[0] if segments else ''
+        target_child = segments[1] if len(segments) > 1 else ''
+
+        # Case 1: target is directly one of our children
+        if target_parent and target_parent in children:
+            await children[target_parent].inbox(tx)
+
+        # Case 2: target starts with our addr — strip prefix, route to child
+        elif target_parent == type_addr and target_child and target_child in children:
+            tx.target = '/'.join(segments[1:])
+            await children[target_child].inbox(tx)
+
+        # Case 3: bubble to root Matrix with source prefix
         elif Actor.__matrix__:
+            tx.source = f'{type_addr}/{tx.source}' if tx.source else type_addr
             await Actor.__matrix__.inbox(tx)
 
     # ── Lifecycle hooks ──
