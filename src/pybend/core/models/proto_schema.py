@@ -10,14 +10,138 @@ Each function is a pure dict → dict transformation:
     s = proto_schema.ui(cls, s)
     s = proto_schema.metadata(cls, s)
 
+Stages are registered in a pipeline so that external packages (federation,
+agents, polymorphism) can insert new stages via @schema_extension without
+modifying this module.
+
 access() and ui() will move to mixins (AccessMixin, ViewableMixin)
 when those are introduced — each mixin's schema() will call super().schema()
 then apply its own stage.
 """
 
+import logging
+
 from pybend.core import config
 from pybend.core.utils.introspection import collect_all_referenced_models, _is_self_ref
 
+logger = logging.getLogger('pybend.schema')
+
+
+# ── Pipeline registry ──────────────────────────────────────────────
+# Ordered list of (name, callable). Extensions insert relative to
+# named stages via register_stage() or @schema_extension.
+
+_stages: list[tuple[str, callable]] = []
+
+
+def _find_stage(name: str) -> int:
+    """Find stage index by name. Raises ValueError if not found."""
+    for i, (stage_name, _) in enumerate(_stages):
+        if stage_name == name:
+            return i
+    raise ValueError(
+        f"Schema pipeline stage '{name}' not found. "
+        f"Registered stages: {[n for n, _ in _stages]}"
+    )
+
+
+def register_stage(name: str, func, *, after: str = None, before: str = None):
+    """Register a named stage into the schema pipeline.
+
+    Args:
+        name: Stage name (used for positioning and introspection).
+        func: Stage callable. First stage: func(cls) -> dict.
+              All others: func(cls, schema) -> dict.
+        after: Insert after this named stage.
+        before: Insert before this named stage.
+
+    If neither after nor before, appends to the end.
+    """
+    if after and before:
+        raise ValueError("Specify 'after' or 'before', not both")
+
+    # Prevent duplicate stage names
+    existing = {n for n, _ in _stages}
+    if name in existing:
+        raise ValueError(
+            f"Schema pipeline stage '{name}' already registered. "
+            f"Registered stages: {[n for n, _ in _stages]}"
+        )
+
+    if after:
+        idx = _find_stage(after)
+        _stages.insert(idx + 1, (name, func))
+    elif before:
+        idx = _find_stage(before)
+        _stages.insert(idx, (name, func))
+    else:
+        _stages.append((name, func))
+
+    logger.debug("Registered schema stage '%s' -> pipeline: %s", name, get_pipeline())
+
+
+def schema_extension(*, after: str = None, before: str = None):
+    """Decorator to register a schema pipeline extension.
+
+    Usage:
+        from pybend.core.models.proto_schema import schema_extension
+
+        @schema_extension(after='methods')
+        def federation(cls, schema: dict) -> dict:
+            if getattr(cls, '__federated__', False):
+                schema['federation'] = {...}
+            return schema
+
+    The function name becomes the stage name. This is how __federated__,
+    __agent__, __discriminator__, and any future ClassVar-driven feature
+    plugs in -- zero ProtoModel modifications needed.
+    """
+    def decorator(func):
+        register_stage(func.__name__, func, after=after, before=before)
+        return func
+    return decorator
+
+
+def run_pipeline(cls) -> dict:
+    """Execute the full schema pipeline for a model class.
+
+    The first stage (typically 'base') seeds the schema: func(cls) -> dict.
+    All subsequent stages transform it: func(cls, schema) -> dict.
+    """
+    if not _stages:
+        raise RuntimeError(
+            "No schema pipeline stages registered. "
+            "Ensure proto_schema is imported before calling schema()."
+        )
+
+    # First stage seeds the schema
+    _, seed_fn = _stages[0]
+    s = seed_fn(cls)
+
+    # Remaining stages transform
+    for _, stage_fn in _stages[1:]:
+        s = stage_fn(cls, s)
+
+    return s
+
+
+def get_pipeline() -> list[str]:
+    """Return current pipeline stage names (for debugging/introspection)."""
+    return [name for name, _ in _stages]
+
+
+def clear_pipeline():
+    """Clear all registered stages. For testing only."""
+    _stages.clear()
+
+
+def remove_stage(name: str):
+    """Remove a named stage from the pipeline."""
+    idx = _find_stage(name)
+    _stages.pop(idx)
+
+
+# ── Default pipeline stages ───────────────────────────────────────
 
 def base(cls) -> dict:
     """Pydantic core JSON Schema + Ref['self'] patches."""
@@ -142,3 +266,15 @@ def metadata(cls, s: dict) -> dict:
     s['$schema'] = f"{config.API_URL}/Schema"
     s['$id'] = f"{config.API_URL}/{cls.__name__}"
     return s
+
+
+# ── Register default pipeline stages ──
+# Order matters: base seeds, the rest transform sequentially.
+# Extensions insert relative to these names via @schema_extension.
+register_stage('base', base)
+register_stage('strip_hidden', strip_hidden)
+register_stage('methods', methods)
+register_stage('defs', defs)
+register_stage('access', access)
+register_stage('ui', ui)
+register_stage('metadata', metadata)

@@ -46,38 +46,37 @@
 | Private addr, children | `#addr`, `#children` (Map) | `_addr`, `_children` (PrivateAttr dict) | Same |
 | Parent reference | `#parent` (defaults to constructor) | `_parent` (defaults to None) | **Different** |
 | Per-class children (type-level) | `static _children` (Map, via subclass()) | `__children__` (ClassVar dict, via `__init_subclass__`) | Same |
-| Root actor reference | `ROOT_ACTOR` module var, `static registerRoot()` | `__root_actor__` ClassVar, `register_root()` classmethod | Same |
-| `static get root` | Yes | **Missing** (access `__root_actor__` directly) | Minor |
-| Auto-registration in constructor | Yes -- `this.constructor.register(this)` | **No** -- explicit `register()` required | **Different** |
+| Root actor reference | `ROOT_ACTOR` module var, `static registerRoot()` | `__matrix__` ClassVar, `root()` getter/setter | Same (DONE) |
+| `static get root` | Yes | `Actor.root()` classmethod getter/setter | Same (DONE) |
+| Auto-registration in constructor | Yes -- `this.constructor.register(this)` | `__init_subclass__` auto-registers with Matrix | Same (DONE, class-level) |
 | `inbox()` | Delegates to `_inbox` (dispatch to named method) | Async, calls `handler()` | Same concept |
 | `handler()` dispatch | `_inbox`: checks target match, calls `this[tx.name]` | `handler()`: calls `getattr(self, tx.name)` | Same |
-| `send()` instance | Throws "must be implemented" | Routes through `_parent` or `__root_actor__` | **Backend more complete** |
-| `static _send()` routing | Complex: local -> prefixed -> bubble (with source prefix) | `send_cls()`: class children -> root | **Simpler in backend** |
-| Source prefix on bubble | Yes -- `tx.source = typeAddr/tx.source` | **Missing** | Helps with traceability |
+| `send()` instance | Throws "must be implemented" | Routes through `_parent` (instance or class) | **Backend more complete** |
+| `static _send()` routing | Complex: local -> prefixed -> bubble (with source prefix) | `send_cls()`: 3-case routing (direct, strip prefix, bubble with source prefix) | Same (DONE) |
+| Source prefix on bubble | Yes -- `tx.source = typeAddr/tx.source` | Yes -- same pattern in `send_cls()` | Same (DONE) |
 | `subclass()` metaclass | Yes (JS workaround for no MI) | `__init_subclass__` (native Python MI) | Equivalent |
 | `isActor()` | Yes (static method) | No (use `isinstance()`) | Python built-in |
-| `spawn()` | Yes (creates + registers child, asserts no duplicate) | Yes (creates + registers child) | Same |
+| `spawn()` | Yes (creates + registers child, asserts no duplicate) | Yes (creates + registers child, asserts no duplicate) | Same (DONE) |
 | `register()` instance | Yes (registers child in parent) | Yes (sets parent + adds to children) | Same |
 | `on_start()` / `on_stop()` | No | Yes | Backend addition |
 
-### Key Gaps
+### Key Gaps (RESOLVED)
 
-1. **No auto-registration** -- Frontend auto-registers every actor instance in its
-   type-level children map (`this.constructor.register(this)` in constructor). Backend
-   requires explicit `parent.register(child)`. This is a design choice (explicit >
-   implicit in Python) but worth noting.
+All four gaps from the initial comparison have been addressed:
 
-2. **No source prefix on bubble** -- Frontend prefixes source with type address when
-   routing up (`tx.source = typeAddr/tx.source`). This creates a traceable path like
-   `NTT/Product/42`. Backend doesn't modify source during routing.
+1. ~~**No auto-registration**~~ -- **DONE**: `__init_subclass__` auto-registers subclasses
+   with the root Matrix (class-level, via `auto_register` kwarg). Instance-level
+   registration still requires explicit `parent.register(child)` (Pythonic design).
 
-3. **Default parent differs** -- Frontend defaults `#parent` to `this.constructor`
-   (the class itself), providing type-level routing fallback. Backend defaults to
-   `None` and falls back to `__root_actor__` in `send()`. Similar effect, different
-   mechanism.
+2. ~~**No source prefix on bubble**~~ -- **DONE**: `send_cls()` case 3 now prefixes
+   `tx.source` with `type_addr/` before bubbling to root, matching the JS behavior.
 
-4. **Spawn duplicate guard** -- Frontend asserts no duplicate child address in
-   `spawn()`. Backend doesn't check.
+3. ~~**Default parent differs**~~ -- **DONE**: `_parent` defaults to `self.__class__`
+   (mirrors JS `this.#parent = this.constructor`). `send()` routes through the class
+   via `send_cls()` when parent is a type, or through parent instance when set.
+
+4. ~~**Spawn duplicate guard**~~ -- **DONE**: `spawn()` raises `ValueError` if a child
+   with the same address already exists.
 
 ### Backend Additions (not in frontend)
 
@@ -94,31 +93,29 @@
 | Feature | Frontend (Matrix.js) | Backend (matrix.py) | Status |
 |---|---|---|---|
 | Extends Actor | Yes | Yes | Same |
-| Auto-registers as root | `if (!Actor.root) Actor.registerRoot(this)` | **No** -- must call `register_root()` separately | **Missing** |
-| `has(addr)` | Yes -- checks child by first segment | **Missing** | Useful utility |
+| Auto-registers as root | `if (!Actor.root) Actor.registerRoot(this)` | `if not Actor.root(): Actor.root(self)` | Same (DONE) |
+| `has(addr)` | Yes -- checks child by first segment | Yes -- checks child by first segment | Same (DONE) |
 | CONNECT event routing | Yes -- special `connect()` handler | **Missing** | Significant feature |
-| Self-send prevention | Yes -- `if (tx.target === this.addr) throw Error` | **Missing** | Safety check |
+| Self-send prevention | Yes -- `if (tx.target === this.addr) throw Error` | Yes -- logs error and returns | Same (DONE) |
 | Local child routing | `this.children.get(targetAddr).inbox(tx.repr())` | `self._children[target_root].inbox(tx)` | Same |
 | Remote fallback | `this.remote.send(tx)` (single NetworkAdapter) | `for adapter in self._adapters` (multiple adapters) | **Backend more flexible** |
 | `dispatch()` alias | Yes (alias for inbox) | No | Trivial, not needed |
 | `connect()` method | Yes -- routes CONNECT to child actor | **Missing** | Frontend wiring pattern |
 | NetworkAdapter in constructor | Yes (always created) | No -- `register_adapter()` (explicit, multiple) | Backend more flexible |
 
-### Key Gaps
+### Key Gaps (MOSTLY RESOLVED)
 
 1. **No `connect()` / CONNECT event** -- The frontend has a distinct actor-to-actor
    connection protocol. Used for component wiring (e.g., `<ntt-item>` connecting to
-   its NTT entity actor). Question: is this needed backend-side, or is it purely a
-   frontend component wiring concern?
+   its NTT entity actor). Deferred — likely frontend-only concern.
 
-2. **No `has(addr)`** -- Quick child existence check by first address segment. Trivial
-   to add.
+2. ~~**No `has(addr)`**~~ -- **DONE**: `has()` checks child by first address segment.
 
-3. **No auto-register as root** -- Frontend Matrix auto-registers as root if no root
-   exists. Backend requires explicit `register_root()` call.
+3. ~~**No auto-register as root**~~ -- **DONE**: Matrix auto-registers as root if no root
+   exists (`if not Actor.root(): Actor.root(self)` in `__init__`).
 
-4. **No self-send prevention** -- Frontend throws if Matrix tries to send to itself.
-   Backend silently allows it (would hit "no route" warning).
+4. ~~**No self-send prevention**~~ -- **DONE**: Matrix logs error and returns if
+   `target == self.addr`.
 
 ### Backend Additions (not in frontend)
 
@@ -161,26 +158,24 @@ The frontend defines these event types in `config.js`:
 
 ## Recommendations
 
-### Should Add (functional gaps)
+### Should Add (functional gaps -- remaining)
 
-1. **TX serialization**: `to_dict()` / `from_dict()` -- needed for WebSocket bridge,
-   logging, adapter protocol translation.
-2. **Matrix `has(addr)`** -- utility method, trivial to add.
-3. **Matrix self-send guard** -- safety check to prevent infinite loops.
+1. **TX serialization**: `to_dict()` / `from_dict()` -- needed for WebSocket bridge
+   (Wave 3), logging, adapter protocol translation.
 
-### Design Decisions to Discuss
+### Resolved (implemented in v0.8.0b)
 
-4. **Source prefix on routing** -- Frontend adds traceability path during bubble-up.
-   Useful for debugging and logging. Worth adding to backend `send()`?
-5. **CONNECT event protocol** -- Is this needed backend-side for dynamic actor wiring
-   (e.g., WebSocket client subscribing to entity updates), or is it purely a frontend
-   component concern?
-6. **Auto-registration** -- Frontend auto-registers instances in type-level children.
-   Backend is explicit. Recommendation: keep explicit (Pythonic, avoids surprises).
-7. **Matrix auto-register as root** -- Should the first Matrix auto-register?
-   Recommendation: keep explicit (supports multiple Matrix instances cleanly).
-8. **Spawn duplicate guard** -- Frontend asserts no duplicate child addr. Should
-   backend do the same?
+2. ~~**Matrix `has(addr)`**~~ -- **DONE**
+3. ~~**Matrix self-send guard**~~ -- **DONE**
+4. ~~**Source prefix on routing**~~ -- **DONE** (3-case routing in `send_cls()`)
+6. ~~**Auto-registration**~~ -- **DONE** (`__init_subclass__` auto-registers with Matrix, `auto_register=False` to opt out)
+7. ~~**Matrix auto-register as root**~~ -- **DONE** (first Matrix auto-registers)
+8. ~~**Spawn duplicate guard**~~ -- **DONE** (raises `ValueError`)
+
+### Deferred
+
+5. **CONNECT event protocol** -- Likely frontend-only concern. Revisit in Wave 3
+   (WebSocket bridge) if backend actors need dynamic wiring.
 
 ### Intentionally Different (no action needed)
 

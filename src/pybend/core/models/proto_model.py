@@ -199,20 +199,14 @@ class ProtoModel(PydanticBaseModel):
     def schema(cls) -> Dict[str, Any]:
         """Returns the schema for this model via composable pipeline.
 
-        All stages live in proto_schema. access() and ui() will move to
-        mixins (AccessMixin, ViewableMixin) when those are introduced —
-        each mixin's schema() calls super().schema() then applies its stage.
+        Stages are registered in proto_schema (base, strip_hidden, methods,
+        defs, access, ui, metadata). Extensions add stages via
+        @schema_extension without modifying the core pipeline.
         """
         if cls in ProtoModel._schema_cache:
             return copy.deepcopy(ProtoModel._schema_cache[cls])
 
-        s = proto_schema.base(cls)
-        s = proto_schema.strip_hidden(cls, s)
-        s = proto_schema.methods(cls, s)
-        s = proto_schema.defs(cls, s)
-        s = proto_schema.access(cls, s)
-        s = proto_schema.ui(cls, s)
-        s = proto_schema.metadata(cls, s)
+        s = proto_schema.run_pipeline(cls)
 
         ProtoModel._schema_cache[cls] = s
         return copy.deepcopy(s)

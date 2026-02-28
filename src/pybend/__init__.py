@@ -14,14 +14,17 @@ from .core.storage.json_storage import JSONStorage
 from .core.storage.abstract_storage import AbstractStorage
 from .core.api.backend import FastAPIBackend
 from .core.app import create_app, PyBendApp
+from .core.models.proto_schema import schema_extension
+from .core.actors import Actor, Matrix, TX, matrix
 
-__version__ = "0.7.0"
+__version__ = "0.8.0b"
 
 __all__ = [
     "ProtoModel", "generate_join_model", "StorableMixin", "ViewableMixin",
     "BaseUser", "ListRef", "Ref", "expose_route", "MethodError",
     "register_model", "registered_models",
     "SQLiteStorage", "JSONStorage", "AbstractStorage", "FastAPIBackend",
-    "create_app", "PyBendApp",
+    "create_app", "PyBendApp", "schema_extension",
+    "Actor", "Matrix", "TX", "matrix",
     "__version__",
 ]
