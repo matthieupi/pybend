@@ -1,6 +1,6 @@
 # PyBend API Documentation
 
-**Version**: 0.8.0
+**Version**: 0.8.2
 **Base URL**: `http://localhost:8000` (default, configurable)  
 **Protocol**: REST over HTTP/HTTPS  
 **Content-Type**: `application/json`
@@ -8,6 +8,39 @@
 ## Purpose
 
 PyBend automatically generates a complete REST API from your Python model definitions. This documentation explains how to interact with the generated endpoints from a frontend perspective.
+
+## Routing Modes
+
+PyBend supports two routing modes, selectable via the `routing` parameter:
+
+### Direct Routing (default)
+
+```python
+app = create_app(models=[Product, User], storage="sqlite:///app.db")
+# or explicitly:
+app = create_app(models=[Product, User], storage="sqlite:///app.db", routing='direct')
+```
+
+HTTP requests go directly to route handlers which call StorableMixin CRUD methods. This is the simplest mode — no actor system involvement in request processing.
+
+### Actor Routing (Level 3)
+
+```python
+app = create_app(models=[Product, User], storage="sqlite:///app.db", routing='actor')
+```
+
+HTTP requests are translated into TX messages routed through the Matrix actor system:
+
+```
+HTTP Request → NetworkAPI adapter → TX → Matrix → ActorModel.handler_crud → StorableMixin
+HTTP Response ← NetworkAPI adapter ← TX ← Matrix ← ActorModel.handler_crud ←
+```
+
+Actor routing enables interceptors (e.g., authentication at the protocol boundary), lifecycle events, and uniform message-based architecture across all protocols (HTTP, MCP, ActivityPub).
+
+Both modes produce identical API endpoints and response formats. The choice is transparent to API consumers.
+
+---
 
 ## Key Concepts
 

@@ -323,6 +323,40 @@ Access rules are serialized into the JSON Schema response so frontends can adapt
 
 Frontends can use the `access` key to show/hide edit buttons, delete icons, etc.
 
+### Two-Tier Auth (Actor Routing — Level 3)
+
+When using `create_app(routing='actor')`, authorization splits into two tiers:
+
+**Tier 1: Protocol boundary interceptor** (`api/auth_interceptor.py`)
+
+Registered on the NetworkAPI adapter via `api.use(auth_interceptor, on='request')`. Runs before the TX enters the actor system.
+
+| Action | Behavior |
+|--------|----------|
+| `schema` | Pass-through (always public) |
+| `list` | Compute `sql_filter` via `resolver.sql_filter_for()`, store in `tx.meta['sql_filter']` |
+| `create` | Full rule check — no resource instance needed |
+| `read`/`update`/`delete` | Identity gate only — unauthenticated users rejected if rule requires auth |
+
+**Tier 2: Handler guard** (`models/actor_model.py → _authorize()`)
+
+Runs inside `handler_crud()` after fetching the resource instance. Evaluates the full ABAC rule including OWNER checks (which need the actual entity to compare `user_owner` with `user_id`).
+
+```python
+# Tier 2 checks happen at each CRUD step:
+# create: _authorize('create', tx) before creating instance
+# get:    fetch first, then _authorize('read', tx, resource=instance)
+# list:   reads tx.meta['sql_filter'] from Tier 1
+# update: fetch first, _authorize('update', tx, resource=instance)
+# delete: fetch first, _authorize('delete', tx, resource=instance)
+```
+
+**Why two tiers?** OWNER rules need the resource instance. The interceptor runs before the handler fetches it. The handler guard runs after. This natural split means:
+- Tier 1: fast rejection of unauthenticated/unauthorized at the boundary
+- Tier 2: resource-dependent checks (OWNER, Where) inside the handler
+
+**Level 1/2 routing** (`routes_fastapi.py`) continues to use its existing single-pass auth via `_resolver.authorize(ctx)` — unchanged.
+
 ### The Resolver Protocol
 
 The `DefaultResolver` is one implementation of the `AuthorizationResolver` protocol:

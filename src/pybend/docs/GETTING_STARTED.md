@@ -436,6 +436,60 @@ python app.py
 
 Now your data is stored in `data/users.json` and `data/posts.json` as human-readable JSON files.
 
+## Using Actor Routing (Level 3)
+
+For full actor-system routing where every HTTP request flows through the Matrix as TX messages:
+
+### Step 1: Use ActorModel
+
+Change your model base class from `ProtoModel` to `ActorModel`:
+
+```python
+from pybend.core.models.actor_model import ActorModel
+
+class User(ActorModel):
+    __storable__: ClassVar[bool] = True
+    __tablename__: ClassVar[str] = 'users'
+
+    username: str
+    email: str
+
+class Post(ActorModel):
+    __storable__: ClassVar[bool] = True
+    __tablename__: ClassVar[str] = 'posts'
+
+    title: str
+    content: str
+    author: Ref[User]
+```
+
+### Step 2: Enable Actor Routing
+
+```python
+from pybend import create_app
+
+app = create_app(
+    models=[User, Post],
+    storage="sqlite:///blog.db",
+    routing='actor',  # Routes through Matrix via NetworkAPI adapter
+)
+```
+
+### What Changes
+
+- HTTP requests become TX messages routed through the Matrix
+- Interceptors can be added at the protocol boundary (auth, rate limiting, logging)
+- Two-tier authorization: Tier 1 (fast gate) + Tier 2 (resource-level OWNER checks)
+- Lifecycle events (`after_create`, `after_update`, `after_delete`) are published
+- MCP and ActivityPub adapters can be added alongside HTTP
+
+### What Stays the Same
+
+- All API endpoints, paths, and response formats are identical
+- Frontend code works without changes
+- Authentication via JWT `x-access-token` header
+- `__access__` rules enforced the same way
+
 ## Using Flask Instead of FastAPI
 
 PyBend supports multiple web frameworks:

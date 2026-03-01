@@ -249,19 +249,107 @@ class NetworkAdapter(Actor, auto_register=False):
 
 class NetworkMCP(NetworkAdapter):    # MCP JSON-RPC 2.0
 class NetworkAP(NetworkAdapter):     # ActivityPub federation
-# NetworkAPI (HTTP REST) — planned
+class NetworkAPI(NetworkAdapter):    # HTTP REST (Level 3 actor routing)
 # NetworkWebSocket (frontend bridge) — planned
 ```
 
 **Pattern**: Adapter Pattern (protocol translation) + Correlation Pattern (request/response over async messaging)
 
-**Key Design Decision**: The HTTP API itself will eventually become a NetworkAdapter (`NetworkAPI`), meaning ALL external interaction — REST, MCP, ActivityPub, WebSocket — flows through the same architecture. No protocol is special.
+**Key Design Decision**: The HTTP API itself is a NetworkAdapter (`NetworkAPI`), meaning ALL external interaction — REST, MCP, ActivityPub, WebSocket — flows through the same architecture. No protocol is special.
 
-### 7. Backend Adapters (Legacy)
+### 6b. Interceptors (`use()`)
+
+**Location**: `actors/actor.py` (base mechanism), `api/auth_interceptor.py` (auth implementation)
+
+Every Actor can register TX interceptors on any of its TX-handling methods via `use()`:
+
+```python
+# Register on specific method targets
+actor.use(auth_check, on='inbox')      # before inbox processes
+actor.use(rate_limit, on='send')       # before send routes
+adapter.use(jwt_auth, on='request')    # before request sends+awaits
+
+# Decorator forms
+@actor.use                             # defaults to on='inbox'
+async def log_all(tx: TX) -> TX: ...
+
+@adapter.use(on='request')
+async def authenticate(tx: TX) -> TX: ...
+```
+
+**Interceptor signature**: `async (TX) -> TX`. Return error TX to short-circuit the chain.
+
+**Chain behavior**:
+- Class-level interceptors run first, then instance-level (combined via `_get_interceptors`)
+- Chain stops on first error TX (`tx.is_error`)
+- `inbox()` error: sends error TX back via `send()` (caller gets rejection)
+- `send()` error: drops silently (outbound message never routed)
+- `request()` error: returns error TX immediately (never enters actor system)
+
+**Per-adapter, not global**: Each adapter registers its own interceptors. Authentication is protocol-specific (JWT for HTTP, API key for MCP, HTTP signatures for AP). Universal authorization is handled by Tier 2 handler guard in ActorModel.
+
+### 6c. Two-Tier Authorization
+
+When using Level 3 actor routing (NetworkAPI), authorization is split into two tiers:
+
+```
+HTTP Request → NetworkAPI.request(tx)
+                   │
+                   ├── Tier 1: 'request' interceptor (auth_interceptor)
+                   │   Fast gate at protocol boundary:
+                   │   • schema: pass-through (always public)
+                   │   • list: compute sql_filter, store in tx.meta
+                   │   • create: full rule check (no resource needed)
+                   │   • read/update/delete: identity gate only
+                   │
+                   ▼
+              Matrix routing → ActorModel.handler_crud(tx)
+                   │
+                   ├── Tier 2: _authorize() handler guard
+                   │   Full ABAC with resource instance:
+                   │   • Evaluates OWNER rules (needs fetched entity)
+                   │   • Defense-in-depth for anything Tier 1 missed
+                   │
+                   ▼
+              StorableMixin CRUD → result → tx.reply() → Future resolved
+```
+
+**Why two tiers?** OWNER-based rules need the resource instance. Tier 1 runs before the handler fetches it. Tier 2 runs after. Natural split: identity/role checks at the boundary, resource-dependent checks at the handler.
+
+### 7. Three Levels of PyBend
+
+PyBend supports three routing levels — developers choose based on their needs:
+
+```
+Level 1: ProtoModel  + routes_fastapi.py   → plain HTTP, no actors
+Level 2: ActorModel  + routes_fastapi.py   → actor capabilities, same HTTP layer
+Level 3: ActorModel  + NetworkAPI adapter   → actors all the way down
+```
+
+Each level is one change from the previous. Model base class swap for Level 2, `routing='actor'` flag for Level 3.
+
+```python
+# Level 1 — Plain HTTP (default)
+app = create_app(models=[Product, User], storage="sqlite:///app.db")
+
+# Level 2 — Actor capabilities, same HTTP routes
+# Just change ProtoModel → ActorModel in your models
+app = create_app(models=[Product, User], storage="sqlite:///app.db")
+
+# Level 3 — Full actor routing through Matrix
+app = create_app(models=[Product, User], storage="sqlite:///app.db", routing='actor')
+```
+
+**Level 1/2** use `routes_fastapi.py` route factories (direct StorableMixin calls).
+**Level 3** uses `NetworkAPI` adapter (HTTP → TX → Matrix → ActorModel → StorableMixin).
+
+`routes_fastapi.py` is never modified — Level 3 is purely additive.
+
+### 8. Backend Adapters
 
 **Location**: `api/backend.py`
 
-Abstract interface for web frameworks (pre-NetworkAdapter pattern).
+Abstract interface for web frameworks.
 
 ```python
 class BaseBackend(ABC, BaseModel):
@@ -279,7 +367,6 @@ class FlaskBackend(BaseBackend):
 - Framework-agnostic model definitions
 - Easy switching between FastAPI/Flask
 - Extensible to other frameworks (Django, Sanic, etc.)
-- Will be superseded by `NetworkAPI` adapter
 
 ### 7. Route Registration
 
@@ -754,9 +841,11 @@ Comments support nesting via `parent_id: Ref['self']`. The `reply()` method crea
 5. **Migrations**: Version-controlled schema changes
 6. **GraphQL**: Automatic GraphQL schema generation
 7. ~~**WebSockets**: Real-time updates~~ — Planned as `NetworkWebSocket` adapter
-8. **NetworkAPI**: HTTP REST adapter replacing `routes_fastapi.py` (all protocols through adapters)
+8. ~~**NetworkAPI**: HTTP REST adapter~~ — Implemented (v0.8.2). Level 3 routing via `create_app(routing='actor')`
 9. **MCP Integration**: ~~Planned~~ Implemented via `NetworkMCP` adapter (v0.8.1)
 10. **ActivityPub Federation**: ~~Planned~~ Implemented via `NetworkAP` adapter (v0.8.1)
+11. ~~**Interceptors**: Universal middleware for actors~~ — Implemented via `use()` (v0.8.2)
+12. ~~**Two-Tier Auth**: Protocol-boundary + handler-level authorization~~ — Implemented (v0.8.2)
 
 ## Conclusion
 

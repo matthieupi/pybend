@@ -202,6 +202,14 @@ Actor/Matrix/TX      Backend actor system (mirrors frontend pattern):
                       Actor — base class with addr, children, inbox, handler, send
                       Matrix — root actor and message router (singleton per tree)
                       TX — message envelope (name, source, target, data, meta)
+
+Interceptors         use() on any Actor — register TX interceptors on inbox/send/request
+                      Signature: async (TX) -> TX. Return error TX to short-circuit.
+                      Per-actor, not global. Class + instance chains combine.
+
+NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor routing)
+(routing='actor')    create_app(routing='actor') wires NetworkAPI + auth interceptor
+                      Two-tier auth: Tier 1 (boundary gate) + Tier 2 (handler OWNER check)
 ```
 
 ### Frontend (Vanilla JS Web Components)
@@ -426,15 +434,17 @@ GET /Product → JSON Schema
 - `src/pybend/docs/AUTHORIZATION.md` - Full authorization system documentation
 
 ### Actor System (v0.8)
-- `src/pybend/core/actors/actor.py` - Base actor class with unified class/instance dispatch via `actormethod`/`actorproperty` descriptors and `ActorMeta` metaclass. Addr, children, parent, inbox, handler, send, register, spawn. Auto-registers with Matrix via metaclass.
-- `src/pybend/core/actors/matrix.py` - Root actor and message router. `has()`, self-send guard, adapter delegation. Module-level `matrix` instance created at import.
+- `src/pybend/core/actors/actor.py` - Base actor class with unified class/instance dispatch via `actormethod`/`actorproperty` descriptors and `ActorMeta` metaclass. Addr, children, parent, inbox, handler, send, register, spawn, `use()` interceptors. Auto-registers with Matrix via metaclass.
+- `src/pybend/core/actors/matrix.py` - Root actor and message router. `has()`, self-send guard, adapter delegation, interceptor support. Module-level `matrix` instance created at import.
 - `src/pybend/core/actors/tx.py` - TX message envelope (dataclass): name, source, target, data, meta, timestamp, uuid. `reply()` swaps source/target with new uuid. `error()` creates ERROR TX. `is_error` property.
 - `src/pybend/core/actors/actor_proxy.py` - `ActorProxy` wrapper: gives any class or instance the actor interface (inbox/handler/send/register/spawn) without inheritance. Used when full Actor MI is not desired.
 - `src/pybend/core/actors/__init__.py` - Re-exports `TX`, `Actor`, `Matrix`, `matrix`
 
 ### API / Routes
-- `src/pybend/core/api/routes_fastapi.py` - Route factories with authorization injection, pagination, and user resolution bridge (`_resolve_user`)
-- `src/pybend/core/api/network_adapter.py` - `NetworkAdapter(Actor)` base class for protocol adapters. Provides `request()` for request/response correlation via asyncio.Future, `inbox()` override for correlation interception. All external protocol interaction flows through a NetworkAdapter.
+- `src/pybend/core/api/routes_fastapi.py` - Level 1/2 route factories with authorization injection, pagination, and user resolution bridge (`_resolve_user`). DO NOT MODIFY — Level 3 is additive.
+- `src/pybend/core/api/network_adapter.py` - `NetworkAdapter(Actor)` base class for protocol adapters. Provides `request()` for request/response correlation via asyncio.Future with interceptor support, `inbox()` override for correlation interception. All external protocol interaction flows through a NetworkAdapter.
+- `src/pybend/core/api/network_api.py` - `NetworkAPI` adapter: HTTP REST bridge for Level 3 actor routing. `create_api_routes()` generates FastAPI routes that translate HTTP to TX. Mirrors route paths from `routes_fastapi.py`.
+- `src/pybend/core/api/auth_interceptor.py` - Tier 1 auth interceptor for NetworkAPI. `async (TX) -> TX` function: AUTHENTICATED gate, sql_filter for list, full create check, identity gate for read/update/delete. Registered via `api.use(auth_interceptor, on='request')`.
 - `src/pybend/core/api/network_mcp.py` - `NetworkMCP` adapter: MCP JSON-RPC 2.0 bridge. `handle_tools_list()`, `handle_tools_call()`, `handle_jsonrpc()`. Converts model schemas to MCP tool specs. `create_mcp_routes()` FastAPI route factory.
 - `src/pybend/core/api/network_ap.py` - `NetworkAP` adapter: ActivityPub federation bridge. LIFECYCLE handler, actor documents, outbox, inbox, WebFinger, follow/unfollow. `create_federation_routes()` FastAPI route factory.
 - `src/pybend/core/utils/decorators.py` - `@expose_route()` for custom method endpoints (supports `access=` parameter)
@@ -453,8 +463,8 @@ GET /Product → JSON Schema
 - `src/pybend/static/utils/Permissions.js` - Reads schema access rules for UI permission checks
 
 ### App Bootstrap
-- `src/pybend/core/app.py` - `PyBendApp` builder class + `create_app()` one-liner factory
-- `src/pybend/__init__.py` - Public API: re-exports `create_app`, `PyBendApp`, `ProtoModel`, `BaseUser`, `expose_route`, `Actor`, `Matrix`, `TX`, etc.
+- `src/pybend/core/app.py` - `PyBendApp` builder class + `create_app()` one-liner factory. Supports `routing='direct'` (Level 1/2) and `routing='actor'` (Level 3 via NetworkAPI).
+- `src/pybend/__init__.py` - Public API: re-exports `create_app`, `PyBendApp`, `ProtoModel`, `BaseUser`, `expose_route`, `Actor`, `Matrix`, `TX`, `NetworkAdapter`, `NetworkAPI`, etc.
 
 ### Config & Entry
 - `src/pybend/core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE
@@ -573,10 +583,13 @@ The backend actor system mirrors the frontend's Actor/Matrix/TX pattern. Everyth
 - Class-level state: `__addr__`, `__children__`, `__matrix__` (managed by `ActorMeta.__new__`)
 - Instance-level state: `_addr`, `_children`, `_parent` as PrivateAttr (compatible with Pydantic V2 MI)
 - `_parent` defaults to `self.__class__` (mirrors JS `this.#parent = this.constructor`)
-- `ActorMeta` creates per-class `__children__` dict, sets `__addr__` from `__tablename__` or class name, auto-registers with root Matrix if available
+- `ActorMeta` creates per-class `__children__` dict and `__interceptors__` dict, sets `__addr__` from `__tablename__` or class name, auto-registers with root Matrix if available
 - `auto_register=False` kwarg on subclass skips Matrix registration
 - `Actor.root()` getter/setter for `__matrix__` ClassVar
 - `send()` three-case routing: (1) direct child match, (2) strip prefix + route, (3) prefix source + bubble to root
+- `use(fn, on='inbox')` registers interceptors on inbox/send/request. Decorator forms supported.
+- `inbox()` and `send()` run their interceptors before processing. Error TX short-circuits.
+- `_interceptors` PrivateAttr for instance-level, `__interceptors__` ClassVar for class-level
 
 **Matrix** extends Actor:
 - Auto-registers as root if no root exists (`Actor.root(self)` in `__init__`)
@@ -699,6 +712,48 @@ for model in registered_models.values():
 **MCP adapter** converts model schemas to MCP tools. Tool names follow `{tablename}_{action}` (e.g., `products_create`, `products_favorite`). JSON-RPC methods: `initialize`, `ping`, `tools/list`, `tools/call`.
 
 **AP adapter** receives LIFECYCLE TXs from ActorModel subscribers, converts to ActivityPub Activities (Create/Update/Delete), stores in outbox. Handles inbound Follow/Unfollow. Provides WebFinger actor discovery.
+
+### Interceptor Pattern (`use()`)
+Universal TX interceptors on any Actor method. Registered via `use()`, run before the method body.
+
+```python
+# Plain call
+adapter.use(auth_interceptor, on='request')
+
+# Decorator
+@actor.use(on='inbox')
+async def log_messages(tx: TX) -> TX:
+    print(f"Received: {tx.name}")
+    return tx
+
+# Error TX short-circuits the chain
+async def reject_all(tx: TX) -> TX:
+    return tx.error("Rejected", code=403)
+```
+
+Class + instance interceptors combine (class first). `_get_interceptors(target, method_name)` returns the combined chain. `_run_interceptors(interceptors, tx)` runs FIFO, stops on `is_error`.
+
+### Three Levels of PyBend
+```python
+# Level 1 — ProtoModel + direct routes (no actors)
+app = create_app(models=[Product], storage="sqlite:///app.db")
+
+# Level 2 — ActorModel + direct routes (actor capabilities, same HTTP layer)
+# Just change ProtoModel → ActorModel in model definitions
+app = create_app(models=[Product], storage="sqlite:///app.db")
+
+# Level 3 — ActorModel + NetworkAPI (full actor routing)
+app = create_app(models=[Product], storage="sqlite:///app.db", routing='actor')
+```
+
+Level 3 wires: `NetworkAPI` adapter + `auth_interceptor` on `request` + routes via `create_api_routes()`. All three levels produce identical API endpoints and responses.
+
+### Two-Tier Auth (Level 3)
+When `routing='actor'`, authorization is split:
+- **Tier 1**: `auth_interceptor` on `NetworkAPI.request()` — fast gate at protocol boundary. Handles schema pass-through, sql_filter for list, full check for create, identity gate for read/update/delete.
+- **Tier 2**: `ActorModel._authorize()` in `handler_crud()` — full ABAC with resource instance. Evaluates OWNER rules after fetching the entity.
+
+Level 1/2 use `routes_fastapi.py`'s single-pass `_resolver.authorize(ctx)` — unchanged.
 
 ## Directives
 
