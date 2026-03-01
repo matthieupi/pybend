@@ -18,8 +18,9 @@ Define an instance, get the same actor. One API, no dual paths.
 8. [Descriptors](#descriptors)
 9. [Message Flow](#message-flow)
 10. [ActorModel — Models That Are Actors](#actormodel--models-that-are-actors)
-11. [File Layout](#file-layout)
-12. [Testing](#testing)
+11. [NetworkAdapter — Protocol Bridge](#networkadapter--protocol-bridge)
+12. [File Layout](#file-layout)
+13. [Testing](#testing)
 
 ---
 
@@ -498,6 +499,123 @@ TX(name='LIFECYCLE', source='products', target=subscriber_addr,
 
 ---
 
+## NetworkAdapter -- Protocol Bridge
+
+ALL external protocol interaction flows through a `NetworkAdapter`.
+Each adapter is an Actor registered as a Matrix child that translates
+between an external protocol and TX messages.
+
+```
+External Protocol  →  NetworkAdapter  →  TX  →  Matrix  →  ActorModel
+                  ←                  ←  TX  ←          ←
+```
+
+### Base Class
+
+`NetworkAdapter(Actor, auto_register=False)` lives in `api/network_adapter.py`:
+
+```python
+from pybend.core.api.network_adapter import NetworkAdapter
+
+class MyAdapter(NetworkAdapter, auto_register=False):
+    def __init__(self, **kwargs):
+        kwargs.setdefault('addr', 'myadapter')
+        super().__init__(**kwargs)
+
+    def SOME_MESSAGE(self, data, tx):
+        return {'handled': True}
+```
+
+Key methods:
+
+| Method | Purpose |
+|--------|---------|
+| `request(tx, timeout)` | Send TX, await correlated response via asyncio.Future |
+| `inbox(tx)` | Intercepts correlated replies before normal handler dispatch |
+
+`request()` bridges synchronous protocols (HTTP, JSON-RPC) to the
+fire-and-forget actor model. It creates a Future keyed by `tx.uuid`,
+sends the TX, and awaits the reply. When the reply arrives at
+`inbox()`, its `meta['in_reply_to']` matches the original uuid,
+resolving the Future.
+
+### Concrete Adapters
+
+| Adapter | Addr | Protocol | Module |
+|---------|------|----------|--------|
+| `NetworkMCP` | `mcp` | MCP JSON-RPC 2.0 | `api/network_mcp.py` |
+| `NetworkAP` | `ap` | ActivityPub | `api/network_ap.py` |
+| `NetworkAPI` | `api` | HTTP REST | Planned |
+| `NetworkWebSocket` | `ws` | WebSocket | Planned |
+
+### MCP Adapter
+
+Discovers registered models, converts schemas to MCP tool specs,
+routes tool calls through Matrix:
+
+```python
+from pybend.core.api.network_mcp import NetworkMCP, create_mcp_routes
+
+mcp = NetworkMCP()          # addr='mcp' by default
+matrix.register(mcp)
+
+# tools/list → iterates Matrix children, requests schemas, builds tools
+# tools/call → parses tool name (products_create), routes TX to model
+# Tool names: {tablename}_{action} (e.g. products_list, products_favorite)
+
+app.include_router(create_mcp_routes(mcp))  # POST /mcp, GET /mcp/tools
+```
+
+### AP Adapter
+
+Receives lifecycle events from ActorModel, converts to ActivityPub
+Activities, handles inbound federation:
+
+```python
+from pybend.core.api.network_ap import NetworkAP, create_federation_routes
+
+ap = NetworkAP(base_url='https://example.com')  # addr='ap' by default
+matrix.register(ap)
+
+# Subscribe federated models to lifecycle events
+Product._subscribers.append('ap')
+
+# Lifecycle events (after_create/update/delete) → AP Activities in outbox
+# Inbound Follow/Unfollow/Create/Update/Delete → TX through Matrix
+# WebFinger actor discovery at /.well-known/webfinger
+
+app.include_router(create_federation_routes(ap))
+```
+
+### Message Flow: MCP tools/call
+
+```
+MCP Client (Claude Desktop, etc.)
+    |  POST /mcp  {"method": "tools/call", "params": {"name": "products_create", ...}}
+    v
+NetworkMCP.handle_jsonrpc()
+    |  Parses tool name: "products_create" → addr="products", action="create"
+    v
+NetworkMCP.request(TX(name='create', source='mcp', target='products', data={...}))
+    |  Creates Future keyed by tx.uuid
+    |  Sends TX into Matrix
+    v
+Matrix.inbox(tx)  →  Product.inbox(tx)  →  Product.handler_crud(tx)
+    |  StorableMixin.create(data)
+    |  Returns model_response() as tx.reply()
+    v
+Matrix.inbox(reply_tx)  →  NetworkMCP.inbox(reply_tx)
+    |  meta['in_reply_to'] matches pending uuid
+    |  Resolves Future with reply_tx
+    v
+NetworkMCP.handle_tools_call() returns MCP result
+    |  JSON-RPC response: {"result": {"content": [{"type": "text", "text": "..."}]}}
+    v
+MCP Client receives response
+```
+
+---
+
 ## File Layout
 
 ```
@@ -507,6 +625,15 @@ actors/
     actor_proxy.py       ActorProxy wrapper, ActorLike Protocol
     matrix.py            Matrix root actor, adapter registry
     tx.py                TX message envelope (dataclass)
+
+api/
+    network_adapter.py   NetworkAdapter base — request/response correlation
+    network_mcp.py       MCP JSON-RPC 2.0 adapter + create_mcp_routes()
+    network_ap.py        ActivityPub adapter + create_federation_routes()
+    tests/
+        test_network_adapter.py   Base class: correlation, timeout, fallthrough (28 tests)
+        test_network_mcp.py       MCP: tools, JSON-RPC, CRUD routing (55 tests)
+        test_network_ap.py        AP: activities, outbox, WebFinger, inbox (74 tests)
 
 models/
     actor_model.py       ActorModel bridge class (Actor + ProtoModel)
@@ -529,6 +656,9 @@ models/
 # Run actor tests
 cd src/pybend/core && python3 -m pytest actors/tests/ -v
 
+# Run network adapter tests
+cd src/pybend/core && python3 -m pytest api/tests/ -v
+
 # Run all framework unit tests (includes actor tests from tests/unit/)
 cd src/pybend/core && python3 -m pytest tests/unit/ -q
 ```
@@ -542,6 +672,9 @@ cd src/pybend/core && python3 -m pytest tests/unit/ -q
 | `test_matrix.py` | 19 | Init, `has()`, inbox routing, adapters, module-level instance |
 | `test_actor_proxy.py` | 22 | Address resolution, dispatch, inbox routing, `ActorLike` |
 | `test_integration.py` | 8 | E2E routing, class+instance coexistence, Pydantic compat |
+| `test_network_adapter.py` | 28 | Request/response correlation, timeout, handler fallthrough, concurrency |
+| `test_network_mcp.py` | 55 | Tool specs, JSON-RPC dispatch, CRUD routing, FastAPI routes |
+| `test_network_ap.py` | 74 | Activities, outbox, WebFinger, inbox, follow/unfollow, lifecycle |
 
 ### Pydantic Mock Patching
 

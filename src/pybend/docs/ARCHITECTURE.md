@@ -17,14 +17,21 @@ PyBend follows a layered architecture with dependency injection for maximum flex
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Client Layer                             │
-│                   (HTTP Requests/Responses)                     │
+│       HTTP    │    MCP (AI)    │  ActivityPub  │  WebSocket     │
+└───────┬───────┴───────┬────────┴──────┬────────┴───────┬────────┘
+        │               │               │                │
+┌───────▼───────────────▼───────────────▼────────────────▼────────┐
+│                   Network Adapter Layer                          │
+│          (Protocol → TX → Matrix → TX → Protocol)               │
+│  • NetworkAPI (HTTP)    • NetworkMCP (JSON-RPC 2.0)             │
+│  • NetworkAP (ActivityPub)  • NetworkWebSocket (WS)             │
 └────────────────────────────┬────────────────────────────────────┘
-                             │
+                             │  TX messages
 ┌────────────────────────────▼────────────────────────────────────┐
-│                       Backend Layer                             │
-│              (FastAPI / Flask Adapters)                         │
-│  • Route Registration       • Request Validation                │
-│  • Response Serialization   • Error Handling                    │
+│                     Actor System (Matrix)                        │
+│              Message routing, Actor dispatch                     │
+│  • Actor / ActorModel     • Handler dispatch                    │
+│  • Class + Instance actors  • Lifecycle events                  │
 └────────────────────────────┬────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────┐
@@ -224,11 +231,37 @@ def register_model(model_class: Type[Any], storage: StorageInterface = None):
 
 **Pattern**: Registry Pattern
 
-### 6. Backend Adapters
+### 6. Network Adapters
+
+**Location**: `api/network_adapter.py`, `api/network_mcp.py`, `api/network_ap.py`
+
+ALL external protocol interaction flows through a `NetworkAdapter(Actor)`. Each adapter translates between an external protocol and TX messages routed through the Matrix.
+
+```python
+class NetworkAdapter(Actor, auto_register=False):
+    """Base class — request/response correlation via asyncio.Future."""
+
+    async def request(self, tx: TX, timeout: float = 30.0) -> TX:
+        # Sends TX, awaits correlated reply via Future matching
+
+    async def inbox(self, tx: TX) -> None:
+        # Intercepts correlated replies before normal handler dispatch
+
+class NetworkMCP(NetworkAdapter):    # MCP JSON-RPC 2.0
+class NetworkAP(NetworkAdapter):     # ActivityPub federation
+# NetworkAPI (HTTP REST) — planned
+# NetworkWebSocket (frontend bridge) — planned
+```
+
+**Pattern**: Adapter Pattern (protocol translation) + Correlation Pattern (request/response over async messaging)
+
+**Key Design Decision**: The HTTP API itself will eventually become a NetworkAdapter (`NetworkAPI`), meaning ALL external interaction — REST, MCP, ActivityPub, WebSocket — flows through the same architecture. No protocol is special.
+
+### 7. Backend Adapters (Legacy)
 
 **Location**: `api/backend.py`
 
-Abstract interface for web frameworks (Adapter Pattern).
+Abstract interface for web frameworks (pre-NetworkAdapter pattern).
 
 ```python
 class BaseBackend(ABC, BaseModel):
@@ -246,6 +279,7 @@ class FlaskBackend(BaseBackend):
 - Framework-agnostic model definitions
 - Easy switching between FastAPI/Flask
 - Extensible to other frameworks (Django, Sanic, etc.)
+- Will be superseded by `NetworkAPI` adapter
 
 ### 7. Route Registration
 
@@ -716,10 +750,13 @@ Comments support nesting via `parent_id: Ref['self']`. The `reply()` method crea
 1. **Query Builder**: Fluent API for complex queries
 2. **Async Storage**: Async/await for I/O operations
 3. **Caching Layer**: Redis/Memcached integration
-4. **Event System**: Pre/post save hooks
+4. ~~**Event System**: Pre/post save hooks~~ — Implemented via ActorModel lifecycle events (v0.8)
 5. **Migrations**: Version-controlled schema changes
 6. **GraphQL**: Automatic GraphQL schema generation
-7. **WebSockets**: Real-time updates
+7. ~~**WebSockets**: Real-time updates~~ — Planned as `NetworkWebSocket` adapter
+8. **NetworkAPI**: HTTP REST adapter replacing `routes_fastapi.py` (all protocols through adapters)
+9. **MCP Integration**: ~~Planned~~ Implemented via `NetworkMCP` adapter (v0.8.1)
+10. **ActivityPub Federation**: ~~Planned~~ Implemented via `NetworkAP` adapter (v0.8.1)
 
 ## Conclusion
 
