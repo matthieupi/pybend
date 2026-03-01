@@ -61,11 +61,16 @@ class PyBendApp:
 
     Collects model registrations and configuration, then produces a
     fully configured ASGI application via :meth:`build`.
+
+    Supports three routing modes:
+        - ``'direct'`` (default): routes_fastapi.py route factories (Level 1/2)
+        - ``'actor'``: NetworkAPI adapter routes everything through Matrix (Level 3)
     """
 
     def __init__(
         self,
         storage=None,
+        routing: str = 'direct',
         jwt_secret: Optional[str] = None,
         jwt_expiry_hours: int = 24,
         cors_origins: Optional[List[str]] = None,
@@ -76,6 +81,8 @@ class PyBendApp:
             storage: A storage backend instance (e.g. ``SQLiteStorage``) or a
                 string like ``"sqlite:///path/to/db.sqlite"`` that will be
                 auto-resolved.  If ``None``, uses ``config.SQLITE_DB_FILE``.
+            routing: Routing mode — ``'direct'`` for plain FastAPI routes,
+                ``'actor'`` for full actor routing via NetworkAPI adapter.
             jwt_secret: Secret for JWT tokens.  If ``None``, uses
                 ``config.JWT_SECRET``.
             jwt_expiry_hours: JWT token expiry in hours.
@@ -84,6 +91,7 @@ class PyBendApp:
             debug: Enable debug mode.
         """
         self._storage = _resolve_storage(storage)
+        self._routing = routing
         self._jwt_secret = jwt_secret
         self._jwt_expiry_hours = jwt_expiry_hours
         self._cors_origins = cors_origins
@@ -166,8 +174,20 @@ class PyBendApp:
             port=config.PORT,
         )
 
-        # 5. Register routes for all registered models
-        backend.register_routes(registered_models)
+        # 5. Register routes — direct (Level 1/2) or actor (Level 3)
+        if self._routing == 'actor':
+            from pybend.core.api.network_api import NetworkAPI, create_api_routes
+            from pybend.core.api.auth_interceptor import auth_interceptor
+            from pybend.core.actors.matrix import matrix
+
+            api = NetworkAPI()
+            matrix.register(api)
+            api.use(auth_interceptor, on='request')
+            backend.app.include_router(
+                create_api_routes(api, registered_models)
+            )
+        else:
+            backend.register_routes(registered_models)
 
         # 6. Return the FastAPI app instance
         #    get_app() mounts the framework's own static directory last
@@ -181,6 +201,7 @@ def create_app(
     models=None,
     join_models=None,
     storage=None,
+    routing='direct',
     static_dir=None,
     jwt_secret=None,
     jwt_expiry_hours=24,
@@ -199,6 +220,8 @@ def create_app(
         join_models: List of ``(parent, child)`` tuples for join
             relationships.
         storage: Storage backend or URI string (see :class:`PyBendApp`).
+        routing: ``'direct'`` for plain FastAPI routes (Level 1/2),
+            ``'actor'`` for full actor routing via NetworkAPI (Level 3).
         static_dir: Path to an additional static-file directory.
         jwt_secret: JWT signing secret.
         jwt_expiry_hours: JWT token expiry in hours.
@@ -213,6 +236,7 @@ def create_app(
     """
     builder = PyBendApp(
         storage=storage,
+        routing=routing,
         jwt_secret=jwt_secret,
         jwt_expiry_hours=jwt_expiry_hours,
         cors_origins=cors_origins,

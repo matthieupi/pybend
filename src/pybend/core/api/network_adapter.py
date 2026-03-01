@@ -72,8 +72,8 @@ class NetworkAdapter(Actor, auto_register=False):
         """Send TX and await the correlated response.
 
         Bridges synchronous protocols (HTTP, MCP JSON-RPC) to async actor
-        messaging. Uses correlation_id matching: sends the TX, creates a
-        Future keyed by tx.uuid, and awaits it with timeout.
+        messaging. Runs 'request' interceptors first (e.g., authentication),
+        then sends the TX and awaits the correlated reply.
 
         The reply TX arrives at self.inbox() with meta['in_reply_to'] set
         to the original tx.uuid — standard TX.reply() behavior from Wave 0.
@@ -85,6 +85,14 @@ class NetworkAdapter(Actor, auto_register=False):
         Returns:
             The response TX (reply or error).
         """
+        # Run 'request' interceptors (e.g., auth, rate limiting)
+        from pybend.core.actors.actor import Actor
+        interceptors = Actor._get_interceptors(self, 'request')
+        if interceptors:
+            tx = await Actor._run_interceptors(interceptors, tx)
+            if tx.is_error:
+                return tx  # Rejected — never enters actor system
+
         loop = asyncio.get_running_loop()
         future = loop.create_future()
         self._pending[tx.uuid] = future

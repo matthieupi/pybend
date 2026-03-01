@@ -38,7 +38,15 @@ class Matrix(Actor):
         return addr.split('/')[0] in self._children
 
     async def inbox(self, tx: TX) -> None:
-        """Route message to local child actor or network adapter."""
+        """Route message to local child actor or network adapter.
+        Runs 'inbox' interceptors before routing."""
+        # Run interceptors (e.g., routing authorization)
+        interceptors = Actor._get_interceptors(self, 'inbox')
+        if interceptors:
+            tx = await Actor._run_interceptors(interceptors, tx)
+            if tx.is_error:
+                return
+
         target_root = tx.target.split('/')[0]
 
         # Self-send prevention

@@ -100,6 +100,38 @@ class ActorModel(Actor, ProtoModel):
             else:
                 await target.send(tx.error(f"Unhandled message: {tx.name}"))
 
+    # ── Tier 2: Handler-level authorization ──
+
+    @classmethod
+    def _authorize(cls, action: str, tx: TX, resource=None):
+        """Tier 2 auth guard — full ABAC check with resource context.
+
+        Evaluates __access__ rules against tx.meta['user']. Called inside
+        handler_crud after the resource instance is fetched, enabling
+        resource-dependent rules (OWNER) that Tier 1 interceptors can't check.
+
+        Returns error TX if denied, None if authorized.
+        Internal messages (no meta.user) pass through unchecked.
+        """
+        user = tx.meta.get('user')
+        if user is None:
+            return None  # Internal message — no auth context
+
+        access = getattr(cls, '__access__', None)
+        if not access:
+            return None  # No access rules declared
+
+        from pybend.core.authorize import AccessContext, DefaultResolver
+        resolver = DefaultResolver()
+        rule = resolver.resolve_rule(cls, action)
+
+        ctx = AccessContext(
+            user=user, action=action, model_class=cls, resource=resource,
+        )
+        if not rule.evaluate(ctx):
+            return tx.error("Access denied", code=403)
+        return None
+
     # ── CRUD adapter ──
 
     @classmethod
@@ -108,6 +140,9 @@ class ActorModel(Actor, ProtoModel):
 
         Returns a result (dict, TX, or value) for CRUD messages,
         or _NOT_HANDLED sentinel for everything else.
+
+        Tier 2 auth: after fetching the resource instance, checks __access__
+        rules with resource context (enables OWNER evaluation).
         """
         name = tx.name.lower()
         data = tx.data or {}
@@ -120,6 +155,9 @@ class ActorModel(Actor, ProtoModel):
                 return cls.schema()
 
             elif name == 'create':
+                denied = cls._authorize('create', tx)
+                if denied:
+                    return denied
                 instance = cls(**data)
                 result = cls.create(instance)
                 if result:
@@ -134,10 +172,15 @@ class ActorModel(Actor, ProtoModel):
                 result = cls.get(entity_id)
                 if not result:
                     return tx.error(f"{cls.__name__} {entity_id} not found", code=404)
+                denied = cls._authorize('read', tx, resource=result)
+                if denied:
+                    return denied
                 return result.model_response()
 
             elif name == 'list':
+                # sql_filter computed by Tier 1 interceptor, passed via meta
                 return cls.list(
+                    sql_filter=tx.meta.get('sql_filter'),
                     limit=data.get('limit'),
                     offset=data.get('offset'),
                 )
@@ -146,6 +189,12 @@ class ActorModel(Actor, ProtoModel):
                 entity_id = data.get('id')
                 if not entity_id:
                     return tx.error("'id' required", code=400)
+                result = cls.get(entity_id)
+                if not result:
+                    return tx.error(f"{cls.__name__} {entity_id} not found", code=404)
+                denied = cls._authorize('update', tx, resource=result)
+                if denied:
+                    return denied
                 update_data = {k: v for k, v in data.items() if k != 'id'}
                 result = cls.update(entity_id, update_data)
                 if result:
@@ -157,6 +206,12 @@ class ActorModel(Actor, ProtoModel):
                 entity_id = data.get('id')
                 if not entity_id:
                     return tx.error("'id' required", code=400)
+                result = cls.get(entity_id)
+                if not result:
+                    return tx.error(f"{cls.__name__} {entity_id} not found", code=404)
+                denied = cls._authorize('delete', tx, resource=result)
+                if denied:
+                    return denied
                 cls.delete(entity_id)
                 cls._publish_lifecycle('after_delete', {'id': entity_id})
                 return {'deleted': entity_id}

@@ -19,10 +19,16 @@ __addr__ vs _addr). Two descriptors make this transparent:
         ...                        # returns __children__ or _children
 
 Architecture:
-    ActorMeta      (metaclass)   → class construction only (children, addr, auto-register)
+    ActorMeta      (metaclass)   → class construction only (children, addr, interceptors, auto-register)
     actormethod    (descriptor)  → binds target = cls or self (for methods)
     actorproperty  (descriptor)  → resolves class or instance state (for properties)
     Actor          (class)       → fully unified API: everything works on both
+
+Interceptors:
+    actor.use(fn, on='inbox')    → register TX interceptor on a method
+    Interceptor signature:         async (TX) -> TX  (return error TX to short-circuit)
+    Runs before the method body. Class + instance interceptors combine.
+    Supports decorator form:       @actor.use(on='request')
 
 Usage:
     class Product(Actor):
@@ -136,7 +142,7 @@ else:
 class ActorMeta(_PydanticMeta):
     """Metaclass for Actor class construction.
 
-    Handles per-class setup: __children__, __addr__, auto-registration.
+    Handles per-class setup: __children__, __addr__, __interceptors__, auto-registration.
     Messaging lives on Actor via actormethod — NOT on the metaclass.
     """
 
@@ -144,8 +150,9 @@ class ActorMeta(_PydanticMeta):
         # Consume auto_register before it reaches type.__new__ / __init_subclass__
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
 
-        # Each class gets its own children dict
+        # Each class gets its own children dict and interceptors dict
         cls.__children__ = {}
+        cls.__interceptors__ = {}
 
         # Default __addr__ from __tablename__ or class name
         if '__addr__' not in namespace:
@@ -187,12 +194,14 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
     # Class-level state (managed by ActorMeta.__new__)
     __addr__: ClassVar[str] = ''
     __children__: ClassVar[dict] = {}
+    __interceptors__: ClassVar[dict] = {}
     __matrix__: ClassVar[Optional['Actor']] = None
 
     # Instance-level state (Pydantic PrivateAttr for MI compatibility)
     _addr: str = PrivateAttr(default='')
     _children: dict = PrivateAttr(default_factory=dict)
     _parent: Optional[Any] = PrivateAttr(default=None)
+    _interceptors: dict = PrivateAttr(default_factory=dict)
 
     def __init__(self, *args, **kwargs):
         addr = kwargs.pop('addr', '')
@@ -233,16 +242,78 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
             return cls.__matrix__
         cls.__matrix__ = actor
 
+    # ── Interceptors ──
+
+    @actormethod
+    def use(target, interceptor=None, *, on='inbox'):
+        """Register a TX interceptor on a specific method.
+
+        Interceptor signature: async (TX) -> TX
+        Return error TX to short-circuit the chain.
+
+        Works as plain call or decorator:
+            actor.use(auth_check)               # on='inbox' (default)
+            actor.use(auth_check, on='send')    # explicit method target
+
+            @actor.use                          # decorator form
+            async def auth_check(tx: TX) -> TX: ...
+
+            @actor.use(on='request')            # decorator with method target
+            async def rate_limit(tx: TX) -> TX: ...
+        """
+        def _register(fn):
+            if isinstance(target, type):
+                target.__interceptors__.setdefault(on, []).append(fn)
+            else:
+                target._interceptors.setdefault(on, []).append(fn)
+            return fn
+
+        if interceptor is None:
+            return _register
+        if callable(interceptor):
+            return _register(interceptor)
+        raise TypeError(f"Expected callable or None, got {type(interceptor)}")
+
+    @staticmethod
+    def _get_interceptors(target, method_name: str) -> list:
+        """Get interceptors for a method, combining class + instance chains."""
+        if isinstance(target, type):
+            return target.__interceptors__.get(method_name, [])
+        cls_chain = target.__class__.__interceptors__.get(method_name, [])
+        inst_chain = target._interceptors.get(method_name, [])
+        if cls_chain and inst_chain:
+            return cls_chain + inst_chain
+        return cls_chain or inst_chain
+
+    @staticmethod
+    async def _run_interceptors(interceptors: list, tx: TX) -> TX:
+        """Run interceptor chain. Returns (possibly modified) TX.
+        Short-circuits on error TX."""
+        for fn in interceptors:
+            if asyncio.iscoroutinefunction(fn):
+                tx = await fn(tx)
+            else:
+                tx = fn(tx)
+            if tx.is_error:
+                return tx
+        return tx
+
     # ── Core messaging (ONE implementation for both class and instance) ──
 
     @actormethod
     async def inbox(target, tx: TX) -> None:
-        """Receive a message. Fire-and-forget — does NOT return.
+        """Receive a message. Runs 'inbox' interceptors, then handler.
 
         Works on both classes and instances:
             await Product.inbox(tx)   # target = Product
             await product.inbox(tx)   # target = product
         """
+        interceptors = Actor._get_interceptors(target, 'inbox')
+        if interceptors:
+            tx = await Actor._run_interceptors(interceptors, tx)
+            if tx.is_error:
+                await target.send(tx)
+                return
         await target.handler(tx)
 
     @actormethod
@@ -287,11 +358,17 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
 
     @actormethod
     async def send(target, tx: TX) -> None:
-        """Route message for delivery. Adapts to class or instance context.
+        """Route message for delivery. Runs 'send' interceptors first.
 
         Class:    route through children or bubble to parent (matrix)
         Instance: route through parent chain
         """
+        interceptors = Actor._get_interceptors(target, 'send')
+        if interceptors:
+            tx = await Actor._run_interceptors(interceptors, tx)
+            if tx.is_error:
+                return  # Drop — don't route rejected outbound messages
+
         if isinstance(target, type):
             # ── Class-level routing (mirrors JS Actor._send) ──
             children = target.children
