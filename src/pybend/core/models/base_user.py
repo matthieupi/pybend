@@ -105,7 +105,7 @@ class BaseUser(ProtoModel):
         if not verify_password(password, user.password_hash):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         token = create_token(user.id, user.email, user.role)
-        return {"token": token, "user": user.model_dump(response=True)}
+        return {"token": token, "user": user.model_response()}
 
     @classmethod
     @expose_route('/register', methods=['POST'], access=ANYONE)
@@ -145,4 +145,4 @@ class BaseUser(ProtoModel):
         user._plain_password = password
         created = cls.create(user)
         token = create_token(created.id, created.email, created.role)
-        return {"token": token, "user": created.model_dump(response=True)}
+        return {"token": token, "user": created.model_response()}

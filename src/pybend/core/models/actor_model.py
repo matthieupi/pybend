@@ -123,8 +123,8 @@ class ActorModel(Actor, ProtoModel):
                 instance = cls(**data)
                 result = cls.create(instance)
                 if result:
-                    cls._publish_lifecycle('after_create', result.model_dump(response=True))
-                    return result.model_dump(response=True)
+                    cls._publish_lifecycle('after_create', result.model_response())
+                    return result.model_response()
                 return tx.error("Create failed")
 
             elif name == 'get':
@@ -134,7 +134,7 @@ class ActorModel(Actor, ProtoModel):
                 result = cls.get(entity_id)
                 if not result:
                     return tx.error(f"{cls.__name__} {entity_id} not found", code=404)
-                return result.model_dump(response=True)
+                return result.model_response()
 
             elif name == 'list':
                 return cls.list(
@@ -149,8 +149,8 @@ class ActorModel(Actor, ProtoModel):
                 update_data = {k: v for k, v in data.items() if k != 'id'}
                 result = cls.update(entity_id, update_data)
                 if result:
-                    cls._publish_lifecycle('after_update', result.model_dump(response=True))
-                    return result.model_dump(response=True)
+                    cls._publish_lifecycle('after_update', result.model_response())
+                    return result.model_response()
                 return tx.error("Update failed")
 
             elif name == 'delete':

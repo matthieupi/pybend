@@ -12,6 +12,7 @@ from pydantic_core import CoreSchema
 
 from pybend.core import config
 import pybend.core.models.proto_schema as proto_schema
+import pybend.core.models.proto_dump as proto_dump
 from pybend.core.utils.registrar import register_model
 from pybend.core.utils.decorators import expose_route
 from pybend.core.utils.introspection import pydantic_schema_for_type, record_model_type, _is_self_ref
@@ -48,17 +49,11 @@ class ProtoModel(PydanticBaseModel):
     """
     __fk_models__: ClassVar[Dict[str, Type]] = {}
 
-    # --- Performance caches (class-level, shared across all subclasses) ---
-    # Schema generation is expensive (Pydantic introspection, reference collection,
-    # field exclusion, access rules, UI hints). Cache the result per model class
-    # so GET /{ClassName} is a dict copy instead of a full rebuild each time.
-    # Keyed by the class object itself (not name or id()) so that distinct classes
-    # with the same name (common in tests) never collide.
+    # --- Performance cache ---
+    # Schema generation is expensive. Cache per model class so GET /{ClassName}
+    # is a dict copy instead of a full rebuild. Response meta cache lives in
+    # proto_dump module (dump pipeline stage).
     _schema_cache: ClassVar[dict] = {}
-    # model_dump(response=True) injects $schema and $id on every instance.
-    # The class-level parts ($schema URL, tablename prefix) never change at runtime,
-    # so we compute them once and reuse.
-    _response_meta_cache: ClassVar[dict] = {}
 
     id: int = Field(default=0)
     image: str = Field(default='')
@@ -115,27 +110,13 @@ class ProtoModel(PydanticBaseModel):
         self.__owner__ = kwargs.get('__owner__', None)
 
 
-    def model_dump(self, *, response: bool = False, **kwargs) -> Dict[str, Any]:
-        """Override to optionally inject $schema and $id for API responses.
-        Default returns plain data for DB. response=True adds JSON Schema metadata."""
-        data = super().model_dump(**kwargs)
-        if response:
-            cls = self.__class__
-            # Cache the class-level URL parts — these never change at runtime.
-            if cls not in ProtoModel._response_meta_cache:
-                tablename = getattr(cls, '__tablename__', cls.__name__.lower())
-                ProtoModel._response_meta_cache[cls] = {
-                    'schema_url': f"{config.API_URL}/{cls.__name__}",
-                    'base_url': f"{config.API_URL}/{tablename}",
-                }
-            meta = ProtoModel._response_meta_cache[cls]
-            instance_id = getattr(self, 'id', None)
-            data = {
-                '$schema': meta['schema_url'],
-                '$id': f"{meta['base_url']}/{instance_id}" if instance_id is not None else None,
-                **data
-            }
-        return data
+    def model_response(self, **kwargs) -> Dict[str, Any]:
+        """Enriched data via dump pipeline. For HTTP API responses.
+
+        Runs proto_dump stages: base (plain data) → response ($schema/$id)
+        → any registered extensions (federation, MCP, etc.).
+        """
+        return proto_dump.run_pipeline(self, **kwargs)
 
     @classmethod
     def __pybend_methods_json_signature__(cls) -> dict:

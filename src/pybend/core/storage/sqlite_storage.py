@@ -446,7 +446,7 @@ class SQLiteStorage(AbstractStorage):
                     try:
                         child_inst = effective_cls(**rec)
                         child_instances.append(child_inst)
-                        dumped = child_inst.model_dump(response=True)
+                        dumped = child_inst.model_response()
                         # Use parent-scoped URL for $id
                         dumped['$id'] = f"{config.API_URL}/{model_class.__tablename__}/{pid}/{field_name}/{rec.get('id')}"
                         child_dicts.append(dumped)
@@ -519,7 +519,7 @@ class SQLiteStorage(AbstractStorage):
                 record = dict(zip(columns, row))
                 try:
                     ref_inst = target_cls(**record)
-                    dumped = ref_inst.model_dump(response=True)
+                    dumped = ref_inst.model_response()
                     lookup[record['id']] = dumped
                 except Exception:
                     pass

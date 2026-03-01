@@ -138,7 +138,7 @@ class TestModelDump:
             __tablename__: ClassVar[str] = 'dump_t2'
             name: str = Field(default='test')
         m = M(id=1, name='hi')
-        data = m.model_dump(response=True)
+        data = m.model_response()
         assert data['$schema'] == f'{config.API_URL}/M'
         assert data['$id'] == f'{config.API_URL}/dump_t2/1'
 
@@ -147,7 +147,7 @@ class TestModelDump:
             __tablename__: ClassVar[str] = 'dump_t3'
             name: str = Field(default='')
         m = M(id=0, name='test')
-        data = m.model_dump(response=True)
+        data = m.model_response()
         assert data['$id'] == f'{config.API_URL}/dump_t3/0'
 
     def test_idempotent(self):
@@ -156,13 +156,13 @@ class TestModelDump:
             name: str = Field(default='')
         m = M(id=1, name='test')
         assert m.model_dump() == m.model_dump()
-        assert m.model_dump(response=True) == m.model_dump(response=True)
+        assert m.model_response() == m.model_response()
 
     def test_tablename_fallback(self):
         class MyModel(ProtoModel):
             name: str = Field(default='')
         m = MyModel(id=1, name='test')
-        data = m.model_dump(response=True)
+        data = m.model_response()
         assert 'mymodel' in data['$id']
 
 

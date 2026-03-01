@@ -33,7 +33,7 @@ def _build_context(request, model_class, action, resource=None, parent_id=None):
 
 def _serialize(instance):
     """Serialize a model instance, overlaying any populated (eager-loaded) data."""
-    data = instance.model_dump(response=True)
+    data = instance.model_response()
     populated = instance.__dict__.get('_populated')
     if populated:
         data.update(populated)
@@ -80,7 +80,7 @@ def make_create_instance(model_class):
 
             instance = model_class(**data_dict)
             result = model_class.create(instance)
-            return result.model_dump(response=True) if result else result
+            return result.model_response() if result else result
         except Exception as e:
             logger.error("Failed to create %s: %s", model_class.__name__, e, exc_info=True)
             detail = get_traceback_info(e) if config.DEBUG else "Bad request"
@@ -224,7 +224,7 @@ def make_update_instance(model_class):
                 data_dict[fk_field] = parent_id
             logger.info("Updating %s ID=%s", model_class.__name__, id)
             updated = model_class.update(id, data_dict)
-            return updated.model_dump(response=True)
+            return updated.model_response()
         except Exception as e:
             logger.error("Failed to update %s ID=%s: %s", model_class.__name__, id, e, exc_info=True)
             detail = str(e) if config.DEBUG else "Bad request"
