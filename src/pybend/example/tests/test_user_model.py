@@ -101,13 +101,13 @@ class TestUserExposedMethods:
         assert 'POST' in User.login.__endpoint__['methods']
 
     def test_register_has_endpoint(self):
-        assert hasattr(User.register, '__endpoint__')
+        assert hasattr(User.register_user, '__endpoint__')
 
     def test_register_route(self):
-        assert User.register.__endpoint__['route'] == '/register'
+        assert User.register_user.__endpoint__['route'] == '/register'
 
     def test_register_method_is_post(self):
-        assert 'POST' in User.register.__endpoint__['methods']
+        assert 'POST' in User.register_user.__endpoint__['methods']
 
 
 class TestBotModel:

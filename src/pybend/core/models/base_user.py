@@ -109,7 +109,7 @@ class BaseUser(ProtoModel):
 
     @classmethod
     @expose_route('/register', methods=['POST'], access=ANYONE)
-    def register(cls, name: str, email: str, password: str) -> dict:
+    def register_user(cls, name: str, email: str, password: str) -> dict:
         """
         User registration endpoint.
         ---

@@ -236,8 +236,8 @@ class TestUserSchema:
     def test_user_schema_has_register_method(self, client):
         schema = client.get("/User").json()
         methods = schema.get("methods", {})
-        assert "register" in methods
-        register_method = methods["register"]
+        assert "register_user" in methods
+        register_method = methods["register_user"]
         assert register_method.get("access", {}).get("rule") == "anyone"
 
     def test_user_schema_role_default(self, client):
