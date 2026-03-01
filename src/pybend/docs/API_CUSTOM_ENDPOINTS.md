@@ -225,13 +225,13 @@ Frontend request body:
 
 Custom endpoints can return:
 
-1. **Model Instance** - Returns full object as JSON with `$schema` and `$id` metadata (via `.model_dump(response=True)`)
+1. **Model Instance** - Returns full object as JSON with `$schema` and `$id` metadata (via `.model_response()`)
 2. **List of Models** - Returns array of objects, each with `$schema` and `$id`
 3. **dict** - Returns custom JSON structure (no automatic metadata)
 4. **str** - Returns plain string (wrapped in JSON)
 5. **None** - Returns null
 
-When a custom endpoint returns a model instance, the route handler calls `.model_dump(response=True)` to inject `$schema` and `$id` metadata into the response.
+When a custom endpoint returns a model instance, the route handler calls `.model_response()` to inject `$schema` and `$id` metadata into the response. This runs the dump pipeline (`proto_dump.run_pipeline()`), which is extensible via `@dump_extension`.
 
 ### Examples
 

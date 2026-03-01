@@ -356,3 +356,19 @@ NTTRouter observes 'route' → render()
 - Debug logging throughout (console.warn, console.error) not cleaned up
 - example.html references old architecture and is broken against the current version
 - No automated tests exist; testing is manual via browser + console
+
+---
+
+## Upcoming: Backend Actor Bridge
+
+<a id="upcoming-backend-actor-bridge"></a>
+
+The v0.8 backend introduces a Python-side Actor/Matrix/TX messaging system that mirrors the frontend's architecture. Backend actors communicate via the same TX message envelope (`name`, `source`, `target`, `data`, `meta`) and route through a backend Matrix.
+
+**Wave 3 (planned):** A WebSocket bridge will connect frontend actors to backend actors, enabling bidirectional real-time messaging across the stack. The frontend `Socket.js` transport and the backend's Actor system will share a common TX protocol, allowing:
+
+- Backend actors to push updates to frontend components without polling
+- Frontend actors to send messages to specific backend actors by address
+- Cross-stack actor hierarchies where backend and frontend actors participate in the same routing tree
+
+**No frontend changes are needed until Wave 3.** The current HTTP transport continues to work as-is. When the WebSocket bridge ships, `NetworkAdapter` will gain a mode switch to route TX messages over WebSocket instead of HTTP, with automatic fallback. The frontend Actor/Matrix system is already designed for this -- `Socket.js` exists and handles reconnection, heartbeat, and message queuing. The missing piece is the backend-side WebSocket endpoint and the TX serialization bridge between Python and JavaScript actors.

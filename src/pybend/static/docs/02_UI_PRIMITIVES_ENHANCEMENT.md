@@ -40,7 +40,7 @@ The core philosophy: **the model definition is the single source of truth**. Eve
 
 | File | Role |
 |---|---|
-| `src/pybend/core/models/proto_model.py` | Base model class. Generates JSON Schema via `schema()`. Injects `StorableMixin` for DB ops. `model_dump(response=True)` adds `$schema`/`$id` metadata. |
+| `src/pybend/core/models/proto_model.py` | Base model class. Generates JSON Schema via `schema()` (delegates to `proto_schema` pipeline). Injects `StorableMixin` for DB ops. `model_response()` adds `$schema`/`$id` metadata via the `proto_dump` pipeline. |
 | `src/pybend/core/models/storable_mixin.py` | CRUD operations (create/get/list/update/delete) |
 | `src/pybend/core/models/ref.py` | `ListRef[T]` type for collection references |
 | `src/pybend/core/utils/typer.py` | `Ref[T]` type for foreign keys, `Ref['self']` for self-referencing |
@@ -648,7 +648,7 @@ async def model_page(model_name: str):
     model_cls = registered_models.get(model_name)
     schema = model_cls.schema()
     records = model_cls.list()
-    data = [r.model_dump(response=True) for r in records]
+    data = [r.model_response() for r in records]
     return templates.TemplateResponse("page.html", {
         "model_name": model_name,
         "schema_json": json.dumps(schema),

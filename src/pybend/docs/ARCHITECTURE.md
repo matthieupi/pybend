@@ -79,19 +79,25 @@ class ProtoModel(PydanticBaseModel):
             # Transform Pydantic models to Ref
             # Register with storage backend
     
-    # Schema generation with method signatures
+    # Schema generation via composable pipeline (proto_schema)
     @classmethod
     def schema(cls) -> Dict[str, Any]:
+        # Runs proto_schema.run_pipeline(cls) — 7 composable stages:
+        # base -> strip_hidden -> methods -> defs -> access -> ui -> metadata
+        # Extensions add stages via @schema_extension
         # Returns complete JSON schema including:
         # - $schema (pointing to {API_URL}/Schema)
         # - $id (pointing to {API_URL}/{ClassName})
         # - Fields (from Pydantic)
         # - Methods (from @expose_route)
         # - Referenced models in $defs (each with $id)
-    
-    # Overridden model_dump with response kwarg
-    def model_dump(self, response: bool = False, **kwargs) -> dict:
-        # When response=True, injects:
+
+    # Enriched serialization via composable pipeline (proto_dump)
+    def model_response(self, **kwargs) -> dict:
+        # Runs proto_dump.run_pipeline(self) — stages:
+        # base (plain Pydantic) -> response ($schema/$id)
+        # Extensions add stages via @dump_extension
+        # Injects:
         # - $schema: URL to model's JSON Schema
         # - $id: URL to this specific instance
 ```
@@ -101,7 +107,7 @@ class ProtoModel(PydanticBaseModel):
 - Leverages Pydantic for validation and schema generation
 - Separate `schema()` from `referenced_json_schema()` to avoid circular references
 - Config `extra='allow'` permits `$schema` and `$id` metadata fields to pass through FastAPI response validation
-- `model_dump(response=True)` provides opt-in JSON-LD style self-describing responses
+- `model_response()` provides JSON-LD style self-describing responses via the composable dump pipeline (`proto_dump`)
 
 ### 2. StorableMixin
 
@@ -249,23 +255,23 @@ Dynamically generates routes from model definitions.
 
 **Route Factories**:
 
-All route factories call `.model_dump(response=True)` to include `$schema` and `$id` metadata in responses:
+All route factories call `.model_response()` to include `$schema` and `$id` metadata in responses. This runs the dump pipeline (`proto_dump.run_pipeline()`), which is extensible via `@dump_extension`:
 
 ```python
 def make_create_instance(model_class):
     # Returns async function for POST /model
     # Auto-injects user_owner from JWT for models with __protected_fields__
-    # Calls .model_dump(response=True)
+    # Calls .model_response()
 
 def make_get_all_instances(model_class):
     # Returns async function for GET /model?limit=N&offset=M
     # Supports optional pagination via query params
     # Returns plain array (no params) or {data, meta} (with limit)
-    # Calls .model_dump(response=True) on each instance
+    # Calls .model_response() on each instance
 
 def make_get_instance(model_class):
     # Returns async function for GET /model/{id}
-    # Calls .model_dump(response=True)
+    # Calls .model_response()
 
 # ... etc
 ```
@@ -371,7 +377,7 @@ HTTP GET /users/1
          ▼
 ┌──────────────────────────┐
 │ Serialize JSON           │
-│ model.model_dump(response=True)
+│ model.model_response()   │
 │ (injects $schema, $id)  │
 └────────────┬─────────────┘
          │

@@ -40,7 +40,7 @@ The system has five distinct functional layers, listed from lowest (no dependenc
 
 ```
 PyBend (Python/FastAPI)
-  models/proto_model.py    ProtoModel base class, schema generation, model_dump()
+  models/proto_model.py    ProtoModel base class, schema generation (via proto_schema pipeline), model_response()
   models/storable_mixin.py CRUD operations (create/get/list/update/delete)
   models/*_model.py        Domain models (Product, Comment, Like, etc.)
   storage/                 SQLite backend with FK hydration, migrations
@@ -86,7 +86,7 @@ static/
   utils/
     Assert.js                   Runtime assertions
     Logging.js                  Styled console logging
-    registrar.js                Legacy callback registry (unused in v0.6)
+    registrar.js                Legacy callback registry (unused in v0.8)
 ```
 
 ### Dependency Graph

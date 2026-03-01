@@ -47,7 +47,7 @@ _schema_cache: ClassVar[dict] = {}       # cls -> full schema dict
 _response_meta_cache: ClassVar[dict] = {} # cls -> ($schema URL, tablename prefix)
 ```
 
-`schema()` checks the cache first and returns `copy.deepcopy(cached)` to protect the cached dict from mutation by callers. The `model_dump(response=True)` path also caches the per-class URL metadata (`$schema` string, tablename prefix) so it doesn't rebuild them on every serialization.
+`schema()` checks the cache first and returns `copy.deepcopy(cached)` to protect the cached dict from mutation by callers. The `model_response()` path (via `proto_dump.response` stage) also caches the per-class URL metadata (`$schema` string, tablename prefix) so it doesn't rebuild them on every serialization.
 
 ### Key Decision: Cache Key
 
@@ -153,7 +153,8 @@ The `IF NOT EXISTS` clause makes it idempotent — safe on both new and existing
 
 | File | Changes |
 |---|---|
-| `models/proto_model.py` | Added `_schema_cache`, `_response_meta_cache` class vars; `schema()` caches and returns deepcopy; `model_dump(response=True)` caches URL metadata; added `invalidate_schema_cache()` |
+| `models/proto_model.py` | Added `_schema_cache` class var; `schema()` caches and returns deepcopy; added `invalidate_schema_cache()`. Response meta cache moved to `proto_dump` module. |
+| `models/proto_dump.py` | New file: composable dump pipeline. `_response_meta_cache` caches per-class URL metadata for `model_response()`. |
 | `storage/sqlite_storage.py` | Added `queue.Queue` connection pool with WAL mode; replaced all bare `sqlite3.connect()`/`close()` with `_connection()` context manager; batched FK hydration in `list()` and `_populate_fields()` |
 | `storage/sqlite_migration.py` | Added `CREATE INDEX IF NOT EXISTS` for FK columns in `create_table()` and `migrate_table()` |
 | `utils/introspection.py` | Added `@functools.lru_cache(maxsize=None)` to `get_list_fields()` and `get_ref_fields()` |

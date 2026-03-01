@@ -2,7 +2,7 @@
 
 This document describes the auto-generated CRUD endpoints available for every storable model in PyBend.
 
-All CRUD route handlers call `.model_dump(response=True)`, which injects `$schema` and `$id` metadata into every response. This makes each response self-describing.
+All CRUD route handlers call `.model_response()`, which injects `$schema` and `$id` metadata into every response. This runs the composable dump pipeline (`proto_dump`), making each response self-describing.
 
 ## Endpoint Pattern
 

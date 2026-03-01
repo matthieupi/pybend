@@ -119,7 +119,7 @@ ProtoModel's Config sets `extra='allow'` so that metadata fields like `$schema` 
 
 ### Response Metadata
 
-All CRUD route handlers call `.model_dump(response=True)` to include self-describing metadata in every response:
+All CRUD route handlers call `.model_response()` to include self-describing metadata in every response:
 
 - `$schema` - URL pointing to this model's JSON Schema (e.g., `http://localhost:8000/Product`)
 - `$id` - URL pointing to this specific resource instance (e.g., `http://localhost:8000/products/1`)
@@ -236,7 +236,7 @@ PyBend follows a modular architecture with clear separation of concerns:
 |                   API Layer                              |
 |  (FastAPI/Flask Backend)                                 |
 |  - Route Registration                                    |
-|  - Request/Response Handling (model_dump(response=True)) |
+|  - Request/Response Handling (model_response())           |
 +--------------------------+------------------------------+
                            |
 +--------------------------v------------------------------+
@@ -258,7 +258,7 @@ PyBend follows a modular architecture with clear separation of concerns:
 
 ### Key Components
 
-- **ProtoModel**: Base model with schema generation, optional storage, and `model_dump(response=True)` for metadata injection
+- **ProtoModel**: Base model with schema generation, optional storage, and `model_response()` for metadata injection via the dump pipeline
 - **StorableMixin**: Provides CRUD operations via dependency injection
 - **AbstractStorage**: Interface for storage backends (SQLite, JSON, etc.)
 - **Registrar**: Central registry for models and join tables

@@ -137,7 +137,7 @@ Static utility class wrapping the Fetch API. All methods use `window.localStorag
 
 WebSocket client with automatic heartbeat, reconnection, and message queuing.
 
-**Note:** WebSocket mode is not actively used in the current v0.6 development. The system defaults to HTTP mode.
+**Note:** WebSocket mode is not actively used in the current v0.8 development. The system defaults to HTTP mode. A WebSocket bridge connecting frontend actors to backend actors is planned for Wave 3 (see [ARCHITECTURE.md](./ARCHITECTURE.md#upcoming-backend-actor-bridge)).
 
 ### Construction
 

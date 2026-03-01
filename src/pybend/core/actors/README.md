@@ -17,8 +17,9 @@ Define an instance, get the same actor. One API, no dual paths.
 7. [ActorProxy — Wrapper for Anything](#actorproxy--wrapper-for-anything)
 8. [Descriptors](#descriptors)
 9. [Message Flow](#message-flow)
-10. [File Layout](#file-layout)
-11. [Testing](#testing)
+10. [ActorModel — Models That Are Actors](#actormodel--models-that-are-actors)
+11. [File Layout](#file-layout)
+12. [Testing](#testing)
 
 ---
 
@@ -446,6 +447,57 @@ Matrix.inbox(reply_tx)
 
 ---
 
+## ActorModel -- Models That Are Actors
+
+`ActorModel` bridges Actor (messaging) and ProtoModel (data/schema/storage)
+into a single class. It lives in `models/actor_model.py`, not in the
+actors package, because it depends on both sides.
+
+```python
+from pybend.core.models.actor_model import ActorModel
+
+class Product(ActorModel):
+    __tablename__ = 'products'
+    __storable__ = True
+    name: str = Field(min_length=1, max_length=200)
+
+# Product is now an actor:
+await Product.inbox(TX(name='create', source='api', target='products', data={...}))
+```
+
+### MRO
+
+```
+Product -> ActorModel -> Actor -> ProtoModel -> PydanticBaseModel
+```
+
+### Handler
+
+`ActorModel.handler()` overrides Actor's generic handler with a
+two-phase dispatch:
+
+1. **CRUD adapter** (`handler_crud`) -- handles `schema`, `create`,
+   `get`, `list`, `update`, `delete` by calling StorableMixin methods.
+   Returns `model_response()` for entities, error TX for failures.
+
+2. **Generic fallback** -- anything not in the CRUD set falls through
+   to `getattr(target, tx.name)`, same as plain Actor.
+
+### Lifecycle Events
+
+After successful create/update/delete, `_publish_lifecycle()` sends a
+`LIFECYCLE` TX to registered subscribers (fire-and-forget via
+`asyncio.create_task`). Subscribers are future consumers: federation
+outbox, agent monitor, audit logger, websocket bridge.
+
+```python
+# Internal — published automatically after CRUD ops
+TX(name='LIFECYCLE', source='products', target=subscriber_addr,
+   data={'event': 'after_create', 'entity': {...}})
+```
+
+---
+
 ## File Layout
 
 ```
@@ -455,6 +507,9 @@ actors/
     actor_proxy.py       ActorProxy wrapper, ActorLike Protocol
     matrix.py            Matrix root actor, adapter registry
     tx.py                TX message envelope (dataclass)
+
+models/
+    actor_model.py       ActorModel bridge class (Actor + ProtoModel)
     legacy/
         actor_legacy.py  Previous __init_subclass__ implementation (reference)
     tests/

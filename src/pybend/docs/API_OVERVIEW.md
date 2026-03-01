@@ -1,6 +1,6 @@
 # PyBend API Documentation
 
-**Version**: 0.5.0  
+**Version**: 0.8.0
 **Base URL**: `http://localhost:8000` (default, configurable)  
 **Protocol**: REST over HTTP/HTTPS  
 **Content-Type**: `application/json`
@@ -32,7 +32,7 @@ For every model marked as `__storable__ = True`, PyBend generates:
 
 ### Response Metadata
 
-All CRUD route handlers call `.model_dump(response=True)`, which injects two metadata fields at the top of every response object:
+All CRUD route handlers call `.model_response()`, which injects two metadata fields at the top of every response object:
 
 - `$schema` - URL to the model's JSON Schema (e.g., `http://localhost:8000/User`)
 - `$id` - URL to this specific resource instance (e.g., `http://localhost:8000/users/1`)

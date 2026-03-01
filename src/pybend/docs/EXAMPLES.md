@@ -2,7 +2,7 @@
 
 Real-world examples demonstrating PyBend's capabilities.
 
-**Note**: All CRUD and custom endpoint responses include `$schema` and `$id` metadata at the top of each object. Route handlers call `.model_dump(response=True)` to inject these fields automatically.
+**Note**: All CRUD and custom endpoint responses include `$schema` and `$id` metadata at the top of each object. Route handlers call `.model_response()` to inject these fields automatically via the dump pipeline.
 
 ## Table of Contents
 
@@ -724,13 +724,13 @@ def protected_route(self):
 import pytest
 
 def test_user_registration():
-    response = User.register("test@example.com", "password123")
+    response = User.register_user("test@example.com", "password123")
     assert "user_id" in response
-    
+
 def test_duplicate_email():
-    User.register("duplicate@example.com", "pass123")
+    User.register_user("duplicate@example.com", "pass123")
     with pytest.raises(ValueError):
-        User.register("duplicate@example.com", "pass123")
+        User.register_user("duplicate@example.com", "pass123")
 ```
 
 ---

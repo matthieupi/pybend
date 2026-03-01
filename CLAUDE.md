@@ -172,7 +172,7 @@ register_routes(registered_models)
 Regardless of which level, the underlying flow is:
 
 ```
-models/*.py          Define data models (extend ProtoModel / BaseUser)
+models/*.py          Define data models (extend ProtoModel / BaseUser / ActorModel)
      |
      v
 ProtoModel           Base class: injects StorableMixin, rewrites FK fields,
@@ -180,8 +180,14 @@ ProtoModel           Base class: injects StorableMixin, rewrites FK fields,
      |
      +-- schema()              Orchestrates proto_schema.* pipeline (base → strip_hidden →
      |                         methods → defs → access → ui → metadata)
-     +-- model_dump()          Plain dict (DB). model_dump(response=True) adds $schema/$id
+     +-- model_dump()          Plain dict (DB). model_response() adds $schema/$id via dump pipeline
      +-- __init_subclass__()   Auto-injects StorableMixin for __storable__=True models
+     |
+     v
+ActorModel           Bridge class (Actor + ProtoModel): models that participate
+(optional)           in actor messaging. CRUD via handler_crud(), lifecycle events,
+                      same schema/storage as ProtoModel. Use instead of ProtoModel
+                      when actor capabilities (messaging, lifecycle events) are needed.
      |
      v
 register_model()     Registers model with storage backend
@@ -191,6 +197,11 @@ register_routes()    Auto-generates CRUD routes from registered models (routes_f
      |
      v
 FastAPI router       Serves schema at GET /{ClassName}, CRUD at /{tablename}/...
+
+Actor/Matrix/TX      Backend actor system (mirrors frontend pattern):
+                      Actor — base class with addr, children, inbox, handler, send
+                      Matrix — root actor and message router (singleton per tree)
+                      TX — message envelope (name, source, target, data, meta)
 ```
 
 ### Frontend (Vanilla JS Web Components)
@@ -264,6 +275,7 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 |---------|---------------|-----------------|
 | CRUD API endpoints | `__tablename__`, model fields | `register_routes()` in `routes_fastapi.py` |
 | JSON Schema | Field types, validators, `json_schema_extra` | `ProtoModel.schema()` via `proto_schema` pipeline |
+| Enriched JSON responses | `model_response()`, dump pipeline stages | `proto_dump` pipeline (`base` → `response` → extensions) |
 | DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
 | FK hydration (href arrays) | `ListRef[T]` fields, `__fk_models__` | `sqlite_storage.py` on read |
 | Access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth injection |
@@ -374,7 +386,7 @@ GET /Product → JSON Schema
    │  ntt-router reads schema.ui.renderer → resolves navigation targets
                     │
 6. Entity Responses (Backend, on GET /products)
-   model_dump(response=True) injects $schema + $id into each record
+   model_response() runs dump pipeline → injects $schema + $id into each record
    │  Frontend DynamicClass value getter preserves these for self-description
    │  Any entity can be independently resolved: GET $id → full entity
    │  Collection fields return href arrays: ["http://.../products/1/comments/1", ...]
@@ -389,9 +401,11 @@ GET /Product → JSON Schema
 ## Key Files by Area
 
 ### Models & Serialization
-- `src/pybend/core/models/proto_model.py` - Base model, `model_dump(response=True)`, `generate_join_model()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
-- `src/pybend/core/models/proto_schema.py` - Schema pipeline: 7 composable `dict → dict` stages (`base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`)
-- `src/pybend/core/models/base_user.py` - Abstract base user model with login/register endpoints and password hashing
+- `src/pybend/core/models/proto_model.py` - Base model, `model_response()`, `generate_join_model()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
+- `src/pybend/core/models/proto_schema.py` - Schema pipeline: 7 composable `dict → dict` stages (`base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`). Extensible via `@schema_extension` decorator.
+- `src/pybend/core/models/proto_dump.py` - Dump pipeline: composable `dict → dict` stages for model serialization (`base`, `response`). Extensible via `@dump_extension` decorator. Powers `model_response()`.
+- `src/pybend/core/models/actor_model.py` - `ActorModel(Actor, ProtoModel)` bridge class. CRUD via `handler_crud()`, lifecycle event publishing, generic Actor handler fallback for custom methods.
+- `src/pybend/core/models/base_user.py` - Abstract base user model with `login()` and `register_user()` endpoints and password hashing
 - `src/pybend/core/models/storable_mixin.py` - CRUD operations (create/get/list/update/delete). `list()` supports `limit`/`offset` pagination.
 - `src/pybend/core/models/ref.py` - `ListRef[T]` type for collection references
 - `src/pybend/core/utils/typer.py` - `Ref` type (`Ref[T]`, `Ref['self']`), `flatten_refs()`
@@ -412,9 +426,10 @@ GET /Product → JSON Schema
 - `src/pybend/docs/AUTHORIZATION.md` - Full authorization system documentation
 
 ### Actor System (v0.8)
-- `src/pybend/core/actors/actor.py` - Base actor class: addr, children, parent, inbox, handler, send, register, spawn. Extends PydanticBaseModel via PrivateAttr. `__init_subclass__` auto-registers with Matrix. `send_cls()` 3-case routing (direct child, strip prefix, bubble to root).
+- `src/pybend/core/actors/actor.py` - Base actor class with unified class/instance dispatch via `actormethod`/`actorproperty` descriptors and `ActorMeta` metaclass. Addr, children, parent, inbox, handler, send, register, spawn. Auto-registers with Matrix via metaclass.
 - `src/pybend/core/actors/matrix.py` - Root actor and message router. `has()`, self-send guard, adapter delegation. Module-level `matrix` instance created at import.
 - `src/pybend/core/actors/tx.py` - TX message envelope (dataclass): name, source, target, data, meta, timestamp, uuid. `reply()` swaps source/target with new uuid. `error()` creates ERROR TX. `is_error` property.
+- `src/pybend/core/actors/actor_proxy.py` - `ActorProxy` wrapper: gives any class or instance the actor interface (inbox/handler/send/register/spawn) without inheritance. Used when full Actor MI is not desired.
 - `src/pybend/core/actors/__init__.py` - Re-exports `TX`, `Actor`, `Matrix`, `matrix`
 
 ### API / Routes
@@ -470,7 +485,7 @@ class User(BaseUser):
     # Add app-specific fields:
     image: Optional[str] = Field(default=None)
 ```
-`BaseUser` provides: `name`, `email`, `role`, `password_hash` fields, plus `login()` and `register()` endpoints via `@expose_route`. Subclasses inherit everything and only add their own fields.
+`BaseUser` provides: `name`, `email`, `role`, `password_hash` fields, plus `login()` and `register_user()` endpoints via `@expose_route`. The registration route is still `POST /register` (unchanged URL). The method was renamed from `register()` to `register_user()` to avoid MRO collision with `Actor.register()` when using ActorModel hierarchies. Subclasses inherit everything and only add their own fields.
 
 ### Parent-Child Relationships
 ```python
@@ -488,7 +503,7 @@ All entity responses include JSON Schema instance metadata:
 - `$schema`: URL to the model's schema (e.g., `http://localhost:5000/Product`)
 - `$id`: URL to the specific instance (e.g., `http://localhost:5000/products/1`)
 
-This is injected by `model_dump(response=True)`. Storage operations use plain `model_dump()` (no metadata).
+This is injected by `model_response()`, which runs the dump pipeline (`proto_dump`). Storage operations use plain `model_dump()` (no metadata).
 
 ### Schema Response Format
 Schema responses (`GET /{ClassName}`) include:
@@ -547,15 +562,18 @@ Parent FK columns: `{parent_class_name_lowercase}_id` (e.g., `product_id`).
 Avoid aliasing the `id` field on models to prevent naming clashes with self-referencing relationships.
 
 ### Actor System (v0.8)
-The backend actor system mirrors the frontend's Actor/Matrix/TX pattern.
+The backend actor system mirrors the frontend's Actor/Matrix/TX pattern. Everything works identically on classes and instances via two custom descriptors.
 
-**Actor base class** extends PydanticBaseModel:
-- `_addr`, `_children`, `_parent` as PrivateAttr (compatible with Pydantic V2 MI)
+**Actor base class** extends PydanticBaseModel via `ActorMeta` metaclass:
+- `actormethod` descriptor: binds target = cls or self (one function, one implementation). Used for `inbox`, `handler`, `send`, `register`, `spawn`, `has`.
+- `actorproperty` descriptor: resolves class or instance state. Used for `addr`, `children`, `parent`.
+- Class-level state: `__addr__`, `__children__`, `__matrix__` (managed by `ActorMeta.__new__`)
+- Instance-level state: `_addr`, `_children`, `_parent` as PrivateAttr (compatible with Pydantic V2 MI)
 - `_parent` defaults to `self.__class__` (mirrors JS `this.#parent = this.constructor`)
-- `__init_subclass__` creates per-class `__children__` dict, sets `__addr__` from `__tablename__` or class name, auto-registers with root Matrix if available
+- `ActorMeta` creates per-class `__children__` dict, sets `__addr__` from `__tablename__` or class name, auto-registers with root Matrix if available
 - `auto_register=False` kwarg on subclass skips Matrix registration
 - `Actor.root()` getter/setter for `__matrix__` ClassVar
-- `send_cls()` three-case routing: (1) direct child match, (2) strip prefix + route, (3) prefix source + bubble to root
+- `send()` three-case routing: (1) direct child match, (2) strip prefix + route, (3) prefix source + bubble to root
 
 **Matrix** extends Actor:
 - Auto-registers as root if no root exists (`Actor.root(self)` in `__init__`)
@@ -569,7 +587,66 @@ The backend actor system mirrors the frontend's Actor/Matrix/TX pattern.
 - `error(message, code)` creates ERROR TX with `meta['error'] = True`
 - `is_error` property checks name or meta flag
 
+**ActorProxy** wraps any class or instance as a routable actor without MI:
+- Useful when Actor multiple inheritance is not desired or not compatible
+- Provides the same interface: `inbox`, `handler`, `send`, `register`, `spawn`, `has`
+- Matrix can route to ActorProxy and Actor children uniformly
+
 **Testing actors** — Pydantic's `__setattr__` prevents mock patching on instances. Use `object.__setattr__(instance, name, mock)` via the `mock_method()` context manager in `test_actor_system.py`.
+
+### Dump Pipeline
+The dump pipeline (`proto_dump.py`) mirrors the schema pipeline pattern for model serialization. Instead of `model_dump(response=True)`, use `model_response()`:
+
+```python
+# Before (v0.7):
+data = product.model_dump(response=True)  # boolean flag bifurcation
+
+# After (v0.8):
+data = product.model_response()           # runs dump pipeline
+data = product.model_dump()               # plain dict for storage (unchanged)
+```
+
+The pipeline runs composable `dict -> dict` stages:
+```python
+d = proto_dump.base(instance)       # Plain Pydantic data extraction
+d = proto_dump.response(instance, d) # Inject $schema and $id
+```
+
+External packages extend via `@dump_extension`:
+```python
+from pybend.core.models.proto_dump import dump_extension
+
+@dump_extension(after='response')
+def activity(instance, d: dict) -> dict:
+    if getattr(instance.__class__, '__federated__', False):
+        d['@context'] = 'https://www.w3.org/ns/activitystreams'
+        d['type'] = instance.__class__.__name__
+    return d
+```
+
+### ActorModel Pattern
+Models that need actor capabilities (messaging, lifecycle events) extend `ActorModel` instead of `ProtoModel`:
+
+```python
+from pybend.core.models.actor_model import ActorModel
+
+class Product(ActorModel):
+    __tablename__ = 'products'
+    __storable__ = True
+    name: str = Field(min_length=1, max_length=200)
+    price: float = Field(gt=0)
+
+    @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+    def favorite(self, user: User = None) -> str: ...
+```
+
+One import change, zero other changes. `ActorModel(Actor, ProtoModel)` is the bridge class:
+- MRO: `Product -> ActorModel -> Actor -> ProtoModel -> PydanticBaseModel`
+- CRUD messages (`schema`, `create`, `get`, `list`, `update`, `delete`) are handled by `handler_crud()` which delegates to StorableMixin
+- Non-CRUD messages fall through to Actor's generic handler (getattr dispatch)
+- Lifecycle events (`after_create`, `after_update`, `after_delete`) are published as TX messages to subscribers
+
+Models that do not need actor capabilities continue to extend `ProtoModel` directly. Join models generated by `generate_join_model()` inherit from their parent class.
 
 ## Directives
 

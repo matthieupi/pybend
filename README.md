@@ -453,7 +453,7 @@ GET /Product -> JSON Schema
    |  ntt-router reads schema.ui.renderer -> resolves navigation targets
                     |
 6. Entity Responses
-   model_dump(response=True) injects $schema + $id per record
+   model_response() injects $schema + $id per record (via proto_dump pipeline)
    |  Every entity is self-describing and independently resolvable
    |  Collection fields return href arrays for lazy resolution
 ```

@@ -47,7 +47,7 @@ class MyModel(ProtoModel):
 
 ##### `schema() -> Dict[str, Any]`
 
-Returns the complete JSON schema for the model, including fields, methods, and referenced models.
+Returns the complete JSON schema for the model via the composable schema pipeline (`proto_schema.run_pipeline(cls)`). The pipeline consists of 7 stages: `base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`. Extensions can insert additional stages via `@schema_extension`.
 
 The schema output includes:
 - `$schema` at the top level, pointing to `{API_URL}/Schema`
@@ -113,28 +113,40 @@ user = User(name="Alice", email="alice@example.com")
 user = User(id=1)  # Fetches from database
 ```
 
-##### `model_dump(response: bool = False, **kwargs) -> Dict[str, Any]`
+##### `model_dump(**kwargs) -> Dict[str, Any]`
 
-Serializes the model to a dictionary. ProtoModel overrides Pydantic's `model_dump()` with an optional `response` keyword argument.
+Serializes the model to a plain dictionary (Pydantic standard). Used for storage operations. Does NOT include `$schema` or `$id` metadata.
 
 **Parameters**:
-- `response` (bool, default=False): When `True`, injects `$schema` and `$id` at the top of the returned dict.
-  - `$schema` is set to the URL of the model's JSON Schema (e.g., `http://localhost:8000/Product`)
-  - `$id` is set to the URL of this specific instance (e.g., `http://localhost:8000/products/1`)
-- `**kwargs`: Additional keyword arguments passed to Pydantic's `model_dump()`
+- `**kwargs`: Keyword arguments passed to Pydantic's `model_dump()`
 
-**Returns**: Dictionary of field values, optionally with `$schema` and `$id` prepended.
+**Returns**: Dictionary of field values.
+
+##### `model_response(**kwargs) -> Dict[str, Any]`
+
+Serializes the model through the composable dump pipeline (`proto_dump`). Used for HTTP API responses.
+
+Runs `proto_dump.run_pipeline(self)` with stages:
+1. `base` -- plain Pydantic `model_dump()`
+2. `response` -- injects `$schema` and `$id` metadata
+
+Extensions can add stages via `@dump_extension` (e.g., federation, MCP).
+
+**Parameters**:
+- `**kwargs`: Passed to the base stage
+
+**Returns**: Dictionary with `$schema` and `$id` prepended, followed by field values.
 
 **Example**:
 ```python
 product = Product.get(1)
 
-# Standard dump (no metadata)
+# Plain dump (for storage, no metadata)
 product.model_dump()
 # {"id": 1, "name": "Laptop", "price": 999.99, ...}
 
-# Response dump (with metadata)
-product.model_dump(response=True)
+# Response dump (for HTTP, with metadata)
+product.model_response()
 # {
 #   "$schema": "http://localhost:8000/Product",
 #   "$id": "http://localhost:8000/products/1",
@@ -682,7 +694,7 @@ Automatically adds:
 
 #### Route Handlers
 
-All CRUD route handlers in `routes_fastapi.py` call `.model_dump(response=True)` instead of `.model_dump()` or returning instances directly. This ensures every response includes `$schema` and `$id` metadata.
+All CRUD route handlers in `routes_fastapi.py` call `.model_response()` instead of `.model_dump()` or returning instances directly. This runs the dump pipeline and ensures every response includes `$schema` and `$id` metadata.
 
 #### Example
 

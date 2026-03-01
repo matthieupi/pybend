@@ -161,7 +161,7 @@ GET /Product -> JSON Schema
 
 ### Entity response format
 
-Every entity response includes JSON Schema instance metadata via `model_dump(response=True)`:
+Every entity response includes JSON Schema instance metadata via `model_response()` (runs the dump pipeline):
 
 ```json
 {
