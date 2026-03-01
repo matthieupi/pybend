@@ -16,6 +16,7 @@ from .core.api.backend import FastAPIBackend
 from .core.app import create_app, PyBendApp
 from .core.models.proto_schema import schema_extension
 from .core.actors import Actor, Matrix, TX, matrix
+from .core.api.network_adapter import NetworkAdapter
 
 __version__ = "0.8.0b"
 
@@ -25,6 +26,6 @@ __all__ = [
     "register_model", "registered_models",
     "SQLiteStorage", "JSONStorage", "AbstractStorage", "FastAPIBackend",
     "create_app", "PyBendApp", "schema_extension",
-    "Actor", "Matrix", "TX", "matrix",
+    "Actor", "Matrix", "TX", "matrix", "NetworkAdapter",
     "__version__",
 ]

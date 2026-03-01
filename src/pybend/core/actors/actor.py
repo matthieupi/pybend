@@ -252,6 +252,9 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
         getattr(target, tx.name) works on both classes and instances:
         - Class:    getattr(Product, 'CREATE') → bound classmethod
         - Instance: getattr(product, 'DUMP')   → bound instance method
+
+        Error and response TXs that have no handler are silently dropped
+        to prevent infinite bounce loops between actors.
         """
         method = getattr(target, tx.name, None)
         if method and callable(method):
@@ -274,6 +277,12 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
             else:
                 await target.send(tx.reply())
         else:
+            # Drop errors and responses silently — sending an error in
+            # response to an error creates infinite bounce loops.
+            if tx.is_error or tx.name.endswith('_RESPONSE'):
+                addr = target.addr if not isinstance(target, type) else target.__addr__
+                logger.debug("[%s] Dropped unhandled %s from %s", addr, tx.name, tx.source)
+                return
             await target.send(tx.error(f"Unhandled message: {tx.name}"))
 
     @actormethod
