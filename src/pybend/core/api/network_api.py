@@ -20,6 +20,9 @@ import logging
 from inspect import signature
 from typing import Any, Dict, Type
 
+from fastapi import APIRouter, Body, HTTPException, Path, Query, Request
+from pydantic import BaseModel
+
 from pybend.core.actors.tx import TX
 from pybend.core.api.network_adapter import NetworkAdapter
 from pybend.core.models.storable_mixin import StorableMixin
@@ -42,7 +45,6 @@ def _get_user(request) -> dict:
 
 def _response_or_raise(response: TX):
     """Convert a TX response to HTTP result or raise HTTPException."""
-    from fastapi import HTTPException
     if response.is_error:
         code = response.data.get('code', 500)
         message = response.data.get('message', 'Internal error')
@@ -63,7 +65,6 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
     Returns:
         A FastAPI APIRouter with all CRUD and custom method routes.
     """
-    from fastapi import APIRouter, Request, Body, Path, Query
     from pybend.core.utils.registrar import join_models
     from pybend.core.utils.typer import flatten_refs
 
@@ -126,7 +127,6 @@ def _register_schema_route(router, api_adapter, model_class, tag):
         _addr=addr, _cls=model_class,
     ):
         if scaffold:
-            from fastapi import HTTPException
             from fastapi.responses import PlainTextResponse
             from pybend.core.utils.scaffold import scaffold_single
             try:
@@ -326,10 +326,8 @@ def _register_crud_routes(
 
 def _register_custom_routes(router, api_adapter, model_class, endpoint_base, tag):
     """Register @expose_route custom method routes."""
-    from fastapi import Request, Body, Path, HTTPException
     from inspect import signature as get_sig
     from typing import get_type_hints
-    from pydantic import BaseModel
 
     addr = model_class.__tablename__
 
@@ -361,10 +359,8 @@ def _add_custom_handler(
     full_route, methods, tag, is_instance_method, addr,
 ):
     """Create and register a single custom method handler."""
-    from fastapi import Request, Body, Path, HTTPException
     from inspect import signature as get_sig
     from typing import get_type_hints
-    from pydantic import BaseModel
 
     sig = get_sig(attr)
     type_hints = get_type_hints(attr)
@@ -418,9 +414,6 @@ def _add_custom_handler(
 
 def _parse_method_args(sig, type_hints, data, request):
     """Parse method arguments from request body, matching routes_fastapi.py behavior."""
-    from pydantic import BaseModel
-    from fastapi import HTTPException
-
     payload = {}
     for name, param in sig.parameters.items():
         if name in ('self', 'cls', 'user'):
