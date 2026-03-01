@@ -530,7 +530,7 @@ class TestActorSend:
 
     @pytest.mark.asyncio
     async def test_send_routes_through_class_when_parent_is_type(self):
-        """Default parent is the class — send_cls is called."""
+        """Default parent is the class — class-level send routing is invoked."""
         Actor.__matrix__ = None
         m = Matrix()
 
@@ -538,12 +538,16 @@ class TestActorSend:
             pass
 
         s = Sender(addr='s')
-        # s._parent is Sender (the class)
-        Sender.send_cls = AsyncMock()
+        # s._parent is Sender (the class) — send goes through class routing
+        # Class routing with no children + root matrix → bubbles to matrix.inbox
+        received = []
+        async def cap(tx): received.append(tx)
 
         tx = TX(name='X', source='s', target='somewhere')
-        await s.send(tx)
-        Sender.send_cls.assert_awaited_once_with(tx)
+        with mock_method(m, 'inbox', cap):
+            await s.send(tx)
+        assert len(received) == 1
+        assert received[0].target == 'somewhere'
 
     @pytest.mark.asyncio
     async def test_send_routes_through_parent_instance(self):
@@ -570,11 +574,11 @@ class TestActorSend:
 
 
 # ===================================================================
-# TestActorSendCls
+# TestActorClassSend
 # ===================================================================
 
-class TestActorSendCls:
-    """Class-level send_cls() three-case routing."""
+class TestActorClassSend:
+    """Class-level send() three-case routing (via unified actormethod)."""
 
     @pytest.mark.asyncio
     async def test_case1_direct_child_match(self):
@@ -587,7 +591,7 @@ class TestActorSendCls:
         Router.__children__ = {'worker': child_mock}
 
         tx = TX(name='X', source='s', target='worker')
-        await Router.send_cls(tx)
+        await Router.send(tx)
         child_mock.inbox.assert_awaited_once_with(tx)
 
     @pytest.mark.asyncio
@@ -601,7 +605,7 @@ class TestActorSendCls:
         MyRouter.__children__ = {'worker': child_mock}
 
         tx = TX(name='X', source='s', target='myrouter/worker')
-        await MyRouter.send_cls(tx)
+        await MyRouter.send(tx)
         child_mock.inbox.assert_awaited_once()
         # Target should be stripped to 'worker'
         assert tx.target == 'worker'
@@ -620,7 +624,7 @@ class TestActorSendCls:
         mock_inbox = AsyncMock()
         tx = TX(name='X', source='child1', target='unknown')
         with mock_method(m, 'inbox', mock_inbox):
-            await Bubbler.send_cls(tx)
+            await Bubbler.send(tx)
         mock_inbox.assert_awaited_once()
         # Source should be prefixed
         assert tx.source == 'bubbler/child1'
@@ -639,7 +643,7 @@ class TestActorSendCls:
         mock_inbox = AsyncMock()
         tx = TX(name='X', source='', target='unknown')
         with mock_method(m, 'inbox', mock_inbox):
-            await EmptySrc.send_cls(tx)
+            await EmptySrc.send(tx)
         assert tx.source == 'src_class'
 
     @pytest.mark.asyncio
@@ -654,7 +658,7 @@ class TestActorSendCls:
 
         tx = TX(name='X', source='s', target='unknown')
         # Should not raise
-        await Orphan.send_cls(tx)
+        await Orphan.send(tx)
 
 
 # ===================================================================

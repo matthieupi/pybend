@@ -356,10 +356,3 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
 
     async def on_stop(self):
         """Called before actor is shut down. Override in subclasses."""
-
-
-
-actor = Actor()
-Actor.send(actor)
-Actor.send(Actor)
-actor.send()
