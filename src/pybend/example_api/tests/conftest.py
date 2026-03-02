@@ -1,6 +1,6 @@
-# tests/conftest.py
+# example/tests/conftest.py
 """
-Shared fixtures for PyBend backend integration tests.
+Shared fixtures for PyBend example application integration tests.
 
 Provides:
 - Isolated test database per test module (test_pybend.db)
@@ -12,21 +12,46 @@ Provides:
 
 import os
 import sys
+import types
 import tempfile
 import pytest
 
-# Ensure the core directory is on the Python path so imports resolve
-_core_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _core_dir not in sys.path:
-    sys.path.insert(0, _core_dir)
+# Derive directory paths
+_example_tests = os.path.dirname(os.path.abspath(__file__))
+_example = os.path.dirname(_example_tests)
+_pybend = os.path.dirname(_example)
+_src = os.path.dirname(_pybend)
+_core = os.path.join(_pybend, 'core')
+
+# Ensure core/ and src/ are on sys.path
+if _core not in sys.path:
+    sys.path.insert(0, _core)
+if _src not in sys.path:
+    sys.path.insert(0, _src)
+
+# Set up namespace shims so Python doesn't try to load pybend/__init__.py
+# (which has imports that may cause circular issues during test collection).
+# Only shim top-level namespace packages; subpackages load naturally.
+_namespace_shims = {
+    'pybend':           _pybend,
+    'pybend.core':      _core,
+    'pybend.example_api':   _example,
+}
+
+for name, path in _namespace_shims.items():
+    if name not in sys.modules:
+        m = types.ModuleType(name)
+        m.__path__ = [path]
+        m.__package__ = name
+        sys.modules[name] = m
 
 from pybend.core import config
 from pybend.core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
-# Import main to trigger model registration and route setup (uses production DB initially)
+# Import app to trigger model registration and route setup
 os.environ["GENERATE_DOCS"] = "false"  # Skip doc generation during tests
-from pybend.core.main import app  # noqa: triggers model registration
+from pybend.example_api.main import app  # noqa: triggers model registration
 
 from pybend.core.storage.sqlite_storage import SQLiteStorage
 from pybend.core.utils.registrar import registered_models, join_models
@@ -217,7 +242,7 @@ def _seed_favorites(users, products):
 
 def _make_product(client, token, name="Factory Product", price=19.99, **overrides):
     """Create a product via the API and return the response data dict."""
-    from pybend.core.tests.helpers import auth_header
+    from pybend.example_api.tests.helpers import auth_header
     payload = {"name": name, "price": price, **overrides}
     resp = client.post("/products", json=payload, headers=auth_header(token))
     assert resp.status_code == 201, f"Failed to create product: {resp.text}"
@@ -227,7 +252,7 @@ def _make_product(client, token, name="Factory Product", price=19.99, **override
 def _make_comment(client, token, product_id, name="Factory Comment",
                   description="Factory description", **overrides):
     """Create a comment on a product via the API and return the response data dict."""
-    from pybend.core.tests.helpers import auth_header
+    from pybend.example_api.tests.helpers import auth_header
     payload = {"name": name, "description": description, **overrides}
     resp = client.post(f"/products/{product_id}/comments", json=payload,
                        headers=auth_header(token))

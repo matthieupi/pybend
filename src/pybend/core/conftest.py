@@ -28,8 +28,10 @@ _namespace_shims = {
     'pybend.core':          _core,
     'pybend.core.tests':    os.path.join(_core, 'tests'),
     'pybend.core.tests.unit': os.path.join(_core, 'tests', 'unit'),
-    'pybend.example':       os.path.join(_src, 'pybend', 'example'),
-    'pybend.example.tests': os.path.join(_src, 'pybend', 'example', 'tests'),
+    'pybend.example_api':       os.path.join(_src, 'pybend', 'example_api'),
+    'pybend.example_api.tests': os.path.join(_src, 'pybend', 'example_api', 'tests'),
+    'pybend.example_actor':       os.path.join(_src, 'pybend', 'example_actor'),
+    'pybend.example_actor.tests': os.path.join(_src, 'pybend', 'example_actor', 'tests'),
 }
 
 for name, path in _namespace_shims.items():
