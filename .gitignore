@@ -10,3 +10,6 @@ dist/
 .env
 node_modules/
 .traces/.profiling/
+*.db-shm
+*.db-wal
+.coverage

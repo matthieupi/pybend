@@ -38,3 +38,14 @@ Let's improve our claude.md file
   something larger, like we just mentioned? If it's the second part, then we need to re-evaluate the bigger picture and see if we     
   either need to improve the documentation so it doesn't happen anymore, or if we need to actually do some deeper changes within the  
   architecture in order to simplify something to solve thw problem elegantly!
+  
+
+Great,we are making great progress!
+An agent is building Wave 1 in the background and while they do it we are 
+ready for wave 2!                                                                                                    
+                                                                                                                                        
+Like before we should always go over the proposed changed together, see the 
+different approaches we could take, the tradeoffs, different gotchas, 
+clarify ambivalent information etc.. Once we find the optimal way to execute 
+on the task we can commit to it ans write the changes.
+When compacting the conversation, keep those instructions as is! 

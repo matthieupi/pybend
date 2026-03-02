@@ -777,6 +777,22 @@ For **framework code**, `src/pybend/core/` contains `config.py` and the backward
 4. Test API (see auth examples below)
 5. Test frontend: Open `http://localhost:5000/static/matrix.html`
 
+### Commit Messages
+Format: `type(scope): Description [wave]`
+
+- **type**: `feat`, `fix`, `test`, `docs`, `refactor`, `chore`
+- **scope** (optional): area of codebase — `models`, `actors`, `api`, `ssr`, `frontend`, `schema`, `example`
+- **Description**: imperative mood, capitalized (e.g., "Add", "Fix", not "Added", "Fixes")
+- **[wave]**: current development wave in brackets (e.g., `[0.8.3]`). Check recent commits for the active wave.
+
+Examples:
+```
+feat(actors): Add interceptor mechanism and two-tier auth [0.8.2]
+fix(api): Move FastAPI imports to module level in network_api.py [0.8.2]
+test(ssr): Add comprehensive tests for SSR modes and bundler [0.8.3]
+docs: Update documentation for Wave 2 [0.8.2]
+```
+
 ### Authentication for Testing
 Most endpoints require a JWT token. Schema endpoints (`GET /{ClassName}`) are public.
 
