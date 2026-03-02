@@ -1,6 +1,7 @@
 from .rules import (
-    AccessRule, ANYONE, AUTHENTICATED, OWNER, ROLE, Where,
+    AccessRule, ANYONE, NEVER, AUTHENTICATED, OWNER, ROLE, Where,
     AndRule, OrRule, NotRule,
+    Federated, FEDERATED, Local, LOCAL, Follower, FOLLOWER,
 )
 from .context import AccessContext
 from .resolver import AuthorizationResolver, DefaultResolver
@@ -9,8 +10,9 @@ from .auth import configure, hash_password, verify_password, create_token, decod
 
 __all__ = [
     "configure",
-    "AccessRule", "ANYONE", "AUTHENTICATED", "OWNER", "ROLE", "Where",
+    "AccessRule", "ANYONE", "NEVER", "AUTHENTICATED", "OWNER", "ROLE", "Where",
     "AndRule", "OrRule", "NotRule",
+    "Federated", "FEDERATED", "Local", "LOCAL", "Follower", "FOLLOWER",
     "AccessContext", "AuthorizationResolver", "DefaultResolver",
     "AccessDenied",
     "hash_password", "verify_password", "create_token", "decode_token",

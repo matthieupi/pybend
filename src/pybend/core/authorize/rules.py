@@ -124,6 +124,27 @@ class _Anyone(AccessRule):
 ANYONE = _Anyone()
 
 
+class _Never(AccessRule):
+    """Always denies access. Bottom element — complement of ANYONE.
+
+    Algebraic properties:
+        A & NEVER == NEVER   (annihilation)
+        A | NEVER == A       (identity)
+        ~ANYONE == NEVER     (complement)
+    """
+    def evaluate(self, ctx: AccessContext) -> bool:
+        return False
+
+    def sql_filter(self, ctx: AccessContext) -> Optional[Tuple[str, List[Any]]]:
+        return ("1=0", [])
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"rule": "never"}
+
+
+NEVER = _Never()
+
+
 class _Authenticated(AccessRule):
     """Grants access to any authenticated user."""
     def evaluate(self, ctx: AccessContext) -> bool:
@@ -276,3 +297,87 @@ class Where(AccessRule):
 
     def to_dict(self) -> Dict[str, Any]:
         return {"rule": "where", "conditions": self.conditions}
+
+
+# ── Federation rules ─────────────────────────────────────
+
+class Federated(AccessRule):
+    """Grants access only to federated (non-local) actors.
+
+    Checks for ``meta.federated`` flag set by the ActivityPub adapter
+    when translating inbound activities to TX messages.
+    """
+    def evaluate(self, ctx: AccessContext) -> bool:
+        return bool(ctx.user.get('federated', False))
+
+    def sql_filter(self, ctx: AccessContext) -> Optional[Tuple[str, List[Any]]]:
+        if self.evaluate(ctx):
+            return ("1=1", [])
+        return ("1=0", [])
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"rule": "federated"}
+
+
+FEDERATED = Federated()
+
+
+class Local(AccessRule):
+    """Grants access only to local (non-federated) users.
+
+    Complement of Federated — passes when the request did NOT
+    originate from an ActivityPub federation adapter.
+    """
+    def evaluate(self, ctx: AccessContext) -> bool:
+        return not ctx.user.get('federated', False)
+
+    def sql_filter(self, ctx: AccessContext) -> Optional[Tuple[str, List[Any]]]:
+        if self.evaluate(ctx):
+            return ("1=1", [])
+        return ("1=0", [])
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"rule": "local"}
+
+
+LOCAL = Local()
+
+
+class Follower(AccessRule):
+    """Grants access only to users who follow the resource owner.
+
+    Requires ``ctx.user.get('following')`` to contain the owner's URI
+    or ID, as populated by the federation adapter or auth middleware.
+    """
+    def __init__(self, owner_field: Optional[str] = None):
+        self._field = owner_field
+
+    def _resolve_field(self, ctx: AccessContext) -> str:
+        if self._field:
+            return self._field
+        return getattr(ctx.model_class, '__owner_field__', 'user_owner')
+
+    def evaluate(self, ctx: AccessContext) -> bool:
+        if not ctx.is_authenticated:
+            return False
+        if ctx.resource is None:
+            return False
+        following = ctx.user.get('following', [])
+        field = self._resolve_field(ctx)
+        owner_val = getattr(ctx.resource, field, None)
+        if owner_val is None:
+            return False
+        return owner_val in following or str(owner_val) in following
+
+    def sql_filter(self, ctx: AccessContext) -> Optional[Tuple[str, List[Any]]]:
+        # Cannot push down to SQL — requires runtime evaluation
+        return None
+
+    def to_dict(self) -> Dict[str, Any]:
+        d: Dict[str, Any] = {"rule": "follower"}
+        if self._field:
+            d["field"] = self._field
+        return d
+
+
+FOLLOWER = Follower()
