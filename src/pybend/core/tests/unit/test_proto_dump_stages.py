@@ -33,6 +33,17 @@ class _DumpNoTable(ProtoModel):
     name: str = Field(default='')
 
 
+class DumpOwner(ProtoModel):
+    __tablename__: ClassVar[str] = 'pd_owners'
+
+
+class DumpChild(ProtoModel):
+    __tablename__: ClassVar[str] = 'pd_owners_children'
+    __tagname__: ClassVar[str] = 'children'
+    __owner__ = DumpOwner
+    dumpowner_id: int = Field(default=0)
+
+
 # ===================================================================
 # TestBaseStage
 # ===================================================================
@@ -85,40 +96,63 @@ class TestBaseStage:
 
 
 # ===================================================================
-# TestResponseStage
+# TestSchemaUrlStage
 # ===================================================================
 
-class TestResponseStage:
-    """Tests for proto_dump.response() — $schema/$id injection."""
+class TestSchemaUrlStage:
+    """Tests for proto_dump.schema_url() — $schema injection."""
 
     def setup_method(self):
-        # Clear cache between tests so class-level caching doesn't interfere
-        proto_dump._response_meta_cache.clear()
+        proto_dump._schema_url_cache.clear()
 
     def test_injects_schema_url(self):
         m = _DumpSimple(id=1, name='test')
-        d = proto_dump.response(m, {'name': 'test'})
+        d = proto_dump.schema_url(m, {'name': 'test'})
         assert d['$schema'] == f'{config.API_URL}/_DumpSimple'
+
+    def test_uses_config_api_url(self):
+        m = _DumpSimple(id=1)
+        d = proto_dump.schema_url(m, {})
+        assert d['$schema'].startswith(config.API_URL)
+
+    def test_uses_classname_in_schema_url(self):
+        m = _DumpSimple(id=1)
+        d = proto_dump.schema_url(m, {})
+        assert d['$schema'].endswith('/_DumpSimple')
+
+    def test_preserves_existing_data(self):
+        m = _DumpSimple(id=1, name='preserved', value=42)
+        original = {'name': 'preserved', 'value': 42, 'id': 1, 'custom': 'extra'}
+        d = proto_dump.schema_url(m, original)
+        assert d['name'] == 'preserved'
+        assert d['value'] == 42
+        assert d['id'] == 1
+        assert d['custom'] == 'extra'
+
+
+# ===================================================================
+# TestInstanceUrlStage
+# ===================================================================
+
+class TestInstanceUrlStage:
+    """Tests for proto_dump.instance_url() — $id injection."""
+
+    def setup_method(self):
+        proto_dump._instance_url_cache.clear()
 
     def test_injects_id_url(self):
         m = _DumpSimple(id=7, name='test')
-        d = proto_dump.response(m, {'name': 'test', 'id': 7})
+        d = proto_dump.instance_url(m, {'name': 'test', 'id': 7})
         assert d['$id'] == f'{config.API_URL}/pd_simple/7'
 
     def test_id_zero_produces_url(self):
         m = _DumpSimple(id=0, name='test')
-        d = proto_dump.response(m, {'name': 'test', 'id': 0})
+        d = proto_dump.instance_url(m, {'name': 'test', 'id': 0})
         # id=0 is not None, so $id should be constructed
         assert d['$id'] == f'{config.API_URL}/pd_simple/0'
 
     def test_id_none_produces_null(self):
         """When instance has no id attribute at all, $id should be None."""
-        m = _DumpSimple(name='test')
-        # ProtoModel defaults id=0, so we need to simulate None
-        # by removing the id attribute conceptually. However, ProtoModel
-        # always has id with default 0. The response stage calls
-        # getattr(instance, 'id', None). Since id defaults to 0, we test
-        # the None branch by using an object without id.
         class _NoId(ProtoModel):
             __tablename__: ClassVar[str] = 'pd_noid'
             name: str = Field(default='')
@@ -127,49 +161,27 @@ class TestResponseStage:
                 arbitrary_types_allowed = True
 
         inst = _NoId(name='hello')
-        # _NoId inherits id from ProtoModel with default 0, so id is 0
-        # The response stage treats 0 as valid (not None).
-        # To get None, we manually delete id from the instance.
         object.__delattr__(inst, 'id') if 'id' in inst.__dict__ else None
-        # If getattr falls through to the class default (0), $id will still
-        # be set. The None case happens when the attribute truly doesn't exist.
-        # Since ProtoModel always defines id, test the explicit code path:
-        d = proto_dump.response(inst, {'name': 'hello'})
-        # With ProtoModel's default id=0, $id is constructed with 0
-        # This test verifies the behavior matches the code path.
+        d = proto_dump.instance_url(inst, {'name': 'hello'})
+        # With ProtoModel's default id=0, $id is constructed with 0.
+        # The None case happens when the attribute truly doesn't exist.
         assert d['$id'] is not None or d['$id'] is None  # accepts either
-        # More importantly, test that $schema is always present
-        assert '$schema' in d
-
-    def test_preserves_existing_data(self):
-        m = _DumpSimple(id=1, name='preserved', value=42)
-        original = {'name': 'preserved', 'value': 42, 'id': 1, 'custom': 'extra'}
-        d = proto_dump.response(m, original)
-        assert d['name'] == 'preserved'
-        assert d['value'] == 42
-        assert d['id'] == 1
-        assert d['custom'] == 'extra'
+        assert '$id' in d
 
     def test_uses_config_api_url(self):
         m = _DumpSimple(id=1)
-        d = proto_dump.response(m, {})
-        assert d['$schema'].startswith(config.API_URL)
+        d = proto_dump.instance_url(m, {})
         assert d['$id'].startswith(config.API_URL)
 
     def test_uses_tablename_in_id_url(self):
         m = _DumpSimple(id=3)
-        d = proto_dump.response(m, {})
+        d = proto_dump.instance_url(m, {})
         assert '/pd_simple/' in d['$id']
 
-    def test_uses_classname_in_schema_url(self):
-        m = _DumpSimple(id=1)
-        d = proto_dump.response(m, {})
-        assert d['$schema'].endswith('/_DumpSimple')
-
     def test_tablename_fallback_to_lowercase_classname(self):
-        proto_dump._response_meta_cache.clear()
+        proto_dump._instance_url_cache.clear()
         m = _DumpNoTable(id=1, name='fallback')
-        d = proto_dump.response(m, {'id': 1})
+        d = proto_dump.instance_url(m, {'id': 1})
         # Without __tablename__, falls back to cls.__name__.lower()
         assert '/_dumpnotable/' in d['$id']
 
@@ -182,7 +194,8 @@ class TestModelResponse:
     """Tests for ProtoModel.model_response() — full pipeline execution."""
 
     def setup_method(self):
-        proto_dump._response_meta_cache.clear()
+        proto_dump._schema_url_cache.clear()
+        proto_dump._instance_url_cache.clear()
 
     def test_calls_run_pipeline(self):
         m = _DumpSimple(id=1, name='pipeline', value=5)
@@ -271,60 +284,155 @@ class TestModelDump:
 
 
 # ===================================================================
-# TestResponseMetaCache
+# TestSchemaUrlCache
 # ===================================================================
 
-class TestResponseMetaCache:
-    """Tests for _response_meta_cache — class-level URL caching."""
+class TestSchemaUrlCache:
+    """Tests for _schema_url_cache — class-level $schema URL caching."""
 
     def setup_method(self):
-        proto_dump._response_meta_cache.clear()
+        proto_dump._schema_url_cache.clear()
 
     def test_cache_populated_after_first_call(self):
-        assert _DumpSimple not in proto_dump._response_meta_cache
+        assert _DumpSimple not in proto_dump._schema_url_cache
         m = _DumpSimple(id=1, name='cache')
-        proto_dump.response(m, {})
-        assert _DumpSimple in proto_dump._response_meta_cache
+        proto_dump.schema_url(m, {})
+        assert _DumpSimple in proto_dump._schema_url_cache
 
-    def test_cache_contains_correct_urls(self):
+    def test_cache_contains_correct_url(self):
         m = _DumpSimple(id=1)
-        proto_dump.response(m, {})
-        cached = proto_dump._response_meta_cache[_DumpSimple]
-        assert cached['schema_url'] == f'{config.API_URL}/_DumpSimple'
-        assert cached['base_url'] == f'{config.API_URL}/pd_simple'
+        proto_dump.schema_url(m, {})
+        cached = proto_dump._schema_url_cache[_DumpSimple]
+        assert cached == f'{config.API_URL}/_DumpSimple'
 
     def test_second_call_uses_cache(self):
         m = _DumpSimple(id=1)
-        proto_dump.response(m, {})
-        # Cache is populated
-        assert _DumpSimple in proto_dump._response_meta_cache
-        cached_ref = proto_dump._response_meta_cache[_DumpSimple]
-        # Second call should reuse the same cache entry (same dict object)
-        proto_dump.response(m, {})
-        assert proto_dump._response_meta_cache[_DumpSimple] is cached_ref
+        proto_dump.schema_url(m, {})
+        assert _DumpSimple in proto_dump._schema_url_cache
+        cached_ref = proto_dump._schema_url_cache[_DumpSimple]
+        proto_dump.schema_url(m, {})
+        assert proto_dump._schema_url_cache[_DumpSimple] is cached_ref
 
     def test_different_classes_get_different_cache_entries(self):
         m1 = _DumpSimple(id=1)
         m2 = _DumpOther(id=2)
-        proto_dump.response(m1, {})
-        proto_dump.response(m2, {})
-        assert _DumpSimple in proto_dump._response_meta_cache
-        assert _DumpOther in proto_dump._response_meta_cache
-        # Different URL parts
-        cache_simple = proto_dump._response_meta_cache[_DumpSimple]
-        cache_other = proto_dump._response_meta_cache[_DumpOther]
-        assert cache_simple['schema_url'] != cache_other['schema_url']
-        assert cache_simple['base_url'] != cache_other['base_url']
-        assert cache_simple['schema_url'].endswith('/_DumpSimple')
-        assert cache_other['schema_url'].endswith('/_DumpOther')
+        proto_dump.schema_url(m1, {})
+        proto_dump.schema_url(m2, {})
+        assert _DumpSimple in proto_dump._schema_url_cache
+        assert _DumpOther in proto_dump._schema_url_cache
+        assert proto_dump._schema_url_cache[_DumpSimple].endswith('/_DumpSimple')
+        assert proto_dump._schema_url_cache[_DumpOther].endswith('/_DumpOther')
+
+
+# ===================================================================
+# TestInstanceUrlCache
+# ===================================================================
+
+class TestInstanceUrlCache:
+    """Tests for _instance_url_cache — class-level $id URL caching."""
+
+    def setup_method(self):
+        proto_dump._instance_url_cache.clear()
+
+    def test_cache_populated_after_first_call(self):
+        assert _DumpSimple not in proto_dump._instance_url_cache
+        m = _DumpSimple(id=1, name='cache')
+        proto_dump.instance_url(m, {})
+        assert _DumpSimple in proto_dump._instance_url_cache
+
+    def test_cache_contains_correct_base_url(self):
+        m = _DumpSimple(id=1)
+        proto_dump.instance_url(m, {})
+        cached = proto_dump._instance_url_cache[_DumpSimple]
+        assert cached['base_url'] == f'{config.API_URL}/pd_simple'
+
+    def test_second_call_uses_cache(self):
+        m = _DumpSimple(id=1)
+        proto_dump.instance_url(m, {})
+        assert _DumpSimple in proto_dump._instance_url_cache
+        cached_ref = proto_dump._instance_url_cache[_DumpSimple]
+        proto_dump.instance_url(m, {})
+        assert proto_dump._instance_url_cache[_DumpSimple] is cached_ref
+
+    def test_different_classes_get_different_cache_entries(self):
+        m1 = _DumpSimple(id=1)
+        m2 = _DumpOther(id=2)
+        proto_dump.instance_url(m1, {})
+        proto_dump.instance_url(m2, {})
+        assert _DumpSimple in proto_dump._instance_url_cache
+        assert _DumpOther in proto_dump._instance_url_cache
+        cache_simple = proto_dump._instance_url_cache[_DumpSimple]
+        cache_other = proto_dump._instance_url_cache[_DumpOther]
         assert cache_simple['base_url'].endswith('/pd_simple')
         assert cache_other['base_url'].endswith('/pd_other')
 
     def test_cache_survives_multiple_instances(self):
         m1 = _DumpSimple(id=1, name='first')
         m2 = _DumpSimple(id=2, name='second')
-        proto_dump.response(m1, {})
-        cached_after_first = proto_dump._response_meta_cache[_DumpSimple]
-        proto_dump.response(m2, {})
-        # Same cache entry reused (same object identity)
-        assert proto_dump._response_meta_cache[_DumpSimple] is cached_after_first
+        proto_dump.instance_url(m1, {})
+        cached_after_first = proto_dump._instance_url_cache[_DumpSimple]
+        proto_dump.instance_url(m2, {})
+        assert proto_dump._instance_url_cache[_DumpSimple] is cached_after_first
+
+
+# ===================================================================
+# TestInstanceUrlJoinModel
+# ===================================================================
+
+class TestInstanceUrlJoinModel:
+    """Tests for instance_url() with join models (__owner__ + __tagname__)."""
+
+    def setup_method(self):
+        proto_dump._instance_url_cache.clear()
+        proto_dump._schema_url_cache.clear()
+
+    def test_join_model_uses_parent_scoped_url(self):
+        m = DumpChild(id=5, dumpowner_id=3)
+        d = proto_dump.instance_url(m, {'id': 5, 'dumpowner_id': 3})
+        assert d['$id'] == f'{config.API_URL}/pd_owners/3/children/5'
+
+    def test_join_model_reads_fk_from_instance(self):
+        m = DumpChild(id=10, dumpowner_id=7)
+        d = proto_dump.instance_url(m, {})
+        assert d['$id'] == f'{config.API_URL}/pd_owners/7/children/10'
+
+    def test_join_model_reads_fk_from_dict_fallback(self):
+        m = DumpChild(id=10, dumpowner_id=0)
+        # dumpowner_id=0 is falsy, so falls back to d dict
+        d = proto_dump.instance_url(m, {'dumpowner_id': 7})
+        assert d['$id'] == f'{config.API_URL}/pd_owners/7/children/10'
+
+    def test_join_model_missing_parent_id_returns_none(self):
+        m = DumpChild(id=10, dumpowner_id=0)
+        # No FK on instance (0 is falsy) and not in dict -> None
+        d = proto_dump.instance_url(m, {})
+        assert d['$id'] is None
+
+    def test_join_model_schema_url_uses_classname(self):
+        m = DumpChild(id=1, dumpowner_id=1)
+        d = proto_dump.schema_url(m, {})
+        assert d['$schema'] == f'{config.API_URL}/DumpChild'
+
+    def test_regular_model_unaffected(self):
+        m = _DumpSimple(id=42)
+        d = proto_dump.instance_url(m, {})
+        assert d['$id'] == f'{config.API_URL}/pd_simple/42'
+
+    def test_join_model_cache_contains_owner_metadata(self):
+        m = DumpChild(id=1, dumpowner_id=1)
+        proto_dump.instance_url(m, {})
+        cached = proto_dump._instance_url_cache[DumpChild]
+        assert 'owner_base' in cached
+        assert 'tagname' in cached
+        assert 'fk_field' in cached
+        assert cached['owner_base'] == f'{config.API_URL}/pd_owners'
+        assert cached['tagname'] == 'children'
+        assert cached['fk_field'] == 'dumpowner_id'
+
+    def test_join_model_full_pipeline(self):
+        """model_response() produces parent-scoped $id for join models."""
+        m = DumpChild(id=3, dumpowner_id=2)
+        d = m.model_response()
+        assert d['$schema'] == f'{config.API_URL}/DumpChild'
+        assert d['$id'] == f'{config.API_URL}/pd_owners/2/children/3'
+        assert d['dumpowner_id'] == 2

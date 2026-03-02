@@ -3,7 +3,8 @@
 Each function is a pure dict → dict transformation:
 
     d = proto_dump.base(instance)
-    d = proto_dump.response(instance, d)
+    d = proto_dump.schema_url(instance, d)
+    d = proto_dump.instance_url(instance, d)
 
 Stages are registered in a pipeline so that external packages (federation,
 agents, MCP) can insert new stages via @dump_extension without modifying
@@ -13,7 +14,7 @@ Mirrors proto_schema.py — same pattern, same extension mechanism:
 
     from pybend.core.models.proto_dump import dump_extension
 
-    @dump_extension(after='response')
+    @dump_extension(after='instance_url')
     def activity(instance, d: dict) -> dict:
         if getattr(instance.__class__, '__federated__', False):
             d['@context'] = 'https://www.w3.org/ns/activitystreams'
@@ -36,11 +37,11 @@ logger = logging.getLogger('pybend.dump')
 
 _stages: list[tuple[str, callable]] = []
 
-# ── Response meta cache ────────────────────────────────────────────
-# Class-level URL parts ($schema URL, tablename prefix) never change
-# at runtime, so we compute them once and reuse.
+# ── URL caches ────────────────────────────────────────────────────
+# Class-level URL parts never change at runtime, so we compute once.
 
-_response_meta_cache: dict = {}
+_schema_url_cache: dict = {}
+_instance_url_cache: dict = {}
 
 
 def _find_stage(name: str) -> int:
@@ -155,26 +156,57 @@ def base(instance, **kwargs) -> dict:
     return PydanticBaseModel.model_dump(instance, **kwargs)
 
 
-def response(instance, d: dict) -> dict:
-    """Inject $schema and $id for HTTP API responses."""
+def schema_url(instance, d: dict) -> dict:
+    """Inject $schema — the URL to the model's JSON Schema."""
     cls = instance.__class__
-    if cls not in _response_meta_cache:
-        tablename = getattr(cls, '__tablename__', cls.__name__.lower())
-        _response_meta_cache[cls] = {
-            'schema_url': f"{config.API_URL}/{cls.__name__}",
-            'base_url': f"{config.API_URL}/{tablename}",
-        }
-    meta = _response_meta_cache[cls]
+    if cls not in _schema_url_cache:
+        _schema_url_cache[cls] = f"{config.API_URL}/{cls.__name__}"
+    return {'$schema': _schema_url_cache[cls], **d}
+
+
+def instance_url(instance, d: dict) -> dict:
+    """Inject $id — the resolvable URL to this specific instance.
+
+    Join models (with __owner__ + __tagname__) get parent-scoped URLs:
+        {API_URL}/{owner_table}/{parent_id}/{tagname}/{id}
+    Regular models get flat URLs:
+        {API_URL}/{tablename}/{id}
+    """
+    cls = instance.__class__
+    if cls not in _instance_url_cache:
+        owner_cls = getattr(cls, '__owner__', None)
+        tagname = getattr(cls, '__tagname__', None)
+        if owner_cls and tagname:
+            _instance_url_cache[cls] = {
+                'owner_base': f"{config.API_URL}/{owner_cls.__tablename__}",
+                'tagname': tagname,
+                'fk_field': f"{owner_cls.__name__.lower()}_id",
+            }
+        else:
+            tablename = getattr(cls, '__tablename__', cls.__name__.lower())
+            _instance_url_cache[cls] = {
+                'base_url': f"{config.API_URL}/{tablename}",
+            }
+    meta = _instance_url_cache[cls]
     instance_id = getattr(instance, 'id', None)
-    return {
-        '$schema': meta['schema_url'],
-        '$id': f"{meta['base_url']}/{instance_id}" if instance_id is not None else None,
-        **d
-    }
+
+    if 'fk_field' in meta:
+        parent_id = getattr(instance, meta['fk_field'], None) or d.get(meta['fk_field'])
+        url = (
+            f"{meta['owner_base']}/{parent_id}/{meta['tagname']}/{instance_id}"
+            if instance_id is not None and parent_id is not None
+            else None
+        )
+    else:
+        url = f"{meta['base_url']}/{instance_id}" if instance_id is not None else None
+
+    d['$id'] = url
+    return d
 
 
 # ── Register default pipeline stages ──
 # Order matters: base seeds, the rest transform sequentially.
 # Extensions insert relative to these names via @dump_extension.
 register_stage('base', base)
-register_stage('response', response)
+register_stage('schema_url', schema_url)
+register_stage('instance_url', instance_url)

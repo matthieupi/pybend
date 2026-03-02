@@ -80,10 +80,12 @@ def clear_schema_cache():
 
 @pytest.fixture(autouse=True)
 def clear_dump_meta_cache():
-    """Clear the response meta cache in proto_dump between tests."""
-    proto_dump._response_meta_cache.clear()
+    """Clear the URL caches in proto_dump between tests."""
+    proto_dump._schema_url_cache.clear()
+    proto_dump._instance_url_cache.clear()
     yield
-    proto_dump._response_meta_cache.clear()
+    proto_dump._schema_url_cache.clear()
+    proto_dump._instance_url_cache.clear()
 
 
 # ===================================================================
@@ -958,7 +960,7 @@ class TestDumpPipelineExtension:
                 d['__custom__'] = 'injected'
                 return d
 
-            proto_dump.register_stage('custom_stamp', custom_stamp, after='response')
+            proto_dump.register_stage('custom_stamp', custom_stamp, after='instance_url')
 
             assert 'custom_stamp' in proto_dump.get_pipeline()
 
@@ -984,7 +986,7 @@ class TestDumpPipelineExtension:
         original_stages = proto_dump._stages.copy()
 
         try:
-            @proto_dump.dump_extension(after='response')
+            @proto_dump.dump_extension(after='instance_url')
             def trace_id(instance, d: dict) -> dict:
                 d['_trace'] = 'test-trace-123'
                 return d
@@ -1004,21 +1006,21 @@ class TestDumpPipelineExtension:
             proto_dump._stages.clear()
             proto_dump._stages.extend(original_stages)
 
-    def test_extension_before_response(self):
-        """Stage inserted before 'response' transforms data before $schema/$id."""
+    def test_extension_before_schema_url(self):
+        """Stage inserted before 'schema_url' transforms data before $schema/$id."""
         original_stages = proto_dump._stages.copy()
 
         try:
-            def pre_response(instance, d: dict) -> dict:
+            def pre_schema(instance, d: dict) -> dict:
                 d['_pre'] = True
                 return d
 
-            proto_dump.register_stage('pre_response', pre_response, before='response')
+            proto_dump.register_stage('pre_schema', pre_schema, before='schema_url')
 
             pipeline = proto_dump.get_pipeline()
-            pre_idx = pipeline.index('pre_response')
-            resp_idx = pipeline.index('response')
-            assert pre_idx < resp_idx
+            pre_idx = pipeline.index('pre_schema')
+            schema_idx = pipeline.index('schema_url')
+            assert pre_idx < schema_idx
 
             class M(ActorModel, auto_register=False):
                 __tablename__: ClassVar[str] = 'dump_pre_test'
