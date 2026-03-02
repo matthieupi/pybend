@@ -6,7 +6,7 @@
 
 **Generated**: 2026-02-26
 **Branch**: `v0.8`
-**Status**: In progress. Wave 0 complete. Wave 1 complete. Wave 2 mostly complete (2b, 2c done; 2a deferred).
+**Status**: In progress. Wave 0 complete. Wave 1 complete. Wave 2 mostly complete (2b, 2c done; 2a deferred). Wave 3 started (3a done).
 
 ---
 
@@ -1344,6 +1344,17 @@ Frontend Matrix ←──WebSocket──→ Backend Matrix
 - Backend ActorModel publishes lifecycle event → Matrix routes through WebSocket → frontend actor receives update
 - **Real-time updates are free.** No separate pub/sub system needed.
 
+> **Completed**: 2026-03-02 — commit `b9537f6` on `v0.8`
+> **Files**: `api/network_ws.py` (new — NetworkWebSocket adapter + `create_ws_routes()`),
+>           `app.py` (ws=True wiring), `static/core/transport/Socket.js` (rewritten — TX-native WS transport),
+>           `static/core/transport/NetworkAdapter.js` (rewritten — dual-mode WS/HTTP send),
+>           `static/core/Matrix.js` (WS mode pass-through), `static/config.js` (WS_URL config),
+>           `__init__.py` (exports), `CLAUDE.md` (updated adapter table)
+> **Tests**: `api/tests/test_network_ws.py` (new, 28 tests) — 236 API tests + 1020 unit tests pass, zero regression.
+> **Features**: Protocol translation (URL stripping, name mapping, id extraction), lifecycle broadcast,
+>              auto-reconnect with exponential backoff, message queue during disconnect, heartbeat,
+>              dual-mode send (WS primary, HTTP fallback), JWT auth at connect time.
+
 ### 3b. Polymorphic Actor Types (~3-4 days)
 
 `__discriminator__` as schema extension + storage behavior:
@@ -1508,8 +1519,8 @@ This matrix shows which of the 13 research themes benefit from each Wave 0-2 cha
 - [x] All existing tests still pass — same external API, actor-based internally
 
 ### Wave 3 (Unification)
-- [ ] WebSocket bridge: frontend TX reaches backend ActorModel and vice versa
-- [ ] Real-time: backend CREATE → frontend update without polling
+- [x] WebSocket bridge: frontend TX reaches backend ActorModel and vice versa (3a)
+- [x] Real-time: backend CREATE → frontend update without polling (3a — LIFECYCLE broadcast)
 - [ ] Polymorphic: `Content.list()` returns mixed subtypes with correct `_type`
 - [ ] Polymorphic schema: `oneOf` + `discriminator` in JSON Schema output
 - [ ] Storage adjunction: round-trip test passes for all field types
@@ -1556,7 +1567,8 @@ This matrix shows which of the 13 research themes benefit from each Wave 0-2 cha
 | `src/pybend/core/actors/adapters/__init__.py` | W1 | NetworkAdapter package |
 | `src/pybend/core/actors/adapters/mcp_adapter.py` | W1 | MCP JSON-RPC ↔ TX |
 | `src/pybend/core/actors/adapters/ap_adapter.py` | W1 | ActivityPub ↔ TX |
-| `src/pybend/core/actors/adapters/ws_adapter.py` | W3 | WebSocket bridge (frontend ↔ backend Matrix) |
+| `src/pybend/core/api/network_ws.py` | W3 | WebSocket bridge — NetworkWebSocket adapter + `create_ws_routes()` (3a DONE) |
+| `src/pybend/core/api/tests/test_network_ws.py` | W3 | WebSocket adapter unit + integration tests (28 tests) (3a DONE) |
 | `src/pybend/core/api/discovery.py` | W1 | `/_meta`, `/.well-known/agent.json`, `/.well-known/webfinger` |
 | `src/pybend/core/tests/unit/test_access_algebra.py` | W1 | Boolean algebra law tests |
 | `src/pybend/core/tests/unit/test_storage_adjunction.py` | W3 | Storage round-trip tests |
