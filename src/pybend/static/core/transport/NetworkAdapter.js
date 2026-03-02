@@ -3,24 +3,39 @@ import assert from "../../utils/Assert.js";
 import {Utils} from "../Utils.js";
 import {config} from "../../config.js";
 import Logging from "../../utils/Logging.js";
+import TX from "../TX.js";
 
 export class NetworkAdapter {
-  
+
   constructor(matrix, url="", mode = 'http') {
     this.matrix = matrix;
     this.mode = mode;
     this.socket = null;
     this.url = url || config.API_URL;
     if (mode === 'ws') {
-      import('./Socket.js').then(({ default: Socket }) => {
-        this.socket = new Socket("localhost:8765");
-      });
+      this._initWebSocket();
     }
     this.send = this.send.bind(this);
   }
- 
+
+  _initWebSocket() {
+    import('./Socket.js').then(({ default: Socket }) => {
+      const wsUrl = config.WS_URL || `${this.url.replace(/^http/, 'ws')}/ws`;
+      this.socket = new Socket(wsUrl);
+      this.socket.onmessage = (data) => {
+        // Server-push messages (lifecycle events) and request responses
+        // both arrive here. Dispatch through Matrix.
+        this.matrix.dispatch(data);
+      };
+      // Connect with JWT if available
+      const token = window.localStorage ? window.localStorage.getItem('jwtToken') : null;
+      this.socket.connect(token || undefined);
+      Logging.dev('[NetworkAdapter] WebSocket transport initialized');
+    });
+  }
+
   httpCallback(event, response) {
-    
+
     assert(this, event && event.target, `Event must have a target property.`);
     assert(this, this.matrix.has(event.source), `No callback registered for target: ${event.source}`);
     // Updater the event with the response data
@@ -33,7 +48,7 @@ export class NetworkAdapter {
     // Dispatch the event through the system layer
     this.matrix.dispatch(event)
   }
-  
+
   /**
    * Error handler for transport events.
    *
@@ -56,37 +71,15 @@ export class NetworkAdapter {
           'response': response
         }
     }
-    this.emit(errorCallback)
+    this.matrix.dispatch(errorCallback)
   }
- 
-  /**
-   * Emit an event to the registered callback.
-   * This method will invoke the callback registered for the event's target.
-   *
-   * @param {object} event - The event object containing properties like target, name, data, etc.
-   */
-  emit(event) {
-    assert(this, event && event.target, `Event must have a target property.`);
-    assert(this, event && event.name, `Event must have a name property.`);
-    //assert(this, registry.has(event.target), `No callback registered for target: ${event.target}`);
-    //const callback = registry.get(event.target);
-    assert(this, typeof callback === 'function', `Callback for ${event.target} is not a function.`);
-    try {
-      callback(event);
-    } catch (error) {
-      Logging.error(`[NetworkAdapter] Callback error for ${event.target}`, error);
-    }
-  }
-  
+
   pull(target, callback = null) {
     Logging.dev(`Pulling data from target: ${target}`, callback ? `with callback: ${callback.name}` : 'without callback')
     assert(this, target, `Target must be provided for pull operation.`);
     assert(this, typeof target === 'string', `Target must be a string, got ${typeof target}`);
     assert(this, !callback || typeof callback === 'function', `Callback must be a function, got ${typeof callback}`);
-    
-    if (callback) {
-      //registry.set(target, callback);
-    }
+
     const event = {
       'name': 'read',
       'id': Utils.generateId(),
@@ -100,51 +93,51 @@ export class NetworkAdapter {
     }
     this.send(event);
   }
-  
-  
+
+
   /**
    * Send an event through the transport layer.
+   *
+   * When WebSocket is connected, sends over WS (primary).
+   * Falls back to HTTP when WS is unavailable.
+   *
    * @param event
    * @returns {void}
    */
   send(event) {
+    // WebSocket primary when available
+    if (this.socket && this.socket.ready) {
+      const tx = event instanceof TX ? event : new TX(event);
+      this.socket.send(tx);
+      return;
+    }
+
+    // HTTP fallback
     let {name, data, meta, source, target, id, timestamp} = event;
     let callback = this.httpCallback.bind(this, event);
     let onError = this.onError.bind(this, event);
-    
-    if (this.mode === 'http') {
-      if (name.toUpperCase() === config.E.load) HTTP.get(target, callback, onError);
-      else if (name.toUpperCase() === 'READ') {
-        let url = target;
-        if (data && typeof data === 'object' && !Array.isArray(data)) {
-          const params = new URLSearchParams();
-          for (const [k, v] of Object.entries(data)) {
-            if (v != null) params.set(k, v);
-          }
-          const qs = params.toString();
-          if (qs) url += (url.includes('?') ? '&' : '?') + qs;
+
+    if (name.toUpperCase() === config.E.load) HTTP.get(target, callback, onError);
+    else if (name.toUpperCase() === 'READ') {
+      let url = target;
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const params = new URLSearchParams();
+        for (const [k, v] of Object.entries(data)) {
+          if (v != null) params.set(k, v);
         }
-        HTTP.get(url, callback, onError);
+        const qs = params.toString();
+        if (qs) url += (url.includes('?') ? '&' : '?') + qs;
       }
-      else if (name.toUpperCase() === 'SCHEMA') HTTP.get(`${target}`, callback, onError);
-      else if (name.toUpperCase() === 'CREATE') HTTP.post(target, data, callback, onError);
-      else if (name.toUpperCase() === 'UPDATE') HTTP.put(target, data, callback, onError);
-      else if (name.toUpperCase() === 'DELETE') HTTP.remove(target, callback, onError);
-      else if (name.toUpperCase() === 'TEST') HTTP.get(target, data, callback, onError);
-      else {
-        HTTP.post(`${target}/${name.toLowerCase()}`, data, callback, onError);
-      }
-      //else throw new Error(`Unsupported event name: ${name}. Supported names are: LOAD, READ, SCHEMA, CREATE, UPDATE, DELETE.`)
+      HTTP.get(url, callback, onError);
     }
-    
-    if (this.mode === 'ws' && this.socket) {
-      this.socket.sendEvent(event);
+    else if (name.toUpperCase() === 'SCHEMA') HTTP.get(`${target}`, callback, onError);
+    else if (name.toUpperCase() === 'CREATE') HTTP.post(target, data, callback, onError);
+    else if (name.toUpperCase() === 'UPDATE') HTTP.put(target, data, callback, onError);
+    else if (name.toUpperCase() === 'DELETE') HTTP.remove(target, callback, onError);
+    else if (name.toUpperCase() === 'TEST') HTTP.get(target, data, callback, onError);
+    else {
+      HTTP.post(`${target}/${name.toLowerCase()}`, data, callback, onError);
     }
   }
-  
+
 }
-
-
-export const remote = new NetworkAdapter('http');
-Logging.dev(`[NetworkAdapter] Registered remote transport`, remote.mode);
-window.remote = remote;

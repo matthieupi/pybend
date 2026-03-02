@@ -5,7 +5,7 @@ export const config = {
     LOGSPAWN: true,
     DEBUG: true,
     API_URL: 'http://localhost:5000',
-    WS_URL: 'ws://localhost:8765',
+    WS_URL: '',  // Set to 'ws://localhost:5000/ws' to enable WebSocket bridge
     DEFAULT_HEADERS: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'

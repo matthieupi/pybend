@@ -98,6 +98,7 @@ class PyBendApp:
         self,
         storage=None,
         routing: str = 'direct',
+        ws: bool = False,
         jwt_secret: Optional[str] = None,
         jwt_expiry_hours: int = 24,
         cors_origins: Optional[List[str]] = None,
@@ -111,6 +112,9 @@ class PyBendApp:
                 auto-resolved.  If ``None``, uses ``config.SQLITE_DB_FILE``.
             routing: Routing mode — ``'direct'`` for plain FastAPI routes,
                 ``'actor'`` for full actor routing via NetworkAPI adapter.
+            ws: Enable WebSocket bridge (requires ``routing='actor'``).
+                When ``True``, a ``NetworkWebSocket`` adapter is registered
+                with the Matrix and a ``/ws`` endpoint is mounted.
             jwt_secret: Secret for JWT tokens.  If ``None``, uses
                 ``config.JWT_SECRET``.
             jwt_expiry_hours: JWT token expiry in hours.
@@ -125,6 +129,7 @@ class PyBendApp:
         """
         self._storage = _resolve_storage(storage)
         self._routing = routing
+        self._ws = ws
         self._jwt_secret = jwt_secret
         self._jwt_expiry_hours = jwt_expiry_hours
         self._cors_origins = cors_origins
@@ -221,6 +226,20 @@ class PyBendApp:
             backend.app.include_router(
                 create_api_routes(api, registered_models)
             )
+
+            # 5a. WebSocket bridge (requires actor routing)
+            if self._ws:
+                from pybend.core.api.network_ws import (
+                    NetworkWebSocket, create_ws_routes,
+                )
+                ws_adapter = NetworkWebSocket()
+                matrix.register(ws_adapter)
+                ws_adapter.use(auth_interceptor, on='request')
+                backend.app.include_router(create_ws_routes(ws_adapter))
+                # Subscribe all ActorModels to push lifecycle events via WS
+                for model_cls in registered_models.values():
+                    if hasattr(model_cls, '_subscribers'):
+                        model_cls._subscribers.append('ws')
         else:
             backend.register_routes(registered_models)
 
@@ -249,6 +268,7 @@ def create_app(
     join_models=None,
     storage=None,
     routing='direct',
+    ws=False,
     static_dir=None,
     jwt_secret=None,
     jwt_expiry_hours=24,
@@ -270,6 +290,7 @@ def create_app(
         storage: Storage backend or URI string (see :class:`PyBendApp`).
         routing: ``'direct'`` for plain FastAPI routes (Level 1/2),
             ``'actor'`` for full actor routing via NetworkAPI (Level 3).
+        ws: Enable WebSocket bridge (requires ``routing='actor'``).
         static_dir: Path to an additional static-file directory.
         jwt_secret: JWT signing secret.
         jwt_expiry_hours: JWT token expiry in hours.
@@ -286,6 +307,7 @@ def create_app(
     builder = PyBendApp(
         storage=storage,
         routing=routing,
+        ws=ws,
         jwt_secret=jwt_secret,
         jwt_expiry_hours=jwt_expiry_hours,
         cors_origins=cors_origins,

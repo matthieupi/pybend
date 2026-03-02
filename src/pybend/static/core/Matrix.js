@@ -16,7 +16,8 @@ export class Matrix extends Actor {
         if (!Actor.root){
             Actor.registerRoot(this);
         }
-        this.remote = new NetworkAdapter(this, url)
+        this.remote = new NetworkAdapter(this, url,
+            config.WS_URL ? 'ws' : 'http')
     }
     
     has(addr) {

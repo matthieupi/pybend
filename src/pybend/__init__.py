@@ -18,6 +18,7 @@ from .core.models.proto_schema import schema_extension
 from .core.actors import Actor, Matrix, TX, matrix
 from .core.api.network_adapter import NetworkAdapter
 from .core.api.network_api import NetworkAPI
+from .core.api.network_ws import NetworkWebSocket, create_ws_routes
 
 __version__ = "0.8.0b"
 
@@ -28,5 +29,6 @@ __all__ = [
     "SQLiteStorage", "JSONStorage", "AbstractStorage", "FastAPIBackend",
     "create_app", "PyBendApp", "schema_extension",
     "Actor", "Matrix", "TX", "matrix", "NetworkAdapter", "NetworkAPI",
+    "NetworkWebSocket", "create_ws_routes",
     "__version__",
 ]

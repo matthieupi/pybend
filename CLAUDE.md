@@ -447,6 +447,7 @@ GET /Product → JSON Schema
 - `src/pybend/core/api/auth_interceptor.py` - Tier 1 auth interceptor for NetworkAPI. `async (TX) -> TX` function: AUTHENTICATED gate, sql_filter for list, full create check, identity gate for read/update/delete. Registered via `api.use(auth_interceptor, on='request')`.
 - `src/pybend/core/api/network_mcp.py` - `NetworkMCP` adapter: MCP JSON-RPC 2.0 bridge. `handle_tools_list()`, `handle_tools_call()`, `handle_jsonrpc()`. Converts model schemas to MCP tool specs. `create_mcp_routes()` FastAPI route factory.
 - `src/pybend/core/api/network_ap.py` - `NetworkAP` adapter: ActivityPub federation bridge. LIFECYCLE handler, actor documents, outbox, inbox, WebFinger, follow/unfollow. `create_federation_routes()` FastAPI route factory.
+- `src/pybend/core/api/network_ws.py` - `NetworkWebSocket` adapter: WebSocket bridge for frontend Matrix. Translates frontend TX (full URL targets, UPPERCASE names) to backend TX. Lifecycle event broadcast. `create_ws_routes()` FastAPI route factory.
 - `src/pybend/core/utils/decorators.py` - `@expose_route()` for custom method endpoints (supports `access=` parameter)
 - `src/pybend/core/utils/registrar.py` - `registered_models` dict, `join_models` dict
 
@@ -679,7 +680,7 @@ The adapter family:
 | `NetworkMCP` | MCP JSON-RPC 2.0 (AI agents) | v0.8.1 |
 | `NetworkAP` | ActivityPub (Fediverse federation) | v0.8.1 |
 | `NetworkAPI` | HTTP REST (FastAPI/Flask/Django) | Planned |
-| `NetworkWebSocket` | WebSocket (frontend Matrix bridge) | Planned |
+| `NetworkWebSocket` | WebSocket (frontend Matrix bridge) | v0.8.5 |
 
 **Base class** (`NetworkAdapter`):
 - Extends `Actor` with `auto_register=False` (needs manual `matrix.register()`)
