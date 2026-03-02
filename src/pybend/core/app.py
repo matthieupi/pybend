@@ -20,6 +20,8 @@ Provides three levels of bootstrapping:
 
 from typing import List, Optional, Tuple, Type, Union
 
+_SSR_MODES = ('off', 'schema', 'bundle', 'full')
+
 from pybend.core.storage.sqlite_storage import SQLiteStorage
 from pybend.core.storage.abstract_storage import AbstractStorage
 from pybend.core.utils.registrar import register_model, registered_models
@@ -56,6 +58,31 @@ def _resolve_storage(storage) -> AbstractStorage:
     )
 
 
+def _resolve_ssr(ssr) -> str:
+    """Resolve the ``ssr`` parameter to a mode string.
+
+    Accepts:
+        - ``None`` → read from ``config.SSR``
+        - ``True`` → ``"schema"`` (backward compatibility)
+        - ``False`` → ``"off"``
+        - A mode string (``"off"``, ``"schema"``, ``"bundle"``, ``"full"``)
+    """
+    if ssr is None:
+        return config.SSR
+    if ssr is True:
+        return 'schema'
+    if ssr is False:
+        return 'off'
+    if isinstance(ssr, str):
+        mode = ssr.lower()
+        if mode not in _SSR_MODES:
+            raise ValueError(
+                f"Invalid SSR mode: {ssr!r}. Must be one of {_SSR_MODES}"
+            )
+        return mode
+    raise TypeError(f"ssr must be bool, str, or None; got {type(ssr).__name__}")
+
+
 class PyBendApp:
     """Builder for PyBend applications.
 
@@ -75,6 +102,7 @@ class PyBendApp:
         jwt_expiry_hours: int = 24,
         cors_origins: Optional[List[str]] = None,
         debug: bool = False,
+        ssr: Union[bool, str, None] = None,
     ):
         """
         Args:
@@ -89,6 +117,11 @@ class PyBendApp:
             cors_origins: List of allowed CORS origins.  Defaults to
                 ``["*"]``.
             debug: Enable debug mode.
+            ssr: SSR mode. Accepts:
+                - ``None`` (default): read from ``config.SSR``
+                - ``True``: shorthand for ``"schema"`` (backward compat)
+                - ``False``: shorthand for ``"off"``
+                - A string: ``"off"``, ``"schema"``, ``"bundle"``, ``"full"``
         """
         self._storage = _resolve_storage(storage)
         self._routing = routing
@@ -96,6 +129,7 @@ class PyBendApp:
         self._jwt_expiry_hours = jwt_expiry_hours
         self._cors_origins = cors_origins
         self._debug = debug
+        self._ssr_mode = _resolve_ssr(ssr)
 
         self._models: List[Tuple[Type, Optional[AbstractStorage]]] = []
         self._join_pairs: List[Tuple[Type, Type]] = []
@@ -172,6 +206,7 @@ class PyBendApp:
             version=version,
             description=description,
             port=config.PORT,
+            ssr_mode=self._ssr_mode,
         )
 
         # 5. Register routes — direct (Level 1/2) or actor (Level 3)
@@ -207,6 +242,7 @@ def create_app(
     jwt_expiry_hours=24,
     cors_origins=None,
     debug=False,
+    ssr=None,
     name="PyBend",
     version="1.0.0",
     description="",
@@ -227,6 +263,7 @@ def create_app(
         jwt_expiry_hours: JWT token expiry in hours.
         cors_origins: Allowed CORS origins.
         debug: Enable debug mode.
+        ssr: SSR mode (``None``, ``True``, ``False``, or a mode string).
         name: Application name (appears in OpenAPI docs).
         version: Application version string.
         description: Application description.
@@ -241,6 +278,7 @@ def create_app(
         jwt_expiry_hours=jwt_expiry_hours,
         cors_origins=cors_origins,
         debug=debug,
+        ssr=ssr,
     )
     for m in (models or []):
         builder.model(m)

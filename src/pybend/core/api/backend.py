@@ -50,8 +50,9 @@ class FastAPIBackend(BaseBackend):
     AUTH_EXEMPT_PATHS: ClassVar[tuple] = ("/login", "/register", "/docs", "/openapi.json", "/redoc")
     AUTH_EXEMPT_EXTENSIONS: ClassVar[tuple] = (".html", ".js", ".css", ".png", ".ico", ".svg", ".woff", ".woff2", ".ttf")
 
-    def __init__(self, cors_origins: list = None, **data):
+    def __init__(self, cors_origins: list = None, ssr_mode: str = 'off', **data):
         super().__init__(**data)
+        self._ssr_mode = ssr_mode
         from fastapi import FastAPI
         from fastapi.middleware.cors import CORSMiddleware
 
@@ -128,7 +129,9 @@ class FastAPIBackend(BaseBackend):
         from fastapi.staticfiles import StaticFiles
         from fastapi.responses import FileResponse
 
+        ssr_active = self._ssr_mode != 'off'
         static_dir = Path(__file__).resolve().parent.parent.parent / "static"
+        matrix_html_path = None  # Track for SSR
 
         # Serve files from app-specific static directories as explicit routes.
         # These take precedence over the framework catch-all mount, allowing
@@ -143,23 +146,93 @@ class FastAPIBackend(BaseBackend):
                 # URL path relative to the app static root
                 rel = file_path.relative_to(app_path)
                 url_path = "/" + "/".join(rel.parts)
+                # When SSR is on, intercept matrix.html at root level
+                if ssr_active and file_path.name == 'matrix.html' and len(rel.parts) == 1:
+                    matrix_html_path = file_path
+                    continue
                 self.app.get(url_path, include_in_schema=False)(
                     lambda _path=str(file_path): FileResponse(_path)
                 )
 
         if not static_dir.is_dir():
+            # Still mount SSR route if we found matrix.html in app dirs
+            if ssr_active and matrix_html_path:
+                self._mount_ssr_route(matrix_html_path, app_static_dirs)
             return
 
         # Serve framework HTML pages at the root
         for html_file in ("schema.html", "example.html", "matrix.html", "login.html", "register.html"):
             html_path = static_dir / html_file
             if html_path.exists():
+                # When SSR is on, intercept matrix.html
+                if ssr_active and html_file == 'matrix.html':
+                    if matrix_html_path is None:
+                        matrix_html_path = html_path
+                    continue
                 self.app.get(f"/{html_file}", include_in_schema=False)(
                     lambda _path=str(html_path): FileResponse(_path)
                 )
 
+        # Mount SSR route for matrix.html (dynamic, with injected content)
+        if ssr_active and matrix_html_path:
+            self._mount_ssr_route(matrix_html_path, app_static_dirs)
+
         # Mount the framework static directory so JS/CSS imports resolve
         self.app.mount("/", StaticFiles(directory=str(static_dir)), name="static")
+
+    def _mount_ssr_route(self, html_path, app_static_dirs=None):
+        """Mount a dynamic route for matrix.html with SSR content injection.
+
+        Supports four modes via ``self._ssr_mode``:
+        - ``"schema"`` — inject model schema tags
+        - ``"bundle"`` — replace module imports with a single JS bundle
+        - ``"full"`` — both schema tags and JS bundle
+        """
+        from pathlib import Path
+        from fastapi.responses import HTMLResponse
+        from pybend.core.ssr import inject_schemas, inject_bundle, inject_full, inject_css_preloads
+        from pybend.core.ssr.bundler import build_bundle, discover_css_deps
+
+        # Read HTML once at startup
+        with open(html_path) as f:
+            html_template = f.read()
+
+        models = self.registered_models
+        mode = self._ssr_mode
+        cache = {}
+
+        # Build the list of static directories for the bundler
+        static_dirs = list(app_static_dirs or [])
+        framework_static = Path(__file__).resolve().parent.parent.parent / "static"
+        if framework_static.is_dir():
+            static_dirs.append(str(framework_static))
+
+        def _build_ssr_html():
+            if 'html' not in cache:
+                html = html_template
+
+                if mode == 'schema':
+                    css_deps = discover_css_deps(static_dirs)
+                    html = inject_css_preloads(html, css_deps)
+                    html = inject_schemas(html, models)
+                elif mode == 'bundle':
+                    bundle_js = build_bundle(
+                        html_path, static_dirs,
+                    )
+                    html = inject_bundle(html, bundle_js)
+                elif mode == 'full':
+                    bundle_js = build_bundle(
+                        html_path, static_dirs,
+                    )
+                    html = inject_full(html, models, bundle_js)
+
+                cache['html'] = html
+            return cache['html']
+
+        async def ssr_handler():
+            return HTMLResponse(_build_ssr_html())
+
+        self.app.get("/matrix.html", include_in_schema=False)(ssr_handler)
 
     def get_app(self, app_static_dirs=None):
         # Mount static last so HTML routes take precedence over the catch-all mount

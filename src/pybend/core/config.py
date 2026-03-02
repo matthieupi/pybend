@@ -20,6 +20,9 @@ JWT_EXPIRY_HOURS = int(os.getenv("PYBEND_JWT_EXPIRY_HOURS", "24"))
 # Debug mode — controls error detail in API responses
 DEBUG = os.getenv("PYBEND_DEBUG", "true").lower() in ("1", "true")
 
+# SSR configuration
+SSR = os.getenv("PYBEND_SSR", "off").lower()  # "off" | "schema" | "bundle" | "full"
+
 # Apply PYBEND_* environment variable overrides (if set)
 if os.getenv("PYBEND_BACKEND"):
     BACKEND = os.environ["PYBEND_BACKEND"]
@@ -32,6 +35,8 @@ if os.getenv("PYBEND_API_URL"):
     API_URL = os.environ["PYBEND_API_URL"]
 if os.getenv("PYBEND_SQLITE_DB"):
     SQLITE_DB_FILE = os.environ["PYBEND_SQLITE_DB"]
+if os.getenv("PYBEND_SSR"):
+    SSR = os.environ["PYBEND_SSR"].lower()
 
 
 def configure(**kwargs):
