@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="./dark-theme.css">
     <link rel="stylesheet" href="./light-theme.css">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <!-- Preload component CSS — loaded by Shadow DOM at runtime -->
+    <link rel="preload" href="./components/ntt-item.css" as="style" crossorigin>
+    <link rel="preload" href="./components/ntt-list.css" as="style" crossorigin>
+    <link rel="preload" href="./components/ntt-router.css" as="style" crossorigin>
+    <link rel="preload" href="./components/ntt-topbar.css" as="style" crossorigin>
+    <link rel="preload" href="./components/ntt-user.css" as="style" crossorigin>
     <!-- Modulepreload entire dependency tree — eliminates import waterfall -->
     <!-- Leaves -->
     <link rel="modulepreload" href="./config.js">

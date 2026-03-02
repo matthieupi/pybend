@@ -26,8 +26,9 @@ app = create_app(
     storage=storage,
     jwt_secret=config.JWT_SECRET,
     static_dir=os.path.join(os.path.dirname(__file__), 'static'),
+    ssr="off",
     name="PyBend Example",
-    version="0.7.0",
+    version="0.8.0",
     description="Example product catalog with comments and likes",
 )
 
