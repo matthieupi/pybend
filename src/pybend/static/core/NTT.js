@@ -141,7 +141,6 @@ class TT extends Actor{
             this.#observers.get(event.name).forEach(callback => callback(event.data));
         } else {
             Logging.dev(`No handler ${method_name} for event '${event.name}' in PTT [${this.addr}] instance.`);
-            Logging.debug(event)
         }
 
     }
@@ -247,7 +246,6 @@ export class NTT extends TT {
         try {
             const data = JSON.parse(el.textContent);
             el.remove();
-            Logging.debug(`[NTT] Pre-loaded schema for ${model}`);
             NTT.SCHEMA(data);
             return true;
         } catch (e) {
@@ -268,7 +266,6 @@ export class NTT extends TT {
         try {
             const data = JSON.parse(el.textContent);
             el.remove();
-            Logging.debug(`[NTT] Pre-loaded data for ${tablename}`);
             return data;
         } catch (e) {
             Logging.error(`[NTT] Failed to parse pre-loaded data for ${tablename}`, e);
@@ -388,7 +385,6 @@ export class NTT extends TT {
      * stores it in registry, replays queued messages, triggers initial READ.
      */
     static SCHEMA(data, tx) {
-        const finished = Logging.profiling('SCHEMA', data.__name__);
         const addr = data.__name__;
         const href = data.__tablename__
             ? `${config.API_URL}/${data.__tablename__}`
@@ -403,7 +399,6 @@ export class NTT extends TT {
                 // !NTT.#prototypes.get(key) is true for both undefined (never seen)
                 // and null (in-flight) — either way, create from inline $def
                 if (value.type === 'object' && value.properties && !NTT.#prototypes.get(key)) {
-                    Logging.debug(`[NTT.SCHEMA] Registering nested schema from $defs: ${key}`);
                     const defHref = value['$id'] || `${config.API_URL}/${key}`;
                     const DC = prototype(key, value, defHref);
                     NTT.#prototypes.set(key, DC);
@@ -432,7 +427,6 @@ export class NTT extends TT {
             const popDepth = data.ui?.populate?.depth ?? 1;
             DC.call('READ', popDepth > 0 ? {depth: popDepth} : {});
         }
-        finished();
     }
 
     /**
@@ -671,8 +665,6 @@ function normalizePopulated(entity, schema) {
  * @returns {class} DynamicClass extends NTT
  */
 function prototype(addr, schema, href) {
-    const finished = Logging.profiling('prototype()', addr);
-    Logging.debug(`[NTT] Creating DynamicClass for ${addr}`);
     const fields = Object.keys(schema.properties || {});
     const methods = Object.keys(schema.methods || {});
     const className = addr;
@@ -688,7 +680,6 @@ function prototype(addr, schema, href) {
 
 
       constructor(data) {
-        Logging.init(`Dynamic ${className} ${data.id}`, data)
         super(className, data.id);
         this.value = data;
         // Use the entity's $id (context-specific URL) when available.
@@ -917,8 +908,6 @@ function prototype(addr, schema, href) {
      * Replays pending instance ATTACHes, then notifies all watchers.
      */
     DynamicClass.READ = function(data) {
-        const count = Array.isArray(data?.data) ? data.data.length : Array.isArray(data) ? data.length : 1;
-        const finished = Logging.profiling('READ', `${addr} (${count} items)`);
         // Detect paginated response: {data: [...], meta: {...}}
         if (data && !Array.isArray(data) && Array.isArray(data.data) && data.meta) {
             DynamicClass._paginationMeta = data.meta;
@@ -990,7 +979,6 @@ function prototype(addr, schema, href) {
                 data: childrenAddrs
             }));
         });
-        finished();
     };
 
     /**
@@ -1085,7 +1073,6 @@ function prototype(addr, schema, href) {
     // 5. Apply Actor and Mixins
     Actor.subclass(DynamicClass, Observable);
 
-    finished();
     return DynamicClass;
 }
 

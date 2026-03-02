@@ -79,7 +79,7 @@ export class ListElement extends Component {
     if (Array.isArray(data)) {
       const prev = this.value;
       this.value = data;
-      if (!this.update(prev, data)) this.render();
+      if (!this.update(prev, data)) this.scheduleRender();
     } else {
       Logging.warn('[ListElement] UPDATE expected array, got', typeof data);
     }
@@ -211,8 +211,6 @@ export class ListElement extends Component {
 
   render() {
     if (!this.schema || !Array.isArray(this.value)) return;
-    const finished = Logging.profiling('ListElement.render()', `${this.model} (${this.value.length} items)`);
-    Logging.debug(`[ListElement] Rendering ${this.model} — ${this.value.length} items`);
 
     const meta = this.proto?._paginationMeta;
     const total = meta?.total ?? this.value.length;
@@ -226,7 +224,6 @@ export class ListElement extends Component {
       <div class="list-grid"></div>
       ${hasMore ? '<button class="load-more-btn">Load More</button>' : ''}
     `;
-    if (this.$styles) this.shadowRoot.appendChild(this.$styles);
 
     // Batch all child elements into a DocumentFragment first so the browser
     // only performs a single reflow when the fragment is appended to the grid.
@@ -241,6 +238,5 @@ export class ListElement extends Component {
     grid.appendChild(fragment);
 
     this.shadowRoot.querySelector('.load-more-btn')?.addEventListener('click', () => this.loadMore());
-    finished();
   }
 }

@@ -4,7 +4,6 @@ export const config = {
     LOGEVENTS: true,
     LOGSPAWN: true,
     DEBUG: true,
-    PROFILING: true,
     API_URL: 'http://localhost:5000',
     WS_URL: 'ws://localhost:8765',
     DEFAULT_HEADERS: {

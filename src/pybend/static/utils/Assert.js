@@ -19,7 +19,6 @@ export default function assert(caller, condition, message, trigger='error') {
         } else if (trigger === 'warn') {
             Logging.warn(`${caller ? `[${caller.name}]` : ''} Assertion warning`, message || '');
         } else if (trigger === 'info') {
-            Logging.debug(`${caller ? `[${caller.name}]` : ''} Assertion info`, message || '');
         } else {
         }
 };

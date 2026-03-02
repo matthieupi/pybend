@@ -72,22 +72,4 @@ export default class Logging {
         Logging.#push('error', val1, val2);
     }
 
-    /**
-     * Profiling timer — returns a finished() function that logs elapsed time.
-     *
-     * Usage:
-     *   let finished = Logging.profiling('SCHEMA', 'Product');
-     *   // ... work ...
-     *   finished();  // → [PERF] SCHEMA Product — 42.3ms
-     *
-     * When config.PROFILING is false, returns a no-op for zero overhead.
-     */
-    static profiling(name, id) {
-        if (!config.PROFILING) return () => {};
-        const t0 = performance.now();
-        return () => {
-            const ms = (performance.now() - t0).toFixed(1);
-            Logging.#push('warn', `[PERF] ${name} ${id || ''} — ${ms}ms`);
-        };
-    }
 }

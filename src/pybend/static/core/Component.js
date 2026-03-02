@@ -14,6 +14,11 @@ import {matrix} from "./Matrix.js";
 import Actor from "./Actor.js";
 import TX from "./TX.js";
 
+// ── Constructable Stylesheet Cache ──
+// Fetch + parse each CSS file once; share the CSSStyleSheet across all shadow roots.
+const _sheetCache   = new Map();  // URL → CSSStyleSheet (resolved)
+const _sheetPending = new Map();  // URL → Promise<CSSStyleSheet> (in-flight)
+
 
 export class Component extends HTMLElement {
 
@@ -53,9 +58,10 @@ export class Component extends HTMLElement {
   // ── Adaptive display ──
   #displayMode = 'md';
   #resizeObserver = null;
+  #renderPending = false;
 
-  // ── Stylesheet ──
-  $styles = null;
+  // ── Stylesheet readiness ──
+  #styleReady = null;  // null (no styles / cache hit) or Promise (in-flight fetch)
 
   /**
    * @param {Object|Array} defaultValue — subclass passes {} (entity) or [] (collection)
@@ -81,13 +87,17 @@ export class Component extends HTMLElement {
     // Bind callbacks that are passed as references
     this.define = this.define.bind(this);
 
-    // Stylesheet
+    // Stylesheet — constructable stylesheet, parsed once and shared.
+    // Cache hit: adopt synchronously (no FOUC).
+    // Cache miss: store the adoption promise; scheduleRender() defers until ready.
     if (this.styles) {
-      const $link = document.createElement('link');
-      $link.setAttribute('rel', 'stylesheet');
-      $link.setAttribute('href', this.styles);
-      this.shadowRoot.appendChild($link);
-      this.$styles = $link;
+      const url = this.styles;
+      const cached = _sheetCache.get(url);
+      if (cached) {
+        this.shadowRoot.adoptedStyleSheets = [cached];
+      } else {
+        this.#styleReady = this.#adoptStylesheet(url);
+      }
     }
   }
 
@@ -102,7 +112,6 @@ export class Component extends HTMLElement {
 
   attributeChangedCallback(name, oldVal, newVal) {
     if (oldVal === newVal) return;
-    Logging.debug(`[Component] ${this.constructor.name}.${name}: ${oldVal} => ${newVal}`);
 
     if (name === 'display') {
       const normalized = Component.normalizeDisplay(newVal);
@@ -165,7 +174,6 @@ export class Component extends HTMLElement {
    * Sets proto, infers model name, triggers definedCallback().
    */
   define(ptt) {
-    Logging.debug(`[Component] ${this.model} — define()`, ptt);
     if (!ptt.schema || ptt.schema.__name__ === this.#proto?.schema?.__name__) return;
     if (!this.#model) { this.#model = ptt.schema.__name__; }
     this.#proto = ptt;
@@ -245,6 +253,33 @@ export class Component extends HTMLElement {
    */
   get styles() { return null; }
 
+  /**
+   * Fetch a CSS file, create a CSSStyleSheet, cache it, and adopt it.
+   * Deduplicates in-flight fetches so concurrent constructors share one request.
+   */
+  async #adoptStylesheet(url) {
+    let pending = _sheetPending.get(url);
+    if (!pending) {
+      pending = fetch(url)
+        .then(r => { if (!r.ok) throw new Error(`CSS ${r.status}`); return r.text(); })
+        .then(css => {
+          const sheet = new CSSStyleSheet();
+          sheet.replaceSync(css);
+          _sheetCache.set(url, sheet);
+          _sheetPending.delete(url);
+          return sheet;
+        })
+        .catch(err => {
+          Logging.warn(`[Component] Failed to load stylesheet: ${url}`, err.message);
+          _sheetPending.delete(url);
+          return null;
+        });
+      _sheetPending.set(url, pending);
+    }
+    const sheet = await pending;
+    if (sheet) this.shadowRoot.adoptedStyleSheets = [sheet];
+  }
+
 
   /** ─────────────────────────────────────────── **/
   /**         Adaptive Display Mode                **/
@@ -284,14 +319,36 @@ export class Component extends HTMLElement {
 
   /**
    * Hook called when displayMode changes due to resize.
-   * Default: re-renders if schema is available.
+   * Default: schedules a render if schema is available.
    * Override for custom behavior (e.g. CSS-only swap).
    * @param {string} oldMode
    * @param {string} newMode
    */
   displayModeChanged(oldMode, newMode) {
     if (this._schema || this.#proto?.schema) {
+      this.scheduleRender();
+    }
+  }
+
+  /**
+   * Coalesce render calls — multiple triggers in the same frame
+   * produce a single render(). Prevents double-render when DESCRIBE
+   * and ResizeObserver fire in quick succession.
+   *
+   * If a stylesheet is still being fetched (#styleReady), defers the
+   * render until the sheet is adopted — prevents unstyled content flash.
+   */
+  scheduleRender() {
+    if (this.#renderPending) return;
+    this.#renderPending = true;
+    const doRender = () => {
+      this.#renderPending = false;
       this.render();
+    };
+    if (this.#styleReady) {
+      this.#styleReady.then(() => requestAnimationFrame(doRender));
+    } else {
+      requestAnimationFrame(doRender);
     }
   }
 

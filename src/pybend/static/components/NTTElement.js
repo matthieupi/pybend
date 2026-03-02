@@ -35,7 +35,7 @@ export class NTTElement extends Component {
     // Auto-render when we have both schema and data
     if (this.schema && this.schema.__name__) {
       if (!this.update(prev, data)) {
-        this.render();
+        this.scheduleRender();
       }
     }
   }

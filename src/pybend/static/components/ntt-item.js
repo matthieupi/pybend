@@ -37,7 +37,6 @@ export class NTTItem extends NTTElement {
       const size = this.displayMode;
       this.shadowRoot.innerHTML =
         `<div class="card skeleton" data-display="${size}">${this.placeholder(size)}</div>`;
-      if (this.$styles) this.shadowRoot.appendChild(this.$styles);
     }
   }
 
@@ -468,7 +467,6 @@ export class NTTItem extends NTTElement {
 
   render() {
     if (!this.schema || !this.value) return;
-    const finished = Logging.profiling('ntt-item.render()', `${this.schema?.__name__}/${this.value?.id} [${this.displayMode}]`);
 
     const size = this.displayMode;
     const html = (this[size] || this.md).call(this);
@@ -480,12 +478,10 @@ export class NTTItem extends NTTElement {
     const isReply = this.value?.parent_id && this.schema?.properties?.parent_id?.type === 'selfref';
     const indentClass = isReply ? ' reply-indent' : '';
     this.shadowRoot.innerHTML = `<div class="card${indentClass}" data-display="${layoutSize}">${html}</div>`;
-    if (this.$styles) this.shadowRoot.appendChild(this.$styles);
     this._rendered = true;
 
     this.#bindEvents();
     this[`${size}_mounted`]?.call(this);
-    finished();
   }
 
 

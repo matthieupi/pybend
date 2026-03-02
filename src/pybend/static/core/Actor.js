@@ -23,7 +23,6 @@ export default class Actor {
         this.#addr = addr
         this.#parent = this.constructor
         this.#children = new Map(); // Child actors
-        Logging.init(`Actor ${this.addr}`, this)
         this.constructor.register(this); // Register in type-level children map
         // Bindings
         this.inbox = this.inbox.bind(this);
@@ -82,7 +81,7 @@ export default class Actor {
         // Routing logic
         // Case 1: target is directly one of our children (by addr)
         if (children && children.has(targetParent)) {
-            children.get(targetParent).inbox(tx.repr());
+            children.get(targetParent).inbox(tx);
         }
         
         // Case 2: target looks like "/this.addr/child-addr" and we own that child
@@ -90,7 +89,7 @@ export default class Actor {
             if (children && targetChild && children.has(targetChild)) {
                 tx.target = rawTarget.replace(sourcePrefix, "");
                 tx.target = rawTarget.replace(typeAddr, "");
-                children.get(targetChild).inbox(tx.repr());
+                children.get(targetChild).inbox(tx);
             } else {
                 Logging.error(`[Actor.${this.addr}_send] Cannot route to ${targetChild}`)
                 throw new Error(
@@ -121,7 +120,7 @@ export default class Actor {
             */
 
             // No parent type handled it → bubble to root Matrix
-            return ROOT_ACTOR.inbox(tx.repr())
+            return ROOT_ACTOR.inbox(tx)
             
         }
 
@@ -132,7 +131,6 @@ export default class Actor {
         const tx = event instanceof TX ? event : new TX(event);
         const Type = this;
         const Prototype = Object.getPrototypeOf(this);
-        Logging.event(event)
         if (tx.target === `/${Type.addr}` || tx.target === Type.addr) {
             // Check if has method
             if (typeof this[tx.name] === "function") {

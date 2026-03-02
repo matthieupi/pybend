@@ -75,7 +75,6 @@ export class NTTRouter extends Component {
             this.#currentView = null;
         }
         this.shadowRoot.innerHTML = '<slot></slot>';
-        if (this.$styles) this.shadowRoot.appendChild(this.$styles);
     }
 
     /** Resolve route data -> element tag + attributes, create and mount */
@@ -109,7 +108,6 @@ export class NTTRouter extends Component {
             </div>
             <div class="router-content"></div>
         `;
-        if (this.$styles) this.shadowRoot.appendChild(this.$styles);
 
         // Back button -> BACK TX to Router
         if (showBack) {

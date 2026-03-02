@@ -53,7 +53,6 @@ import Logging from '../utils/Logging.js';
 
 
   function getForm(ntt, mode="display", attachedMethods = {}) {
-      const finished = Logging.profiling('getForm()', `${ntt.schema?.__name__} [${mode}]`);
       const { renderableFields, groups } = _getLayout(ntt.schema, mode);
 
       let $header = getHeader(ntt, mode);
@@ -78,7 +77,6 @@ import Logging from '../utils/Logging.js';
           $fields = fieldsHtml;
       }
 
-      finished();
       return $header.concat($fields).join('');
   }
 

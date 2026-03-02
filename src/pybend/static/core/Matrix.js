@@ -25,8 +25,6 @@ export class Matrix extends Actor {
    
     inbox(event) {
         let tx = event instanceof TX ? event : new TX(event);
-        //console.warn(`Matrix received event '${event.name}' for target: ${event.target}`, event);
-        //console.log(`[MATRIX] Inbox received event '${event.source}' for target: ${event.target}`);
         Logging.event(tx);
 
         let targetAddr = tx.target.split('/')[0];
@@ -36,11 +34,8 @@ export class Matrix extends Actor {
         } else if (tx.target === this.addr) {
             throw new Error(`Matrix cannot send messages to itself at address ${this.addr}.`);
         } else if (this.children.has(targetAddr)) {
-            // Forward to local child actor
-            //console.log(`[MATRIX] Forwarding event '${tx.name}' to local actor at address:`, targetAddr)
-            //tx.target = tx.target.replace(`${targetAddr}`, '').replace(/^\/+/,''); // Remove the processed prefix
             Logging.dev(`[MATRIX] Forwarding '${tx.name}' to ${targetAddr}`)
-            tx = this.children.get(targetAddr).inbox(tx.repr())
+            tx = this.children.get(targetAddr).inbox(tx)
         } else {
             tx = this.remote.send(tx);
         }
@@ -58,7 +53,7 @@ export class Matrix extends Actor {
         const [sourceClass, ...sourceAddrRemainder] = source.split('/').filter(part => part);
         const [targetClass, ...targetAddrRemainder] = target.split('/').filter(part => part);
         if (this.children.has(targetClass)) {
-            let tx = this.children.get(targetClass).inbox(new TX({name: E.connect, source: source, target: target}).repr());
+            let tx = this.children.get(targetClass).inbox(new TX({name: E.connect, source: source, target: target}));
             return tx;
         } else {
             // Get the actor from the remote
