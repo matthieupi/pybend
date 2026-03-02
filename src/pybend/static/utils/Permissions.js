@@ -19,6 +19,7 @@ class Permissions {
   #user = null;
   #ready = false;
   #promise = null;
+  #ruleCache = new Map(); // Memoizes evaluateRule results by rule string
 
   /** Current user identity (null if not authenticated). */
   get user() { return this.#user; }
@@ -63,6 +64,7 @@ class Permissions {
     }
 
     this.#ready = true;
+    this.#ruleCache.clear(); // Invalidate permission cache on auth change
     return this.#user;
   }
 
@@ -80,7 +82,7 @@ class Permissions {
    * @returns {boolean}
    */
   canView(fieldDef) {
-    return this.#evaluateRule(fieldDef?.access?.view);
+    return this.#cachedEval(fieldDef?.access?.view);
   }
 
   /**
@@ -91,7 +93,7 @@ class Permissions {
    * @returns {boolean}
    */
   canEdit(fieldDef) {
-    return this.#evaluateRule(fieldDef?.access?.edit);
+    return this.#cachedEval(fieldDef?.access?.edit);
   }
 
   /**
@@ -120,6 +122,20 @@ class Permissions {
   }
 
   // ── Internal ──
+
+  /**
+   * Memoized rule evaluation — returns cached result for identical rules.
+   * Cache is cleared on auth state change (#fetchUser).
+   */
+  #cachedEval(rule) {
+    if (rule === undefined || rule === null) return true;
+    if (rule === 'anyone') return true;
+    const cached = this.#ruleCache.get(rule);
+    if (cached !== undefined) return cached;
+    const result = this.#evaluateRule(rule);
+    this.#ruleCache.set(rule, result);
+    return result;
+  }
 
   /**
    * Evaluate a simple string rule against the current user.

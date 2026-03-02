@@ -388,17 +388,22 @@ export class NTT extends TT {
      * stores it in registry, replays queued messages, triggers initial READ.
      */
     static SCHEMA(data, tx) {
+        const finished = Logging.profiling('SCHEMA', data.__name__);
         const addr = data.__name__;
         const href = data.__tablename__
             ? `${config.API_URL}/${data.__tablename__}`
             : `${config.API_URL}/${addr}`;
 
-        // Handle $defs (nested schemas) first — skip the main model itself
+        // Handle $defs (nested schemas) first — skip the main model itself.
+        // Use inline $defs even when a separate fetch is in-flight (null in prototypes)
+        // to avoid waiting for the network when the data is already here.
         if (data.$defs && typeof data.$defs === 'object') {
             for (const [key, value] of Object.entries(data.$defs)) {
                 if (key === addr) continue; // Main model handled below
-                if (value.type === 'object' && value.properties && !NTT.has(key)) {
-                    Logging.debug(`[NTT.SCHEMA] Registering nested schema: ${key}`);
+                // !NTT.#prototypes.get(key) is true for both undefined (never seen)
+                // and null (in-flight) — either way, create from inline $def
+                if (value.type === 'object' && value.properties && !NTT.#prototypes.get(key)) {
+                    Logging.debug(`[NTT.SCHEMA] Registering nested schema from $defs: ${key}`);
                     const defHref = value['$id'] || `${config.API_URL}/${key}`;
                     const DC = prototype(key, value, defHref);
                     NTT.#prototypes.set(key, DC);
@@ -407,9 +412,13 @@ export class NTT extends TT {
             }
         }
 
-        // Create DynamicClass for the main model
-        const DC = prototype(addr, data, href);
-        NTT.#prototypes.set(addr, DC);
+        // Create DynamicClass for the main model — skip if already created
+        // (e.g. from another schema's $defs) to avoid orphaning existing references
+        let DC = NTT.#prototypes.get(addr);
+        if (!DC) {
+            DC = prototype(addr, data, href);
+            NTT.#prototypes.set(addr, DC);
+        }
 
         // Replay queued messages + callbacks
         NTT.#replayWaiting(addr, DC);
@@ -423,6 +432,7 @@ export class NTT extends TT {
             const popDepth = data.ui?.populate?.depth ?? 1;
             DC.call('READ', popDepth > 0 ? {depth: popDepth} : {});
         }
+        finished();
     }
 
     /**
@@ -661,6 +671,7 @@ function normalizePopulated(entity, schema) {
  * @returns {class} DynamicClass extends NTT
  */
 function prototype(addr, schema, href) {
+    const finished = Logging.profiling('prototype()', addr);
     Logging.debug(`[NTT] Creating DynamicClass for ${addr}`);
     const fields = Object.keys(schema.properties || {});
     const methods = Object.keys(schema.methods || {});
@@ -906,6 +917,8 @@ function prototype(addr, schema, href) {
      * Replays pending instance ATTACHes, then notifies all watchers.
      */
     DynamicClass.READ = function(data) {
+        const count = Array.isArray(data?.data) ? data.data.length : Array.isArray(data) ? data.length : 1;
+        const finished = Logging.profiling('READ', `${addr} (${count} items)`);
         // Detect paginated response: {data: [...], meta: {...}}
         if (data && !Array.isArray(data) && Array.isArray(data.data) && data.meta) {
             DynamicClass._paginationMeta = data.meta;
@@ -977,6 +990,7 @@ function prototype(addr, schema, href) {
                 data: childrenAddrs
             }));
         });
+        finished();
     };
 
     /**
@@ -1071,6 +1085,7 @@ function prototype(addr, schema, href) {
     // 5. Apply Actor and Mixins
     Actor.subclass(DynamicClass, Observable);
 
+    finished();
     return DynamicClass;
 }
 

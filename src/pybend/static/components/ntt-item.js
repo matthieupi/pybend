@@ -17,6 +17,7 @@ import {NTT} from '../core/NTT.js';
 import {Formidable} from '../generators/form.js';
 import {permissions} from '../utils/Permissions.js';
 import TX from '../core/TX.js';
+import Logging from '../utils/Logging.js';
 import './ntt-method.js';
 
 
@@ -467,6 +468,7 @@ export class NTTItem extends NTTElement {
 
   render() {
     if (!this.schema || !this.value) return;
+    const finished = Logging.profiling('ntt-item.render()', `${this.schema?.__name__}/${this.value?.id} [${this.displayMode}]`);
 
     const size = this.displayMode;
     const html = (this[size] || this.md).call(this);
@@ -483,6 +485,7 @@ export class NTTItem extends NTTElement {
 
     this.#bindEvents();
     this[`${size}_mounted`]?.call(this);
+    finished();
   }
 
 

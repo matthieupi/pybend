@@ -1,6 +1,44 @@
 import { permissions } from '../utils/Permissions.js';
 import Logging from '../utils/Logging.js';
 
+  // Layout cache: stores { renderableFields, groups } per schema+mode+role.
+  // Eliminates O(n²) field order computation and repeated permission checks
+  // across all items sharing the same schema (e.g. 30 Product cards).
+  const _layoutCache = new Map();
+  const _headerFieldSet = new Set(['name', 'id', 'description']);
+
+  function _getLayout(schema, mode) {
+      const cacheKey = `${schema.__name__ || schema.title || ''}:${mode}:${permissions.role}`;
+      const cached = _layoutCache.get(cacheKey);
+      if (cached) return cached;
+
+      const fields = schema.properties || {};
+      const ui = schema.ui || {};
+
+      // O(n) field order with Set (was O(n²) with Array.includes)
+      const fieldOrder = ui.field_order
+          ? ui.field_order.filter(k => k in fields)
+          : Object.keys(fields);
+      const inOrder = new Set(fieldOrder);
+      for (const k of Object.keys(fields)) {
+          if (!inOrder.has(k)) fieldOrder.push(k);
+      }
+
+      // Filter renderable fields — permission checks run once per schema, not per item
+      const renderableFields = fieldOrder.filter(key => {
+          if (_headerFieldSet.has(key)) return false;
+          const def = fields[key];
+          if (def?.ui?.display === false) return false;
+          if (mode === 'edit' && def?.ui?.protected) return false;
+          if (!permissions.canView(def)) return false;
+          return true;
+      });
+
+      const layout = { renderableFields, groups: ui.groups };
+      _layoutCache.set(cacheKey, layout);
+      return layout;
+  }
+
   function refInput(ref) {
     const ptt = NTT.get(ref);
     if (!ptt) {
@@ -10,41 +48,20 @@ import Logging from '../utils/Logging.js';
     // Assuming ptt has a schema with properties
     const schema = ptt.schema || {};
     return getForm(schema);
-    
-  }
-  
-  
-  function getForm(ntt, mode="display", attachedMethods = {}) {
-      const schema = ntt.schema;
-      const fields = schema.properties || {};
-      const ui = schema.ui || {};
-      const headerFields = ['name', 'id', 'description'];
 
-      // Determine field order: schema.ui.field_order > Object.keys fallback
-      const fieldOrder = ui.field_order
-          ? ui.field_order.filter(k => k in fields)
-          : Object.keys(fields);
-      // Add any fields not in field_order (safety net)
-      for (const k of Object.keys(fields)) {
-          if (!fieldOrder.includes(k)) fieldOrder.push(k);
-      }
+  }
+
+
+  function getForm(ntt, mode="display", attachedMethods = {}) {
+      const finished = Logging.profiling('getForm()', `${ntt.schema?.__name__} [${mode}]`);
+      const { renderableFields, groups } = _getLayout(ntt.schema, mode);
 
       let $header = getHeader(ntt, mode);
 
-      // Filter renderable fields (exclude header fields, ui.display=false, and access-denied)
-      const renderableFields = fieldOrder.filter(key => {
-          if (headerFields.includes(key)) return false;
-          const def = fields[key];
-          if (def?.ui?.display === false) return false;
-          if (mode === 'edit' && def?.ui?.protected) return false;
-          if (!permissions.canView(def)) return false;
-          return true;
-      });
-
       // Render with groups if schema.ui.groups is defined
       let $fields;
-      if (ui.groups && typeof ui.groups === 'object') {
-          $fields = renderGroupedFields(ntt, renderableFields, ui.groups, mode, attachedMethods);
+      if (groups && typeof groups === 'object') {
+          $fields = renderGroupedFields(ntt, renderableFields, groups, mode, attachedMethods);
       } else {
           // Ungrouped: render fields, then append attached methods after their target field
           let fieldsHtml = renderableFields.map(key => {
@@ -61,6 +78,7 @@ import Logging from '../utils/Logging.js';
           $fields = fieldsHtml;
       }
 
+      finished();
       return $header.concat($fields).join('');
   }
 
@@ -364,5 +382,7 @@ export const Formidable = {
     getListInput,
     getArrayInput,
     renderGroupedFields,
-    formatDisplayValue
+    formatDisplayValue,
+    /** Clear layout cache (call on login/logout to refresh permission-dependent layouts). */
+    clearCache() { _layoutCache.clear(); }
 }
