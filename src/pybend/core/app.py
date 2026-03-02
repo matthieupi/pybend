@@ -224,6 +224,18 @@ class PyBendApp:
         else:
             backend.register_routes(registered_models)
 
+        # 5b. Mount discovery endpoints (/_meta, /.well-known/agent.json)
+        from pybend.core.api.discovery import create_discovery_routes
+
+        base_url = f'http://{config.HOST}:{config.PORT}'
+        backend.app.include_router(create_discovery_routes(
+            registered_models=registered_models,
+            name=name,
+            version=version,
+            base_url=base_url,
+            description=description,
+        ))
+
         # 6. Return the FastAPI app instance
         #    get_app() mounts the framework's own static directory last
         #    so that HTML routes take precedence over the catch-all mount.
