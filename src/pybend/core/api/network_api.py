@@ -70,6 +70,19 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
 
     router = APIRouter()
 
+    # Utility routes (not model-specific, no actor routing needed)
+    @router.get("/auth/me", tags=["Auth"])
+    async def auth_me(request: Request):
+        """Return the current user's identity from the JWT token."""
+        user = _get_user(request)
+        if not user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        return {
+            "user_id": user.get("user_id"),
+            "email": user.get("email"),
+            "role": user.get("role", "user"),
+        }
+
     # Pass 1: Static collection routes for join models (must come first)
     for model_name, model_class in models_dict.items():
         parent_class = getattr(model_class, '__owner__', None)
@@ -228,7 +241,7 @@ def _register_crud_routes(
         parent_id: int = None,
         limit: int = Query(default=None, ge=1, le=100),
         offset: int = Query(default=None, ge=0),
-        _addr=addr, _cls=model_class,
+        _addr=addr, _cls=model_class, _has_parent=has_parent,
     ):
         user = _get_user(request)
         data = {}
@@ -236,6 +249,8 @@ def _register_crud_routes(
             data['limit'] = limit
         if offset is not None:
             data['offset'] = offset
+        if parent_id and _has_parent:
+            data['parent_id'] = parent_id
 
         response = await api_adapter.request(
             TX(
@@ -245,7 +260,18 @@ def _register_crud_routes(
             ),
             timeout=30.0,
         )
-        return _response_or_raise(response)
+        result = _response_or_raise(response)
+
+        # Post-filter by parent FK (mirrors Level 1/2 routes_fastapi.py behavior)
+        if parent_id and _has_parent:
+            fk_field = f"{_cls.__owner__.__name__.lower()}_id"
+            if isinstance(result, list):
+                result = [r for r in result if r.get(fk_field) == parent_id]
+            elif isinstance(result, dict) and 'data' in result:
+                result['data'] = [
+                    r for r in result['data'] if r.get(fk_field) == parent_id
+                ]
+        return result
 
     # GET - single item
     @router.get(f"{endpoint_base}/{{id:int}}", tags=[tag],

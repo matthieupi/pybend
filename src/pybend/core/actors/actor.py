@@ -308,6 +308,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
             await Product.inbox(tx)   # target = Product
             await product.inbox(tx)   # target = product
         """
+        print(tx)
         interceptors = Actor._get_interceptors(target, 'inbox')
         if interceptors:
             tx = await Actor._run_interceptors(interceptors, tx)

@@ -66,7 +66,7 @@ class ActorModel(Actor, ProtoModel):
             try:
                 if isinstance(result, TX):
                     await target.send(result)
-                elif isinstance(result, dict):
+                elif isinstance(result, (dict, list)):
                     await target.send(tx.reply(data=result))
                 elif result is not None:
                     await target.send(tx.reply(data={'result': result}))
@@ -76,23 +76,66 @@ class ActorModel(Actor, ProtoModel):
                 logger.error(f"[{target.addr}] Error dispatching {tx.name}: {e}")
                 await target.send(tx.error(str(e)))
         else:
-            # Generic fallback: getattr(target, tx.name) → method(tx.data, tx)
+            # Generic fallback for custom @expose_route methods and other messages.
             method = getattr(target, tx.name, None)
             if method and callable(method):
                 try:
-                    if asyncio.iscoroutinefunction(method):
-                        result = await method(tx.data, tx)
+                    data = tx.data or {}
+                    is_exposed = hasattr(method, '__endpoint__')
+
+                    if is_exposed:
+                        # @expose_route method: unpack data as kwargs.
+                        # Instance methods need 'self' resolved from id in data.
+                        from inspect import signature as get_sig
+                        sig = get_sig(method)
+                        is_instance = 'self' in sig.parameters
+                        kwargs = {k: v for k, v in data.items() if k != 'id'}
+
+                        if is_instance:
+                            entity_id = data.get('id')
+                            if not entity_id:
+                                await target.send(tx.error("'id' required for instance method", code=400))
+                                return
+                            instance = cls.get(entity_id)
+                            if not instance:
+                                await target.send(tx.error(f"{cls.__name__} {entity_id} not found", code=404))
+                                return
+                            result = method(instance, **kwargs)
+                        else:
+                            result = method(**kwargs)
                     else:
-                        result = method(tx.data, tx)
+                        # Non-exposed method: original (data, tx) signature
+                        if asyncio.iscoroutinefunction(method):
+                            result = await method(data, tx)
+                        else:
+                            result = method(data, tx)
                 except Exception as e:
-                    logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
-                    await target.send(tx.error(str(e)))
+                    from pybend.core.utils.erroring import MethodError
+                    if isinstance(e, MethodError):
+                        code, msg = e.status_code, e.message
+                    elif hasattr(e, 'status_code') and hasattr(e, 'detail'):
+                        # HTTPException from FastAPI
+                        code, msg = e.status_code, e.detail
+                    elif isinstance(e, TypeError) and 'required' in str(e):
+                        code, msg = 400, str(e)
+                    else:
+                        code, msg = 500, str(e)
+                    logger.error(f"[{target.addr}] Error in {tx.name}: {msg}")
+                    await target.send(tx.error(msg, code=code))
                     return
 
                 if isinstance(result, TX):
                     await target.send(result)
-                elif isinstance(result, dict):
+                elif isinstance(result, (dict, list)):
                     await target.send(tx.reply(data=result))
+                elif isinstance(result, str):
+                    # Try to parse JSON strings (custom methods return JSON strings)
+                    import json
+                    try:
+                        parsed = json.loads(result)
+                        await target.send(tx.reply(data=parsed))
+                    except (json.JSONDecodeError, TypeError):
+                        await target.send(tx.reply(data={'result': result}))
                 elif result is not None:
                     await target.send(tx.reply(data={'result': result}))
                 else:
@@ -179,11 +222,17 @@ class ActorModel(Actor, ProtoModel):
 
             elif name == 'list':
                 # sql_filter computed by Tier 1 interceptor, passed via meta
-                return cls.list(
+                result = cls.list(
                     sql_filter=tx.meta.get('sql_filter'),
                     limit=data.get('limit'),
                     offset=data.get('offset'),
                 )
+                # Serialize model instances with $schema/$id (matches Level 1/2)
+                _ser = lambda r: r.model_response() if hasattr(r, 'model_response') else r
+                if isinstance(result, dict) and 'data' in result:
+                    result['data'] = [_ser(r) for r in result['data']]
+                    return result
+                return [_ser(r) for r in result]
 
             elif name == 'update':
                 entity_id = data.get('id')
