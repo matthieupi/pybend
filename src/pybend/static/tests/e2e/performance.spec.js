@@ -5,7 +5,7 @@
  * performance changes as data grows. The API-side profiling runner handles
  * seeding at each tier; this test captures browser-side timings.
  *
- * Outputs: .profiling/frontend_perf_{label}.json
+ * Outputs: .traces/.profiling/frontend_perf_{label}.json
  *
  * Environment variables:
  *   PERF_LABEL  - Tag for this run (e.g. "baseline", "optimized"). Default: "run"
@@ -22,7 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const harnessCode = readFileSync(join(__dirname, 'perf-harness.js'), 'utf-8');
 
 // Resolve profiling output dir: env var > workspace root (5 levels up from tests/e2e/)
-const PROFILING_DIR = process.env.PYBEND_PROFILING_DIR || join(__dirname, '..', '..', '..', '..', '..', '.profiling');
+const PROFILING_DIR = process.env.PYBEND_PROFILING_DIR || join(__dirname, '..', '..', '..', '..', '..', '.traces', '.profiling');
 const LABEL = process.env.PERF_LABEL || 'run';
 const TIER = process.env.PERF_TIER || 'full';
 

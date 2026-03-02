@@ -23,7 +23,7 @@ from pybend.core.tests.profiling.seed_perf import tier_record_count
 WORKSPACE = Path(__file__).resolve().parents[5]
 EXAMPLE_DIR = WORKSPACE / 'src' / 'pybend' / 'example'
 SEED_SCRIPT = Path(__file__).resolve().parent / 'seed_perf.py'
-PROFILING_DIR = WORKSPACE / '.profiling'
+PROFILING_DIR = WORKSPACE / '.traces' / '.profiling'
 PROFILING_PORT = 5099
 SERVER_URL = f'http://localhost:{PROFILING_PORT}'
 TIERS = ['empty', 'small', 'medium', 'large', 'full']

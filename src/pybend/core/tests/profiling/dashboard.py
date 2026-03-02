@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 import uvicorn
 
 WORKSPACE = Path(__file__).resolve().parents[5]
-PROFILING_DIR = WORKSPACE / '.profiling'
+PROFILING_DIR = WORKSPACE / '.traces' / '.profiling'
 HISTORY_FILE = PROFILING_DIR / 'profiling_history.jsonl'
 DASHBOARD_HTML = Path(__file__).parent / 'dashboard.html'
 

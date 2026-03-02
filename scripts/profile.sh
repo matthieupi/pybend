@@ -11,14 +11,14 @@
 #   ./scripts/profile.sh api-only <label>  # Run only API profiling (no E2E)
 #   ./scripts/profile.sh dashboard         # Launch the profiling dashboard
 #
-# Output goes to .profiling/ in the workspace root.
+# Output goes to .traces/.profiling/ in the workspace root.
 
 set -euo pipefail
 
 WORKSPACE="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$WORKSPACE"
 
-PROFILING_DIR=".profiling"
+PROFILING_DIR=".traces/.profiling"
 mkdir -p "$PROFILING_DIR"
 
 PYTHON="${PYTHON:-python3}"
@@ -124,7 +124,7 @@ case "${1:-help}" in
         echo "  full          Stash -> baseline -> unstash -> optimized -> compare (API + E2E)"
         echo "  dashboard     Launch the profiling dashboard web UI"
         echo ""
-        echo "Output: .profiling/"
+        echo "Output: .traces/.profiling/"
         ;;
     *)
         echo "Unknown command: $1"

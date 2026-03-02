@@ -3,7 +3,7 @@ Compare two profiling runs and output a delta table.
 
 Usage:
     python -m pybend.core.tests.profiling.compare <file_a> <file_b>
-    python -m pybend.core.tests.profiling.compare .profiling/api_perf_baseline.json .profiling/api_perf_optimized.json
+    python -m pybend.core.tests.profiling.compare .traces/.profiling/api_perf_baseline.json .traces/.profiling/api_perf_optimized.json
 """
 import json
 import sys
@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pybend.core.tests.profiling.seed_perf import tier_record_count
 
-PROFILING_DIR = Path('.profiling')
+PROFILING_DIR = Path('.traces/.profiling')
 
 
 def load_results(path):

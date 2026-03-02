@@ -2,7 +2,7 @@
 ASGI profiling middleware using pyinstrument.
 
 Wraps each API request with a pyinstrument Profiler and writes
-per-request flame-graph text to `.profiling/perf_run_{label}.log`.
+per-request flame-graph text to `.traces/.profiling/perf_run_{label}.log`.
 
 Enable by setting PYBEND_PROFILING=1 and PYBEND_PROFILING_LABEL=<label>.
 """
@@ -17,7 +17,7 @@ try:
 except ImportError:
     Profiler = None
 
-_default_dir = str(Path(__file__).resolve().parents[5] / '.profiling')
+_default_dir = str(Path(__file__).resolve().parents[5] / '.traces' / '.profiling')
 PROFILING_DIR = Path(os.environ.get('PYBEND_PROFILING_DIR', _default_dir))
 SKIP_EXTENSIONS = ('.js', '.css', '.html', '.png', '.ico', '.svg',
                    '.woff', '.woff2', '.ttf', '.map')

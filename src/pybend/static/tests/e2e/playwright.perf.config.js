@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WORKSPACE = resolve(__dirname, '..', '..', '..', '..', '..');
 const EXAMPLE_DIR = resolve(WORKSPACE, 'src', 'pybend', 'example');
-const PROFILING_DIR = resolve(WORKSPACE, '.profiling');
+const PROFILING_DIR = resolve(WORKSPACE, '.traces', '.profiling');
 
 export default defineConfig({
   testDir: '.',
