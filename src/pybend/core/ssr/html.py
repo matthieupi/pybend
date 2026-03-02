@@ -129,6 +129,10 @@ def inject_bundle(html: str, bundle_js: str) -> str:
 def inject_full(html: str, models: dict, bundle_js: str) -> str:
     """Inject both schema tags and the JS bundle (mode="full").
 
+    Schema tags are injected BEFORE the bundle so they are already in
+    the DOM when the synchronous bundle script executes and calls
+    ``#consumePreloadedSchema()``.
+
     Args:
         html: original HTML string.
         models: dict of registered models.
@@ -137,13 +141,8 @@ def inject_full(html: str, models: dict, bundle_js: str) -> str:
     Returns:
         HTML with both schemas and bundle injected.
     """
-    # First inject the bundle (which strips modulepreload/module scripts)
+    # Schemas first — must be in DOM before bundle executes
+    html = inject_schemas(html, models)
+    # Then bundle (strips modulepreload/module scripts, injects <script>)
     html = inject_bundle(html, bundle_js)
-    # Then inject schema tags (before </body>, after the bundle)
-    tags_html = build_schema_tags(models)
-    if tags_html:
-        html = html.replace(
-            '</body>',
-            f'    <!-- SSR: Pre-loaded schemas -->\n{tags_html}\n</body>'
-        )
     return html
