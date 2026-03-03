@@ -8,7 +8,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, getToken, USERS } from './fixtures/auth.js';
 
-const APP_URL = '/matrix.html';
+const APP_URL = '/';
 
 
 test.describe('form-rendering — Field Type Rendering (Display Mode)', () => {

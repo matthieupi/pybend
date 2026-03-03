@@ -31,7 +31,7 @@ def run():
         errors = []
         page.on('pageerror', lambda err: errors.append(str(err)))
 
-        page.goto('http://localhost:5000/matrix.html')
+        page.goto('http://localhost:5000/index.html')
         page.evaluate(f"() => localStorage.setItem('jwtToken', '{token}')")
         page.reload()
         page.wait_for_timeout(6000)

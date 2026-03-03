@@ -159,7 +159,7 @@
 
         const data = await resp.json();
         window.localStorage.setItem('jwtToken', data.token);
-        window.location.href = '/matrix.html';
+        window.location.href = '/';
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
@@ -174,7 +174,7 @@
       fetch('/Product', { headers: { 'x-access-token': existingToken } })
         .then(resp => {
           if (resp.ok) {
-            window.location.href = '/matrix.html';
+            window.location.href = '/';
           } else {
             // Token is expired/invalid — clear it and stay on register
             window.localStorage.removeItem('jwtToken');

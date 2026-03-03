@@ -5,7 +5,7 @@ Replaces the ES module import waterfall with a single self-contained
 ``<script>`` using esbuild (already installed in ``static/node_modules/``).
 
 The bundler:
-1. Parses matrix.html for ``<script type="module" src="...">`` and inline
+1. Parses index.html for ``<script type="module" src="...">`` and inline
    ``<script type="module">`` blocks
 2. Merges framework + app static dirs into a temp directory so relative
    imports resolve
@@ -25,7 +25,7 @@ from pathlib import Path
 logger = logging.getLogger('pybend.ssr.bundler')
 
 # ---------------------------------------------------------------------------
-# HTML parsing — extract entry points from matrix.html
+# HTML parsing — extract entry points from index.html
 # ---------------------------------------------------------------------------
 
 _RE_MODULE_SCRIPT_SRC = re.compile(
@@ -38,7 +38,7 @@ _RE_INLINE_MODULE = re.compile(
 
 
 def parse_html_modules(html_text):
-    """Extract module entry points from matrix.html.
+    """Extract module entry points from index.html.
 
     Returns:
         dict with keys:
@@ -57,10 +57,10 @@ def parse_html_modules(html_text):
 
 
 def build_bundle(html_path, static_dirs):
-    """Build a JS bundle from matrix.html's module graph using esbuild.
+    """Build a JS bundle from index.html's module graph using esbuild.
 
     Args:
-        html_path: Path to matrix.html (str or Path).
+        html_path: Path to index.html (str or Path).
         static_dirs: List of static directories to search (app dirs first,
             framework dir last).  Files are merged into a temp directory
             (framework first, then app overlays) so that relative imports

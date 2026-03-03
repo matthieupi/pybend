@@ -7,7 +7,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-const APP_URL = '/matrix.html';
+const APP_URL = '/';
 
 test.describe('Visual Regression', () => {
 

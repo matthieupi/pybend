@@ -131,7 +131,7 @@ class FastAPIBackend(BaseBackend):
 
         ssr_active = self._ssr_mode != 'off'
         static_dir = Path(__file__).resolve().parent.parent.parent / "static"
-        matrix_html_path = None  # Track for SSR
+        index_html_path = None  # Track for SSR and GET / route
 
         # Serve files from app-specific static directories as explicit routes.
         # These take precedence over the framework catch-all mount, allowing
@@ -146,42 +146,53 @@ class FastAPIBackend(BaseBackend):
                 # URL path relative to the app static root
                 rel = file_path.relative_to(app_path)
                 url_path = "/" + "/".join(rel.parts)
-                # When SSR is on, intercept matrix.html at root level
-                if ssr_active and file_path.name == 'matrix.html' and len(rel.parts) == 1:
-                    matrix_html_path = file_path
-                    continue
+                # Track index.html for SSR interception and GET / route
+                if file_path.name == 'index.html' and len(rel.parts) == 1:
+                    index_html_path = file_path
+                    if ssr_active:
+                        continue  # SSR route handles it
                 self.app.get(url_path, include_in_schema=False)(
                     lambda _path=str(file_path): FileResponse(_path)
                 )
 
         if not static_dir.is_dir():
-            # Still mount SSR route if we found matrix.html in app dirs
-            if ssr_active and matrix_html_path:
-                self._mount_ssr_route(matrix_html_path, app_static_dirs)
+            if ssr_active and index_html_path:
+                self._mount_ssr_route(index_html_path, app_static_dirs)
+            elif index_html_path:
+                # Non-SSR: serve index.html at GET /
+                self.app.get("/", include_in_schema=False)(
+                    lambda _path=str(index_html_path): FileResponse(_path)
+                )
             return
 
         # Serve framework HTML pages at the root
-        for html_file in ("schema.html", "example.html", "matrix.html", "login.html", "register.html"):
+        for html_file in ("schema.html", "example.html", "index.html", "login.html", "register.html"):
             html_path = static_dir / html_file
             if html_path.exists():
-                # When SSR is on, intercept matrix.html
-                if ssr_active and html_file == 'matrix.html':
-                    if matrix_html_path is None:
-                        matrix_html_path = html_path
-                    continue
+                # Track index.html for SSR interception and GET / route
+                if html_file == 'index.html':
+                    if index_html_path is None:
+                        index_html_path = html_path
+                    if ssr_active:
+                        continue  # SSR route handles it
                 self.app.get(f"/{html_file}", include_in_schema=False)(
                     lambda _path=str(html_path): FileResponse(_path)
                 )
 
-        # Mount SSR route for matrix.html (dynamic, with injected content)
-        if ssr_active and matrix_html_path:
-            self._mount_ssr_route(matrix_html_path, app_static_dirs)
+        # Mount SSR route for index.html (dynamic, with injected content)
+        if ssr_active and index_html_path:
+            self._mount_ssr_route(index_html_path, app_static_dirs)
+        elif index_html_path:
+            # Non-SSR: serve index.html at GET /
+            self.app.get("/", include_in_schema=False)(
+                lambda _path=str(index_html_path): FileResponse(_path)
+            )
 
         # Mount the framework static directory so JS/CSS imports resolve
         self.app.mount("/", StaticFiles(directory=str(static_dir)), name="static")
 
     def _mount_ssr_route(self, html_path, app_static_dirs=None):
-        """Mount a dynamic route for matrix.html with SSR content injection.
+        """Mount a dynamic route for index.html with SSR content injection.
 
         Supports four modes via ``self._ssr_mode``:
         - ``"schema"`` — inject model schema tags
@@ -232,7 +243,8 @@ class FastAPIBackend(BaseBackend):
         async def ssr_handler():
             return HTMLResponse(_build_ssr_html())
 
-        self.app.get("/matrix.html", include_in_schema=False)(ssr_handler)
+        self.app.get("/", include_in_schema=False)(ssr_handler)
+        self.app.get("/index.html", include_in_schema=False)(ssr_handler)
 
     def get_app(self, app_static_dirs=None):
         # Mount static last so HTML routes take precedence over the catch-all mount

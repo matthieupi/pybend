@@ -46,7 +46,7 @@ def run_tests():
 
         # ── Set token and go to matrix ──
         print("\n=== API Tests (via Playwright fetch) ===")
-        page.goto('http://localhost:5000/matrix.html')
+        page.goto('http://localhost:5000/index.html')
         page.evaluate(f"() => localStorage.setItem('jwtToken', '{token}')")
         page.reload()
         page.wait_for_timeout(3000)
@@ -112,7 +112,7 @@ def run_tests():
 
         # ── Frontend rendering tests ──
         print("\n=== Frontend Rendering Tests ===")
-        page.goto('http://localhost:5000/matrix.html')
+        page.goto('http://localhost:5000/index.html')
         page.evaluate(f"() => localStorage.setItem('jwtToken', '{token}')")
         page.reload()
         page.wait_for_timeout(6000)

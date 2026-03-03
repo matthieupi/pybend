@@ -33,7 +33,7 @@ def test_comment():
         page.on("response", on_response)
 
         # Navigate
-        page.goto("http://localhost:5000/matrix.html")
+        page.goto("http://localhost:5000/")
         page.wait_for_timeout(5000)
 
         # Check ntt-method exists and has correct form

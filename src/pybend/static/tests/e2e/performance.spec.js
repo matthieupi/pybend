@@ -102,7 +102,7 @@ test.describe.serial('Performance Profiling', () => {
 
   test('2. Page load + bootstrap timing', async ({ page }) => {
     const navStart = performance.now();
-    await page.goto('/matrix.html', { waitUntil: 'networkidle' });
+    await page.goto('/', { waitUntil: 'networkidle' });
     const networkIdleMs = performance.now() - navStart;
     record('page_load_network_idle', networkIdleMs);
 
@@ -147,7 +147,7 @@ test.describe.serial('Performance Profiling', () => {
 
 
   test('5. Product detail navigation', async ({ page }) => {
-    await page.goto('/matrix.html', { waitUntil: 'networkidle' });
+    await page.goto('/', { waitUntil: 'networkidle' });
     await page.waitForSelector('ntt-item', { timeout: 15000 });
 
     // Inject perf harness before interaction
@@ -267,7 +267,7 @@ test.describe.serial('Performance Profiling', () => {
 
   test('10. Full page reload (warm)', async ({ page }) => {
     // First load to warm caches
-    await page.goto('/matrix.html', { waitUntil: 'networkidle' });
+    await page.goto('/', { waitUntil: 'networkidle' });
     await page.waitForSelector('ntt-item', { timeout: 15000 });
 
     // Second load = warm
@@ -289,7 +289,7 @@ test.describe.serial('Performance Profiling', () => {
     await client.send('Profiler.enable');
     await client.send('Profiler.start');
 
-    await page.goto('/matrix.html', { waitUntil: 'networkidle' });
+    await page.goto('/', { waitUntil: 'networkidle' });
     await page.waitForSelector('ntt-item', { timeout: 15000 });
 
     // Inject perf harness for any subsequent profiled interactions

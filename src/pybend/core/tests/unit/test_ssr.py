@@ -120,9 +120,9 @@ def _isolated_models():
 
 @pytest.fixture(scope="module")
 def static_dir(tmp_path_factory):
-    """Create a temporary static directory with a minimal matrix.html."""
+    """Create a temporary static directory with a minimal index.html."""
     d = tmp_path_factory.mktemp("static")
-    html = d / "matrix.html"
+    html = d / "index.html"
     html.write_text(
         '<!DOCTYPE html>\n'
         '<html lang="en">\n'
@@ -137,9 +137,9 @@ def static_dir(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def static_dir_with_modules(tmp_path_factory):
-    """Create a temporary static directory with matrix.html + JS module files."""
+    """Create a temporary static directory with index.html + JS module files."""
     d = tmp_path_factory.mktemp("static_mods")
-    html = d / "matrix.html"
+    html = d / "index.html"
     html.write_text(SAMPLE_HTML_WITH_MODULES)
 
     for rel_path, content in SAMPLE_JS_FILES.items():
@@ -227,17 +227,23 @@ def _extract_schema_tags(html: str) -> list[tuple[str, dict]]:
 # ---------------------------------------------------------------------------
 
 class TestSSRDisabled:
-    """When ssr=False (default), matrix.html is served as-is."""
+    """When ssr=False (default), index.html is served as-is."""
 
     def test_serves_static_html(self, no_ssr_client):
-        resp = no_ssr_client.get("/matrix.html")
+        resp = no_ssr_client.get("/index.html")
         assert resp.status_code == 200
         assert 'data-ntt-schema' not in resp.text
 
     def test_html_is_unchanged(self, no_ssr_client):
-        resp = no_ssr_client.get("/matrix.html")
+        resp = no_ssr_client.get("/index.html")
         assert '<div id="app"></div>' in resp.text
         assert '</body>' in resp.text
+
+    def test_root_serves_index(self, no_ssr_client):
+        """GET / serves the same content as /index.html."""
+        resp = no_ssr_client.get("/")
+        assert resp.status_code == 200
+        assert '<div id="app"></div>' in resp.text
 
 
 # ---------------------------------------------------------------------------
@@ -245,15 +251,15 @@ class TestSSRDisabled:
 # ---------------------------------------------------------------------------
 
 class TestSSREnabled:
-    """When ssr=True, matrix.html includes inline schema script tags."""
+    """When ssr=True, index.html includes inline schema script tags."""
 
     def test_injects_schema_tags(self, ssr_client):
-        resp = ssr_client.get("/matrix.html")
+        resp = ssr_client.get("/index.html")
         assert resp.status_code == 200
         assert 'data-ntt-schema' in resp.text
 
     def test_schema_json_is_valid(self, ssr_client):
-        resp = ssr_client.get("/matrix.html")
+        resp = ssr_client.get("/index.html")
         tags = _extract_schema_tags(resp.text)
         assert len(tags) > 0
         for model_name, schema in tags:
@@ -262,13 +268,13 @@ class TestSSREnabled:
             assert 'properties' in schema
 
     def test_ssr_product_schema_present(self, ssr_client):
-        resp = ssr_client.get("/matrix.html")
+        resp = ssr_client.get("/index.html")
         tags = _extract_schema_tags(resp.text)
         model_names = [name for name, _ in tags]
         assert 'SSRProduct' in model_names
 
     def test_schema_matches_model_schema(self, ssr_client):
-        resp = ssr_client.get("/matrix.html")
+        resp = ssr_client.get("/index.html")
         tags = _extract_schema_tags(resp.text)
         tag_dict = {name: schema for name, schema in tags}
         expected = SSRProduct.schema()
@@ -276,23 +282,29 @@ class TestSSREnabled:
         assert tag_dict['SSRProduct']['properties'] == expected['properties']
 
     def test_preserves_original_html(self, ssr_client):
-        resp = ssr_client.get("/matrix.html")
+        resp = ssr_client.get("/index.html")
         assert '<div id="app"></div>' in resp.text
         assert '<title>Test</title>' in resp.text
         assert '</body>' in resp.text
 
     def test_ssr_comment_marker(self, ssr_client):
-        resp = ssr_client.get("/matrix.html")
+        resp = ssr_client.get("/index.html")
         assert '<!-- SSR: Pre-loaded schemas -->' in resp.text
 
     def test_response_is_cached(self, ssr_client):
-        resp1 = ssr_client.get("/matrix.html")
-        resp2 = ssr_client.get("/matrix.html")
+        resp1 = ssr_client.get("/index.html")
+        resp2 = ssr_client.get("/index.html")
         assert resp1.text == resp2.text
 
     def test_content_type_is_html(self, ssr_client):
-        resp = ssr_client.get("/matrix.html")
+        resp = ssr_client.get("/index.html")
         assert 'text/html' in resp.headers['content-type']
+
+    def test_root_serves_ssr_content(self, ssr_client):
+        """GET / serves the same SSR content as /index.html."""
+        resp = ssr_client.get("/")
+        assert resp.status_code == 200
+        assert 'data-ntt-schema' in resp.text
 
 
 # ---------------------------------------------------------------------------
@@ -327,25 +339,25 @@ class TestSSRBundleMode:
             yield c
 
     def test_bundle_strips_modulepreload(self, bundle_client):
-        resp = bundle_client.get("/matrix.html")
+        resp = bundle_client.get("/index.html")
         assert resp.status_code == 200
         assert 'rel="modulepreload"' not in resp.text
 
     def test_bundle_strips_module_scripts(self, bundle_client):
-        resp = bundle_client.get("/matrix.html")
+        resp = bundle_client.get("/index.html")
         assert 'type="module"' not in resp.text
 
     def test_bundle_injects_script_tag(self, bundle_client):
-        resp = bundle_client.get("/matrix.html")
+        resp = bundle_client.get("/index.html")
         assert '<!-- SSR: Bundled JS -->' in resp.text
         assert '<script>' in resp.text
 
     def test_bundle_no_schema_tags(self, bundle_client):
-        resp = bundle_client.get("/matrix.html")
+        resp = bundle_client.get("/index.html")
         assert 'data-ntt-schema' not in resp.text
 
     def test_bundle_contains_mock_content(self, bundle_client):
-        resp = bundle_client.get("/matrix.html")
+        resp = bundle_client.get("/index.html")
         assert MOCK_BUNDLE_JS in resp.text
 
 
@@ -374,21 +386,21 @@ class TestSSRFullMode:
             yield c
 
     def test_full_has_both_schemas_and_bundle(self, full_client):
-        resp = full_client.get("/matrix.html")
+        resp = full_client.get("/index.html")
         assert resp.status_code == 200
         assert 'data-ntt-schema' in resp.text
         assert '<!-- SSR: Bundled JS -->' in resp.text
 
     def test_full_strips_modulepreload(self, full_client):
-        resp = full_client.get("/matrix.html")
+        resp = full_client.get("/index.html")
         assert 'rel="modulepreload"' not in resp.text
 
     def test_full_strips_module_scripts(self, full_client):
-        resp = full_client.get("/matrix.html")
+        resp = full_client.get("/index.html")
         assert 'type="module"' not in resp.text
 
     def test_full_bundle_content(self, full_client):
-        resp = full_client.get("/matrix.html")
+        resp = full_client.get("/index.html")
         assert MOCK_BUNDLE_JS in resp.text
 
 
@@ -775,7 +787,7 @@ class TestEsbuildIntegration:
         d = tmp_path_factory.mktemp("esbuild_static")
 
         # Write sample JS files
-        (d / "matrix.html").write_text(SAMPLE_HTML_WITH_MODULES)
+        (d / "index.html").write_text(SAMPLE_HTML_WITH_MODULES)
         for rel_path, content in SAMPLE_JS_FILES.items():
             fp = d / rel_path
             fp.parent.mkdir(parents=True, exist_ok=True)
@@ -797,7 +809,7 @@ class TestEsbuildIntegration:
         if not has_esbuild:
             pytest.skip("esbuild not available")
         bundle = build_bundle(
-            os.path.join(esbuild_static_dir, 'matrix.html'),
+            os.path.join(esbuild_static_dir, 'index.html'),
             [esbuild_static_dir],
         )
         assert isinstance(bundle, str)
@@ -807,7 +819,7 @@ class TestEsbuildIntegration:
         if not has_esbuild:
             pytest.skip("esbuild not available")
         bundle = build_bundle(
-            os.path.join(esbuild_static_dir, 'matrix.html'),
+            os.path.join(esbuild_static_dir, 'index.html'),
             [esbuild_static_dir],
         )
         # Minified output shouldn't have multi-line formatting
@@ -819,7 +831,7 @@ class TestEsbuildIntegration:
         if not has_esbuild:
             pytest.skip("esbuild not available")
         bundle = build_bundle(
-            os.path.join(esbuild_static_dir, 'matrix.html'),
+            os.path.join(esbuild_static_dir, 'index.html'),
             [esbuild_static_dir],
         )
         # esbuild IIFE format starts with (()=>{...})();
@@ -830,7 +842,7 @@ class TestEsbuildIntegration:
         if not has_esbuild:
             pytest.skip("esbuild not available")
         bundle = build_bundle(
-            os.path.join(esbuild_static_dir, 'matrix.html'),
+            os.path.join(esbuild_static_dir, 'index.html'),
             [esbuild_static_dir],
         )
         # Should contain content from our sample modules (esbuild may tree-shake
@@ -855,28 +867,28 @@ class TestEsbuildIntegration:
             console.log('test-comp loaded', CSS);
         """))
 
-        # Add import to the inline script in matrix.html
-        html = (d / 'matrix.html').read_text()
+        # Add import to the inline script in index.html
+        html = (d / 'index.html').read_text()
         html = html.replace(
             "console.log('bootstrap');",
             "import './components/test-comp.js';\n            console.log('bootstrap');",
         )
-        (d / 'matrix.html').write_text(html)
+        (d / 'index.html').write_text(html)
 
         try:
-            bundle = build_bundle(str(d / 'matrix.html'), [esbuild_static_dir])
+            bundle = build_bundle(str(d / 'index.html'), [esbuild_static_dir])
             b64 = base64.b64encode(css_content.encode()).decode('ascii')
             assert f'data:text/css;base64,{b64}' in bundle
         finally:
-            # Restore original matrix.html
-            (d / 'matrix.html').write_text(SAMPLE_HTML_WITH_MODULES)
+            # Restore original index.html
+            (d / 'index.html').write_text(SAMPLE_HTML_WITH_MODULES)
             # Clean up test files
             (d / 'components' / 'test-comp.css').unlink(missing_ok=True)
             (d / 'components' / 'test-comp.js').unlink(missing_ok=True)
 
     def test_build_bundle_no_esbuild_raises(self, tmp_path):
         """build_bundle raises RuntimeError when esbuild is not found."""
-        html = tmp_path / "matrix.html"
+        html = tmp_path / "index.html"
         html.write_text(SAMPLE_HTML_WITH_MODULES)
         for rel_path, content in SAMPLE_JS_FILES.items():
             fp = tmp_path / rel_path
@@ -927,7 +939,7 @@ class TestConfigIntegration:
         """config.SSR="off" serves static HTML."""
         app = _make_app(static_dir, 'cfg_off', ssr=False)
         with TestClient(app) as client:
-            resp = client.get("/matrix.html")
+            resp = client.get("/index.html")
             assert resp.status_code == 200
             assert 'data-ntt-schema' not in resp.text
 
@@ -935,7 +947,7 @@ class TestConfigIntegration:
         """config.SSR="schema" injects schemas."""
         app = _make_app(static_dir, 'cfg_schema', ssr="schema")
         with TestClient(app) as client:
-            resp = client.get("/matrix.html")
+            resp = client.get("/index.html")
             assert resp.status_code == 200
             assert 'data-ntt-schema' in resp.text
 
@@ -946,7 +958,7 @@ class TestConfigIntegration:
             config.SSR = 'off'
             app = _make_app(static_dir, 'cfg_override', ssr="schema")
             with TestClient(app) as client:
-                resp = client.get("/matrix.html")
+                resp = client.get("/index.html")
                 assert 'data-ntt-schema' in resp.text
         finally:
             config.SSR = original
@@ -955,12 +967,12 @@ class TestConfigIntegration:
         """ssr=True still works (maps to 'schema')."""
         app = _make_app(static_dir, 'compat_true', ssr=True)
         with TestClient(app) as client:
-            resp = client.get("/matrix.html")
+            resp = client.get("/index.html")
             assert 'data-ntt-schema' in resp.text
 
     def test_backward_compat_bool_false(self, _isolated_models, static_dir):
         """ssr=False still works (maps to 'off')."""
         app = _make_app(static_dir, 'compat_false', ssr=False)
         with TestClient(app) as client:
-            resp = client.get("/matrix.html")
+            resp = client.get("/index.html")
             assert 'data-ntt-schema' not in resp.text

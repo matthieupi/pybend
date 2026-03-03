@@ -4,7 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs } from './fixtures/auth.js';
 
-const APP_URL = '/matrix.html';
+const APP_URL = '/';
 
 test.describe('Theme Toggle', () => {
 

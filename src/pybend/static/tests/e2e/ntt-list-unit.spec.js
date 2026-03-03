@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, logout, getToken, USERS } from './fixtures/auth.js';
 
-const APP_URL = '/matrix.html';
+const APP_URL = '/';
 
 test.describe('ntt-list — Basic Rendering', () => {
 

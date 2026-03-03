@@ -13,6 +13,7 @@
     <link rel="preload" href="./components/ntt-router.css" as="style">
     <link rel="preload" href="./components/ntt-topbar.css" as="style">
     <link rel="preload" href="./components/ntt-user.css" as="style">
+    <link rel="preload" href="./components/ntt-modal.css" as="style">
     <!-- Modulepreload entire dependency tree — eliminates import waterfall -->
     <!-- Leaves -->
     <link rel="modulepreload" href="./config.js">
@@ -38,6 +39,7 @@
     <link rel="modulepreload" href="./components/ntt-list.js">
     <link rel="modulepreload" href="./components/ntt-router.js">
     <link rel="modulepreload" href="./components/ntt-method.js">
+    <link rel="modulepreload" href="./components/ntt-modal.js">
     <link rel="modulepreload" href="./components/ntt-favorites.js">
     <link rel="modulepreload" href="./generators/form.js">
     <script type="module" src="./utils/theme.js"></script>
@@ -48,7 +50,7 @@
 
     <div class="page">
         <ntt-router name="main" hash>
-            <ntt-list model="Product" id="product-list"></ntt-list>
+            <ntt-list model="Product" id="product-list" allow-create></ntt-list>
         </ntt-router>
     </div>
 

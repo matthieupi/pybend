@@ -126,7 +126,7 @@ def test_like_and_favorite():
         page.on("response", on_response)
 
         # Boot the app
-        page.goto(f"{BASE}/matrix.html")
+        page.goto(f"{BASE}/")
         get_token(page)
         page.reload()
         page.wait_for_timeout(4000)

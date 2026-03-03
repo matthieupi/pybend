@@ -62,7 +62,7 @@ class NTTTopbar extends HTMLElement {
     nav.className = 'topbar';
 
     nav.innerHTML = `
-      <a href="/matrix.html" class="topbar-brand">
+      <a href="/" class="topbar-brand">
         <div class="topbar-logo">N3</div>
         <span class="topbar-title">NTT<span class="accent">TX</span></span>
         <span class="topbar-tag">v0.6</span>

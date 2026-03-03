@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, getToken, setToken, USERS } from './fixtures/auth.js';
 
-const APP_URL = '/matrix.html';
+const APP_URL = '/';
 const TS = Date.now();
 
 test.describe.serial('Social Chain — Complete User Journey', () => {

@@ -3,11 +3,11 @@
  */
 import { test, expect } from '@playwright/test';
 
-const APP_URL = '/matrix.html';
+const APP_URL = '/';
 
 test.describe('Page Load & Bootstrap', () => {
 
-  test('matrix.html loads without console errors', async ({ page }) => {
+  test('index.html loads without console errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (err) => errors.push(err.message));
 

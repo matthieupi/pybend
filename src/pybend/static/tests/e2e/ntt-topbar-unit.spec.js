@@ -11,7 +11,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, logout, USERS } from './fixtures/auth.js';
 
-const APP_URL = '/matrix.html';
+const APP_URL = '/';
 
 /** Helper: go to app in anonymous mode */
 async function gotoAnonymous(page) {
@@ -44,7 +44,7 @@ test.describe('ntt-topbar — Anonymous State', () => {
       };
     });
     expect(structure.hasNav).toBe(true);
-    expect(structure.brandHref).toBe('/matrix.html');
+    expect(structure.brandHref).toBe('/');
     expect(structure.title).toContain('NTT');
     expect(structure.logo).toBe('N3');
     expect(structure.tag).toBe('v0.6');
