@@ -19,6 +19,7 @@ from .core.actors import Actor, Matrix, TX, matrix
 from .core.api.network_adapter import NetworkAdapter
 from .core.api.network_api import NetworkAPI
 from .core.api.network_ws import NetworkWebSocket, create_ws_routes
+from .core.agents import AgentMixin, AgentActor
 
 __version__ = "0.8.0b"
 
@@ -30,5 +31,6 @@ __all__ = [
     "create_app", "PyBendApp", "schema_extension",
     "Actor", "Matrix", "TX", "matrix", "NetworkAdapter", "NetworkAPI",
     "NetworkWebSocket", "create_ws_routes",
+    "AgentMixin", "AgentActor",
     "__version__",
 ]

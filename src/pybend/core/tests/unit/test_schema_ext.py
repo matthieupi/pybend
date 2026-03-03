@@ -26,7 +26,7 @@ import pybend.core.models.proto_schema as proto_schema
 pytestmark = pytest.mark.unit
 
 # Default pipeline stage names for reference
-DEFAULT_STAGES = ['base', 'strip_hidden', 'methods', 'defs', 'access', 'ui', 'metadata']
+DEFAULT_STAGES = ['base', 'strip_hidden', 'methods', 'agent', 'defs', 'access', 'ui', 'metadata']
 
 
 # ===================================================================
@@ -62,7 +62,7 @@ class TestDefaultPipeline:
         assert get_pipeline() == DEFAULT_STAGES
 
     def test_default_stage_count(self):
-        assert len(get_pipeline()) == 7
+        assert len(get_pipeline()) == 8
 
     def test_base_is_first(self):
         assert get_pipeline()[0] == 'base'

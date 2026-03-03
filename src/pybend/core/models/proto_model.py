@@ -86,6 +86,13 @@ class ProtoModel(PydanticBaseModel):
                 if new_annotations:
                     cls.__annotations__ = dict(cls.__annotations__)  # make a copy
                     cls.__annotations__.update(new_annotations)
+        # Agent mixin injection (same pattern as StorableMixin)
+        __agent__ = getattr(cls, '__agent__', False)
+        if __agent__:
+            from pybend.core.agents.mixin import AgentMixin
+            if not issubclass(cls, AgentMixin):
+                cls.__bases__ = (AgentMixin,) + cls.__bases__
+
         super().__init_subclass__(**kwargs)
 
 
