@@ -74,7 +74,7 @@ class TestRegisterStage:
     def test_append_preserves_existing_order(self):
         register_stage('custom', lambda inst, d: d)
         pipeline = get_pipeline()
-        assert pipeline[:3] == DEFAULT_STAGES
+        assert pipeline[:len(DEFAULT_STAGES)] == DEFAULT_STAGES
 
     def test_after_positioning(self):
         register_stage('after_base', lambda inst, d: d, after='base')
