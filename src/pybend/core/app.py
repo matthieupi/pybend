@@ -24,7 +24,7 @@ _SSR_MODES = ('off', 'schema', 'bundle', 'full')
 
 from pybend.core.storage.sqlite_storage import SQLiteStorage
 from pybend.core.storage.abstract_storage import AbstractStorage
-from pybend.core.utils.registrar import register_model, registered_models
+from pybend.core.utils.registrar import register_model, registered_models, prepare_model, apply_registration
 from pybend.core.models.proto_model import generate_join_model
 from pybend.core.api.backend import FastAPIBackend
 from pybend.core import config
@@ -191,21 +191,26 @@ class PyBendApp:
             jwt_expiry_hours=self._jwt_expiry_hours,
         )
 
-        # 2. Register all models with storage backend
+        # 2. Prepare all model registrations (pure — no side effects)
+        preparations = []
         for model_class, per_model_storage in self._models:
             effective_storage = (
                 _resolve_storage(per_model_storage)
                 if per_model_storage is not None
                 else self._storage
             )
-            register_model(model_class, storage=effective_storage)
+            preparations.append(prepare_model(model_class, storage=effective_storage))
 
-        # 3. Generate and register join models
+        # 3. Generate and prepare join models
         for parent, child in self._join_pairs:
             join_model = generate_join_model(parent, child)
-            register_model(join_model, storage=self._storage)
+            preparations.append(prepare_model(join_model, storage=self._storage))
 
-        # 4. Create FastAPIBackend instance
+        # 4. Apply all registrations (side effects: storage, tables, global dicts)
+        for result in preparations:
+            apply_registration(result)
+
+        # 5. Create FastAPIBackend instance
         backend = FastAPIBackend(
             name=name,
             version=version,
@@ -214,7 +219,7 @@ class PyBendApp:
             ssr_mode=self._ssr_mode,
         )
 
-        # 5. Register routes — direct (Level 1/2) or actor (Level 3)
+        # 6. Register routes — direct (Level 1/2) or actor (Level 3)
         if self._routing == 'actor':
             from pybend.core.api.network_api import NetworkAPI, create_api_routes
             from pybend.core.api.auth_interceptor import auth_interceptor
@@ -227,7 +232,7 @@ class PyBendApp:
                 create_api_routes(api, registered_models)
             )
 
-            # 5a. WebSocket bridge (requires actor routing)
+            # 6a. WebSocket bridge (requires actor routing)
             if self._ws:
                 from pybend.core.api.network_ws import (
                     NetworkWebSocket, create_ws_routes,
@@ -243,7 +248,7 @@ class PyBendApp:
         else:
             backend.register_routes(registered_models)
 
-        # 5b. Mount discovery endpoints (/_meta, /.well-known/agent.json)
+        # 6b. Mount discovery endpoints (/_meta, /.well-known/agent.json)
         from pybend.core.api.discovery import create_discovery_routes
 
         base_url = f'http://{config.HOST}:{config.PORT}'
@@ -255,7 +260,7 @@ class PyBendApp:
             description=description,
         ))
 
-        # 6. Return the FastAPI app instance
+        # 7. Return the FastAPI app instance
         #    get_app() mounts the framework's own static directory last
         #    so that HTML routes take precedence over the catch-all mount.
         #    Pass app-specific static directories so their files are served
