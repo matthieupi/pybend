@@ -7,10 +7,12 @@ from pydantic import Field
 from pybend.core.actors.actor import Actor
 from pybend.core.actors.matrix import Matrix
 from pybend.core.models.actor_model import ActorModel
+from pybend.core.models.proto_model import generate_join_model
 from pybend.core.storage.sqlite_storage import SQLiteStorage
 from pybend.core.utils.decorators import expose_route
 from pybend.core.utils.registrar import register_model
 from pybend.core.agents.actor import AgentActor
+from pybend.core.agents.tool_model import AgentTool
 
 pytestmark = pytest.mark.unit
 
@@ -48,6 +50,33 @@ class TestAgentActorClass:
         assert mro.index('AgentMixin') < mro.index('ActorModel')
 
 
+class TestAgentToolModel:
+    """Tests for the AgentTool model."""
+
+    def test_tablename(self, fresh_matrix):
+        assert AgentTool.__tablename__ == 'agent_tools'
+
+    def test_is_actor_model(self, fresh_matrix):
+        assert issubclass(AgentTool, ActorModel)
+
+    def test_create_instance(self, fresh_matrix):
+        tool = AgentTool(target='grants', description='Grant CRUD')
+        assert tool.target == 'grants'
+        assert tool.description == 'Grant CRUD'
+
+    def test_crud(self, fresh_matrix, tmp_path):
+        storage = SQLiteStorage(str(tmp_path / 'tools.db'))
+        register_model(AgentTool, storage=storage)
+        storage.create_table(AgentTool)
+
+        tool = AgentTool.create(AgentTool(target='grants', description='Grant operations'))
+        assert tool.id is not None
+
+        fetched = AgentTool.get(tool.id)
+        assert fetched.target == 'grants'
+        assert fetched.description == 'Grant operations'
+
+
 class TestAgentActorInstance:
     """Tests for creating AgentActor instances."""
 
@@ -55,12 +84,12 @@ class TestAgentActorInstance:
         agent = AgentActor(
             name='Test Agent',
             prompt='You are a test agent.',
-            tools=['web_tools'],
+            tools=[AgentTool(target='web_tools')],
             addr='agents/1',
         )
         assert agent.name == 'Test Agent'
         assert agent.prompt == 'You are a test agent.'
-        assert agent.tools == ['web_tools']
+        assert len(agent.tools) == 1
         assert agent.llm == 'ollama:llama3.1'
         assert agent.constraints == {}
 
@@ -92,35 +121,91 @@ class TestAgentActorInstance:
         assert hasattr(agent, 'agent_run')
 
 
+class TestResolveToolAddrs:
+    """Tests for AgentActor._resolve_tool_addrs()."""
+
+    def test_from_agent_tool_instances(self, fresh_matrix):
+        agent = AgentActor(
+            name='Test',
+            prompt='test',
+            tools=[AgentTool(target='grants'), AgentTool(target='sources')],
+            addr='agents/1',
+        )
+        addrs = agent._resolve_tool_addrs()
+        assert addrs == ['grants', 'sources']
+
+    def test_from_plain_strings(self, fresh_matrix):
+        agent = AgentActor(
+            name='Test',
+            prompt='test',
+            tools=['grants', 'sources'],
+            addr='agents/2',
+        )
+        addrs = agent._resolve_tool_addrs()
+        assert addrs == ['grants', 'sources']
+
+    def test_from_hrefs(self, fresh_matrix, tmp_path):
+        """Resolve tool addrs from href strings (as returned by FK hydration)."""
+        storage = SQLiteStorage(str(tmp_path / 'tools.db'))
+        register_model(AgentTool, storage=storage)
+        storage.create_table(AgentTool)
+
+        tool = AgentTool.create(AgentTool(target='grants', description='Grant ops'))
+
+        agent = AgentActor(
+            name='Test',
+            prompt='test',
+            tools=[f'http://localhost:5000/agents/1/agent_tools/{tool.id}'],
+            addr='agents/3',
+        )
+        addrs = agent._resolve_tool_addrs()
+        assert addrs == ['grants']
+
+    def test_empty_tools(self, fresh_matrix):
+        agent = AgentActor(name='Test', prompt='test', addr='agents/4')
+        assert agent._resolve_tool_addrs() == []
+
+
 class TestAgentActorCRUD:
     """Tests for AgentActor storage operations."""
 
     def test_create_and_get(self, fresh_matrix, tmp_path):
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
+        register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        storage.create_table(AgentActor)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
 
         agent = AgentActor(
             name='Stored Agent',
             prompt='You help find grants.',
-            tools=['grants', 'web_tools'],
             llm='ollama:llama3.1',
             constraints={'max_iterations': 20},
         )
         created = AgentActor.create(agent)
         assert created.id is not None
 
+        # Create tools via join table
+        join_cls.create(join_cls(target='grants', description='Grant ops', agentactor_id=created.id))
+        join_cls.create(join_cls(target='web_tools', description='Web ops', agentactor_id=created.id))
+
         fetched = AgentActor.get(created.id)
         assert fetched.name == 'Stored Agent'
         assert fetched.prompt == 'You help find grants.'
-        assert fetched.tools == ['grants', 'web_tools']
         assert fetched.llm == 'ollama:llama3.1'
         assert fetched.constraints == {'max_iterations': 20}
+        # tools are hydrated as href arrays
+        assert len(fetched.tools) == 2
+        tool_addrs = fetched._resolve_tool_addrs()
+        assert 'grants' in tool_addrs
+        assert 'web_tools' in tool_addrs
 
     def test_list_agents(self, fresh_matrix, tmp_path):
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
+        register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        storage.create_table(AgentActor)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
 
         AgentActor.create(AgentActor(name='Agent 1', prompt='p1'))
         AgentActor.create(AgentActor(name='Agent 2', prompt='p2'))
@@ -131,8 +216,10 @@ class TestAgentActorCRUD:
 
     def test_update_agent(self, fresh_matrix, tmp_path):
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
+        register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        storage.create_table(AgentActor)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(
             AgentActor(name='Original', prompt='original prompt')
@@ -142,8 +229,10 @@ class TestAgentActorCRUD:
 
     def test_delete_agent(self, fresh_matrix, tmp_path):
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
+        register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        storage.create_table(AgentActor)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(AgentActor(name='ToDelete', prompt='bye'))
         AgentActor.delete(agent.id)
@@ -159,13 +248,14 @@ class TestAgentActorRun:
         from pydantic_ai.models.test import TestModel
 
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
+        register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        storage.create_table(AgentActor)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(AgentActor(
             name='Runner',
             prompt='You are a helpful assistant.',
-            tools=[],
             llm='test',  # will be overridden
         ))
         # Fetch from DB to get a proper instance
@@ -182,7 +272,7 @@ class TestAgentActorRun:
 
     @pytest.mark.asyncio
     async def test_run_with_tools(self, fresh_matrix, tmp_path):
-        """run() discovers tools from actor addresses."""
+        """run() discovers tools from actor addresses via join table."""
         from pydantic_ai.models.test import TestModel
 
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
@@ -193,15 +283,18 @@ class TestAgentActorRun:
             title: str = Field(default='')
 
         register_model(Grant, storage=storage)
+        register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        storage.create_table(Grant)
-        storage.create_table(AgentActor)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(AgentActor(
             name='Grant Scanner',
             prompt='List all grants.',
-            tools=['grants'],
         ))
+        # Add tool via join table
+        join_cls.create(join_cls(target='grants', agentactor_id=agent.id))
+
         agent = AgentActor.get(agent.id)
 
         result_str = await agent.run(
@@ -218,6 +311,7 @@ class TestAgentActorSchema:
 
     def test_schema_has_agent_section(self, fresh_matrix, tmp_path):
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
+        register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
 
         schema = AgentActor.schema()
@@ -228,6 +322,7 @@ class TestAgentActorSchema:
 
     def test_schema_has_run_method(self, fresh_matrix, tmp_path):
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
+        register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
 
         schema = AgentActor.schema()
