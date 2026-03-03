@@ -48,18 +48,19 @@ def prepare_model(model_class: Type[Any], storage: StorageInterface = None) -> R
 
 def apply_registration(result: RegistrationResult) -> None:
     """Execute the side effects described by a RegistrationResult."""
-    logger.info("Registering model: %s", result.model_class.__name__)
+    model = result.model_class
+    logger.info("Registering model: %s", model.__name__)
 
     if result.is_join and result.join_key:
-        join_models[result.join_key] = result.model_class
+        join_models[result.join_key] = model
 
     if result.is_storable:
-        result.model_class.set_storage(result.storage)
-        result.model_class.create_table()
+        model.set_storage(result.storage)
+        model.create_table()
         if hasattr(result.storage, 'migrate_table'):
-            result.storage.migrate_table(result.model_class)
+            result.storage.migrate_table(model)
 
-    registered_models[result.tablename] = result.model_class
+    registered_models[result.tablename] = model
 
 
 def register_model(model_class: Type[Any], storage: StorageInterface = None):
