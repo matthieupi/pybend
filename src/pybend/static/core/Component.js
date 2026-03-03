@@ -23,13 +23,14 @@ const _sheetPending = new Map();  // URL → Promise<CSSStyleSheet> (in-flight)
 export class Component extends HTMLElement {
 
   // ── Size constants ──
-  static SIZES = ['xs', 'sm', 'md', 'lg', 'xl'];
+  static SIZES = ['xs', 'sm', 'md', 'lg', 'xl', 'row'];
   static ALIASES = {
     pill: 'xs',
     'list-item': 'sm',
     card: 'md',
     detail: 'lg',
     page: 'xl',
+    row: 'row',
   };
 
   /**
@@ -123,6 +124,10 @@ export class Component extends HTMLElement {
       return;
     } else if (name === 'model') {
       this[name] = newVal;
+      // attach() triggers define() → definedCallback() (sets #proto, schema)
+      this.attach(newVal);
+      // ATTACH TX registers this component as a _watcher on the DynamicClass
+      // so it receives UPDATE notifications after READ/CREATE/DELETE
       this.send(new TX({
         name: 'ATTACH',
         source: this.addr,

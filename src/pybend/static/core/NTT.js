@@ -3,7 +3,8 @@ import {config} from "../config.js";
 import {isEmpty, isTypeCompatible, isUrl, Utils} from './Utils.js';
 //import {registry, registrar, getRegistrar} from "./registrar.js";
 import TX from "./TX.js";
-import {remote} from "./transport/NetworkAdapter.js";
+// NetworkAdapter imported by Matrix — 'remote' flag is a TX meta key, not a binding
+
 import Logging from "../utils/Logging.js";
 import Actor from "./Actor.js";
 import { showToast } from "../utils/Toast.js";
@@ -676,6 +677,12 @@ function prototype(addr, schema, href) {
       static instances = new Map();
       static _schema = schema;
 
+      // Bridge: Actor.subclass() creates _children/children if not defined.
+      // DynamicClass stores entities in `instances`, so alias children → instances
+      // so that Actor routing (DynamicClass.children.get(id)) finds them.
+      static get _children() { return this.instances; }
+      static get children()  { return this.instances; }
+
       _data;
 
 
@@ -980,6 +987,11 @@ function prototype(addr, schema, href) {
                 data: childrenAddrs
             }));
         });
+
+        // Notify class-level observers (e.g. sidebar count)
+        if (DynamicClass.__observers.has('UPDATE')) {
+            DynamicClass.__observers.get('UPDATE').forEach(cb => cb(childrenAddrs));
+        }
     };
 
     /**
