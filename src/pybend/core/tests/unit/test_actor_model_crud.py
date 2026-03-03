@@ -417,11 +417,11 @@ class TestHandlerCrudErrors:
         assert result.is_error
         assert 'FK constraint' in result.data['message']
 
-    def test_error_tx_has_default_500_code(self, mock_storage, make_tx):
+    def test_error_tx_value_error_gets_400(self, mock_storage, make_tx):
         mock_storage.create.side_effect = ValueError('bad data')
         tx = make_tx('create', {'name': 'X'})
         result = _CrudModel.handler_crud(tx)
-        assert result.data['code'] == 500
+        assert result.data['code'] == 400
 
     def test_error_tx_source_target_swapped(self, mock_storage):
         """Error TX has source/target swapped from original TX."""
@@ -437,3 +437,58 @@ class TestHandlerCrudErrors:
         tx = make_tx('create', {'name': 'X'})
         result = _CrudModel.handler_crud(tx)
         assert result.meta['in_reply_to'] == tx.uuid
+
+
+# ===================================================================
+# TestHandlerCrudExceptionMapping
+# ===================================================================
+
+class TestHandlerCrudExceptionMapping:
+    """_exception_to_tx_error() maps exception types to HTTP codes."""
+
+    def test_method_error_uses_status_code(self, mock_storage, make_tx):
+        from pybend.core.utils.erroring import MethodError
+        mock_storage.create.side_effect = MethodError('auth required', 401)
+        tx = make_tx('create', {'name': 'X'})
+        result = _CrudModel.handler_crud(tx)
+        assert result.data['code'] == 401
+        assert 'auth required' in result.data['message']
+
+    def test_value_error_maps_to_400(self, mock_storage, make_tx):
+        mock_storage.create.side_effect = ValueError('invalid field')
+        tx = make_tx('create', {'name': 'X'})
+        result = _CrudModel.handler_crud(tx)
+        assert result.data['code'] == 400
+
+    def test_type_error_maps_to_400(self, mock_storage, make_tx):
+        mock_storage.create.side_effect = TypeError('wrong type')
+        tx = make_tx('create', {'name': 'X'})
+        result = _CrudModel.handler_crud(tx)
+        assert result.data['code'] == 400
+
+    def test_permission_error_maps_to_403(self, mock_storage, make_tx):
+        mock_storage.create.side_effect = PermissionError('forbidden')
+        tx = make_tx('create', {'name': 'X'})
+        result = _CrudModel.handler_crud(tx)
+        assert result.data['code'] == 403
+
+    def test_key_error_maps_to_400(self, mock_storage, make_tx):
+        mock_storage.create.side_effect = KeyError('missing_field')
+        tx = make_tx('create', {'name': 'X'})
+        result = _CrudModel.handler_crud(tx)
+        assert result.data['code'] == 400
+        assert 'missing_field' in result.data['message']
+
+    def test_runtime_error_maps_to_500(self, mock_storage, make_tx):
+        mock_storage.create.side_effect = RuntimeError('unexpected')
+        tx = make_tx('create', {'name': 'X'})
+        result = _CrudModel.handler_crud(tx)
+        assert result.data['code'] == 500
+
+    def test_http_exception_uses_status_code(self, mock_storage, make_tx):
+        from fastapi import HTTPException
+        mock_storage.create.side_effect = HTTPException(status_code=409, detail='conflict')
+        tx = make_tx('create', {'name': 'X'})
+        result = _CrudModel.handler_crud(tx)
+        assert result.data['code'] == 409
+        assert 'conflict' in result.data['message']

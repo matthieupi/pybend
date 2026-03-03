@@ -30,6 +30,28 @@ logger = logging.getLogger('pybend.actors')
 # Sentinel — distinguishes "not a CRUD message" from legitimate None returns
 _NOT_HANDLED = object()
 
+
+def _exception_to_tx_error(e: Exception, tx: 'TX') -> 'TX':
+    """Map exception types to TX error responses with appropriate HTTP codes.
+
+    Centralizes the exception → error TX translation for both CRUD
+    and custom method dispatch paths.
+    """
+    from pybend.core.utils.erroring import MethodError
+
+    if isinstance(e, MethodError):
+        return tx.error(e.message, code=e.status_code)
+    if hasattr(e, 'status_code') and hasattr(e, 'detail'):
+        # HTTPException from FastAPI
+        return tx.error(e.detail, code=e.status_code)
+    if isinstance(e, (ValueError, TypeError)):
+        return tx.error(str(e), code=400)
+    if isinstance(e, PermissionError):
+        return tx.error(str(e), code=403)
+    if isinstance(e, KeyError):
+        return tx.error(f"Missing required field: {e}", code=400)
+    return tx.error(str(e), code=500)
+
 # CRUD message names handled by handler_crud
 _CRUD_OPS = frozenset({'schema', 'create', 'get', 'list', 'update', 'delete'})
 
@@ -110,18 +132,8 @@ class ActorModel(Actor, ProtoModel):
                         else:
                             result = method(data, tx)
                 except Exception as e:
-                    from pybend.core.utils.erroring import MethodError
-                    if isinstance(e, MethodError):
-                        code, msg = e.status_code, e.message
-                    elif hasattr(e, 'status_code') and hasattr(e, 'detail'):
-                        # HTTPException from FastAPI
-                        code, msg = e.status_code, e.detail
-                    elif isinstance(e, TypeError) and 'required' in str(e):
-                        code, msg = 400, str(e)
-                    else:
-                        code, msg = 500, str(e)
-                    logger.error(f"[{target.addr}] Error in {tx.name}: {msg}")
-                    await target.send(tx.error(msg, code=code))
+                    logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
+                    await target.send(_exception_to_tx_error(e, tx))
                     return
 
                 if isinstance(result, TX):
@@ -267,7 +279,7 @@ class ActorModel(Actor, ProtoModel):
 
         except Exception as e:
             logger.error(f"[{cls.__addr__}] CRUD error in {name}: {e}")
-            return tx.error(str(e))
+            return _exception_to_tx_error(e, tx)
 
         return _NOT_HANDLED
 
