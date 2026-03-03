@@ -32,17 +32,20 @@ PyBend follows a layered architecture with dependency injection for maximum flex
 │              Message routing, Actor dispatch                     │
 │  • Actor / ActorModel     • Handler dispatch                    │
 │  • Class + Instance actors  • Lifecycle events                  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│                     Business Logic Layer                        │
-│                    (Model Definitions)                          │
-│  • ProtoModel (Base)        • Custom Methods                    │
-│  • Schema Generation        • Validation Rules                  │
-│  • Type Safety (Pydantic)   • Foreign Keys                      │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
+└────────┬───────────────────────────────────────┬────────────────┘
+         │                                       │
+┌────────▼────────────────────────┐  ┌───────────▼───────────────┐
+│      Business Logic Layer       │  │       Agent Layer          │
+│      (Model Definitions)        │  │    (LLM-powered reasoning) │
+│  • ProtoModel (Base)            │  │  • AgentMixin (agent_run)  │
+│  • Schema Generation            │  │  • AgentActor (data agents)│
+│  • Custom Methods               │  │  • Tool Discovery          │
+│  • Validation / Foreign Keys    │  │  • Pydantic AI binding     │
+└────────────────┬────────────────┘  └───────────┬───────────────┘
+                 │                                │
+                 └──────────────┬─────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────┐
 │                      Persistence Layer                          │
 │              (StorableMixin + Storage Backends)                 │
 │  • CRUD Operations          • Transaction Management            │
@@ -89,8 +92,8 @@ class ProtoModel(PydanticBaseModel):
     # Schema generation via composable pipeline (proto_schema)
     @classmethod
     def schema(cls) -> Dict[str, Any]:
-        # Runs proto_schema.run_pipeline(cls) — 7 composable stages:
-        # base -> strip_hidden -> methods -> defs -> access -> ui -> metadata
+        # Runs proto_schema.run_pipeline(cls) — 8 composable stages:
+        # base -> strip_hidden -> methods -> agent -> defs -> access -> ui -> metadata
         # Extensions add stages via @schema_extension
         # Returns complete JSON schema including:
         # - $schema (pointing to {API_URL}/Schema)
@@ -250,7 +253,8 @@ class NetworkAdapter(Actor, auto_register=False):
 class NetworkMCP(NetworkAdapter):    # MCP JSON-RPC 2.0
 class NetworkAP(NetworkAdapter):     # ActivityPub federation
 class NetworkAPI(NetworkAdapter):    # HTTP REST (Level 3 actor routing)
-# NetworkWebSocket (frontend bridge) — planned
+class NetworkWebSocket(NetworkAdapter): # Frontend Matrix bridge
+# Transient adapters created per agent_run() for tool call correlation
 ```
 
 **Pattern**: Adapter Pattern (protocol translation) + Correlation Pattern (request/response over async messaging)
@@ -345,7 +349,53 @@ app = create_app(models=[Product, User], storage="sqlite:///app.db", routing='ac
 
 `routes_fastapi.py` is never modified — Level 3 is purely additive.
 
-### 8. Backend Adapters
+### 8. Agent System
+
+**Location**: `agents/mixin.py`, `agents/actor.py`, `agents/tools.py`, `agents/deps.py`, `agents/schema_ext.py`
+
+LLM-powered agents built on [Pydantic AI](https://ai.pydantic.dev/). PyBend provides only the binding layer — tool discovery from actor schemas, TX routing for tool calls, and agent state persistence.
+
+**Core insight**: Every Actor with `@expose_route` methods is a tool collection. An Agent is an Actor that reasons.
+
+```python
+# AgentMixin — injected when __agent__ = True (same pattern as StorableMixin)
+class AgentMixin:
+    async def agent_run(self, prompt, tools, task, user=None, **kwargs) -> dict:
+        # 1. Create transient NetworkAdapter for request/response correlation
+        # 2. discover_tools(tools, root) — read schemas, build ToolSpecs
+        # 3. Create Pydantic AI Agent with generated tool functions
+        # 4. Run agent loop — tool calls route through Matrix as TX
+        # 5. Cleanup transient adapter
+        # Returns: {answer, usage: {input_tokens, output_tokens, requests}, messages}
+
+# AgentActor — concrete model whose instances ARE agents (data, not code)
+class AgentActor(ActorModel):
+    __agent__ = True        # gets AgentMixin
+    __storable__ = True     # stored in DB
+
+    name: str               # Human-readable name
+    prompt: str             # System prompt
+    tools: list             # Actor addresses = tool sets
+    llm: str                # Pydantic AI provider:model string
+    constraints: dict       # {max_iterations, ...}
+
+    @expose_route('/run', methods=['POST'])
+    async def run(self, task: str, **kwargs) -> str: ...
+```
+
+**Two paths, one mechanism**:
+- **Path A**: `AgentActor` instances (dynamic agents — created via API/DB/code)
+- **Path B**: Any model with `__agent__ = True` (agentic methods — `self.agent_run()`)
+
+**Tool discovery**: `discover_tools(actor_addrs, root)` reads `schema.methods` from Matrix children. Storable models get CRUD tools (list, get, create, update, delete). All `@expose_route` methods become tools. Tool functions use `exec()` for dynamic typed signatures (same as dataclasses).
+
+**Tool call routing**: Generated tool functions create TX messages and send them through `NetworkAdapter.request()` for Future-based correlation. Error TXs raise `ModelRetry` (Pydantic AI retries the LLM).
+
+**Schema extension**: `@schema_extension(after='methods')` adds `agent: {enabled, run_endpoint}` to JSON Schema output for agent-capable models.
+
+See [`src/pybend/core/agents/README.md`](../agents/README.md) for full documentation.
+
+### 9. Backend Adapters
 
 **Location**: `api/backend.py`
 
@@ -546,7 +596,7 @@ HTTP GET /users/1
 
 ### 1. Mixin Pattern
 
-**StorableMixin** and **ViewableMixin** are dynamically injected into models:
+**StorableMixin**, **ViewableMixin**, and **AgentMixin** are dynamically injected into models via `__init_subclass__`:
 
 ```python
 # Before
@@ -556,6 +606,14 @@ class User(ProtoModel):
 # After __init_subclass__
 class User(StorableMixin, ProtoModel):
     # Now has .save(), .create(), .list(), etc.
+
+# Agent injection (same pattern)
+class Scanner(ActorModel):
+    __agent__ = True
+
+# After __init_subclass__
+class Scanner(AgentMixin, ActorModel):
+    # Now has .agent_run()
 ```
 
 **Benefits**:
@@ -846,6 +904,9 @@ Comments support nesting via `parent_id: Ref['self']`. The `reply()` method crea
 10. **ActivityPub Federation**: ~~Planned~~ Implemented via `NetworkAP` adapter (v0.8.1)
 11. ~~**Interceptors**: Universal middleware for actors~~ — Implemented via `use()` (v0.8.2)
 12. ~~**Two-Tier Auth**: Protocol-boundary + handler-level authorization~~ — Implemented (v0.8.2)
+13. ~~**Agent System**: LLM-powered agents~~ — Implemented via `AgentMixin` + `AgentActor` (v0.10)
+14. **Agent Traces**: Run history, step log, cost tracking (planned Phase 2)
+15. **Agent Streaming**: Pydantic AI `run_stream()` + SSE (planned Phase 3)
 
 ## Conclusion
 

@@ -16,6 +16,11 @@ Complete reference for all PyBend classes, methods, and decorators.
   - [Ref](#ref)
 - [Decorators](#decorators)
   - [@expose_route](#expose_route)
+- [Agents](#agents)
+  - [AgentMixin](#agentmixin)
+  - [AgentActor](#agentactor)
+  - [AgentDeps](#agentdeps)
+  - [ToolSpec](#toolspec)
 - [Backends](#backends)
   - [FastAPIBackend](#fastapibackend)
   - [FlaskBackend](#flaskbackend)
@@ -47,7 +52,7 @@ class MyModel(ProtoModel):
 
 ##### `schema() -> Dict[str, Any]`
 
-Returns the complete JSON schema for the model via the composable schema pipeline (`proto_schema.run_pipeline(cls)`). The pipeline consists of 7 stages: `base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`. Extensions can insert additional stages via `@schema_extension`.
+Returns the complete JSON schema for the model via the composable schema pipeline (`proto_schema.run_pipeline(cls)`). The pipeline consists of 8 stages: `base`, `strip_hidden`, `methods`, `agent`, `defs`, `access`, `ui`, `metadata`. Extensions can insert additional stages via `@schema_extension`.
 
 The schema output includes:
 - `$schema` at the top level, pointing to `{API_URL}/Schema`
@@ -636,6 +641,83 @@ class Product(ProtoModel):
 | Static | `/{table}{route}` | `/users/login` |
 | Class | `/{table}{route}` | `/users/search` |
 | Instance | `/{table}/{id}{route}` | `/products/1/discount` |
+
+---
+
+## Agents
+
+LLM-powered reasoning via the actor system. See [`src/pybend/core/agents/README.md`](../core/agents/README.md) for full documentation.
+
+### AgentMixin
+
+**Module**: `agents.mixin`
+
+Injected into any model with `__agent__ = True` via `ProtoModel.__init_subclass__`.
+
+#### `agent_run(prompt, tools, task, user=None, **kwargs) -> dict`
+
+Execute an LLM reasoning loop with Matrix-routed tools.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `prompt` | `str` | System prompt for the LLM |
+| `tools` | `list[str]` | Actor addresses whose methods become tools |
+| `task` | `str` | The user task / query to execute |
+| `user` | `dict` | JWT user dict for auth context (optional) |
+| `llm` | `str \| Model` | Override LLM model (kwarg) |
+| `constraints` | `dict` | Override constraints (kwarg) |
+
+**Returns**: `{"answer": str, "usage": {"input_tokens", "output_tokens", "requests"}, "messages": int}`
+
+### AgentActor
+
+**Module**: `agents.actor`
+
+Concrete `ActorModel` whose instances ARE agents. Configuration lives in fields (DB-storable).
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | `str` | (required) | Human-readable agent name |
+| `prompt` | `str` | `''` | System prompt for the LLM |
+| `tools` | `list` | `[]` | Actor addresses for tool discovery |
+| `llm` | `str` | `'ollama:llama3.1'` | Pydantic AI `provider:model` string |
+| `constraints` | `dict` | `{}` | Budget/safety limits |
+
+#### `run(task, **kwargs) -> str`
+
+Execute the agent's reasoning loop. Exposed as `POST /{tablename}/{id}/run`.
+
+### AgentDeps
+
+**Module**: `agents.deps`
+
+Dataclass passed to Pydantic AI tool functions via `RunContext[AgentDeps]`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `adapter` | `NetworkAdapter` | For request/response correlation |
+| `user` | `dict \| None` | JWT user dict for auth context |
+| `agent_addr` | `str` | Agent's actor address (TX.source) |
+
+### ToolSpec
+
+**Module**: `agents.tools`
+
+Specification for a single discovered tool.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `actor_addr` | `str` | Target actor address |
+| `method_name` | `str` | Method/action name |
+| `tool_name` | `str` | LLM-facing name (e.g., `grants_create`) |
+| `description` | `str` | Human-readable description |
+| `parameters` | `dict` | JSON Schema for parameters |
+
+#### Related Functions
+
+- `discover_tools(actor_addrs, root) -> list[ToolSpec]` — Discover tools from actor addresses
+- `create_tool_function(spec) -> async function` — Create typed async function from ToolSpec
+- `make_tool(spec) -> pydantic_ai.Tool` — Create Pydantic AI Tool wrapper
 
 ---
 

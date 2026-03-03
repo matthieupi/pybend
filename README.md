@@ -45,6 +45,7 @@ PyBend is a modular, extensible backend framework built with Python. It supports
 * 📂 Collection routes for join models (`GET /products/comments`, `GET /products/likes`)
 * 📄 Pagination with `?limit=N&offset=M` on list endpoints
 * ✅ Typed end-to-end using Pydantic v2
+* 🤖 LLM-powered agents via Pydantic AI — dynamic agents as data, any model method can be agentic
 * 🧪 Built-in tests via PyTest + Playwright frontend tests
 
 ---
@@ -74,9 +75,10 @@ pip install pybend
 
 ```
 src/pybend/
-    core/       Framework (models, storage, API, auth, app builder)
-    example/    Demo application (product catalog with comments/likes)
-    static/     Frontend components (JS/CSS web components)
+    core/           Framework (models, storage, API, auth, actors, app builder)
+    core/agents/    LLM agent system (AgentMixin, AgentActor, tool discovery)
+    example/        Demo application (product catalog with comments/likes)
+    static/         Frontend components (JS/CSS web components)
 ```
 
 ---
@@ -486,6 +488,52 @@ register_model(generate_join_model(OwnerModel, SubModel))
 
 ---
 
+## **Agents**
+
+PyBend includes an LLM-powered agent system built on [Pydantic AI](https://ai.pydantic.dev/). The core idea: **every Actor with `@expose_route` methods is a tool collection, and an Agent is an Actor that reasons**.
+
+### Dynamic Agents (primary path)
+
+Agents are instances of `AgentActor` — configuration is data, not code:
+
+```python
+from pybend import AgentActor
+
+scanner = AgentActor(
+    name="Grant Scanner",
+    prompt="You find government grants...",
+    tools=["grants", "web_tools"],       # actor addresses = tool sets
+    llm="anthropic:claude-sonnet-4-5-20250929",
+    constraints={"max_iterations": 30},
+)
+
+result = await scanner.run(task="Find grants about renewable energy")
+```
+
+Agents can be created via API (`POST /agents`), stored in the database, and triggered via `POST /agents/{id}/run`.
+
+### Agentic Model Methods (secondary path)
+
+Any model with `__agent__ = True` gets `agent_run()` injected. Methods can use LLM reasoning internally — callers don't need to know:
+
+```python
+class Product(ActorModel):
+    __agent__ = True
+
+    @expose_route('/create_from_text', methods=['POST'])
+    async def create_from_text(self, text: str, tools: list = []) -> str:
+        result = await self.agent_run(
+            prompt="Parse freeform text into a Product.",
+            tools=["products"] + tools,
+            task=text,
+        )
+        return result['answer']
+```
+
+Tool calls route through Matrix as TX messages, preserving auth and interceptors. See [`src/pybend/core/agents/README.md`](src/pybend/core/agents/README.md) for full documentation.
+
+---
+
 ## **Why PyBend?**
 
 * 🧠 Self-discoverable data models and APIs
@@ -531,6 +579,7 @@ Tests include:
 * Reply creation with parent_id nesting
 * Collection routes (`/products/comments`, `/products/likes`)
 * Pagination
+* Agent system (mixin injection, tool discovery, agent CRUD, LLM execution)
 * Frontend component unit tests
 
 ---
