@@ -317,6 +317,25 @@ export class NTTItem extends NTTElement {
     return html.join('');
   }
 
+  /**
+   * row — Table row: raw cells for each renderable field.
+   * Returns unstyled <span class="cell"> elements for use in ntt-table / ntt-row.
+   * Same field filtering as sm() but includes more fields (table has room).
+   */
+  row() {
+    const schema = this.schema;
+    const props = schema.properties || {};
+    const renderable = this.#smFields();
+    const cells = [];
+    for (const key of renderable) {
+      const def = props[key];
+      const val = this.value[key] ?? '';
+      const display = Formidable.formatDisplayValue(def, key, val);
+      cells.push(`<span class="cell" data-value="${key}">${display}</span>`);
+    }
+    return cells.join('');
+  }
+
   /** lg — Detail: same as card (future: show normally-hidden fields). */
   lg() {
     return this.md();
@@ -470,6 +489,14 @@ export class NTTItem extends NTTElement {
 
     const size = this.displayMode;
     const html = (this[size] || this.md).call(this);
+
+    // Row mode: output raw cells without card wrapper (NTTRow provides structure)
+    if (size === 'row') {
+      this.shadowRoot.innerHTML = html;
+      this._rendered = true;
+      this[`${size}_mounted`]?.call(this);
+      return;
+    }
 
     // When editing in compact sizes, sm() delegates to md() for the full form.
     // Match the card layout so CSS styles apply correctly.

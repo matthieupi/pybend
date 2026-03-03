@@ -13,6 +13,8 @@
 import {Component} from '../core/Component.js';
 import TX from '../core/TX.js';
 import Logging from '../utils/Logging.js';
+import {permissions} from '../utils/Permissions.js';
+import {NTTModal} from './ntt-modal.js';
 
 
 export class ListElement extends Component {
@@ -24,6 +26,7 @@ export class ListElement extends Component {
     md: 'sm',
     sm: 'xs',
     xs: 'xs',
+    row: 'row',
   };
 
   #selected = new Set();
@@ -51,6 +54,7 @@ export class ListElement extends Component {
    */
   definedCallback() {
     this.subscribe(this.proto, 'UPDATE', (data) => this.UPDATE(data));
+    if (this.value.length > 0) return;   // Already loaded — skip redundant READ
     this.#offset = 0;
     const popDepth = this.proto._schema?.ui?.populate?.depth ?? 1;
     const popParams = popDepth > 0 ? {depth: popDepth} : {};
@@ -111,6 +115,34 @@ export class ListElement extends Component {
     } else {
       Logging.warn('[ListElement] append() expects an array');
     }
+  }
+
+
+  /** ─────────────────────────────────────────── **/
+  /**         Create (Modal)                       **/
+  /** ─────────────────────────────────────────── **/
+
+  /** Open a modal with a create form for this entity type. */
+  openCreateModal() {
+    const modal = NTTModal.open({
+      title: `New ${this.schema.__name__}`,
+      submitLabel: 'Create',
+    });
+
+    // Stamp an ntt-item in create/edit mode inside the modal body
+    const el = document.createElement(this.childTag);
+    el.setAttribute('display', 'md');
+    el.setAttribute('create-mode', '');
+    el.mode = 'edit';
+    el.schema = this.schema;
+    el.value = {};
+    modal.body.appendChild(el);
+
+    modal.onSubmit = () => {
+      if (!el.value || typeof el.value !== 'object') return;
+      this.proto.call('CREATE', el.value, { inbox: 'CREATE' });
+      modal.close('submit');
+    };
   }
 
 
@@ -215,12 +247,17 @@ export class ListElement extends Component {
     const meta = this.proto?._paginationMeta;
     const total = meta?.total ?? this.value.length;
     const hasMore = meta?.has_more ?? false;
+    const headless = this.hasAttribute('headless');
+    const canCreate = !headless && this.hasAttribute('allow-create') &&
+                      permissions.canAction(this.schema?.access, 'create');
 
     this.shadowRoot.innerHTML = `
+      ${headless ? '' : `
       <div class="list-header">
         <h1>${this.model}s</h1>
         <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span>
-      </div>
+        ${canCreate ? '<button class="add-btn" title="Add new">+</button>' : ''}
+      </div>`}
       <div class="list-grid"></div>
       ${hasMore ? '<button class="load-more-btn">Load More</button>' : ''}
     `;
@@ -237,6 +274,8 @@ export class ListElement extends Component {
     });
     grid.appendChild(fragment);
 
+    // Bind events
     this.shadowRoot.querySelector('.load-more-btn')?.addEventListener('click', () => this.loadMore());
+    this.shadowRoot.querySelector('.add-btn')?.addEventListener('click', () => this.openCreateModal());
   }
 }

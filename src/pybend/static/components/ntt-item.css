@@ -666,3 +666,13 @@ label:first-of-type {
     0%   { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
 }
+
+
+/* ═══════════════════════════════════════════════════
+   Create mode — used when item is stamped as an
+   inline create form by ListElement
+   ═══════════════════════════════════════════════════ */
+
+:host([create-mode]) .card-actions {
+    display: none !important;
+}

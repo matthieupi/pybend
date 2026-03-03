@@ -69,6 +69,31 @@
     border-color: var(--border-accent, rgba(34,211,197,0.30));
 }
 
+/* ── Add button ── */
+.add-btn {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    margin-left: auto;
+    font-size: 1.25rem;
+    font-weight: 300;
+    line-height: 1;
+    color: var(--accent-text, #5eeadf);
+    background: var(--glass-bg-light, rgba(22, 26, 38, 0.45));
+    backdrop-filter: blur(var(--glass-blur-sm, 8px));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm, 8px));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-btn:hover {
+    background: var(--accent-dim, rgba(34,211,197,0.12));
+    border-color: var(--border-accent, rgba(34,211,197,0.30));
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
