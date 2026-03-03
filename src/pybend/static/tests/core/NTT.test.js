@@ -413,6 +413,55 @@ describe('NTT.js', () => {
         expect(val.$schema).toContain('ValSchema');
         expect(val.$id).toBeTruthy();
       });
+
+      it('should return a new object each access (immutability)', () => {
+        const schema = {
+          ...productSchema,
+          __name__: 'ValImmut',
+          __tablename__: 'val_immuts',
+        };
+        NTT.SCHEMA(schema);
+        const DC = NTT.get('ValImmut');
+        DC.READ([{ id: 1, name: 'Immut', price: 7 }]);
+        const inst = DC.instances.get(1);
+        const v1 = inst.value;
+        const v2 = inst.value;
+        expect(v1).not.toBe(v2);
+        expect(v1).toEqual(v2);
+      });
+
+      it('should not pollute _data with $schema/$id', () => {
+        const schema = {
+          ...productSchema,
+          __name__: 'ValNoPollute',
+          __tablename__: 'val_no_pollutes',
+        };
+        NTT.SCHEMA(schema);
+        const DC = NTT.get('ValNoPollute');
+        DC.READ([{ id: 1, name: 'Clean', price: 3 }]);
+        const inst = DC.instances.get(1);
+        // Access value to trigger getter
+        const val = inst.value;
+        expect(val.$schema).toBeTruthy();
+        // _data should NOT have $schema/$id
+        expect(inst._data.$schema).toBeUndefined();
+        expect(inst._data.$id).toBeUndefined();
+      });
+
+      it('should persist property setter changes', () => {
+        const schema = {
+          ...productSchema,
+          __name__: 'ValPersist',
+          __tablename__: 'val_persists',
+        };
+        NTT.SCHEMA(schema);
+        const DC = NTT.get('ValPersist');
+        DC.READ([{ id: 1, name: 'Before', price: 5 }]);
+        const inst = DC.instances.get(1);
+        inst.name = 'After';
+        expect(inst.name).toBe('After');
+        expect(inst.value.name).toBe('After');
+      });
     });
 
     describe('toJSON()', () => {

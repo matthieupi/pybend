@@ -694,10 +694,11 @@ function prototype(addr, schema, href) {
           if (!this._data) {
               return undefined
           }
-          let data = this._data;
-          data["$schema"] = `${config.API_URL}/${this.constructor.addr}`;
-          data["$id"] = this.href;
-          return this._data;
+          return {
+              ...this._data,
+              "$schema": `${config.API_URL}/${this.constructor.addr}`,
+              "$id": this.href,
+          };
       }
       set value(val) {
             if (typeof val !== 'object') {
@@ -747,9 +748,9 @@ function prototype(addr, schema, href) {
             throw new TypeError(`Invalid type for '${field}': expected ${expectedType}`);
           }
           // Cache the old value for observers
-          const oldValue = this.value[field];
+          const oldValue = this._data?.[field];
           // Assign the value to the field
-          this.value[field] = value;
+          this._data[field] = value;
           // If this field has property observers, notify them
           this.notify(field, value, oldValue);
         },
