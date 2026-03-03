@@ -69,10 +69,10 @@
   - Collapsible JSON schema inspector with syntax-colored values
   - ABAC permission check panel with allowed/denied badges
   - Glass morphism sections, `ks-` prefixed CSS, responsive grid
-- **matrix.html** — Added ntt-user import
+- **index.html** — Added ntt-user import
 
 ## Pages
-- **matrix.html** — Added `ntt-favorites.js` import (modulepreload + module)
+- **index.html** — Added `ntt-favorites.js` import (modulepreload + module)
 
 ## Tests
 - **test_routing.py** — Playwright test verifying like/reply/favorite POST to correct nested API paths

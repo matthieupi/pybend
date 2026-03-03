@@ -184,7 +184,7 @@
 - Added `NetworkAdapter` for HTTP transport (GET/POST/PUT/DELETE) with TX-based request/response
 
 ## Infrastructure
-- Added `matrix.html` — main application entry point
+- Added `index.html` — main application entry point
 - Added `schema.html` — interactive schema explorer page
 - Added `config.js` for frontend configuration (API_URL, debug flags)
 

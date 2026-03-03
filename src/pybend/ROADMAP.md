@@ -105,7 +105,7 @@ __ui__ = {
 6. Migration system (auto-add/remove columns)
 
 **Frontend tests (Playwright):**
-- matrix.html loads and shows product list
+- index.html loads and shows product list
 - Click product -> detail view navigation
 - Back button works
 - Edit toggle + save
@@ -117,7 +117,7 @@ __ui__ = {
 
 ### 8. Multi-Model Matrix Layout / Model Selector
 
-**Problem:** `matrix.html` hardcodes `<ntt-list model="Product">`. No endpoint to discover models. No selector UI.
+**Problem:** `index.html` hardcodes `<ntt-list model="Product">`. No endpoint to discover models. No selector UI.
 
 **Implementation:**
 - **Backend:** Add `GET /models` endpoint returning model metadata from `registered_models`
@@ -125,7 +125,7 @@ __ui__ = {
 - **Navigation:** Click model -> Router NAVIGATE -> ntt-router mounts `<ntt-list model="ModelName">`
 - Multiple `<ntt-list>` instances can coexist safely (independent Matrix registration)
 
-**Files:** `routes_fastapi.py` (1 new route), `matrix.html` (layout refactor), `ntt-topbar.js` or new `ntt-model-selector.js`
+**Files:** `routes_fastapi.py` (1 new route), `index.html` (layout refactor), `ntt-topbar.js` or new `ntt-model-selector.js`
 
 **Effort:** ~4 hours | **Difficulty:** Low-Medium
 

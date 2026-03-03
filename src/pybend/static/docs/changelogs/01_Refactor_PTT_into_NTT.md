@@ -434,7 +434,7 @@ Removed unused `import { PTT } from '../core/NTT.js'`.
 
 Removed unused `import {PTT} from './NTT.js'`.
 
-### `matrix.html`
+### `index.html`
 
 `import { PTT }` → `import { NTT }`. Updated commented-out code references.
 

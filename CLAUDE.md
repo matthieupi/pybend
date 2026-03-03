@@ -305,7 +305,7 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 
 1. Define or modify a Python model
 2. Restart the server — `ProtoModel.schema()` generates the updated JSON Schema, `register_routes()` creates endpoints, migrations run
-3. Open `http://localhost:5000/static/matrix.html` — the frontend fetches the schema, creates DynamicClasses, renders everything
+3. Open `http://localhost:5000/` — the frontend fetches the schema, creates DynamicClasses, renders everything
 4. No frontend code changed. No routes added. No forms built. No permissions wired.
 
 To customize, override at any level: swap a widget via `json_schema_extra`, control layout via `__ui__`, change permissions via `__access__`, or write a custom component that extends `NTTElement`.
@@ -776,7 +776,7 @@ For **framework code**, `src/pybend/core/` contains `config.py` and the backward
 2. Run framework unit tests: `cd /workspace/src/pybend/core && pytest tests/unit/`
 3. Run integration tests: `cd /workspace/src/pybend/core && pytest ../example/tests/`
 4. Test API (see auth examples below)
-5. Test frontend: Open `http://localhost:5000/static/matrix.html`
+5. Test frontend: Open `http://localhost:5000/`
 
 ### Commit Messages
 Format: `type(scope): Description [wave]`

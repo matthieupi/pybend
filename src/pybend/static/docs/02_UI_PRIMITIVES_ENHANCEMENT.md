@@ -1021,7 +1021,7 @@ user_owner: User = Field(json_schema_extra={
 - Edit button hidden if `permissions.canAction(schema.access, 'update')` returns false
 - `toggleMode()` blocked if user lacks update permission
 
-**Bootstrap**: `permissions.init()` called in `matrix.html` module script. Non-blocking — components degrade gracefully (show everything by default, apply restrictions once identity resolves).
+**Bootstrap**: `permissions.init()` called in `index.html` module script. Non-blocking — components degrade gracefully (show everything by default, apply restrictions once identity resolves).
 
 ---
 
@@ -1153,6 +1153,6 @@ These are tooling that helps developers be productive. They're separate from the
 
 - Start server: `cd /workspace/src/pybend/core && python3 main.py`
 - Test API: `curl http://localhost:5000/Product` (schema), `curl http://localhost:5000/products` (data)
-- Test frontend: `http://localhost:5000/static/matrix.html`
+- Test frontend: `http://localhost:5000/`
 - After schema extension changes, verify the JSON output: `curl http://localhost:5000/Product | python3 -m json.tool`
 - After component refactor, verify that `<ntt-list model="Product">` still renders correctly in the browser.

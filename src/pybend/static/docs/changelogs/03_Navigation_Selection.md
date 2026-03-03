@@ -256,7 +256,7 @@ Each product card re-rendered twice (DESCRIBE double-render), and each render cr
 | `components/NTTElement.js` | Fixed: removed redundant `render()` call in DESCRIBE |
 | `core/Component.js` | Fixed: `attributeChangedCallback` early returns for `ref` and `model` handlers |
 | `config.js` | Added: `SELECT`, `NAVIGATE`, `BACK` to event enum |
-| `matrix.html` | Wrapped `<ntt-list>` in `<ntt-router name="main" hash>`, added router import |
+| `index.html` | Wrapped `<ntt-list>` in `<ntt-router name="main" hash>`, added router import |
 | `docs/COMPONENTS.md` | Added: Router, NTTRouter sections, ListElement selection API |
 | `docs/ARCHITECTURE.md` | Added: Router in hierarchy + module map, navigation flow, updated status |
 
@@ -264,7 +264,7 @@ Each product card re-rendered twice (DESCRIBE double-render), and each render cr
 
 ## 7. Verification
 
-1. Open `matrix.html` — product list renders normally (ntt-router shows slot, no chrome)
+1. Open `index.html` — product list renders normally (ntt-router shows slot, no chrome)
 2. Click a product card — back button + title + detail view appears
 3. URL changes to `#Product/3`
 4. Click back button — list restores instantly (slot, no re-fetch)

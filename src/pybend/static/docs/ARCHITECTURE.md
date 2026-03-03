@@ -135,7 +135,7 @@ static/
 
 ## Initialization Sequence
 
-When `matrix.html` loads:
+When `index.html` loads:
 
 ```
 1. Matrix.js executes
