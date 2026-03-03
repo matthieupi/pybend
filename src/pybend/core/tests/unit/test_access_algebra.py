@@ -370,9 +370,27 @@ class TestFollowerRule:
         f = Follower(owner_field='author_id')
         assert f.to_dict() == {"rule": "follower", "field": "author_id"}
 
-    def test_follower_sql_filter_returns_none(self):
-        ctx = _ctx(following=[1])
-        assert FOLLOWER.sql_filter(ctx) is None
+    def test_follower_sql_filter_with_following(self):
+        ctx = _ctx(following=[1, 3])
+        clause, params = FOLLOWER.sql_filter(ctx)
+        assert 'IN' in clause
+        assert params == [1, 3]
+
+    def test_follower_sql_filter_empty_following(self):
+        ctx = _ctx(following=[])
+        clause, params = FOLLOWER.sql_filter(ctx)
+        assert clause == "1=0"
+        assert params == []
+
+    def test_follower_sql_filter_no_following_key(self):
+        ctx = _ctx()  # no following kwarg
+        clause, params = FOLLOWER.sql_filter(ctx)
+        assert clause == "1=1"  # permissive — evaluate() still guards
+
+    def test_follower_sql_filter_unauthenticated(self):
+        ctx = _ctx(authenticated=False)
+        clause, params = FOLLOWER.sql_filter(ctx)
+        assert clause == "1=0"
 
 
 # ── Composition with new rules ──────────────────────────────────
@@ -417,3 +435,68 @@ class TestFederationComposition:
         assert d['op'] == 'and'
         assert {'rule': 'local'} in d['rules']
         assert {'rule': 'authenticated'} in d['rules']
+
+
+# ── sql_filter Completeness ────────────────────────────────────────
+
+
+class TestSqlFilterCompleteness:
+    """Verify that no leaf rule returns None from sql_filter, and that
+    no composition of real rules produces None."""
+
+    @pytest.mark.parametrize("rule", LEAF_RULES, ids=lambda r: type(r).__name__)
+    def test_leaf_sql_filter_not_none_authenticated(self, rule):
+        """Every leaf rule returns a valid SQL fragment for authenticated ctx."""
+        ctx = _ctx(authenticated=True, following=[1])
+        result = rule.sql_filter(ctx)
+        assert result is not None, f"{type(rule).__name__}.sql_filter() returned None"
+        clause, params = result
+        assert isinstance(clause, str)
+        assert isinstance(params, list)
+
+    @pytest.mark.parametrize("rule", LEAF_RULES, ids=lambda r: type(r).__name__)
+    def test_leaf_sql_filter_not_none_anonymous(self, rule):
+        """Every leaf rule returns a valid SQL fragment for anonymous ctx."""
+        ctx = _ctx(authenticated=False)
+        result = rule.sql_filter(ctx)
+        assert result is not None, f"{type(rule).__name__}.sql_filter() returned None"
+
+    @pytest.mark.parametrize("a,b", [
+        (OWNER, FOLLOWER),
+        (AUTHENTICATED, FOLLOWER),
+        (FOLLOWER, ROLE('admin')),
+    ])
+    def test_or_composition_not_none(self, a, b):
+        """OR of real leaf rules never returns None."""
+        rule = a | b
+        ctx = _ctx(following=[1])
+        result = rule.sql_filter(ctx)
+        assert result is not None
+
+    @pytest.mark.parametrize("a,b", [
+        (OWNER, FOLLOWER),
+        (FEDERATED, FOLLOWER),
+    ])
+    def test_and_composition_not_none(self, a, b):
+        """AND of real leaf rules never returns None."""
+        rule = a & b
+        ctx = _ctx(following=[1])
+        result = rule.sql_filter(ctx)
+        assert result is not None
+
+    def test_not_follower_not_none(self):
+        """NOT(FOLLOWER) returns valid SQL fragment."""
+        rule = ~FOLLOWER
+        ctx = _ctx(following=[1])
+        result = rule.sql_filter(ctx)
+        assert result is not None
+
+    def test_owner_or_follower_produces_valid_sql(self):
+        """OWNER | FOLLOWER — the motivating composition."""
+        rule = OWNER | FOLLOWER
+        ctx = _ctx(user_id=1, following=[2, 3])
+        clause, params = rule.sql_filter(ctx)
+        assert 'OR' in clause
+        assert 1 in params  # OWNER's user_id
+        assert 2 in params  # FOLLOWER's following IDs
+        assert 3 in params

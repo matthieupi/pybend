@@ -370,8 +370,18 @@ class Follower(AccessRule):
         return owner_val in following or str(owner_val) in following
 
     def sql_filter(self, ctx: AccessContext) -> Optional[Tuple[str, List[Any]]]:
-        # Cannot push down to SQL — requires runtime evaluation
-        return None
+        if not ctx.is_authenticated:
+            return ("1=0", [])
+        following = ctx.user.get('following')
+        if following is None:
+            # No following data — can't filter, be permissive (evaluate() still guards)
+            return ("1=1", [])
+        if not following:
+            # Empty following list — no one is followed
+            return ("1=0", [])
+        field = self._resolve_field(ctx)
+        placeholders = ','.join(['?'] * len(following))
+        return (f"{field} IN ({placeholders})", list(following))
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {"rule": "follower"}
