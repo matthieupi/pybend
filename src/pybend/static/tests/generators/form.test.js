@@ -323,6 +323,123 @@ describe('form.js (Formidable)', () => {
     });
   });
 
+  describe('title field not duplicated (models using title instead of name)', () => {
+    const grantSchema = {
+      __name__: 'Grant',
+      __tablename__: 'grants',
+      properties: {
+        id: { type: 'integer', readOnly: true, title: 'ID', ui: { display: false } },
+        title: { type: 'string', title: 'Title', minLength: 1 },
+        amount_min: { type: 'number', title: 'Amount Min', ui: { widget: 'currency' } },
+        amount_max: { type: 'number', title: 'Amount Max', ui: { widget: 'currency' } },
+        status: { type: 'string', title: 'Status' },
+      },
+      required: ['title'],
+      ui: { field_order: ['title', 'amount_min', 'amount_max', 'status'] },
+      access: {},
+      methods: {},
+    };
+
+    const makeGrantNtt = (value = {}) => ({
+      schema: grantSchema,
+      value: { id: 1, title: 'NSF Computer Science Grant', amount_min: 50000, amount_max: 100000, status: 'open', ...value },
+      ref: 'http://localhost:5000/grants/1',
+      name: 'Grant',
+    });
+
+    it('should render title in h2 header, not as a duplicate form field', () => {
+      const html = Formidable.getForm(makeGrantNtt(), 'display');
+      // Title should appear in the h2 header
+      expect(html).toContain('<h2');
+      expect(html).toContain('NSF Computer Science Grant');
+      // Title should NOT appear as a labeled form field
+      const labelMatches = html.match(/<label[^>]*>Title<\/label>/g);
+      expect(labelMatches).toBeNull();
+    });
+
+    it('should use title as header key in display mode', () => {
+      const html = Formidable.getForm(makeGrantNtt(), 'display');
+      expect(html).toContain('data-value="title"');
+    });
+
+    it('should use title as header key in edit mode', () => {
+      const html = Formidable.getForm(makeGrantNtt(), 'edit');
+      expect(html).toContain('data-key="title"');
+    });
+
+    it('should still use name as header key for models with name field', () => {
+      const html = Formidable.getForm(makeNtt(), 'display');
+      expect(html).toContain('data-value="name"');
+    });
+
+    it('should exclude title from renderable fields just like name', () => {
+      const html = Formidable.getForm(makeGrantNtt(), 'display');
+      // amount_min and status should appear as regular fields
+      expect(html).toContain('Amount Min');
+      expect(html).toContain('Status');
+      // Count how many times "Title" appears — should only be in the h2, not in body
+      const h2Match = html.match(/<h2[^>]*>.*?NSF Computer Science Grant.*?<\/h2>/);
+      expect(h2Match).not.toBeNull();
+    });
+  });
+
+  describe('widget fields include labels', () => {
+    it('should render label for currency widget fields', () => {
+      const html = Formidable.getInput(makeNtt(), 'price', 'display');
+      expect(html).toContain('<label');
+      expect(html).toContain('Price');
+    });
+
+    it('should render label for currency widget in edit mode', () => {
+      const html = Formidable.getInput(makeNtt(), 'price', 'edit');
+      expect(html).toContain('<label');
+      expect(html).toContain('Price');
+    });
+
+    it('should render label for widget fields with custom title', () => {
+      const ntt = makeNtt();
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          deadline: { type: 'string', title: 'Deadline', ui: { widget: 'date' } },
+        },
+      };
+      ntt.value.deadline = '2025-01-15';
+      const html = Formidable.getInput(ntt, 'deadline', 'display');
+      expect(html).toContain('<label');
+      expect(html).toContain('Deadline');
+    });
+
+    it('should render label for url widget fields', () => {
+      const ntt = makeNtt();
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          website: { type: 'string', title: 'Website', ui: { widget: 'url' } },
+        },
+      };
+      ntt.value.website = 'https://example.com';
+      const html = Formidable.getInput(ntt, 'website', 'display');
+      expect(html).toContain('<label');
+      expect(html).toContain('Website');
+    });
+
+    it('should NOT render label for name or id fields even with widget', () => {
+      const ntt = makeNtt();
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          name: { ...schema.properties.name, ui: { widget: 'textarea' } },
+        },
+      };
+      const html = Formidable.getInput(ntt, 'name', 'display');
+      expect(html).not.toContain('<label');
+    });
+  });
+
   describe('resolveAnyOf(def)', () => {
     it('should resolve single non-null entry by stripping null from anyOf', () => {
       const ntt = {
@@ -364,6 +481,156 @@ describe('form.js (Formidable)', () => {
         name: 'Product',
       };
       expect(() => Formidable.getInput(ntt, 'multi', 'display')).toThrow('Multiple definitions');
+    });
+  });
+
+  describe('validateForm(ntt)', () => {
+    it('should return empty array for valid data', () => {
+      const ntt = makeNtt();
+      const errors = Formidable.validateForm(ntt);
+      expect(errors).toEqual([]);
+    });
+
+    it('should catch missing required fields', () => {
+      const ntt = makeNtt({ name: '' });
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'name')).toBe(true);
+    });
+
+    it('should catch minLength violations', () => {
+      const ntt = makeNtt();
+      // Override schema to have a strict minLength on description
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          description: { type: 'string', title: 'Description', minLength: 10, ui: { widget: 'textarea' } },
+        },
+      };
+      ntt.value.description = 'short';
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'description')).toBe(true);
+    });
+
+    it('should catch maxLength violations', () => {
+      const ntt = makeNtt();
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          name: { ...schema.properties.name, maxLength: 5 },
+        },
+      };
+      ntt.value.name = 'Too Long Name';
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'name')).toBe(true);
+    });
+
+    it('should skip protected fields', () => {
+      const ntt = makeNtt();
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          internal: { type: 'string', title: 'Internal', minLength: 10, ui: { protected: true } },
+        },
+        ui: { ...schema.ui, field_order: ['name', 'price', 'description', 'active', 'internal'] },
+      };
+      ntt.value.internal = 'x'; // would violate minLength but should be skipped
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'internal')).toBe(false);
+    });
+
+    it('should skip hidden fields', () => {
+      const ntt = makeNtt();
+      // id is already hidden (ui.display=false), give it a required violation
+      ntt.schema = {
+        ...schema,
+        required: ['name', 'id'],
+      };
+      ntt.value.id = '';
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'id')).toBe(false);
+    });
+
+    it('should run widget validate() for widget fields', () => {
+      const ntt = makeNtt();
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          website: { type: 'string', title: 'Website', ui: { widget: 'url' } },
+        },
+        ui: { ...schema.ui, field_order: ['name', 'price', 'description', 'active', 'website'] },
+      };
+      ntt.value.website = 'not-a-valid-url';
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'website')).toBe(true);
+    });
+
+    it('should catch number minimum violations', () => {
+      const ntt = makeNtt({ price: -5 });
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          price: { type: 'number', title: 'Price', minimum: 0, ui: { widget: 'currency' } },
+        },
+      };
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'price')).toBe(true);
+    });
+
+    it('should catch number maximum violations', () => {
+      const ntt = makeNtt({ price: 10000 });
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          price: { type: 'number', title: 'Price', maximum: 999, ui: { widget: 'currency' } },
+        },
+      };
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'price')).toBe(true);
+    });
+
+    it('should catch exclusiveMinimum violations', () => {
+      const ntt = makeNtt({ price: 0 });
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          price: { type: 'number', title: 'Price', exclusiveMinimum: 0, ui: { widget: 'currency' } },
+        },
+      };
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'price')).toBe(true);
+    });
+
+    it('should catch exclusiveMaximum violations', () => {
+      const ntt = makeNtt({ price: 100 });
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          price: { type: 'number', title: 'Price', exclusiveMaximum: 100, ui: { widget: 'currency' } },
+        },
+      };
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'price')).toBe(true);
+    });
+
+    it('should not report errors for valid number values', () => {
+      const ntt = makeNtt({ price: 50 });
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          price: { type: 'number', title: 'Price', minimum: 0, maximum: 999, ui: { widget: 'currency' } },
+        },
+      };
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'price')).toBe(false);
     });
   });
 
@@ -418,6 +685,69 @@ describe('form.js (Formidable)', () => {
       };
       const html = Formidable.getInput(ntt, 'user', 'display');
       expect(html).toContain('Alice');
+    });
+
+    it('should render $ref href as ntt-item component with display="sm"', () => {
+      const ntt = {
+        schema: {
+          ...schema,
+          properties: {
+            ...schema.properties,
+            user_owner: { type: '$ref', $ref: '#/$defs/User', title: 'Owner', ui: { protected: true } },
+          },
+          $defs: { User: { ui: { renderer: { item: 'ntt-user' } } } },
+        },
+        value: { id: 1, name: 'Test', user_owner: 'http://localhost:5000/users/1' },
+        ref: 'http://localhost:5000/products/1',
+        name: 'Product',
+      };
+      const html = Formidable.getInput(ntt, 'user_owner', 'display');
+      // Should render as a component, not plain text
+      expect(html).toContain('ntt-user');
+      expect(html).toContain('ref="http://localhost:5000/users/1"');
+      expect(html).toContain('display="sm"');
+      expect(html).toContain('data-model="User"');
+      expect(html).toContain('ref-field');
+    });
+
+    it('should render $ref with $id object as ntt-item component', () => {
+      const ntt = {
+        schema: {
+          ...schema,
+          properties: {
+            ...schema.properties,
+            author: { type: '$ref', $ref: '#/$defs/User', title: 'Author' },
+          },
+          $defs: { User: {} },
+        },
+        value: { id: 1, name: 'Test', author: { $id: 'http://localhost:5000/users/2', name: 'Bob' } },
+        ref: 'http://localhost:5000/products/1',
+        name: 'Product',
+      };
+      const html = Formidable.getInput(ntt, 'author', 'display');
+      expect(html).toContain('ntt-item');
+      expect(html).toContain('ref="http://localhost:5000/users/2"');
+      expect(html).toContain('display="sm"');
+    });
+
+    it('should fallback to formatRefDisplay for non-href $ref values', () => {
+      const ntt = {
+        schema: {
+          ...schema,
+          properties: {
+            ...schema.properties,
+            user: { type: '$ref', $ref: '#/$defs/User', title: 'User' },
+          },
+          $defs: { User: {} },
+        },
+        value: { id: 1, name: 'Test', user: null },
+        ref: '',
+        name: 'Product',
+      };
+      const html = Formidable.getInput(ntt, 'user', 'display');
+      // Null value should not render a component — should fallback gracefully
+      expect(html).not.toContain('ntt-item');
+      expect(html).toContain('data-value="user"');
     });
 
     it('should use display mode when canEdit returns false even in edit mode', () => {

@@ -1,13 +1,14 @@
 import { permissions } from '../utils/Permissions.js';
 import { NTT } from '../core/NTT.js';
 import Logging from '../utils/Logging.js';
+import { getWidgetForField } from '../widgets/index.js';
 import '../components/ntt-ref-picker.js';
 
   // Layout cache: stores { renderableFields, groups } per schema+mode+role.
   // Eliminates O(n²) field order computation and repeated permission checks
   // across all items sharing the same schema (e.g. 30 Product cards).
   const _layoutCache = new Map();
-  const _headerFieldSet = new Set(['name', 'id', 'description']);
+  const _headerFieldSet = new Set(['name', 'title', 'id', 'description']);
 
   function _getLayout(schema, mode) {
       const cacheKey = `${schema.__name__ || schema.title || ''}:${mode}:${permissions.role}`;
@@ -146,26 +147,28 @@ import '../components/ntt-ref-picker.js';
   
   function getHeader(ntt, mode) {
       const schema = ntt.schema || {};
-      ntt = ntt.value || {};
-      const name = ntt.title || ntt.name || schema.name || 'Unnamed';
-      const desc = ntt.description || '';
-    
+      const val = ntt.value || {};
+      // Determine which field provides the heading (title takes priority over name)
+      const nameKey = ('title' in val) ? 'title' : 'name';
+      const name = val[nameKey] || schema.name || 'Unnamed';
+      const desc = val.description || '';
+
       let headerHtml = [];
-    
+
       if (mode === 'edit') {
-          headerHtml.push(`<input style="font-size: 1.5rem" type="text" id="name" data-key="name" data-type="string" value="${name}">`);
+          headerHtml.push(`<input style="font-size: 1.5rem" type="text" id="${nameKey}" data-key="${nameKey}" data-type="string" value="${name}">`);
           if (desc)
               headerHtml.push(`<textarea id="description" data-key="description" data-type="text">${desc}</textarea>`);
-        
+
       } else {
-          headerHtml.push(`<h2 class="${schema.name}" data-value="name">${name}</h2>`);
+          headerHtml.push(`<h2 class="${schema.name}" data-value="${nameKey}">${name}</h2>`);
           if (desc) {
               headerHtml.push(`<h4 data-value="description">${desc}</h4>`);
           }
       }
-    
+
       return headerHtml;
-    
+
   }
   
 /**
@@ -205,6 +208,43 @@ function getInput(ntt, key, mode = 'display') {
     // Protected fields are always display-only (backend-owned)
     const effectiveMode = (mode === 'edit' && (def.ui?.protected || !permissions.canEdit(def))) ? 'display' : mode;
 
+    // ── Widget dispatch (takes priority over type-based rendering) ──
+    const _wr = getWidgetForField(def);
+    if (_wr.widget && def.ui?.widget) {
+        // Add label (same rules as non-widget fields)
+        if (key !== 'name' && key !== 'id')
+            html.push(`<label class="${model} ${model}-form-item">${label}</label>`);
+
+        if (effectiveMode === 'edit' || effectiveMode === 'create') {
+            const widgetEl = _wr.widget.edit(value, _wr.config, def, (newVal) => {
+                // Propagate data-key/data-type so handleInputChange can process it
+                const synthEvent = { target: { dataset: { key, type: def.type || 'string' }, value: newVal } };
+                // Direct value propagation via custom event on parent form
+            });
+            // Stamp data-key/data-type on the editable element so handleInputChange works
+            const editable = widgetEl.querySelector('input, textarea, select') || widgetEl;
+            editable.dataset.key = key;
+            editable.dataset.type = def.type || 'string';
+            editable.id = editable.id || key;
+            // Wrap DOM node in a container div for consistent HTML string output
+            const wrapper = document.createElement('div');
+            wrapper.className = 'widget-edit-wrapper';
+            wrapper.dataset.key = key;
+            wrapper.dataset.widgetType = def.ui.widget;
+            wrapper.appendChild(widgetEl);
+            html.push(wrapper.outerHTML);
+        } else {
+            const widgetEl = _wr.widget.display(value, _wr.config, def);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'widget-display-wrapper';
+            wrapper.dataset.value = key;
+            wrapper.dataset.widgetType = def.ui.widget;
+            wrapper.appendChild(widgetEl);
+            html.push(wrapper.outerHTML);
+        }
+        return html.join('');
+    }
+
     const type = def.type || 'string';
 
     if (key !== 'name' && key !== 'id' && type !== 'array')
@@ -243,7 +283,24 @@ function getInput(ntt, key, mode = 'display') {
         } else if (widget === 'textarea') {
             html.push(`<div class="text-block" data-value="${key}">${value}</div>`);
         } else if (type === '$ref' || def?.$ref) {
-            html.push(`<div data-value="${key}">${formatRefDisplay(def, value)}</div>`);
+            // Render as interactive component if value is an href or object with $id
+            let refUrl = null;
+            if (typeof value === 'string' && value.startsWith('http')) {
+                refUrl = value;
+            } else if (value && typeof value === 'object' && value.$id) {
+                refUrl = value.$id;
+            }
+            if (refUrl) {
+                const refModel = (def.$ref || '').split('/').pop();
+                const defs = schema?.$defs || {};
+                let childTag = 'ntt-item';
+                if (refModel && defs[refModel]?.ui?.renderer?.item) {
+                    childTag = defs[refModel].ui.renderer.item;
+                }
+                html.push(`<div class="ref-field" data-value="${key}"><${childTag} ref="${refUrl}" display="sm"${refModel ? ` data-model="${refModel}"` : ''}></${childTag}></div>`);
+            } else {
+                html.push(`<div data-value="${key}">${formatRefDisplay(def, value)}</div>`);
+            }
         } else if (type === 'selfref') {
             html.push(`<div data-value="${key}">${value ? `[Parent: #${value}]` : '(top-level)'}</div>`);
         } else if (type === 'array') {
@@ -429,13 +486,99 @@ function formatObjectDisplay(value) {
  * Mirrors the display branch logic of getInput — used by update() patches.
  */
 function formatDisplayValue(def, key, value) {
-    const widget = def?.ui?.widget;
+    const _wr = getWidgetForField(def);
+    if (_wr.widget && def?.ui?.widget) {
+        return _wr.widget.list(value, _wr.config, def);
+    }
     const type = def?.type || 'string';
-    if (widget === 'currency') return typeof value === 'number' ? `$${value.toFixed(2)}` : value;
     if (type === '$ref' || def?.$ref) return formatRefDisplay(def, value);
     if (type === 'selfref') return value ? `[Parent: #${value}]` : '(top-level)';
     if (type === 'object') return formatObjectDisplay(value);
     return value ?? '';
+}
+
+/**
+ * Validate all editable fields against schema constraints and widget rules.
+ * Returns [{field, message}] — empty array means valid.
+ */
+function validateForm(ntt) {
+    const schema = ntt.schema || {};
+    const props = schema.properties || {};
+    const required = new Set(schema.required || []);
+    const value = ntt.value || {};
+    const errors = [];
+
+    for (const key of Object.keys(props)) {
+        const def = props[key];
+        // Skip hidden, protected, and readOnly fields
+        if (def?.ui?.display === false) continue;
+        if (def?.ui?.protected) continue;
+        if (def?.readOnly) continue;
+        // Skip array and object types (complex fields)
+        if (def?.type === 'array' || def?.type === 'object') continue;
+
+        const val = value[key];
+
+        // Required check
+        if (required.has(key) && (val === undefined || val === null || val === '')) {
+            errors.push({ field: key, message: `${def.title || key} is required` });
+            continue;
+        }
+
+        // Skip further validation if empty and not required
+        if (val === undefined || val === null || val === '') continue;
+
+        // String constraints
+        if (typeof val === 'string') {
+            if (def.minLength != null && val.length < def.minLength) {
+                errors.push({ field: key, message: `Must be at least ${def.minLength} characters` });
+                continue;
+            }
+            if (def.maxLength != null && val.length > def.maxLength) {
+                errors.push({ field: key, message: `Must be at most ${def.maxLength} characters` });
+                continue;
+            }
+            if (def.pattern) {
+                try {
+                    if (!new RegExp(def.pattern).test(val)) {
+                        errors.push({ field: key, message: `Does not match required pattern` });
+                        continue;
+                    }
+                } catch { /* invalid regex — skip */ }
+            }
+        }
+
+        // Number constraints
+        if (typeof val === 'number') {
+            if (def.minimum != null && val < def.minimum) {
+                errors.push({ field: key, message: `Must be at least ${def.minimum}` });
+                continue;
+            }
+            if (def.exclusiveMinimum != null && val <= def.exclusiveMinimum) {
+                errors.push({ field: key, message: `Must be greater than ${def.exclusiveMinimum}` });
+                continue;
+            }
+            if (def.maximum != null && val > def.maximum) {
+                errors.push({ field: key, message: `Must be at most ${def.maximum}` });
+                continue;
+            }
+            if (def.exclusiveMaximum != null && val >= def.exclusiveMaximum) {
+                errors.push({ field: key, message: `Must be less than ${def.exclusiveMaximum}` });
+                continue;
+            }
+        }
+
+        // Widget validation
+        const _wr = getWidgetForField(def);
+        if (_wr.widget && def?.ui?.widget) {
+            const widgetError = _wr.widget.validate(val, _wr.config, def);
+            if (widgetError) {
+                errors.push({ field: key, message: widgetError });
+            }
+        }
+    }
+
+    return errors;
 }
 
 export const Formidable = {
@@ -447,6 +590,7 @@ export const Formidable = {
     getArrayInput,
     renderGroupedFields,
     formatDisplayValue,
+    validateForm,
     /** Clear layout cache (call on login/logout to refresh permission-dependent layouts). */
     clearCache() { _layoutCache.clear(); }
 }
