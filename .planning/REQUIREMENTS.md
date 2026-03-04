@@ -43,7 +43,7 @@ These requirements define the data model and actor topology specific to the gran
 - [ ] **ELIG-01**: Analyzer reads org documentation from ORG_DOCS_PATH directory (markdown files)
 - [ ] **ELIG-02**: Criteria extraction — analyzer parses grant requirements, normalizes into Criterion records with category
 - [ ] **ELIG-03**: Per-criterion scoring — 0.0-1.0 match score against org docs with reasoning text
-- [ ] **ELIG-04**: Human override — user can change criterion org_eligible flag (eligible ↔ ineligible)
+- [ ] **ELIG-04**: Human override — user can change criterion org_eligible flag (eligible <-> ineligible)
 - [ ] **ELIG-05**: Automatic re-evaluation — Criterion.after_update lifecycle event triggers re-scoring of affected grants
 
 ### Frontend
@@ -58,7 +58,7 @@ These requirements define the data model and actor topology specific to the gran
 - [ ] **TEST-01**: Mock HTTP unit tests — fixture HTML pages for scanner agent, deterministic scraping tests
 - [ ] **TEST-02**: Local test server — serve fake grant pages for integration tests (real HTTP, controlled content)
 - [ ] **TEST-03**: HTTP endpoint integration tests — full request lifecycle via test client (POST /agents/{id}/run with auth)
-- [ ] **TEST-04**: Pipeline E2E test — Scheduler → Scanner → Analyzer → Report, full chain with mock LLM
+- [ ] **TEST-04**: Pipeline E2E test — Scheduler -> Scanner -> Analyzer -> Report, full chain with mock LLM
 
 ## v2 Requirements (Deferred)
 
@@ -85,9 +85,39 @@ These requirements define the data model and actor topology specific to the gran
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| FW-01 through FW-10 | TBD | Pending |
-| ARCH-01 through ARCH-09 | TBD | Pending |
-| SCAN-01 through SCAN-04 | TBD | Pending |
-| ELIG-01 through ELIG-05 | TBD | Pending |
-| UI-01 through UI-04 | TBD | Pending |
-| TEST-01 through TEST-04 | TBD | Pending |
+| FW-01 | Phase 1: Framework Agentic Infrastructure | Pending |
+| FW-02 | Phase 1: Framework Agentic Infrastructure | Pending |
+| FW-03 | Phase 1: Framework Agentic Infrastructure | Pending |
+| FW-04 | Phase 1: Framework Agentic Infrastructure | Pending |
+| FW-05 | Phase 1: Framework Agentic Infrastructure | Pending |
+| FW-06 | Phase 1: Framework Agentic Infrastructure | Pending |
+| FW-07 | Phase 1: Framework Agentic Infrastructure | Pending |
+| FW-08 | Phase 1: Framework Agentic Infrastructure | Pending |
+| FW-09 | Phase 1: Framework Agentic Infrastructure | Pending |
+| FW-10 | Phase 1: Framework Agentic Infrastructure | Pending |
+| ARCH-01 | Phase 2: App Architecture | Pending |
+| ARCH-02 | Phase 2: App Architecture | Pending |
+| ARCH-03 | Phase 2: App Architecture | Pending |
+| ARCH-04 | Phase 2: App Architecture | Pending |
+| ARCH-05 | Phase 2: App Architecture | Pending |
+| ARCH-06 | Phase 2: App Architecture | Pending |
+| ARCH-07 | Phase 2: App Architecture | Pending |
+| ARCH-08 | Phase 2: App Architecture | Pending |
+| ARCH-09 | Phase 2: App Architecture | Pending |
+| SCAN-01 | Phase 3: Scanning Features | Pending |
+| SCAN-02 | Phase 3: Scanning Features | Pending |
+| SCAN-03 | Phase 3: Scanning Features | Pending |
+| SCAN-04 | Phase 3: Scanning Features | Pending |
+| ELIG-01 | Phase 4: Eligibility Features | Pending |
+| ELIG-02 | Phase 4: Eligibility Features | Pending |
+| ELIG-03 | Phase 4: Eligibility Features | Pending |
+| ELIG-04 | Phase 4: Eligibility Features | Pending |
+| ELIG-05 | Phase 4: Eligibility Features | Pending |
+| UI-01 | Phase 5: Frontend | Pending |
+| UI-02 | Phase 5: Frontend | Pending |
+| UI-03 | Phase 5: Frontend | Pending |
+| UI-04 | Phase 5: Frontend | Pending |
+| TEST-01 | Phase 6: Testing & Hardening | Pending |
+| TEST-02 | Phase 6: Testing & Hardening | Pending |
+| TEST-03 | Phase 6: Testing & Hardening | Pending |
+| TEST-04 | Phase 6: Testing & Hardening | Pending |
