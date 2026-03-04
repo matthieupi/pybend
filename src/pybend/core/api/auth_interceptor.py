@@ -59,9 +59,12 @@ async def auth_interceptor(tx: TX) -> TX:
         if method_access is not None:
             ctx = AccessContext(user=user, action=action, model_class=model_cls)
             if not method_access.evaluate(ctx):
-                return tx.error("Access denied", code=403)
+                return _deny(tx, user)
             return tx
-        # No @expose_route access found — fall through to model-level check
+        # No explicit access= on @expose_route — default to AUTHENTICATED (matches Level 1/2)
+        if not user.get('user_id'):
+            return tx.error("Authentication required", code=401)
+        return tx
 
     # Map TX action to semantic access action (e.g., 'get' -> 'read')
     access_action = _ACCESS_ACTION.get(action, action)
@@ -74,7 +77,7 @@ async def auth_interceptor(tx: TX) -> TX:
         try:
             tx.meta['sql_filter'] = _resolver.sql_filter_for(ctx)
         except AccessDenied as e:
-            return tx.error(str(e), code=403)
+            return _deny(tx, user, str(e))
         return tx
 
     if action == 'create':
@@ -82,7 +85,7 @@ async def auth_interceptor(tx: TX) -> TX:
         rule = _resolver.resolve_rule(model_cls, 'create')
         ctx = AccessContext(user=user, action='create', model_class=model_cls)
         if not rule.evaluate(ctx):
-            return tx.error("Access denied", code=403)
+            return _deny(tx, user)
         return tx
 
     # read/update/delete: identity gate only
@@ -93,9 +96,13 @@ async def auth_interceptor(tx: TX) -> TX:
     # fail if no user_id — the rule's evaluate() handles this correctly.
     if not rule.evaluate(ctx):
         if not user.get('user_id'):
-            # Unauthenticated: reject with 403 (matches Level 1/2 AccessDenied behavior).
-            # OWNER/ROLE rules that need a resource are deferred to Tier 2, but only
-            # for authenticated users — unauthenticated users always fail here.
-            return tx.error("Access denied", code=403)
+            return tx.error("Authentication required", code=401)
         # Authenticated user — pass through to Tier 2 for resource-level check
     return tx
+
+
+def _deny(tx: TX, user: dict, message: str = None) -> TX:
+    """Return 401 for unauthenticated, 403 for authenticated-but-forbidden."""
+    if not user.get('user_id'):
+        return tx.error("Authentication required", code=401)
+    return tx.error(message or "Access denied", code=403)
