@@ -52,7 +52,11 @@
 <body>
 
     <ntt-topbar brand="Grant Watcher" version="0.10.0" logo="GW"></ntt-topbar>
-    <ntt-sidebar models="Grant,Source,AgentActor" router="main"></ntt-sidebar>
+    <ntt-sidebar router="main">
+        <ntt-list model="Grant" allow-create></ntt-list>
+        <ntt-table model="Source"></ntt-table>
+        <ntt-list model="AgentActor"></ntt-list>
+    </ntt-sidebar>
 
     <div class="page">
         <ntt-router name="main" hash>

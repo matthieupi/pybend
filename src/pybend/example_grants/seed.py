@@ -21,7 +21,7 @@ from pybend.example_grants.models import User, Grant, Source, WebTools
 logger = logging.getLogger('pybend.seed')
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(_HERE, 'grants.db')
+DB_PATH = os.environ.get('PYBEND_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
 
 
 def seed():
@@ -71,6 +71,7 @@ def seed():
             "url": "https://www.nsf.gov/funding/example-cise",
             "description": "Supports research in all areas of computer science and engineering.",
             "status": "discovered",
+            "user_owner": 1,
         },
         {
             "title": "Biomedical Research Support Grant",
@@ -81,6 +82,7 @@ def seed():
             "url": "https://grants.nih.gov/example-biomed",
             "description": "Funds biomedical and behavioral research projects.",
             "status": "discovered",
+            "user_owner": 1,
         },
     ]
     for g in grants:

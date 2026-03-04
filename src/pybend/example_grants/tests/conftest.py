@@ -93,7 +93,7 @@ def _seed_sources():
     return created
 
 
-def _seed_grants():
+def _seed_grants(users):
     grants_data = [
         {
             "title": "CISE Research Grant",
@@ -104,6 +104,7 @@ def _seed_grants():
             "url": "https://nsf.gov/example-cise",
             "description": "Computer science research funding.",
             "status": "discovered",
+            "user_owner": users["alice"].id,
         },
     ]
     created = []
@@ -163,7 +164,7 @@ def test_db():
 def seed_data(test_db):
     users = _seed_users()
     sources = _seed_sources()
-    grants = _seed_grants()
+    grants = _seed_grants(users)
     agent = _seed_agent()
     return {
         "users": users,

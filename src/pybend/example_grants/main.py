@@ -29,7 +29,7 @@ from pybend.example_grants.models import User, Grant, Source, WebTools
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(_HERE, 'grants.db')
+DB_PATH = os.environ.get('PYBEND_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
 
 storage = SQLiteStorage(DB_PATH)
 app = create_app(
@@ -43,6 +43,10 @@ app = create_app(
     version="0.10.0",
     description="Agentic grant-watching application",
 )
+
+# Run manual migrations (after create_app which handles auto-migration for new columns)
+storage._migration.migrations_dir = os.path.join(_HERE, 'migrations')
+storage._migration.run_migrations()
 
 if __name__ == '__main__':
     import uvicorn

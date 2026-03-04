@@ -4,6 +4,7 @@ from pydantic import Field
 
 from pybend.core.models.actor_model import ActorModel
 from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from pybend.example_grants.models.user import User
 
 
 class Grant(ActorModel):
@@ -11,11 +12,12 @@ class Grant(ActorModel):
 
     __tablename__: ClassVar[str] = 'grants'
     __storable__: ClassVar[bool] = True
+    __protected_fields__: ClassVar[set] = {'user_owner'}
     __access__: ClassVar[dict] = {
         'read': ANYONE,
         'create': AUTHENTICATED,
         'update': OWNER | ROLE('admin'),
-        'delete': ROLE('admin'),
+        'delete': OWNER | ROLE('admin'),
     }
 
     title: str = Field(min_length=1, max_length=500)
@@ -26,3 +28,5 @@ class Grant(ActorModel):
     url: str = Field(min_length=1, description="URL to the grant listing")
     description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
     status: str = Field(default='discovered', description="discovered | reviewed | applied | expired")
+    user_owner: User = Field(default=None, description="User who created this grant",
+                             json_schema_extra={'access': {'view': 'authenticated', 'edit': 'owner'}})
