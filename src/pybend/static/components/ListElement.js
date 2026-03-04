@@ -54,7 +54,10 @@ export class ListElement extends Component {
    */
   definedCallback() {
     this.subscribe(this.proto, 'UPDATE', (data) => this.UPDATE(data));
-    if (this.value.length > 0) return;   // Already loaded — skip redundant READ
+    if (this.value.length > 0) {
+      this.scheduleRender();  // Data arrived before schema — render now
+      return;
+    }
     this.#offset = 0;
     const popDepth = this.proto._schema?.ui?.populate?.depth ?? 1;
     const popParams = popDepth > 0 ? {depth: popDepth} : {};
@@ -140,7 +143,13 @@ export class ListElement extends Component {
 
     modal.onSubmit = () => {
       if (!el.value || typeof el.value !== 'object') return;
-      this.proto.call('CREATE', el.value, { inbox: 'CREATE' });
+      // Strip null/NaN values before sending to avoid invalid payloads
+      const data = {};
+      for (const [k, v] of Object.entries(el.value)) {
+        if (v != null && !(typeof v === 'number' && isNaN(v))) data[k] = v;
+      }
+      if (Object.keys(data).length === 0) return;
+      this.proto.call('CREATE', data, { inbox: 'CREATE' });
       modal.close('submit');
     };
   }

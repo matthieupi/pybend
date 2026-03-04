@@ -11,6 +11,7 @@
  */
 import {Component} from '../core/Component.js';
 import {NTT} from '../core/NTT.js';
+import {deepEqual} from '../core/Utils.js';
 import Logging from '../utils/Logging.js';
 import assert from '../utils/Assert.js';
 import TX from '../core/TX.js';
@@ -31,6 +32,12 @@ export class NTTElement extends Component {
 
   set value(data) {
     const prev = super.value;
+    // Guard: skip if data is semantically identical (prevents infinite loops
+    // when signal subscriptions re-fire with equivalent but non-identical objects).
+    // Only apply after first render — initial set must always proceed so
+    // scheduleRender() fires (e.g. create modal sets value={} which is
+    // deepEqual to the constructor default {}).
+    if (this._rendered && prev && data && prev !== data && deepEqual(prev, data)) return;
     super.value = data;
     // Auto-render when we have both schema and data
     if (this.schema && this.schema.__name__) {
@@ -88,7 +95,7 @@ export class NTTElement extends Component {
       if (entity?.signal) {
         this._entityUnsub?.();
         this._entityUnsub = entity.signal((ent) => {
-          if (ent.value) this.value = ent.value;
+          if (ent.value && ent.value !== this.value) this.value = ent.value;
         }, true);  // wait=true: don't fire immediately, DESCRIBE already set value
       }
     }

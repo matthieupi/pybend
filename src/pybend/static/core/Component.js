@@ -182,6 +182,7 @@ export class Component extends HTMLElement {
     if (!ptt.schema || ptt.schema.__name__ === this.#proto?.schema?.__name__) return;
     if (!this.#model) { this.#model = ptt.schema.__name__; }
     this.#proto = ptt;
+    this._schema = null;  // Clear stale cache so getter re-reads from proto
     this.definedCallback();
   }
 

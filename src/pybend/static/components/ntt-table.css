@@ -158,6 +158,11 @@
     box-shadow: 0 0 0 2px var(--accent-dim, rgba(34,211,197,0.12));
 }
 
+.create-cell .cell-input.input-error {
+    border-color: var(--error, #ef4444);
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+}
+
 .create-actions {
     display: flex;
     align-items: center;

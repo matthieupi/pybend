@@ -143,13 +143,24 @@ export class NTTTable extends ListElement {
     const row = this.shadowRoot.querySelector('.create-row');
     if (!row) return;
     const data = {};
+    let hasValidationError = false;
+
     row.querySelectorAll('[data-key]').forEach(el => {
       const key = el.dataset.key;
       const def = this.schema.properties?.[key];
       const type = def?.type || 'string';
+      // Clear previous validation state
+      el.classList.remove('input-error');
+
       if (type === 'number' || type === 'integer') {
+        if (el.value.trim() === '') return; // Empty optional field — skip
         const num = parseFloat(el.value);
-        if (!isNaN(num)) data[key] = num;
+        if (isNaN(num)) {
+          el.classList.add('input-error');
+          hasValidationError = true;
+          return;
+        }
+        data[key] = num;
       } else if (type === 'boolean') {
         data[key] = el.checked;
       } else {
@@ -157,6 +168,7 @@ export class NTTTable extends ListElement {
       }
     });
 
+    if (hasValidationError) return; // Don't submit with invalid fields
     if (Object.keys(data).length === 0) return;
     this.proto.call('CREATE', data, { inbox: 'CREATE' });
     this.#createOpen = false;

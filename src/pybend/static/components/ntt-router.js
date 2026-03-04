@@ -125,6 +125,10 @@ export class NTTRouter extends Component {
                 el.setAttribute(key, String(val));
             }
         }
+        // Auto-set router on model-bearing children (mirrors connectedCallback)
+        if (el.hasAttribute('model') && !el.hasAttribute('router')) {
+            el.setAttribute('router', this.#router.addr);
+        }
         this.#currentView = el;
         this.shadowRoot.querySelector('.router-content').appendChild(el);
     }

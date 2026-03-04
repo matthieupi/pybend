@@ -7,13 +7,30 @@
  * Attributes:
  *   models — Comma-separated model class names (e.g. "Grant,Source,AgentActor")
  *   router — Router actor address for item click navigation (e.g. "main")
+ *   view   — Default list component: "grid" (ntt-list) or "table" (ntt-table). Default: "grid"
  *   open   — Present when sidebar is visible
+ *
+ * Route templates (Light DOM children):
+ *   Child elements with a `model` attribute serve as declarative route templates.
+ *   Clicking the model name in the sidebar navigates to the component tag and
+ *   attributes specified by the template element.  Children are hidden on connect.
+ *
+ *   When children are present and no `models` attribute is set, the model list
+ *   is derived from the children (in DOM order).
+ *
+ *   <ntt-sidebar router="main">
+ *     <ntt-table model="Grant" allow-create></ntt-table>
+ *     <ntt-list  model="Source"></ntt-list>
+ *   </ntt-sidebar>
+ *
+ *   Clicking "Grant" → router opens <ntt-table model="Grant" allow-create>
+ *   Clicking "Source" → router opens <ntt-list model="Source">
  *
  * Listens for:
  *   sidebar-toggle — on document (from ntt-topbar hamburger)
  *
- * Usage:
- *   <ntt-sidebar models="Grant,Source,AgentActor"></ntt-sidebar>
+ * Legacy usage (still supported):
+ *   <ntt-sidebar models="Grant,Source,AgentActor" view="table"></ntt-sidebar>
  */
 import { NTT } from '../core/NTT.js';
 
@@ -39,6 +56,7 @@ class NTTSidebar extends HTMLElement {
 
   #link;
   #models = [];           // parsed model names
+  #routeTemplates = new Map(); // modelName → {tag, attrs}
   #dynamicClasses = {};   // modelName → DynamicClass
   #expanded = new Set();  // expanded model names
   #unsubs = [];           // cleanup callbacks
@@ -54,9 +72,27 @@ class NTTSidebar extends HTMLElement {
   }
 
   connectedCallback() {
-    // Parse models attribute
-    const modelsAttr = this.getAttribute('models') || '';
-    this.#models = modelsAttr.split(',').map(s => s.trim()).filter(Boolean);
+    // Scan Light DOM children as route templates
+    const children = [...this.querySelectorAll(':scope > [model]')];
+    const SKIP = new Set(['model', 'slot', 'class', 'style', 'id']);
+    for (const child of children) {
+      const modelName = child.getAttribute('model');
+      const tag = child.tagName.toLowerCase();
+      const attrs = {};
+      for (const attr of child.attributes) {
+        if (!SKIP.has(attr.name)) attrs[attr.name] = attr.value;
+      }
+      this.#routeTemplates.set(modelName, { tag, attrs });
+      child.hidden = true;
+    }
+
+    // Derive models: from children if present, else from models attribute
+    if (this.#routeTemplates.size > 0 && !this.getAttribute('models')) {
+      this.#models = [...this.#routeTemplates.keys()];
+    } else {
+      const modelsAttr = this.getAttribute('models') || '';
+      this.#models = modelsAttr.split(',').map(s => s.trim()).filter(Boolean);
+    }
 
     this.#render();
     this.#bootstrapModels();
@@ -141,26 +177,36 @@ class NTTSidebar extends HTMLElement {
 
   // ── Navigation ──
 
+  // View attribute → component tag mapping
+  static VIEW_TAGS = {
+    grid:  'ntt-list',
+    table: 'ntt-table',
+  };
+
   #navigateToModel(modelName) {
     const routerAddr = this.getAttribute('router');
     if (!routerAddr) return;
 
-    // Dispatch NAVIGATE TX to the router via a custom event on window,
-    // since the sidebar is not an Actor. The router listens for hashchange,
-    // but object routes can't be serialized to hash — so we import Matrix
-    // and send a TX directly.
+    let tag, attrs;
+    const template = this.#routeTemplates.get(modelName);
+
+    if (template) {
+      tag = template.tag;
+      attrs = { model: modelName, ...template.attrs };
+    } else {
+      const view = this.getAttribute('view') || 'grid';
+      tag = NTTSidebar.VIEW_TAGS[view] || 'ntt-list';
+      attrs = { model: modelName, 'allow-create': '' };
+    }
+
+    // Dispatch NAVIGATE TX to the router via Matrix.
+    // The sidebar is not an Actor, so we import Matrix directly.
     import('../core/Matrix.js').then(({ matrix }) => {
-      const TX = matrix.constructor.TX || Object;
-      // Build a simple TX-like message that the Router understands
       matrix.dispatch({
         name: 'NAVIGATE',
         source: 'sidebar',
         target: routerAddr,
-        data: {
-          tag: 'ntt-list',
-          attrs: { model: modelName, 'allow-create': '' },
-          title: modelName,
-        },
+        data: { tag, attrs, title: modelName },
       });
     });
     this.close();
