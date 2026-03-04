@@ -88,8 +88,9 @@ red-green-refactor cycle:
    test should fail for the same reason the bug manifests. This proves
    you understand the bug and gives you a clear signal when it's
    fixed. Place the test in the appropriate test directory
-   (`core/tests/unit/` for framework bugs, `example/tests/` for
-   integration/app bugs, `static/tests/` for frontend bugs).
+   (`core/tests/unit/` for framework bugs, `example_api/tests/` or
+   `example_actor/tests/` for integration/app bugs, `static/tests/`
+   for frontend bugs).
 
 2. **Green — Fix the bug.** Make the minimal change needed to turn the
    failing test green. Do not refactor, do not clean up, do not fix
@@ -507,11 +508,13 @@ GET /Product → JSON Schema
 - `src/pybend/core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE
 - `src/pybend/core/main.py` - Backward-compat shim that delegates to `pybend.example.main`
 
-### Example Application
-- `src/pybend/example/main.py` - Example app entry point using `create_app()`
-- `src/pybend/example/models/` - Example models: `User`, `Product`, `Comment`, `Like`
-- `src/pybend/example/seed.py` - Seed data script (creates sample users, products, etc.)
-- `src/pybend/example/tests/` - Integration tests for the example app
+### Example Applications
+Three example apps at the workspace root demonstrate different PyBend levels:
+
+- `example_api/` - Level 1/2 example (direct routes, `create_app()`)
+- `example_actor/` - Level 3 example (actor routing, `routing='actor'`)
+- `example_grants/` - Agents example (grants domain, agent CRUD + tool discovery)
+- `src/pybend/example/` - Legacy example app (may delegate to above)
 
 ### Documentation
 - `src/pybend/docs/` - Handwritten API docs + auto-generated model docs
@@ -520,7 +523,9 @@ GET /Product → JSON Schema
 
 ### Tests
 - `src/pybend/core/tests/unit/` - Framework unit tests (models, storage, auth, routes, etc.)
-- `src/pybend/example/tests/` - Integration tests (CRUD, auth flow, pagination, FK hydration, etc.)
+- `example_api/tests/` - Integration tests: CRUD, auth flow, pagination, FK hydration, etc. (Level 1/2)
+- `example_actor/tests/` - Integration tests: same coverage as example_api but with actor routing (Level 3)
+- `example_grants/tests/` - Integration tests: agents, grants, sources, e2e navigation
 
 ## Key Patterns
 
@@ -838,8 +843,11 @@ For **framework code**, `src/pybend/core/` contains `config.py` and the backward
 1. Start server: `cd /workspace/src/pybend/example && python3 main.py`
    - Alternative: `cd /workspace && python3 -m pybend.example.main`
    - Legacy: `cd /workspace/src/pybend/core && python3 main.py` (delegates to example app)
-2. Run framework unit tests: `cd /workspace/src/pybend/core && pytest tests/unit/`
-3. Run integration tests: `cd /workspace/src/pybend/core && pytest ../example/tests/`
+2. Run framework unit tests: `cd /workspace/src/pybend/core && python3 -m pytest tests/unit/`
+3. Run integration tests:
+   - `cd /workspace && python3 -m pytest example_api/tests/` (Level 1/2 direct routes)
+   - `cd /workspace && python3 -m pytest example_actor/tests/` (Level 3 actor routing)
+   - `cd /workspace && python3 -m pytest example_grants/tests/` (grants/agents app)
 4. Test API (see auth examples below)
 5. Test frontend: Open `http://localhost:5000/`
 
