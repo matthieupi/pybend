@@ -9,7 +9,7 @@ import { mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-const EXAMPLE_DIR = '/workspace/src/pybend/example';
+const EXAMPLE_DIR = '/workspace/example_api';
 
 export default async function globalSetup() {
   // Create a temp directory for the E2E test database

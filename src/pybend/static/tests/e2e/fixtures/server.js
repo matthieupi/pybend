@@ -9,7 +9,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
-const EXAMPLE_DIR = '/workspace/src/pybend/example';
+const EXAMPLE_DIR = '/workspace/example_api';
 
 /**
  * Seed the database with test data.

@@ -26,8 +26,6 @@ _src = os.path.dirname(os.path.dirname(_core))
 _namespace_shims = {
     'pybend':           os.path.join(_src, 'pybend'),
     'pybend.core':      _core,
-    'pybend.example_api':   os.path.join(_src, 'pybend', 'example_api'),
-    'pybend.example_actor':   os.path.join(_src, 'pybend', 'example_actor'),
 }
 
 for name, path in _namespace_shims.items():

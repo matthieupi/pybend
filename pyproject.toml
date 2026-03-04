@@ -38,6 +38,4 @@ where = ["src"]
 [tool.setuptools.package-data]
 "pybend" = [
     "static/**/*",
-    "example/**/*",
-    "example/static/**/*",
 ]

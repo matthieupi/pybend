@@ -1,17 +1,17 @@
 """
-PyBend core main — delegates to example_api app for backward compatibility.
-Run the example app directly: python -m pybend.example_api.main
+PyBend core main — example apps have moved to the workspace root.
+
+The example apps are now standalone:
+    cd /workspace/example_api && python main.py
+    cd /workspace/example_actor && python main.py
+    cd /workspace/example_grants && python main.py
 """
-import os
 import sys
 
-# Backward compatibility: expose the example app so existing imports
-# like ``from pybend.core.main import app`` continue to work.
-os.environ.setdefault("GENERATE_DOCS", "false")
-
-from pybend.example_api.main import app  # noqa: F401 — re-export for compat
-
 if __name__ == '__main__':
-    import uvicorn
-    from pybend.core import config
-    uvicorn.run(app, host=config.HOST, port=config.PORT)
+    print("Example apps have moved to the workspace root.")
+    print("Run one of:")
+    print("  cd /workspace/example_api && python main.py")
+    print("  cd /workspace/example_actor && python main.py")
+    print("  cd /workspace/example_grants && python main.py")
+    sys.exit(1)

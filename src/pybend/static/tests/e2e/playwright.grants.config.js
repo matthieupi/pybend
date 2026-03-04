@@ -31,7 +31,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'cd /workspace/src/pybend/example_grants && python3 main.py',
+    command: 'cd /workspace/example_grants && python3 main.py',
     url: 'http://localhost:5000/Grant',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,

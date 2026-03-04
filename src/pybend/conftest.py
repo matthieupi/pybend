@@ -6,8 +6,6 @@ import os
 
 _pybend = os.path.dirname(os.path.abspath(__file__))
 _core = os.path.join(_pybend, 'core')
-_example = os.path.join(_pybend, 'example_api')
-_example_actor = os.path.join(_pybend, 'example_actor')
 
 # Pre-register pybend and its subpackages as namespace shims with real paths
 # so Python will NOT load the broken __init__.py files but CAN resolve submodules.
@@ -21,10 +19,6 @@ _namespace_shims = {
     'pybend.core.authorize': os.path.join(_core, 'authorize'),
     'pybend.core.tests':    os.path.join(_core, 'tests'),
     'pybend.core.tests.unit': os.path.join(_core, 'tests', 'unit'),
-    'pybend.example_api':       _example,
-    'pybend.example_api.tests': os.path.join(_example, 'tests'),
-    'pybend.example_actor':       _example_actor,
-    'pybend.example_actor.tests': os.path.join(_example_actor, 'tests'),
 }
 
 for name, path in _namespace_shims.items():

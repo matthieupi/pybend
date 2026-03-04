@@ -31,7 +31,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'cd /workspace/src/pybend/example && python3 main.py',
+    command: 'cd /workspace/example_api && python3 main.py',
     url: 'http://localhost:5000/Product',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,

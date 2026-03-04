@@ -15,10 +15,16 @@ import sys
 import tempfile
 import pytest
 
-# Ensure the core directory is on the Python path so imports resolve
+# Ensure the core directory and example_api are on the Python path so imports resolve
 _core_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_workspace = os.path.dirname(os.path.dirname(os.path.dirname(_core_dir)))
+_example_api = os.path.join(_workspace, 'example_api')
 if _core_dir not in sys.path:
     sys.path.insert(0, _core_dir)
+if _example_api not in sys.path:
+    sys.path.insert(0, _example_api)
+if os.path.join(_workspace, 'src') not in sys.path:
+    sys.path.insert(0, os.path.join(_workspace, 'src'))
 
 from pybend.core import config
 from pybend.core import authorize
@@ -26,11 +32,11 @@ authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EX
 
 # Import main to trigger model registration and route setup (uses production DB initially)
 os.environ["GENERATE_DOCS"] = "false"  # Skip doc generation during tests
-from pybend.core.main import app  # noqa: triggers model registration
+from main import app  # noqa: triggers model registration
 
 from pybend.core.storage.sqlite_storage import SQLiteStorage
 from pybend.core.utils.registrar import registered_models, join_models
-from pybend.example_api.models import Product, Comment, Like, User
+from models import Product, Comment, Like, User
 from pybend.core.authorize import create_token
 
 

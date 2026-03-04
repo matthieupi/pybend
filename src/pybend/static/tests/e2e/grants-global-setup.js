@@ -9,7 +9,7 @@ import { mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-const GRANTS_DIR = '/workspace/src/pybend/example_grants';
+const GRANTS_DIR = '/workspace/example_grants';
 
 export default async function globalSetup() {
   const dir = mkdtempSync(join(tmpdir(), 'pybend-grants-e2e-'));
