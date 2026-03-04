@@ -26,6 +26,8 @@ export class NTTTable extends ListElement {
   #sortDir = 'asc';  // 'asc' | 'desc'
   #eventAC = null;
   #createOpen = false;
+  #pendingCreate = false;
+  #unsubError = null;
 
   get styles() { return new URL('./ntt-table.css', import.meta.url).href; }
 
@@ -65,6 +67,23 @@ export class NTTTable extends ListElement {
   }
 
   /**
+   * Return ordered field keys for the create row inputs.
+   * Extends tableColumns() by additionally filtering out protected
+   * and $ref fields (same logic as NTTRow's #rowFields(forEdit=true)).
+   */
+  createColumns() {
+    const schema = this.schema;
+    if (!schema?.properties) return [];
+    const fields = schema.properties;
+    return this.tableColumns().filter(key => {
+      const def = fields[key];
+      if (def?.ui?.protected) return false;
+      if (def?.type === '$ref' || def?.$ref) return false;
+      return true;
+    });
+  }
+
+  /**
    * Build the --table-columns CSS value from the column list.
    * First column (typically name/title) gets 2fr, rest get 1fr.
    */
@@ -79,6 +98,24 @@ export class NTTTable extends ListElement {
   #headerLabel(key) {
     const def = this.schema.properties?.[key];
     return def?.title || key.replace(/_/g, ' ');
+  }
+
+
+  /** ─────────────────────────────────────────── **/
+  /**         Lifecycle                             **/
+  /** ─────────────────────────────────────────── **/
+
+  definedCallback() {
+    super.definedCallback();
+    // Subscribe to ERROR events from the DynamicClass for create error recovery
+    this.#unsubError?.();
+    this.#unsubError = this.proto.observe('ERROR', (event) => this.handleCreateError(event));
+  }
+
+  disconnectedCallback() {
+    this.#unsubError?.();
+    this.#eventAC?.abort();
+    super.disconnectedCallback?.();
   }
 
 
@@ -132,32 +169,93 @@ export class NTTTable extends ListElement {
       // Focus the first input
       requestAnimationFrame(() => row.querySelector('input')?.focus());
     } else {
+      this.#closeCreateRow();
+    }
+  }
+
+  /**
+   * Close the create row: hide it, show the add button, clear inputs and errors.
+   */
+  #closeCreateRow() {
+    const row = this.shadowRoot.querySelector('.create-row');
+    const btn = this.shadowRoot.querySelector('.create-btn-row');
+    this.#createOpen = false;
+    this.#pendingCreate = false;
+    if (row) {
       row.style.display = 'none';
-      btn.style.display = 'grid';
-      // Clear inputs
-      row.querySelectorAll('input, textarea').forEach(el => el.value = '');
+      row.classList.remove('loading');
+      // Clear inputs and error states
+      row.querySelectorAll('input, textarea').forEach(el => {
+        el.value = '';
+        el.disabled = false;
+        el.classList.remove('input-error');
+      });
+      row.querySelectorAll('.cell-error-msg').forEach(el => el.remove());
+    }
+    if (btn) btn.style.display = 'grid';
+  }
+
+  /**
+   * Enable/disable all inputs in the create row (loading state).
+   */
+  #setCreateLoading(loading) {
+    const row = this.shadowRoot.querySelector('.create-row');
+    if (!row) return;
+    if (loading) {
+      row.classList.add('loading');
+    } else {
+      row.classList.remove('loading');
+    }
+    row.querySelectorAll('input, textarea, button').forEach(el => {
+      el.disabled = loading;
+    });
+  }
+
+  /**
+   * Show field-level error messages on the create row.
+   * Matches NTTRow's #showRowErrors() pattern.
+   */
+  #showCreateErrors(errors) {
+    const row = this.shadowRoot.querySelector('.create-row');
+    if (!row) return;
+    // Clear previous
+    row.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+    row.querySelectorAll('.cell-error-msg').forEach(el => el.remove());
+
+    for (const { field, message } of errors) {
+      const input = row.querySelector(`[data-key="${field}"]`);
+      if (!input) continue;
+      input.classList.add('input-error');
+      const msg = document.createElement('span');
+      msg.className = 'cell-error-msg';
+      msg.textContent = message;
+      input.parentElement?.appendChild(msg);
     }
   }
 
   #submitCreate() {
     const row = this.shadowRoot.querySelector('.create-row');
     if (!row) return;
+
+    // Clear previous error states
+    row.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+    row.querySelectorAll('.cell-error-msg').forEach(el => el.remove());
+
+    // Collect data from inputs
     const data = {};
-    let hasValidationError = false;
+    let hasTypeError = false;
 
     row.querySelectorAll('[data-key]').forEach(el => {
       const key = el.dataset.key;
       const def = this.schema.properties?.[key];
       const type = def?.type || 'string';
-      // Clear previous validation state
-      el.classList.remove('input-error');
 
       if (type === 'number' || type === 'integer') {
         if (el.value.trim() === '') return; // Empty optional field — skip
         const num = parseFloat(el.value);
         if (isNaN(num)) {
           el.classList.add('input-error');
-          hasValidationError = true;
+          hasTypeError = true;
           return;
         }
         data[key] = num;
@@ -168,11 +266,38 @@ export class NTTTable extends ListElement {
       }
     });
 
-    if (hasValidationError) return; // Don't submit with invalid fields
+    if (hasTypeError) return; // Don't submit with invalid number fields
+
+    // Client-side validation via Formidable (required fields, min/max, etc.)
+    const nttLike = { schema: this.schema, value: data };
+    const errors = Formidable.validateForm(nttLike);
+    if (errors.length > 0) {
+      this.#showCreateErrors(errors);
+      return;
+    }
+
     if (Object.keys(data).length === 0) return;
+
+    // Send CREATE but keep the row open in loading state
     this.proto.call('CREATE', data, { inbox: 'CREATE' });
-    this.#createOpen = false;
-    this.scheduleRender();
+    this.#pendingCreate = true;
+    this.#setCreateLoading(true);
+  }
+
+  /**
+   * Handle CREATE error — re-enable the create row with data preserved.
+   * Called by the ERROR observer on the DynamicClass.
+   */
+  handleCreateError(event) {
+    if (!this.#pendingCreate) return;
+    this.#pendingCreate = false;
+    this.#setCreateLoading(false);
+
+    // If the error includes field-level validation details, show them
+    const detail = event?.data?.detail || event?.data?.errors;
+    if (Array.isArray(detail)) {
+      this.#showCreateErrors(detail);
+    }
   }
 
 
@@ -206,6 +331,11 @@ export class NTTTable extends ListElement {
         fragment.appendChild(child);
       }
       body.appendChild(fragment);
+    }
+
+    // If a create was pending and we got new items, close the create row
+    if (this.#pendingCreate && additions.length > 0) {
+      this.#closeCreateRow();
     }
 
     // Update count
@@ -249,19 +379,33 @@ export class NTTTable extends ListElement {
       return `<span class="header-cell${activeClass}" data-sort="${key}"><span class="header-label">${label}</span>${arrow}</span>`;
     }).join('');
 
-    // Create row inputs
+    // Create row inputs — use createColumns() to exclude protected/$ref fields
     let createRowHtml = '';
     let createBtnHtml = '';
     if (canCreate) {
+      const createCols = this.createColumns();
+      // Build inputs aligned to the full column grid.
+      // For display-only columns (in tableColumns but not createColumns), emit an empty cell.
       const inputs = cols.map(key => {
+        if (!createCols.includes(key)) {
+          return `<span class="create-cell"></span>`;
+        }
         const def = this.schema.properties?.[key];
         const type = def?.type || 'string';
+        const widget = def?.ui?.widget;
         const placeholder = def?.ui?.placeholder || this.#headerLabel(key);
         if (type === 'boolean') {
           return `<span class="create-cell"><input type="checkbox" data-key="${key}"></span>`;
         }
-        const inputType = (type === 'number' || type === 'integer') ? 'number' : 'text';
-        return `<span class="create-cell"><input type="${inputType}" data-key="${key}" placeholder="${placeholder}" class="cell-input"></span>`;
+        // Resolve input type: widget hint > schema type > text fallback
+        // (same logic as NTTRow's #editCells)
+        let inputType = 'text';
+        if (widget === 'date') inputType = 'date';
+        else if (widget === 'datetime') inputType = 'datetime-local';
+        else if (widget === 'url') inputType = 'url';
+        else if (widget === 'currency' || type === 'number' || type === 'integer') inputType = 'number';
+        const step = (inputType === 'number' && widget === 'currency') ? ' step="0.01"' : '';
+        return `<span class="create-cell"><input type="${inputType}" data-key="${key}" placeholder="${placeholder}" class="cell-input"${step}></span>`;
       }).join('');
 
       createRowHtml = `
