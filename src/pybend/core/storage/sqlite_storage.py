@@ -19,11 +19,31 @@ from .sqlite_migration import SQLiteMigration
 logger = logging.getLogger('pybend.storage')
 
 
+_SQLITE_NATIVE = (int, float, str, bytes, bool, type(None))
+
+
 def _validate_identifier(name: str) -> str:
     """Validate and return a safe SQL identifier."""
     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
         raise ValueError(f"Invalid SQL identifier: {name!r}")
     return name
+
+
+def _coerce_value(v):
+    """Coerce a value to a type SQLite can bind.
+
+    SQLite only accepts int, float, str, bytes, bool, None (and datetime via
+    adapter).  Pydantic types like AnyHttpUrl survive model_dump() as objects,
+    not plain strings.  Convert anything non-native to str so the binding
+    doesn't raise ``sqlite3.ProgrammingError``.
+    """
+    if isinstance(v, _SQLITE_NATIVE):
+        return v
+    # datetime objects have a built-in SQLite adapter — let them through
+    import datetime
+    if isinstance(v, (datetime.date, datetime.datetime)):
+        return v
+    return str(v)
 
 
 class SQLiteStorage(AbstractStorage):
@@ -108,6 +128,8 @@ class SQLiteStorage(AbstractStorage):
         values = [value.id
                   if isinstance(value, BaseModel) and hasattr(value, 'id') else value
                   for value in values]
+        # Coerce non-native types (e.g. AnyHttpUrl) to SQLite-compatible values
+        values = [_coerce_value(v) for v in values]
         insert_sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
         with self._connection() as conn:
             cursor = conn.cursor()
@@ -562,7 +584,7 @@ class SQLiteStorage(AbstractStorage):
 
         # Construct the SET clause dynamically
         set_clause = ", ".join([f"{field} = ?" for field in fields_to_update])
-        values = [data[field] for field in fields_to_update]
+        values = [_coerce_value(data[field]) for field in fields_to_update]
 
         # Add the id to the values for the WHERE clause
         update_sql = f"UPDATE {table_name} SET {set_clause} WHERE id = ?"

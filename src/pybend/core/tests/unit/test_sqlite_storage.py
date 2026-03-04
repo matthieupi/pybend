@@ -6,11 +6,12 @@ import pytest
 from typing import ClassVar, Optional
 from unittest.mock import patch
 
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, AnyHttpUrl
 
 from pybend.core.storage.sqlite_storage import SQLiteStorage
 from pybend.core.models.proto_model import ProtoModel
 from pybend.core.utils.populate import PopulateSpec
+from pybend.core.widgets import UrlField
 
 pytestmark = pytest.mark.unit
 
@@ -248,3 +249,60 @@ class TestCRUDFlow:
         assert storage.get(M, created.id) is None
         # List
         assert storage.list(M) == []
+
+
+class TestPydanticTypeCoercion:
+    """Non-native Pydantic types (AnyHttpUrl, etc.) must be coerced to str
+    before binding to SQLite parameters."""
+
+    def test_create_with_anyhttpurl(self, storage, tmp_db):
+        """AnyHttpUrl field should be stored as TEXT, not rejected by sqlite3."""
+        class M(ProtoModel):
+            __tablename__: ClassVar[str] = 'tc_create'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+            url: UrlField = Field(default=None)
+        M.set_storage(storage)
+        storage.create_table(M)
+
+        result = storage.create(M, {
+            'name': 'test',
+            'url': AnyHttpUrl('https://example.com/placeholder'),
+        })
+        assert result.id == 1
+        fetched = storage.get(M, result.id)
+        assert 'example.com' in str(fetched.url)
+
+    def test_update_with_anyhttpurl(self, storage, tmp_db):
+        """AnyHttpUrl field should be updatable without sqlite3 binding error."""
+        class M(ProtoModel):
+            __tablename__: ClassVar[str] = 'tc_update'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+            url: UrlField = Field(default=None)
+        M.set_storage(storage)
+        storage.create_table(M)
+
+        created = storage.create(M, {
+            'name': 'test',
+            'url': AnyHttpUrl('https://example.com/old'),
+        })
+        storage.update(M, created.id, {
+            'url': AnyHttpUrl('https://example.com/new'),
+        })
+        updated = storage.get(M, created.id)
+        assert 'new' in str(updated.url)
+
+    def test_roundtrip_preserves_url(self, storage, tmp_db):
+        """URL value should survive create → get roundtrip."""
+        class M(ProtoModel):
+            __tablename__: ClassVar[str] = 'tc_round'
+            __storable__: ClassVar[bool] = True
+            url: UrlField = Field(default=None)
+        M.set_storage(storage)
+        storage.create_table(M)
+
+        original_url = 'https://example.com/grants/12345'
+        created = storage.create(M, {'url': AnyHttpUrl(original_url)})
+        fetched = storage.get(M, created.id)
+        assert str(fetched.url) == original_url

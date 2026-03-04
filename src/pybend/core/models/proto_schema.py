@@ -20,9 +20,11 @@ then apply its own stage.
 """
 
 import logging
+from typing import get_origin, get_args
 
 from pybend.core import config
 from pybend.core.utils.introspection import collect_all_referenced_models, _is_self_ref
+from pybend.core.utils.typer import Ref
 
 logger = logging.getLogger('pybend.schema')
 
@@ -144,12 +146,24 @@ def remove_stage(name: str):
 # ── Default pipeline stages ───────────────────────────────────────
 
 def base(cls) -> dict:
-    """Pydantic core JSON Schema + Ref['self'] patches."""
+    """Pydantic core JSON Schema + Ref['self'] and Ref[T] patches.
+
+    Pydantic's model_json_schema() serializes Ref[T] as {"type": "integer"}
+    because the core schema uses int serialization. We patch those back to
+    {"type": "$ref", "$ref": "#/$defs/{TargetName}"} so the frontend can
+    resolve them as rich child components.
+    """
     schema = cls.model_json_schema(ref_template="#/$defs/{model}")
     if 'properties' in schema:
         for field_name, field_info in cls.model_fields.items():
             if _is_self_ref(field_info.annotation):
                 schema['properties'][field_name] = {"type": "selfref"}
+            elif get_origin(field_info.annotation) is Ref:
+                target = get_args(field_info.annotation)[0]
+                schema['properties'][field_name] = {
+                    "type": "$ref",
+                    "$ref": f"#/$defs/{target.__name__}"
+                }
     return schema
 
 
