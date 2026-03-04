@@ -128,7 +128,8 @@
 }
 
 .card[data-display="sm"] .sm-actions .edit-btn,
-.card[data-display="sm"] .sm-actions .delete-btn {
+.card[data-display="sm"] .sm-actions .delete-btn,
+.card[data-display="sm"] .sm-actions .cancel-btn {
     width: 1.5rem;
     height: 1.5rem;
     background-size: 11px;
@@ -353,7 +354,8 @@
 
 /* ── Action button base (shared by edit + delete) ── */
 .edit-btn,
-.delete-btn {
+.delete-btn,
+.cancel-btn {
     width: 2rem;
     height: 2rem;
     display: grid;
@@ -401,6 +403,19 @@
 .edit-btn:hover {
     border-color: var(--border-accent, rgba(34,211,197,0.30));
     background-color: var(--accent-dim, rgba(34,211,197,0.12));
+    transform: none;
+    box-shadow: none;
+}
+
+/* ── Cancel button — X icon (edit mode only) ── */
+.cancel-btn {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238891ab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E");
+}
+
+.cancel-btn:hover {
+    border-color: rgba(239, 68, 68, 0.40);
+    background-color: rgba(239, 68, 68, 0.15);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E");
     transform: none;
     box-shadow: none;
 }

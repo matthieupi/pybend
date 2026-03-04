@@ -26,6 +26,9 @@ export class NTTItem extends NTTElement {
 
   mode = 'display';
 
+  /** Snapshot of value before edit — used by cancelEdit() to revert without saving. */
+  #editSnapshot = null;
+
   /** AbortController for event listeners — aborted on each re-render to prevent accumulation. */
   #eventAC = null;
 
@@ -130,8 +133,22 @@ export class NTTItem extends NTTElement {
         return;
       }
       this.save();
+      this.#editSnapshot = null;
+    } else {
+      // Snapshot value before entering edit mode (for cancel revert)
+      this.#editSnapshot = structuredClone(this.value);
     }
     this.mode = isEdit ? 'display' : 'edit';
+    this.render();
+  }
+
+  /** Cancel edit: revert to pre-edit value and switch back to display mode. */
+  cancelEdit() {
+    if (this.#editSnapshot) {
+      this.value = this.#editSnapshot;
+      this.#editSnapshot = null;
+    }
+    this.mode = 'display';
     this.render();
   }
 
@@ -247,6 +264,9 @@ export class NTTItem extends NTTElement {
       let btns = '';
       if (canDelete) btns += '<button class="delete-btn" title="Delete"></button>';
       if (canUpdate) {
+        if (this.mode === 'edit') {
+          btns += '<button class="cancel-btn" title="Cancel"></button>';
+        }
         const modeClass = this.mode === 'edit' ? 'mode-edit' : 'mode-display';
         btns += `<button class="edit-btn ${modeClass}" title="${this.mode === 'edit' ? 'Save' : 'Edit'}"></button>`;
       }
@@ -368,6 +388,9 @@ export class NTTItem extends NTTElement {
         html.push('<button class="delete-btn" title="Delete"></button>');
       }
       if (canUpdate) {
+        if (this.mode === 'edit') {
+          html.push('<button class="cancel-btn" title="Cancel"></button>');
+        }
         const modeClass = this.mode === 'edit' ? 'mode-edit' : 'mode-display';
         html.push(`<button class="edit-btn ${modeClass}" title="${this.mode === 'edit' ? 'Save' : 'Edit'}"></button>`);
       }
@@ -617,6 +640,12 @@ export class NTTItem extends NTTElement {
 
     // Edit button
     this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', () => this.toggleMode(), {signal});
+
+    // Cancel button (edit mode only)
+    this.shadowRoot.querySelector('.cancel-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.cancelEdit();
+    }, {signal});
 
     // Delete button
     this.shadowRoot.querySelector('.delete-btn')?.addEventListener('click', (e) => {
