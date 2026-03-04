@@ -64,36 +64,54 @@ export class NTTItem extends NTTElement {
 
   deleteItem() {
     if (!permissions.canAction(this.schema?.access, 'delete', this.value)) return;
-    if (!confirm(`Delete this ${this.schema.__name__}?`)) return;
-    // Use ref (the actual API endpoint URL) when available, otherwise fall back
-    // to value.$id. For nested entities (e.g. comments inside products), ref holds
-    // the correct CRUD path while $id may point to the schema-derived DynamicClass URL.
-    const target = (this.ref && this.ref.startsWith('http')) ? this.ref : this.value.$id;
-    // Route through DynamicClass so the response triggers DC.DELETE,
-    // which removes the instance from the registry and notifies list watchers.
-    const DC = NTT.get(this.schema.__name__);
-    if (DC) {
-      DC.send(new TX({
-        name: 'DELETE',
-        target: target,
-        meta: { inbox: 'DELETE' },
-      }));
-    }
 
-    // Optimistic parent update: if this item lives inside another ntt-item's
-    // shadow DOM (e.g. a comment inside a product card), remove the deleted
-    // ref from the parent's array field so the UI updates immediately.
-    const parentHost = this.getRootNode()?.host;
-    if (parentHost?.value && parentHost?.schema && this.ref) {
-      const parentProps = parentHost.schema.properties || {};
-      for (const [key, def] of Object.entries(parentProps)) {
-        if (def?.type !== 'array') continue;
-        const arr = parentHost.value[key];
-        if (!Array.isArray(arr) || !arr.includes(this.ref)) continue;
-        // Found the array field containing this ref — update parent value
-        const updated = { ...parentHost.value, [key]: arr.filter(r => r !== this.ref) };
-        parentHost.value = updated;
-        break;
+    // Detect nested context: this item lives inside another ntt-item's
+    // list field (e.g. a tool inside an agent's tools array).
+    const parentHost = typeof this.getRootNode === 'function'
+      ? this.getRootNode()?.host : undefined;
+    const nestedField = parentHost ? this.#findParentArrayField(parentHost) : null;
+
+    if (nestedField) {
+      // ── Unlink from parent list ──
+      // The entity may be referenced by multiple parents (e.g. a tool used by
+      // several agents), so we only remove the association — not the entity itself.
+      if (!confirm(`Remove this ${this.schema.__name__} from the list?`)) return;
+
+      // Optimistic: remove ref from parent's array
+      const arr = parentHost.value[nestedField];
+      const updated = { ...parentHost.value, [nestedField]: arr.filter(r => r !== this.ref) };
+      parentHost.value = updated;
+
+      // Persist via TX: send DELETE to the join URL, routed through the parent
+      // entity. The response goes to _response_ (which calls pull() to refresh
+      // the parent), NOT to the child DC's DELETE handler — so the child entity
+      // stays in the global instances map.
+      const parentModel = parentHost.schema?.__name__;
+      const parentId = parentHost.value?.id;
+      const parentEntity = (parentModel && parentId) ? NTT.get(`${parentModel}/${parentId}`) : null;
+      if (parentEntity) {
+        parentEntity.send(new TX({
+          name: 'DELETE',
+          source: parentEntity.addr,
+          target: this.ref,
+          meta: { inbox: '_response_' }
+        }));
+      }
+    } else {
+      // ── Top-level delete ──
+      // Actually delete the entity from the database.
+      if (!confirm(`Delete this ${this.schema.__name__}?`)) return;
+
+      const target = (this.ref && this.ref.startsWith('http')) ? this.ref : this.value.$id;
+      // Route through DynamicClass so the response triggers DC.DELETE,
+      // which removes the instance from the registry and notifies list watchers.
+      const DC = NTT.get(this.schema.__name__);
+      if (DC) {
+        DC.send(new TX({
+          name: 'DELETE',
+          target: target,
+          meta: { inbox: 'DELETE' },
+        }));
       }
     }
   }
@@ -120,7 +138,13 @@ export class NTTItem extends NTTElement {
     if (type === 'boolean' || el.type === 'checkbox') {
       newValue = el.checked;
     } else if (type === 'number') {
-      newValue = parseFloat(el.value);
+      if (el.value.trim() === '') { newValue = null; }
+      else {
+        const num = parseFloat(el.value);
+        newValue = isNaN(num) ? null : num;
+      }
+    } else if (type === 'object') {
+      try { newValue = JSON.parse(el.value); } catch { newValue = el.value; }
     } else {
       newValue = el.value;
     }
@@ -539,6 +563,16 @@ export class NTTItem extends NTTElement {
       el.addEventListener(event, e => this.handleInputChange(e), {signal});
     });
 
+    // Ref picker events (ref-added = optimistic array update)
+    this.shadowRoot.querySelectorAll('ntt-ref-picker').forEach(picker => {
+      picker.addEventListener('ref-added', (e) => {
+        const { field, ref } = e.detail;
+        const arr = Array.isArray(this.value[field]) ? [...this.value[field]] : [];
+        arr.push(ref);
+        this.value = { ...this.value, [field]: arr };
+      }, {signal});
+    });
+
     // Show-more toggle
     this.shadowRoot.querySelectorAll('.show-more-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -613,7 +647,7 @@ export class NTTItem extends NTTElement {
     // Card click → SELECT (skip interactive elements and edit mode)
     if (this.mode !== 'edit') {
       this.shadowRoot.querySelector('.card')?.addEventListener('click', (e) => {
-        if (e.target.closest('button, input, textarea, select, a, ntt-method, .reply-input-box')) return;
+        if (e.target.closest('button, input, textarea, select, a, ntt-method, .reply-input-box, ntt-ref-picker')) return;
         const target = this.getAttribute('select-target');
         if (target) {
           this.send(new TX({
@@ -622,6 +656,21 @@ export class NTTItem extends NTTElement {
         }
       }, {signal});
     }
+  }
+
+  /**
+   * If this item is nested inside a parent host's array field,
+   * return the field key. Otherwise return null (top-level context).
+   */
+  #findParentArrayField(parentHost) {
+    if (!parentHost?.value || !parentHost?.schema || !this.ref) return null;
+    const parentProps = parentHost.schema.properties || {};
+    for (const [key, def] of Object.entries(parentProps)) {
+      if (def?.type !== 'array') continue;
+      const arr = parentHost.value[key];
+      if (Array.isArray(arr) && arr.includes(this.ref)) return key;
+    }
+    return null;
   }
 
   /**

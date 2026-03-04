@@ -1,5 +1,7 @@
 import { permissions } from '../utils/Permissions.js';
+import { NTT } from '../core/NTT.js';
 import Logging from '../utils/Logging.js';
+import '../components/ntt-ref-picker.js';
 
   // Layout cache: stores { renderableFields, groups } per schema+mode+role.
   // Eliminates O(n²) field order computation and repeated permission checks
@@ -227,6 +229,9 @@ function getInput(ntt, key, mode = 'display') {
             html.push(`<input type="number" id="${key}" data-key="${key}" data-type="selfref" value="${value || ''}" placeholder="Parent ID (optional)"${v}>`);
         } else if (type === 'array') {
             html.push(getListInput(ntt, key, mode));
+        } else if (type === 'object') {
+            const json = (value && typeof value === 'object') ? JSON.stringify(value, null, 2) : (value || '{}');
+            html.push(`<textarea id="${key}" data-key="${key}" data-type="object"${v}>${json}</textarea>`);
         } else {
             html.push(`<input type="${type}" data-key="${key}" data-type="${type}" value="${value}" id="${key}"${v}>`);
         }
@@ -238,11 +243,13 @@ function getInput(ntt, key, mode = 'display') {
         } else if (widget === 'textarea') {
             html.push(`<div class="text-block" data-value="${key}">${value}</div>`);
         } else if (type === '$ref' || def?.$ref) {
-            html.push(`<div data-value="${key}">[Reference: ${value?.name || value?.id || JSON.stringify(value)}]</div>`);
+            html.push(`<div data-value="${key}">${formatRefDisplay(def, value)}</div>`);
         } else if (type === 'selfref') {
             html.push(`<div data-value="${key}">${value ? `[Parent: #${value}]` : '(top-level)'}</div>`);
         } else if (type === 'array') {
             html.push(getListInput(ntt, key, mode));
+        } else if (type === 'object') {
+            html.push(`<div class="object-display" data-value="${key}">${formatObjectDisplay(value)}</div>`);
         } else {
             html.push(`<div data-value="${key}">${value}</div>`);
         }
@@ -307,6 +314,23 @@ function getListInput(ntt, key, mode = 'display') {
         }
     }
 
+    // Ref picker for adding existing / creating new items in edit mode
+    if (mode === 'edit' && modelName) {
+        const parentSchema = ntt.schema || {};
+        const parentTable = parentSchema.__tablename__ || '';
+        const parentModel = parentSchema.__name__ || '';
+        const parentId = ntt.value?.id || '';
+        const childTable = defs[modelName]?.__tablename__ || modelName.toLowerCase() + 's';
+        html.push(`<ntt-ref-picker
+            field="${key}"
+            model="${modelName}"
+            parent-model="${parentModel}"
+            parent-table="${parentTable}"
+            parent-id="${parentId}"
+            child-table="${childTable}">
+        </ntt-ref-picker>`);
+    }
+
     html.push(`</div>`);
     return html.join('');
 }
@@ -360,6 +384,47 @@ function resolveAnyOf(def) {
   }
 
 /**
+ * Format a $ref field value for display. Resolves entity name from NTT registry.
+ */
+function formatRefDisplay(def, value) {
+    if (!value) return '';
+    // href string — resolve from NTT registry
+    if (typeof value === 'string' && value.startsWith('http')) {
+        const parts = value.split('/');
+        const id = parts.pop();
+        const tablename = parts.pop();
+        // Try to find a registered DynamicClass by tablename
+        const refModel = (def?.$ref || '').split('/').pop();
+        const entity = refModel ? NTT.get(`${refModel}/${id}`) : null;
+        if (entity?.value) {
+            return entity.value.name || entity.value.title || `${refModel} #${id}`;
+        }
+        return `${refModel || tablename} #${id}`;
+    }
+    // Populated object
+    if (typeof value === 'object') {
+        return value.name || value.title || value.id || JSON.stringify(value);
+    }
+    return String(value);
+}
+
+/**
+ * Format an object/dict field value for display as key-value pairs.
+ */
+function formatObjectDisplay(value) {
+    if (!value || typeof value !== 'object') return value == null ? '{}' : String(value);
+    const entries = Object.entries(value);
+    if (entries.length === 0) return '{}';
+    const MAX = 5;
+    const shown = entries.slice(0, MAX).map(([k, v]) => {
+        const display = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        return `<span class="kv-key">${k}</span>: <span class="kv-val">${display}</span>`;
+    }).join(', ');
+    const more = entries.length > MAX ? ` <span class="kv-more">(+${entries.length - MAX} more)</span>` : '';
+    return shown + more;
+}
+
+/**
  * Return the formatted display string for a single field value.
  * Mirrors the display branch logic of getInput — used by update() patches.
  */
@@ -367,8 +432,9 @@ function formatDisplayValue(def, key, value) {
     const widget = def?.ui?.widget;
     const type = def?.type || 'string';
     if (widget === 'currency') return typeof value === 'number' ? `$${value.toFixed(2)}` : value;
-    if (type === '$ref' || def?.$ref) return `[Reference: ${value?.name || value?.id || JSON.stringify(value)}]`;
+    if (type === '$ref' || def?.$ref) return formatRefDisplay(def, value);
     if (type === 'selfref') return value ? `[Parent: #${value}]` : '(top-level)';
+    if (type === 'object') return formatObjectDisplay(value);
     return value ?? '';
 }
 

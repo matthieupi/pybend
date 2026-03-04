@@ -589,6 +589,28 @@ fieldset.ntt-group legend {
     box-shadow: none;
 }
 
+/* ── Object (dict) display ── */
+.object-display {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.8rem;
+    color: var(--text-1, #c4c9da);
+    line-height: 1.5;
+}
+
+.object-display .kv-key {
+    color: var(--accent-text, #5eeadf);
+    font-weight: 500;
+}
+
+.object-display .kv-val {
+    color: var(--text-2, #9ba3bd);
+}
+
+.object-display .kv-more {
+    font-style: italic;
+    color: var(--text-3, #555e78);
+}
+
 /* ── References ── */
 .ref {
     font-style: italic;
@@ -675,4 +697,9 @@ label:first-of-type {
 
 :host([create-mode]) .card-actions {
     display: none !important;
+}
+
+/* ── Ref picker component spacing within list fields ── */
+.list-field ntt-ref-picker {
+    margin-top: 0.5rem;
 }

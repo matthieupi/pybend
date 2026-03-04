@@ -21,6 +21,13 @@ import { Formidable } from '../../generators/form.js';
 
 describe('form.js (Formidable)', () => {
 
+  beforeEach(() => {
+    // Clear layout cache between tests to prevent cross-test cache poisoning.
+    // The cache keys on schema.__name__:mode:role, so tests that override
+    // schema.ui.groups (same __name__) get stale cached layouts without groups.
+    Formidable.clearCache();
+  });
+
   const schema = {
     __name__: 'Product',
     __tablename__: 'products',
@@ -261,9 +268,8 @@ describe('form.js (Formidable)', () => {
       expect(result).toBe('$29.99');
     });
 
-    it('should format $ref as [Reference: ...]', () => {
+    it('should format $ref with entity name', () => {
       const result = Formidable.formatDisplayValue({ type: '$ref' }, 'user', { name: 'Alice' });
-      expect(result).toContain('Reference');
       expect(result).toContain('Alice');
     });
 
@@ -411,7 +417,6 @@ describe('form.js (Formidable)', () => {
         name: 'Product',
       };
       const html = Formidable.getInput(ntt, 'user', 'display');
-      expect(html).toContain('Reference');
       expect(html).toContain('Alice');
     });
 
