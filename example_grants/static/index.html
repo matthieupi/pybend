@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Grant Watcher</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./dark-theme.css">
+    <link rel="stylesheet" href="./light-theme.css">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <!-- Preload component CSS — loaded by Shadow DOM at runtime -->
+    <link rel="preload" href="./components/ntx-item.css" as="style">
+    <link rel="preload" href="./components/ntx-list.css" as="style">
+    <link rel="preload" href="./components/ntx-router.css" as="style">
+    <link rel="preload" href="./components/ntx-topbar.css" as="style">
+    <link rel="preload" href="./components/ntx-sidebar.css" as="style">
+    <link rel="preload" href="./components/ntx-table.css" as="style">
+    <link rel="preload" href="./components/ntx-row.css" as="style">
+    <link rel="preload" href="./components/ntx-user.css" as="style">
+    <link rel="preload" href="./widgets/widgets.css" as="style">
+    <!-- Vendor libraries (optional — widgets degrade gracefully without them) -->
+    <script src="./vendor/marked.min.js"></script>
+    <script src="./vendor/ansi_up.min.js"></script>
+    <!-- Modulepreload entire dependency tree — eliminates import waterfall -->
+    <!-- Leaves -->
+    <link rel="modulepreload" href="./config.js">
+    <link rel="modulepreload" href="./utils/Assert.js">
+    <link rel="modulepreload" href="./utils/Logging.js">
+    <link rel="modulepreload" href="./utils/Permissions.js">
+    <link rel="modulepreload" href="./utils/theme.js">
+    <!-- Core -->
+    <link rel="modulepreload" href="./core/Utils.js">
+    <link rel="modulepreload" href="./core/TX.js">
+    <link rel="modulepreload" href="./core/Observable.js">
+    <link rel="modulepreload" href="./core/Actor.js">
+    <link rel="modulepreload" href="./core/Matrix.js">
+    <link rel="modulepreload" href="./core/Component.js">
+    <link rel="modulepreload" href="./core/Router.js">
+    <link rel="modulepreload" href="./core/NTT.js">
+    <!-- Transport -->
+    <link rel="modulepreload" href="./core/transport/HTTP.js">
+    <link rel="modulepreload" href="./core/transport/NetworkAdapter.js">
+    <!-- Components -->
+    <link rel="modulepreload" href="./components/NTTElement.js">
+    <link rel="modulepreload" href="./components/ListElement.js">
+    <link rel="modulepreload" href="./components/ntx-item.js">
+    <link rel="modulepreload" href="./components/ntx-list.js">
+    <link rel="modulepreload" href="./components/ntx-router.js">
+    <link rel="modulepreload" href="./components/ntx-method.js">
+    <link rel="modulepreload" href="./components/ntx-topbar.js">
+    <link rel="modulepreload" href="./components/ntx-sidebar.js">
+    <link rel="modulepreload" href="./components/ntx-profile.js">
+    <link rel="modulepreload" href="./components/ntx-row.js">
+    <link rel="modulepreload" href="./components/ntx-user.js">
+    <link rel="modulepreload" href="./components/ntx-table.js">
+    <link rel="modulepreload" href="./generators/form.js">
+    <!-- Widgets -->
+    <link rel="modulepreload" href="./widgets/Widget.js">
+    <link rel="modulepreload" href="./widgets/registry.js">
+    <link rel="modulepreload" href="./widgets/index.js">
+    <script type="module" src="./utils/theme.js"></script>
+</head>
+<body>
+
+    <ntx-topbar brand="Grant Watcher" version="0.10.0" logo="GW"></ntx-topbar>
+    <ntx-sidebar router="main">
+        <ntx-list model="Grant" allow-create></ntx-list>
+        <ntx-table model="Source"></ntx-table>
+        <ntx-list model="AgentActor"></ntx-list>
+    </ntx-sidebar>
+
+    <div class="page">
+        <ntx-router name="main" hash>
+            <ntx-table model="Grant" id="grant-table" allow-create></ntx-table>
+        </ntx-router>
+    </div>
+
+    <script type="module">
+        import Logging from './utils/Logging.js';
+        Logging.init("Loading Grant Watcher...");
+
+        import {Matrix, matrix} from './core/Matrix.js';
+        import { NTT } from './core/NTT.js';
+        import { config } from './config.js';
+        import { permissions } from './utils/Permissions.js';
+        import './components/ntx-item.js';
+        import './components/ntx-list.js';
+        import './components/ntx-router.js';
+        import './components/ntx-method.js';
+        import './components/ntx-topbar.js';
+        import './components/ntx-sidebar.js';
+        import './components/ntx-profile.js';
+        import './components/ntx-user.js';
+        import './components/ntx-row.js';
+        import './components/ntx-table.js';
+
+        // Initialize permissions (non-blocking — components degrade gracefully)
+        permissions.init();
+    </script>
+
+</body>
+</html>

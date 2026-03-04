@@ -1,0 +1,16 @@
+.claude/
+.idea/
+.venv/
+*.pyc
+__pycache__/
+pybend.egg-info/
+src/pybend.egg-info/
+dist/
+*.db
+.env
+node_modules/
+.traces/.profiling/
+*.db-shm
+*.db-wal
+.coverage
+.planning/intel/

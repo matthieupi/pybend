@@ -1,0 +1,2 @@
+# pytest configuration lives in pytest.ini (single source of truth — TI-4).
+# This section is intentionally empty to avoid duplicate config.
