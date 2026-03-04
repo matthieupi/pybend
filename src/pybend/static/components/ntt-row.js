@@ -14,6 +14,7 @@
 import {NTTItem} from './ntt-item.js';
 import {Formidable} from '../generators/form.js';
 import {permissions} from '../utils/Permissions.js';
+import {getWidgetForField} from '../widgets/index.js';
 import TX from '../core/TX.js';
 
 
@@ -49,22 +50,40 @@ export class NTTRow extends NTTItem {
 
   /**
    * Build inline edit cells — one input per renderable field.
+   * Uses widget-aware input types (date, url, etc.) when available.
    */
   #editCells() {
     const schema = this.schema;
     const props = schema.properties || {};
-    const renderable = this.#rowFields();
+    const renderable = this.#rowFields(true);
     const cells = [];
     for (const key of renderable) {
       const def = props[key];
       const val = this.value[key] ?? '';
       const type = def?.type || 'string';
+      const widget = def?.ui?.widget;
+
       if (type === 'boolean') {
         const checked = val ? ' checked' : '';
-        cells.push(`<span class="cell edit-cell"><input type="checkbox" data-key="${key}"${checked}></span>`);
+        cells.push(`<span class="cell edit-cell"><input type="checkbox" data-key="${key}" data-type="boolean"${checked}></span>`);
       } else {
-        const inputType = (type === 'number' || type === 'integer') ? 'number' : 'text';
-        cells.push(`<span class="cell edit-cell"><input type="${inputType}" data-key="${key}" value="${val}" class="cell-input"></span>`);
+        // Resolve input type: widget hint > schema type > text fallback
+        let inputType = 'text';
+        if (widget === 'date') inputType = 'date';
+        else if (widget === 'datetime') inputType = 'datetime-local';
+        else if (widget === 'url') inputType = 'url';
+        else if (widget === 'currency' || type === 'number' || type === 'integer') inputType = 'number';
+
+        let inputVal = val;
+        // Normalize date values for input[type=date]
+        if (inputType === 'date' && val) {
+          try {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) inputVal = d.toISOString().split('T')[0];
+          } catch { /* use raw value */ }
+        }
+        const step = (inputType === 'number' && widget === 'currency') ? ' step="0.01"' : '';
+        cells.push(`<span class="cell edit-cell"><input type="${inputType}" data-key="${key}" data-type="${type}" value="${inputVal}" class="cell-input"${step}></span>`);
       }
     }
     return cells.join('');
@@ -73,8 +92,9 @@ export class NTTRow extends NTTItem {
   /**
    * Return renderable field keys for this row.
    * Uses the same logic as NTTItem's #smFields() (inherited via row()).
+   * In edit mode, additionally filters out protected and $ref fields.
    */
-  #rowFields() {
+  #rowFields(forEdit = false) {
     const schema = this.schema;
     const fields = schema.properties || {};
     const ui = schema.ui || {};
@@ -91,21 +111,35 @@ export class NTTRow extends NTTItem {
       if (def?.type === 'array') return false;
       if (def?.type === 'selfref') return false;
       if (!permissions.canView(def)) return false;
+      if (forEdit) {
+        if (def?.ui?.protected) return false;
+        if (def?.type === '$ref' || def?.$ref) return false;
+      }
       return true;
     });
   }
 
-  /** Override toggleMode for inline edit. */
+  /** Override toggleMode for inline edit with validation. */
   toggleMode() {
     if (!permissions.canAction(this.schema?.access, 'update', this.value)) return;
     const isEdit = this.mode === 'edit';
-    if (isEdit) this.#saveInline();
+    if (isEdit) {
+      // Collect values from inputs before validating
+      this.#collectInputValues();
+      // Client-side validation before save
+      const errors = Formidable.validateForm(this);
+      if (errors.length > 0) {
+        this.#showRowErrors(errors);
+        return;
+      }
+      this.save();
+    }
     this.mode = isEdit ? 'display' : 'edit';
     this.render();
   }
 
-  /** Collect values from inline inputs and save. */
-  #saveInline() {
+  /** Collect values from inline inputs into this.value (without saving). */
+  #collectInputValues() {
     const inputs = this.shadowRoot.querySelectorAll('[data-key]');
     const updated = { ...this.value };
     inputs.forEach(el => {
@@ -115,14 +149,37 @@ export class NTTRow extends NTTItem {
       if (type === 'boolean' || el.type === 'checkbox') {
         updated[key] = el.checked;
       } else if (type === 'number' || type === 'integer') {
-        const num = parseFloat(el.value);
-        if (!isNaN(num)) updated[key] = num;
+        if (el.value.trim() === '') { updated[key] = null; }
+        else {
+          const num = parseFloat(el.value);
+          updated[key] = isNaN(num) ? null : num;
+        }
       } else {
         updated[key] = el.value;
       }
     });
     this.value = updated;
-    this.save();
+  }
+
+  /**
+   * Highlight invalid fields in the row with error messages.
+   * Clears previous errors before showing new ones.
+   */
+  #showRowErrors(errors) {
+    const root = this.shadowRoot;
+    // Clear previous error indicators
+    root.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+    root.querySelectorAll('.cell-error-msg').forEach(el => el.remove());
+
+    for (const { field, message } of errors) {
+      const input = root.querySelector(`[data-key="${field}"]`);
+      if (!input) continue;
+      input.classList.add('field-error');
+      const msg = document.createElement('span');
+      msg.className = 'cell-error-msg';
+      msg.textContent = message;
+      input.parentElement?.appendChild(msg);
+    }
   }
 
   render() {
@@ -147,8 +204,14 @@ export class NTTRow extends NTTItem {
     }
     actionsHtml += '</span>';
 
+    // Error banner — persistent, dismissible
+    const errorHtml = this.error
+      ? `<div class="ntt-error"><span class="ntt-error-msg">${this.error}</span><button class="ntt-error-dismiss" title="Dismiss">&times;</button></div>`
+      : '';
+
     const editClass = isEdit ? ' editing' : '';
     this.shadowRoot.innerHTML = `
+      ${errorHtml}
       <div class="row${editClass}" data-display="row">
         ${cellsHtml}
         ${actionsHtml}
@@ -164,6 +227,12 @@ export class NTTRow extends NTTItem {
     this.#rowAC?.abort();
     this.#rowAC = new AbortController();
     const {signal} = this.#rowAC;
+
+    // Error dismiss button
+    this.shadowRoot.querySelector('.ntt-error-dismiss')?.addEventListener('click', () => {
+      this.error = null;
+      this.shadowRoot.querySelector('.ntt-error')?.remove();
+    }, {signal});
 
     // Edit button
     this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', (e) => {

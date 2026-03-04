@@ -64,6 +64,9 @@
 }
 
 .header-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -71,11 +74,22 @@
     color: var(--text-3, #555e78);
     padding: 0.15rem 0.5rem;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
     user-select: none;
     transition: color 0.2s;
+}
+
+.header-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.sort-arrow {
+    flex-shrink: 0;
+    font-size: 0.6rem;
+    color: var(--accent-text, #5eeadf);
 }
 
 .header-cell:hover {

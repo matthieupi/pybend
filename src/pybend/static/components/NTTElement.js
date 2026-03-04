@@ -22,6 +22,9 @@ export class NTTElement extends Component {
   // Track the schema name for CONNECT flow
   $schema = undefined;
 
+  // Persistent error state — set by ERROR handler, rendered by subclass
+  error = null;
+
   constructor() {
     super({});  // Default value: single entity object
   }
@@ -111,6 +114,55 @@ export class NTTElement extends Component {
       this.schema = DynClass._schema;
       this.value = data;  // value setter handles render via update() fallback
     }
+  }
+
+  /**
+   * Receives an error TX. Sets persistent error state so subclasses
+   * can render an inline error banner instead of relying on toasts.
+   *
+   * NetworkAdapter.onError() structures the ERROR TX as:
+   *   data: original event (e.g. the UPDATE TX that failed)
+   *   meta.response: the HTTP error body (e.g. {detail: "..."} or {error: "..."})
+   *
+   * This handler checks meta.response first (remote errors), then falls back
+   * to event.data for locally-generated ERROR messages.
+   *
+   * When the response carries structured validation errors (Pydantic 422 array detail),
+   * delegates to onValidationError() so subclasses can show field-level feedback.
+   */
+  ERROR(event) {
+    // Remote errors: actual error payload is in meta.response
+    const response = event?.meta?.response;
+    const d = response || event?.data;
+
+    // Extract structured validation errors from Pydantic 422 array detail
+    if (d && Array.isArray(d.detail) && d.detail.length > 0) {
+      const validationErrors = d.detail.map(e => ({
+        field: Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : '?',
+        message: e.msg,
+        type: e.type,
+        input: e.input,
+      }));
+      // Human-readable summary for the error banner
+      this.error = validationErrors.map(e => `${e.field}: ${e.message}`).join('; ');
+      Logging.error(`[NTTElement] ${this.schema?.__name__ || '?'} — ERROR`, this.error);
+      this.onValidationError(validationErrors);
+      return;
+    }
+
+    const msg = (typeof d === 'string') ? d
+      : d?.detail || d?.error || d?.message || 'An error occurred';
+    this.error = msg;
+    Logging.error(`[NTTElement] ${this.schema?.__name__ || '?'} — ERROR`, msg);
+    this.scheduleRender();
+  }
+
+  /**
+   * Hook for subclasses to handle structured validation errors.
+   * Default is no-op; NTTItem overrides to switch to edit mode + highlight fields.
+   */
+  onValidationError(errors) {
+    // no-op base — subclasses override
   }
 
 

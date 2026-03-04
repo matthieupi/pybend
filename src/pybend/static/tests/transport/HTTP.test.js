@@ -4,12 +4,18 @@ vi.mock('../../utils/Logging.js', () => ({
   default: { warn: vi.fn(), error: vi.fn(), debug: vi.fn(), dev: vi.fn(), log: vi.fn(), init: vi.fn(), event: vi.fn() }
 }));
 
+vi.mock('../../utils/Toast.js', () => ({
+  showToast: vi.fn()
+}));
+
 import HTTP from '../../core/transport/HTTP.js';
+import { showToast } from '../../utils/Toast.js';
 
 describe('HTTP.js', () => {
 
   beforeEach(() => {
     global.fetch.mockClear();
+    showToast.mockClear();
     window.localStorage.removeItem('jwtToken');
   });
 
@@ -221,6 +227,381 @@ describe('HTTP.js', () => {
       const [url, opts] = global.fetch.mock.calls[0];
       expect(url).toBe('rpc');
       expect(opts.method).toBe('POST');
+    });
+  });
+
+  describe('error handling overhaul', () => {
+    // 1. GET: should not call onError twice on 500
+    it('GET should not double-report errors on 500', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Internal Server Error' })
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.get('http://localhost:5000/fail', onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledTimes(1);
+    });
+
+    // 2. GET: should pass json object to onError (not string)
+    it('GET should pass json object to onError on 500', async () => {
+      const errorResponse = { error: 'Internal Server Error', code: 500 };
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve(errorResponse)
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.get('http://localhost:5000/fail', onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith(errorResponse);
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    // 3. POST: should not call onSuccess after error response
+    it('POST should not call onSuccess after 400 error', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ error: 'Bad Request' })
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.post('http://localhost:5000/products', { name: '' }, onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    // 4. PUT: should not call onSuccess after 401 redirect
+    it('PUT should not call onSuccess after 401 redirect', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({})
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+
+      // Mock window.location to prevent actual navigation in test
+      delete window.location;
+      window.location = { href: '' };
+
+      HTTP.put('http://localhost:5000/products/1', { name: 'Test' }, onSuccess, onError);
+
+      await vi.waitFor(() => expect(window.location).toBe('/login.html'));
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    // 5. DELETE: should not call onError twice on 500
+    it('DELETE should not double-report errors on 500', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Server error' })
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.remove('http://localhost:5000/products/1', onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledTimes(1);
+    });
+
+    // 6. GET 404: should call onError once, not call onSuccess
+    it('GET 404 should call onError once and not call onSuccess', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.get('http://localhost:5000/missing', onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledTimes(1);
+      expect(showToast).toHaveBeenCalledWith(expect.stringContaining('not found'), 'error');
+    });
+
+    // 7. Network error: should call onError once with message
+    it('GET network error should call onError once', async () => {
+      global.fetch.mockRejectedValueOnce(new Error('Network failure'));
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.get('http://localhost:5000/fail', onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith('Network failure');
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledTimes(1);
+    });
+
+    // 8. POST: should pass json to onError (not json.error + resp.toString())
+    it('POST should pass full json object to onError', async () => {
+      const errorResponse = { error: 'Validation failed', details: ['name required'] };
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        json: () => Promise.resolve(errorResponse)
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith(errorResponse);
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    // 9. PUT: should pass json to onError (not json.error string)
+    it('PUT should pass full json object to onError', async () => {
+      const errorResponse = { error: 'Forbidden', message: 'Not owner' };
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: () => Promise.resolve(errorResponse)
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.put('http://localhost:5000/products/1', { name: 'Test' }, onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith(errorResponse);
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    // 10. DELETE: should pass json to onError on error response
+    it('DELETE should pass full json object to onError', async () => {
+      const errorResponse = { error: 'Cannot delete', reason: 'Has dependencies' };
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: () => Promise.resolve(errorResponse)
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.remove('http://localhost:5000/products/1', onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith(errorResponse);
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    // 11. POST network error should not double-report
+    it('POST network error should call onError once', async () => {
+      global.fetch.mockRejectedValueOnce(new Error('Connection refused'));
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.post('http://localhost:5000/products', { name: 'Test' }, onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(showToast).toHaveBeenCalledTimes(1);
+    });
+
+    // 12. PUT network error should not double-report
+    it('PUT network error should call onError once', async () => {
+      global.fetch.mockRejectedValueOnce(new Error('Timeout'));
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.put('http://localhost:5000/products/1', { name: 'Test' }, onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(showToast).toHaveBeenCalledTimes(1);
+    });
+
+    // 13. DELETE network error should not double-report
+    it('DELETE network error should call onError once', async () => {
+      global.fetch.mockRejectedValueOnce(new Error('Network down'));
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.remove('http://localhost:5000/products/1', onSuccess, onError);
+
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(showToast).toHaveBeenCalledTimes(1);
+    });
+
+    // 14. GET 401 should redirect and not call onError
+    it('GET 401 should redirect to login and not call onError', async () => {
+      window.localStorage.setItem('jwtToken', 'expired-token');
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({})
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+
+      delete window.location;
+      window.location = { href: '' };
+
+      HTTP.get('http://localhost:5000/products', onSuccess, onError);
+
+      await vi.waitFor(() => expect(window.location).toBe('/login.html'));
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+      expect(window.localStorage.getItem('jwtToken')).toBeNull();
+    });
+
+    // 15. Verify showToast is called with correct error messages
+    it('GET should show toast with error field from response', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Database connection failed' })
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.get('http://localhost:5000/fail', onSuccess, onError);
+
+      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
+      expect(showToast).toHaveBeenCalledWith('Database connection failed', 'error');
+    });
+
+    // 16. Verify showToast uses detail field if no error field
+    it('POST should show toast with detail field from response', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ detail: 'Invalid input format' })
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+
+      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
+      expect(showToast).toHaveBeenCalledWith('Invalid input format', 'error');
+    });
+
+    // 17. Pydantic 422 validation errors — array detail should produce readable string
+    it('should format Pydantic array detail as "field: msg" string', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        json: () => Promise.resolve({
+          detail: [
+            { loc: ['body', 'website'], msg: 'Invalid URL', type: 'value_error', input: 'not-a-url' }
+          ]
+        })
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+
+      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
+      expect(showToast).toHaveBeenCalledWith('website: Invalid URL', 'error');
+    });
+
+    // 18. Multiple Pydantic validation errors joined with "; "
+    it('should join multiple Pydantic errors with "; "', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        json: () => Promise.resolve({
+          detail: [
+            { loc: ['body', 'name'], msg: 'Field required', type: 'missing' },
+            { loc: ['body', 'price'], msg: 'Value must be greater than 0', type: 'value_error' },
+          ]
+        })
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+
+      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
+      expect(showToast).toHaveBeenCalledWith('name: Field required; price: Value must be greater than 0', 'error');
+    });
+
+    // 19. String detail should still work unchanged
+    it('should pass through string detail unchanged', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ detail: 'Simple string error' })
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+
+      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
+      expect(showToast).toHaveBeenCalledWith('Simple string error', 'error');
+    });
+
+    // 20. Verify embedded error in 200 response shows toast
+    it('GET should detect embedded error in successful response', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ error: 'authentication required' })
+      });
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+      HTTP.get('http://localhost:5000/products/1/favorite', onSuccess, onError);
+
+      await vi.waitFor(() => expect(onSuccess).toHaveBeenCalled());
+      expect(showToast).toHaveBeenCalledWith('authentication required', 'error');
+      expect(onError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('_extractValidationErrors(json)', () => {
+    it('should return structured errors for Pydantic 422 array detail', () => {
+      const json = {
+        detail: [
+          { loc: ['body', 'website'], msg: 'Invalid URL', type: 'value_error', input: 'not-a-url' },
+          { loc: ['body', 'price'], msg: 'Value must be > 0', type: 'value_error.number', input: -5 },
+        ]
+      };
+      const result = HTTP._extractValidationErrors(json);
+      expect(result).toEqual([
+        { field: 'website', message: 'Invalid URL', type: 'value_error', input: 'not-a-url' },
+        { field: 'price', message: 'Value must be > 0', type: 'value_error.number', input: -5 },
+      ]);
+    });
+
+    it('should return null for string detail', () => {
+      const result = HTTP._extractValidationErrors({ detail: 'Not found' });
+      expect(result).toBeNull();
+    });
+
+    it('should return null for non-object input', () => {
+      expect(HTTP._extractValidationErrors(null)).toBeNull();
+      expect(HTTP._extractValidationErrors(undefined)).toBeNull();
+      expect(HTTP._extractValidationErrors('string')).toBeNull();
+    });
+
+    it('should return null when detail is missing', () => {
+      expect(HTTP._extractValidationErrors({ error: 'something' })).toBeNull();
+    });
+
+    it('should return null for empty detail array', () => {
+      expect(HTTP._extractValidationErrors({ detail: [] })).toBeNull();
+    });
+
+    it('should use last element of loc as field name', () => {
+      const json = {
+        detail: [
+          { loc: ['body', 'nested', 'field_name'], msg: 'Bad value', type: 'type_error' }
+        ]
+      };
+      const result = HTTP._extractValidationErrors(json);
+      expect(result[0].field).toBe('field_name');
     });
   });
 });

@@ -240,13 +240,13 @@ export class NTTTable extends ListElement {
     const columnsCSS = this.#columnsCSS(cols);
     const fullColumns = `${columnsCSS} 3.5rem`;  // data cols + fixed actions col
 
-    // Header cells with sort indicators
+    // Header cells with sort indicators (arrow in separate span to avoid ellipsis clipping)
     const headerCells = cols.map(key => {
       const label = this.#headerLabel(key);
       const isActive = this.#sortKey === key;
-      const arrow = isActive ? (this.#sortDir === 'asc' ? ' \u25b2' : ' \u25bc') : '';
+      const arrow = isActive ? `<span class="sort-arrow">${this.#sortDir === 'asc' ? '\u25b2' : '\u25bc'}</span>` : '';
       const activeClass = isActive ? ' sort-active' : '';
-      return `<span class="header-cell${activeClass}" data-sort="${key}">${label}${arrow}</span>`;
+      return `<span class="header-cell${activeClass}" data-sort="${key}"><span class="header-label">${label}</span>${arrow}</span>`;
     }).join('');
 
     // Create row inputs

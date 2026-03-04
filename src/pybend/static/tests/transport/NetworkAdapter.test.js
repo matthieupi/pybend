@@ -20,6 +20,7 @@ vi.mock('../../core/transport/HTTP.js', () => ({
     post: vi.fn(),
     put: vi.fn(),
     remove: vi.fn(),
+    _extractValidationErrors: vi.fn(() => null),
   }
 }));
 vi.mock('../../core/transport/Socket.js', () => ({
@@ -150,6 +151,41 @@ describe('NetworkAdapter.js', () => {
       expect(reply.target).toBe('actor-1');
       expect(reply.name).toBe('READ');
     });
+
+    it('should include timestamp in reply', () => {
+      const adapter = new NetworkAdapter(matrix);
+      const event = {
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        data: null, meta: {}, timestamp: Date.now(),
+      };
+      adapter.httpCallback(event, {});
+      const reply = matrix.dispatch.mock.calls[0][0];
+      expect(reply.timestamp).toBeDefined();
+      expect(typeof reply.timestamp).toBe('number');
+    });
+
+    it('should preserve event id in reply', () => {
+      const adapter = new NetworkAdapter(matrix);
+      const event = {
+        name: 'READ', id: 'evt-12345', source: 'actor-1', target: 'http://localhost:5000/products',
+        data: null, meta: {},
+      };
+      adapter.httpCallback(event, {});
+      const reply = matrix.dispatch.mock.calls[0][0];
+      expect(reply.id).toBe('evt-12345');
+    });
+
+    it('should preserve meta in reply', () => {
+      const adapter = new NetworkAdapter(matrix);
+      const event = {
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        data: null, meta: { foo: 'bar', baz: 123 },
+      };
+      adapter.httpCallback(event, {});
+      const reply = matrix.dispatch.mock.calls[0][0];
+      expect(reply.meta.foo).toBe('bar');
+      expect(reply.meta.baz).toBe(123);
+    });
   });
 
   describe('onError(event, response)', () => {
@@ -169,6 +205,33 @@ describe('NetworkAdapter.js', () => {
       expect(Logging.error).toHaveBeenCalled();
       const firstCallArgs = Logging.error.mock.calls[0];
       expect(firstCallArgs[0]).toContain('NetworkAdapter');
+    });
+
+    it('should dispatch ERROR TX through matrix', () => {
+      const adapter = new NetworkAdapter(matrix);
+      const event = {
+        name: 'READ', id: 'err-123', source: 'actor-1', target: 'http://localhost:5000/products',
+        data: null, meta: {}, timestamp: Date.now(),
+      };
+      const response = { error: 'not found', status: 404 };
+
+      // onError calls this.emit which will throw, but matrix.dispatch should be called first
+      try {
+        adapter.onError(event, response);
+      } catch (e) {
+        // emit will throw due to assert on undefined callback
+      }
+
+      expect(matrix.dispatch).toHaveBeenCalledTimes(1);
+      const errorTx = matrix.dispatch.mock.calls[0][0];
+      expect(errorTx.name).toBe('ERROR');
+      expect(errorTx.source).toBe('http://localhost:5000/products');
+      expect(errorTx.target).toBe('actor-1');
+      expect(errorTx.data).toBe(event); // data is the original event
+      expect(errorTx.id).toBe('err-123');
+      expect(errorTx.meta.error).toBe(true);
+      expect(errorTx.meta.remote).toBe(true);
+      expect(errorTx.meta.response).toBe(response); // response in meta
     });
   });
 

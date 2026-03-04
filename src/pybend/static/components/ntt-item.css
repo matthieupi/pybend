@@ -684,6 +684,25 @@ label:first-of-type {
     min-height: 5rem;
 }
 
+/* ═══════════════════════════════════════════════════
+   Field validation errors
+   ═══════════════════════════════════════════════════ */
+
+input.field-error, textarea.field-error,
+.widget-edit-wrapper.field-error input,
+.widget-edit-wrapper.field-error textarea {
+    border-color: var(--error, #f87171);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--error, #f87171) 20%, transparent);
+}
+
+.error-message {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--error, #f87171);
+}
+
 @keyframes shimmer {
     0%   { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
@@ -702,4 +721,50 @@ label:first-of-type {
 /* ── Ref picker component spacing within list fields ── */
 .list-field ntt-ref-picker {
     margin-top: 0.5rem;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   Error banner — persistent, dismissible
+   ═══════════════════════════════════════════════════ */
+
+.ntt-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--error-text, #fca5a5);
+    background: rgba(239, 68, 68, 0.10);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-sm, 8px);
+    animation: staggerIn 0.25s ease both;
+}
+
+.ntt-error-msg {
+    flex: 1;
+    word-break: break-word;
+}
+
+.ntt-error-dismiss {
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--error-text, #fca5a5);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.ntt-error-dismiss:hover {
+    background: rgba(239, 68, 68, 0.18);
 }

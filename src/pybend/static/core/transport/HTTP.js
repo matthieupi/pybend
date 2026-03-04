@@ -17,9 +17,32 @@ export default class HTTP {
         if (!json || typeof json !== 'object') return null;
         // Explicit "error" field (backend convention)
         if (json.error)  return String(json.error);
+        // Pydantic 422: detail is an array of validation error objects
+        if (Array.isArray(json.detail)) {
+            return json.detail.map(e => {
+                const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : '?';
+                return `${field}: ${e.msg}`;
+            }).join('; ');
+        }
         if (json.detail) return String(json.detail);
         if (json.message && status && status >= 400) return String(json.message);
         return null;
+    }
+
+    /**
+     * Extract structured validation errors from a Pydantic 422 response.
+     * Returns null for non-validation errors, or [{field, message, type, input}]
+     * for field-level display.
+     */
+    static _extractValidationErrors(json) {
+        if (!json || typeof json !== 'object') return null;
+        if (!Array.isArray(json.detail) || json.detail.length === 0) return null;
+        return json.detail.map(e => ({
+            field: Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : '?',
+            message: e.msg,
+            type: e.type,
+            input: e.input,
+        }));
     }
 
     /**

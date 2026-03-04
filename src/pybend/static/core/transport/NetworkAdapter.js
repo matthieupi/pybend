@@ -60,6 +60,16 @@ export class NetworkAdapter {
   onError(event, response) {
     Logging.error(`[NetworkAdapter] Remote error on ${event.name}`, response);
     let {name, data, meta, source, target, id, timestamp} = event;
+    const errorMeta = {
+      'remote': true,
+      'error': true,
+      'response': response,
+    };
+    // Attach structured validation errors when available (Pydantic 422)
+    const validationErrors = HTTP._extractValidationErrors(response);
+    if (validationErrors) {
+      errorMeta.validationErrors = validationErrors;
+    }
     let errorCallback = {
         'name': "ERROR",
         'id': id,
@@ -67,11 +77,7 @@ export class NetworkAdapter {
         'target': source,
         'data': event,
         'timestamp': Date.now(),
-        'meta': {
-          'remote': true,
-          'error': true,
-          'response': response
-        }
+        'meta': errorMeta,
     }
     this.matrix.dispatch(errorCallback)
   }

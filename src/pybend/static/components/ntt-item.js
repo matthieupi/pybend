@@ -16,6 +16,7 @@ import {NTTElement} from './NTTElement.js';
 import {NTT} from '../core/NTT.js';
 import {Formidable} from '../generators/form.js';
 import {permissions} from '../utils/Permissions.js';
+import {getWidgetForField} from '../widgets/index.js';
 import TX from '../core/TX.js';
 import Logging from '../utils/Logging.js';
 import './ntt-method.js';
@@ -121,9 +122,58 @@ export class NTTItem extends NTTElement {
   toggleMode() {
     if (!permissions.canAction(this.schema?.access, 'update', this.value)) return;
     const isEdit = this.mode === 'edit';
-    if (isEdit) this.save();
+    if (isEdit) {
+      // Client-side validation before save
+      const errors = Formidable.validateForm(this);
+      if (errors.length > 0) {
+        this.showFieldErrors(errors);
+        return;
+      }
+      this.save();
+    }
     this.mode = isEdit ? 'display' : 'edit';
     this.render();
+  }
+
+  /** ── Validation error display ── **/
+
+  /**
+   * Override NTTElement hook: switch to edit mode and highlight fields.
+   * Called when backend returns structured validation errors (422).
+   */
+  onValidationError(errors) {
+    this.mode = 'edit';
+    this.render();
+    // Show field errors on next frame (after render commits DOM)
+    requestAnimationFrame(() => this.showFieldErrors(errors));
+  }
+
+  /**
+   * Highlight invalid fields and insert error messages.
+   * Clears previous errors before showing new ones.
+   */
+  showFieldErrors(errors) {
+    const root = this.shadowRoot;
+    // Clear previous
+    root.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+    root.querySelectorAll('.error-message').forEach(el => el.remove());
+
+    for (const { field, message } of errors) {
+      // Find the input by data-key or widget wrapper by data-key
+      const target = root.querySelector(`[data-key="${field}"]`);
+      if (!target) continue;
+
+      // If target is inside a widget wrapper, highlight the wrapper
+      const wrapper = target.closest('.widget-edit-wrapper');
+      const highlightEl = wrapper || target;
+      highlightEl.classList.add('field-error');
+
+      // Insert error message after the highlighted element
+      const msg = document.createElement('span');
+      msg.className = 'error-message';
+      msg.textContent = message;
+      highlightEl.insertAdjacentElement('afterend', msg);
+    }
   }
 
   /** ── Input change handler ── **/
@@ -242,8 +292,10 @@ export class NTTItem extends NTTElement {
         }
         continue;  // Skip plain-text fallback for $ref fields (avoid [object Object])
       }
-      const display = def?.ui?.widget === 'currency' && typeof val === 'number'
-        ? `$${val.toFixed(2)}` : val;
+      const _wr = getWidgetForField(def);
+      const display = (_wr.widget && def?.ui?.widget)
+        ? _wr.widget.list(val, _wr.config, def)
+        : val;
       smFields.push(`<span class="sm-field" data-value="${key}">${display}</span>`);
     }
 
@@ -395,6 +447,10 @@ export class NTTItem extends NTTElement {
       // Display mode: find data-value element
       const el = root.querySelector(`[data-value="${key}"]`);
       if (el) {
+        const def = props[key];
+        if (def?.type === '$ref' || def?.$ref) {
+          return false;  // $ref contains child component — full re-render
+        }
         el.textContent = Formidable.formatDisplayValue(props[key], key, next[key]);
         continue;
       }
@@ -514,9 +570,14 @@ export class NTTItem extends NTTElement {
     const size = this.displayMode;
     const html = (this[size] || this.md).call(this);
 
+    // Error banner — persistent, dismissible, appears above the card content
+    const errorHtml = this.error
+      ? `<div class="ntt-error"><span class="ntt-error-msg">${this.error}</span><button class="ntt-error-dismiss" title="Dismiss">&times;</button></div>`
+      : '';
+
     // Row mode: output raw cells without card wrapper (NTTRow provides structure)
     if (size === 'row') {
-      this.shadowRoot.innerHTML = html;
+      this.shadowRoot.innerHTML = errorHtml + html;
       this._rendered = true;
       this[`${size}_mounted`]?.call(this);
       return;
@@ -528,7 +589,7 @@ export class NTTItem extends NTTElement {
     // Check for reply indent (comments with parent_id)
     const isReply = this.value?.parent_id && this.schema?.properties?.parent_id?.type === 'selfref';
     const indentClass = isReply ? ' reply-indent' : '';
-    this.shadowRoot.innerHTML = `<div class="card${indentClass}" data-display="${layoutSize}">${html}</div>`;
+    this.shadowRoot.innerHTML = `${errorHtml}<div class="card${indentClass}" data-display="${layoutSize}">${html}</div>`;
     this._rendered = true;
 
     this.#bindEvents();
@@ -547,6 +608,12 @@ export class NTTItem extends NTTElement {
     this.#eventAC?.abort();
     this.#eventAC = new AbortController();
     const {signal} = this.#eventAC;
+
+    // Error dismiss button
+    this.shadowRoot.querySelector('.ntt-error-dismiss')?.addEventListener('click', () => {
+      this.error = null;
+      this.shadowRoot.querySelector('.ntt-error')?.remove();
+    }, {signal});
 
     // Edit button
     this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', () => this.toggleMode(), {signal});

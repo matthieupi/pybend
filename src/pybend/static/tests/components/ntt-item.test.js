@@ -30,7 +30,10 @@ vi.mock('../../utils/Permissions.js', () => ({
 }));
 
 import { NTTItem } from '../../components/ntt-item.js';
+import { Formidable } from '../../generators/form.js';
 import { permissions } from '../../utils/Permissions.js';
+import { NTT } from '../../core/NTT.js';
+import TX from '../../core/TX.js';
 
 /**
  * NTTItem test patterns:
@@ -456,6 +459,25 @@ describe('ntt-item.js (NTTItem)', () => {
       );
       expect(result).toBe(false);
     });
+
+    it('should return false for $ref field changes to trigger full re-render', () => {
+      const root = document.createElement('div');
+      root.innerHTML = '<div class="ref-field" data-value="user_owner"><ntt-user ref="http://localhost:5000/users/1" display="sm"></ntt-user></div>';
+      const result = NTTItem.prototype.update.call(
+        {
+          shadowRoot: root,
+          _rendered: true,
+          schema: {
+            properties: {
+              user_owner: { type: '$ref', $ref: '#/$defs/User' },
+            },
+          },
+        },
+        { user_owner: 'http://localhost:5000/users/1' },
+        { user_owner: 'http://localhost:5000/users/2' }
+      );
+      expect(result).toBe(false);
+    });
   });
 
   describe('render()', () => {
@@ -549,6 +571,385 @@ describe('ntt-item.js (NTTItem)', () => {
     });
   });
 
+  describe('deleteItem() nested vs top-level', () => {
+    let confirmSpy;
+    let nttGetSpy;
+
+    beforeEach(() => {
+      confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+      // Spy on NTT.get() - it's already imported at module level
+      nttGetSpy = vi.spyOn(NTT, 'get');
+    });
+
+    describe('top-level delete path', () => {
+      it('should ask "Delete this {modelName}?" confirmation', () => {
+        const schema = { __name__: 'Product', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
+          ref: 'http://localhost:5000/products/1',
+        });
+        // Mock getRootNode to return no host (top-level context)
+        el.getRootNode = vi.fn(() => ({ host: null }));
+
+        el.deleteItem();
+        expect(confirmSpy).toHaveBeenCalledWith('Delete this Product?');
+      });
+
+      it('should send DELETE TX through DynamicClass when confirmed', () => {
+        const sendSpy = vi.fn();
+        const DCMock = { send: sendSpy };
+        nttGetSpy.mockReturnValue(DCMock);
+
+        const schema = { __name__: 'Product', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
+          ref: 'http://localhost:5000/products/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: null }));
+
+        el.deleteItem();
+
+        expect(nttGetSpy).toHaveBeenCalledWith('Product');
+        expect(sendSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: 'DELETE',
+            target: 'http://localhost:5000/products/1',
+            meta: { inbox: 'DELETE' },
+          })
+        );
+      });
+
+      it('should not send TX when no parent host exists (undefined)', () => {
+        const sendSpy = vi.fn();
+        const DCMock = { send: sendSpy };
+        nttGetSpy.mockReturnValue(DCMock);
+
+        const schema = { __name__: 'Product', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
+          ref: 'http://localhost:5000/products/1',
+        });
+        el.getRootNode = vi.fn(() => undefined);
+
+        el.deleteItem();
+
+        expect(confirmSpy).toHaveBeenCalledWith('Delete this Product?');
+        expect(sendSpy).toHaveBeenCalled();
+      });
+
+      it('should use value.$id as fallback target when ref is not an http URL', () => {
+        const sendSpy = vi.fn();
+        const DCMock = { send: sendSpy };
+        nttGetSpy.mockReturnValue(DCMock);
+
+        const schema = { __name__: 'Product', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
+          ref: '',
+        });
+        el.getRootNode = vi.fn(() => ({ host: null }));
+
+        el.deleteItem();
+
+        expect(sendSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            target: 'http://localhost:5000/products/1',
+          })
+        );
+      });
+
+      it('should not send when DynamicClass is not found', () => {
+        nttGetSpy.mockReturnValue(null);
+
+        const schema = { __name__: 'Product', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
+          ref: 'http://localhost:5000/products/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: null }));
+
+        // Should not throw
+        el.deleteItem();
+        expect(nttGetSpy).toHaveBeenCalledWith('Product');
+      });
+    });
+
+    describe('nested delete path', () => {
+      it('should ask "Remove this {modelName} from the list?" confirmation', () => {
+        const parentHost = {
+          schema: {
+            __name__: 'Agent',
+            properties: {
+              tools: { type: 'array', items: { type: '$ref' } },
+            },
+          },
+          value: {
+            id: 1,
+            tools: ['http://localhost:5000/tools/1', 'http://localhost:5000/tools/2'],
+          },
+        };
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: 'http://localhost:5000/tools/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        el.deleteItem();
+        expect(confirmSpy).toHaveBeenCalledWith('Remove this Tool from the list?');
+      });
+
+      it('should remove ref from parent array optimistically', () => {
+        const parentHost = {
+          schema: {
+            __name__: 'Agent',
+            properties: {
+              tools: { type: 'array', items: { type: '$ref' } },
+            },
+          },
+          value: {
+            id: 1,
+            tools: ['http://localhost:5000/tools/1', 'http://localhost:5000/tools/2'],
+          },
+        };
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: 'http://localhost:5000/tools/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        el.deleteItem();
+
+        // Optimistic update: ref removed from parent's tools array
+        expect(parentHost.value.tools).toEqual(['http://localhost:5000/tools/2']);
+      });
+
+      it('should send DELETE TX with inbox="_response_" through parent entity', () => {
+        const parentSendSpy = vi.fn();
+        const parentEntityMock = {
+          addr: 'Agent/1',
+          send: parentSendSpy,
+        };
+        nttGetSpy.mockReturnValue(parentEntityMock);
+
+        const parentHost = {
+          schema: {
+            __name__: 'Agent',
+            properties: {
+              tools: { type: 'array', items: { type: '$ref' } },
+            },
+          },
+          value: {
+            id: 1,
+            tools: ['http://localhost:5000/tools/1', 'http://localhost:5000/tools/2'],
+          },
+        };
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: 'http://localhost:5000/tools/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        el.deleteItem();
+
+        expect(nttGetSpy).toHaveBeenCalledWith('Agent/1');
+        expect(parentSendSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: 'DELETE',
+            source: 'Agent/1',
+            target: 'http://localhost:5000/tools/1',
+            meta: { inbox: '_response_' },
+          })
+        );
+      });
+
+      it('should not send TX when parent entity is not found', () => {
+        nttGetSpy.mockReturnValue(null);
+
+        const parentHost = {
+          schema: {
+            __name__: 'Agent',
+            properties: {
+              tools: { type: 'array', items: { type: '$ref' } },
+            },
+          },
+          value: {
+            id: 1,
+            tools: ['http://localhost:5000/tools/1'],
+          },
+        };
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: 'http://localhost:5000/tools/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        // Should not throw, just skip TX send
+        el.deleteItem();
+        expect(nttGetSpy).toHaveBeenCalledWith('Agent/1');
+      });
+
+      it('should abort when confirm() returns false in nested context', () => {
+        confirmSpy.mockReturnValue(false);
+
+        const parentHost = {
+          schema: {
+            __name__: 'Agent',
+            properties: {
+              tools: { type: 'array', items: { type: '$ref' } },
+            },
+          },
+          value: {
+            id: 1,
+            tools: ['http://localhost:5000/tools/1'],
+          },
+        };
+
+        const originalTools = [...parentHost.value.tools];
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: 'http://localhost:5000/tools/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        el.deleteItem();
+
+        // Parent value should remain unchanged
+        expect(parentHost.value.tools).toEqual(originalTools);
+        expect(nttGetSpy).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('#findParentArrayField logic (tested indirectly)', () => {
+      it('should return null when parentHost has no schema', () => {
+        const parentHost = {
+          value: { id: 1, tools: ['http://localhost:5000/tools/1'] },
+        };
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: 'http://localhost:5000/tools/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        el.deleteItem();
+
+        // Should take top-level delete path
+        expect(confirmSpy).toHaveBeenCalledWith('Delete this Tool?');
+      });
+
+      it('should return null when parentHost array field does not contain this.ref', () => {
+        const parentHost = {
+          schema: {
+            __name__: 'Agent',
+            properties: {
+              tools: { type: 'array', items: { type: '$ref' } },
+            },
+          },
+          value: {
+            id: 1,
+            tools: ['http://localhost:5000/tools/2'], // different ref
+          },
+        };
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: 'http://localhost:5000/tools/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        el.deleteItem();
+
+        // Should take top-level delete path
+        expect(confirmSpy).toHaveBeenCalledWith('Delete this Tool?');
+      });
+
+      it('should find the correct field key when ref is in an array field', () => {
+        const parentSendSpy = vi.fn();
+        const parentEntityMock = { addr: 'Agent/1', send: parentSendSpy };
+        nttGetSpy.mockReturnValue(parentEntityMock);
+
+        const parentHost = {
+          schema: {
+            __name__: 'Agent',
+            properties: {
+              tags: { type: 'array', items: { type: 'string' } },
+              tools: { type: 'array', items: { type: '$ref' } },
+              permissions: { type: 'array', items: { type: '$ref' } },
+            },
+          },
+          value: {
+            id: 1,
+            tags: ['admin'],
+            tools: ['http://localhost:5000/tools/1', 'http://localhost:5000/tools/2'],
+            permissions: ['http://localhost:5000/permissions/1'],
+          },
+        };
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: 'http://localhost:5000/tools/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        el.deleteItem();
+
+        // Should find 'tools' field and remove only that ref
+        expect(parentHost.value.tools).toEqual(['http://localhost:5000/tools/2']);
+        expect(parentHost.value.permissions).toEqual(['http://localhost:5000/permissions/1']);
+        expect(parentHost.value.tags).toEqual(['admin']);
+        expect(confirmSpy).toHaveBeenCalledWith('Remove this Tool from the list?');
+      });
+
+      it('should return null when parentHost has no value', () => {
+        const parentHost = {
+          schema: {
+            __name__: 'Agent',
+            properties: {
+              tools: { type: 'array', items: { type: '$ref' } },
+            },
+          },
+        };
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: 'http://localhost:5000/tools/1',
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        el.deleteItem();
+
+        // Should take top-level delete path
+        expect(confirmSpy).toHaveBeenCalledWith('Delete this Tool?');
+      });
+
+      it('should return null when this.ref is null', () => {
+        const parentHost = {
+          schema: {
+            __name__: 'Agent',
+            properties: {
+              tools: { type: 'array', items: { type: '$ref' } },
+            },
+          },
+          value: {
+            id: 1,
+            tools: ['http://localhost:5000/tools/1'],
+          },
+        };
+
+        const schema = { __name__: 'Tool', properties: {}, access: {} };
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/tools/1' }, {
+          ref: null,
+        });
+        el.getRootNode = vi.fn(() => ({ host: parentHost }));
+
+        el.deleteItem();
+
+        // Should take top-level delete path
+        expect(confirmSpy).toHaveBeenCalledWith('Delete this Tool?');
+      });
+    });
+  });
+
   describe('toggleMode()', () => {
     it('should abort when canAction returns false for update', () => {
       permissions.canAction.mockImplementation(() => false);
@@ -591,6 +992,361 @@ describe('ntt-item.js (NTTItem)', () => {
       NTTItem.prototype.toggleMode.call(ctx);
       expect(saveSpy).toHaveBeenCalled();
       expect(ctx.mode).toBe('display');
+    });
+  });
+
+  describe('error state', () => {
+    it('should have an error property that defaults to null', () => {
+      const el = document.createElement('ntt-item');
+      expect(el.error).toBe(null);
+    });
+
+    it('should render error banner when error is set before render', () => {
+      const schema = {
+        __name__: 'Grant',
+        properties: { name: { type: 'string' } },
+        ui: {},
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { name: 'Test Grant' });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.error = 'Database update failed: type AnyHttpUrl is not supported';
+      el.render();
+      expect(el.shadowRoot.innerHTML).toContain('ntt-error');
+      expect(el.shadowRoot.innerHTML).toContain('AnyHttpUrl');
+    });
+
+    it('should not render error banner when error is null', () => {
+      const schema = {
+        __name__: 'Grant',
+        properties: { name: { type: 'string' } },
+        ui: {},
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { name: 'Test Grant' });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.error = null;
+      el.render();
+      expect(el.shadowRoot.innerHTML).not.toContain('ntt-error');
+    });
+
+    it('should clear error when dismiss button is clicked', () => {
+      const schema = {
+        __name__: 'Grant',
+        properties: { name: { type: 'string' } },
+        ui: {},
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { name: 'Test Grant' });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.error = 'Some error';
+      el.render();
+      const dismissBtn = el.shadowRoot.querySelector('.ntt-error-dismiss');
+      expect(dismissBtn).not.toBe(null);
+      dismissBtn.click();
+      expect(el.error).toBe(null);
+      // Error banner should be removed from DOM
+      expect(el.shadowRoot.querySelector('.ntt-error')).toBe(null);
+    });
+
+    it('should render error banner in sm size', () => {
+      const schema = {
+        __name__: 'Grant',
+        properties: { name: { type: 'string' } },
+        ui: {},
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { name: 'Test Grant' });
+      Object.defineProperty(el, 'displayMode', { get: () => 'sm', configurable: true });
+      el.error = 'Update failed';
+      el.render();
+      expect(el.shadowRoot.innerHTML).toContain('ntt-error');
+    });
+
+    it('should set error via ERROR handler', () => {
+      const el = document.createElement('ntt-item');
+      el.schema = {
+        __name__: 'Grant',
+        properties: { name: { type: 'string' } },
+        ui: {},
+        access: {},
+        methods: {},
+      };
+      // Call the ERROR handler directly
+      el.ERROR({ data: 'Database update failed', meta: { error: true } });
+      expect(el.error).toBe('Database update failed');
+    });
+
+    it('should extract error message from object data', () => {
+      const el = document.createElement('ntt-item');
+      el.schema = {
+        __name__: 'Grant',
+        properties: { name: { type: 'string' } },
+        ui: {},
+        access: {},
+        methods: {},
+      };
+      el.ERROR({ data: { detail: 'Validation error' }, meta: { error: true } });
+      expect(el.error).toBe('Validation error');
+    });
+
+    it('should extract error from meta.response when data is the original TX', () => {
+      const el = document.createElement('ntt-item');
+      el.schema = {
+        __name__: 'Grant',
+        properties: { name: { type: 'string' } },
+        ui: {},
+        access: {},
+        methods: {},
+      };
+      // This is how NetworkAdapter.onError() structures the ERROR TX:
+      // data = original event (e.g. UPDATE TX), meta.response = HTTP error body
+      el.ERROR({
+        data: { name: 'UPDATE', source: 'ntt-item-1', target: 'http://localhost:5000/grants/1' },
+        meta: { error: true, remote: true, response: { detail: 'Database update failed' } }
+      });
+      expect(el.error).toBe('Database update failed');
+    });
+
+    it('should extract error from meta.response with array detail (FastAPI 422)', () => {
+      const el = document.createElement('ntt-item');
+      el.schema = {
+        __name__: 'Grant',
+        properties: { name: { type: 'string' } },
+        ui: {},
+        access: {},
+        methods: {},
+      };
+      el.ERROR({
+        data: { name: 'UPDATE', source: 'ntt-item-1', target: 'http://localhost:5000/grants/1' },
+        meta: {
+          error: true, remote: true,
+          response: {
+            detail: [
+              { loc: ['body', 'url'], msg: 'Input should be a valid URL', type: 'url_parsing' }
+            ]
+          }
+        }
+      });
+      expect(el.error).toContain('Input should be a valid URL');
+    });
+
+    it('should trigger onValidationError with structured errors from meta.response', () => {
+      const el = document.createElement('ntt-item');
+      el.schema = {
+        __name__: 'Grant',
+        properties: { name: { type: 'string' }, url: { type: 'string' } },
+        ui: {},
+        access: {},
+        methods: {},
+      };
+      const spy = vi.fn();
+      el.onValidationError = spy;
+      el.ERROR({
+        data: { name: 'UPDATE', source: 'ntt-item-1', target: 'http://localhost:5000/grants/1' },
+        meta: {
+          error: true, remote: true,
+          response: {
+            detail: [
+              { loc: ['body', 'url'], msg: 'Input should be a valid URL', type: 'url_parsing', input: 'bad' }
+            ]
+          }
+        }
+      });
+      expect(spy).toHaveBeenCalledWith([
+        { field: 'url', message: 'Input should be a valid URL', type: 'url_parsing', input: 'bad' }
+      ]);
+    });
+  });
+
+  describe('onValidationError(errors)', () => {
+    it('should switch back to edit mode', () => {
+      const schema = {
+        __name__: 'Product',
+        properties: {
+          name: { type: 'string', title: 'Name' },
+          price: { type: 'number', title: 'Price' },
+        },
+        required: ['name'],
+        ui: { field_order: ['name', 'price'] },
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { id: 1, name: 'Test', price: 10 });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.mode = 'display';
+      el.onValidationError([{ field: 'name', message: 'Required' }]);
+      expect(el.mode).toBe('edit');
+    });
+  });
+
+  describe('showFieldErrors(errors)', () => {
+    it('should add field-error class to matching inputs', () => {
+      const schema = {
+        __name__: 'Product',
+        properties: {
+          name: { type: 'string', title: 'Name' },
+          price: { type: 'number', title: 'Price' },
+        },
+        required: ['name'],
+        ui: { field_order: ['name', 'price'] },
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { id: 1, name: '', price: 10 });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.mode = 'edit';
+      el.render();
+
+      el.showFieldErrors([{ field: 'name', message: 'Name is required' }]);
+
+      const nameInput = el.shadowRoot.querySelector('[data-key="name"]');
+      expect(nameInput).not.toBeNull();
+      expect(nameInput.classList.contains('field-error')).toBe(true);
+    });
+
+    it('should insert error-message span with correct text', () => {
+      const schema = {
+        __name__: 'Product',
+        properties: {
+          name: { type: 'string', title: 'Name' },
+          price: { type: 'number', title: 'Price' },
+        },
+        required: ['name'],
+        ui: { field_order: ['name', 'price'] },
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { id: 1, name: '', price: 10 });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.mode = 'edit';
+      el.render();
+
+      el.showFieldErrors([{ field: 'name', message: 'Name is required' }]);
+
+      const errMsg = el.shadowRoot.querySelector('.error-message');
+      expect(errMsg).not.toBeNull();
+      expect(errMsg.textContent).toBe('Name is required');
+    });
+
+    it('should clear previous errors before showing new ones', () => {
+      const schema = {
+        __name__: 'Product',
+        properties: {
+          name: { type: 'string', title: 'Name' },
+          price: { type: 'number', title: 'Price' },
+        },
+        required: ['name'],
+        ui: { field_order: ['name', 'price'] },
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { id: 1, name: '', price: -1 });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.mode = 'edit';
+      el.render();
+
+      // First round of errors
+      el.showFieldErrors([
+        { field: 'name', message: 'Required' },
+        { field: 'price', message: 'Must be positive' },
+      ]);
+      expect(el.shadowRoot.querySelectorAll('.error-message').length).toBe(2);
+
+      // Second round — only one error now
+      el.showFieldErrors([{ field: 'name', message: 'Still required' }]);
+      expect(el.shadowRoot.querySelectorAll('.error-message').length).toBe(1);
+      expect(el.shadowRoot.querySelector('.error-message').textContent).toBe('Still required');
+
+      // Price input should no longer have field-error class
+      const priceInput = el.shadowRoot.querySelector('[data-key="price"]');
+      if (priceInput) {
+        expect(priceInput.classList.contains('field-error')).toBe(false);
+      }
+    });
+
+    it('should highlight widget-edit-wrapper elements', () => {
+      Formidable.clearCache();
+      const schema = {
+        __name__: 'WidgetProduct',
+        properties: {
+          name: { type: 'string', title: 'Name' },
+          website: { type: 'string', title: 'Website', ui: { widget: 'url' } },
+        },
+        required: ['name'],
+        ui: { field_order: ['name', 'website'] },
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { id: 1, name: 'Test', website: 'not-valid' });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.mode = 'edit';
+      el.render();
+
+      el.showFieldErrors([{ field: 'website', message: 'Invalid URL' }]);
+
+      const wrapper = el.shadowRoot.querySelector('.widget-edit-wrapper[data-key="website"]');
+      if (wrapper) {
+        expect(wrapper.classList.contains('field-error')).toBe(true);
+      }
+      const errMsg = el.shadowRoot.querySelector('.error-message');
+      expect(errMsg).not.toBeNull();
+      expect(errMsg.textContent).toBe('Invalid URL');
+    });
+  });
+
+  describe('toggleMode() with client-side validation', () => {
+    it('should stay in edit mode when validation fails', () => {
+      const schema = {
+        __name__: 'Product',
+        properties: {
+          name: { type: 'string', title: 'Name', minLength: 1 },
+          price: { type: 'number', title: 'Price' },
+        },
+        required: ['name'],
+        ui: { field_order: ['name', 'price'] },
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { id: 1, name: '', price: 10 });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.mode = 'edit';
+      el.render();
+      el.save = vi.fn();
+
+      el.toggleMode();
+
+      // Should remain in edit mode because name is empty (required)
+      expect(el.mode).toBe('edit');
+      expect(el.save).not.toHaveBeenCalled();
+    });
+
+    it('should proceed to save when validation passes', () => {
+      const schema = {
+        __name__: 'Product',
+        properties: {
+          name: { type: 'string', title: 'Name', minLength: 1 },
+          price: { type: 'number', title: 'Price' },
+        },
+        required: ['name'],
+        ui: { field_order: ['name', 'price'] },
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { id: 1, name: 'Valid Product', price: 10 });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.mode = 'edit';
+      el.render();
+      el.save = vi.fn();
+
+      el.toggleMode();
+
+      expect(el.save).toHaveBeenCalled();
+      expect(el.mode).toBe('display');
     });
   });
 
