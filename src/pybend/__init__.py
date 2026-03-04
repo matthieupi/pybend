@@ -20,6 +20,10 @@ from .core.api.network_adapter import NetworkAdapter
 from .core.api.network_api import NetworkAPI
 from .core.api.network_ws import NetworkWebSocket, create_ws_routes
 from .core.agents import AgentMixin, AgentActor
+from .core.widgets import (
+    Widget, UrlField, EmailField, DateField, DateTimeField,
+    MarkdownField, ConsoleField, ReferenceField, CurrencyField, TextareaField,
+)
 
 __version__ = "0.8.0b"
 
@@ -32,5 +36,8 @@ __all__ = [
     "Actor", "Matrix", "TX", "matrix", "NetworkAdapter", "NetworkAPI",
     "NetworkWebSocket", "create_ws_routes",
     "AgentMixin", "AgentActor",
+    "Widget", "UrlField", "EmailField", "DateField", "DateTimeField",
+    "MarkdownField", "ConsoleField", "ReferenceField",
+    "CurrencyField", "TextareaField",
     "__version__",
 ]
