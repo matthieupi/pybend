@@ -815,26 +815,24 @@ class TestDefaultMatrix:
 
 
 # ===================================================================
-# Test exception_to_tx_error (shared utility in tx.py)
+# Test TX.from_exception / tx.exception() (error mapping on TX class)
 # ===================================================================
 
-class TestExceptionToTxError:
-    """exception_to_tx_error() maps exception types to semantic HTTP codes."""
+class TestTxFromException:
+    """TX.from_exception() and tx.exception() map exceptions to semantic HTTP codes."""
 
     def _make_tx(self):
         return TX(name='test', source='a', target='b')
 
     def test_method_error_uses_its_status_code(self):
-        from pybend.core.actors.tx import exception_to_tx_error
         from pybend.core.utils.erroring import MethodError
         tx = self._make_tx()
-        result = exception_to_tx_error(MethodError('auth required', 401), tx)
+        result = TX.from_exception(MethodError('auth required', 401), tx)
         assert result.is_error
         assert result.data['code'] == 401
         assert 'auth required' in result.data['message']
 
     def test_pydantic_validation_error_maps_to_422(self):
-        from pybend.core.actors.tx import exception_to_tx_error
         from pydantic import BaseModel, ValidationError
         class _M(BaseModel):
             x: int
@@ -842,48 +840,49 @@ class TestExceptionToTxError:
         try:
             _M(x='not-an-int')
         except ValidationError as e:
-            result = exception_to_tx_error(e, tx)
+            result = tx.exception(e)
         assert result.is_error
         assert result.data['code'] == 422
 
     def test_value_error_maps_to_400(self):
-        from pybend.core.actors.tx import exception_to_tx_error
         tx = self._make_tx()
-        result = exception_to_tx_error(ValueError('bad value'), tx)
+        result = tx.exception(ValueError('bad value'))
         assert result.data['code'] == 400
 
     def test_type_error_maps_to_400(self):
-        from pybend.core.actors.tx import exception_to_tx_error
         tx = self._make_tx()
-        result = exception_to_tx_error(TypeError('wrong type'), tx)
+        result = TX.from_exception(TypeError('wrong type'), tx)
         assert result.data['code'] == 400
 
     def test_permission_error_maps_to_403(self):
-        from pybend.core.actors.tx import exception_to_tx_error
         tx = self._make_tx()
-        result = exception_to_tx_error(PermissionError('forbidden'), tx)
+        result = tx.exception(PermissionError('forbidden'))
         assert result.data['code'] == 403
 
     def test_key_error_maps_to_400_with_field(self):
-        from pybend.core.actors.tx import exception_to_tx_error
         tx = self._make_tx()
-        result = exception_to_tx_error(KeyError('missing_field'), tx)
+        result = tx.exception(KeyError('missing_field'))
         assert result.data['code'] == 400
         assert 'missing_field' in result.data['message']
 
     def test_runtime_error_maps_to_500(self):
-        from pybend.core.actors.tx import exception_to_tx_error
         tx = self._make_tx()
-        result = exception_to_tx_error(RuntimeError('unexpected'), tx)
+        result = TX.from_exception(RuntimeError('unexpected'), tx)
         assert result.data['code'] == 500
 
     def test_http_exception_uses_its_status_code(self):
-        from pybend.core.actors.tx import exception_to_tx_error
         from fastapi import HTTPException
         tx = self._make_tx()
-        result = exception_to_tx_error(HTTPException(status_code=409, detail='conflict'), tx)
+        result = tx.exception(HTTPException(status_code=409, detail='conflict'))
         assert result.data['code'] == 409
         assert 'conflict' in result.data['message']
+
+    def test_backward_compat_alias(self):
+        """Module-level exception_to_tx_error still works."""
+        from pybend.core.actors.tx import exception_to_tx_error
+        tx = self._make_tx()
+        result = exception_to_tx_error(ValueError('test'), tx)
+        assert result.data['code'] == 400
 
 
 # ===================================================================

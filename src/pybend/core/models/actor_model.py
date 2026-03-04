@@ -22,7 +22,7 @@ from typing import ClassVar
 from pydantic import ConfigDict
 
 from pybend.core.actors.actor import Actor, actormethod, actorproperty
-from pybend.core.actors.tx import TX, exception_to_tx_error as _exception_to_tx_error
+from pybend.core.actors.tx import TX
 from pybend.core.models.proto_model import ProtoModel
 
 logger = logging.getLogger('pybend.actors')
@@ -124,7 +124,7 @@ class ActorModel(Actor, ProtoModel):
                             result = method(data, tx)
                 except Exception as e:
                     logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
-                    await target.send(_exception_to_tx_error(e, tx))
+                    await target.send(tx.exception(e))
                     return
 
                 if isinstance(result, TX):
@@ -270,7 +270,7 @@ class ActorModel(Actor, ProtoModel):
 
         except Exception as e:
             logger.error(f"[{cls.__addr__}] CRUD error in {name}: {e}")
-            return _exception_to_tx_error(e, tx)
+            return tx.exception(e)
 
         return _NOT_HANDLED
 

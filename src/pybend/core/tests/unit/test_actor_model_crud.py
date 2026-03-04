@@ -444,7 +444,7 @@ class TestHandlerCrudErrors:
 # ===================================================================
 
 class TestHandlerCrudExceptionMapping:
-    """_exception_to_tx_error() maps exception types to HTTP codes."""
+    """tx.exception() maps exception types to HTTP codes."""
 
     def test_method_error_uses_status_code(self, mock_storage, make_tx):
         from pybend.core.utils.erroring import MethodError

@@ -337,8 +337,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
                     result = method(tx.data, tx)
             except Exception as e:
                 logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
-                from pybend.core.actors.tx import exception_to_tx_error
-                await target.send(exception_to_tx_error(e, tx))
+                await target.send(tx.exception(e))
                 return
 
             if isinstance(result, TX):
