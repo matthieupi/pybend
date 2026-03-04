@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Federation is not a feature toggle. It is an architectural commitment that reshapes data ownership, compliance obligations, operational costs, and engineering culture. This document provides a structured decision framework for determining **whether**, **when**, and **how** a schema-driven framework like PyBend should add support for ActivityPub, AT Protocol (ATProto), Nostr, or other decentralized protocols.
+Federation is not a feature toggle. It is an architectural commitment that reshapes data ownership, compliance obligations, operational costs, and engineering culture. This document provides a structured decision framework for determining **whether**, **when**, and **how** a schema-driven framework like N3TX should add support for ActivityPub, AT Protocol (ATProto), Nostr, or other decentralized protocols.
 
 The core finding: **most applications should not federate**. The ones that should fall into narrow categories (social, content publishing, messaging) where user-to-user interaction across organizational boundaries is the primary value proposition. For everything else, simpler interoperability mechanisms (RSS/Atom, webhooks, WebSub, plain REST APIs) deliver 80% of the perceived benefit at 10% of the engineering cost.
 
@@ -29,7 +29,7 @@ For frameworks specifically, there is a compelling middle path: **provide federa
 9. [Alternatives to Full Federation](#9-alternatives-to-full-federation)
 10. [Hybrid Approaches](#10-hybrid-approaches)
 11. [Decision Tree](#11-decision-tree)
-12. [PyBend-Specific Considerations](#12-pybend-specific-considerations)
+12. [N3TX-Specific Considerations](#12-ntx-specific-considerations)
 13. [Recommendations](#13-recommendations)
 14. [Sources](#14-sources)
 
@@ -108,7 +108,7 @@ Use this scoring framework to evaluate protocols against your specific requireme
 | **User base reach** | 10 | Potential audience your federation connects to |
 | **Operational cost** | 5 | Infrastructure cost for running a federation node |
 
-### Scoring Example: Schema-Driven Framework (PyBend Context)
+### Scoring Example: Schema-Driven Framework (N3TX Context)
 
 | Criterion | Weight | ActivityPub Score (1-5) | ATProto Score (1-5) | Nostr Score (1-5) |
 |-----------|--------|------------------------|--------------------|--------------------|
@@ -181,13 +181,13 @@ There are five levels of protocol adoption, from lightest to deepest commitment:
 
 ### Recommendation for Schema-Driven Frameworks
 
-For a framework like PyBend, **L2 (library consumer) with L3 aspirations** is the pragmatic path:
+For a framework like N3TX, **L2 (library consumer) with L3 aspirations** is the pragmatic path:
 
 1. Start by building a thin adapter layer that maps your schema to ActivityPub's Activity Streams or ATProto's Lexicons
 2. Use existing libraries (Bovine for ActivityPub, atproto for ATProto) behind that adapter
 3. If adoption justifies it, graduate to L3 by making federation a first-class framework concern
 
-The schema-driven nature of PyBend creates a natural mapping: `ProtoModel.schema()` already generates JSON Schema, which can be transformed into Activity Streams objects or Lexicon definitions with a translation layer rather than a rewrite.
+The schema-driven nature of N3TX creates a natural mapping: `ProtoModel.schema()` already generates JSON Schema, which can be transformed into Activity Streams objects or Lexicon definitions with a translation layer rather than a rewrite.
 
 ---
 
@@ -427,7 +427,7 @@ Before committing to a full federation protocol, evaluate whether simpler intero
 - You publish content and want it syndicated
 - Readers consume via feed readers, not social interaction
 - You do not need replies, likes, or reshares
-- Example: A PyBend app that publishes product catalogs
+- Example: A N3TX app that publishes product catalogs
 
 **WebSub is enough when:**
 - You need real-time push notifications for content updates
@@ -439,13 +439,13 @@ Before committing to a full federation protocol, evaluate whether simpler intero
 - You integrate with specific known partners
 - Event-driven updates between two systems
 - Reliability can be handled with retry logic
-- Example: Order status updates between a PyBend storefront and fulfillment system
+- Example: Order status updates between a N3TX storefront and fulfillment system
 
 **REST API is enough when:**
 - You need structured, authenticated data exchange
 - Partners are known and trusted
 - Bilateral agreements define the integration
-- Example: B2B data sync between two PyBend deployments
+- Example: B2B data sync between two N3TX deployments
 
 **Bridging is enough when:**
 - You want presence on the Fediverse or Bluesky without implementing the protocol
@@ -479,7 +479,7 @@ Full federation and zero federation are not the only options. Hybrid architectur
 - Content reaches the Fediverse/ATmosphere without protocol complexity in your auth layer
 - Incremental: add inbound interaction support later
 
-**Implementation path for PyBend:**
+**Implementation path for N3TX:**
 1. Add an ActivityPub outbox endpoint to `register_routes()` that serializes `model_dump(response=True)` as Activity Streams
 2. WebFinger endpoint for user discovery
 3. HTTP Signature verification for inbound activities
@@ -540,7 +540,7 @@ class Product(ProtoModel):
 
 **Implementation path:**
 ```
-[PyBend App] <--REST/webhooks--> [Bridge Service] <--ActivityPub/ATProto--> [Federation]
+[N3TX App] <--REST/webhooks--> [Bridge Service] <--ActivityPub/ATProto--> [Federation]
 ```
 
 This is conceptually similar to how email works: your mail client speaks IMAP/SMTP to your server, and your server handles federation (MX records, DKIM, SPF) without the client knowing.
@@ -647,15 +647,15 @@ START: Does your application involve user-to-user interaction
 
 ---
 
-## 12. PyBend-Specific Considerations
+## 12. N3TX-Specific Considerations
 
-PyBend's schema-driven architecture creates unique advantages and constraints for federation adoption.
+N3TX's schema-driven architecture creates unique advantages and constraints for federation adoption.
 
 ### Architectural Alignment
 
-PyBend's core principle -- **the model is the app** -- maps naturally to federation concepts:
+N3TX's core principle -- **the model is the app** -- maps naturally to federation concepts:
 
-| PyBend Concept | ActivityPub Equivalent | ATProto Equivalent |
+| N3TX Concept | ActivityPub Equivalent | ATProto Equivalent |
 |---------------|----------------------|-------------------|
 | `ProtoModel` | Activity Streams Object type | Lexicon record type |
 | `ProtoModel.schema()` | JSON-LD @context + type definition | Lexicon schema definition |
@@ -665,9 +665,9 @@ PyBend's core principle -- **the model is the app** -- maps naturally to federat
 | `ListRef[Comment]` | `Collection` of `Note` objects | Collection of records |
 | `$defs` in schema | Nested object types | Nested lexicon definitions |
 
-**Key insight:** PyBend's `$id` on every entity (e.g., `http://localhost:5000/products/1`) is already a globally-resolvable identifier. ActivityPub requires exactly this: every object must have an `id` that is a resolvable URL. PyBend is halfway there by design.
+**Key insight:** N3TX's `$id` on every entity (e.g., `http://localhost:5000/products/1`) is already a globally-resolvable identifier. ActivityPub requires exactly this: every object must have an `id` that is a resolvable URL. N3TX is halfway there by design.
 
-### What PyBend Would Need
+### What N3TX Would Need
 
 | Capability | Current state | Required for ActivityPub | Required for ATProto |
 |-----------|--------------|------------------------|---------------------|
@@ -681,7 +681,7 @@ PyBend's core principle -- **the model is the app** -- maps naturally to federat
 | Outbox endpoint | NO | Required (publish activities) | Not applicable |
 | Actor representation | NO | Required (every user is an Actor) | Handled by PDS |
 
-### Recommended Implementation Path for PyBend
+### Recommended Implementation Path for N3TX
 
 **Phase 0: Foundation (no protocol commitment)**
 - Add `__federation__` metadata to `ProtoModel` (opt-in per model)

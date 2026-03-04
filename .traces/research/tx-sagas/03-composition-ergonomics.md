@@ -427,7 +427,7 @@ The Akka ecosystem ([Akka saga patterns docs](https://doc.akka.io/concepts/saga-
 
 Akka 3 recently simplified orchestrator sagas with a **Workflow component** that "handles all the technical challenges so developers can focus solely on business logic" ([Akka blog, April 2025](https://akka.io/blog/saga-patterns-in-akka-part-1-event-choreography)).
 
-**Key lesson for PyBend:** The orchestrator pattern maps cleanly to an actor that manages a TX saga. The **choreography pattern** maps to PyBend's existing `_publish_lifecycle()` mechanism. Both are useful; the orchestrator is easier to reason about for developers.
+**Key lesson for N3TX:** The orchestrator pattern maps cleanly to an actor that manages a TX saga. The **choreography pattern** maps to N3TX's existing `_publish_lifecycle()` mechanism. Both are useful; the orchestrator is easier to reason about for developers.
 
 ---
 
@@ -502,7 +502,7 @@ Sage.new()
 | **Sage** | `{:error, reason}` tuple | `{:retry, opts}` or `{:continue, effect}` | Automatic reverse-order compensation |
 | **Prefect** | Python exceptions | `@task(retries=3)` | Task-level only, no saga |
 | **dry-python** | `Failure(error)` container | `lash()` / `alt()` | Short-circuit + recovery functions |
-| **TX (PyBend)** | `tx.error(msg, code)` | Interceptor chain | Not yet implemented |
+| **TX (N3TX)** | `tx.error(msg, code)` | Interceptor chain | Not yet implemented |
 
 The **best developer experience** for error handling follows a hierarchy:
 
@@ -578,13 +578,13 @@ def test_create_order_pipeline():
 
 ## :bulb: Synthesis: What Would Feel Natural in a Python Actor System
 
-Given PyBend's existing primitives -- `TX` messages, `Actor` with `inbox`/`handler`/`send`, `@expose_route` decorators, and `use()` interceptors -- here are the design constraints and opportunities:
+Given N3TX's existing primitives -- `TX` messages, `Actor` with `inbox`/`handler`/`send`, `@expose_route` decorators, and `use()` interceptors -- here are the design constraints and opportunities:
 
 ### Existing Primitives to Build On
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    PyBend Actor System (v0.9)                   │
+│                    N3TX Actor System (v0.9)                   │
 ├─────────────────────────────────────────────────────────────────┤
 │  TX          │ reply(), error(), is_error, meta, uuid           │
 │  Actor       │ inbox(), handler(), send(), use(), register()    │
@@ -602,8 +602,8 @@ Drawing from the research, five principles should guide the API design:
 1. **Co-locate compensation** (from Sage) -- Never let a developer define a forward step without seeing where the undo goes
 2. **Use decorators, not DSLs** (from Prefect/Temporal) -- Python developers expect `@decorator` patterns
 3. **Steps are plain functions** (from Sage/Prefect) -- Testable in isolation
-4. **TX is the error channel** (from existing PyBend) -- `tx.reply()` = success track, `tx.error()` = failure track
-5. **Interceptors participate in saga lifecycle** (from existing PyBend) -- `use()` on saga actors for cross-cutting concerns
+4. **TX is the error channel** (from existing N3TX) -- `tx.reply()` = success track, `tx.error()` = failure track
+5. **Interceptors participate in saga lifecycle** (from existing N3TX) -- `use()` on saga actors for cross-cutting concerns
 
 ---
 
@@ -616,7 +616,7 @@ I present three candidate API designs, from simplest to most sophisticated. **Th
 The most direct translation of Sage's pipe pattern into Python. Uses method chaining (fluent interface) with co-located compensation.
 
 ```python
-from pybend.core.sagas import Saga
+from n3tx.core.sagas import Saga
 
 async def transfer_funds(data: dict, tx: TX):
     result = await (
@@ -651,7 +651,7 @@ async def transfer_funds(data: dict, tx: TX):
 More Pythonic -- uses decorators like `@expose_route` to mark functions as saga steps. This mirrors Temporal's activity pattern but adds co-located compensation.
 
 ```python
-from pybend.core.sagas import saga, step, compensates
+from n3tx.core.sagas import saga, step, compensates
 
 @saga("order_fulfillment")
 class OrderFulfillment:
@@ -711,7 +711,7 @@ class Order(ActorModel):
 - Steps are **real functions** with full type hints, docstrings, and IDE support
 - `@compensates("step_name")` co-locates compensation with clear naming
 - Each step is **independently testable**: `await saga.validate(mock_ctx)`
-- Naturally extends PyBend's existing `@expose_route` decorator pattern
+- Naturally extends N3TX's existing `@expose_route` decorator pattern
 - Class-based organization groups related steps
 
 **Cons:**
@@ -724,7 +724,7 @@ class Order(ActorModel):
 Uses Python's `async with` for saga lifecycle management, combined with functional composition for steps.
 
 ```python
-from pybend.core.sagas import TXSaga, SagaStep
+from n3tx.core.sagas import TXSaga, SagaStep
 
 async def process_order(data: dict, tx: TX):
     async with TXSaga("process_order", tx) as saga:
@@ -775,10 +775,10 @@ async def process_order(data: dict, tx: TX):
 
 ### Design D: Pydantic Model-Based Workflow (Workflows as Data)
 
-The most "PyBend-native" approach -- define sagas as Pydantic models, making them schema-derivable and inspectable:
+The most "N3TX-native" approach -- define sagas as Pydantic models, making them schema-derivable and inspectable:
 
 ```python
-from pybend.core.sagas import SagaModel, SagaStep
+from n3tx.core.sagas import SagaModel, SagaStep
 
 class OrderSaga(SagaModel):
     """Saga definition as data -- inspectable, serializable, schema-derivable."""
@@ -822,7 +822,7 @@ result = await runner.execute(OrderSaga, context={"order_id": 42})
 ```
 
 **Pros:**
-- **Aligns perfectly with PyBend's "model is the app" philosophy**
+- **Aligns perfectly with N3TX's "model is the app" philosophy**
 - Sagas become schema-derivable -- the frontend could render saga status/progress
 - Version control of workflow definitions is trivial (it's just a model)
 - Can be combined with the actor system -- the saga runner sends TX messages to steps
@@ -843,7 +843,7 @@ result = await runner.execute(OrderSaga, context={"order_id": 42})
 | **Co-located compensation** | 5 | 4 | 3 | 4 |
 | **Testability** | 3 | 5 | 4 | 3 |
 | **IDE support** | 3 | 5 | 4 | 3 |
-| **Fit with PyBend patterns** | 4 | 5 | 4 | 5 |
+| **Fit with N3TX patterns** | 4 | 5 | 4 | 5 |
 | **Debuggability** | 4 | 4 | 4 | 5 |
 | **Introspectability** | 3 | 3 | 2 | 5 |
 
@@ -897,7 +897,7 @@ Developers often confuse saga transactions with database transactions. A saga is
 
 ## :bulb: Recommendations
 
-### For PyBend: A Layered Approach
+### For N3TX: A Layered Approach
 
 **Layer 1 -- TX Saga Primitives** (v1.0)
 

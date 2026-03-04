@@ -21,10 +21,10 @@
 **Run Commands:**
 ```bash
 # Framework unit tests
-cd /workspace && python3 -m pytest src/pybend/core/tests/unit/
+cd /workspace && python3 -m pytest src/n3tx/core/tests/unit/
 
 # Agent unit tests
-cd /workspace && python3 -m pytest src/pybend/core/agents/tests/
+cd /workspace && python3 -m pytest src/n3tx/core/agents/tests/
 
 # Integration tests (Level 1/2 direct routes)
 cd /workspace && python3 -m pytest example_api/tests/
@@ -42,10 +42,10 @@ cd /workspace && python3 -m pytest example_grants/tests/e2e/
 cd /workspace && python3 -m pytest
 
 # Single test file
-cd /workspace && python3 -m pytest src/pybend/core/tests/unit/test_actor_system.py
+cd /workspace && python3 -m pytest src/n3tx/core/tests/unit/test_actor_system.py
 
 # Single test class or function
-cd /workspace && python3 -m pytest src/pybend/core/tests/unit/test_actor_system.py::TestTX::test_reply_swaps_source_target
+cd /workspace && python3 -m pytest src/n3tx/core/tests/unit/test_actor_system.py::TestTX::test_reply_swaps_source_target
 ```
 
 ## Test File Organization
@@ -53,7 +53,7 @@ cd /workspace && python3 -m pytest src/pybend/core/tests/unit/test_actor_system.
 **Location:** Tests are organized by scope in dedicated directories:
 
 ```
-src/pybend/core/tests/
+src/n3tx/core/tests/
     conftest.py              # Shared fixtures (imports example_api app)
     helpers.py               # auth_header(), parse_href_id(), extract_items()
     unit/
@@ -104,7 +104,7 @@ src/pybend/core/tests/
             test_widget.py   # Widget types (39 tests)
             test_schema_ext.py  # Widget schema extension (20 tests)
 
-src/pybend/core/agents/tests/
+src/n3tx/core/agents/tests/
     conftest.py              # Agent fixtures (reset_actor_state, fresh_matrix, memory_storage)
     test_agent_actor.py      # AgentActor CRUD + run (29 tests)
     test_mixin.py            # AgentMixin injection (12 tests)
@@ -173,8 +173,8 @@ example_actor/tests/         # ~399 tests (Level 3 actor routing, mirrors exampl
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from pybend.core.actors.tx import TX
-from pybend.core.actors.actor import Actor
+from n3tx.core.actors.tx import TX
+from n3tx.core.actors.actor import Actor
 
 pytestmark = pytest.mark.unit
 
@@ -265,7 +265,7 @@ def mock_storage():
     yield storage
     _CrudModel.storage = None
 ```
-File: `src/pybend/core/tests/unit/test_actor_model_crud.py`
+File: `src/n3tx/core/tests/unit/test_actor_model_crud.py`
 
 **2. mock_method for Pydantic BaseModel instances:**
 ```python
@@ -287,7 +287,7 @@ with mock_method(actor_instance, 'handler', mock_handler):
     await actor_instance.inbox(tx)
 mock_handler.assert_awaited_once_with(tx)
 ```
-File: `src/pybend/core/tests/unit/test_actor_system.py`
+File: `src/n3tx/core/tests/unit/test_actor_system.py`
 
 **3. Capture sent messages via mock inbox:**
 ```python
@@ -311,11 +311,11 @@ def mock_request():
     request.state.user = {'user_id': 1, 'email': 'test@example.com', 'role': 'user'}
     return request
 ```
-File: `src/pybend/core/tests/unit/conftest.py`
+File: `src/n3tx/core/tests/unit/conftest.py`
 
 **5. Module-level mocking with `patch()`:**
 ```python
-with patch('pybend.core.actors.matrix.logger') as mock_logger:
+with patch('n3tx.core.actors.matrix.logger') as mock_logger:
     await m.inbox(tx)
     mock_logger.warning.assert_called_once()
 ```
@@ -394,7 +394,7 @@ def make_tx():
     return _make
 ```
 
-**Agent test fixtures (`src/pybend/core/agents/tests/conftest.py`):**
+**Agent test fixtures (`src/n3tx/core/agents/tests/conftest.py`):**
 ```python
 @pytest.fixture(autouse=True)
 def reset_actor_state():
@@ -417,9 +417,9 @@ def memory_storage():
 ```
 
 **Location:**
-- `src/pybend/core/tests/conftest.py` -- shared integration fixtures (imports `example_api` app)
-- `src/pybend/core/tests/unit/conftest.py` -- unit test fixtures (mocks, auth helpers)
-- `src/pybend/core/agents/tests/conftest.py` -- agent test fixtures (actor state reset)
+- `src/n3tx/core/tests/conftest.py` -- shared integration fixtures (imports `example_api` app)
+- `src/n3tx/core/tests/unit/conftest.py` -- unit test fixtures (mocks, auth helpers)
+- `src/n3tx/core/agents/tests/conftest.py` -- agent test fixtures (actor state reset)
 - `example_grants/tests/conftest.py` -- grants app fixtures (DB, seed, tokens)
 - `example_api/tests/conftest.py` -- API example fixtures
 - `example_actor/tests/conftest.py` -- Actor example fixtures
@@ -431,12 +431,12 @@ def memory_storage():
 
 **View Coverage:**
 ```bash
-cd /workspace && python3 -m pytest --cov=src/pybend/core src/pybend/core/tests/unit/
+cd /workspace && python3 -m pytest --cov=src/n3tx/core src/n3tx/core/tests/unit/
 ```
 
 ## Test Types
 
-**Unit Tests (~1100 tests in `src/pybend/core/tests/unit/` + agents/tests/):**
+**Unit Tests (~1100 tests in `src/n3tx/core/tests/unit/` + agents/tests/):**
 - Test individual classes and methods in isolation
 - Mock storage, external dependencies
 - Mark: `pytestmark = pytest.mark.unit`
@@ -455,7 +455,7 @@ cd /workspace && python3 -m pytest --cov=src/pybend/core src/pybend/core/tests/u
 - NOT run as part of regular test suite (manual or CI with server)
 
 **Agent Tests:**
-- Unit: `src/pybend/core/agents/tests/` -- mixin injection, tool discovery, function generation, LLM execution with TestModel
+- Unit: `src/n3tx/core/agents/tests/` -- mixin injection, tool discovery, function generation, LLM execution with TestModel
 - Integration: `example_grants/tests/test_agent_crud.py` -- agent CRUD via API
 - Integration: `example_grants/tests/test_agent_run.py` -- agent LLM run with real DB
 
@@ -561,15 +561,15 @@ def test_main_list_click_navigates():
         _wait_for_items(page)
         # Interact via page.evaluate() for Shadow DOM
         page.evaluate("""() => {
-            const table = document.querySelector('ntt-table');
-            const row = table.shadowRoot.querySelector('.table-body ntt-row');
+            const table = document.querySelector('ntx-table');
+            const row = table.shadowRoot.querySelector('.table-body ntx-row');
             row.shadowRoot.querySelector('.row').click();
         }""")
         page.wait_for_timeout(1500)
         # Assert state
         after = page.evaluate("""() => ({
             hash: location.hash,
-            hasBackBtn: !!document.querySelector('ntt-router')
+            hasBackBtn: !!document.querySelector('ntx-router')
                 ?.shadowRoot?.querySelector('.back-btn'),
         })""")
         assert after["hash"].startswith("#Grant/")
@@ -615,7 +615,7 @@ See `example_grants/tests/test_authorization.py`, `example_grants/tests/test_ssr
 - WebSocket communication (no WebSocket tests found)
 - Federation protocol (mentioned as future -- `federation` in ROADMAP)
 - Frontend JavaScript (no JS unit test framework detected -- only Playwright e2e)
-- Performance under load (profiling tools exist at `src/pybend/core/tests/profiling/` but no automated perf tests)
+- Performance under load (profiling tools exist at `src/n3tx/core/tests/profiling/` but no automated perf tests)
 - Database concurrency (tests use single-threaded TestClient)
 - Custom migration scripts (migration framework tested, but app-specific migrations in `example_grants/migrations/` not tested)
 - Widget rendering (backend widget types tested, but frontend Widget JS classes not unit-tested)

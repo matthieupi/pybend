@@ -15,7 +15,7 @@ You are writing Playwright E2E integration tests for a schema-driven web applica
 
 1. **App URL**: `/matrix.html`
 2. **Base URL**: `http://localhost:5000` (configured in `playwright.config.js`)
-3. **Shadow DOM**: All NTT components use Shadow DOM. You MUST use `.evaluate()` to access `el.shadowRoot`.
+3. **Shadow DOM**: All N3TX components use Shadow DOM. You MUST use `.evaluate()` to access `el.shadowRoot`.
 4. **Auth**: Use helpers from `./fixtures/auth.js`:
    ```js
    import { loginAs, logout, getToken, setToken, clearToken, USERS } from './fixtures/auth.js';
@@ -208,7 +208,7 @@ You are writing Playwright E2E integration tests for a schema-driven web applica
 
 **Add Comment via UI (Method Button)**
 10. Login as alice, navigate to product detail
-11. Find `ntt-method[method="comment"]` in item shadow DOM
+11. Find `ntx-method[method="comment"]` in item shadow DOM
 12. Click the comment method button → form should appear
 13. Fill in comment name: "UI Comment"
 14. Fill in comment description: "Submitted through the UI"
@@ -219,7 +219,7 @@ You are writing Playwright E2E integration tests for a schema-driven web applica
 **Comment Display**
 18. Navigate to product with comments
 19. Comments list shows as `.list-field[data-value="comments"]`
-20. Each comment rendered as `ntt-item` sub-component
+20. Each comment rendered as `ntx-item` sub-component
 21. Comment items show name and description
 22. First 2 comments visible, rest collapsed with "Show N more" toggle
 23. Clicking "Show N more" reveals all comments
@@ -290,7 +290,7 @@ You are writing Playwright E2E integration tests for a schema-driven web applica
 
 **Favorite via UI Button**
 11. Login as alice, navigate to product detail
-12. Find favorite button (`ntt-method[method="favorite"]`) in shadow DOM
+12. Find favorite button (`ntx-method[method="favorite"]`) in shadow DOM
 13. Read current count from `.method-btn-count`
 14. Click the favorite button
 15. Wait for API response
@@ -314,7 +314,7 @@ You are writing Playwright E2E integration tests for a schema-driven web applica
 **Favorite Count Display**
 28. Product with 0 favorites → count badge shows "0" or is hidden
 29. Product with 1 favorite → count badge shows "1"
-30. Favorite count is visible in list view (on each item card) — check `ntt-method` in list items
+30. Favorite count is visible in list view (on each item card) — check `ntx-method` in list items
 
 **Comment Like (Heart Button)**
 31. Comment schema has a `like` method with heart icon
@@ -325,12 +325,12 @@ You are writing Playwright E2E integration tests for a schema-driven web applica
 
 **Comment Like via UI**
 36. Navigate to product detail with comments
-37. Find comment's `ntt-method[method="like"]` in nested shadow DOM
+37. Find comment's `ntx-method[method="like"]` in nested shadow DOM
 38. Click like button → verify count increments
 39. Click again → verify count decrements (unlike toggle)
 
 **Comment Reply**
-40. Find comment's `ntt-method[method="reply"]` in nested shadow DOM
+40. Find comment's `ntx-method[method="reply"]` in nested shadow DOM
 41. Enter reply text in the inline textarea
 42. Submit reply → API `POST /products/{pid}/comments/{cid}/reply` with `{text: "..."}`
 43. Verify new comment created with `parent_id` set to original comment's ID
@@ -345,7 +345,7 @@ You are writing Playwright E2E integration tests for a schema-driven web applica
 48. Login as alice, favorite product 1
 49. Navigate to `#@favorites`
 50. Verify favorites page shows favorited products (ProductLike entries)
-51. Verify `ntt-favorites` component renders with `ntt-list[model="ProductLike"]`
+51. Verify `ntx-favorites` component renders with `ntx-list[model="ProductLike"]`
 52. Unfavorite product 1 → refresh favorites page → product no longer listed
 
 **Edge Cases**
@@ -456,8 +456,8 @@ This is the master integration test. It chains EVERYTHING together.
 
 **Favorites Navigation**
 25. Login, navigate to `#@favorites`
-26. `ntt-favorites` component renders inside `ntt-router`
-27. Favorites shows `ntt-list[model="ProductLike"]`
+26. `ntx-favorites` component renders inside `ntx-router`
+27. Favorites shows `ntx-list[model="ProductLike"]`
 28. Click back from favorites → returns to list
 29. Navigate favorites → product detail → back → favorites → back → list
 
@@ -473,8 +473,8 @@ This is the master integration test. It chains EVERYTHING together.
 36. Navigate during network slow-down (simulate with page.route throttle)
 
 **Navigation State Consistency**
-37. After navigation, the correct `ntt-item` is rendered inside `ntt-router`
-38. After back, the `ntt-list` shows all items (not stale data)
+37. After navigation, the correct `ntx-item` is rendered inside `ntx-router`
+38. After back, the `ntx-list` shows all items (not stale data)
 39. URL hash always matches displayed content
 40. Router title updates to match current view
 
@@ -715,7 +715,7 @@ This is the master integration test. It chains EVERYTHING together.
 - All tests run against the LIVE server (Playwright auto-starts it)
 - Tests use seed data (3+ products, 3 users)
 - Tests that create data should use unique identifiers (timestamps, random strings) to avoid conflicts
-- After writing tests, run: `cd /workspace/src/pybend/static && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/{filename}.spec.js`
+- After writing tests, run: `cd /workspace/src/n3tx/static && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/{filename}.spec.js`
 - Fix any failing tests before declaring done — a failing test means either the test is wrong or there's a real bug. Investigate which.
 - If you discover a real bug, still write the test but document the expected behavior vs actual behavior in a comment
 - Use `test.describe.serial()` for tests that depend on each other within a group (e.g., create then verify)

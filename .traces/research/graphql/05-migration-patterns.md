@@ -12,7 +12,7 @@
 
 The data tells a clear story: **61.5% of organizations** now run GraphQL in production ([Hygraph Survey 2024](https://hygraph.com/graphql-survey-2024)), up from under 10% in 2021. But **83% of web services still use REST** ([byteiota](https://byteiota.com/graphqls-enterprise-honeymoon-is-over-why-rest-is-winning/)). These numbers are not contradictory -- they mean most organizations run **both**, and will continue to do so. Migration is not replacement; it is layered coexistence.
 
-For a schema-driven framework like PyBend -- where the model definition already *is* the API contract -- the migration calculus is different than for most REST APIs. PyBend's `ProtoModel.schema()` already generates a rich JSON Schema that drives the entire frontend. A GraphQL layer would be a *second consumer* of the same model definitions, not a rewrite of them.
+For a schema-driven framework like N3TX -- where the model definition already *is* the API contract -- the migration calculus is different than for most REST APIs. N3TX's `ProtoModel.schema()` already generates a rich JSON Schema that drives the entire frontend. A GraphQL layer would be a *second consumer* of the same model definitions, not a rewrite of them.
 
 ---
 
@@ -28,7 +28,7 @@ For a schema-driven framework like PyBend -- where the model definition already 
 8. Common Migration Failures
 9. The Wrapper Tax
 10. Rollback Strategies
-11. PyBend-Specific Considerations
+11. N3TX-Specific Considerations
 
 ---
 
@@ -262,7 +262,7 @@ def authenticate(request):
     return decode_jwt(token)
 ```
 
-For PyBend specifically, the existing `JWTAuthMiddleware` already sets `request.state.user` for all routes. A GraphQL endpoint mounted on the same FastAPI app would automatically benefit from this middleware -- **zero auth code changes needed**.
+For N3TX specifically, the existing `JWTAuthMiddleware` already sets `request.state.user` for all routes. A GraphQL endpoint mounted on the same FastAPI app would automatically benefit from this middleware -- **zero auth code changes needed**.
 
 ### When Dual Maintenance Is Worth It
 
@@ -318,14 +318,14 @@ For existing apps, the pattern is:
 
 > **Warning:** One team at [Kitemaker reported a **3-second UI lockup**](https://kitemaker.co/blog/switching-from-apollo-to-urql) caused by Apollo Client's normalized cache processing large datasets. They switched to urql and the lockup disappeared. **Test your client library choice with realistic data volumes.**
 
-### PyBend Frontend Implications
+### N3TX Frontend Implications
 
-PyBend's frontend (`NTT.js`) currently bootstraps by fetching JSON Schema from `GET /{ClassName}`, then creates `DynamicClass` instances via `prototype()`. A GraphQL client integration would mean either:
+N3TX's frontend (`N3TX.js`) currently bootstraps by fetching JSON Schema from `GET /{ClassName}`, then creates `DynamicClass` instances via `prototype()`. A GraphQL client integration would mean either:
 
 **Option A:** Replace the schema-fetch-then-render pattern with GraphQL queries
 **Option B:** Keep the schema-driven rendering, use GraphQL only for data fetching
 
-Option B is lower risk and preserves PyBend's core architectural advantage -- the schema-driven rendering pipeline remains intact, but data flows through GraphQL instead of REST endpoints.
+Option B is lower risk and preserves N3TX's core architectural advantage -- the schema-driven rendering pipeline remains intact, but data flows through GraphQL instead of REST endpoints.
 
 ---
 
@@ -561,39 +561,39 @@ Netflix's migration design ensured rollback at every layer:
 
 ---
 
-## 11. PyBend-Specific Considerations
+## 11. N3TX-Specific Considerations
 
-**The "so what?":** PyBend's architecture is unusually well-positioned for GraphQL adoption -- but also has a strong argument for not needing it. The schema-driven design already solves many problems that drive other teams to GraphQL.
+**The "so what?":** N3TX's architecture is unusually well-positioned for GraphQL adoption -- but also has a strong argument for not needing it. The schema-driven design already solves many problems that drive other teams to GraphQL.
 
-### What PyBend Already Has That GraphQL Would Duplicate
+### What N3TX Already Has That GraphQL Would Duplicate
 
-| GraphQL Benefit | PyBend Already Has | Via |
+| GraphQL Benefit | N3TX Already Has | Via |
 |----------------|-------------------|-----|
 | Schema as contract | JSON Schema from `ProtoModel.schema()` | `proto_model.py` |
 | Type-safe API | Pydantic validation on all endpoints | `ProtoModel` + FastAPI |
 | Self-documenting API | Schema includes `ui`, `access`, `methods` | `schema()` output |
-| Frontend code generation | `DynamicClass` from schema at runtime | `NTT.js` `prototype()` |
+| Frontend code generation | `DynamicClass` from schema at runtime | `N3TX.js` `prototype()` |
 | Access control in schema | `access` rules serialized to JSON Schema | `authorize/schema.py` |
 | Relationship modeling | `ListRef[T]`, `Ref[T]`, `$defs` | `ref.py`, `typer.py` |
 
 ### What GraphQL Would Add
 
-| GraphQL Benefit | PyBend Gap | Impact |
+| GraphQL Benefit | N3TX Gap | Impact |
 |----------------|-----------|--------|
 | **Client-specified field selection** | REST returns all fields always | Bandwidth savings on mobile |
 | **Single request for nested data** | Requires `?populate=` param or multiple calls | Reduced round trips |
 | **Subscription support** | No real-time push (polling only) | Live updates |
-| **Strong ecosystem of client tools** | Custom `NTT.js` (powerful but proprietary) | Developer familiarity |
+| **Strong ecosystem of client tools** | Custom `N3TX.js` (powerful but proprietary) | Developer familiarity |
 
 ### Hypothetical Integration Point
 
-Given PyBend's FastAPI backend, the natural integration would use [Strawberry GraphQL](https://strawberry.rocks/docs/integrations/fastapi):
+Given N3TX's FastAPI backend, the natural integration would use [Strawberry GraphQL](https://strawberry.rocks/docs/integrations/fastapi):
 
 ```python
-# Hypothetical: GraphQL resolvers wrapping PyBend's existing model layer
+# Hypothetical: GraphQL resolvers wrapping N3TX's existing model layer
 import strawberry
-from pybend.core.models.proto_model import ProtoModel
-from pybend.core.utils.registrar import registered_models
+from n3tx.core.models.proto_model import ProtoModel
+from n3tx.core.utils.registrar import registered_models
 
 @strawberry.type
 class ProductType:
@@ -605,7 +605,7 @@ class ProductType:
 class Query:
     @strawberry.field
     def product(self, id: int) -> ProductType:
-        # Reuses PyBend's existing StorableMixin.get()
+        # Reuses N3TX's existing StorableMixin.get()
         instance = registered_models['Product'].get(id)
         return ProductType(id=instance.id, name=instance.name, price=instance.price)
 
@@ -621,12 +621,12 @@ app.include_router(graphql_app, prefix="/graphql")
 
 ### The Honest Assessment
 
-For PyBend's current use case -- a schema-driven framework where models drive the entire stack -- **the migration cost-benefit is marginal**. The framework already delivers the primary benefits that drive most organizations to GraphQL. The main arguments *for* adding GraphQL would be:
+For N3TX's current use case -- a schema-driven framework where models drive the entire stack -- **the migration cost-benefit is marginal**. The framework already delivers the primary benefits that drive most organizations to GraphQL. The main arguments *for* adding GraphQL would be:
 
 1. **External API consumers** who expect a GraphQL endpoint
 2. **Mobile clients** that need aggressive field selection
 3. **Real-time features** via GraphQL subscriptions
-4. **Developer hiring** -- GraphQL is a known quantity; `NTT.js` is not
+4. **Developer hiring** -- GraphQL is a known quantity; `N3TX.js` is not
 
 The arguments *against* remain strong:
 
@@ -635,7 +635,7 @@ The arguments *against* remain strong:
 3. **N+1 resolver problems** replacing the overfetch problems GraphQL was meant to solve
 4. **Wrapper tax** on what are already clean, schema-driven REST endpoints
 
-> **Key Insight:** If PyBend were to add GraphQL, the **shared service layer pattern** is the obvious path. The existing `StorableMixin` CRUD operations, `authorize` rules, and `ProtoModel` serialization would become the shared business logic layer, consumed by both REST route factories (existing `routes_fastapi.py`) and new GraphQL resolvers. **Zero model code changes required.**
+> **Key Insight:** If N3TX were to add GraphQL, the **shared service layer pattern** is the obvious path. The existing `StorableMixin` CRUD operations, `authorize` rules, and `ProtoModel` serialization would become the shared business logic layer, consumed by both REST route factories (existing `routes_fastapi.py`) and new GraphQL resolvers. **Zero model code changes required.**
 
 ---
 
@@ -649,7 +649,7 @@ The arguments *against* remain strong:
 | Simple CRUD operations | Weak | **Strong** |
 | Heavy CDN caching dependency | Weak | **Strong** |
 | Small team (<5 engineers) | Weak | **Strong** |
-| Existing schema-driven REST (like PyBend) | Moderate | **Strong** |
+| Existing schema-driven REST (like N3TX) | Moderate | **Strong** |
 | Real-time subscription needs | **Strong** | Weak |
 | Microservices with many backends | **Strong** | Moderate |
 

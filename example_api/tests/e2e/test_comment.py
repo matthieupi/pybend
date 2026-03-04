@@ -1,4 +1,4 @@
-"""Playwright test to verify ntt-method loop fix and comment flow."""
+"""Playwright test to verify ntx-method loop fix and comment flow."""
 from playwright.sync_api import sync_playwright
 import json
 
@@ -36,13 +36,13 @@ def test_comment():
         page.goto("http://localhost:5000/")
         page.wait_for_timeout(5000)
 
-        # Check ntt-method exists and has correct form
+        # Check ntx-method exists and has correct form
         method_info = page.evaluate("""() => {
-            const lists = document.querySelectorAll('ntt-list');
+            const lists = document.querySelectorAll('ntx-list');
             for (const list of lists) {
-                const items = list.shadowRoot?.querySelectorAll('ntt-item') || [];
+                const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
                 for (const item of items) {
-                    const methods = item.shadowRoot?.querySelectorAll('ntt-method') || [];
+                    const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
                     for (const m of methods) {
                         const inputs = m.shadowRoot?.querySelectorAll('input') || [];
                         return {
@@ -62,11 +62,11 @@ def test_comment():
 
         # Fill form
         page.evaluate("""() => {
-            const lists = document.querySelectorAll('ntt-list');
+            const lists = document.querySelectorAll('ntx-list');
             for (const list of lists) {
-                const items = list.shadowRoot?.querySelectorAll('ntt-item') || [];
+                const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
                 for (const item of items) {
-                    const methods = item.shadowRoot?.querySelectorAll('ntt-method') || [];
+                    const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
                     for (const m of methods) {
                         const inputs = m.shadowRoot?.querySelectorAll('input');
                         if (inputs && inputs.length > 0) {
@@ -82,11 +82,11 @@ def test_comment():
 
         # Click Run button
         page.evaluate("""() => {
-            const lists = document.querySelectorAll('ntt-list');
+            const lists = document.querySelectorAll('ntx-list');
             for (const list of lists) {
-                const items = list.shadowRoot?.querySelectorAll('ntt-item') || [];
+                const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
                 for (const item of items) {
-                    const methods = item.shadowRoot?.querySelectorAll('ntt-method') || [];
+                    const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
                     for (const m of methods) {
                         const btn = m.shadowRoot?.querySelector('button[type="submit"]');
                         if (btn) {

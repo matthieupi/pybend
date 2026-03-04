@@ -1,20 +1,20 @@
 # CSS-Only & Minimal-JS Interactivity Patterns
 
-## Research Brief for PyBend Static Site Generation
+## Research Brief for N3TX Static Site Generation
 
 **Date:** 2026-02-25
 **Audience:** Technical CEO + Engineering Team
-**Angle:** How much interactivity can a fully static PyBend export achieve WITHOUT JavaScript?
+**Angle:** How much interactivity can a fully static N3TX export achieve WITHOUT JavaScript?
 
 ---
 
 ## Executive Summary
 
-The gap between "static HTML" and "interactive application" has collapsed. Modern CSS (2025-2026) provides native mechanisms for accordions, tabs, modals, carousels, tooltips, filtering, theme switching, and even page transitions -- all without a single line of JavaScript. Combined with the HTML `<details>`, `<dialog>`, and Popover APIs, a statically-generated PyBend site can deliver 80-90% of the interactivity users expect from an SPA, with near-zero JavaScript.
+The gap between "static HTML" and "interactive application" has collapsed. Modern CSS (2025-2026) provides native mechanisms for accordions, tabs, modals, carousels, tooltips, filtering, theme switching, and even page transitions -- all without a single line of JavaScript. Combined with the HTML `<details>`, `<dialog>`, and Popover APIs, a statically-generated N3TX site can deliver 80-90% of the interactivity users expect from an SPA, with near-zero JavaScript.
 
 The irreducible minimum that *requires* JS: form submission to an API, authentication, real-time data, and clipboard operations. Everything else is CSS territory. This is the wildcard that makes static export viable for far more use cases than traditional thinking suggests.
 
-**Key finding:** A PyBend static export with CSS-only interactivity and <1KB of JS for form submission would score 95-100 on Lighthouse Performance while retaining the interactive feel of `ntt-item`'s display modes, field groups, collapsible sections, and filtering.
+**Key finding:** A N3TX static export with CSS-only interactivity and <1KB of JS for form submission would score 95-100 on Lighthouse Performance while retaining the interactive feel of `ntx-item`'s display modes, field groups, collapsible sections, and filtering.
 
 ---
 
@@ -25,8 +25,8 @@ The irreducible minimum that *requires* JS: form submission to an API, authentic
 The most mature and accessible CSS-only pattern. Native HTML, zero CSS hacks required.
 
 ```html
-<!-- PyBend field groups as collapsible sections -->
-<details class="ntt-group" open>
+<!-- N3TX field groups as collapsible sections -->
+<details class="ntx-group" open>
   <summary>Product Details</summary>
   <div class="field">
     <label>Name</label>
@@ -38,23 +38,23 @@ The most mature and accessible CSS-only pattern. Native HTML, zero CSS hacks req
   </div>
 </details>
 
-<details class="ntt-group">
+<details class="ntx-group">
   <summary>Social (3 comments)</summary>
   <div class="list-field">
-    <!-- nested ntt-item equivalents -->
+    <!-- nested ntx-item equivalents -->
   </div>
 </details>
 ```
 
 ```css
-details.ntt-group {
+details.ntx-group {
   border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
   border-radius: var(--radius-md, 12px);
   margin: 0.75rem 0;
   overflow: hidden;
 }
 
-details.ntt-group summary {
+details.ntx-group summary {
   padding: 0.75rem 1.25rem;
   font-size: 0.7rem;
   font-weight: 600;
@@ -65,22 +65,22 @@ details.ntt-group summary {
   list-style: none; /* remove default marker */
 }
 
-details.ntt-group summary::after {
+details.ntx-group summary::after {
   content: "+";
   float: right;
   transition: transform 0.2s;
 }
 
-details.ntt-group[open] summary::after {
+details.ntx-group[open] summary::after {
   content: "-";
 }
 
-details.ntt-group > *:not(summary) {
+details.ntx-group > *:not(summary) {
   padding: 0 1.25rem 0.75rem;
 }
 ```
 
-**PyBend mapping:** This directly replaces the JS-driven `.nested-collapsed` / `.expanded` toggle and the `.show-more-btn` click handler in `ntt-item.js` (lines 559-590 of the CSS). The `<details>` element with `open` attribute gives identical behavior to the current `expanded` class toggle.
+**N3TX mapping:** This directly replaces the JS-driven `.nested-collapsed` / `.expanded` toggle and the `.show-more-btn` click handler in `ntx-item.js` (lines 559-590 of the CSS). The `<details>` element with `open` attribute gives identical behavior to the current `expanded` class toggle.
 
 **Browser support:** Universal. Every modern browser since 2020. [Can I Use: 97.5% global](https://caniuse.com/details).
 
@@ -93,8 +93,8 @@ details.ntt-group > *:not(summary) {
 The `:target` selector matches an element whose `id` matches the URL fragment (`#hash`). This enables single-page navigation, tab switching, and modal display with zero JS.
 
 ```html
-<!-- Tab navigation for ntt-item display modes -->
-<nav class="ntt-tabs">
+<!-- Tab navigation for ntx-item display modes -->
+<nav class="ntx-tabs">
   <a href="#tab-details">Details</a>
   <a href="#tab-comments">Comments</a>
   <a href="#tab-related">Related</a>
@@ -130,14 +130,14 @@ The `:target` selector matches an element whose `id` matches the URL fragment (`
 }
 
 /* Active tab indicator */
-.ntt-tabs a[href="#tab-details"]:has(~ #tab-details:target),
-.ntt-tabs a[href="#tab-comments"]:has(~ #tab-comments:target) {
+.ntx-tabs a[href="#tab-details"]:has(~ #tab-details:target),
+.ntx-tabs a[href="#tab-comments"]:has(~ #tab-comments:target) {
   border-bottom: 2px solid var(--accent, #22d3c5);
   color: var(--accent-text, #5eeadf);
 }
 ```
 
-**PyBend mapping:** Replaces the hash-based routing in `ntt-router.js` for static pages. Each model's detail view can use `:target` tabs to show field groups (`ui.groups`) as tab panels rather than stacked fieldsets.
+**N3TX mapping:** Replaces the hash-based routing in `ntx-router.js` for static pages. Each model's detail view can use `:target` tabs to show field groups (`ui.groups`) as tab panels rather than stacked fieldsets.
 
 **Limitation:** Modifies URL hash, which affects browser history. The back button navigates between tab states rather than between pages. For modals, this can be a feature (linkable modals) or a drawback (unexpected back behavior).
 
@@ -151,7 +151,7 @@ The checkbox/radio hack is the most versatile CSS-only interactivity pattern. Hi
 
 ```html
 <!-- CSS-only list filtering (replaces JS filter logic) -->
-<div class="ntt-filters">
+<div class="ntx-filters">
   <input type="checkbox" id="filter-instock" checked hidden>
   <label for="filter-instock" class="filter-pill">In Stock</label>
 
@@ -160,7 +160,7 @@ The checkbox/radio hack is the most versatile CSS-only interactivity pattern. Hi
 </div>
 
 <!-- Product cards with data attributes -->
-<div class="ntt-list">
+<div class="ntx-list">
   <article class="card" data-instock data-sale>Widget A - $10</article>
   <article class="card" data-instock>Widget B - $25</article>
   <article class="card" data-sale>Widget C - $15</article>
@@ -194,7 +194,7 @@ input#dark-mode:checked ~ .app-body {
 }
 ```
 
-**PyBend mapping:** The `xs` pill display mode in `ntt-item.css` (lines 20-47) already uses pill-shaped badges. Filter pills using `:checked` state would let users toggle category views in an `ntt-list` equivalent without JS. The display/edit mode toggle (`toggleMode()` in `ntt-item.js` line 103) could become a CSS-only checkbox toggle for simple display switching.
+**N3TX mapping:** The `xs` pill display mode in `ntx-item.css` (lines 20-47) already uses pill-shaped badges. Filter pills using `:checked` state would let users toggle category views in an `ntx-list` equivalent without JS. The display/edit mode toggle (`toggleMode()` in `ntx-item.js` line 103) could become a CSS-only checkbox toggle for simple display switching.
 
 **Accessibility caveat:** Using `hidden` on inputs removes them from the accessibility tree. Use `opacity: 0; position: absolute;` instead to keep them focusable. Screen readers will announce the checkbox state when using radio/checkbox elements with labels, but only if the inputs remain accessible to assistive technology [Smashing Magazine, 2022](https://www.smashingmagazine.com/2022/11/guide-keyboard-accessibility-html-css-part1/).
 
@@ -235,7 +235,7 @@ CSS scroll-snap creates native-feeling carousels with no JS event listeners, no 
 .gallery-track { scrollbar-width: none; }
 ```
 
-**PyBend mapping:** The `.card-image` banner in `ntt-item.css` (lines 308-327) currently shows a single image. A scroll-snap gallery would let product entities with multiple images present them as a swipeable carousel in static output, matching the `md`/`lg`/`xl` display modes.
+**N3TX mapping:** The `.card-image` banner in `ntx-item.css` (lines 308-327) currently shows a single image. A scroll-snap gallery would let product entities with multiple images present them as a swipeable carousel in static output, matching the `md`/`lg`/`xl` display modes.
 
 **Browser support:** Universal. scroll-snap-type supported in all modern browsers since 2020. [web.dev](https://web.dev/css-scroll-snap/)
 
@@ -302,7 +302,7 @@ dialog[open] {
 }
 ```
 
-**PyBend mapping:** The `deleteItem()` method in `ntt-item.js` (line 65) currently uses `confirm()` -- a blocking browser dialog. A `<dialog>` element with Invoker Commands replaces this with a styled, non-blocking confirmation modal that works without JS.
+**N3TX mapping:** The `deleteItem()` method in `ntx-item.js` (line 65) currently uses `confirm()` -- a blocking browser dialog. A `<dialog>` element with Invoker Commands replaces this with a styled, non-blocking confirmation modal that works without JS.
 
 **Browser support for Popover API:** Chrome 114+, Safari 17+, Firefox 125+. Cross-browser since April 2024.
 **Browser support for Invoker Commands:** Chrome 135+, Edge 135+, Safari TP, Firefox Nightly. Becoming baseline in 2026. [CSS-Tricks](https://css-tricks.com/invoker-commands-additional-ways-to-work-with-dialog-popover-and-more/)
@@ -321,7 +321,7 @@ The long-awaited "parent selector" allows styling ancestors based on descendant 
 }
 
 /* Hide "empty state" message when list has children */
-.ntt-list:has(.card) .empty-message {
+.ntx-list:has(.card) .empty-message {
   display: none;
 }
 
@@ -342,7 +342,7 @@ form:not(:has(input[required]:placeholder-shown)) .submit-btn {
 }
 ```
 
-**PyBend mapping:** The permission checks in `ntt-item.js` (lines 169-179) show/hide edit and delete buttons based on `permissions.canAction()`. In a static export where permissions are resolved at build time, `:has()` can handle conditional display: cards with `data-editable` get edit buttons, and the `:has()` selector can manage UI state changes like "show bulk delete bar when items are checked."
+**N3TX mapping:** The permission checks in `ntx-item.js` (lines 169-179) show/hide edit and delete buttons based on `permissions.canAction()`. In a static export where permissions are resolved at build time, `:has()` can handle conditional display: cards with `data-editable` get edit buttons, and the `:has()` selector can manage UI state changes like "show bulk delete bar when items are checked."
 
 **Browser support:** Chrome 105+, Firefox 121+, Safari 15.4+, Edge 105+. Over 95% global coverage. [Can I Use](https://caniuse.com/css-has)
 
@@ -400,7 +400,7 @@ CSS-driven page transitions for multi-page static sites. No JS framework needed.
 }
 ```
 
-**PyBend mapping:** Navigation between list view and detail view (the `ntt-router.js` flow) becomes a smooth cross-document transition. A product card's image in the list morphs into the hero image on the detail page. This eliminates the primary reason SPAs exist for content sites.
+**N3TX mapping:** Navigation between list view and detail view (the `ntx-router.js` flow) becomes a smooth cross-document transition. A product card's image in the list morphs into the hero image on the detail page. This eliminates the primary reason SPAs exist for content sites.
 
 **Browser support:** Same-document: Chrome 111+, Edge 111+, Firefox 146+, Safari 18.1+. Cross-document (MPA): Chrome 126+, Edge 126+. Firefox and Safari catching up. [MDN](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API)
 
@@ -432,7 +432,7 @@ Unlike media queries (viewport-based), container queries let components adapt to
 }
 ```
 
-**PyBend mapping:** This directly replaces the `displayMode` attribute and the `xs()`/`sm()`/`md()`/`lg()`/`xl()` size methods in `ntt-item.js`. Instead of the JS component choosing which method to call based on a `display` attribute, the CSS adapts the card layout based on the container it is placed in. The same static HTML renders as a pill in a sidebar and a full card in a main column.
+**N3TX mapping:** This directly replaces the `displayMode` attribute and the `xs()`/`sm()`/`md()`/`lg()`/`xl()` size methods in `ntx-item.js`. Instead of the JS component choosing which method to call based on a `display` attribute, the CSS adapts the card layout based on the container it is placed in. The same static HTML renders as a pill in a sidebar and a full card in a main column.
 
 **Browser support:** Size queries: Chrome 105+, Firefox 110+, Safari 16+. Over 95% global coverage. [Can I Use](https://caniuse.com/css-container-queries)
 
@@ -468,7 +468,7 @@ Unlike media queries (viewport-based), container queries let components adapt to
 }
 ```
 
-**PyBend mapping:** The existing `dark-theme.css` and `light-theme.css` in `/workspace/src/pybend/static/` would collapse into a single stylesheet using `prefers-color-scheme`. The `staggerIn` animation in `ntt-item.css` (line 620) would be disabled for reduced-motion users.
+**N3TX mapping:** The existing `dark-theme.css` and `light-theme.css` in `/workspace/src/n3tx/static/` would collapse into a single stylesheet using `prefers-color-scheme`. The `staggerIn` animation in `ntx-item.css` (line 620) would be disabled for reduced-motion users.
 
 **Browser support:** `prefers-color-scheme`: 96%+. `prefers-reduced-motion`: 96%+. `prefers-contrast`: 88%+.
 
@@ -493,22 +493,22 @@ Unlike media queries (viewport-based), container queries let components adapt to
 }
 
 /* Count visible items */
-.ntt-list {
+.ntx-list {
   counter-reset: visible;
 }
 
-.ntt-list .card:not([hidden]) {
+.ntx-list .card:not([hidden]) {
   counter-increment: visible;
 }
 
-.ntt-list::after {
+.ntx-list::after {
   content: counter(visible) " items shown";
   font-size: 0.75rem;
   color: var(--text-2);
 }
 ```
 
-**PyBend mapping:** The `.list-field-count` badge in `ntt-item.css` (line 546) currently shows a JS-computed count. CSS counters can replicate this for static content, automatically numbering comments, tracking visible items after filtering, and generating step indicators for multi-section forms.
+**N3TX mapping:** The `.list-field-count` badge in `ntx-item.css` (line 546) currently shows a JS-computed count. CSS counters can replicate this for static content, automatically numbering comments, tracking visible items after filtering, and generating step indicators for multi-section forms.
 
 ---
 
@@ -525,12 +525,12 @@ Unlike media queries (viewport-based), container queries let components adapt to
 | **Form validation feedback** | Custom messages beyond HTML5 `required`/`pattern` | ~200 bytes |
 | **Analytics/tracking** | Sending page view events to an analytics endpoint | ~100 bytes |
 
-**Total irreducible JS for a PyBend static site with form submission:** ~600-800 bytes minified.
+**Total irreducible JS for a N3TX static site with form submission:** ~600-800 bytes minified.
 
 The key insight: none of these require a framework. A single `<script>` block handles all of them.
 
 ```html
-<!-- The entire JS payload for a static PyBend site -->
+<!-- The entire JS payload for a static N3TX site -->
 <script>
 // Form submission (~200 bytes)
 document.querySelectorAll('form[data-api]').forEach(f => {
@@ -574,7 +574,7 @@ The pattern: CSS handles all visual interactivity (accordions, tabs, modals, fil
 ### Architecture
 
 ```
-Static HTML (PyBend-generated)
+Static HTML (N3TX-generated)
   |
   +-- CSS (all interactivity)
   |     +-- :target tabs/navigation
@@ -661,11 +661,11 @@ GOV.UK's migration to their Design System achieved a Lighthouse performance scor
 
 ---
 
-## 6. PyBend Component Mapping
+## 6. N3TX Component Mapping
 
-How each current PyBend frontend feature maps to CSS-only patterns in a static export:
+How each current N3TX frontend feature maps to CSS-only patterns in a static export:
 
-### ntt-item Display Modes (xs/sm/md/lg/xl)
+### ntx-item Display Modes (xs/sm/md/lg/xl)
 
 | Current (JS) | Static (CSS) | How |
 |---|---|---|
@@ -674,9 +674,9 @@ How each current PyBend frontend feature maps to CSS-only patterns in a static e
 | `deleteItem()` with `confirm()` | `<dialog>` + Invoker Commands | Declarative `commandfor="delete-dialog" command="show-modal"` |
 | `.show-more-btn` expand toggle | `<details>` element | Native collapsible with `<summary>` |
 | `staggerIn` animation | CSS animation + `prefers-reduced-motion` | Same animation, plus motion-safe guard |
-| Skeleton placeholder | CSS `:empty` + animations | Show bones while `<ntt-static>` has no content; remove via CSS once loaded |
+| Skeleton placeholder | CSS `:empty` + animations | Show bones while `<ntx-static>` has no content; remove via CSS once loaded |
 
-### ntt-list Features
+### ntx-list Features
 
 | Current (JS) | Static (CSS) | How |
 |---|---|---|
@@ -689,13 +689,13 @@ How each current PyBend frontend feature maps to CSS-only patterns in a static e
 
 | Current (JS) | Static (CSS) | How |
 |---|---|---|
-| `getForm()` builds HTML from schema | Build-time HTML | PyBend generates form HTML at export time |
+| `getForm()` builds HTML from schema | Build-time HTML | N3TX generates form HTML at export time |
 | `getInput()` chooses input type | Build-time type resolution | Correct `<input type="...">` emitted at build |
 | `renderGroupedFields()` fieldsets | `<details>` or `:target` tabs | Field groups become collapsible sections or tabbed panels |
 | Permission-gated field visibility | Build-time conditional | Fields not visible to the target audience are simply not in the HTML |
 | Protected field hiding in edit mode | CSS `:checked` state | `input.edit-toggle:checked ~ .protected-field { display: none; }` |
 
-### Method Buttons (ntt-method)
+### Method Buttons (ntx-method)
 
 | Current (JS) | Static (CSS + Tiny JS) | How |
 |---|---|---|
@@ -716,7 +716,7 @@ How each current PyBend frontend feature maps to CSS-only patterns in a static e
 | **SSG (Astro/11ty)** | 90-98 | 0.6-1.0s | 0.8-1.5s | 0-50ms | 0-0.05 | 5-30 KB |
 | **MPA (Rails/Django)** | 80-95 | 0.8-1.5s | 1.0-2.0s | 0-100ms | 0-0.1 | 20-100 KB |
 | **SPA (React/Vue)** | 50-85 | 1.5-3.0s | 2.0-4.0s | 200-800ms | 0.1-0.25 | 150-500 KB |
-| **Current PyBend (Web Components)** | 70-90 | 1.0-2.0s | 1.5-3.0s | 50-200ms | 0.05-0.15 | 50-150 KB |
+| **Current N3TX (Web Components)** | 70-90 | 1.0-2.0s | 1.5-3.0s | 50-200ms | 0.05-0.15 | 50-150 KB |
 
 *FCP = First Contentful Paint. LCP = Largest Contentful Paint. TBT = Total Blocking Time. CLS = Cumulative Layout Shift.*
 
@@ -734,7 +734,7 @@ Google's own data: on a simulated slow 3G connection, each additional KB of Java
 
 ## 8. The Progressive Enhancement Ladder
 
-A static PyBend export should follow a three-tier progressive enhancement model:
+A static N3TX export should follow a three-tier progressive enhancement model:
 
 ### Tier 1: Pure HTML + CSS (No JS at all)
 - Content is readable
@@ -764,7 +764,7 @@ The key architectural decision: **Tier 1 is the baseline, not an afterthought.**
 
 ## 9. Complete CSS-Only Static Card Example
 
-Putting it all together -- a PyBend Product entity rendered as a static card with CSS-only interactivity:
+Putting it all together -- a N3TX Product entity rendered as a static card with CSS-only interactivity:
 
 ```html
 <!DOCTYPE html>
@@ -902,11 +902,11 @@ This complete example delivers: adaptive display modes, collapsible comments, fi
 
 ---
 
-## 11. Recommendations for PyBend Static Export
+## 11. Recommendations for N3TX Static Export
 
 1. **Default to `<details>/<summary>`** for all `ui.groups` field groups and `ListRef` nested entities. This replaces 100% of the current JS-driven expand/collapse logic.
 
-2. **Use container queries** instead of the `display="xs|sm|md|lg|xl"` attribute. The same HTML adapts to any container width, eliminating the need for the JS size-method dispatch in `ntt-item.js`.
+2. **Use container queries** instead of the `display="xs|sm|md|lg|xl"` attribute. The same HTML adapts to any container width, eliminating the need for the JS size-method dispatch in `ntx-item.js`.
 
 3. **Emit `<dialog>` elements** for delete confirmations and method parameter forms. With Invoker Commands, these work without JS in Chrome/Edge and degrade to a simple link-based flow elsewhere.
 

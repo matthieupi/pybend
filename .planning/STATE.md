@@ -36,7 +36,7 @@
 ## Accumulated Context
 
 ### Key Decisions
-- Phase 1 is purely framework (PyBend core), no app-specific code
+- Phase 1 is purely framework (N3TX core), no app-specific code
 - Phase 2 is purely data model and actor topology, no feature logic
 - Feature phases (3-6) build on the framework + architecture foundation
 - Existing 63+ tests form the regression baseline

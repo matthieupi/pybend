@@ -30,7 +30,7 @@
 
 ## 1. What v0.8 Delivered
 
-v0.8 transformed PyBend from a framework with an actor frontend into a unified actor platform:
+v0.8 transformed N3TX from a framework with an actor frontend into a unified actor platform:
 
 | Capability | Key Files | Status |
 |-----------|-----------|--------|
@@ -68,7 +68,7 @@ v0.8 built the actor infrastructure. v0.9 deepens the schema and developer exper
 
 **Research backing:**
 - Polymorphic research: 60-70% of machinery exists, Phases 1-2 deliver core differentiator in 5-7 days
-- CLI research: PyBend is 70% done with zero code, Typer is the clear choice (66M monthly downloads)
+- CLI research: N3TX is 70% done with zero code, Typer is the clear choice (66M monthly downloads)
 - Category theory research: 8 impurities identified, P0+P1 capture 80% of value in 12-19 days
 - SSR research: Strategy A costs ~50 lines and eliminates 200-400ms waterfall
 - GraphQL research: Decisive "no" — sparse fieldsets (`?fields=`) capture 70-80% of GraphQL's value
@@ -78,7 +78,7 @@ v0.8 built the actor infrastructure. v0.9 deepens the schema and developer exper
 ## 3. Architecture Context
 
 > This section is standalone — it provides everything a clean-context agent needs
-> to understand PyBend's architecture without reading CLAUDE.md or prior conversations.
+> to understand N3TX's architecture without reading CLAUDE.md or prior conversations.
 
 ### Core Principle
 
@@ -111,53 +111,53 @@ From this single definition, the framework derives: database table, CRUD API end
 ### Key Files (with full paths)
 
 **Models & Serialization:**
-- `src/pybend/core/models/proto_model.py` — Base model. Schema orchestrator calls `proto_schema.*` pipeline. `model_response()` calls `proto_dump.*` pipeline.
-- `src/pybend/core/models/proto_schema.py` — Schema pipeline: 7 composable `dict -> dict` stages (`base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`). Extensible via `@schema_extension`.
-- `src/pybend/core/models/proto_dump.py` — Dump pipeline: composable `dict -> dict` stages (`base`, `response`). Extensible via `@dump_extension`.
-- `src/pybend/core/models/actor_model.py` — `ActorModel(Actor, ProtoModel)` bridge. CRUD via `handler_crud()`.
-- `src/pybend/core/models/base_user.py` — Abstract base user model with `login()` and `register_user()`.
-- `src/pybend/core/models/storable_mixin.py` — CRUD operations. `list()` supports `limit`/`offset` pagination.
-- `src/pybend/core/models/ref.py` — `ListRef[T]` type for collection references.
+- `src/n3tx/core/models/proto_model.py` — Base model. Schema orchestrator calls `proto_schema.*` pipeline. `model_response()` calls `proto_dump.*` pipeline.
+- `src/n3tx/core/models/proto_schema.py` — Schema pipeline: 7 composable `dict -> dict` stages (`base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`). Extensible via `@schema_extension`.
+- `src/n3tx/core/models/proto_dump.py` — Dump pipeline: composable `dict -> dict` stages (`base`, `response`). Extensible via `@dump_extension`.
+- `src/n3tx/core/models/actor_model.py` — `ActorModel(Actor, ProtoModel)` bridge. CRUD via `handler_crud()`.
+- `src/n3tx/core/models/base_user.py` — Abstract base user model with `login()` and `register_user()`.
+- `src/n3tx/core/models/storable_mixin.py` — CRUD operations. `list()` supports `limit`/`offset` pagination.
+- `src/n3tx/core/models/ref.py` — `ListRef[T]` type for collection references.
 
 **Actor System:**
-- `src/pybend/core/actors/actor.py` — Base actor: `actormethod`/`actorproperty` descriptors, `ActorMeta` metaclass, `use()` interceptors. Class/instance dual dispatch.
-- `src/pybend/core/actors/matrix.py` — Root actor and message router. Module-level `matrix` singleton.
-- `src/pybend/core/actors/tx.py` — TX message envelope: `name`, `source`, `target`, `data`, `meta`, `timestamp`, `uuid`. `reply()`, `error()`, `is_error`.
-- `src/pybend/core/actors/actor_proxy.py` — Actor interface wrapper without MI.
+- `src/n3tx/core/actors/actor.py` — Base actor: `actormethod`/`actorproperty` descriptors, `ActorMeta` metaclass, `use()` interceptors. Class/instance dual dispatch.
+- `src/n3tx/core/actors/matrix.py` — Root actor and message router. Module-level `matrix` singleton.
+- `src/n3tx/core/actors/tx.py` — TX message envelope: `name`, `source`, `target`, `data`, `meta`, `timestamp`, `uuid`. `reply()`, `error()`, `is_error`.
+- `src/n3tx/core/actors/actor_proxy.py` — Actor interface wrapper without MI.
 
 **API / Routes:**
-- `src/pybend/core/api/routes_fastapi.py` — Level 1/2 route factories with auth injection and pagination.
-- `src/pybend/core/api/network_adapter.py` — `NetworkAdapter(Actor)` base: `request()` for req/resp correlation via Future.
-- `src/pybend/core/api/network_api.py` — `NetworkAPI`: HTTP REST bridge (Level 3 actor routing).
-- `src/pybend/core/api/network_mcp.py` — `NetworkMCP`: MCP JSON-RPC 2.0 bridge.
-- `src/pybend/core/api/network_ap.py` — `NetworkAP`: ActivityPub federation bridge.
-- `src/pybend/core/api/auth_interceptor.py` — Tier 1 auth interceptor for NetworkAPI.
-- `src/pybend/core/api/discovery.py` — `/_meta`, `/.well-known/agent.json` endpoints.
+- `src/n3tx/core/api/routes_fastapi.py` — Level 1/2 route factories with auth injection and pagination.
+- `src/n3tx/core/api/network_adapter.py` — `NetworkAdapter(Actor)` base: `request()` for req/resp correlation via Future.
+- `src/n3tx/core/api/network_api.py` — `NetworkAPI`: HTTP REST bridge (Level 3 actor routing).
+- `src/n3tx/core/api/network_mcp.py` — `NetworkMCP`: MCP JSON-RPC 2.0 bridge.
+- `src/n3tx/core/api/network_ap.py` — `NetworkAP`: ActivityPub federation bridge.
+- `src/n3tx/core/api/auth_interceptor.py` — Tier 1 auth interceptor for NetworkAPI.
+- `src/n3tx/core/api/discovery.py` — `/_meta`, `/.well-known/agent.json` endpoints.
 
 **Authorization:**
-- `src/pybend/core/authorize/rules.py` — `AccessRule` base + rules: `ANYONE`, `NEVER`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`, `FEDERATED`, `LOCAL`, `FOLLOWER`.
-- `src/pybend/core/authorize/auth.py` — JWT: password hashing, token create/decode.
-- `src/pybend/core/authorize/schema.py` — Serialize access rules to JSON for schema exposure.
+- `src/n3tx/core/authorize/rules.py` — `AccessRule` base + rules: `ANYONE`, `NEVER`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`, `FEDERATED`, `LOCAL`, `FOLLOWER`.
+- `src/n3tx/core/authorize/auth.py` — JWT: password hashing, token create/decode.
+- `src/n3tx/core/authorize/schema.py` — Serialize access rules to JSON for schema exposure.
 
 **Storage:**
-- `src/pybend/core/storage/sqlite_storage.py` — SQLite backend with FK hydration.
-- `src/pybend/core/storage/sqlite_migration.py` — Auto-migration + Rails-style manual migrations.
+- `src/n3tx/core/storage/sqlite_storage.py` — SQLite backend with FK hydration.
+- `src/n3tx/core/storage/sqlite_migration.py` — Auto-migration + Rails-style manual migrations.
 
 **SSR:**
-- `src/pybend/core/ssr/html.py` — Schema injection, CSS preloads, bundle mode.
+- `src/n3tx/core/ssr/html.py` — Schema injection, CSS preloads, bundle mode.
 
 **Frontend:**
-- `src/pybend/static/core/NTT.js` — Core entity: `prototype()` factory, `SCHEMA()`, DynamicClass.
-- `src/pybend/static/core/Matrix.js` — Message bus / actor system.
-- `src/pybend/static/core/Actor.js` — Base actor class.
-- `src/pybend/static/components/ntt-item.js` — Item component: size methods (xs-xl), render dispatch.
-- `src/pybend/static/components/ntt-list.js` — List component.
-- `src/pybend/static/generators/form.js` — Formidable: schema-driven form generator.
-- `src/pybend/static/utils/Permissions.js` — Reads schema access rules for UI permission checks.
+- `src/n3tx/static/core/N3TX.js` — Core entity: `prototype()` factory, `SCHEMA()`, DynamicClass.
+- `src/n3tx/static/core/Matrix.js` — Message bus / actor system.
+- `src/n3tx/static/core/Actor.js` — Base actor class.
+- `src/n3tx/static/components/ntx-item.js` — Item component: size methods (xs-xl), render dispatch.
+- `src/n3tx/static/components/ntx-list.js` — List component.
+- `src/n3tx/static/generators/form.js` — Formidable: schema-driven form generator.
+- `src/n3tx/static/utils/Permissions.js` — Reads schema access rules for UI permission checks.
 
 **App Bootstrap:**
-- `src/pybend/core/app.py` — `PyBendApp` builder + `create_app()` one-liner. `routing='direct'` (Level 1/2) or `routing='actor'` (Level 3).
-- `src/pybend/__init__.py` — Public API re-exports.
+- `src/n3tx/core/app.py` — `N3TXApp` builder + `create_app()` one-liner. `routing='direct'` (Level 1/2) or `routing='actor'` (Level 3).
+- `src/n3tx/__init__.py` — Public API re-exports.
 
 ### Extension Points
 
@@ -168,7 +168,7 @@ From this single definition, the framework derives: database table, CRUD API end
 5. **AccessRule** — Subclass `AccessRule` for new authorization primitives.
 6. **`__init_subclass__`** — ProtoModel's hook fires for every new model subclass.
 
-### Three Levels of PyBend
+### Three Levels of N3TX
 
 ```python
 # Level 1 — ProtoModel + direct routes (no actors)
@@ -187,24 +187,24 @@ app = create_app(models=[Product], storage="sqlite:///app.db", routing='actor')
 Model Definition (Python)
     -> ProtoModel.schema()        [proto_schema pipeline: base -> strip_hidden -> methods -> defs -> access -> ui -> metadata]
     -> GET /{ClassName}           [JSON Schema with $schema, $id, properties, methods, access, ui, $defs]
-    -> NTT.SCHEMA(data)           [prototype() -> DynamicClass with typed getters/setters/methods]
-    -> <ntt-list>, <ntt-item>     [Schema-driven rendering: forms, permissions, method buttons]
+    -> N3TX.SCHEMA(data)           [prototype() -> DynamicClass with typed getters/setters/methods]
+    -> <ntx-list>, <ntx-item>     [Schema-driven rendering: forms, permissions, method buttons]
 ```
 
 ### Test Commands
 
 ```bash
 # Framework unit tests
-cd /workspace/src/pybend/core && pytest tests/unit/
+cd /workspace/src/n3tx/core && pytest tests/unit/
 
 # Actor system tests
-cd /workspace/src/pybend/core && pytest actors/tests/
+cd /workspace/src/n3tx/core && pytest actors/tests/
 
 # Integration tests
-cd /workspace/src/pybend/core && pytest ../example/tests/
+cd /workspace/src/n3tx/core && pytest ../example/tests/
 
 # Start server
-cd /workspace/src/pybend/example && python3 main.py
+cd /workspace/src/n3tx/example && python3 main.py
 ```
 
 ---
@@ -224,9 +224,9 @@ The frontend performance audit identified security vulnerabilities in the permis
 **Problem**: `Permissions.js` evaluates access rules client-side without proper backend enforcement for field-level visibility. An attacker can modify the JavaScript to bypass UI permission checks.
 
 **Files to modify:**
-- `src/pybend/static/utils/Permissions.js` — Ensure `canView()` and `canAction()` properly evaluate `OWNER` rules against the current user.
-- `src/pybend/static/components/ntt-item.js` — Verify edit/delete button visibility uses both schema `access` and resource `user_owner`.
-- `src/pybend/core/api/routes_fastapi.py` — Add server-side field stripping for fields where `access.view` denies the current user.
+- `src/n3tx/static/utils/Permissions.js` — Ensure `canView()` and `canAction()` properly evaluate `OWNER` rules against the current user.
+- `src/n3tx/static/components/ntx-item.js` — Verify edit/delete button visibility uses both schema `access` and resource `user_owner`.
+- `src/n3tx/core/api/routes_fastapi.py` — Add server-side field stripping for fields where `access.view` denies the current user.
 
 **Spec:**
 - Field-level `access.view` enforcement must happen server-side (defense in depth)
@@ -237,16 +237,16 @@ The frontend performance audit identified security vulnerabilities in the permis
 
 **Problem**: The frontend makes 2 sequential network requests (schema + data) before rendering. The server already has both.
 
-**Research**: SSR Strategy A costs ~50 lines of Python and eliminates 200-400ms of waterfall latency. The frontend already has `#consumePreloadedSchema()` and `#consumePreloadedData()` in NTT.js.
+**Research**: SSR Strategy A costs ~50 lines of Python and eliminates 200-400ms of waterfall latency. The frontend already has `#consumePreloadedSchema()` and `#consumePreloadedData()` in N3TX.js.
 
 **Files to modify:**
-- `src/pybend/core/ssr/html.py` — Already has `build_schema_tags()` and injection functions. Wire data pre-loading for the initial page entities.
-- `src/pybend/core/app.py` — Ensure `create_app()` serves the SSR-enhanced HTML with embedded schemas.
-- `src/pybend/static/core/NTT.js` — Verify `#consumePreloadedSchema()` and `#consumePreloadedData()` work with the injected data.
+- `src/n3tx/core/ssr/html.py` — Already has `build_schema_tags()` and injection functions. Wire data pre-loading for the initial page entities.
+- `src/n3tx/core/app.py` — Ensure `create_app()` serves the SSR-enhanced HTML with embedded schemas.
+- `src/n3tx/static/core/N3TX.js` — Verify `#consumePreloadedSchema()` and `#consumePreloadedData()` work with the injected data.
 
 **Spec:**
-- Server injects `<script type="application/json" data-ntt-schema="{Model}">{schema}</script>` for each registered model
-- Server injects `<script type="application/json" data-ntt-data="{tablename}">{data}</script>` for initial list data
+- Server injects `<script type="application/json" data-ntx-schema="{Model}">{schema}</script>` for each registered model
+- Server injects `<script type="application/json" data-ntx-data="{tablename}">{data}</script>` for initial list data
 - Frontend detects pre-loaded data and skips network requests
 - FCP improves by 200-400ms (measured before/after)
 
@@ -281,9 +281,9 @@ AFTER:  HTML (with embedded schema+data) -> JS -> Render
 ### Phase 1: Storage Layer (~2-3 days)
 
 **Files to modify:**
-- `src/pybend/core/models/proto_model.py` — In `__init_subclass__()`, detect `__discriminator__` ClassVar, register subtypes in `__subtypes__` dict on the base class.
-- `src/pybend/core/storage/sqlite_migration.py` — When model has `__discriminator__`, add `_type TEXT NOT NULL DEFAULT '{classname}'` column.
-- `src/pybend/core/storage/sqlite_storage.py` — `list()` and `get()` add `WHERE _type = ?` for subtype queries. `create()` sets `_type = model_class.__name__` before INSERT.
+- `src/n3tx/core/models/proto_model.py` — In `__init_subclass__()`, detect `__discriminator__` ClassVar, register subtypes in `__subtypes__` dict on the base class.
+- `src/n3tx/core/storage/sqlite_migration.py` — When model has `__discriminator__`, add `_type TEXT NOT NULL DEFAULT '{classname}'` column.
+- `src/n3tx/core/storage/sqlite_storage.py` — `list()` and `get()` add `WHERE _type = ?` for subtype queries. `create()` sets `_type = model_class.__name__` before INSERT.
 
 **What the developer writes:**
 ```python
@@ -312,8 +312,8 @@ class Video(Content):
 ### Phase 2: Schema Layer (~3-4 days)
 
 **Files to modify:**
-- `src/pybend/core/models/proto_schema.py` — New `polymorphic()` stage (via `@schema_extension`): when `__discriminator__` is set, wrap subtype schemas in `oneOf` with `discriminator` mapping.
-- `src/pybend/static/core/NTT.js` — `SCHEMA()` recognizes `oneOf` + `discriminator`, creates per-subtype DynamicClasses from `$defs`.
+- `src/n3tx/core/models/proto_schema.py` — New `polymorphic()` stage (via `@schema_extension`): when `__discriminator__` is set, wrap subtype schemas in `oneOf` with `discriminator` mapping.
+- `src/n3tx/static/core/N3TX.js` — `SCHEMA()` recognizes `oneOf` + `discriminator`, creates per-subtype DynamicClasses from `$defs`.
 
 **Schema output format:**
 ```json
@@ -341,7 +341,7 @@ class Video(Content):
 
 - STI CRUD: create, read, list (all types), list (single type), update, delete
 - Schema output: `oneOf` + `discriminator` presence, `$defs` per subtype
-- Frontend: `NTT.SCHEMA()` creates per-subtype DynamicClasses
+- Frontend: `N3TX.SCHEMA()` creates per-subtype DynamicClasses
 - Regression: all existing schema tests unchanged
 - Edge cases: empty subtypes, base-only queries, access rules per subtype
 
@@ -358,12 +358,12 @@ class Video(Content):
 
 **Duration**: ~3 days
 **Risk**: Low
-**Purpose**: Ship a focused CLI that makes PyBend accessible from the terminal. The 5-minute test: `pip install pybend[cli]` to running app with data in under 5 minutes.
+**Purpose**: Ship a focused CLI that makes N3TX accessible from the terminal. The 5-minute test: `pip install n3tx[cli]` to running app with data in under 5 minutes.
 
 ### Research Backing
 
 - Frameworks with strong CLIs see 25-40% faster onboarding; 63% of developers consider DX for retention
-- PyBend is ~70% done with zero code (model registry, schema generation, CRUD layer, migration system exist)
+- N3TX is ~70% done with zero code (model registry, schema generation, CRUD layer, migration system exist)
 - Typer: 19K stars, 66M monthly PyPI downloads, same author as FastAPI
 - Top 5 commands account for ~80% of usage across all frameworks
 - Annual maintenance: 15-20% of initial build (scope discipline critical)
@@ -371,36 +371,36 @@ class Video(Content):
 ### Phase 1: Foundation (~1 day)
 
 **New files:**
-- `src/pybend/cli/__init__.py` — Typer app entry point
-- `src/pybend/cli/commands/run.py` — `pybend run` (wraps server start)
-- `src/pybend/cli/commands/models.py` — `pybend models` (list registered models)
-- `src/pybend/cli/commands/describe.py` — `pybend describe <Model>` (print schema)
-- `src/pybend/cli/commands/migrate.py` — `pybend migrate:status` (migration status)
+- `src/n3tx/cli/__init__.py` — Typer app entry point
+- `src/n3tx/cli/commands/run.py` — `n3tx run` (wraps server start)
+- `src/n3tx/cli/commands/models.py` — `n3tx models` (list registered models)
+- `src/n3tx/cli/commands/describe.py` — `n3tx describe <Model>` (print schema)
+- `src/n3tx/cli/commands/migrate.py` — `n3tx migrate:status` (migration status)
 
 **Prerequisites:**
-- Extract `PyBendApp.setup()` from `build()` in `src/pybend/core/app.py`. The first ~12 lines of `build()` (auth configure, register models, set up storage) must work without creating FastAPI routes. This unblocks all CLI commands.
+- Extract `N3TXApp.setup()` from `build()` in `src/n3tx/core/app.py`. The first ~12 lines of `build()` (auth configure, register models, set up storage) must work without creating FastAPI routes. This unblocks all CLI commands.
 
 **Key pattern:** CLI commands are thin wrappers (~5-10 lines each) calling existing functions. No business logic in CLI commands.
 
 ### Phase 2: Daily Operations (~1 day)
 
 **New files:**
-- `src/pybend/cli/commands/crud.py` — `pybend list <table>`, `pybend get <table> <id>`, `pybend create <Model>`, `pybend update <table> <id>`, `pybend delete <table> <id>`
-- `src/pybend/cli/commands/seed.py` — `pybend seed` (run seed script)
+- `src/n3tx/cli/commands/crud.py` — `n3tx list <table>`, `n3tx get <table> <id>`, `n3tx create <Model>`, `n3tx update <table> <id>`, `n3tx delete <table> <id>`
+- `src/n3tx/cli/commands/seed.py` — `n3tx seed` (run seed script)
 
 **Schema-driven prompts:** The `create` command generates interactive prompts from schema properties — required fields, validation constraints, widget hints. No other framework CLI does this.
 
 ### Phase 3: Generation + Shell (~1 day)
 
 **New files:**
-- `src/pybend/cli/commands/scaffold.py` — `pybend scaffold <Model>` (generate files from schema)
-- `src/pybend/cli/commands/model.py` — `pybend model <Name> field:type` (generate model file)
-- `src/pybend/cli/commands/shell.py` — `pybend shell` (REPL with models pre-imported)
-- `src/pybend/cli/commands/docs.py` — `pybend docs` (generate/serve docs)
+- `src/n3tx/cli/commands/scaffold.py` — `n3tx scaffold <Model>` (generate files from schema)
+- `src/n3tx/cli/commands/model.py` — `n3tx model <Name> field:type` (generate model file)
+- `src/n3tx/cli/commands/shell.py` — `n3tx shell` (REPL with models pre-imported)
+- `src/n3tx/cli/commands/docs.py` — `n3tx docs` (generate/serve docs)
 
 **Integration:**
-- Add `[project.scripts] pybend = "pybend.cli:app"` to `pyproject.toml`
-- Add `[cli]` extras: `pip install pybend[cli]` installs Typer + Rich
+- Add `[project.scripts] n3tx = "n3tx.cli:app"` to `pyproject.toml`
+- Add `[cli]` extras: `pip install n3tx[cli]` installs Typer + Rich
 
 ### Tests
 
@@ -413,7 +413,7 @@ class Video(Content):
 - 14 CLI commands covering serve, inspect, CRUD, migrate, generate, shell
 - Schema-driven interactive create prompts (unique feature)
 - Thin wrapper architecture (zero business logic in CLI)
-- `pybend run` as primary server start command
+- `n3tx run` as primary server start command
 
 ---
 
@@ -432,9 +432,9 @@ class Video(Content):
 ### 4a. Sparse Fieldsets (~2-3 days)
 
 **Files to modify:**
-- `src/pybend/core/api/routes_fastapi.py` — Parse `?fields=name,price,id` query param. Strip unlisted fields from response dict.
-- `src/pybend/core/api/network_api.py` — Mirror `?fields=` support for Level 3 routes.
-- `src/pybend/core/storage/sqlite_storage.py` — Optional: SELECT only requested columns for DB-level optimization.
+- `src/n3tx/core/api/routes_fastapi.py` — Parse `?fields=name,price,id` query param. Strip unlisted fields from response dict.
+- `src/n3tx/core/api/network_api.py` — Mirror `?fields=` support for Level 3 routes.
+- `src/n3tx/core/storage/sqlite_storage.py` — Optional: SELECT only requested columns for DB-level optimization.
 
 **Spec:**
 ```bash
@@ -446,8 +446,8 @@ GET /products?fields=name,price,id
 ### 4b. Sorting (~1-2 days)
 
 **Files to modify:**
-- `src/pybend/core/api/routes_fastapi.py` — Parse `?sort=price` or `?sort=-created_at` (prefix `-` for DESC).
-- `src/pybend/core/storage/sqlite_storage.py` — Add `ORDER BY` clause to list queries.
+- `src/n3tx/core/api/routes_fastapi.py` — Parse `?sort=price` or `?sort=-created_at` (prefix `-` for DESC).
+- `src/n3tx/core/storage/sqlite_storage.py` — Add `ORDER BY` clause to list queries.
 
 **Spec:**
 ```bash
@@ -458,8 +458,8 @@ GET /products?sort=name,-price   # Name ascending, then price descending
 ### 4c. Filtering (~2-3 days)
 
 **Files to modify:**
-- `src/pybend/core/api/routes_fastapi.py` — Parse `?filter[price][gt]=50&filter[name][contains]=Widget`.
-- `src/pybend/core/storage/sqlite_storage.py` — Translate filters to parameterized WHERE clauses.
+- `src/n3tx/core/api/routes_fastapi.py` — Parse `?filter[price][gt]=50&filter[name][contains]=Widget`.
+- `src/n3tx/core/storage/sqlite_storage.py` — Translate filters to parameterized WHERE clauses.
 
 **Operators:** `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`, `in`.
 
@@ -474,7 +474,7 @@ GET /products?filter[price][gt]=50&filter[name][contains]=Pro
 ### 4d. Pagination Improvements (~1 day)
 
 **Files to modify:**
-- `src/pybend/core/api/routes_fastapi.py` — Add `Link` header with `rel="next"`, `rel="prev"` for discoverability.
+- `src/n3tx/core/api/routes_fastapi.py` — Add `Link` header with `rel="next"`, `rel="prev"` for discoverability.
 
 ### Tests
 
@@ -502,20 +502,20 @@ GET /products?filter[price][gt]=50&filter[name][contains]=Pro
 ### Research Backing
 
 - MCP hit 97M+ monthly SDK downloads, adopted by OpenAI, Google, Microsoft
-- PyBend's schema IS the tool definition — the gap is protocol features, not architecture
+- N3TX's schema IS the tool definition — the gap is protocol features, not architecture
 - Agent market: $10.9B in 2026, 46.3% CAGR to $52.6B by 2030
 - Phase 0 (basic MCP) complete in v0.8; v0.9 deepens it
 
 ### 5a. MCP Streaming Support (~3-5 days)
 
 **Files to modify:**
-- `src/pybend/core/api/network_mcp.py` — Add SSE streaming for `tools/call` responses. Support `stream: true` in tool call arguments.
-- `src/pybend/core/api/network_adapter.py` — Add streaming correlation support to `request()`.
+- `src/n3tx/core/api/network_mcp.py` — Add SSE streaming for `tools/call` responses. Support `stream: true` in tool call arguments.
+- `src/n3tx/core/api/network_adapter.py` — Add streaming correlation support to `request()`.
 
 ### 5b. MCP Resources (~3-5 days)
 
 **Files to modify:**
-- `src/pybend/core/api/network_mcp.py` — Implement `resources/list` and `resources/read`. Map registered models to MCP resources. Entity instances are resource URIs.
+- `src/n3tx/core/api/network_mcp.py` — Implement `resources/list` and `resources/read`. Map registered models to MCP resources. Entity instances are resource URIs.
 
 **Spec:**
 ```json
@@ -523,20 +523,20 @@ GET /products?filter[price][gt]=50&filter[name][contains]=Pro
 // Returns: resources for each model (schema, entity list)
 
 {"jsonrpc": "2.0", "method": "resources/read",
- "params": {"uri": "pybend://products/42"}, "id": 2}
+ "params": {"uri": "n3tx://products/42"}, "id": 2}
 // Returns: entity data as MCP resource content
 ```
 
 ### 5c. MCP Prompt Templates (~2-3 days)
 
 **Files to modify:**
-- `src/pybend/core/api/network_mcp.py` — Implement `prompts/list` and `prompts/get`. Auto-generate prompt templates from model schemas (e.g., "Create a new Product with the following fields...").
+- `src/n3tx/core/api/network_mcp.py` — Implement `prompts/list` and `prompts/get`. Auto-generate prompt templates from model schemas (e.g., "Create a new Product with the following fields...").
 
 ### 5d. MCP Notifications + Change Tracking (~3-5 days)
 
 **Files to modify:**
-- `src/pybend/core/api/network_mcp.py` — Implement `notifications/resources/updated` when entities change (via ActorModel lifecycle events).
-- `src/pybend/core/models/actor_model.py` — Wire lifecycle events to MCP notification dispatch.
+- `src/n3tx/core/api/network_mcp.py` — Implement `notifications/resources/updated` when entities change (via ActorModel lifecycle events).
+- `src/n3tx/core/models/actor_model.py` — Wire lifecycle events to MCP notification dispatch.
 
 ### Tests
 
@@ -563,7 +563,7 @@ GET /products?filter[price][gt]=50&filter[name][contains]=Pro
 
 ### Research Backing
 
-- 8 identifiable impurities break categorical laws in PyBend
+- 8 identifiable impurities break categorical laws in N3TX
 - P0+P1 yield 40-60% reduction in integration test surface area
 - Industry validation: Jane Street, Meta, Standard Chartered, Elm, Redux all use CT structures under plain-English names
 - The Elm model: CT correctness internally, simple interfaces externally
@@ -572,33 +572,33 @@ GET /products?filter[price][gt]=50&filter[name][contains]=Pro
 
 #### 6a. Value Getter Immutability (~2-3 days)
 
-**Problem**: The value getter in `NTT.js` `prototype()` mutates `_data` in-place when injecting `$schema` and `$id`. This violates referential transparency.
+**Problem**: The value getter in `N3TX.js` `prototype()` mutates `_data` in-place when injecting `$schema` and `$id`. This violates referential transparency.
 
 **Files to modify:**
-- `src/pybend/static/core/NTT.js` — Value getter returns a new object with `$schema`/`$id` spread in, rather than mutating `_data`.
+- `src/n3tx/static/core/N3TX.js` — Value getter returns a new object with `$schema`/`$id` spread in, rather than mutating `_data`.
 
 #### 6b. Pure Registration (~2-3 days)
 
 **Problem**: `register_model()` has global side effects (mutates `registered_models` dict, calls `create_table()`). This makes tests order-dependent and prevents isolated testing.
 
 **Files to modify:**
-- `src/pybend/core/utils/registrar.py` — Return registration results instead of mutating globals. `PyBendApp.build()` collects results and applies them.
-- `src/pybend/core/app.py` — Use pure registration in `build()`.
+- `src/n3tx/core/utils/registrar.py` — Return registration results instead of mutating globals. `N3TXApp.build()` collects results and applies them.
+- `src/n3tx/core/app.py` — Use pure registration in `build()`.
 
 #### 6c. Exception-to-TX Error Mapping (~2-3 days)
 
 **Problem**: Some code paths raise exceptions that bypass the TX error channel, breaking composition chains.
 
 **Files to modify:**
-- `src/pybend/core/models/actor_model.py` — Ensure `handler_crud()` catches all exceptions and returns `tx.error()`.
-- `src/pybend/core/api/network_api.py` — Map HTTP exceptions to TX error responses.
+- `src/n3tx/core/models/actor_model.py` — Ensure `handler_crud()` catches all exceptions and returns `tx.error()`.
+- `src/n3tx/core/api/network_api.py` — Map HTTP exceptions to TX error responses.
 
 #### 6d. sql_filter Completeness (~1-2 days)
 
 **Problem**: `sql_filter()` returns `None` for some rule combinations, which absorbs into nothing rather than propagating correctly.
 
 **Files to modify:**
-- `src/pybend/core/authorize/rules.py` — Ensure all rules return a valid SQL fragment or explicit `1=1` / `1=0` for ANYONE/NEVER.
+- `src/n3tx/core/authorize/rules.py` — Ensure all rules return a valid SQL fragment or explicit `1=1` / `1=0` for ANYONE/NEVER.
 
 ### P1: Verify (4-7 days)
 
@@ -607,14 +607,14 @@ GET /products?filter[price][gt]=50&filter[name][contains]=Pro
 **Purpose**: Verify `get(create(m)).scalar_fields == m.scalar_fields` for all storable field types.
 
 **New file:**
-- `src/pybend/core/tests/unit/test_storage_adjunction.py` — Round-trip tests for every field type (str, int, float, bool, Optional, Ref, ListRef).
+- `src/n3tx/core/tests/unit/test_storage_adjunction.py` — Round-trip tests for every field type (str, int, float, bool, Optional, Ref, ListRef).
 
 #### 6f. DynamicClass Functor Tests (~2-3 days)
 
 **Purpose**: Verify the `Schema -> DynamicClass` transformation preserves structure.
 
 **New file:**
-- `src/pybend/static/tests/unit/test_dynamicclass_functor.js` — Verify: schema properties -> getters/setters, methods -> callables, $defs -> nested classes, type validation preserved.
+- `src/n3tx/static/tests/unit/test_dynamicclass_functor.js` — Verify: schema properties -> getters/setters, methods -> callables, $defs -> nested classes, type validation preserved.
 
 ### Wave 6 Deliverable
 
@@ -659,7 +659,7 @@ GET /products?filter[price][gt]=50&filter[name][contains]=Pro
 
 | Risk | Probability | Impact | Mitigation |
 |------|:-----------:|:------:|-----------|
-| Polymorphic STI table bloat | Low | Medium | Document max 5-8 subtypes. PyBend targets sub-100K rows. CTI migration path documented. |
+| Polymorphic STI table bloat | Low | Medium | Document max 5-8 subtypes. N3TX targets sub-100K rows. CTI migration path documented. |
 | CLI scope creep beyond 15 commands | Medium | Medium | Strict rule: no business logic in CLI commands. Each command is a thin wrapper. |
 | REST filter SQL injection | Low | Critical | All filter values parameterized. Only allow filtering on schema-declared fields. |
 | MCP protocol spec changes | Low | Low | Thin adapter (~300 LOC). Cheap to update. |
@@ -674,33 +674,33 @@ GET /products?filter[price][gt]=50&filter[name][contains]=Pro
 
 | File | Waves |
 |------|:-----:|
-| `src/pybend/core/models/proto_model.py` | W2 |
-| `src/pybend/core/models/proto_schema.py` | W2 |
-| `src/pybend/core/models/actor_model.py` | W5, W6 |
-| `src/pybend/core/api/routes_fastapi.py` | W1, W4 |
-| `src/pybend/core/api/network_api.py` | W4 |
-| `src/pybend/core/api/network_mcp.py` | W5 |
-| `src/pybend/core/api/network_adapter.py` | W5 |
-| `src/pybend/core/authorize/rules.py` | W6 |
-| `src/pybend/core/storage/sqlite_storage.py` | W2, W4 |
-| `src/pybend/core/storage/sqlite_migration.py` | W2 |
-| `src/pybend/core/ssr/html.py` | W1 |
-| `src/pybend/core/app.py` | W1, W3, W6 |
-| `src/pybend/core/utils/registrar.py` | W6 |
-| `src/pybend/static/core/NTT.js` | W2, W6 |
-| `src/pybend/static/utils/Permissions.js` | W1 |
-| `src/pybend/static/components/ntt-item.js` | W1 |
+| `src/n3tx/core/models/proto_model.py` | W2 |
+| `src/n3tx/core/models/proto_schema.py` | W2 |
+| `src/n3tx/core/models/actor_model.py` | W5, W6 |
+| `src/n3tx/core/api/routes_fastapi.py` | W1, W4 |
+| `src/n3tx/core/api/network_api.py` | W4 |
+| `src/n3tx/core/api/network_mcp.py` | W5 |
+| `src/n3tx/core/api/network_adapter.py` | W5 |
+| `src/n3tx/core/authorize/rules.py` | W6 |
+| `src/n3tx/core/storage/sqlite_storage.py` | W2, W4 |
+| `src/n3tx/core/storage/sqlite_migration.py` | W2 |
+| `src/n3tx/core/ssr/html.py` | W1 |
+| `src/n3tx/core/app.py` | W1, W3, W6 |
+| `src/n3tx/core/utils/registrar.py` | W6 |
+| `src/n3tx/static/core/N3TX.js` | W2, W6 |
+| `src/n3tx/static/utils/Permissions.js` | W1 |
+| `src/n3tx/static/components/ntx-item.js` | W1 |
 
 ### New Files (Created in v0.9)
 
 | File | Wave | Purpose |
 |------|:----:|---------|
-| `src/pybend/cli/__init__.py` | W3 | CLI entry point (Typer app) |
-| `src/pybend/cli/commands/*.py` | W3 | CLI commands (run, models, describe, crud, etc.) |
-| `src/pybend/core/tests/unit/test_polymorphic.py` | W2 | Polymorphic storage + schema tests |
-| `src/pybend/core/tests/unit/test_storage_adjunction.py` | W6 | Storage round-trip verification |
-| `src/pybend/core/tests/unit/test_rest_enhancements.py` | W4 | Sparse fieldsets, sorting, filtering tests |
-| `src/pybend/static/tests/unit/test_dynamicclass_functor.js` | W6 | DynamicClass functor law tests |
+| `src/n3tx/cli/__init__.py` | W3 | CLI entry point (Typer app) |
+| `src/n3tx/cli/commands/*.py` | W3 | CLI commands (run, models, describe, crud, etc.) |
+| `src/n3tx/core/tests/unit/test_polymorphic.py` | W2 | Polymorphic storage + schema tests |
+| `src/n3tx/core/tests/unit/test_storage_adjunction.py` | W6 | Storage round-trip verification |
+| `src/n3tx/core/tests/unit/test_rest_enhancements.py` | W4 | Sparse fieldsets, sorting, filtering tests |
+| `src/n3tx/static/tests/unit/test_dynamicclass_functor.js` | W6 | DynamicClass functor law tests |
 
 ---
 

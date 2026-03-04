@@ -46,7 +46,7 @@ The setup creates tables and seeds data once. No teardown between tests. No tran
 **Severity:** Medium
 **Location:** `conftest.py:1-20` (root), `run_tests.py:1-27`, `run_unit_tests.py:1-16`
 
-Three separate files each implement the same workaround for the broken `pybend/__init__.py` import (issue B1 in issues.md). Each does it slightly differently:
+Three separate files each implement the same workaround for the broken `n3tx/__init__.py` import (issue B1 in issues.md). Each does it slightly differently:
 - Root conftest pre-registers 8 package shims
 - `run_tests.py` pre-registers 2 package shims with actual paths
 - `run_unit_tests.py` pre-registers 2 with empty paths
@@ -56,7 +56,7 @@ This creates a fragile import environment where:
 - Adding new subpackages requires updating multiple shim lists
 - IDE test runners may not use the shim files at all
 
-**Fix:** Fix the root cause (B1: broken `pybend/__init__.py`), then remove all three shim files.
+**Fix:** Fix the root cause (B1: broken `n3tx/__init__.py`), then remove all three shim files.
 
 ---
 
@@ -333,7 +333,7 @@ Doesn't actually assert CORS headers (`Access-Control-Allow-Origin`, etc.) in re
 **Severity:** Medium
 **Location:** `tests/unit/test_config.py` — `test_sqlite_db_file`
 
-The session-scoped `test_db` fixture in integration tests changes `config.SQLITE_DB_FILE`. If unit tests run after integration tests in the same session, `test_sqlite_db_file` may see the modified value instead of `"pybend.db"`.
+The session-scoped `test_db` fixture in integration tests changes `config.SQLITE_DB_FILE`. If unit tests run after integration tests in the same session, `test_sqlite_db_file` may see the modified value instead of `"n3tx.db"`.
 
 Already documented as B5 in issues.md, but worth noting this is a direct test bug.
 
@@ -523,7 +523,7 @@ If present, likely tests seed data structure but doesn't verify:
 ## CG-1. `api/backend.py` — Zero Test Coverage
 
 **Severity:** Medium
-**Location:** `src/pybend/core/api/backend.py` (157 lines)
+**Location:** `src/n3tx/core/api/backend.py` (157 lines)
 
 Two full backend classes with no test coverage:
 - `BaseBackend` — ABC with model registration
@@ -542,7 +542,7 @@ Two full backend classes with no test coverage:
 ## CG-2. `api/routes_flask.py` — Zero Test Coverage
 
 **Severity:** Low
-**Location:** `src/pybend/core/api/routes_flask.py` (259 lines)
+**Location:** `src/n3tx/core/api/routes_flask.py` (259 lines)
 
 The entire Flask route layer has no tests. This is the legacy backend but it's still importable and used when `config.BACKEND == "flask"`.
 
@@ -551,7 +551,7 @@ The entire Flask route layer has no tests. This is the legacy backend but it's s
 ## CG-3. `storage/json_storage.py` — Zero Test Coverage
 
 **Severity:** Low
-**Location:** `src/pybend/core/storage/json_storage.py` (77 lines)
+**Location:** `src/n3tx/core/storage/json_storage.py` (77 lines)
 
 An alternative JSON-file storage backend implementing `AbstractStorage`. All CRUD methods, file I/O, and ID generation are untested.
 
@@ -560,7 +560,7 @@ An alternative JSON-file storage backend implementing `AbstractStorage`. All CRU
 ## CG-4. `models/viewable_mixin.py` — Zero Test Coverage
 
 **Severity:** Low
-**Location:** `src/pybend/core/models/viewable_mixin.py` (50 lines)
+**Location:** `src/n3tx/core/models/viewable_mixin.py` (50 lines)
 
 The `ViewableMixin` class with `view()` method and `viewables` registry has no tests.
 
@@ -569,7 +569,7 @@ The `ViewableMixin` class with `view()` method and `viewables` registry has no t
 ## CG-5. `utils/scaffold.py` — Zero Test Coverage
 
 **Severity:** Low
-**Location:** `src/pybend/core/utils/scaffold.py` (450 lines)
+**Location:** `src/n3tx/core/utils/scaffold.py` (450 lines)
 
 The entire component scaffolding system — `scaffold_item()`, `scaffold_list()`, `scaffold_css()`, `scaffold_model()`, `scaffold_single()` — has no unit tests. Only the schema endpoint test checks the scaffold endpoint returns text.
 
@@ -578,7 +578,7 @@ The entire component scaffolding system — `scaffold_item()`, `scaffold_list()`
 ## CG-6. `utils/generate_docs.py` — Zero Test Coverage
 
 **Severity:** Low
-**Location:** `src/pybend/core/utils/generate_docs.py` (67 lines)
+**Location:** `src/n3tx/core/utils/generate_docs.py` (67 lines)
 
 Documentation generator with no tests for:
 - Markdown generation
@@ -590,7 +590,7 @@ Documentation generator with no tests for:
 ## CG-7. `utils/introspection.py` — Partial Coverage
 
 **Severity:** Medium
-**Location:** `src/pybend/core/utils/introspection.py`
+**Location:** `src/n3tx/core/utils/introspection.py`
 
 Functions like `get_list_fields()`, `get_ref_fields()`, `collect_all_referenced_models()`, `_unwrap_listref()`, `_is_self_ref()` are complex type introspection utilities. Tests exist but miss:
 - Forward reference resolution

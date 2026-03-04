@@ -7,7 +7,7 @@
 3. **Astro scores 99.2/100 Lighthouse** -- highest of any JS framework benchmarked (Enterspeed 2025).
 4. **Netflix cut TTI by 50%** replacing React SPA with server-rendered HTML + vanilla JS, reducing JS by 200KB.
 5. **Jamstack market: $1.8B (2020) to $8.6B (2025)**, projected ~$12B by 2026. 35% of developers identify as Jamstack-aligned.
-6. **No existing framework compiles from a data schema to static HTML** -- PyBend's proposed compiler is a genuine whitespace opportunity.
+6. **No existing framework compiles from a data schema to static HTML** -- N3TX's proposed compiler is a genuine whitespace opportunity.
 7. **Hydration adds 200-500ms to first interaction** on average (Web Almanac 2024). Qwik eliminates it entirely via resumability.
 8. **Build-time rendering (Astro SSG) is 6.7x faster on TTI** and 4.3x faster on LCP than Next.js SSR for the same component (Sparkbox).
 9. **eBay's Marko achieves 60-84% JavaScript reductions** on production pages via compiler-automated partial hydration across ~20,000 UI components.
@@ -16,12 +16,12 @@
 12. **Declarative Shadow DOM now supported in all major browsers**: Chrome 111+, Edge 111+, Safari 16.4+, Firefox 123+.
 13. **Svelte 5 updates 1,000 list items in 8ms** vs React 19 at 47ms and Vue 4 at 23ms -- compiler-optimized code is categorically faster.
 14. **Lit template compiler achieves 45% faster first render** by pre-computing template metadata at build time.
-15. **For a 20-entity PyBend list at md display, current rendering takes ~44ms; compiled templates would take ~15ms** -- a 66% reduction.
+15. **For a 20-entity N3TX list at md display, current rendering takes ~44ms; compiled templates would take ~15ms** -- a 66% reduction.
 16. **ISR reduces serverless costs 20-30%** vs full SSR while keeping content fresh within configurable bounds.
 17. **Pinterest: 15% sign-up conversion increase** from improving LCP 2.5s to 1.5s. Vodafone: 8% sales increase from similar gains.
 18. **Compiler dev cost estimated at $45K-100K** (9-14 weeks); CDN+SW alternative achieves 80% of gains at 5% of cost in 1-2 weeks.
-19. **PyBend's form generation: ~25 function calls, ~60 string concatenations, ~10 permission checks per entity** -- entirely schema-determined and fully compilable.
-20. **Of ~25 rendering decisions per PyBend entity, ~18 are fully compilable**, ~4 partially compilable, only ~3 require runtime (values, user identity, collection contents).
+19. **N3TX's form generation: ~25 function calls, ~60 string concatenations, ~10 permission checks per entity** -- entirely schema-determined and fully compilable.
+20. **Of ~25 rendering decisions per N3TX entity, ~18 are fully compilable**, ~4 partially compilable, only ~3 require runtime (values, user identity, collection contents).
 
 ---
 
@@ -58,7 +58,7 @@
 - Vercel Fluid Compute: 2.55x faster than Workers for SSR; 9x faster cold starts vs traditional serverless.
 - Optimal 2025-2026 architecture: build-time SSG + CDN edge + edge functions for dynamic parts.
 
-**Prerendering (headless browser) is the wrong approach for PyBend**: Puppeteer uses 300MB-1GB RAM per instance, processes ~500K pages/day at scale. Schema compilation is orders of magnitude cheaper (string operations on structured data).
+**Prerendering (headless browser) is the wrong approach for N3TX**: Puppeteer uses 300MB-1GB RAM per instance, processes ~500K pages/day at scale. Schema compilation is orders of magnitude cheaper (string operations on structured data).
 
 ---
 
@@ -71,7 +71,7 @@
 | AOT/SSG | Build time | Stale until rebuild | Marketing, docs, catalogs |
 | SSR | Request time | Always fresh | Dashboards, personalized |
 | ISR/Edge | First request + cache | Tunable staleness | E-commerce, semi-dynamic |
-| Schema-Compiled Templates | Schema change | Fresh templates, data injected later | PyBend's sweet spot |
+| Schema-Compiled Templates | Schema change | Fresh templates, data injected later | N3TX's sweet spot |
 
 The fourth strategy is unique to schema-driven architectures: compile structure once (on deployment), inject data at runtime. Gets 90% of compilation benefit with none of the staleness problems.
 
@@ -81,7 +81,7 @@ The fourth strategy is unique to schema-driven architectures: compile structure 
 - **Marko**: Compiler automatically analyzes templates to determine static vs interactive regions. No developer annotation needed. Sub-template partial hydration.
 - **Svelte**: Compiles components to surgical imperative DOM updates. No virtual DOM. Bundle: 3KB simple app vs React 42KB. Memory: ~0.5KB/component vs React ~2.4KB.
 
-**Declarative Shadow DOM (DSD) -- the key enabler for PyBend:**
+**Declarative Shadow DOM (DSD) -- the key enabler for N3TX:**
 - Allows server-rendered shadow roots without JavaScript.
 - Browser attaches shadow root during HTML parsing (before JS).
 - When component JS loads, `attachShadow()` detects existing declarative root and adopts it -- zero re-render, zero layout shift.
@@ -105,7 +105,7 @@ The fourth strategy is unique to schema-driven architectures: compile structure 
 **Build Pipeline Performance:**
 - Vite incremental: <50ms. Turbopack: 10-50ms. Webpack 5: 200-500ms.
 - Schema-to-HTML compiler should be faster (JSON input, HTML string output, flat dependency graph).
-- Expected: <10ms per model change for PyBend.
+- Expected: <10ms per model change for N3TX.
 
 ---
 
@@ -172,12 +172,12 @@ Key data point: Next.js project with ~3,000 SSG pages took 30-35 min on Vercel; 
 
 ---
 
-### PyBend Architecture Fit Summary
+### N3TX Architecture Fit Summary
 
-**Why PyBend Is Uniquely Positioned:**
+**Why N3TX Is Uniquely Positioned:**
 - The JSON Schema IS the complete rendering specification: field types, widget hints, layout groups, display modes, permission rules, methods -- all in one document.
 - No other framework has this. Every SSG/SSR framework requires handwritten templates.
-- `ProtoModel.schema()` generates everything `form.js` and `ntt-item.js` evaluate at runtime.
+- `ProtoModel.schema()` generates everything `form.js` and `ntx-item.js` evaluate at runtime.
 - Analogous to protobuf/OpenAPI/Prisma: when the schema is rich enough, you can generate the implementation.
 
 **Complete Schema Surface Map (Product model):**
@@ -189,7 +189,7 @@ Key data point: Next.js project with ~3,000 SSG pages took 30-35 min on Vercel; 
 **Runtime Cost Analysis (current):**
 - `prototype()` per model: ~0.8ms -- fast, cannot be pre-compiled, stays as-is
 - Form generation per entity (5 fields, 2 groups): ~1.5ms (~25 function calls, ~60 string concats, ~10 permission checks)
-- `ntt-item.render()` per entity at md: ~2.0ms
+- `ntx-item.render()` per entity at md: ~2.0ms
 - 20 md cards total rendering: ~44ms (blocks for ~2.6 frames at 60fps)
 
 **Projected Performance After Compilation:**
@@ -232,18 +232,18 @@ Key data point: Next.js project with ~3,000 SSG pages took 30-35 min on Vercel; 
 The compiler generates variants per access level: `Product_sm_anon.html`, `Product_sm_auth.html`, `Product_sm_owner.html`, `Product_sm_admin.html`. At runtime, component selects the right variant via `permissions.canAction()`.
 
 **Files to Create:**
-- `src/pybend/core/compiler/__init__.py`
-- `src/pybend/core/compiler/templates.py` (main compiler)
-- `src/pybend/core/compiler/form_compiler.py` (port of form.js)
-- `src/pybend/core/compiler/size_compiler.py` (xs/sm/md/lg/xl)
-- `src/pybend/core/compiler/method_compiler.py`
-- `src/pybend/core/compiler/registry.py`
+- `src/n3tx/core/compiler/__init__.py`
+- `src/n3tx/core/compiler/templates.py` (main compiler)
+- `src/n3tx/core/compiler/form_compiler.py` (port of form.js)
+- `src/n3tx/core/compiler/size_compiler.py` (xs/sm/md/lg/xl)
+- `src/n3tx/core/compiler/method_compiler.py`
+- `src/n3tx/core/compiler/registry.py`
 
 **Files to Modify:**
-- `src/pybend/core/app.py` -- add `compile_templates()` to startup
-- `src/pybend/core/api/routes_fastapi.py` -- add `/templates/{model}` endpoint
-- `src/pybend/static/components/ntt-item.js` -- template-aware `render()` path
-- `src/pybend/static/core/NTT.js` -- fetch templates on SCHEMA completion
+- `src/n3tx/core/app.py` -- add `compile_templates()` to startup
+- `src/n3tx/core/api/routes_fastapi.py` -- add `/templates/{model}` endpoint
+- `src/n3tx/static/components/ntx-item.js` -- template-aware `render()` path
+- `src/n3tx/static/core/N3TX.js` -- fetch templates on SCHEMA completion
 
 **Simpler Wins to Try First:**
 1. Template caching in form.js (20-line change, Map keyed by model+mode)
@@ -290,34 +290,34 @@ Server-rendered static HTML (shell) with isolated interactive components (island
 3. **URL state**: survives reload/bookmarking, limited to serializable values.
 4. **Parent element attributes**: via MutationObserver.
 
-**PyBend's Actor/Matrix IS an island communication system:**
+**N3TX's Actor/Matrix IS an island communication system:**
 - Matrix = shared message bus (equivalent to nanostores/signals)
 - TX = structured messages (superior to raw CustomEvent)
 - Component addresses = island identifiers
 - Watchers/Observers = reactive subscriptions
-- DynamicClass = shared entity registry (all ntt-items for same entity share canonical data)
+- DynamicClass = shared entity registry (all ntx-items for same entity share canonical data)
 - Solves the hardest islands problem (cross-island state sync) out of the box
 
-**How PyBend Components Map:**
+**How N3TX Components Map:**
 
 | Component | Type | Hydration |
 |-----------|------|-----------|
 | Navigation/header/footer | Static shell | None |
 | Skeleton placeholders | Static shell | None |
 | Form fields (display mode) | Static shell (potentially) | None |
-| `<ntt-list>` | Client island | viewport/idle |
-| `<ntt-item>` | Client island | viewport |
-| `<ntt-method>` | Client island | visible/interaction |
-| `<ntt-router>` | Client island | load (critical) |
+| `<ntx-list>` | Client island | viewport/idle |
+| `<ntx-item>` | Client island | viewport |
+| `<ntx-method>` | Client island | visible/interaction |
+| `<ntx-router>` | Client island | load (critical) |
 
 **Adoption Path:**
 1. **Phase 1 (Week 1-2)**: Cache-Control headers on schema + public list endpoints
 2. **Phase 2 (Week 3-4)**: Service Worker for schema caching, stale-while-revalidate for entities
 3. **Phase 3 (Month 2-3)**: Schema-walking HTML pre-renderer targeting public-access models. Static shell + Web Component islands. CDN with ISR-style invalidation.
-4. **Phase 4 (Month 4+)**: Incremental rebuild via storage write hooks. DSD for ntt-item. Full build pipeline.
+4. **Phase 4 (Month 4+)**: Incremental rebuild via storage write hooks. DSD for ntx-item. Full build pipeline.
 
 **Anti-Patterns to Avoid:**
-- Do not adopt Qwik wholesale (migration cost unjustified for PyBend's scale)
+- Do not adopt Qwik wholesale (migration cost unjustified for N3TX's scale)
 - Do not add a Node.js SSR layer (violates Python-framework philosophy)
 - Do not use headless browser pre-rendering (resource cost unacceptable with schema available)
 - Do not compile data into HTML at build time (compile templates/structure; inject data at request/client time)
@@ -325,4 +325,4 @@ Server-rendered static HTML (shell) with isolated interactive components (island
 - Do not have separate data fetches per island for same data (use shared store/DynamicClass)
 
 **Bottom-Line Recommendation:**
-Start with CDN caching + Service Workers (1-2 weeks, 80% of benefit at 5% cost). Measure TTFB/FCP/LCP. If still >200ms TTFB on public pages after caching, proceed with the schema-walking compiler. The compiler is architecturally sound, uniquely enabled by PyBend's schema completeness (~770 LOC, 5-7 days for PyBend-specific implementation), and produces the Static Shell + Dynamic Islands pattern the industry has converged on. Make it opt-in: runtime rendering remains default.
+Start with CDN caching + Service Workers (1-2 weeks, 80% of benefit at 5% cost). Measure TTFB/FCP/LCP. If still >200ms TTFB on public pages after caching, proceed with the schema-walking compiler. The compiler is architecturally sound, uniquely enabled by N3TX's schema completeness (~770 LOC, 5-7 days for N3TX-specific implementation), and produces the Static Shell + Dynamic Islands pattern the industry has converged on. Make it opt-in: runtime rendering remains default.

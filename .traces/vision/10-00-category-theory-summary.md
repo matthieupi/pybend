@@ -1,4 +1,4 @@
-# Category Theory & PyBend: Executive Summary
+# Category Theory & N3TX: Executive Summary
 
 > *Standalone summary. For the full analysis, see [category-theory-analysis.md](../research/category-theory/category-theory-analysis.md).*
 
@@ -6,15 +6,15 @@
 
 ## The Question
 
-**How does PyBend relate to category theory? Where are our abstractions impure, and what can we improve?**
+**How does N3TX relate to category theory? Where are our abstractions impure, and what can we improve?**
 
-PyBend's core promise -- "define a model, get a working app" -- is a claim about structure-preserving transformations. Category theory (CT) is the mathematics of structure-preserving transformations. The question is not whether CT is relevant to PyBend. It is whether understanding the connection can make the framework more correct, more composable, and more maintainable.
+N3TX's core promise -- "define a model, get a working app" -- is a claim about structure-preserving transformations. Category theory (CT) is the mathematics of structure-preserving transformations. The question is not whether CT is relevant to N3TX. It is whether understanding the connection can make the framework more correct, more composable, and more maintainable.
 
-The answer: **yes, but surgically.** PyBend already embodies categorical structures throughout its stack. Making three of them explicit and fixing eight identified impurities yields a 40-60% reduction in integration test surface area and eliminates an entire class of silent-failure bugs -- for 12-19 engineering days of work. Going beyond that enters the zone of diminishing returns.
+The answer: **yes, but surgically.** N3TX already embodies categorical structures throughout its stack. Making three of them explicit and fixing eight identified impurities yields a 40-60% reduction in integration test surface area and eliminates an entire class of silent-failure bugs -- for 12-19 engineering days of work. Going beyond that enters the zone of diminishing returns.
 
-**The strategic framing:** Category theory is not an academic curiosity to bolt onto PyBend. PyBend already *is* categorical -- the schema pipeline is a composition of functors, the access rules form a Boolean algebra, the actor system is a message-passing category. The question is whether the places where these structures break (the "impurities") are causing real bugs, and whether fixing them is worth the engineering cost. The answer to both is yes, within strict bounds.
+**The strategic framing:** Category theory is not an academic curiosity to bolt onto N3TX. N3TX already *is* categorical -- the schema pipeline is a composition of functors, the access rules form a Boolean algebra, the actor system is a message-passing category. The question is whether the places where these structures break (the "impurities") are causing real bugs, and whether fixing them is worth the engineering cost. The answer to both is yes, within strict bounds.
 
-> PyBend's opportunity: use CT as an internal quality tool -- the way a structural engineer uses physics. The building's occupants never see the load calculations, but they benefit from the building not falling down. Fix the eight identified structural cracks. Do not redesign the facade.
+> N3TX's opportunity: use CT as an internal quality tool -- the way a structural engineer uses physics. The building's occupants never see the load calculations, but they benefit from the building not falling down. Fix the eight identified structural cracks. Do not redesign the facade.
 
 ---
 
@@ -22,7 +22,7 @@ The answer: **yes, but surgically.** PyBend already embodies categorical structu
 
 | # | Finding | What It Means |
 |---|---------|---------------|
-| 1 | **PyBend's pipeline is a composition of 4 functors** | The "model is the app" claim is mathematically precise: `Model -> Schema -> DynamicClass -> UI` preserves structure at each stage |
+| 1 | **N3TX's pipeline is a composition of 4 functors** | The "model is the app" claim is mathematically precise: `Model -> Schema -> DynamicClass -> UI` preserves structure at each stage |
 | 2 | **The AccessRule system is a textbook Boolean algebra** | `evaluate()` is a proper homomorphism to `Bool`; `to_dict()` and `sql_filter()` are natural transformations |
 | 3 | **8 identifiable impurities break categorical laws** | Global registration, value getter mutation, and exception-based errors are the top three by severity |
 | 4 | **The industry validates this approach -- without CT vocabulary** | Jane Street, Meta, Standard Chartered, Elm, Redux all use CT structures under plain-English names |
@@ -45,7 +45,7 @@ Companies that formalize CT-inspired patterns report concrete improvements:
 
 **The consistent pattern:** CT makes the framework correct; the API makes the framework usable. Every success story hides the mathematics behind simple interfaces. Every failure story (Haskell's monad tutorial problem, over-abstracted Scala Cats code) occurs when CT vocabulary is imposed on users.
 
-PyBend should follow **the Elm model**, not the Haskell model.
+N3TX should follow **the Elm model**, not the Haskell model.
 
 **The cautionary tales matter equally:**
 
@@ -59,10 +59,10 @@ PyBend should follow **the Elm model**, not the Haskell model.
 
 ## Where We Stand Today
 
-PyBend operates at **Level 2-3 on the abstraction spectrum** -- using functorial patterns, monoidal composition, and categorical messaging without naming any of them. This is the industry sweet spot.
+N3TX operates at **Level 2-3 on the abstraction spectrum** -- using functorial patterns, monoidal composition, and categorical messaging without naming any of them. This is the industry sweet spot.
 
 ```
-WHAT PYBEND ALREADY HAS                   WHAT NEEDS FIXING
+WHAT N3TX ALREADY HAS                   WHAT NEEDS FIXING
 ====================================       ====================================
 [x] Functorial schema pipeline             [ ] model_dump() flag bifurcation
 [x] Boolean algebra for access rules       [ ] No explicit NEVER bottom element
@@ -71,7 +71,7 @@ WHAT PYBEND ALREADY HAS                   WHAT NEEDS FIXING
 [x] Yoneda-like $schema/$id metadata       [ ] Value getter mutates _data in-place
 [x] Composable pipeline (model->UI)        [ ] Schema pipeline is a 118-line monolith
 [x] Observable as covariant functor         [ ] Global registration side effects
-[x] Builder pattern (PyBendApp)             [ ] Exceptions bypass composition chain
+[x] Builder pattern (N3TXApp)             [ ] Exceptions bypass composition chain
 ```
 
 **The core functor chain:**
@@ -83,9 +83,9 @@ Python Model ──schema()──> JSON Schema ──prototype()──> DynamicC
 
 Each arrow preserves structure: fields become properties, constraints become validation, access rules become button visibility. **Adding a field to a Python model flows through all four functors automatically.** This composability is the mathematical basis for "zero to working."
 
-**Why this matters practically:** A functor preserves composition. If you have transformations A -> B and B -> C, the functor guarantees you get A -> C for free. In PyBend terms: if adding a field works correctly through schema generation (F1), and schema generation works correctly through DynamicClass creation (F2), then adding a field works correctly through DynamicClass creation -- *without testing the combination*. This is why functor law tests can replace 40-60% of integration tests: they prove the pipeline composes correctly at each stage, eliminating the need to test every end-to-end path.
+**Why this matters practically:** A functor preserves composition. If you have transformations A -> B and B -> C, the functor guarantees you get A -> C for free. In N3TX terms: if adding a field works correctly through schema generation (F1), and schema generation works correctly through DynamicClass creation (F2), then adding a field works correctly through DynamicClass creation -- *without testing the combination*. This is why functor law tests can replace 40-60% of integration tests: they prove the pipeline composes correctly at each stage, eliminating the need to test every end-to-end path.
 
-**The eight impurities are where this guarantee breaks down.** When `model_dump()` uses a boolean flag to switch between two different transformations, it is no longer a single morphism -- it is two morphisms pretending to be one. When the value getter in `NTT.js` mutates `_data` in-place, it violates referential transparency -- calling the getter twice on the same object can produce different results. These are not theoretical concerns; they produce real bugs (the 200-OK silent failure class being the most severe).
+**The eight impurities are where this guarantee breaks down.** When `model_dump()` uses a boolean flag to switch between two different transformations, it is no longer a single morphism -- it is two morphisms pretending to be one. When the value getter in `N3TX.js` mutates `_data` in-place, it violates referential transparency -- calling the getter twice on the same object can produce different results. These are not theoretical concerns; they produce real bugs (the 200-OK silent failure class being the most severe).
 
 ---
 
@@ -217,4 +217,4 @@ Each function does one thing. Each is independently testable. The functor law `F
 
 ---
 
-*Summary based on 5 research documents (5,491 lines), 30+ external sources, and audit of 7 key framework files. Full analysis: [category-theory-analysis.md](../research/category-theory/category-theory-analysis.md). PyBend at commit `7550aeb`, February 2026.*
+*Summary based on 5 research documents (5,491 lines), 30+ external sources, and audit of 7 key framework files. Full analysis: [category-theory-analysis.md](../research/category-theory/category-theory-analysis.md). N3TX at commit `7550aeb`, February 2026.*

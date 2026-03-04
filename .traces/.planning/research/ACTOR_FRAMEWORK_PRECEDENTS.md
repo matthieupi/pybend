@@ -10,7 +10,7 @@
 
 Every major actor framework solves the same fundamental tension: actors are behavioral (receive messages, maintain state, route) while data models are structural (fields, validation, serialization, persistence). The universal answer across all mature frameworks is: **data models never inherit from actor base classes**. State is always a separate, plain data type -- a case class, POCO, struct, or dict -- that the actor contains, manages, or wraps.
 
-Five distinct patterns emerge, with "Actor-manages-entity" being the dominant pattern and "Actor-IS-entity" being the aspirational DDD pattern. No production framework merges the data model class with the actor class through inheritance. PyBend's current architecture (where `ProtoModel` is a Pydantic `BaseModel` and `Actor` is a separate JS class) already follows the industry consensus. The question for PyBend is which *relationship* pattern to adopt between its actors and its models.
+Five distinct patterns emerge, with "Actor-manages-entity" being the dominant pattern and "Actor-IS-entity" being the aspirational DDD pattern. No production framework merges the data model class with the actor class through inheritance. N3TX's current architecture (where `ProtoModel` is a Pydantic `BaseModel` and `Actor` is a separate JS class) already follows the industry consensus. The question for N3TX is which *relationship* pattern to adopt between its actors and its models.
 
 ---
 
@@ -160,7 +160,7 @@ Orleans grains are "logically immortal" -- from the developer's perspective, a g
 - Grain activation is ephemeral (the in-memory instance comes and goes)
 - State must survive deactivation (hence external persistence)
 
-This pattern directly parallels PyBend's `ProtoModel` entities which have a permanent identity (`id`) and are loaded/stored from SQLite. The model always conceptually exists; the in-memory representation is ephemeral.
+This pattern directly parallels N3TX's `ProtoModel` entities which have a permanent identity (`id`) and are loaded/stored from SQLite. The model always conceptually exists; the in-memory representation is ephemeral.
 
 ### Does the domain model inherit from the grain?
 
@@ -264,7 +264,7 @@ A well-documented pitfall: routing ALL database access through GenServers create
 
 ### Protobuf as the Contract
 
-Proto.Actor's defining characteristic: **Protobuf is the message format**. All messages between actors are defined as Protobuf messages. This is directly analogous to PyBend's JSON Schema as the contract between backend and frontend.
+Proto.Actor's defining characteristic: **Protobuf is the message format**. All messages between actors are defined as Protobuf messages. This is directly analogous to N3TX's JSON Schema as the contract between backend and frontend.
 
 ```protobuf
 // Messages are plain Protobuf, no actor inheritance
@@ -298,9 +298,9 @@ Proto.Actor's explicit design principle: **"Serialization is an explicit concern
 - No attempt to make actors look like regular objects
 - The serialization boundary is visible and intentional
 
-### Parallel to PyBend's JSON Schema
+### Parallel to N3TX's JSON Schema
 
-| Proto.Actor | PyBend |
+| Proto.Actor | N3TX |
 |-------------|--------|
 | Protobuf definitions | Python model definitions |
 | Generated message classes | JSON Schema |
@@ -449,7 +449,7 @@ A Ray community discussion titled "Defining an actor with pydantic" (2022) sugge
 
 **No.** None of the Python actor frameworks (Thespian, Pykka, Ray) have any concept of domain models, schemas, persistence, or ORM integration. They are pure concurrency/distribution frameworks. The data model is always whatever Python objects the developer puts inside the actor.
 
-**This is the gap PyBend could fill:** a framework where the data model definition (Pydantic) drives both persistence AND actor behavior.
+**This is the gap N3TX could fill:** a framework where the data model definition (Pydantic) drives both persistence AND actor behavior.
 
 **Sources:**
 - [Pykka Documentation](https://pykka.readthedocs.io/stable/)
@@ -553,13 +553,13 @@ Schema Definition (Protobuf, JSON Schema, etc.)
     -> Runtime Behavior (developer fills in the logic)
 ```
 
-**Used by:** Proto.Actor (Protobuf generates both), **PyBend (JSON Schema drives everything)**
+**Used by:** Proto.Actor (Protobuf generates both), **N3TX (JSON Schema drives everything)**
 
 **Characteristics:**
 - Single source of truth for both data and behavior contracts
 - Code generation reduces boilerplate
 - Schema evolution is a first-class concern
-- **Most aligned with PyBend's philosophy**
+- **Most aligned with N3TX's philosophy**
 
 ### Summary Matrix
 
@@ -601,7 +601,7 @@ Schema Definition (Protobuf, JSON Schema, etc.)
 - Use efficient serialization (Protobuf, MessagePack) not JSON for inter-actor communication
 - Proto.Actor's explicit design principle: "Pass data, not objects"
 
-**Relevance to PyBend:** PyBend already uses href arrays for FK relationships, which is the right pattern -- passing references rather than embedded objects.
+**Relevance to N3TX:** N3TX already uses href arrays for FK relationships, which is the right pattern -- passing references rather than embedded objects.
 
 ### Anti-Pattern 3: GenServer-as-Database-Proxy Bottleneck
 
@@ -611,7 +611,7 @@ Schema Definition (Protobuf, JSON Schema, etc.)
 
 **Prevention:** Use actors for stateful, entity-specific operations. Read-heavy queries should bypass actors and go directly to the storage layer.
 
-**Relevance to PyBend:** PyBend's `register_routes()` already serves data directly from storage (SQLite), not through an actor system. The frontend actor system (Matrix/NTT) handles UI state and message routing. This is the correct separation.
+**Relevance to N3TX:** N3TX's `register_routes()` already serves data directly from storage (SQLite), not through an actor system. The frontend actor system (Matrix/N3TX) handles UI state and message routing. This is the correct separation.
 
 ### Anti-Pattern 4: Testing Opacity
 
@@ -647,11 +647,11 @@ Schema Definition (Protobuf, JSON Schema, etc.)
 
 ---
 
-## 9. Implications for PyBend
+## 9. Implications for N3TX
 
-### Current PyBend Architecture
+### Current N3TX Architecture
 
-PyBend already has both sides of this equation:
+N3TX already has both sides of this equation:
 
 **Backend (Python):**
 - `ProtoModel` extends `PydanticBaseModel` -- pure data model with schema generation
@@ -660,13 +660,13 @@ PyBend already has both sides of this equation:
 
 **Frontend (JavaScript):**
 - `Actor` is the base class for the message-passing system
-- `NTT.js` creates `DynamicClass` from JSON Schema -- schema-driven entity creation
+- `N3TX.js` creates `DynamicClass` from JSON Schema -- schema-driven entity creation
 - `TT` (Transfer Type) extends `Actor` -- the entity IS an actor
 - `Matrix` is the root actor / message bus
 
-### PyBend's Current Pattern
+### N3TX's Current Pattern
 
-PyBend already follows **Pattern E (Schema-Drives-Everything)** with elements of **Pattern A (Actor-Contains-State)** on the frontend:
+N3TX already follows **Pattern E (Schema-Drives-Everything)** with elements of **Pattern A (Actor-Contains-State)** on the frontend:
 
 ```
 Python ProtoModel (data + schema)
@@ -679,11 +679,11 @@ The frontend `DynamicClass` created by `prototype()` is interesting: it creates 
 
 ### What the Industry Precedents Suggest
 
-1. **The backend model should NOT become an actor.** ProtoModel should remain a pure Pydantic BaseModel. Adding actor behavior to the Python model class would violate every surveyed framework's design. If PyBend ever adds backend actors (e.g., for real-time features, WebSocket management, background tasks), those actors should CONTAIN ProtoModel instances, not BE ProtoModel instances.
+1. **The backend model should NOT become an actor.** ProtoModel should remain a pure Pydantic BaseModel. Adding actor behavior to the Python model class would violate every surveyed framework's design. If N3TX ever adds backend actors (e.g., for real-time features, WebSocket management, background tasks), those actors should CONTAIN ProtoModel instances, not BE ProtoModel instances.
 
 2. **The frontend actor-entity hybrid is fine.** The DynamicClass pattern (building actor-capable entities from schema at runtime) is a novel approach that is consistent with Pattern E. Since the frontend DynamicClass is not a persisted model (it is a runtime representation), merging actor and data capabilities makes sense -- it is analogous to Orleans' virtual actor where the grain IS the entity at runtime.
 
-3. **JSON Schema as universal contract is validated.** Proto.Actor's Protobuf and PyBend's JSON Schema serve identical architectural roles: a single definition that generates typed interfaces on both sides of a boundary. This is a strong and well-validated pattern.
+3. **JSON Schema as universal contract is validated.** Proto.Actor's Protobuf and N3TX's JSON Schema serve identical architectural roles: a single definition that generates typed interfaces on both sides of a boundary. This is a strong and well-validated pattern.
 
 4. **Href arrays are the right FK pattern.** Passing references (URLs/IDs) instead of embedded objects mirrors Proto.Actor's "pass data, not objects" principle and avoids the serialization tax anti-pattern.
 
@@ -704,7 +704,7 @@ The frontend `DynamicClass` created by `prototype()` is interesting: it creates 
            self.product.save()
    ```
 
-6. **Not everything needs to be an actor.** PyBend's CRUD routes work well as stateless request handlers. Actor patterns should be reserved for stateful, concurrent, or event-driven scenarios (real-time updates, collaborative editing, pub/sub).
+6. **Not everything needs to be an actor.** N3TX's CRUD routes work well as stateless request handlers. Actor patterns should be reserved for stateful, concurrent, or event-driven scenarios (real-time updates, collaborative editing, pub/sub).
 
 ---
 
@@ -720,7 +720,7 @@ The frontend `DynamicClass` created by `prototype()` is interesting: it creates 
 | Pykka | Python | Any Python object | `ThreadingActor` | Instance attributes | None built-in | None |
 | Thespian | Python | Any picklable | `Actor` | Instance attributes | None built-in | None |
 | Ray | Python | Any Python object | None (decorator) | Instance attributes | None built-in | None |
-| **PyBend** | **Python + JS** | **Pydantic BaseModel** | **Actor (JS)** | **Schema-driven DynamicClass** | **StorableMixin + SQLite** | **JSON Schema** |
+| **N3TX** | **Python + JS** | **Pydantic BaseModel** | **Actor (JS)** | **Schema-driven DynamicClass** | **StorableMixin + SQLite** | **JSON Schema** |
 
 ---
 
@@ -736,4 +736,4 @@ The frontend `DynamicClass` created by `prototype()` is interesting: it creates 
 | Proto.Actor Protobuf parallel to JSON Schema | MEDIUM | Inferred from documentation, not explicitly stated by Proto.Actor |
 | Python frameworks lack data model integration | HIGH | Verified in Pykka, Thespian, Ray documentation |
 | Anti-pattern catalog | MEDIUM | Aggregated from multiple community sources, not all from primary docs |
-| PyBend implications/recommendations | MEDIUM | Derived analysis, not directly validated by external sources |
+| N3TX implications/recommendations | MEDIUM | Derived analysis, not directly validated by external sources |

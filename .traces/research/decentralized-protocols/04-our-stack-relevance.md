@@ -1,19 +1,19 @@
-# Decentralized Protocols and PyBend: Architecture Mapping and Integration Analysis
+# Decentralized Protocols and N3TX: Architecture Mapping and Integration Analysis
 
 **Audience**: Technical CEO + Engineering Team
 **Date**: 2026-02-25
-**Scope**: How ActivityPub and ATProtocol map to PyBend's schema-driven architecture
+**Scope**: How ActivityPub and ATProtocol map to N3TX's schema-driven architecture
 
 ---
 
 ## Executive Summary
 
-PyBend's core premise -- "define a model, get a working full-stack application" -- positions it
+N3TX's core premise -- "define a model, get a working full-stack application" -- positions it
 unusually well for decentralized protocol integration. Both ActivityPub and ATProtocol are, at
 their foundation, **schema-driven systems** that derive behavior from data definitions. The
 structural parallels are striking:
 
-| Concept | PyBend | ActivityPub | ATProtocol |
+| Concept | N3TX | ActivityPub | ATProtocol |
 |---------|--------|-------------|------------|
 | Schema format | JSON Schema | JSON-LD / ActivityStreams | Lexicon |
 | Type identity | `$schema` + `$id` URLs | `@context` + `type` + `id` | `$type` NSID |
@@ -22,7 +22,7 @@ structural parallels are striking:
 | Access control | ABAC rules on models | Public/followers/direct addressing | PDS-level + app-level rules |
 | Identity | `BaseUser` + JWT | Actor URIs + HTTP Signatures | DIDs + signing keys |
 
-The thesis of this document: **PyBend already has 60-70% of the conceptual machinery needed
+The thesis of this document: **N3TX already has 60-70% of the conceptual machinery needed
 for federation**. The remaining 30-40% is protocol-specific plumbing (cryptographic signatures,
 specific serialization formats, relay infrastructure) that can be built as additive modules
 without disrupting the existing architecture. The result would be a unique value proposition:
@@ -32,10 +32,10 @@ without disrupting the existing architecture. The result would be a unique value
 
 ## 1. Schema Mapping: JSON Schema to ActivityStreams and Lexicons
 
-### 1.1 PyBend's Schema Today
+### 1.1 N3TX's Schema Today
 
-Every PyBend model produces a JSON Schema document via `ProtoModel.schema()`. From
-`/workspace/src/pybend/core/models/proto_model.py`:
+Every N3TX model produces a JSON Schema document via `ProtoModel.schema()`. From
+`/workspace/src/n3tx/core/models/proto_model.py`:
 
 ```python
 @classmethod
@@ -45,10 +45,10 @@ def schema(cls) -> Dict[str, Any]:
     schema = cls.model_json_schema(ref_template="#/$defs/{model}")
 
     # Add methods signature to schema
-    schema['methods'] = cls.__pybend_methods_json_signature__()
+    schema['methods'] = cls.__n3tx_methods_json_signature__()
 
     # Add access rules to schema
-    from pybend.core.authorize.schema import access_schema
+    from n3tx.core.authorize.schema import access_schema
     schema['access'] = access_schema(cls)
 
     # Inject __ui__ hints into schema (model-level)
@@ -58,7 +58,7 @@ def schema(cls) -> Dict[str, Any]:
     ...
 ```
 
-A PyBend schema response looks like:
+A N3TX schema response looks like:
 
 ```json
 {
@@ -106,7 +106,7 @@ object carries a `@context` and a `type`:
 
 **The mapping**:
 
-| PyBend Schema Element | ActivityStreams Equivalent | Transformation Required |
+| N3TX Schema Element | ActivityStreams Equivalent | Transformation Required |
 |-----------------------|--------------------------|------------------------|
 | `$id` (instance URL) | `id` (object URI) | Direct rename, ensure globally resolvable |
 | `$schema` (type URL) | `type` (AS vocabulary term) | Map to AS type vocabulary or extend with custom context |
@@ -118,10 +118,10 @@ object carries a `@context` and a `type`:
 | `created_at` | `published` | Format alignment (ISO 8601) |
 | `ListRef[Comment]` | `replies` collection | Map to AS Collection |
 
-**Concrete translation -- PyBend Product to ActivityStreams Article**:
+**Concrete translation -- N3TX Product to ActivityStreams Article**:
 
 ```python
-# PyBend model (existing)
+# N3TX model (existing)
 class Product(ProtoModel):
     __tablename__ = 'products'
     name: str = Field(min_length=1, max_length=200)
@@ -135,7 +135,7 @@ class Product(ProtoModel):
 {
   "@context": [
     "https://www.w3.org/ns/activitystreams",
-    {"pybend": "https://pybend.io/ns/v1"}
+    {"n3tx": "https://n3tx.io/ns/v1"}
   ],
   "type": "Article",
   "id": "https://example.com/products/1",
@@ -143,7 +143,7 @@ class Product(ProtoModel):
   "content": "A premium widget for professionals",
   "attributedTo": "https://example.com/users/alice",
   "published": "2026-02-25T12:00:00Z",
-  "pybend:price": 29.99,
+  "n3tx:price": 29.99,
   "replies": {
     "type": "Collection",
     "id": "https://example.com/products/1/comments",
@@ -157,7 +157,7 @@ Key observations:
 - Standard fields (`name`, `content`, `published`) map directly to AS vocabulary.
 - Domain-specific fields (`price`) require a custom JSON-LD extension context.
 - `ListRef` collections map naturally to AS `Collection` / `OrderedCollection`.
-- The `$id` / `$schema` pattern PyBend already uses is conceptually identical to
+- The `$id` / `$schema` pattern N3TX already uses is conceptually identical to
   ActivityStreams' `id` / `type` pattern. Both produce self-describing instances.
 
 ### 1.3 Mapping to ATProtocol Lexicons
@@ -190,7 +190,7 @@ definition for a post record:
 
 **The mapping**:
 
-| PyBend JSON Schema | ATProtocol Lexicon | Notes |
+| N3TX JSON Schema | ATProtocol Lexicon | Notes |
 |-------------------|--------------------|-------|
 | `$id` URL | `id` NSID (reverse-DNS) | URL vs NSID format difference |
 | `$defs` | `defs` | Nearly identical concept |
@@ -202,7 +202,7 @@ definition for a post record:
 | `methods` | `query` / `procedure` | Methods become XRPC defs |
 | `access` rules | No direct equivalent | ATProto handles at PDS layer |
 
-**This is the strongest alignment in the entire analysis.** PyBend's JSON Schema output
+**This is the strongest alignment in the entire analysis.** N3TX's JSON Schema output
 and ATProtocol's Lexicon are structurally similar enough that a mechanical translation
 is feasible. A `lexicon_schema()` method on ProtoModel could generate valid Lexicon
 definitions from the same model that produces JSON Schema today.
@@ -211,9 +211,9 @@ definitions from the same model that produces JSON Schema today.
 
 ## 2. Route Mapping: CRUD to Federation Endpoints
 
-### 2.1 PyBend's Route Generation
+### 2.1 N3TX's Route Generation
 
-From `/workspace/src/pybend/core/api/routes_fastapi.py`, routes are auto-generated
+From `/workspace/src/n3tx/core/api/routes_fastapi.py`, routes are auto-generated
 from registered models:
 
 ```python
@@ -264,10 +264,10 @@ GET  /users/{username}/following                           # Following collectio
 POST /inbox                                                # Shared inbox (S2S)
 ```
 
-**Mapping to PyBend's route generation**:
+**Mapping to N3TX's route generation**:
 
 ```
-PyBend Today                        ActivityPub Equivalent
+N3TX Today                        ActivityPub Equivalent
 -----------------------------------------------------------------
 GET  /User                          (schema endpoint, no AP equiv)
 GET  /users                         GET /users/{username}/outbox
@@ -282,7 +282,7 @@ POST /users/{id}/comment            POST /users/{username}/outbox (Create Note)
 --- Missing ---                     GET  /users/{username}/following
 ```
 
-The pattern is clear: PyBend's CRUD maps to ActivityPub's Client-to-Server (C2S) API.
+The pattern is clear: N3TX's CRUD maps to ActivityPub's Client-to-Server (C2S) API.
 The Server-to-Server (S2S) federation layer is entirely additive.
 
 ### 2.3 ATProtocol XRPC Endpoint Requirements
@@ -299,10 +299,10 @@ GET  /xrpc/com.atproto.sync.getRepo               # Sync repository (CAR)
 GET  /xrpc/com.atproto.sync.subscribeRepos         # Firehose (WebSocket)
 ```
 
-**Mapping to PyBend**:
+**Mapping to N3TX**:
 
 ```
-PyBend Today                        XRPC Equivalent
+N3TX Today                        XRPC Equivalent
 -----------------------------------------------------------------
 GET  /Product                       GET /xrpc/com.example.getSchema (custom)
 POST /products                      POST /xrpc/com.atproto.repo.createRecord
@@ -315,8 +315,8 @@ POST /products/{id}/favorite        POST /xrpc/com.example.product.favorite (cus
 --- Missing ---                     WebSocket subscription firehose
 ```
 
-PyBend's `@expose_route` decorator maps almost directly to XRPC procedure definitions.
-From `/workspace/src/pybend/core/utils/decorators.py`:
+N3TX's `@expose_route` decorator maps almost directly to XRPC procedure definitions.
+From `/workspace/src/n3tx/core/utils/decorators.py`:
 
 ```python
 def expose_route(route, methods=["POST"], access=None):
@@ -347,15 +347,15 @@ def favorite(self, user: User = None) -> str:
 
 ### 3.1 The `__federated__` Class Variable
 
-Following PyBend's pattern of model-level declarations (`__storable__`, `__access__`,
+Following N3TX's pattern of model-level declarations (`__storable__`, `__access__`,
 `__ui__`), federation would be declared the same way:
 
 ```python
-from pybend.core.models.proto_model import ProtoModel
-from pybend.core.models.base_user import BaseUser
-from pybend.core.models.ref import ListRef
-from pybend.federation import Federated, ACTIVITYPUB, ATPROTO
-from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx.core.models.proto_model import ProtoModel
+from n3tx.core.models.base_user import BaseUser
+from n3tx.core.models.ref import ListRef
+from n3tx.federation import Federated, ACTIVITYPUB, ATPROTO
+from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 from pydantic import Field
 from typing import ClassVar, Optional
 
@@ -427,7 +427,7 @@ Following the pattern where `__storable__ = True` auto-injects StorableMixin and
 
 ### 3.3 Federated User Model
 
-From `/workspace/src/pybend/core/models/base_user.py`, PyBend's BaseUser provides
+From `/workspace/src/n3tx/core/models/base_user.py`, N3TX's BaseUser provides
 authentication primitives. A federated user extends this:
 
 ```python
@@ -485,9 +485,9 @@ class FederatedUser(BaseUser):
 
 ## 4. Identity Mapping
 
-### 4.1 Current: PyBend BaseUser + JWT
+### 4.1 Current: N3TX BaseUser + JWT
 
-PyBend's identity system from `base_user.py` and `backend.py`:
+N3TX's identity system from `base_user.py` and `backend.py`:
 
 ```
 Registration:   POST /users/register  -->  create user  -->  return JWT
@@ -497,7 +497,7 @@ Resolution:     _resolve_user() bridges JWT dict to model instance
 ```
 
 The JWT payload carries `{user_id, email, role}`. The middleware in
-`/workspace/src/pybend/core/api/backend.py` extracts it:
+`/workspace/src/n3tx/core/api/backend.py` extracts it:
 
 ```python
 class JWTAuthMiddleware(BaseHTTPMiddleware):
@@ -572,7 +572,7 @@ DID Doc:    {
 ### 4.4 Integration Architecture
 
 ```
-                    PyBend BaseUser
+                    N3TX BaseUser
                     (name, email, role, password_hash)
                           |
             +-------------+-------------+
@@ -590,7 +590,7 @@ The critical insight: **local authentication (JWT) and federated authentication
 (HTTP Signatures / DID verification) can coexist**. Local users authenticate via JWT
 as today. Incoming federated requests authenticate via HTTP Signature verification
 (ActivityPub) or DID key verification (ATProtocol). Both resolve to the same
-`AccessContext` that PyBend's ABAC system already uses.
+`AccessContext` that N3TX's ABAC system already uses.
 
 ---
 
@@ -598,7 +598,7 @@ as today. Incoming federated requests authenticate via HTTP Signature verificati
 
 ### 5.1 Current ABAC System
 
-From `/workspace/src/pybend/core/authorize/rules.py`:
+From `/workspace/src/n3tx/core/authorize/rules.py`:
 
 ```python
 class AccessRule(ABC):
@@ -619,7 +619,7 @@ AUTHENTICATED = _Authenticated()  # Any authenticated user
 OWNER = _Owner()            # Resource owner only
 ```
 
-From `/workspace/src/pybend/core/authorize/context.py`:
+From `/workspace/src/n3tx/core/authorize/context.py`:
 
 ```python
 @dataclass(frozen=True)
@@ -683,7 +683,7 @@ class Post(ProtoModel):
     }
 ```
 
-The composability of PyBend's rule system (`|`, `&`, `~`) is a natural fit:
+The composability of N3TX's rule system (`|`, `&`, `~`) is a natural fit:
 
 ```python
 # Only followers can see, but admins always can
@@ -747,7 +747,7 @@ if request.headers.get("signature"):
 
 ### 6.1 Current Storage Architecture
 
-From `/workspace/src/pybend/core/storage/sqlite_storage.py`:
+From `/workspace/src/n3tx/core/storage/sqlite_storage.py`:
 
 ```python
 class SQLiteStorage(AbstractStorage):
@@ -773,7 +773,7 @@ class SQLiteStorage(AbstractStorage):
 
 ActivityPub needs to store:
 
-| Data | Purpose | PyBend Mapping |
+| Data | Purpose | N3TX Mapping |
 |------|---------|---------------|
 | Inbox activities | Received federated content | New `Activity` model, `__tablename__ = 'inbox'` |
 | Outbox activities | Published federated content | New `Activity` model, `__tablename__ = 'outbox'` |
@@ -782,7 +782,7 @@ ActivityPub needs to store:
 | Delivery queue | Async outbound delivery | New table or use existing task queue |
 | HTTP Signature keys | Per-user keypairs | Fields on `BaseUser` |
 
-All of these fit within PyBend's existing storage model. The inbox/outbox are just
+All of these fit within N3TX's existing storage model. The inbox/outbox are just
 storable models:
 
 ```python
@@ -804,7 +804,7 @@ class Activity(ProtoModel):
 
 ATProtocol's storage model is fundamentally different from a relational database:
 
-| Requirement | Description | Challenge for PyBend |
+| Requirement | Description | Challenge for N3TX |
 |------------|-------------|---------------------|
 | Merkle Search Tree (MST) | Content-addressed tree of all user records | New data structure, not SQL |
 | CIDs (Content Identifiers) | Hash-based record addressing | New field type |
@@ -813,7 +813,7 @@ ATProtocol's storage model is fundamentally different from a relational database
 | Record keys (TIDs) | Time-ordered record identifiers | New key generation |
 | Blob storage | Binary media (images, etc.) | New storage layer |
 
-This is the **hardest integration point**. PyBend's `SQLiteStorage` manages flat tables.
+This is the **hardest integration point**. N3TX's `SQLiteStorage` manages flat tables.
 ATProtocol requires a Merkle Search Tree that produces deterministic hashes. Options:
 
 **Option A: Dual storage** -- SQLite for local CRUD (unchanged), MST as a read-only
@@ -825,15 +825,15 @@ that also supports SQL queries. The Python library `arroba` (github.com/snarfed/
 implements ATProto repositories in Python and could serve as a foundation.
 
 **Option C: Adapter pattern** -- Keep SQLiteStorage, add an `ATProtoRepositoryAdapter`
-that wraps existing storage operations with MST bookkeeping. This follows PyBend's
+that wraps existing storage operations with MST bookkeeping. This follows N3TX's
 existing pattern of `AbstractStorage` implementations.
 
-Recommendation: **Option A or C**. Dual storage preserves PyBend's simplicity for the
+Recommendation: **Option A or C**. Dual storage preserves N3TX's simplicity for the
 90% case while enabling ATProto interop for applications that opt in.
 
 ---
 
-## 7. Architecture Diagram: Federated PyBend
+## 7. Architecture Diagram: Federated N3TX
 
 ```
                                     External Fediverse
@@ -859,7 +859,7 @@ Recommendation: **Option A or C**. Dual storage preserves PyBend's simplicity fo
                             |
                             v
 +------------------------------------------------------------------+
-|                    EXISTING PYBEND CORE                            |
+|                    EXISTING N3TX CORE                            |
 |                                                                    |
 |  ProtoModel -----> JSON Schema -----> register_routes()            |
 |       |                                     |                      |
@@ -875,9 +875,9 @@ Recommendation: **Option A or C**. Dual storage preserves PyBend's simplicity fo
                             |
                             v
 +------------------------------------------------------------------+
-|                    FRONTEND (NTT.js)                               |
+|                    FRONTEND (N3TX.js)                               |
 |                                                                    |
-|  NTT.SCHEMA() ---> prototype() ---> DynamicClass                  |
+|  N3TX.SCHEMA() ---> prototype() ---> DynamicClass                  |
 |       |                                    |                       |
 |       v                                    v                       |
 |  Schema-driven rendering    Federation status indicators           |
@@ -888,11 +888,11 @@ Recommendation: **Option A or C**. Dual storage preserves PyBend's simplicity fo
 
 ---
 
-## 8. Gap Analysis: What PyBend Has vs. What's Needed
+## 8. Gap Analysis: What N3TX Has vs. What's Needed
 
 ### 8.1 Comprehensive Gap Table
 
-| Capability | PyBend Has Today | ActivityPub Needs | ATProtocol Needs | Effort |
+| Capability | N3TX Has Today | ActivityPub Needs | ATProtocol Needs | Effort |
 |-----------|-----------------|-------------------|------------------|--------|
 | **Schema system** | JSON Schema with `$id`, `$defs` | JSON-LD with `@context` | Lexicon with NSID | Low: translation layer |
 | **Self-describing instances** | `model_dump(response=True)` with `$schema`/`$id` | Objects with `@context`/`type`/`id` | Records with `$type` | Low: serializer adapters |
@@ -933,7 +933,7 @@ Recommendation: **Option A or C**. Dual storage preserves PyBend's simplicity fo
 
 Add the foundational building blocks without changing existing behavior.
 
-**New module**: `src/pybend/core/federation/`
+**New module**: `src/n3tx/core/federation/`
 
 ```
 federation/
@@ -1009,7 +1009,7 @@ Python library for repository operations.
 | **Django + manual AP** | Python | Manual implementation | Requires hand-wiring every endpoint |
 | **Takahē** | Python/Django | Mastodon-compatible server | Purpose-built AP implementation |
 
-### 10.2 What Makes PyBend's Approach Unique
+### 10.2 What Makes N3TX's Approach Unique
 
 **No existing framework offers model-driven federation.** Every current federated
 application is either:
@@ -1017,7 +1017,7 @@ application is either:
 2. A library (federation, bovine, arroba) that provides protocol primitives but no
    schema-to-endpoint generation.
 
-PyBend's unique position:
+N3TX's unique position:
 
 ```
            Schema-driven                    Federation
@@ -1025,10 +1025,10 @@ PyBend's unique position:
            │ Django    │                    │ Mastodon │
            │ FastAPI   │                    │ Lemmy    │
            │ Rails     │                    │ GoToSocial│
-           │ PyBend    │◄──── gap ────►     │ Takahē  │
+           │ N3TX    │◄──── gap ────►     │ Takahē  │
            └──────────┘                    └──────────┘
 
-    PyBend with __federated__ bridges this gap:
+    N3TX with __federated__ bridges this gap:
     The ONLY framework where a model definition produces
     both a local CRUD app AND federated endpoints.
 ```
@@ -1037,7 +1037,7 @@ The value proposition for a technical audience:
 
 **Before (today's world):**
 ```python
-# Step 1: Define your model (Django/FastAPI/PyBend)
+# Step 1: Define your model (Django/FastAPI/N3TX)
 # Step 2: Write ActivityPub serializers manually
 # Step 3: Implement inbox/outbox endpoints manually
 # Step 4: Add HTTP Signature verification manually
@@ -1046,7 +1046,7 @@ The value proposition for a technical audience:
 # Step 7: Keep all of this in sync with model changes
 ```
 
-**After (PyBend with federation):**
+**After (N3TX with federation):**
 ```python
 class Post(ProtoModel):
     __tablename__ = 'posts'
@@ -1059,9 +1059,9 @@ class Post(ProtoModel):
 
 ---
 
-## 11. What PyBend Already Has That Matters
+## 11. What N3TX Already Has That Matters
 
-The following existing PyBend patterns directly enable federation with minimal
+The following existing N3TX patterns directly enable federation with minimal
 modification:
 
 ### 11.1 Self-Describing Instances
@@ -1080,11 +1080,11 @@ def model_dump(self, *, response: bool = False, **kwargs):
 ```
 
 This is the same pattern as ActivityStreams' `id` + `type` and ATProtocol's `$type`.
-PyBend entities already carry their own identity and type information.
+N3TX entities already carry their own identity and type information.
 
 ### 11.2 Schema as Universal Contract
 
-PyBend's schema already carries everything federation needs to know:
+N3TX's schema already carries everything federation needs to know:
 
 - **Type information** (`properties`, `$defs`) -- maps to AS types / Lexicon defs
 - **Method signatures** (`methods`) -- maps to Activities / XRPC procedures
@@ -1108,14 +1108,14 @@ class AbstractStorage(ABC):
 
 ### 11.4 Standalone Auth Package
 
-From `/workspace/src/pybend/core/authorize/`, the auth package has zero PyBend
+From `/workspace/src/n3tx/core/authorize/`, the auth package has zero N3TX
 imports. This means federation auth (HTTP Signatures, DID verification) can plug
 into the same `AccessContext`/`AccessRule` system without any coupling to the
 federation layer itself.
 
 ### 11.5 Model Registration System
 
-From `/workspace/src/pybend/core/utils/registrar.py`:
+From `/workspace/src/n3tx/core/utils/registrar.py`:
 
 ```python
 registered_models: Dict[str, Type[Any]] = {}
@@ -1173,9 +1173,9 @@ def follow(self, target_uri: str, user: User = None) -> str:
 
 ## 13. Conclusion and Recommendation
 
-PyBend's architecture is not just compatible with decentralized protocols -- it is
+N3TX's architecture is not just compatible with decentralized protocols -- it is
 **convergent** with them. Both ActivityPub and ATProtocol are schema-driven systems
-where data definitions determine behavior, which is exactly PyBend's core philosophy.
+where data definitions determine behavior, which is exactly N3TX's core philosophy.
 
 The structural parallels are deep:
 
@@ -1194,7 +1194,7 @@ producing a valid ActivityPub Actor endpoint -- would demonstrate the "define a 
 get a federated app" value proposition with minimal code.
 
 If Phase 1 confirms the mapping (expected: it will), Phase 2 (full ActivityPub) would
-make PyBend the first framework where `class Post(ProtoModel): __federated__ = True`
+make N3TX the first framework where `class Post(ProtoModel): __federated__ = True`
 produces a working fediverse node. That is a genuinely unique capability in the current
 landscape.
 

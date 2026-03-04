@@ -1,7 +1,7 @@
 """Playwright e2e test: Create a grant with only the title filled in.
 
 Validates the full validation feedback loop:
-  1. Open inline create row in ntt-table
+  1. Open inline create row in ntx-table
   2. Enter only a title (leaving required fields agency + url empty)
   3. Click save and observe client-side validation feedback
   4. Bypass client-side validation and submit to backend, observe server-side 422 feedback
@@ -30,12 +30,12 @@ def _login(page, email="alice@example.com", password="alice123"):
 
 
 def _wait_for_table(page, timeout=15000):
-    """Wait until ntt-table has at least one row AND the add button is visible (auth loaded)."""
+    """Wait until ntx-table has at least one row AND the add button is visible (auth loaded)."""
     page.wait_for_function("""() => {
         const table = document.querySelector('#grant-table') || document.querySelector('#grant-table');
         if (!table) return false;
         const body = table.shadowRoot?.querySelector('.table-body');
-        const hasRows = body && body.querySelectorAll('ntt-row').length > 0;
+        const hasRows = body && body.querySelectorAll('ntx-row').length > 0;
         const hasAddBtn = !!table.shadowRoot?.querySelector('.inline-add-btn');
         return hasRows && hasAddBtn;
     }""", timeout=timeout)
@@ -68,7 +68,7 @@ def test_create_grant_title_only_client_validation():
         initial_count = page.evaluate("""() => {
             const table = document.querySelector('#grant-table');
             return table?.shadowRoot?.querySelector('.table-body')
-                ?.querySelectorAll('ntt-row')?.length ?? 0;
+                ?.querySelectorAll('ntx-row')?.length ?? 0;
         }""")
 
         # Click the "+ Add Grant" button to open inline create row
@@ -156,7 +156,7 @@ def test_create_grant_title_only_client_validation():
         final_count = page.evaluate("""() => {
             const table = document.querySelector('#grant-table');
             return table?.shadowRoot?.querySelector('.table-body')
-                ?.querySelectorAll('ntt-row')?.length ?? 0;
+                ?.querySelectorAll('ntx-row')?.length ?? 0;
         }""")
         assert final_count == initial_count, \
             f"No grant should have been created (before={initial_count}, after={final_count})"

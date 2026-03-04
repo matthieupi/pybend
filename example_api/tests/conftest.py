@@ -1,9 +1,9 @@
 # example/tests/conftest.py
 """
-Shared fixtures for PyBend example application integration tests.
+Shared fixtures for N3TX example application integration tests.
 
 Provides:
-- Isolated test database per test module (test_pybend.db)
+- Isolated test database per test module (test_n3tx.db)
 - FastAPI TestClient
 - JWT tokens for alice, bob, charlie, and an admin user
 - Seed data population
@@ -21,8 +21,8 @@ _tests = os.path.dirname(os.path.abspath(__file__))
 _example = os.path.dirname(_tests)
 _workspace = os.path.dirname(_example)
 _src = os.path.join(_workspace, 'src')
-_pybend = os.path.join(_src, 'pybend')
-_core = os.path.join(_pybend, 'core')
+_n3tx = os.path.join(_src, 'n3tx')
+_core = os.path.join(_n3tx, 'core')
 
 # Ensure tests/, example/, and src/ are on sys.path
 if _tests not in sys.path:
@@ -32,12 +32,12 @@ if _example not in sys.path:
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-# Set up namespace shims so Python doesn't try to load pybend/__init__.py
+# Set up namespace shims so Python doesn't try to load n3tx/__init__.py
 # (which has imports that may cause circular issues during test collection).
 # Only shim top-level namespace packages; subpackages load naturally.
 _namespace_shims = {
-    'pybend':           _pybend,
-    'pybend.core':      _core,
+    'n3tx':           _n3tx,
+    'n3tx.core':      _core,
 }
 
 for name, path in _namespace_shims.items():
@@ -48,17 +48,17 @@ for name, path in _namespace_shims.items():
         sys.modules[name] = m
 
 import config
-from pybend.core import authorize
+from n3tx.core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 # Import app to trigger model registration and route setup
 os.environ["GENERATE_DOCS"] = "false"  # Skip doc generation during tests
 from main import app  # noqa: triggers model registration
 
-from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.core.utils.registrar import registered_models, join_models
+from n3tx.core.storage.sqlite_storage import SQLiteStorage
+from n3tx.core.utils.registrar import registered_models, join_models
 from models import Product, Comment, Like, User
-from pybend.core.authorize import create_token
+from n3tx.core.authorize import create_token
 
 
 def _setup_test_db(db_path):
@@ -270,7 +270,7 @@ def _make_comment(client, token, product_id, name="Factory Comment",
 def test_db():
     """Create a temporary database file for the test session.
     All models are re-registered with this DB. Cleaned up after the session."""
-    db_fd, db_path = tempfile.mkstemp(suffix='_test_pybend.db')
+    db_fd, db_path = tempfile.mkstemp(suffix='_test_n3tx.db')
 
     # Point config at the test DB
     original_db = config.SQLITE_DB_FILE

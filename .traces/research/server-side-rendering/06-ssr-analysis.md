@@ -1,4 +1,4 @@
-# 📋 Server-Side Rendering for PyBend: Strategic Analysis Report
+# 📋 Server-Side Rendering for N3TX: Strategic Analysis Report
 
 ## For: CEO & Engineering Team
 ## Date: February 2026
@@ -14,7 +14,7 @@ This report serves two audiences simultaneously. **CEO and leadership:** read th
 
 **Notation:**
 - `> 💡 **Key Finding:**` -- a boxed finding that matters for both audiences
-- File references point to the actual PyBend codebase at `/workspace/src/pybend/`
+- File references point to the actual N3TX codebase at `/workspace/src/n3tx/`
 - Performance numbers cite published industry data (sources in Appendix C)
 - "Strategy A/B/C" refers to the three SSR implementation options detailed in Section 7
 
@@ -22,15 +22,15 @@ This report serves two audiences simultaneously. **CEO and leadership:** read th
 
 ## 📋 Executive Summary
 
-Server-side rendering has become the dominant architecture for public-facing web applications. **59% of JavaScript developers** now use SSR in their projects, and the web frameworks market is projected to reach $1.92B by 2035. The question for PyBend is not whether SSR matters to the industry -- it does -- but whether it matters for *us*, and if so, what the cheapest path to value looks like.
+Server-side rendering has become the dominant architecture for public-facing web applications. **59% of JavaScript developers** now use SSR in their projects, and the web frameworks market is projected to reach $1.92B by 2035. The question for N3TX is not whether SSR matters to the industry -- it does -- but whether it matters for *us*, and if so, what the cheapest path to value looks like.
 
-The answer is nuanced. PyBend serves a dual market: authenticated schema-driven applications (dashboards, admin tools, CRUD apps) where SSR provides near-zero value, and public-facing data catalogs (product listings, content sites) where SSR is a competitive requirement. The good news: **PyBend's architecture is unusually well-positioned for SSR**, not because it follows the JavaScript meta-framework playbook, but because the server already owns the complete rendering specification via JSON Schema.
+The answer is nuanced. N3TX serves a dual market: authenticated schema-driven applications (dashboards, admin tools, CRUD apps) where SSR provides near-zero value, and public-facing data catalogs (product listings, content sites) where SSR is a competitive requirement. The good news: **N3TX's architecture is unusually well-positioned for SSR**, not because it follows the JavaScript meta-framework playbook, but because the server already owns the complete rendering specification via JSON Schema.
 
 **Three core findings:**
 
-1. **PyBend already has SSR infrastructure.** The `NTT.js` entity system contains `#consumePreloadedSchema()` and `#consumePreloadedData()` methods (lines 244-277) that consume server-injected data without network requests. This is not hypothetical -- the code exists today, ready for a server-side route to feed it.
+1. **N3TX already has SSR infrastructure.** The `N3TX.js` entity system contains `#consumePreloadedSchema()` and `#consumePreloadedData()` methods (lines 244-277) that consume server-injected data without network requests. This is not hypothetical -- the code exists today, ready for a server-side route to feed it.
 
-2. **85-90% of display-mode HTML is server-renderable.** The `form.js` form generator and `ntt-item.js` size methods are pure functions of schema + data with zero browser dependencies. A Python port produces identical HTML.
+2. **85-90% of display-mode HTML is server-renderable.** The `form.js` form generator and `ntx-item.js` size methods are pure functions of schema + data with zero browser dependencies. A Python port produces identical HTML.
 
 3. **Strategy A (schema + data injection) eliminates 200-400ms of latency with ~50 lines of Python.** This is a one-day implementation that uses existing client-side infrastructure. No new rendering engine, no new dependencies, no architectural risk.
 
@@ -55,15 +55,15 @@ The **recommended hydration strategy** is "Progressive Islands with Embedded Sch
 
 ### The Business Context
 
-When a user visits a PyBend application today, their browser downloads a minimal HTML shell, then makes two sequential network requests -- one for the schema, one for the data -- before rendering anything meaningful. The user stares at a blank page (or skeleton) for 1.5 to 2 seconds. Server-side rendering means the server does this work itself and sends ready-to-display HTML to the browser. The user sees content in 300-500ms instead of 1500-2000ms.
+When a user visits a N3TX application today, their browser downloads a minimal HTML shell, then makes two sequential network requests -- one for the schema, one for the data -- before rendering anything meaningful. The user stares at a blank page (or skeleton) for 1.5 to 2 seconds. Server-side rendering means the server does this work itself and sends ready-to-display HTML to the browser. The user sees content in 300-500ms instead of 1500-2000ms.
 
 Why does this matter now? Three reasons:
 
 1. **Google ranks faster sites higher.** Core Web Vitals became an official ranking signal in 2021 and their importance has increased. SSR directly improves LCP (Largest Contentful Paint), the most impactful metric.
 
-2. **The industry has moved past "SSR vs SPA."** The 2023-2026 era introduced islands architecture, streaming SSR, partial hydration, and resumability. These approaches deliver SSR's benefits without its historical costs. PyBend's Web Components are natural "islands."
+2. **The industry has moved past "SSR vs SPA."** The 2023-2026 era introduced islands architecture, streaming SSR, partial hydration, and resumability. These approaches deliver SSR's benefits without its historical costs. N3TX's Web Components are natural "islands."
 
-3. **PyBend's architecture makes SSR cheaper than the industry average.** The server already owns the schema, the data, the access rules, and the rendering specification. Other frameworks require duplicating client components on the server. PyBend requires only a Python function that reads the schema it already generated.
+3. **N3TX's architecture makes SSR cheaper than the industry average.** The server already owns the schema, the data, the access rules, and the rendering specification. Other frameworks require duplicating client components on the server. N3TX requires only a Python function that reads the schema it already generated.
 
 ### What SSR Actually Changes
 
@@ -73,7 +73,7 @@ CURRENT FLOW (Client-Side Rendering):
 Browser                          Server
   |                                |
   |-- GET /static/matrix.html --->|  (instant: static file)
-  |-- GET /static/core/NTT.js -->|  (JS modules load)
+  |-- GET /static/core/N3TX.js -->|  (JS modules load)
   |-- GET /Product (schema) ---->|  (NETWORK REQUEST 1: ~100-200ms)
   |<-- JSON Schema --------------|
   |   [Build DynamicClass]        |
@@ -109,7 +109,7 @@ Browser                          Server
   |   [Components hydrate]        |  Interactive: ~800ms
 ```
 
-> 💡 **Key Finding:** PyBend's current "waterfall of emptiness" -- two sequential network requests before any content appears -- is the core latency problem. SSR eliminates this waterfall entirely, whether through data injection (Strategy A) or full HTML rendering (Strategy B).
+> 💡 **Key Finding:** N3TX's current "waterfall of emptiness" -- two sequential network requests before any content appears -- is the core latency problem. SSR eliminates this waterfall entirely, whether through data injection (Strategy A) or full HTML rendering (Strategy B).
 
 *Sources: Research docs 02-technical-deep-dive.md (Section 7.4), 04-our-stack-relevance.md (Section 1)*
 
@@ -125,7 +125,7 @@ The important pattern: **most companies do not SSR their entire application.** N
 
 ### Framework Market Position
 
-| Framework | Weekly Downloads | Satisfaction | Rendering Model | Relevance to PyBend |
+| Framework | Weekly Downloads | Satisfaction | Rendering Model | Relevance to N3TX |
 |-----------|-----------------|-------------|-----------------|---------------------|
 | Next.js | ~13.2M | Declining | SSR/SSG/RSC/ISR | Low (React-centric) |
 | Nuxt | ~971K | Stable ~85% | SSR/SSG/Hybrid | Low (Vue-centric) |
@@ -133,11 +133,11 @@ The important pattern: **most companies do not SSR their entire application.** N
 | SvelteKit | ~500K est. | ~90% | SSR/SSG/Hybrid | Low (Svelte-centric) |
 | Qwik | ~50K est. | Niche | Resumability | Medium (concept applicable) |
 
-> 💡 **Key Finding:** Astro's 94% developer satisfaction -- the highest of any framework -- validates the islands architecture that PyBend's Web Components naturally implement. Astro proves you do not need full SSR hydration to win on performance. Each `<ntt-item>` and `<ntt-list>` is already an independent "island."
+> 💡 **Key Finding:** Astro's 94% developer satisfaction -- the highest of any framework -- validates the islands architecture that N3TX's Web Components naturally implement. Astro proves you do not need full SSR hydration to win on performance. Each `<ntx-item>` and `<ntx-list>` is already an independent "island."
 
 ### The Satisfaction Paradox
 
-Next.js dominates usage but is losing developer satisfaction. The State of JS 2024 survey reports "a subtle but discernible downturn in user sentiment about meta-frameworks, even while actual usage continues to increase." This mirrors the jQuery pattern of the early 2010s -- ubiquitous but increasingly resented. The market is moving toward lighter-weight, framework-agnostic approaches -- exactly where PyBend sits.
+Next.js dominates usage but is losing developer satisfaction. The State of JS 2024 survey reports "a subtle but discernible downturn in user sentiment about meta-frameworks, even while actual usage continues to increase." This mirrors the jQuery pattern of the early 2010s -- ubiquitous but increasingly resented. The market is moving toward lighter-weight, framework-agnostic approaches -- exactly where N3TX sits.
 
 ### Measured Business Outcomes
 
@@ -150,7 +150,7 @@ Next.js dominates usage but is losing developer satisfaction. The State of JS 20
 | Netflix | Load time | -50% | 200KB JS savings |
 | Yelp | p99 latency | -125ms | Compute costs reduced to 1/3 |
 
-These numbers are most relevant for **e-commerce and content sites** where every visitor is a potential conversion. For internal tools, dashboards, and authenticated SaaS applications -- a significant portion of PyBend's target market -- the SEO argument evaporates and the conversion argument weakens. The performance argument remains, but the ROI threshold is higher.
+These numbers are most relevant for **e-commerce and content sites** where every visitor is a potential conversion. For internal tools, dashboards, and authenticated SaaS applications -- a significant portion of N3TX's target market -- the SEO argument evaporates and the conversion argument weakens. The performance argument remains, but the ROI threshold is higher.
 
 ### Industry Adoption by Application Type
 
@@ -205,16 +205,16 @@ The industry has evolved from a single "SSR" concept into seven distinct renderi
 
 *\* After initial cache fill*
 
-### Why Islands Architecture Is the Right Fit for PyBend
+### Why Islands Architecture Is the Right Fit for N3TX
 
-The critical insight is that **Web Components are already islands by nature.** Each `<ntt-item>`, `<ntt-list>`, or `<ntt-method>` component is a self-contained Custom Element with:
+The critical insight is that **Web Components are already islands by nature.** Each `<ntx-item>`, `<ntx-list>`, or `<ntx-method>` component is a self-contained Custom Element with:
 
 - **Isolated rendering** -- Shadow DOM prevents style and DOM leakage
 - **Self-contained lifecycle** -- `connectedCallback`, `disconnectedCallback`
 - **Independent state** -- each component manages its own data via the Actor system
 - **Explicit boundaries** -- the custom element tag *is* the island boundary
 
-An SSR implementation for PyBend would server-render the static HTML shell, and each Web Component would hydrate independently -- no full-page hydration needed. This avoids the "uncanny valley" problem (page looks ready but buttons do not work) that plagues React-based SSR.
+An SSR implementation for N3TX would server-render the static HTML shell, and each Web Component would hydrate independently -- no full-page hydration needed. This avoids the "uncanny valley" problem (page looks ready but buttons do not work) that plagues React-based SSR.
 
 ```
   +------------------------------------------------------------------+
@@ -228,7 +228,7 @@ An SSR implementation for PyBend would server-render the static HTML shell, and 
   |  Product description text (static HTML, zero JS)                  |
   |                                                                   |
   |  +------------------+    +-------------------+                    |
-  |  | Island: ntt-item |    | Island: ntt-method|                   |
+  |  | Island: ntx-item |    | Island: ntx-method|                   |
   |  | (hydrates on     |    | (hydrates on      |                   |
   |  |  visibility)     |    |  interaction)     |                   |
   |  +------------------+    +-------------------+                    |
@@ -243,14 +243,14 @@ Historically, Web Components and SSR were incompatible because Shadow DOM requir
 
 ```html
 <!-- Server renders this. Browser displays it BEFORE any JS loads. -->
-<ntt-item>
+<ntx-item>
   <template shadowrootmode="open">
     <div class="card" data-display="md">
       <h2 data-value="name">Widget Pro</h2>
       <span data-value="price">$29.99</span>
     </div>
   </template>
-</ntt-item>
+</ntx-item>
 ```
 
 **Browser support (February 2026):** Chrome 111+, Edge 111+, Safari 16.4+, Firefox 123+. Global coverage: **94.38%**. This is production-ready.
@@ -263,7 +263,7 @@ Historically, Web Components and SSR were incompatible because Shadow DOM requir
 
 ### What the Server Already Knows
 
-PyBend's architecture is fundamentally different from React/Vue/Angular applications. The server does not just serve data -- it owns the **complete rendering specification**. The JSON Schema that `ProtoModel.schema()` emits carries:
+N3TX's architecture is fundamentally different from React/Vue/Angular applications. The server does not just serve data -- it owns the **complete rendering specification**. The JSON Schema that `ProtoModel.schema()` emits carries:
 
 | Schema Section | What It Carries | Where It Is Used |
 |---------------|-----------------|------------------|
@@ -274,25 +274,25 @@ PyBend's architecture is fundamentally different from React/Vue/Angular applicat
 | `ui.field_order` | Field rendering sequence | `form.js:getForm()` |
 | `ui.groups` | Fieldset grouping | `form.js:renderGroupedFields()` |
 | `access` | ABAC rules (create/read/update/delete) | `Permissions.js`, button visibility |
-| `methods` | Callable endpoints with UI hints | `<ntt-method>` rendering |
-| `$defs` | Nested model schemas | `NTT.SCHEMA()` registration |
+| `methods` | Callable endpoints with UI hints | `<ntx-method>` rendering |
+| `$defs` | Nested model schemas | `N3TX.SCHEMA()` registration |
 
-The frontend's `form.js` and `ntt-item.js` are essentially **schema interpreters** -- they read instructions and produce HTML. That interpretation can happen on the server in Python just as easily as it happens in the browser in JavaScript.
+The frontend's `form.js` and `ntx-item.js` are essentially **schema interpreters** -- they read instructions and produce HTML. That interpretation can happen on the server in Python just as easily as it happens in the browser in JavaScript.
 
 ### Existing SSR Infrastructure in the Codebase
 
-PyBend already has nascent SSR support that most teams would need to build from scratch.
+N3TX already has nascent SSR support that most teams would need to build from scratch.
 
-**1. Schema Pre-loading** (`NTT.js`, lines 244-257):
+**1. Schema Pre-loading** (`N3TX.js`, lines 244-257):
 
 ```javascript
 static #consumePreloadedSchema(model) {
-    const el = document.querySelector(`script[data-ntt-schema="${model}"]`);
+    const el = document.querySelector(`script[data-ntx-schema="${model}"]`);
     if (!el) return false;
     try {
         const data = JSON.parse(el.textContent);
         el.remove();
-        NTT.SCHEMA(data);
+        N3TX.SCHEMA(data);
         return true;
     } catch (e) {
         return false;
@@ -300,13 +300,13 @@ static #consumePreloadedSchema(model) {
 }
 ```
 
-This method is called in `NTT.ATTACH()` (line 333) *before* dispatching a network schema request. If the server injects `<script data-ntt-schema="Product">{...}</script>` into the HTML, the client skips the schema fetch entirely. **Network request 1 is eliminated.**
+This method is called in `N3TX.ATTACH()` (line 333) *before* dispatching a network schema request. If the server injects `<script data-ntx-schema="Product">{...}</script>` into the HTML, the client skips the schema fetch entirely. **Network request 1 is eliminated.**
 
-**2. Data Pre-loading** (`NTT.js`, lines 265-277):
+**2. Data Pre-loading** (`N3TX.js`, lines 265-277):
 
 ```javascript
 static #consumePreloadedData(tablename) {
-    const el = document.querySelector(`script[data-ntt-data="${tablename}"]`);
+    const el = document.querySelector(`script[data-ntx-data="${tablename}"]`);
     if (!el) return null;
     try {
         const data = JSON.parse(el.textContent);
@@ -318,11 +318,11 @@ static #consumePreloadedData(tablename) {
 }
 ```
 
-Consumed in `NTT.SCHEMA()` (lines 419-425): if pre-loaded data exists, `DC.READ(preloadedData)` is called instead of dispatching a network fetch. **Network request 2 is eliminated.**
+Consumed in `N3TX.SCHEMA()` (lines 419-425): if pre-loaded data exists, `DC.READ(preloadedData)` is called instead of dispatching a network fetch. **Network request 2 is eliminated.**
 
 **3. Schema Completeness** (`proto_model.py`, lines 199-316):
 
-`ProtoModel.schema()` generates a remarkably complete rendering specification. The schema carries field types, validation constraints, UI widget hints, field ordering, field grouping, display/hide flags, access rules, method signatures with UI hints, nested model schemas, and renderer hints. Every piece of information `form.js` and `ntt-item.js` need is in this schema.
+`ProtoModel.schema()` generates a remarkably complete rendering specification. The schema carries field types, validation constraints, UI widget hints, field ordering, field grouping, display/hide flags, access rules, method signatures with UI hints, nested model schemas, and renderer hints. Every piece of information `form.js` and `ntx-item.js` need is in this schema.
 
 **4. Response Self-Description** (`proto_model.py`, lines 117-137):
 
@@ -338,11 +338,11 @@ The key question: how much of the frontend rendering is a pure function of schem
 | Form fields (edit) | `form.js:getInput()` | **Yes** | Same mapping, different mode |
 | Form groups/fieldsets | `form.js:renderGroupedFields()` | **Yes** | `schema.ui.groups` to fieldsets |
 | Header (h2/h4) | `form.js:getHeader()` | **Yes** | name + description |
-| xs pill | `ntt-item.js:xs()` | **Yes** | Single span |
-| sm compact row | `ntt-item.js:sm()` | **Yes** | Permission check solvable server-side |
-| md card | `ntt-item.js:md()` | **Yes** | Full form + methods |
+| xs pill | `ntx-item.js:xs()` | **Yes** | Single span |
+| sm compact row | `ntx-item.js:sm()` | **Yes** | Permission check solvable server-side |
+| md card | `ntx-item.js:md()` | **Yes** | Full form + methods |
 | List grid | `ListElement.render()` | **Yes** | Container + children |
-| Method buttons | `ntt-method` tag gen | **Yes** | `schema.methods` to button HTML |
+| Method buttons | `ntx-method` tag gen | **Yes** | `schema.methods` to button HTML |
 | Currency formatting | `form.js:getInput()` | **Yes** | `$${value.toFixed(2)}` |
 
 > 💡 **Key Finding:** An estimated **85-90% of initial display-mode HTML is server-renderable.** The remaining 10-15% comprises interactive behaviors (edit/save toggle, input change handling, delete confirmation, card click navigation, method execution) that require JavaScript and the Actor/Matrix message bus.
@@ -362,7 +362,7 @@ The key question: how much of the frontend rendering is a pure function of schem
 
 The Actor/Matrix system is needed for **runtime interactivity**, not initial render. SSR eliminates the need for the ATTACH -> SCHEMA -> READ bootstrap sequence. After the server delivers pre-rendered HTML, the actor system resumes its role for live updates and user interactions. The two are complementary, not conflicting.
 
-*Sources: Research doc 04-our-stack-relevance.md (Sections 1-5), codebase files `NTT.js`, `form.js`, `ntt-item.js`, `proto_model.py`*
+*Sources: Research doc 04-our-stack-relevance.md (Sections 1-5), codebase files `N3TX.js`, `form.js`, `ntx-item.js`, `proto_model.py`*
 
 ---
 
@@ -372,13 +372,13 @@ The Actor/Matrix system is needed for **runtime interactivity**, not initial ren
 
 SSR rarely pays for itself below 10 million monthly page views when measured purely on conversion-lift ROI. The math is simple: conservative conversion improvements of +10% relative (e.g., 2.0% to 2.2%) yield ~$12,000/year in additional revenue for a mid-size e-commerce site, against an annual SSR cost of $12,000-$20,000 for selective implementation. At best, this is break-even.
 
-**However**, PyBend's architecture changes this calculus significantly:
+**However**, N3TX's architecture changes this calculus significantly:
 
 1. **Strategy A costs almost nothing.** Injecting pre-loaded schema and data into the HTML requires ~50 lines of Python and uses existing client-side infrastructure. The "SSR cost" for this phase is effectively zero.
 
-2. **The schema-driven approach avoids the biggest cost.** Traditional SSR migrations cost $40,000-$80,000+ because they require duplicating rendering logic across server and client. PyBend's schema is the single source of truth -- the Python renderer reads the same schema the JavaScript renderer reads. No duplication.
+2. **The schema-driven approach avoids the biggest cost.** Traditional SSR migrations cost $40,000-$80,000+ because they require duplicating rendering logic across server and client. N3TX's schema is the single source of truth -- the Python renderer reads the same schema the JavaScript renderer reads. No duplication.
 
-3. **SEO is a binary gate, not a gradient.** For PyBend applications that need Google indexability (public catalogs, content sites), SSR is not a "nice to have" -- it is a competitive requirement. Without it, PyBend loses to Next.js for any project where SEO matters.
+3. **SEO is a binary gate, not a gradient.** For N3TX applications that need Google indexability (public catalogs, content sites), SSR is not a "nice to have" -- it is a competitive requirement. Without it, N3TX loses to Next.js for any project where SEO matters.
 
 ### Three-Year TCO Comparison
 
@@ -418,7 +418,7 @@ For Strategy A+B (full SSR):
   ROI: Negative for first 2 years, positive at scale (>200K visitors/month)
 ```
 
-> 💡 **Key Finding:** Strategy A (schema + data injection) has near-zero cost and immediate payoff. Strategy B (full HTML rendering) should be pursued only when the business case for SEO or first-paint performance justifies $20K-$35K in initial investment. For most PyBend deployments serving authenticated users, Strategy A is sufficient.
+> 💡 **Key Finding:** Strategy A (schema + data injection) has near-zero cost and immediate payoff. Strategy B (full HTML rendering) should be pursued only when the business case for SEO or first-paint performance justifies $20K-$35K in initial investment. For most N3TX deployments serving authenticated users, Strategy A is sufficient.
 
 *Sources: Research doc 03-decision-framework.md (Section 5), 01-industry-landscape.md (Section 5)*
 
@@ -426,7 +426,7 @@ For Strategy A+B (full SSR):
 
 ## 6. 🗺️ Decision Framework
 
-### When SSR Makes Sense for PyBend
+### When SSR Makes Sense for N3TX
 
 ```
 START: Does search engine indexing matter for this application?
@@ -485,7 +485,7 @@ We recommend a layered approach: implement Strategy A immediately, then evaluate
 
 #### Strategy A: Schema + Data Injection (Ship This Week)
 
-Inject pre-loaded schema and entity data as `<script>` tags in the HTML page. The existing `#consumePreloadedSchema()` and `#consumePreloadedData()` methods in `NTT.js` consume this data without network requests.
+Inject pre-loaded schema and entity data as `<script>` tags in the HTML page. The existing `#consumePreloadedSchema()` and `#consumePreloadedData()` methods in `N3TX.js` consume this data without network requests.
 
 **What the server-side route looks like:**
 
@@ -497,7 +497,7 @@ async def ssr_page(model_name: str, request: Request):
     schema = model_class.schema()                    # Cached, ~0ms
     result = model_class.list(limit=20, offset=0)    # ~5ms
 
-    # Inject as <script data-ntt-schema> and <script data-ntt-data>
+    # Inject as <script data-ntx-schema> and <script data-ntx-data>
     return SSR_TEMPLATE.render(
         schemas={model_name: json.dumps(schema)},
         datasets={schema['__tablename__']: json.dumps(serialized)},
@@ -508,24 +508,24 @@ async def ssr_page(model_name: str, request: Request):
 
 #### Strategy B: Pre-Rendered HTML with Declarative Shadow DOM (3-5 Weeks)
 
-Build a Python schema renderer that produces the same HTML the frontend would produce, wrapped in Declarative Shadow DOM templates. The server renders `<ntt-item>` and `<ntt-list>` components as complete HTML -- visible before any JavaScript loads.
+Build a Python schema renderer that produces the same HTML the frontend would produce, wrapped in Declarative Shadow DOM templates. The server renders `<ntx-item>` and `<ntx-list>` components as complete HTML -- visible before any JavaScript loads.
 
 ```html
 <!-- Server output: fully visible with zero JavaScript -->
-<ntt-list model="Product">
+<ntx-list model="Product">
   <template shadowrootmode="open">
     <div class="list-grid">
-      <ntt-item ref="http://.../products/1">
+      <ntx-item ref="http://.../products/1">
         <template shadowrootmode="open">
           <div class="card" data-display="md">
             <h2 data-value="name">Widget Pro</h2>
             <div class="currency-display" data-value="price">$29.99</div>
           </div>
         </template>
-      </ntt-item>
+      </ntx-item>
     </div>
   </template>
-</ntt-list>
+</ntx-list>
 ```
 
 **Result:** Content visible before any JavaScript executes. FCP < 300ms. SEO-ready.
@@ -533,18 +533,18 @@ Build a Python schema renderer that produces the same HTML the frontend would pr
 **Implementation requires:**
 - Python form renderer (~400 lines, porting `form.js:getInput()` logic)
 - DSD template wrapper generation
-- Hydration detection in `ntt-item.render()` (~20 lines per component)
+- Hydration detection in `ntx-item.render()` (~20 lines per component)
 - CSS extraction utility for inline DSD styles
 
 #### Strategy C: HTMX-Enhanced Progressive Rendering (Defer)
 
 Replace the actor-based data flow with HTMX attributes for initial page loads. Server returns HTML fragments. JavaScript handles only what HTMX cannot.
 
-**Recommendation: Do NOT pursue Strategy C now.** It creates a dual rendering path (JSON + HTML) that adds complexity. PyBend's actor system handles interactivity well. HTMX would be useful only if the goal is to eliminate client-side JS entirely, which would sacrifice real-time updates and the actor coordination model.
+**Recommendation: Do NOT pursue Strategy C now.** It creates a dual rendering path (JSON + HTML) that adds complexity. N3TX's actor system handles interactivity well. HTMX would be useful only if the goal is to eliminate client-side JS entirely, which would sacrifice real-time updates and the actor coordination model.
 
 ### Recommended Hydration Strategy: Progressive Islands with Embedded Schema
 
-Based on analysis of all five hydration approaches (full, progressive, selective, partial, resumability), the optimal strategy for PyBend combines:
+Based on analysis of all five hydration approaches (full, progressive, selective, partial, resumability), the optimal strategy for N3TX combines:
 
 1. **Islands architecture** -- leveraging Web Components' natural encapsulation as independent hydration units
 2. **Progressive hydration** -- prioritized by viewport position and user intent
@@ -577,7 +577,7 @@ Phase 4: Background Enhancement (idle time)
 
 A critical design consideration: SSR must respect per-user authorization. Different users see different edit/delete buttons, different data subsets, and different field visibility.
 
-PyBend already has everything needed:
+N3TX already has everything needed:
 
 1. **User identity** -- extracted from JWT via `_get_user(request)` in `routes_fastapi.py`
 2. **Access rules** -- declared on models via `__access__` and serialized via `access_schema()`
@@ -610,27 +610,27 @@ async def ssr_product_list(request: Request):
 
 ### Breaking the DynamicClass Circular Dependency
 
-A subtle but important challenge: PyBend's DynamicClasses are created at runtime from schema data. The client needs the DynamicClass to hydrate, but the DynamicClass requires the schema, which requires a network request -- a circular dependency.
+A subtle but important challenge: N3TX's DynamicClasses are created at runtime from schema data. The client needs the DynamicClass to hydrate, but the DynamicClass requires the schema, which requires a network request -- a circular dependency.
 
 The embedded schema breaks this cycle:
 
 ```
 WITHOUT EMBEDDED SCHEMA (circular):
-  Hydrate ntt-item -> Need DynamicClass "Product"
+  Hydrate ntx-item -> Need DynamicClass "Product"
     -> Need JSON Schema -> Need network request
       -> Need NetworkAdapter -> Need Matrix initialized
         -> Need hydration complete -> Need DynamicClass (!!!)
 
 WITH EMBEDDED SCHEMA (resolved):
-  Parse <script data-ntt-schema="Product"> (local, ~5ms)
+  Parse <script data-ntx-schema="Product"> (local, ~5ms)
     -> Create DynamicClass via prototype() (no network)
       -> Initialize Matrix + register types (< 50ms)
-        -> Hydrate ntt-item with existing DynamicClass
+        -> Hydrate ntx-item with existing DynamicClass
 ```
 
 This is why Strategy A (schema injection) is the foundation for all subsequent SSR work. Without it, the hydration pipeline has no clean starting point.
 
-| Strategy | PyBend Fit | TTI Impact | Risk |
+| Strategy | N3TX Fit | TTI Impact | Risk |
 |----------|-----------|------------|------|
 | Full hydration | Poor | None | Low |
 | Progressive hydration | Excellent | -40-60% | Low |
@@ -654,12 +654,12 @@ Week 1: Strategy A (Data Injection) -- IMMEDIATE WIN
 Weeks 2-3: Python Form Renderer
   [ ] Port form.js:getInput() display branches to Python
   [ ] Port form.js:getHeader() to Python
-  [ ] Port ntt-item:xs(), sm(), md() to Python template functions
+  [ ] Port ntx-item:xs(), sm(), md() to Python template functions
   [ ] Add DSD <template shadowrootmode> wrapper generation
   [ ] Test: compare Python-rendered HTML vs JS-rendered HTML
 
 Week 4: Hydration
-  [ ] Add hydration detection to ntt-item.render() (~20 lines)
+  [ ] Add hydration detection to ntx-item.render() (~20 lines)
   [ ] Add hydration detection to ListElement.render()
   [ ] CSS extraction utility for DSD inline styles
   [ ] Test: SSR -> hydration -> edit mode -> save round-trip
@@ -673,9 +673,9 @@ Week 5: Per-User SSR + Caching
 
 ### The Competitive Narrative
 
-**PyBend's SSR story is not "we added SSR to a SPA framework." It is: "the server already knows everything about the UI. We simply have it render HTML directly instead of sending JSON and making the client do it."**
+**N3TX's SSR story is not "we added SSR to a SPA framework." It is: "the server already knows everything about the UI. We simply have it render HTML directly instead of sending JSON and making the client do it."**
 
-| Capability | Next.js 15 | Nuxt 3 | Astro 5 | PyBend (proposed) |
+| Capability | Next.js 15 | Nuxt 3 | Astro 5 | N3TX (proposed) |
 |-----------|-----------|--------|---------|-------------------|
 | Zero-JS initial render | No (hydration required) | No | Yes (non-island) | **Yes (DSD)** |
 | New model = new page | Write component + page | Write component + page | Write component + page | **Just register the model** |
@@ -689,7 +689,7 @@ Week 5: Per-User SSR + Caching
 
 ## 8. 📊 Performance Benchmarks and Projections
 
-### Current PyBend Performance Profile
+### Current N3TX Performance Profile
 
 Understanding exactly where time is spent in the current rendering pipeline is essential for measuring SSR impact. The current CSR waterfall breaks down as follows:
 
@@ -745,9 +745,9 @@ These industry benchmarks provide context for what SSR achieves in other framewo
 | SvelteKit | 0.9s | 1.0s | Selective hydration |
 | Next.js | 0.9s | 1.2s | Full hydration / RSC |
 | Nuxt.js | 1.1s | 1.4s | Full hydration |
-| **PyBend (projected, Strategy A+B)** | **0.3-0.5s** | **0.8s** | **Progressive Islands** |
+| **N3TX (projected, Strategy A+B)** | **0.3-0.5s** | **0.8s** | **Progressive Islands** |
 
-PyBend's projected performance compares favorably because:
+N3TX's projected performance compares favorably because:
 1. No framework runtime overhead (vanilla JS vs React/Vue/Svelte)
 2. No hydration of the full component tree (islands pattern)
 3. Schema is pre-loaded (no initial network request for rendering spec)
@@ -766,11 +766,11 @@ FastAPI + Jinja2 rendering produces favorable server-side performance characteri
 | Page weight | 50-100KB | 1.5-3MB | **15-30x smaller** |
 | Server throughput | ~1,500 req/s/core | N/A (client) | Efficient |
 
-Jinja2 template rendering adds minimal server overhead: microseconds for simple pages, low single-digit milliseconds for complex pages. Combined with PyBend's schema caching (`ProtoModel._schema_cache`), the rendering cost per request is dominated by the database query, not the HTML generation.
+Jinja2 template rendering adds minimal server overhead: microseconds for simple pages, low single-digit milliseconds for complex pages. Combined with N3TX's schema caching (`ProtoModel._schema_cache`), the rendering cost per request is dominated by the database query, not the HTML generation.
 
 ### Caching Strategy and Its Performance Impact
 
-SSR performance at scale depends heavily on caching. PyBend's content profile supports aggressive caching:
+SSR performance at scale depends heavily on caching. N3TX's content profile supports aggressive caching:
 
 | Content Type | Cache Strategy | TTL | Rationale |
 |-------------|---------------|-----|-----------|
@@ -880,7 +880,7 @@ If SSR is implemented, these metrics must be tracked:
 | **Likelihood** | Low |
 | **Impact** | Server configuration leakage, remote code execution |
 | **Description** | If user input is treated as template code (e.g., Jinja2 expressions), attackers can execute arbitrary Python on the server. |
-| **Mitigation** | 1. PyBend's schema-driven approach naturally separates template structure (developer-defined) from data (user-provided). 2. Never construct `Template()` from user input. 3. User data is always interpolated as data values, never as template syntax. 4. Automated SSTI detection in security tests. |
+| **Mitigation** | 1. N3TX's schema-driven approach naturally separates template structure (developer-defined) from data (user-provided). 2. Never construct `Template()` from user input. 3. User data is always interpolated as data values, never as template syntax. 4. Automated SSTI detection in security tests. |
 
 ### Risk 9: Streaming SSR Complexity
 
@@ -910,19 +910,19 @@ If SSR is implemented, these metrics must be tracked:
 | **Resumability** | Nothing (serialize instead) | On interaction (lazy-load handler) | ~1KB | ~0ms | High |
 | **Progressive Islands (recommended)** | Island components, prioritized | Viewport + interaction triggers | ~10-20% initially | ~200ms | Medium-High |
 
-### Appendix B: PyBend File Reference
+### Appendix B: N3TX File Reference
 
 | File | Role | SSR-Relevant Lines |
 |------|------|-------------------|
-| `/workspace/src/pybend/static/core/NTT.js` | Entity system, DynamicClass factory, SSR pre-loading | 244-277 (pre-loading), 390-426 (SCHEMA), 663+ (prototype) |
-| `/workspace/src/pybend/static/generators/form.js` | Schema-driven form HTML generation | 17-65 (getForm), 173+ (getInput), 159-171 (validationAttrs) |
-| `/workspace/src/pybend/static/components/ntt-item.js` | Entity rendering at all sizes | 143-146 (xs), 156-282 (sm), 284-318 (md), 468-486 (render) |
-| `/workspace/src/pybend/static/components/ntt-list.js` | Collection component | 1-19 |
-| `/workspace/src/pybend/static/components/NTTElement.js` | Single entity base | 32-41 (value setter), 78-95 (DESCRIBE) |
-| `/workspace/src/pybend/static/core/Matrix.js` | Actor message bus | 26-48 (inbox routing) |
-| `/workspace/src/pybend/core/models/proto_model.py` | Base model, schema generation | 117-137 (model_dump), 199-316 (schema) |
-| `/workspace/src/pybend/core/api/routes_fastapi.py` | Route factories, auth injection | 20-32 (user/context), 92-137 (list), 168-180 (schema) |
-| `/workspace/src/pybend/core/api/backend.py` | FastAPI backend setup | 48-168 (FastAPIBackend) |
+| `/workspace/src/n3tx/static/core/N3TX.js` | Entity system, DynamicClass factory, SSR pre-loading | 244-277 (pre-loading), 390-426 (SCHEMA), 663+ (prototype) |
+| `/workspace/src/n3tx/static/generators/form.js` | Schema-driven form HTML generation | 17-65 (getForm), 173+ (getInput), 159-171 (validationAttrs) |
+| `/workspace/src/n3tx/static/components/ntx-item.js` | Entity rendering at all sizes | 143-146 (xs), 156-282 (sm), 284-318 (md), 468-486 (render) |
+| `/workspace/src/n3tx/static/components/ntx-list.js` | Collection component | 1-19 |
+| `/workspace/src/n3tx/static/components/NTTElement.js` | Single entity base | 32-41 (value setter), 78-95 (DESCRIBE) |
+| `/workspace/src/n3tx/static/core/Matrix.js` | Actor message bus | 26-48 (inbox routing) |
+| `/workspace/src/n3tx/core/models/proto_model.py` | Base model, schema generation | 117-137 (model_dump), 199-316 (schema) |
+| `/workspace/src/n3tx/core/api/routes_fastapi.py` | Route factories, auth injection | 20-32 (user/context), 92-137 (list), 168-180 (schema) |
+| `/workspace/src/n3tx/core/api/backend.py` | FastAPI backend setup | 48-168 (FastAPIBackend) |
 
 ### Appendix C: Sources
 
@@ -968,7 +968,7 @@ If SSR is implemented, these metrics must be tracked:
 
 | Term | Definition |
 |------|-----------|
-| **CSR** | Client-Side Rendering. The browser downloads JS, fetches data, and renders HTML. PyBend's current model. |
+| **CSR** | Client-Side Rendering. The browser downloads JS, fetches data, and renders HTML. N3TX's current model. |
 | **SSR** | Server-Side Rendering. The server generates complete HTML and sends it to the browser. |
 | **SSG** | Static Site Generation. HTML is pre-built at deploy time, served from CDN. |
 | **ISR** | Incremental Static Regeneration. SSG with background revalidation on a timer. |
@@ -978,8 +978,8 @@ If SSR is implemented, these metrics must be tracked:
 | **LCP** | Largest Contentful Paint. When the largest visible element renders. Google ranking signal. |
 | **INP** | Interaction to Next Paint. Responsiveness after page load. Google ranking signal. |
 | **TTFB** | Time to First Byte. When the browser receives the first byte of the response. |
-| **DynamicClass** | Runtime-generated NTT subclass created by `prototype()` from a JSON Schema. |
-| **Matrix** | PyBend's actor message bus. Routes TX messages between actors. |
+| **DynamicClass** | Runtime-generated N3TX subclass created by `prototype()` from a JSON Schema. |
+| **Matrix** | N3TX's actor message bus. Routes TX messages between actors. |
 | **Strategy A** | Schema + data injection: server embeds JSON in HTML, client renders from local data. |
 | **Strategy B** | Pre-rendered HTML with DSD: server renders full HTML, client hydrates for interactivity. |
 | **Strategy C** | HTMX-enhanced rendering: server returns HTML fragments, HTMX handles partial updates. |

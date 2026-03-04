@@ -26,7 +26,7 @@ gap between "web application framework" and "agent-native platform" is
 not a rewrite. It is a translation layer.
 
 This document examines the convergence on schema-driven tool definitions
-across the AI ecosystem, maps the structural alignment between PyBend's
+across the AI ecosystem, maps the structural alignment between N3TX's
 schema output and the major agent protocols, and lays out the concrete
 path from "define a model, get an app" to "define a model, get an agent."
 
@@ -37,7 +37,7 @@ path from "define a model, get an app" to "define a model, get an agent."
 1. [The Convergence: JSON Schema as Agent Interface](#1-the-convergence)
 2. [Protocol Comparison: How the Big Three Define Tools](#2-protocol-comparison)
 3. [MCP Deep Dive: Anthropic's Schema-Native Standard](#3-mcp-deep-dive)
-4. [PyBend Schema Anatomy: What Already Exists](#4-pybend-schema-anatomy)
+4. [N3TX Schema Anatomy: What Already Exists](#4-ntx-schema-anatomy)
 5. [The Translation Layer: Schema to Tool Definition](#5-the-translation-layer)
 6. [Schema as Capability Declaration](#6-schema-as-capability-declaration)
 7. [Self-Describing Agents: Discovery Without Integration](#7-self-describing-agents)
@@ -269,11 +269,11 @@ AI applications.
 4. **`listChanged` notifications** allow servers to push schema changes
    to clients, enabling runtime capability evolution.
 
-### Alignment with PyBend
+### Alignment with N3TX
 
-Consider what PyBend's `ProtoModel.schema()` already produces:
+Consider what N3TX's `ProtoModel.schema()` already produces:
 
-| MCP Concept       | PyBend Equivalent                       |
+| MCP Concept       | N3TX Equivalent                       |
 |--------------------|-----------------------------------------|
 | Tool `name`        | Method name from `@expose_route`        |
 | Tool `description` | Method docstring or route path          |
@@ -284,15 +284,15 @@ Consider what PyBend's `ProtoModel.schema()` already produces:
 | `listChanged`      | Server restart / schema cache invalidation |
 | Resources          | Entity instances (`GET /{tablename}/{id}`) |
 
-The structural overlap is remarkable. PyBend's schema output is not a
+The structural overlap is remarkable. N3TX's schema output is not a
 tool definition format, but it contains everything a tool definition
 needs. The gap is formatting, not content.
 
 ---
 
-## 4. PyBend Schema Anatomy: What Already Exists
+## 4. N3TX Schema Anatomy: What Already Exists
 
-When a client requests `GET /Product`, PyBend returns a JSON Schema
+When a client requests `GET /Product`, N3TX returns a JSON Schema
 document that carries far more than type definitions. Here is the
 actual structure:
 
@@ -414,13 +414,13 @@ the right protocol.
 
 ## 5. The Translation Layer: Schema to Tool Definition
 
-### PyBend Method to MCP Tool
+### N3TX Method to MCP Tool
 
-The transformation from a PyBend `@expose_route` method to an MCP tool
+The transformation from a N3TX `@expose_route` method to an MCP tool
 definition is mechanical:
 
 ```python
-# PyBend model method
+# N3TX model method
 class Product(ProtoModel):
     @expose_route('/comment', methods=['POST'], access=AUTHENTICATED)
     def comment(self, comment: Comment, user: User = None) -> str:
@@ -428,7 +428,7 @@ class Product(ProtoModel):
         ...
 ```
 
-PyBend's `__pybend_methods_json_signature__()` already produces:
+N3TX's `__n3tx_methods_json_signature__()` already produces:
 
 ```json
 {
@@ -486,11 +486,11 @@ The MCP equivalent:
 
 ### The Translation Function
 
-A general-purpose translator from PyBend schema to MCP tools:
+A general-purpose translator from N3TX schema to MCP tools:
 
 ```python
 def schema_to_mcp_tools(schema: dict) -> list[dict]:
-    """Convert a PyBend model schema to MCP tool definitions."""
+    """Convert a N3TX model schema to MCP tool definitions."""
     tools = []
     model_name = schema.get('__name__', 'Unknown')
     tablename = schema.get('__tablename__', model_name.lower())
@@ -574,7 +574,7 @@ The same schema translates to OpenAI's format with a thin wrapper:
 
 ```python
 def schema_to_openai_tools(schema: dict) -> list[dict]:
-    """Convert PyBend schema to OpenAI function calling tools."""
+    """Convert N3TX schema to OpenAI function calling tools."""
     mcp_tools = schema_to_mcp_tools(schema)
     return [
         {
@@ -591,7 +591,7 @@ def schema_to_openai_tools(schema: dict) -> list[dict]:
 ```
 
 The key insight: **the translation is lossless in one direction.** A
-PyBend schema contains strictly more information than any individual
+N3TX schema contains strictly more information than any individual
 tool definition format requires. It carries authorization rules, UI
 hints, relationship graphs, and validation constraints that tool
 definitions cannot express but agents can use.
@@ -603,13 +603,13 @@ definitions cannot express but agents can use.
 ### Beyond "What Inputs Do You Accept?"
 
 Traditional tool definitions answer a narrow question: "What parameters
-does this function take?" A PyBend schema answers a much richer set:
+does this function take?" A N3TX schema answers a much richer set:
 
 ```
 Traditional tool definition:
   "I accept {name: string, price: number} and return a Product"
 
-PyBend schema declaration:
+N3TX schema declaration:
   "I am a Product entity.
    I have properties: name (string, 1-200 chars), price (number, >0),
      description (text, optional), comments (array of Comment).
@@ -635,7 +635,7 @@ tells an agent not just what it can do, but:
 
 ### The ABAC-as-Safety-Net Pattern
 
-PyBend's access control rules, serialized into the schema, function as
+N3TX's access control rules, serialized into the schema, function as
 **agent safety annotations**:
 
 ```json
@@ -658,7 +658,7 @@ An agent reading this schema knows:
 - It cannot invoke `favorite` without a user identity
 
 MCP's tool annotations (readOnlyHint, destructiveHint) are a primitive
-version of this. PyBend's access rules are a full Attribute-Based Access
+version of this. N3TX's access rules are a full Attribute-Based Access
 Control system with composable operators (`|`, `&`, `~`), SQL pushdown
 for efficient filtering, and per-field granularity. The access rules
 even compose logically:
@@ -685,7 +685,7 @@ and access patterns. An Agent Card is published at
 `/.well-known/agent.json` and enables capability discovery without
 any prior integration.
 
-A PyBend application already produces something structurally
+A N3TX application already produces something structurally
 equivalent:
 
 ```
@@ -693,11 +693,11 @@ A2A Agent Card:
   GET /.well-known/agent.json
   Returns: { name, description, skills, endpoint, auth }
 
-PyBend Schema:
+N3TX Schema:
   GET /Product
   Returns: { __name__, properties, methods, access, $id, $defs }
 
-PyBend Blueprint:
+N3TX Blueprint:
   ProtoModel.blueprint()
   Returns: { "Product": {schema}, "Comment": {schema}, "User": {schema} }
 ```
@@ -710,7 +710,7 @@ an agent capability catalog:
 @staticmethod
 def blueprint():
     """Returns the blueprint of registered models."""
-    from pybend.core.utils.registrar import registered_models
+    from n3tx.core.utils.registrar import registered_models
     blueprint = {}
     for model_name, model_cls in registered_models.items():
         blueprint[model_name] = model_cls.schema()
@@ -754,7 +754,7 @@ Agent A reads GET /Product
 
 This is the same pattern as MCP's `tools/list` followed by `tools/call`,
 but with relational depth. MCP tools are flat (a list of independent
-functions). PyBend schemas are a graph (entities with methods,
+functions). N3TX schemas are a graph (entities with methods,
 relationships, and nested capabilities).
 
 ---
@@ -763,7 +763,7 @@ relationships, and nested capabilities).
 
 ### The Blueprint as Agent Manifest
 
-Consider a PyBend application with four models: Product, Comment, User,
+Consider a N3TX application with four models: Product, Comment, User,
 Like. The `blueprint()` output is:
 
 ```json
@@ -804,7 +804,7 @@ orchestrating agent can:
 
 ### Cross-Service Composition
 
-If two PyBend services exist --- an e-commerce service and an analytics
+If two N3TX services exist --- an e-commerce service and an analytics
 service --- an orchestrating agent can compose their blueprints:
 
 ```python
@@ -822,7 +822,7 @@ capabilities = {
 # No integration code. Just schema composition.
 ```
 
-This is the pattern A2A aims for with Agent Cards, but PyBend's
+This is the pattern A2A aims for with Agent Cards, but N3TX's
 approach carries more information per schema entry: not just "what can
 I do" but "what constraints apply" and "how do the parts relate."
 
@@ -866,8 +866,8 @@ runtime from the schema:
 
 This is exactly how MCP's `listChanged` notification works: the server
 signals that tools have changed, the client re-fetches, and the LLM
-adapts. PyBend's schema cache invalidation (`invalidate_schema_cache()`)
-provides the backend mechanism; the frontend's `NTT.SCHEMA()` handler
+adapts. N3TX's schema cache invalidation (`invalidate_schema_cache()`)
+provides the backend mechanism; the frontend's `N3TX.SCHEMA()` handler
 already re-bootstraps the entity system from fresh schema data.
 
 ### Breaking vs. Additive Changes
@@ -901,7 +901,7 @@ it executes? LangGraph uses `interrupt()` to pause execution. CrewAI has
 approval workflows. Microsoft's Agent Framework provides custom review
 forms.
 
-**PyBend already solves this problem** --- it generates HTML forms from
+**N3TX already solves this problem** --- it generates HTML forms from
 JSON Schema.
 
 The `Formidable` form generator (`form.js`) takes a schema and produces
@@ -952,7 +952,7 @@ The schema carries everything needed for this flow:
 - **Field grouping** (`ui.groups`) organizes complex forms
 
 No other agent framework generates review forms from tool definitions.
-They all require custom UI work. PyBend gets it for free because the
+They all require custom UI work. N3TX gets it for free because the
 schema was always the single source of truth for both machine
 consumption and human presentation.
 
@@ -960,7 +960,7 @@ consumption and human presentation.
 
 The MCP 2025-06-18 spec added **Elicitation** --- a mechanism for
 servers to request additional information from users during tool
-execution. This is structurally similar to PyBend's form generation:
+execution. This is structurally similar to N3TX's form generation:
 both use schema to describe what information is needed, and both
 generate a user-facing interface from that schema.
 
@@ -977,7 +977,7 @@ mismatch --- any of these breaks the chain.
 
 ### How Pydantic Solves This
 
-PyBend models are Pydantic models. Pydantic is already the dominant
+N3TX models are Pydantic models. Pydantic is already the dominant
 library for structured output validation in the AI ecosystem:
 
 - **Instructor** (11k+ GitHub stars, 3M+ monthly downloads) uses
@@ -987,7 +987,7 @@ library for structured output validation in the AI ecosystem:
 - **OpenAI Structured Outputs** accepts Pydantic model schemas for
   response validation.
 
-A PyBend model is simultaneously:
+A N3TX model is simultaneously:
 1. A database entity definition
 2. An API request/response schema
 3. A form definition
@@ -1010,7 +1010,7 @@ from openai import OpenAI
 client = instructor.from_openai(OpenAI())
 product = client.chat.completions.create(
     model="gpt-4o",
-    response_model=Product,   # PyBend model IS the validation schema
+    response_model=Product,   # N3TX model IS the validation schema
     messages=[{"role": "user", "content": "Create a laptop product"}]
 )
 # product is a validated Product instance, ready for product.save()
@@ -1043,7 +1043,7 @@ class ProductTool(BaseTool):
 - No access control in the tool definition itself
 - Over 600 integrations, but each is manually maintained
 
-**PyBend advantage:** Tool definitions are derived from the model. The
+**N3TX advantage:** Tool definitions are derived from the model. The
 model IS the tool schema. Zero duplication, zero drift.
 
 ### CrewAI
@@ -1068,7 +1068,7 @@ class ProductTool(BaseTool):
 - No entity relationships in tool definitions
 - No automatic UI for human review
 
-**PyBend advantage:** Access control is embedded in the schema. Entity
+**N3TX advantage:** Access control is embedded in the schema. Entity
 relationships are first-class. Human review forms are generated
 automatically.
 
@@ -1086,14 +1086,14 @@ def create_product(name: str, price: float) -> str:
 - Multi-agent conversation is powerful but tools are stateless
 - No schema-driven discovery across agents
 
-**PyBend advantage:** Models are stateful entities with CRUD lifecycle.
+**N3TX advantage:** Models are stateful entities with CRUD lifecycle.
 Agents can discover capabilities via schema without knowing the
 implementation. Relationships between entities are navigable.
 
 ### Comparison Matrix
 
 ```
-                    LangChain  CrewAI  AutoGen  PyBend (Schema-first)
+                    LangChain  CrewAI  AutoGen  N3TX (Schema-first)
 ----------------------------------------------------------------------
 Tool from model       No        No      No       Yes (automatic)
 Schema-driven UI      No        No      No       Yes (Formidable)
@@ -1154,7 +1154,7 @@ produces:
 ### Architecture Diagram
 
 ```
-                    PyBend Model Definition
+                    N3TX Model Definition
                     ========================
                     class Product(ProtoModel):
                         name: str
@@ -1175,8 +1175,8 @@ produces:
     ===============    ================    ================
     FastAPI routes     MCP tools/list     Formidable forms
     CRUD endpoints     OpenAI functions   Review/approve UI
-    Frontend NTT       A2A Agent Card     Field validation
-    ntt-list/item      Gemini tools       Access-aware views
+    Frontend N3TX       A2A Agent Card     Field validation
+    ntx-list/item      Gemini tools       Access-aware views
             |               |                |
             +---------------+----------------+
                             |
@@ -1224,11 +1224,11 @@ the rest is already built.
 Implement `schema_to_mcp_tools()` and expose via MCP server.
 
 ```python
-# New file: src/pybend/core/mcp/server.py
-from pybend.core.models.proto_model import ProtoModel
+# New file: src/n3tx/core/mcp/server.py
+from n3tx.core.models.proto_model import ProtoModel
 
-class PyBendMCPServer:
-    """MCP server that exposes PyBend models as tools."""
+class N3TXMCPServer:
+    """MCP server that exposes N3TX models as tools."""
 
     def handle_tools_list(self) -> dict:
         tools = []
@@ -1253,7 +1253,7 @@ Expose blueprint as A2A-compatible agent card.
 async def agent_card():
     return {
         "name": config.APP_NAME,
-        "description": "PyBend application",
+        "description": "N3TX application",
         "version": "1.0",
         "url": config.API_URL,
         "capabilities": {
@@ -1278,11 +1278,11 @@ async def agent_card():
 
 ### Phase 3: Structured Output Integration (1 week)
 
-Enable PyBend models as Instructor/PydanticAI response validators.
+Enable N3TX models as Instructor/PydanticAI response validators.
 
 ```python
-# Using existing PyBend models with Instructor
-from pybend.example.models.product import Product
+# Using existing N3TX models with Instructor
+from n3tx.example.models.product import Product
 import instructor
 
 client = instructor.from_openai(OpenAI())

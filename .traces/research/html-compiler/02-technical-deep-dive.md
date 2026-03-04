@@ -8,13 +8,13 @@
 
 ## Executive Summary
 
-Schema-driven frameworks like PyBend derive the entire stack from a Python model definition: API routes, JSON Schema, UI rendering, permissions, forms -- all at runtime. The frontend fetches a schema, builds a DynamicClass via `prototype()`, and renders HTML through string concatenation in `form.js` and `ntt-item.js` -- **every single time a component mounts**. This is the runtime tax of schema-driven development.
+Schema-driven frameworks like N3TX derive the entire stack from a Python model definition: API routes, JSON Schema, UI rendering, permissions, forms -- all at runtime. The frontend fetches a schema, builds a DynamicClass via `prototype()`, and renders HTML through string concatenation in `form.js` and `ntx-item.js` -- **every single time a component mounts**. This is the runtime tax of schema-driven development.
 
 An **HTML compiler** eliminates that tax by shifting rendering from runtime to build time (or request time, or edge time). Instead of the browser interpreting a JSON Schema and constructing HTML on every page load, a compiler pre-generates the HTML once and serves it as static markup. The browser receives finished HTML instead of instructions for building HTML.
 
 **Bottom line:** For a schema-driven architecture, an HTML compiler is not merely a performance optimization -- it is an **architectural upgrade** that converts the framework's greatest strength (everything derived from schema) into a compilation advantage. The schema *is* the compiler input. Every field type, every permission rule, every UI hint is already machine-readable. A compiler that consumes this contract can generate optimized HTML with zero ambiguity.
 
-> **Key finding:** Combining Declarative Shadow DOM with schema-compiled HTML templates and islands-style selective hydration can reduce Time-to-Interactive by 60-80% while preserving PyBend's core philosophy of zero-configuration rendering.
+> **Key finding:** Combining Declarative Shadow DOM with schema-compiled HTML templates and islands-style selective hydration can reduce Time-to-Interactive by 60-80% while preserving N3TX's core philosophy of zero-configuration rendering.
 
 ---
 
@@ -30,7 +30,7 @@ An **HTML compiler** eliminates that tax by shifting rendering from runtime to b
 8. [Build Pipeline Architecture](#8-build-pipeline-architecture)
 9. [Edge and Service Worker Compilation](#9-edge-and-service-worker-compilation)
 10. [Performance Characteristics by Approach](#10-performance-characteristics-by-approach)
-11. [Implementation Strategy for PyBend](#11-implementation-strategy-for-pybend)
+11. [Implementation Strategy for N3TX](#11-implementation-strategy-for-n3tx)
 12. [Decision Matrix](#12-decision-matrix)
 13. [Sources](#13-sources)
 
@@ -118,7 +118,7 @@ Astro pioneered the **islands architecture** for production use. Its compiler op
 
 **Performance result:** Astro sites ship **zero JavaScript by default**. A content page with no interactive islands has 0 KB of JS. Even complex pages typically ship 50-80% less JS than equivalent React/Next.js builds. [Benchmarks show](https://senorit.de/en/blog/astro-vs-nextjs-2025) Astro is **2-3x faster** for content-focused sites.
 
-> **Relevance to PyBend:** PyBend's `ntt-list` and `ntt-item` components are mostly display-oriented. A list of 20 products is static HTML with a few interactive buttons (edit, delete, method calls). An islands approach would compile the list to HTML and only hydrate the buttons.
+> **Relevance to N3TX:** N3TX's `ntx-list` and `ntx-item` components are mostly display-oriented. A list of 20 products is static HTML with a few interactive buttons (edit, delete, method calls). An islands approach would compile the list to HTML and only hydrate the buttons.
 
 ---
 
@@ -160,7 +160,7 @@ Qwik takes the most radical approach to compilation: **eliminating hydration ent
 
 **Performance impact:** Qwik achieves near-zero TTI regardless of application size. A 100-component page and a 10-component page have virtually the same TTI because **no JavaScript executes until the user interacts**. The [Qwik documentation](https://qwik.dev/docs/concepts/resumable/) reports consistent sub-second TTI on mobile devices for complex applications.
 
-> **Relevance to PyBend:** PyBend's actor-based message system (`Matrix.js`) is inherently event-driven. A Qwik-inspired approach would serialize the actor addresses and message types into the HTML, then lazy-load handler code only when a user clicks a method button or enters edit mode.
+> **Relevance to N3TX:** N3TX's actor-based message system (`Matrix.js`) is inherently event-driven. A Qwik-inspired approach would serialize the actor addresses and message types into the HTML, then lazy-load handler code only when a user clicks a method button or enters edit mode.
 
 ---
 
@@ -194,7 +194,7 @@ Marko, developed and battle-tested at eBay, was the **first JavaScript framework
 
 **Key differentiator:** The compiler performs this analysis **automatically** -- developers do not annotate which components are static vs. interactive. The compiler infers it from the template's use of state and event handlers.
 
-> **Relevance to PyBend:** Marko's automatic analysis maps directly to PyBend's schema structure. A schema field with `"ui": {"display": false}` is inherently static. A field with `"access": {"edit": "owner"}` needs interactivity only for the owner. The schema already carries the information a Marko-style compiler would need.
+> **Relevance to N3TX:** Marko's automatic analysis maps directly to N3TX's schema structure. A schema field with `"ui": {"display": false}` is inherently static. A field with `"access": {"edit": "owner"}` needs interactivity only for the owner. The schema already carries the information a Marko-style compiler would need.
 
 ---
 
@@ -251,7 +251,7 @@ Source: [JS Framework Benchmark 2025](https://dev.to/krish_kakadiya_5f0eaf6342/s
 
 ### 2.5 Lit and FAST Element: Web Component Compilation
 
-Since PyBend's frontend is built on vanilla Web Components, the Lit and FAST Element compilation strategies are directly relevant.
+Since N3TX's frontend is built on vanilla Web Components, the Lit and FAST Element compilation strategies are directly relevant.
 
 **@lit-labs/compiler:**
 
@@ -269,7 +269,7 @@ Source: [@lit-labs/compiler npm](https://www.npmjs.com/package/@lit-labs/compile
 
 FAST takes a different approach -- no AOT compiler, but aggressive **tree-shaking** and minimal runtime overhead. The framework is designed so unused features are completely eliminated during bundling, achieving payloads as small as **4.5 KB** for a full Web Component with template and styles.
 
-> **Relevance to PyBend:** PyBend's `NTTElement` base class uses `innerHTML` assignment (string-based rendering) rather than tagged template literals. A compiler targeting PyBend would operate at a different level than Lit's compiler -- it would pre-generate the HTML strings that `form.js` currently builds at runtime from schema properties.
+> **Relevance to N3TX:** N3TX's `NTTElement` base class uses `innerHTML` assignment (string-based rendering) rather than tagged template literals. A compiler targeting N3TX would operate at a different level than Lit's compiler -- it would pre-generate the HTML strings that `form.js` currently builds at runtime from schema properties.
 
 ---
 
@@ -376,7 +376,7 @@ In a schema-driven framework, hydration is **doubly wasteful**:
 **Islands architecture** is the natural fit for schema-driven UIs because the schema already defines which parts are interactive:
 
 ```
- SCHEMA → ISLAND MAPPING (for PyBend)
+ SCHEMA → ISLAND MAPPING (for N3TX)
  ══════════════════════════════════════════════════════════
 
  Schema Property                    Compilation Decision
@@ -389,8 +389,8 @@ In a schema-driven framework, hydration is **doubly wasteful**:
 
  methods: {
    like: {route: "/like",
-          methods: ["POST"]}       → ★ ISLAND: <ntt-method> (needs JS)
-   comment: {route: "/comment"}    → ★ ISLAND: <ntt-method> (needs JS)
+          methods: ["POST"]}       → ★ ISLAND: <ntx-method> (needs JS)
+   comment: {route: "/comment"}    → ★ ISLAND: <ntx-method> (needs JS)
  }
 
  access: {
@@ -467,7 +467,7 @@ ISR, pioneered by Next.js, treats pre-rendered HTML as a **cache with configurab
 
 Sources: [Enterspeed SSR benchmarks](https://www.enterspeed.com/blog/we-measured-the-ssr-performance-of-6-js-frameworks-heres-what-we-found), [Medium Edge vs SSR vs SSG 2025](https://medium.com/better-dev-nextjs-react/edge-vs-ssr-vs-ssg-2025-performance-benchmarks-ttfb-data-meta-description-7b508c572b5f)
 
-> **Relevance to PyBend:** ISR maps naturally to schema-driven data. The *schema* (which determines layout) changes only on deployment. The *data* changes on every write. An ISR-like strategy could cache the schema-compiled template indefinitely and only revalidate data-dependent regions.
+> **Relevance to N3TX:** ISR maps naturally to schema-driven data. The *schema* (which determines layout) changes only on deployment. The *data* changes on every write. An ISR-like strategy could cache the schema-compiled template indefinitely and only revalidate data-dependent regions.
 
 ---
 
@@ -475,11 +475,11 @@ Sources: [Enterspeed SSR benchmarks](https://www.enterspeed.com/blog/we-measured
 
 ### The Missing Piece for Web Component SSR
 
-PyBend's frontend is built entirely on Web Components (`NTTElement`, `NTTItem`, `NTTList`, etc.). Historically, Web Components could not be server-rendered because Shadow DOM required JavaScript's `attachShadow()`. **Declarative Shadow DOM** (DSD) changes this.
+N3TX's frontend is built entirely on Web Components (`NTTElement`, `NTTItem`, `NTTList`, etc.). Historically, Web Components could not be server-rendered because Shadow DOM required JavaScript's `attachShadow()`. **Declarative Shadow DOM** (DSD) changes this.
 
 ```html
 <!-- Declarative Shadow DOM: No JavaScript required -->
-<ntt-item>
+<ntx-item>
   <template shadowrootmode="open">
     <style>/* component styles */</style>
     <div class="card" data-display="md">
@@ -492,15 +492,15 @@ PyBend's frontend is built entirely on Web Components (`NTTElement`, `NTTItem`, 
       </div>
       <!-- Only this part needs hydration -->
       <div class="card-actions">
-        <ntt-method data-method="like">
+        <ntx-method data-method="like">
           <template shadowrootmode="open">
             <button>Like</button>
           </template>
-        </ntt-method>
+        </ntx-method>
       </div>
     </div>
   </template>
-</ntt-item>
+</ntx-item>
 ```
 
 ### Browser Support (2025-2026)
@@ -519,7 +519,7 @@ Source: [Can I Use - Declarative Shadow DOM](https://caniuse.com/declarative-sha
 - **Encapsulated styles:** Each component's CSS is scoped inside the shadow root, just like with JavaScript-created Shadow DOM.
 - **Upgrade path:** When the component's JavaScript loads, `attachShadow()` detects the existing declarative shadow root and adopts it instead of creating a new one. No re-render needed.
 
-> **This is the key architectural enabler for PyBend.** A compiler can generate DSD markup for every `ntt-item` and `ntt-list`, complete with scoped styles, and the browser renders them immediately on HTML parse. When the JS modules load later, the custom elements "adopt" their pre-rendered shadow roots -- zero re-render, zero layout shift.
+> **This is the key architectural enabler for N3TX.** A compiler can generate DSD markup for every `ntx-item` and `ntx-list`, complete with scoped styles, and the browser renders them immediately on HTML parse. When the JS modules load later, the custom elements "adopt" their pre-rendered shadow roots -- zero re-render, zero layout shift.
 
 ---
 
@@ -527,14 +527,14 @@ Source: [Can I Use - Declarative Shadow DOM](https://caniuse.com/declarative-sha
 
 ### The Core Insight
 
-PyBend's JSON Schema is already a **complete specification for rendering**. The schema carries:
+N3TX's JSON Schema is already a **complete specification for rendering**. The schema carries:
 
 - **Field types** -> HTML element types (`string` -> `<input type="text">`, `number` -> `<input type="number">`)
 - **UI widgets** -> Specialized rendering (`currency` -> `<span class="currency">$</span>`, `textarea` -> `<textarea>`)
 - **Field order** -> DOM order (`ui.field_order` -> element sequence)
 - **Groups** -> Structural grouping (`ui.groups` -> `<fieldset>` wrappers)
 - **Permissions** -> Visibility (`access.update` -> show/hide edit button)
-- **Methods** -> Action buttons (`methods.like` -> `<ntt-method>` element)
+- **Methods** -> Action buttons (`methods.like` -> `<ntx-method>` element)
 - **Display hints** -> Hidden fields (`ui.display: false` -> omit from DOM)
 - **Protected fields** -> Backend-owned (`ui.protected: true` -> display-only in edit mode)
 
@@ -613,9 +613,9 @@ The compiler produces **parameterized HTML templates** -- not complete pages, bu
 ```html
 <!-- Compiled template for Product (display mode, md size) -->
 <template id="Product-md-display">
-  <ntt-item>
+  <ntx-item>
     <template shadowrootmode="open">
-      <link rel="stylesheet" href="/static/components/ntt-item.css">
+      <link rel="stylesheet" href="/static/components/ntx-item.css">
       <div class="card" data-display="md">
         <div class="card-header">
           <h3 data-field="name">{{name}}</h3>
@@ -637,7 +637,7 @@ The compiler produces **parameterized HTML templates** -- not complete pages, bu
         </div>
       </div>
     </template>
-  </ntt-item>
+  </ntx-item>
 </template>
 ```
 
@@ -651,7 +651,7 @@ There are three approaches to storing and serving compiled HTML:
 | **DOM tree serialization** | Largest | Slowest (reconstruct) | High (structured) | Complex component trees |
 | **Template instantiation** | Medium | Fastest (clone node) | Medium (slot-based) | Repeated items (lists) |
 
-For PyBend, **template instantiation** is the optimal choice for list rendering (clone a `<template>` for each product) while **HTML strings** are optimal for SSR responses (stream pre-built HTML).
+For N3TX, **template instantiation** is the optimal choice for list rendering (clone a `<template>` for each product) while **HTML strings** are optimal for SSR responses (stream pre-built HTML).
 
 The [W3C Template Instantiation proposal](https://github.com/WICG/webcomponents/blob/gh-pages/proposals/Template-Instantiation.md) (actively discussed in 2025) would provide native browser support for parameterized templates with data binding -- exactly the primitive a schema compiler needs.
 
@@ -715,7 +715,7 @@ cache_key = hash(
     + schema_version    # hash of schema JSON (changes on field add/remove/modify)
     + display_mode      # "display" | "edit"
     + size              # "xs" | "sm" | "md" | "lg" | "xl"
-    + component_version # hash of ntt-item.js (changes on component code update)
+    + component_version # hash of ntx-item.js (changes on component code update)
 )
 ```
 
@@ -739,7 +739,7 @@ For a schema-to-HTML compiler, the incremental build should be **faster than any
 3. The dependency graph is flat (each model compiles independently)
 4. The typical operation is "one model changed" (recompile 5 templates: xs, sm, md, lg, xl)
 
-**Expected incremental build time for PyBend:** <10ms per model change.
+**Expected incremental build time for N3TX:** <10ms per model change.
 
 ---
 
@@ -797,7 +797,7 @@ Service Workers can cache compiled HTML templates on the client device, enabling
 ```javascript
 // sw.js — Schema-aware pre-caching
 self.addEventListener('install', async (event) => {
-  const cache = await caches.open('pybend-templates-v1');
+  const cache = await caches.open('ntx-templates-v1');
 
   // Pre-cache compiled templates for all registered models
   const models = ['Product', 'Comment', 'User', 'Like'];
@@ -839,7 +839,7 @@ self.addEventListener('fetch', async (event) => {
 
 | **Approach** | **TTFB** | **FCP** | **LCP** | **TTI** | **JS Size** | **Build Time** |
 |---|---|---|---|---|---|---|
-| **PyBend current (CSR)** | 50-100ms | 1.5-2.5s | 2.0-3.5s | 2.5-4.0s | ~80 KB | 0 (buildless) |
+| **N3TX current (CSR)** | 50-100ms | 1.5-2.5s | 2.0-3.5s | 2.5-4.0s | ~80 KB | 0 (buildless) |
 | **Schema-compiled SSG** | 20-50ms | **0.3-0.5s** | **0.5-0.8s** | 0.8-1.5s | ~15 KB (islands) | 1-5s |
 | **Schema SSR + streaming** | 40-90ms | **0.4-0.7s** | **0.7-1.0s** | 1.0-2.0s | ~30 KB | 0 |
 | **Schema SSR + resumability** | 40-90ms | **0.4-0.7s** | **0.7-1.0s** | **0.4-0.7s** | ~1 KB (loader) | 0 |
@@ -871,7 +871,7 @@ self.addEventListener('fetch', async (event) => {
 
 ---
 
-## 11. Implementation Strategy for PyBend
+## 11. Implementation Strategy for N3TX
 
 ### Phase 1: Schema Template Compiler (Python-side)
 
@@ -957,9 +957,9 @@ Only load JavaScript for interactive "islands" (method buttons, edit toggles, pe
 
 | **Schema Signal** | **Island?** | **JS Module to Load** |
 |---|---|---|
-| `methods.*` | Yes | `ntt-method.js` |
-| `access.update` present | Yes | `ntt-item.js` (edit mode) |
-| `access.delete` present | Yes | `ntt-item.js` (delete button) |
+| `methods.*` | Yes | `ntx-method.js` |
+| `access.update` present | Yes | `ntx-item.js` (edit mode) |
+| `access.delete` present | Yes | `ntx-item.js` (delete button) |
 | `properties.*.type` (display) | No | None |
 | `ui.groups` | No | None (pure HTML structure) |
 | `$defs` (nested models) | Maybe | Only if nested model has methods/write access |
@@ -982,7 +982,7 @@ Deploy compiled templates to edge workers. Serve the template shell immediately 
 
 ### Pre-rendering with Headless Browsers: Why Not
 
-An alternative approach -- using Puppeteer or Playwright to render pages and capture the HTML -- is tempting but **architecturally wrong** for PyBend:
+An alternative approach -- using Puppeteer or Playwright to render pages and capture the HTML -- is tempting but **architecturally wrong** for N3TX:
 
 | **Concern** | **Schema Compiler** | **Headless Browser** |
 |---|---|---|
@@ -1039,8 +1039,8 @@ The schema compiler approach is **orders of magnitude cheaper** because it opera
 
 ### What NOT to Do
 
-- **Do not adopt Qwik wholesale.** Resumability requires rethinking the entire component model. The ROI does not justify the migration cost for PyBend's current scale.
-- **Do not add a Node.js SSR layer.** PyBend is a Python framework. Adding a Node.js process for SSR creates operational complexity that violates the "zero to working" philosophy.
+- **Do not adopt Qwik wholesale.** Resumability requires rethinking the entire component model. The ROI does not justify the migration cost for N3TX's current scale.
+- **Do not add a Node.js SSR layer.** N3TX is a Python framework. Adding a Node.js process for SSR creates operational complexity that violates the "zero to working" philosophy.
 - **Do not use headless browser pre-rendering.** The resource cost and fragility are unacceptable when the schema already provides everything needed for compilation.
 - **Do not compile data into HTML at build time.** Data changes constantly. Compile templates (structure) at build/deploy time; inject data at request time or client time.
 

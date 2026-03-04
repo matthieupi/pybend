@@ -1,11 +1,11 @@
-# SSR Decision Framework for PyBend
+# SSR Decision Framework for N3TX
 
 **A structured guide for deciding when, whether, and how to adopt Server-Side Rendering**
 
 | Metadata | |
 |---|---|
 | **Audience** | Technical CEOs, Engineering Leadership, Senior Engineers |
-| **Framework Context** | PyBend -- schema-driven Python/FastAPI + vanilla JS Web Components |
+| **Framework Context** | N3TX -- schema-driven Python/FastAPI + vanilla JS Web Components |
 | **Date** | February 2026 |
 | **Reading Time** | ~25 minutes |
 
@@ -23,7 +23,7 @@
 8. [Alternatives to Full SSR](#8-alternatives-to-full-ssr)
 9. [Anti-Patterns: When SSR Is the Wrong Choice](#9-anti-patterns)
 10. [Measuring SSR Success](#10-measuring-ssr-success)
-11. [PyBend-Specific Analysis](#11-pybend-specific-analysis)
+11. [N3TX-Specific Analysis](#11-ntx-specific-analysis)
 12. [Recommendation Matrix](#12-recommendation-matrix)
 13. [Sources](#13-sources)
 
@@ -38,7 +38,7 @@
 - **SSR cuts initial page load times by up to 50%** compared to pure client-side rendering (Splunk, 2024), but adds $0.15--$5.00+ per 10,000 page views in compute costs depending on infrastructure choices.
 - **53% of mobile visitors leave if a page takes longer than 3 seconds to load** (Google, 2025). SSR directly addresses this -- but only for first-paint, not subsequent interactions.
 - **SSR is the wrong choice for approximately 40% of web application types**, including internal tools, real-time dashboards, and highly interactive single-page applications.
-- **For PyBend specifically**, the schema-driven architecture and vanilla JS Web Components create a unique position where selective pre-rendering and strategic SSR deliver better ROI than full SSR adoption.
+- **For N3TX specifically**, the schema-driven architecture and vanilla JS Web Components create a unique position where selective pre-rendering and strategic SSR deliver better ROI than full SSR adoption.
 
 **The bottom line:** Do not ask "should we use SSR?" Ask: "Which pages in our application have measurable business value tied to first-load performance, and what is the cheapest way to improve that metric?"
 
@@ -57,13 +57,13 @@ Before making a decision, leadership needs to understand the four rendering stra
 | **SSG** (Static Site Generation) | Build server | Once, at deploy time | Blogs, docs, marketing pages | Frequently updated content, personalized views |
 | **ISR** (Incremental Static Regeneration) | Edge/Server | Periodically, in background | Product catalogs, news sites | Real-time data, user-specific content |
 
-### How PyBend Works Today
+### How N3TX Works Today
 
-PyBend uses **CSR with schema-driven bootstrapping**:
+N3TX uses **CSR with schema-driven bootstrapping**:
 
 ```
 1. Browser loads minimal HTML shell (matrix.html)
-2. <ntt-list model="Product"> triggers schema fetch -> GET /Product
+2. <ntx-list model="Product"> triggers schema fetch -> GET /Product
 3. Schema arrives -> DynamicClass created via prototype()
 4. DynamicClass triggers data fetch -> GET /products?limit=20&offset=0
 5. Web Components render the data client-side
@@ -183,7 +183,7 @@ START: Does search engine indexing matter for this page?
 | Real-time collaboration tool | **CSR** | WebSocket-driven; SSR adds latency, zero value |
 | Public API documentation | **SSG** | Changes only on deploy; maximum performance |
 | Social media feed | **SSR + CSR hybrid** | Initial SSR for first paint; CSR for infinite scroll |
-| PyBend schema-driven app | **CSR (current) + selective SSG** | See Section 11 |
+| N3TX schema-driven app | **CSR (current) + selective SSG** | See Section 11 |
 
 ---
 
@@ -248,7 +248,7 @@ SSR ROI = (Conversion Lift * Revenue per Conversion * Monthly Conversions * 12)
 
 ### 6.1 Required Skills Matrix
 
-| Skill | CSR (Current) | SSR (Required) | Gap for Typical PyBend Team |
+| Skill | CSR (Current) | SSR (Required) | Gap for Typical N3TX Team |
 |---|---|---|---|
 | Python/FastAPI | Yes | Yes + template rendering | Small -- Jinja2 is straightforward |
 | Vanilla JS / Web Components | Yes | Yes + server-side DOM shims | **Large** -- WC SSR is immature |
@@ -269,7 +269,7 @@ SSR ROI = (Conversion Lift * Revenue per Conversion * Monthly Conversions * 12)
 | **Stabilization** | 4-8 weeks | Bug fixes, performance tuning, monitoring |
 | **Team proficiency** | 3-6 months | Full comfort with SSR patterns |
 
-> **Key risk:** If your team is not familiar with server-side frameworks, the learning curve can be steep. Certain client-side libraries and tools that rely heavily on JavaScript execution may not work as expected with SSR (Emergent Software, 2025). For PyBend's vanilla Web Components, this risk is especially acute because Web Components SSR tooling is less mature than React/Vue SSR.
+> **Key risk:** If your team is not familiar with server-side frameworks, the learning curve can be steep. Certain client-side libraries and tools that rely heavily on JavaScript execution may not work as expected with SSR (Emergent Software, 2025). For N3TX's vanilla Web Components, this risk is especially acute because Web Components SSR tooling is less mature than React/Vue SSR.
 
 ### 6.3 Readiness Checklist
 
@@ -304,7 +304,7 @@ Score your organization (1 = not ready, 5 = fully ready):
 | **Server overload under traffic spikes** | High | Medium | Site goes down entirely (CSR degrades gracefully) | Auto-scaling, edge caching, circuit breakers |
 | **Increased TTFB** | Medium | High | Slower perceived load if rendering is slow | Streaming SSR, aggressive caching |
 | **Complexity explosion** | High | High | Slower development, more bugs, harder debugging | Limit SSR to specific routes; keep CSR for interactive pages |
-| **Web Component SSR immaturity** | High | High (for PyBend) | Requires Node.js runtime, DOM shims, or architectural change | Evaluate Lit SSR, or use template-based SSR instead |
+| **Web Component SSR immaturity** | High | High (for N3TX) | Requires Node.js runtime, DOM shims, or architectural change | Evaluate Lit SSR, or use template-based SSR instead |
 | **Cache invalidation bugs** | Medium | Medium | Stale content served to users | Clear invalidation strategy; short TTLs initially |
 | **Debugging difficulty** | Medium | High | Server-rendered bugs are harder to reproduce locally | Server-side logging, render snapshots, dev mode SSR |
 | **Vendor lock-in** | Medium | Medium | Platform-specific SSR features (Vercel, Netlify) | Use standard APIs; avoid proprietary edge functions |
@@ -320,7 +320,7 @@ Hydration is the process where the browser takes server-rendered HTML and attach
 - Mismatches can be caused by factors outside your control: browser extensions, CDN transformations, Chrome translate, iOS format detection (PropelAuth, 2025).
 - With Web Components, the situation is worse: "Web Components are inherently client-side creatures and rely on browser APIs like `customElements.define()` and the Shadow DOM, which don't exist in Node.js" (The Spicy Web, 2023).
 
-**For PyBend specifically:** The framework's Web Components use Shadow DOM, private class fields, and browser-native APIs throughout. Server-rendering these components would require either:
+**For N3TX specifically:** The framework's Web Components use Shadow DOM, private class fields, and browser-native APIs throughout. Server-rendering these components would require either:
 1. A Node.js rendering layer with DOM shims (significant complexity)
 2. Lit SSR integration (requires migrating from vanilla Web Components to Lit)
 3. A template-based approach that bypasses Web Components entirely on the server
@@ -373,7 +373,7 @@ Request arrives
     -> If real user: Serve normal CSR application
 ```
 
-**Pros:** Zero impact on user experience, minimal infrastructure, works with existing PyBend architecture.
+**Pros:** Zero impact on user experience, minimal infrastructure, works with existing N3TX architecture.
 **Cons:** Google has stated this is acceptable but "not recommended long-term." Risk of cloaking penalties if implementations diverge.
 
 ### 8.3 Streaming HTML (Progressive SSR)
@@ -382,9 +382,9 @@ Instead of waiting for the entire page to render, streaming SSR sends HTML chunk
 
 **Performance benefit:** TTFB drops to near-zero because the first bytes ship immediately. The browser can start rendering the page header and navigation while the server is still generating the product list.
 
-### 8.4 The PyBend-Optimized Alternative: Schema-Aware Pre-rendering
+### 8.4 The N3TX-Optimized Alternative: Schema-Aware Pre-rendering
 
-Given PyBend's unique architecture, a custom alternative is possible:
+Given N3TX's unique architecture, a custom alternative is possible:
 
 ```
 Build time:
@@ -416,7 +416,7 @@ This eliminates one full network round-trip (the schema fetch) and provides an i
 | **Applications behind authentication** | Search engines cannot access authenticated pages; SSR provides zero SEO value | CSR (or SSR only for the login page) |
 | **Low-traffic internal APIs** | Cost of SSR infrastructure exceeds any performance benefit for 10-100 daily users | CSR -- simplest possible architecture |
 | **Prototypes and MVPs** | SSR adds weeks to development time; premature optimization for unvalidated products | CSR -- ship fast, optimize later |
-| **PyBend schema-driven apps (typical use)** | The framework auto-generates UIs from schema; SSR would require duplicating this logic server-side | CSR with schema pre-loading |
+| **N3TX schema-driven apps (typical use)** | The framework auto-generates UIs from schema; SSR would require duplicating this logic server-side | CSR with schema pre-loading |
 
 ### 9.2 The "Resume-Driven Development" Test
 
@@ -424,15 +424,15 @@ Ask this question before adopting SSR: **"If we removed SSR tomorrow, would any 
 
 If the answer is "no" or "we don't know," SSR is not solving a real problem. It is adding complexity for its own sake.
 
-### 9.3 The PyBend-Specific Anti-Pattern
+### 9.3 The N3TX-Specific Anti-Pattern
 
-PyBend's core design principle is: **"The model is the app."** The backend defines models, schemas, and access rules; the frontend reads these at runtime and adapts. SSR would require the server to:
+N3TX's core design principle is: **"The model is the app."** The backend defines models, schemas, and access rules; the frontend reads these at runtime and adapts. SSR would require the server to:
 
 1. Execute Web Component rendering logic (requires Node.js or DOM shims)
-2. Duplicate the schema-to-HTML transformation that `form.js`, `ntt-item.js`, and `ntt-list.js` currently do client-side
+2. Duplicate the schema-to-HTML transformation that `form.js`, `ntx-item.js`, and `ntx-list.js` currently do client-side
 3. Maintain parity between server and client rendering paths
 
-This directly violates PyBend's principle of **"Transparent, not magical"** -- it adds a second rendering path that must be kept in sync with the first. For most PyBend applications (admin tools, data management, internal CRUD), this is the wrong trade-off.
+This directly violates N3TX's principle of **"Transparent, not magical"** -- it adds a second rendering path that must be kept in sync with the first. For most N3TX applications (admin tools, data management, internal CRUD), this is the wrong trade-off.
 
 ---
 
@@ -516,15 +516,15 @@ Rather than asking "did SSR help?", set performance budgets and measure against 
 
 ---
 
-## 11. PyBend-Specific Analysis
+## 11. N3TX-Specific Analysis
 
-**The "so what?" for leadership:** PyBend's architecture is fundamentally different from React/Vue/Angular applications. Generic SSR advice does not directly apply. This section provides PyBend-specific guidance.
+**The "so what?" for leadership:** N3TX's architecture is fundamentally different from React/Vue/Angular applications. Generic SSR advice does not directly apply. This section provides N3TX-specific guidance.
 
 ### 11.1 Architecture Assessment
 
-| PyBend Characteristic | SSR Implication | Assessment |
+| N3TX Characteristic | SSR Implication | Assessment |
 |---|---|---|
-| **Schema-driven UI generation** | Server would need to replicate `form.js`, `ntt-item.js` rendering logic | High complexity; high duplication risk |
+| **Schema-driven UI generation** | Server would need to replicate `form.js`, `ntx-item.js` rendering logic | High complexity; high duplication risk |
 | **Vanilla Web Components** | No mature SSR ecosystem (unlike React/Vue) | **Blocker** for traditional SSR |
 | **Shadow DOM usage** | Requires Declarative Shadow DOM for SSR; limited browser support | Significant technical risk |
 | **FastAPI backend (Python)** | Cannot execute JS Web Components natively; needs Node.js sidecar | Infrastructure complexity |
@@ -532,9 +532,9 @@ Rather than asking "did SSR help?", set performance budgets and measure against 
 | **DynamicClass via `prototype()`** | Classes created at runtime from schema; not pre-defined | Difficult to SSR without schema pre-processing |
 | **JSON Schema as contract** | Schema already contains all rendering instructions | Enables pre-rendering without full SSR |
 
-### 11.2 Recommended Strategy for PyBend
+### 11.2 Recommended Strategy for N3TX
 
-Based on the architecture analysis, **full SSR is not recommended for PyBend**. Instead, a three-tier approach delivers the best ROI:
+Based on the architecture analysis, **full SSR is not recommended for N3TX**. Instead, a three-tier approach delivers the best ROI:
 
 **Tier 1: Schema Pre-loading (Low effort, high impact)**
 ```
@@ -564,12 +564,12 @@ For search engine crawlers only:
 ```
 Delivers full SEO benefit without touching the user-facing architecture.
 
-### 11.3 What NOT to Do with PyBend
+### 11.3 What NOT to Do with N3TX
 
-| Approach | Why It Is Wrong for PyBend |
+| Approach | Why It Is Wrong for N3TX |
 |---|---|
 | Add Next.js/Nuxt.js alongside FastAPI | Two server runtimes, two rendering engines, doubled complexity |
-| Rewrite Web Components in React for SSR | Abandons PyBend's architecture; massive rewrite |
+| Rewrite Web Components in React for SSR | Abandons N3TX's architecture; massive rewrite |
 | Implement Node.js SSR sidecar for Web Components | Immature tooling; maintenance nightmare |
 | Server-render with Jinja2 templates AND keep Web Components | Two rendering paths; guaranteed divergence |
 
@@ -577,7 +577,7 @@ Delivers full SEO benefit without touching the user-facing architecture.
 
 ## 12. Recommendation Matrix
 
-### For PyBend Applications
+### For N3TX Applications
 
 | Application Type | Recommended Strategy | SSR? | Estimated Effort | Expected Impact |
 |---|---|---|---|---|
@@ -585,7 +585,7 @@ Delivers full SEO benefit without touching the user-facing architecture.
 | **Admin dashboard** | CSR (current) | No | 0 | N/A |
 | **Public product catalog** | Tier 1 + Tier 3 | Partial (bots only) | 2-3 weeks | Medium (SEO) |
 | **E-commerce storefront** | Consider alternative stack for public pages | Selective | 4-8 weeks | High |
-| **Marketing/landing pages** | SSG (separate from PyBend) | N/A | 1-2 weeks | High |
+| **Marketing/landing pages** | SSG (separate from N3TX) | N/A | 1-2 weeks | High |
 | **Documentation site** | SSG (separate) | N/A | 1 week | High |
 | **SaaS application (authenticated)** | CSR with Tier 1 optimization | No | 1 week | Low-Medium |
 
@@ -642,4 +642,4 @@ Delivers full SEO benefit without touching the user-facing architecture.
 
 ---
 
-*This document provides a decision framework, not a recommendation to adopt SSR. The correct rendering strategy depends on your specific traffic patterns, SEO requirements, team capabilities, and business model. For most PyBend applications -- particularly internal tools and authenticated SaaS products -- the current CSR architecture is the correct choice, with targeted optimizations (schema pre-loading, HTML shell caching) delivering the best ROI.*
+*This document provides a decision framework, not a recommendation to adopt SSR. The correct rendering strategy depends on your specific traffic patterns, SEO requirements, team capabilities, and business model. For most N3TX applications -- particularly internal tools and authenticated SaaS products -- the current CSR architecture is the correct choice, with targeted optimizations (schema pre-loading, HTML shell caching) delivering the best ROI.*

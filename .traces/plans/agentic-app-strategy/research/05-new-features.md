@@ -1,15 +1,15 @@
 # New Features: Grant Workflows, Notifications, Search, Tagging, and Beyond
 
 **Research Document -- Grant Watcher Feature Landscape Analysis**
-**Date:** 2026-03-04 | **Platform:** PyBend v0.10 | **Audience:** Technical CEO + Engineering Leadership
+**Date:** 2026-03-04 | **Platform:** N3TX v0.10 | **Audience:** Technical CEO + Engineering Leadership
 
 ---
 
 ## Executive Summary
 
-Grant Watcher today is a functional demo: it stores grants, scans sources, and renders UI from schema. But a demo is not a product. Commercial grant platforms like [Instrumentl](https://www.instrumentl.com/), [Fluxx](https://www.fluxx.io/), and [Grantx](https://grantx.com/) charge **$15--$40/user/month** and compete on workflow automation, intelligent matching, and collaboration. The gap between Grant Watcher and these platforms is not architecture -- PyBend's schema-driven model already solves the hard parts of data plumbing. The gap is **domain features**.
+Grant Watcher today is a functional demo: it stores grants, scans sources, and renders UI from schema. But a demo is not a product. Commercial grant platforms like [Instrumentl](https://www.instrumentl.com/), [Fluxx](https://www.fluxx.io/), and [Grantx](https://grantx.com/) charge **$15--$40/user/month** and compete on workflow automation, intelligent matching, and collaboration. The gap between Grant Watcher and these platforms is not architecture -- N3TX's schema-driven model already solves the hard parts of data plumbing. The gap is **domain features**.
 
-This document maps 9 feature categories, estimates implementation effort against user value, and recommends a phased rollout. The central finding: **5 of the 9 features are "nearly free" because PyBend's existing patterns already support them** -- they require new models and a few `@expose_route` methods, not framework extensions. The remaining 4 require modest framework enhancements (search indexing, scheduler integration, WebSocket subscriptions, and aggregate endpoints).
+This document maps 9 feature categories, estimates implementation effort against user value, and recommends a phased rollout. The central finding: **5 of the 9 features are "nearly free" because N3TX's existing patterns already support them** -- they require new models and a few `@expose_route` methods, not framework extensions. The remaining 4 require modest framework enhancements (search indexing, scheduler integration, WebSocket subscriptions, and aggregate endpoints).
 
 > **Key Insight:** The highest-ROI feature is the **grant lifecycle workflow** -- it touches every user interaction, requires zero framework changes, and can ship in under a week. The second is **tagging + search**, which unlocks the matching engine that makes Grant Watcher genuinely useful rather than merely functional.
 
@@ -87,7 +87,7 @@ The [Grants.gov lifecycle](https://www.grants.gov/learn-grants/grants-101/the-gr
 
 ### Implementation: Zero Framework Changes Needed
 
-Every transition maps naturally to an `@expose_route` method on the `Grant` model. PyBend already handles ABAC on methods, user injection, and schema exposure for frontend rendering. Here is how the model would look:
+Every transition maps naturally to an `@expose_route` method on the `Grant` model. N3TX already handles ABAC on methods, user injection, and schema exposure for frontend rendering. Here is how the model would look:
 
 ```python
 # Valid states and transitions
@@ -142,7 +142,7 @@ class Grant(ActorModel):
         return self._transition('dismissed', user)
 ```
 
-Each method automatically appears in the JSON Schema under `methods`, and the frontend renders them as action buttons via `<ntt-method>`. ABAC controls who can perform each transition. The `__ui__` config can attach icons and layout hints:
+Each method automatically appears in the JSON Schema under `methods`, and the frontend renders them as action buttons via `<ntx-method>`. ABAC controls who can perform each transition. The `__ui__` config can attach icons and layout hints:
 
 ```python
 __ui__ = {
@@ -197,7 +197,7 @@ Libraries like [python-statemachine](https://python-statemachine.readthedocs.io/
 
 | Approach | Pros | Cons |
 |----------|------|------|
-| `GRANT_STATES` dict + `@expose_route` | Zero dependencies, integrates naturally with PyBend ABAC and schema | No formal guard conditions or parallel states |
+| `GRANT_STATES` dict + `@expose_route` | Zero dependencies, integrates naturally with N3TX ABAC and schema | No formal guard conditions or parallel states |
 | `python-statemachine` library | Rich DSL, event callbacks, visualization | Adds dependency, requires integration with Pydantic MI + ABAC |
 | Schema extension (new pipeline stage) | Reusable across models, declares states in schema | Over-engineering for one model; consider only if 3+ models need workflows |
 
@@ -226,7 +226,7 @@ Based on [Optimy's 2026 grant management guide](https://www.optimy.com/blog-opti
 
 ### Implementation Architecture
 
-PyBend already has the infrastructure. The `NetworkWebSocket` adapter at `/workspace/src/pybend/core/api/network_ws.py` (lines 199-236) already handles lifecycle event broadcasts:
+N3TX already has the infrastructure. The `NetworkWebSocket` adapter at `/workspace/src/n3tx/core/api/network_ws.py` (lines 199-236) already handles lifecycle event broadcasts:
 
 ```python
 # Already exists in network_ws.py
@@ -243,7 +243,7 @@ async def LIFECYCLE(self, data: dict, tx: TX):
         await conn['ws'].send_json(broadcast)
 ```
 
-And `ActorModel._publish_lifecycle()` at `/workspace/src/pybend/core/models/actor_model.py` (lines 279-293) already fires events after create/update/delete. The pieces exist -- they just need to be connected.
+And `ActorModel._publish_lifecycle()` at `/workspace/src/n3tx/core/models/actor_model.py` (lines 279-293) already fires events after create/update/delete. The pieces exist -- they just need to be connected.
 
 ```
 ┌────────────┐    lifecycle TX    ┌──────────────┐    filter     ┌────────────────┐
@@ -371,7 +371,7 @@ if ws_adapter:
 
 ### The Problem
 
-The current `SQLiteStorage.list()` method at `/workspace/src/pybend/core/storage/sqlite_storage.py` (lines 146-256) supports only `sql_filter` tuples -- raw WHERE clauses passed from the auth interceptor. There is no user-facing search endpoint. Finding a grant means scrolling the list or knowing the exact ID. With 1,000+ grants discovered by agents, this is untenable.
+The current `SQLiteStorage.list()` method at `/workspace/src/n3tx/core/storage/sqlite_storage.py` (lines 146-256) supports only `sql_filter` tuples -- raw WHERE clauses passed from the auth interceptor. There is no user-facing search endpoint. Finding a grant means scrolling the list or knowing the exact ID. With 1,000+ grants discovered by agents, this is untenable.
 
 ### Option Analysis: Three Search Approaches
 
@@ -536,7 +536,7 @@ Grants currently have two categorical fields: `agency` (a free-text string) and 
 
 ### Implementation: Tag Model + Join Table
 
-PyBend's `ListRef` + `generate_join_model` pattern is tailor-made for this:
+N3TX's `ListRef` + `generate_join_model` pattern is tailor-made for this:
 
 ```python
 class Tag(ActorModel):
@@ -606,12 +606,12 @@ def suggest_tags(title: str, description: str) -> list[str]:
 
 | Strategy | Pros | Cons | Best For |
 |----------|------|------|----------|
-| **ListRef join table** | Standard PyBend pattern, CRUD for free, relational queries | Extra table, join queries | Primary implementation |
+| **ListRef join table** | Standard N3TX pattern, CRUD for free, relational queries | Extra table, join queries | Primary implementation |
 | **JSON array field** | Simple, no join table | No relational queries, harder to filter | Ephemeral/suggested tags |
 | **Keyword-based auto-tag** | Fast, deterministic, no LLM cost | Rigid, misses context | MVP auto-tagging |
 | **LLM-powered auto-tag** | Contextual, handles nuance | Costs ~$0.01/grant, latency | Production auto-tagging |
 
-> **Recommendation:** Use the `ListRef` join table for persistent tags (it is the canonical PyBend pattern). Use keyword matching for MVP auto-tagging, upgrade to LLM-powered tagging when the Grant Scanner agent's prompt is extended.
+> **Recommendation:** Use the `ListRef` join table for persistent tags (it is the canonical N3TX pattern). Use keyword matching for MVP auto-tagging, upgrade to LLM-powered tagging when the Grant Scanner agent's prompt is extended.
 
 ### Effort Estimate
 
@@ -887,7 +887,7 @@ async def deadline_check():
 
 ### Scheduler as an Actor
 
-For tighter PyBend integration, the scheduler can be wrapped as a non-storable ActorModel with management endpoints:
+For tighter N3TX integration, the scheduler can be wrapped as a non-storable ActorModel with management endpoints:
 
 ```python
 class Scheduler(ActorModel):
@@ -947,7 +947,7 @@ After months of operation, the natural questions arise: How many grants are we d
 
 ### Implementation: Aggregate Endpoints
 
-Rather than building a separate analytics service, add aggregate endpoints to existing models. This follows the PyBend philosophy of the model being the app:
+Rather than building a separate analytics service, add aggregate endpoints to existing models. This follows the N3TX philosophy of the model being the app:
 
 ```python
 @expose_route('/stats', methods=['GET'], access=AUTHENTICATED)
@@ -1033,7 +1033,7 @@ def export(cls, format: str = 'csv') -> str:
 
 ### Frontend Dashboard
 
-The frontend can consume the `/grants/stats` endpoint and render charts using lightweight libraries. Since PyBend serves static files, a simple chart library like Chart.js (40KB) can be vendored:
+The frontend can consume the `/grants/stats` endpoint and render charts using lightweight libraries. Since N3TX serves static files, a simple chart library like Chart.js (40KB) can be vendored:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -1160,7 +1160,7 @@ The frontend can consume the `/grants/stats` endpoint and render charts using li
 
 ### Features That Are "Free" (Zero Framework Changes)
 
-These features use existing PyBend patterns -- `@expose_route`, `ListRef`, `generate_join_model`, ABAC rules, schema pipeline, widget types -- and require only new model definitions:
+These features use existing N3TX patterns -- `@expose_route`, `ListRef`, `generate_join_model`, ABAC rules, schema pipeline, widget types -- and require only new model definitions:
 
 | Feature | Pattern Used | Lines of New Code |
 |---------|-------------|-------------------|
@@ -1197,7 +1197,7 @@ These features use existing PyBend patterns -- `@expose_route`, `ListRef`, `gene
 
 | Capability | Build Cost (Grant Watcher) | Buy Cost (SaaS) | Verdict |
 |-----------|--------------------------|-----------------|---------|
-| Grant Lifecycle | 3 days | Included in $15-40/user/month | **Build** -- trivial with PyBend |
+| Grant Lifecycle | 3 days | Included in $15-40/user/month | **Build** -- trivial with N3TX |
 | Search | 4.5 days | Included | **Build** -- FTS5 is free and sufficient |
 | Notifications | 4.5 days | Included | **Build** -- WebSocket infra exists |
 | Auto-tagging | 1-2 days | $5-15/user/month add-on | **Build** -- leverages existing agent |
@@ -1240,7 +1240,7 @@ The entire feature landscape can be distilled to one priority stack:
 
 **Total: ~31 engineering days from demo to competitive product.**
 
-The good news: PyBend's architecture means most of this is model definitions, not infrastructure work. The schema pipeline, ABAC system, actor messaging, and WebSocket bridge are already built. The features are just data models that take advantage of them.
+The good news: N3TX's architecture means most of this is model definitions, not infrastructure work. The schema pipeline, ABAC system, actor messaging, and WebSocket bridge are already built. The features are just data models that take advantage of them.
 
 The even better news: each phase is independently shippable. Phase 1 alone transforms Grant Watcher from "interesting demo" to "daily-use tool."
 

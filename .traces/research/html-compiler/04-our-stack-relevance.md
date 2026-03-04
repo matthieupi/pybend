@@ -1,31 +1,31 @@
-# HTML Compiler for PyBend: Schema-Driven Pre-Compilation of Entity Templates
+# HTML Compiler for N3TX: Schema-Driven Pre-Compilation of Entity Templates
 
 **Research Brief 08** | February 2026
 **Audience:** Technical CEOs, Engineering Leadership
-**Angle:** How PyBend's schema-driven architecture uniquely enables HTML compilation
+**Angle:** How N3TX's schema-driven architecture uniquely enables HTML compilation
 
 ---
 
 ## Executive Summary
 
-PyBend's architecture carries a rare property: **the JSON Schema is a complete specification** of rendering behavior, not just data types. Field types, widget hints, layout groups, display modes, permission rules, and callable methods are all embedded in the schema document that the backend generates at startup. This means a compiler can produce fully-formed HTML templates at build time with **zero ambiguity** about what to render.
+N3TX's architecture carries a rare property: **the JSON Schema is a complete specification** of rendering behavior, not just data types. Field types, widget hints, layout groups, display modes, permission rules, and callable methods are all embedded in the schema document that the backend generates at startup. This means a compiler can produce fully-formed HTML templates at build time with **zero ambiguity** about what to render.
 
 This document maps the exact compilation surface, estimates the performance gains, proposes a concrete Python-side compiler that runs on server start (no npm, no Node, no build step), and honestly assesses whether the current rendering is slow enough to justify the investment.
 
-**Key finding:** Form generation and display-size templates are the highest-value compilation targets. A pre-compiled template approach could eliminate ~70% of runtime DOM construction per entity while preserving PyBend's buildless philosophy.
+**Key finding:** Form generation and display-size templates are the highest-value compilation targets. A pre-compiled template approach could eliminate ~70% of runtime DOM construction per entity while preserving N3TX's buildless philosophy.
 
 ---
 
 ## Table of Contents
 
-1. [Why PyBend Is Uniquely Positioned](#1-why-pybend-is-uniquely-positioned)
+1. [Why N3TX Is Uniquely Positioned](#1-why-ntx-is-uniquely-positioned)
 2. [The Complete Schema Surface Map](#2-the-complete-schema-surface-map)
 3. [What Can Be Compiled (Static at Build Time)](#3-what-can-be-compiled)
 4. [What Cannot Be Compiled (Requires Runtime)](#4-what-cannot-be-compiled)
 5. [The Compilation Pipeline](#5-the-compilation-pipeline)
 6. [Runtime Cost Analysis: Where Time Is Spent Today](#6-runtime-cost-analysis)
 7. [Hydration Strategy: Shells + Data Injection](#7-hydration-strategy)
-8. [Islands Architecture for PyBend](#8-islands-architecture-for-pybend)
+8. [Islands Architecture for N3TX](#8-islands-architecture-for-n3tx)
 9. [Declarative Shadow DOM Integration](#9-declarative-shadow-dom)
 10. [Actor Model Compatibility](#10-actor-model-compatibility)
 11. [Concrete Implementation Plan](#11-concrete-implementation-plan)
@@ -35,14 +35,14 @@ This document maps the exact compilation surface, estimates the performance gain
 
 ---
 
-## 1. Why PyBend Is Uniquely Positioned
+## 1. Why N3TX Is Uniquely Positioned
 
 Most web frameworks face a fundamental problem with pre-compilation: the rendering logic is scattered across components, configuration files, CSS frameworks, and runtime state. A compiler must understand all of these to produce correct output.
 
-**PyBend has none of this problem.** The schema IS the specification.
+**N3TX has none of this problem.** The schema IS the specification.
 
 ```
-                     Typical Framework                      PyBend
+                     Typical Framework                      N3TX
                      ================                      ======
 
     Rendering info    Component code                        Schema
@@ -54,7 +54,7 @@ Most web frameworks face a fundamental problem with pre-compilation: the renderi
     Display modes     Responsive CSS only                   Schema + size methods (xs-xl)
 ```
 
-> **Key insight:** In PyBend, `ProtoModel.schema()` (line 199 of `proto_model.py`) generates a JSON document that carries **everything the frontend needs**. No separate configuration, no component-level rendering decisions, no framework opinions. This is the compiler's input and it is **complete**.
+> **Key insight:** In N3TX, `ProtoModel.schema()` (line 199 of `proto_model.py`) generates a JSON document that carries **everything the frontend needs**. No separate configuration, no component-level rendering decisions, no framework opinions. This is the compiler's input and it is **complete**.
 
 ### What the Schema Carries
 
@@ -68,7 +68,7 @@ From reading `proto_model.py` (lines 199-316), the schema generation process inc
 | Field order | `__ui__['field_order']` | Lines 283-291 |
 | Renderer hints | `__ui__['renderer']` | Lines 283-291 |
 | Access rules | `__access__` + `access_schema()` | Lines 255-256 |
-| Method signatures | `@expose_route` + `__pybend_methods_json_signature__` | Lines 140-188 |
+| Method signatures | `@expose_route` + `__n3tx_methods_json_signature__` | Lines 140-188 |
 | Method UI hints | `__ui__['methods']` | Lines 287-291 |
 | Protected fields | `__protected_fields__` | Lines 262-266 |
 | Auto-hidden fields | `_apply_field_exclusion()` | Lines 25-41 |
@@ -98,10 +98,10 @@ properties.favorites.type: "array" form.js getListInput()        PARTIAL - struc
 ui.field_order                     form.js getForm() L24-29      YES - render sequence
 ui.groups.main                     form.js renderGroupedFields() YES - <fieldset> structure
 ui.groups.Social                   form.js renderGroupedFields() YES - <fieldset> structure
-access.update: OWNER|ROLE(admin)   ntt-item.js md() L287-288     VARIANT - compile both states
-access.delete: ROLE(admin)         ntt-item.js md() L287-288     VARIANT - compile both states
-methods.comment                    ntt-item.js L305-317          YES - <ntt-method> element
-methods.favorite                   ntt-item.js L305-317          YES - <ntt-method> element
+access.update: OWNER|ROLE(admin)   ntx-item.js md() L287-288     VARIANT - compile both states
+access.delete: ROLE(admin)         ntx-item.js md() L287-288     VARIANT - compile both states
+methods.comment                    ntx-item.js L305-317          YES - <ntx-method> element
+methods.favorite                   ntx-item.js L305-317          YES - <ntx-method> element
 methods.comment.ui.layout          sm() L238-249                 YES - button vs inline placement
 methods.comment.ui.attach_to       renderGroupedFields()         YES - placement in fieldset
 ```
@@ -142,7 +142,7 @@ For a Product with 5 rendered fields in 2 groups, this produces approximately:
 <input style="font-size: 1.5rem" type="text" id="name"
        data-key="name" data-type="string" value="{{name}}"
        minlength="1" maxlength="200" placeholder="Product name..." required>
-<fieldset class="ntt-group ntt-group-main">
+<fieldset class="ntx-group ntx-group-main">
   <legend>main</legend>
   <label class="Product Product-form-item">Name</label>
   <input type="text" id="name" data-key="name" data-type="string"
@@ -158,7 +158,7 @@ For a Product with 5 rendered fields in 2 groups, this produces approximately:
            data-type="number" value="{{price}}" min="0">
   </div>
 </fieldset>
-<fieldset class="ntt-group ntt-group-Social">
+<fieldset class="ntx-group ntx-group-Social">
   <legend>Social</legend>
   <!-- Array fields: structure compiled, children are runtime -->
   <div class="list-field" data-model="Comment" data-value="comments">
@@ -166,12 +166,12 @@ For a Product with 5 rendered fields in 2 groups, this produces approximately:
       <span class="list-field-label">Comment</span>
       <span class="list-field-count">{{comments.length}}</span>
     </div>
-    <!-- Child ntt-item elements injected at runtime -->
+    <!-- Child ntx-item elements injected at runtime -->
   </div>
-  <ntt-method model="Product" uuid="{{id}}" method="comment"
+  <ntx-method model="Product" uuid="{{id}}" method="comment"
               layout="inline" placeholder="Add your comment..."
               button-label="Post" widget="textarea" label="comment">
-  </ntt-method>
+  </ntx-method>
 </fieldset>
 ```
 
@@ -179,7 +179,7 @@ For a Product with 5 rendered fields in 2 groups, this produces approximately:
 
 ### 3b. Display Size Templates (xs / sm / md / lg / xl)
 
-Each display size in `ntt-item.js` produces a known HTML structure determined entirely by schema. Traced from source:
+Each display size in `ntx-item.js` produces a known HTML structure determined entirely by schema. Traced from source:
 
 **xs** (pill, line 143-146):
 ```html
@@ -206,9 +206,9 @@ All of this is schema-determined. The compiler can produce:
   <span class="sm-field" data-value="description">{{description}}</span>
 </span>
 <span class="sm-methods">
-  <ntt-method model="Product" uuid="{{id}}" method="favorite"
+  <ntx-method model="Product" uuid="{{id}}" method="favorite"
               layout="button" icon="star" count-field="favorites"
-              label="favorite"></ntt-method>
+              label="favorite"></ntx-method>
 </span>
 <span class="sm-actions">
   <button class="delete-btn" title="Delete"></button>
@@ -234,12 +234,12 @@ At runtime, the component selects the appropriate variant based on `permissions.
 
 ### 3d. Method Button Groups
 
-From `ntt-item.js` `#standaloneMethodsHtml()` (lines 641-657), each method produces a `<ntt-method>` element. The attributes are entirely schema-derived:
+From `ntx-item.js` `#standaloneMethodsHtml()` (lines 641-657), each method produces a `<ntx-method>` element. The attributes are entirely schema-derived:
 
 ```
-methods.comment -> <ntt-method model="Product" method="comment"
+methods.comment -> <ntx-method model="Product" method="comment"
                     layout="inline" attach_to="comments" ...>
-methods.favorite -> <ntt-method model="Product" method="favorite"
+methods.favorite -> <ntx-method model="Product" method="favorite"
                     layout="button" icon="star" ...>
 ```
 
@@ -247,7 +247,7 @@ These are static. Compile once.
 
 ### 3e. Skeleton Placeholders
 
-The `placeholder()` method in `ntt-item.js` (lines 44-60) returns size-specific bone HTML. These are 100% static strings today. Trivially compilable.
+The `placeholder()` method in `ntx-item.js` (lines 44-60) returns size-specific bone HTML. These are 100% static strings today. Trivially compilable.
 
 ---
 
@@ -316,7 +316,7 @@ The `placeholder()` method in `ntt-item.js` (lines 44-60) returns size-specific 
                            RUNTIME (browser)
 
   ┌─────────────┐    fetch schema     ┌──────────────────┐
-  │ <ntt-list    │ ───────────────>   │ Backend serves    │
+  │ <ntx-list    │ ───────────────>   │ Backend serves    │
   │  model=      │                    │ schema + template │
   │  "Product"> │                    │ registry URL      │
   └─────────────┘                    └──────────────────┘
@@ -326,7 +326,7 @@ The `placeholder()` method in `ntt-item.js` (lines 44-60) returns size-specific 
          │
          v
   ┌─────────────┐    load template    ┌──────────────────┐
-  │ ntt-item     │ ───────────────>   │ Pre-compiled      │
+  │ ntx-item     │ ───────────────>   │ Pre-compiled      │
   │ render()     │                    │ Product_md.html   │
   └─────────────┘                    └──────────────────┘
          │
@@ -339,11 +339,11 @@ The `placeholder()` method in `ntt-item.js` (lines 44-60) returns size-specific 
   └─────────────┘
 ```
 
-### Fitting PyBend's Buildless Philosophy
+### Fitting N3TX's Buildless Philosophy
 
 > **This is not a build step.** It is a server-start step, analogous to database migrations.
 
-PyBend already runs `register_model()` and `register_routes()` at startup. The HTML compiler slots into the same lifecycle:
+N3TX already runs `register_model()` and `register_routes()` at startup. The HTML compiler slots into the same lifecycle:
 
 ```python
 # In app.py or create_app()
@@ -353,19 +353,19 @@ register_routes(registered_models)
 compile_templates(registered_models)   # <-- NEW: generates HTML from schemas
 ```
 
-The compiler is a pure Python function. No Node.js, no npm, no Webpack, no Vite. It reads `model.schema()`, applies the same logic as `form.js` and `ntt-item.js`, and writes HTML strings to a template registry served as static files.
+The compiler is a pure Python function. No Node.js, no npm, no Webpack, no Vite. It reads `model.schema()`, applies the same logic as `form.js` and `ntx-item.js`, and writes HTML strings to a template registry served as static files.
 
 ---
 
 ## 6. Runtime Cost Analysis: Where Time Is Spent Today
 
-### 6a. prototype() Function (NTT.js lines 663-1074)
+### 6a. prototype() Function (N3TX.js lines 663-1074)
 
 Traced operations per schema:
 
 | Step | Operations | Est. Time |
 |---|---|---|
-| Create DynamicClass (class extends NTT) | 1 class creation | ~0.1ms |
+| Create DynamicClass (class extends N3TX) | 1 class creation | ~0.1ms |
 | Define field properties (Object.defineProperty per field) | ~6 for Product | ~0.3ms |
 | Define method wrappers | ~2 for Product | ~0.1ms |
 | Set up static type-level methods (ATTACH, READ, etc.) | ~8 method assignments | ~0.2ms |
@@ -395,7 +395,7 @@ Multiplied across a list of 20 entities at md display:
 
 > **Verdict:** This is the **highest-value compilation target**. Form generation is the most complex runtime path, and it is entirely schema-determined. Eliminating it saves ~1.5ms per entity per render.
 
-### 6c. ntt-item.js render() Dispatch
+### 6c. ntx-item.js render() Dispatch
 
 | Step | Operations | Est. Time |
 |---|---|---|
@@ -421,7 +421,7 @@ Based on benchmarks from [MeasureThat.net](https://www.measurethat.net/Benchmark
 | `template.cloneNode(true)` | ~1.5x - 2x faster |
 | Pre-built string via `innerHTML` | ~1.2x - 1.5x faster (no string building) |
 
-PyBend currently uses `innerHTML` with runtime-built strings. Pre-compiled templates skip the string-building step entirely, giving the `innerHTML` assignment a pre-formed string. The `<template>` + `cloneNode` path could be even faster but requires attribute patching instead of slot interpolation.
+N3TX currently uses `innerHTML` with runtime-built strings. Pre-compiled templates skip the string-building step entirely, giving the `innerHTML` assignment a pre-formed string. The `<template>` + `cloneNode` path could be even faster but requires attribute patching instead of slot interpolation.
 
 ---
 
@@ -445,7 +445,7 @@ The compiler produces **template shells** with named slots. At runtime, the comp
 <img class="card-image" src="{{image}}" alt="{{name}}" />
 <h2 class="Product" data-value="name">{{name}}</h2>
 <h4 data-value="description">{{description}}</h4>
-<fieldset class="ntt-group ntt-group-main">
+<fieldset class="ntx-group ntx-group-main">
   <legend>main</legend>
   <label class="Product Product-form-item">Name</label>
   <div data-value="name">{{name}}</div>
@@ -454,7 +454,7 @@ The compiler produces **template shells** with named slots. At runtime, the comp
   <label class="Product Product-form-item">Price</label>
   <div class="currency-display" data-value="price">{{price_currency}}</div>
 </fieldset>
-<fieldset class="ntt-group ntt-group-Social">
+<fieldset class="ntx-group ntx-group-Social">
   <legend>Social</legend>
   <div class="list-field" data-model="Comment" data-value="comments">
     <div class="list-field-header">
@@ -463,10 +463,10 @@ The compiler produces **template shells** with named slots. At runtime, the comp
     </div>
     {{comments_children}}
   </div>
-  <ntt-method model="Product" uuid="{{id}}" method="comment"
+  <ntx-method model="Product" uuid="{{id}}" method="comment"
               layout="inline" attach_to="comments"
               placeholder="Add your comment..." button-label="Post"
-              widget="textarea" label="comment"></ntt-method>
+              widget="textarea" label="comment"></ntx-method>
   <div class="list-field" data-model="Like" data-value="favorites">
     <div class="list-field-header">
       <span class="list-field-label">Like</span>
@@ -474,9 +474,9 @@ The compiler produces **template shells** with named slots. At runtime, the comp
     </div>
     {{favorites_children}}
   </div>
-  <ntt-method model="Product" uuid="{{id}}" method="favorite"
+  <ntx-method model="Product" uuid="{{id}}" method="favorite"
               layout="button" icon="star" count-field="favorites"
-              attach_to="favorites" label="favorite"></ntt-method>
+              attach_to="favorites" label="favorite"></ntx-method>
 </fieldset>
 ```
 
@@ -500,7 +500,7 @@ function hydrate(template, entity, schema) {
         if (def.type === 'array' && Array.isArray(val)) {
             html = html.replace(`{{${key}_count}}`, String(val.length));
             const childHtml = val.slice(0, 2).map(ref =>
-                `<ntt-item ref="${ref}" display="sm"></ntt-item>`
+                `<ntx-item ref="${ref}" display="sm"></ntx-item>`
             ).join('');
             html = html.replace(`{{${key}_children}}`, childHtml);
         }
@@ -516,9 +516,9 @@ The hydration function is **dramatically simpler** than the current form generat
 
 ---
 
-## 8. Islands Architecture for PyBend
+## 8. Islands Architecture for N3TX
 
-PyBend's component model naturally maps to [Islands Architecture](https://docs.astro.build/en/concepts/islands/):
+N3TX's component model naturally maps to [Islands Architecture](https://docs.astro.build/en/concepts/islands/):
 
 ```
   ┌──────────────────────────────────────────────────────────┐
@@ -530,7 +530,7 @@ PyBend's component model naturally maps to [Islands Architecture](https://docs.a
   │  │                                                  │     │
   │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐      │     │
   │  │  │ ISLAND   │  │ ISLAND   │  │ ISLAND   │      │     │
-  │  │  │ ntt-item │  │ ntt-item │  │ ntt-item │      │     │
+  │  │  │ ntx-item │  │ ntx-item │  │ ntx-item │      │     │
   │  │  │          │  │          │  │          │      │     │
   │  │  │ Dynamic: │  │ Dynamic: │  │ Dynamic: │      │     │
   │  │  │ - values │  │ - values │  │ - values │      │     │
@@ -549,7 +549,7 @@ PyBend's component model naturally maps to [Islands Architecture](https://docs.a
   └──────────────────────────────────────────────────────────┘
 ```
 
-### Island Boundaries in PyBend
+### Island Boundaries in N3TX
 
 | Layer | Static / Dynamic | Compilation? |
 |---|---|---|
@@ -564,7 +564,7 @@ PyBend's component model naturally maps to [Islands Architecture](https://docs.a
 
 The natural split: **compile the structure, hydrate the data, bind the events**.
 
-This mirrors Astro's approach where "the majority of your website is converted to fast, static HTML and JavaScript is only loaded for the individual components that need it" [(Astro docs)](https://docs.astro.build/en/concepts/islands/). The difference is that PyBend's "build" happens at server start, not in a CI pipeline.
+This mirrors Astro's approach where "the majority of your website is converted to fast, static HTML and JavaScript is only loaded for the individual components that need it" [(Astro docs)](https://docs.astro.build/en/concepts/islands/). The difference is that N3TX's "build" happens at server start, not in a CI pipeline.
 
 ---
 
@@ -573,18 +573,18 @@ This mirrors Astro's approach where "the majority of your website is converted t
 [Declarative Shadow DOM (DSD)](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) enables server-rendered shadow roots without JavaScript:
 
 ```html
-<ntt-item>
+<ntx-item>
   <template shadowrootmode="open">
-    <link rel="stylesheet" href="/static/components/ntt-item.css">
+    <link rel="stylesheet" href="/static/components/ntx-item.css">
     <div class="card" data-display="md">
       <h2 class="Product" data-value="name">Widget Pro</h2>
       <!-- ... pre-rendered content ... -->
     </div>
   </template>
-</ntt-item>
+</ntx-item>
 ```
 
-### DSD Applicability to PyBend
+### DSD Applicability to N3TX
 
 | Factor | Assessment |
 |---|---|
@@ -608,19 +608,19 @@ def render_page(models, initial_data):
         template = get_compiled_template(schema, 'md', 'anon')
         hydrated = hydrate(template, entity.model_dump(response=True))
         html += f'''
-        <ntt-item>
+        <ntx-item>
           <template shadowrootmode="open">
-            <link rel="stylesheet" href="/static/components/ntt-item.css">
+            <link rel="stylesheet" href="/static/components/ntx-item.css">
             <div class="card" data-display="md">{hydrated}</div>
           </template>
-        </ntt-item>'''
+        </ntx-item>'''
     html += '</html>'
     return html
 ```
 
-This would give PyBend **instant rendering** on first page load, before any JavaScript executes. The Actor system then takes over for interactivity.
+This would give N3TX **instant rendering** on first page load, before any JavaScript executes. The Actor system then takes over for interactivity.
 
-**Important:** PyBend already has pre-loading infrastructure. NTT.js lines 244-277 implement `#consumePreloadedSchema()` and `#consumePreloadedData()` which consume inline `<script data-ntt-schema>` and `<script data-ntt-data>` tags. The DSD approach extends this pattern from data pre-loading to DOM pre-rendering.
+**Important:** N3TX already has pre-loading infrastructure. N3TX.js lines 244-277 implement `#consumePreloadedSchema()` and `#consumePreloadedData()` which consume inline `<script data-ntx-schema>` and `<script data-ntx-data>` tags. The DSD approach extends this pattern from data pre-loading to DOM pre-rendering.
 
 ---
 
@@ -633,10 +633,10 @@ The key question: **do pre-compiled templates break the Matrix/Actor messaging f
 ```
 Component.connectedCallback()
   -> attributeChangedCallback('model', ...)
-    -> send TX(ATTACH, target='NTT')
-      -> NTT.ATTACH()
+    -> send TX(ATTACH, target='N3TX')
+      -> N3TX.ATTACH()
         -> fetch schema (or consume pre-loaded)
-          -> NTT.SCHEMA()
+          -> N3TX.SCHEMA()
             -> prototype() creates DynamicClass
             -> DynamicClass.READ() fetches data
               -> DynamicClass notifies watchers
@@ -652,10 +652,10 @@ Component.connectedCallback()
 ```
 Component.connectedCallback()
   -> attributeChangedCallback('model', ...)
-    -> send TX(ATTACH, target='NTT')
-      -> NTT.ATTACH()
+    -> send TX(ATTACH, target='N3TX')
+      -> N3TX.ATTACH()
         -> fetch schema (or consume pre-loaded)
-          -> NTT.SCHEMA()
+          -> N3TX.SCHEMA()
             -> prototype() creates DynamicClass  (UNCHANGED)
             -> DynamicClass.READ() fetches data  (UNCHANGED)
               -> DynamicClass notifies watchers   (UNCHANGED)
@@ -671,7 +671,7 @@ Component.connectedCallback()
 
 ### Surgical Update Compatibility
 
-`ntt-item.js` already implements surgical DOM updates via the `update()` method (lines 336-373). This method patches individual `[data-value]` and `[data-key]` elements by key. Pre-compiled templates use the same `data-value` and `data-key` attributes, so **surgical updates work unchanged**.
+`ntx-item.js` already implements surgical DOM updates via the `update()` method (lines 336-373). This method patches individual `[data-value]` and `[data-key]` elements by key. Pre-compiled templates use the same `data-value` and `data-key` attributes, so **surgical updates work unchanged**.
 
 ---
 
@@ -679,11 +679,11 @@ Component.connectedCallback()
 
 ### Phase 1: Python-Side Template Compiler
 
-**File:** `src/pybend/core/compiler/templates.py`
+**File:** `src/n3tx/core/compiler/templates.py`
 
 ```python
 """
-HTML Template Compiler for PyBend.
+HTML Template Compiler for N3TX.
 
 Reads model schemas and generates pre-compiled HTML templates
 for each model x display-size x permission-variant combination.
@@ -693,7 +693,7 @@ No npm. No Node. No build step.
 """
 
 from typing import Dict, Type
-from pybend.core.utils.registrar import registered_models
+from n3tx.core.utils.registrar import registered_models
 
 
 def compile_templates(models: dict = None) -> dict:
@@ -793,7 +793,7 @@ async def get_templates(model_name: str):
 ### Phase 3: Frontend Template Consumer
 
 ```javascript
-// In NTT.js — extend SCHEMA handler
+// In N3TX.js — extend SCHEMA handler
 static SCHEMA(data, tx) {
     // ... existing DynamicClass creation ...
 
@@ -807,11 +807,11 @@ static SCHEMA(data, tx) {
 ```
 
 ```javascript
-// In ntt-item.js — template-aware render
+// In ntx-item.js — template-aware render
 render() {
     if (!this.schema || !this.value) return;
     const size = this.displayMode;
-    const DC = NTT.get(this.schema.__name__);
+    const DC = N3TX.get(this.schema.__name__);
 
     if (DC?._templates) {
         // Pre-compiled path
@@ -850,7 +850,7 @@ def create_app(models, storage, compile=True, **kwargs):
     register_routes(registered_models)
 
     if compile:
-        from pybend.core.compiler.templates import compile_templates
+        from n3tx.core.compiler.templates import compile_templates
         compile_templates(registered_models)
         logger.info("HTML templates compiled for %d models", len(registered_models))
 
@@ -879,7 +879,7 @@ def create_app(models, storage, compile=True, **kwargs):
 |---|---|---|---|
 | Time to First Contentful Paint | ~800ms (JS parse + schema fetch + render) | ~200ms (pre-rendered HTML) | -600ms |
 | JavaScript parsed before first pixel | ~150KB | ~150KB (but not blocking) | FCP improvement |
-| Schema network round-trip | ~50ms | 0ms (inline `<script data-ntt-schema>`) | -50ms |
+| Schema network round-trip | ~50ms | 0ms (inline `<script data-ntx-schema>`) | -50ms |
 
 ### Memory Impact
 
@@ -924,7 +924,7 @@ Negligible compared to the current per-render string allocations, which generate
 
 ### The Numbers
 
-For a typical PyBend page (20 md cards):
+For a typical N3TX page (20 md cards):
 - **Current:** ~44ms rendering time after data arrives
 - **Compiled:** ~15ms rendering time after data arrives
 - **Saving:** ~29ms per render cycle
@@ -944,7 +944,7 @@ Before building a compiler, there are lower-cost optimizations:
 | **Virtual scrolling** for large lists | High | Massive win for 100+ items |
 | **Web Worker for hydration** | High | Moves string ops off main thread |
 
-> **Recommendation:** Implement template caching in `form.js` first (a 20-line change). If performance is still insufficient for your use case, proceed with the full compiler. The compiler is architecturally sound and PyBend's schema completeness makes it uniquely feasible -- the question is whether you need it yet.
+> **Recommendation:** Implement template caching in `form.js` first (a 20-line change). If performance is still insufficient for your use case, proceed with the full compiler. The compiler is architecturally sound and N3TX's schema completeness makes it uniquely feasible -- the question is whether you need it yet.
 
 ### The Strategic Argument
 
@@ -1003,7 +1003,7 @@ These strategic benefits may justify the compiler even if the raw performance ga
               access rules  methods
                     |          |
               compile N      compile
-              variants:      <ntt-method>
+              variants:      <ntx-method>
               anon/auth/     elements
               owner/admin    per method
 ```
@@ -1016,22 +1016,22 @@ These strategic benefits may justify the compiler even if the raw performance ga
 
 | File | Purpose |
 |---|---|
-| `src/pybend/core/compiler/__init__.py` | Package init |
-| `src/pybend/core/compiler/templates.py` | Main compiler: schema -> HTML templates |
-| `src/pybend/core/compiler/form_compiler.py` | Port of form.js logic to Python |
-| `src/pybend/core/compiler/size_compiler.py` | Port of xs/sm/md/lg/xl layout logic |
-| `src/pybend/core/compiler/method_compiler.py` | Method button generation |
-| `src/pybend/core/compiler/registry.py` | Template storage and serving |
+| `src/n3tx/core/compiler/__init__.py` | Package init |
+| `src/n3tx/core/compiler/templates.py` | Main compiler: schema -> HTML templates |
+| `src/n3tx/core/compiler/form_compiler.py` | Port of form.js logic to Python |
+| `src/n3tx/core/compiler/size_compiler.py` | Port of xs/sm/md/lg/xl layout logic |
+| `src/n3tx/core/compiler/method_compiler.py` | Method button generation |
+| `src/n3tx/core/compiler/registry.py` | Template storage and serving |
 
 ### Modified Files
 
 | File | Change |
 |---|---|
-| `src/pybend/core/app.py` | Add `compile_templates()` to startup |
-| `src/pybend/core/api/routes_fastapi.py` | Add `/templates/{model}` endpoint |
-| `src/pybend/static/components/ntt-item.js` | Add template-aware `render()` path |
-| `src/pybend/static/core/NTT.js` | Fetch templates on SCHEMA completion |
-| `src/pybend/__init__.py` | Export `compile_templates` |
+| `src/n3tx/core/app.py` | Add `compile_templates()` to startup |
+| `src/n3tx/core/api/routes_fastapi.py` | Add `/templates/{model}` endpoint |
+| `src/n3tx/static/components/ntx-item.js` | Add template-aware `render()` path |
+| `src/n3tx/static/core/N3TX.js` | Fetch templates on SCHEMA completion |
+| `src/n3tx/__init__.py` | Export `compile_templates` |
 
 ### Estimated Implementation Effort
 
@@ -1068,4 +1068,4 @@ These strategic benefits may justify the compiler even if the raw performance ga
 
 ---
 
-*Research compiled February 2026. Source analysis based on PyBend codebase at commit `7550aeb` (profiling branch).*
+*Research compiled February 2026. Source analysis based on N3TX codebase at commit `7550aeb` (profiling branch).*

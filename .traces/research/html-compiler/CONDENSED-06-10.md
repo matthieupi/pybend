@@ -24,19 +24,19 @@
    build min/mo.
 9. **~30-35% of all websites** could be fully static; **55-65%
    require dynamic serving**; **5-10%** benefit from hybrid.
-10. PyBend static export estimated at **10-16 weeks** (full feature)
+10. N3TX static export estimated at **10-16 weeks** (full feature)
     or **5-7 engineering days** (MVP via Jinja2 templates, ~980 LOC).
-11. **75% of PyBend's frontend rendering** is presentational HTML
+11. **75% of N3TX's frontend rendering** is presentational HTML
     replicable server-side; 25% is JS-only (actors, live updates, auth).
-12. Static CSS bundle from PyBend components: **~1,307 lines, ~35KB
+12. Static CSS bundle from N3TX components: **~1,307 lines, ~35KB
     unminified, ~8KB gzipped**.
 13. CSS-only interactivity covers **80-90%** of expected SPA
     interactions (accordions, tabs, modals, carousels, filters, themes).
-14. Irreducible JS for a static PyBend site with form submission:
+14. Irreducible JS for a static N3TX site with form submission:
     **~600-800 bytes minified** (<400 bytes gzipped). Compare: React
     42KB, Alpine.js 6KB.
 15. Lighthouse scores: static HTML+CSS = **98-100**; static + tiny
-    JS = **96-100**; current PyBend SPA = **70-90**; React SPA =
+    JS = **96-100**; current N3TX SPA = **70-90**; React SPA =
     **50-85**.
 16. Hugo builds 64K pages in **~15 seconds**; Gatsby takes **~20
     minutes** for the same. Python exporter expected in Eleventy/Jekyll
@@ -49,9 +49,9 @@
 19. Core CSS-only patterns (`<details>`, `:target`, `:checked`,
     `scroll-snap`, `:has()`, container queries) have **95%+ browser
     support** globally.
-20. NTT.js already has `consumePreloadedSchema()` /
+20. N3TX.js already has `consumePreloadedSchema()` /
     `consumePreloadedData()` infrastructure enabling hybrid mode where
-    static HTML loads instantly and NTT hydrates on top.
+    static HTML loads instantly and N3TX hydrates on top.
 
 ---
 
@@ -121,11 +121,11 @@ inventory sync impossible, newsrooms with 50+/day backing up queues.
 
 **Python ecosystem gap.** Pelican, MkDocs, Sphinx, Lektor, Nikola are
 blog/docs-focused (Markdown/RST). None generate HTML from schema-driven
-models. PyBend fills this: model + data -> schema renderer -> HTML+CSS.
+models. N3TX fills this: model + data -> schema renderer -> HTML+CSS.
 
 **Islands architecture.** Astro: static HTML + hydrate small JS regions
 (90-95% static, 5-10% JS). Directives: `client:load/idle/visible/
-media/only`. Explains 164KB JS vs Next.js 583KB. PyBend: Phase 1 =
+media/only`. Explains 164KB JS vs Next.js 583KB. N3TX: Phase 1 =
 zero JS; Phase 2 = islands where needed.
 
 ---
@@ -134,12 +134,12 @@ zero JS; Phase 2 = islands where needed.
 
 **SSG core pipeline.** Collection (read data) -> Transformation
 (templates) -> Emission (write HTML+assets) -> Deployment (upload).
-PyBend has Collection solved (`StorableMixin.list()`,
+N3TX has Collection solved (`StorableMixin.list()`,
 `ProtoModel.schema()`). Transformation is the challenge.
 
 **Python SSG reference.** Frozen-Flask is the closest analogy
 (simulates WSGI requests, writes responses) but assumes Flask routes
-returning HTML; PyBend routes return JSON. Custom Jinja2 pipeline
+returning HTML; N3TX routes return JSON. Custom Jinja2 pipeline
 provides full control. staticjinja is minimal (<500 LOC).
 
 **Schema-to-HTML rendering.** `StaticRenderer` walks schema properties
@@ -150,8 +150,8 @@ schema IS the template -- adding a model field updates both live UI and
 static site automatically.
 
 **CSS generation.** Three strategies: (1) Extract Shadow DOM styles
-into flattened stylesheet, `:host` -> class selectors (`.ntt-item`,
-`.ntt-list`). (2) Critical CSS inlining: above-fold CSS (<14KB) in
+into flattened stylesheet, `:host` -> class selectors (`.ntx-item`,
+`.ntx-list`). (2) Critical CSS inlining: above-fold CSS (<14KB) in
 `<head>` for first TCP round-trip; defer rest via `<link preload>`.
 (3) CSS-only interactivity for tabs, accordions, dark mode.
 
@@ -170,7 +170,7 @@ process (critical CSS, fingerprinting, sitemap, minify).
 **Deployment TTFB.** Cloudflare ~57ms, S3+CloudFront ~50ms, GitHub
 Pages ~80ms, Vercel ~100ms, Netlify ~227ms.
 
-**Performance: static vs dynamic PyBend.**
+**Performance: static vs dynamic N3TX.**
 
 | Metric | Dynamic (current) | Static (target) | Gain |
 |--------|-------------------|-----------------|------|
@@ -195,7 +195,7 @@ Pages ~80ms, Vercel ~100ms, Netlify ~227ms.
 **Decision tree.** Auth + all personalized = Full Dynamic. Auth + some
 public = Hybrid. No auth + changes >1/min = SSR+CDN. >1/hour =
 ISR/webhooks. >50K pages = static+incremental. <50K = **Fully Static**
-(PyBend target).
+(N3TX target).
 
 **Project type addressability.**
 
@@ -247,14 +247,14 @@ exporter (CLI, Jinja2, full rebuild, skip incremental/search/forms).
 
 ---
 
-### PyBend Static Export Architecture Summary
+### N3TX Static Export Architecture Summary
 
-**Pipeline.** Current: Model -> Schema -> NTT.js DynamicClass -> Shadow
+**Pipeline.** Current: Model -> Schema -> N3TX.js DynamicClass -> Shadow
 DOM. Static: Model -> Schema -> StorableMixin.list() -> Jinja2 -> HTML.
 Replaces bottom four JS stages with server-side Python.
 
 **Source files to replicate.** `form.js` (368 lines): deterministic
-(schema, value)->HTML, primary target. `ntt-item.js` (660 lines):
+(schema, value)->HTML, primary target. `ntx-item.js` (660 lines):
 xs/sm/md/lg/xl sizes, all deterministic. `ListElement.js` (244 lines):
 list render. `Permissions.js` (191 lines): access filtering. All five
 size methods pre-computable: xs = value.name; sm = name + image + 3
@@ -275,9 +275,9 @@ class selectors. Inventory:
 |----------|-------|---------|
 | dark-theme.css | 408 | Full (tokens, layout, typography) |
 | light-theme.css | 119 | Full (theme overrides) |
-| ntt-item.css | 669 | Full (transform :host) |
-| ntt-list.css | 81 | Full (transform :host) |
-| ntt-element.css | 71 | Partial (error/empty states) |
+| ntx-item.css | 669 | Full (transform :host) |
+| ntx-list.css | 81 | Full (transform :host) |
+| ntx-element.css | 71 | Partial (error/empty states) |
 | **Total** | **~1,307** | **~35KB unminified, ~8KB gzipped** |
 
 External: Google Fonts (Inter, JetBrains Mono) -- optional self-host.
@@ -287,20 +287,20 @@ ANYONE-visible content. Strategy B (optional): per-role builds
 (`--role=anonymous/user/admin`). Strategy C: client-side JS gate
 (not recommended -- defeats zero-JS goal).
 
-**Module: `src/pybend/core/export/`.** exporter.py (~150 LOC),
+**Module: `src/n3tx/core/export/`.** exporter.py (~150 LOC),
 renderer.py (~200 LOC), css_compiler.py (~80 LOC), templates/ (~300
 LOC for base, collection, entity, macros), CLI (~50 LOC), tests (~200
 LOC). **Total: ~980 LOC, 5-7 engineering days.**
 
 **Integration (three levels).** `export_static(app, output="./build")`
-or `pb.export(output, theme="dark")` or `pybend export --static
+or `pb.export(output, theme="dark")` or `n3tx export --static
 --output ./build`. Uses same registered_models, storage, schema(),
 list(). Does NOT start FastAPI or require JWT.
 
-**Hybrid mode.** NTT.js lines 237-277 have `#consumePreloadedSchema()`
-and `#consumePreloadedData()` reading `<script data-ntt-schema>` tags.
+**Hybrid mode.** N3TX.js lines 237-277 have `#consumePreloadedSchema()`
+and `#consumePreloadedData()` reading `<script data-ntx-schema>` tags.
 Exporter can emit pre-rendered HTML + inline data for progressive
-hydration. Instant static load, full NTT hydrates if JS included.
+hydration. Instant static load, full N3TX hydrates if JS included.
 
 **Gaps.** None: schema gen, data access. Small: FK hydration (needs
 as_objects), :host transform, access filtering. Medium: field rendering,
@@ -310,17 +310,17 @@ refs (depth limit), >10K entities (pagination).
 **Implementation.** Phase 1 MVP: CSS compiler, field macros, entity
 template (md), collection template (sm grid), orchestrator, CLI.
 Phase 2: index, nav, images, pagination. Phase 3: per-role export,
-hybrid NTT preloading, custom templates, nested entity pages.
+hybrid N3TX preloading, custom templates, nested entity pages.
 
 ---
 
 ### CSS-Only Interactivity Summary
 
 **Core finding.** Modern CSS provides native mechanisms for 80-90% of
-SPA interactions. A static PyBend export with CSS-only + <1KB JS scores
+SPA interactions. A static N3TX export with CSS-only + <1KB JS scores
 95-100 Lighthouse while retaining interactive feel.
 
-**12 patterns mapped to PyBend:**
+**12 patterns mapped to N3TX:**
 
 1. **Accordions** -- `<details>/<summary>`. Replaces JS show-more/less.
    97.5% support. Excellent accessibility (native keyboard, screen
@@ -366,7 +366,7 @@ SPA interactions. A static PyBend export with CSS-only + <1KB JS scores
 
 **Irreducible JS (per capability).** Form submission ~200 bytes, auth
 ~400, real-time ~300, clipboard ~50, drag-drop ~500, data fetch ~150,
-validation ~200, analytics ~100. **Total for PyBend with forms:
+validation ~200, analytics ~100. **Total for N3TX with forms:
 ~600-800 bytes, <400 gzipped.** React: 42KB. Alpine.js: 6KB.
 
 **Lighthouse comparison.**
@@ -376,7 +376,7 @@ validation ~200, analytics ~100. **Total for PyBend with forms:
 | Static HTML+CSS | 98-100 | 0.4-0.6s | 0ms | 0 KB |
 | Static + tiny JS | 96-100 | 0.4-0.6s | 0-10ms | <1 KB |
 | SSG (Astro/11ty) | 90-98 | 0.6-1.0s | 0-50ms | 5-30 KB |
-| Current PyBend | 70-90 | 1.0-2.0s | 50-200ms | 50-150 KB |
+| Current N3TX | 70-90 | 1.0-2.0s | 50-200ms | 50-150 KB |
 | SPA (React/Vue) | 50-85 | 1.5-3.0s | 200-800ms | 150-500 KB |
 
 Google: each KB of JS adds ~8.5ms to TTI on slow 3G. A 200KB React app

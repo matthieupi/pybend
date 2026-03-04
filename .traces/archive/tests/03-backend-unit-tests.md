@@ -1,4 +1,4 @@
-# Backend Unit Test Plan — PyBend Framework
+# Backend Unit Test Plan — N3TX Framework
 
 > **Scope**: Every function, method, class, and behavior in the Python backend.
 > **Framework**: pytest with mocking (unittest.mock), in-memory SQLite
@@ -66,7 +66,7 @@
 - config.API_URL malformed or None
 - Instance missing id attribute
 
-### 1.4 `ProtoModel.__pybend_methods_json_signature__()`
+### 1.4 `ProtoModel.__n3tx_methods_json_signature__()`
 
 **Happy Path:**
 - Method with no parameters (besides self)

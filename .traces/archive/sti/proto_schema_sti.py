@@ -9,11 +9,11 @@ Activated by importing from proto_model.py at module load time.
 
 import logging
 
-from pybend.core import config
-from pybend.core.models.proto_schema import schema_extension
-from pybend.core.models.proto_dump import dump_extension
+from n3tx.core import config
+from n3tx.core.models.proto_schema import schema_extension
+from n3tx.core.models.proto_dump import dump_extension
 
-logger = logging.getLogger('pybend.schema')
+logger = logging.getLogger('n3tx.schema')
 
 
 @schema_extension(after='defs')
@@ -69,8 +69,8 @@ def polymorphic(cls, s: dict) -> dict:
 
 def _subtype_schema(cls, disc_name: str) -> dict:
     """Build a schema entry for a subtype (or root) in $defs."""
-    from pybend.core.models.proto_model import _apply_field_exclusion
-    from pybend.core.authorize.schema import access_schema
+    from n3tx.core.models.proto_model import _apply_field_exclusion
+    from n3tx.core.authorize.schema import access_schema
 
     schema = cls.referenced_json_schema()
     schema.pop('$defs', None)
@@ -81,7 +81,7 @@ def _subtype_schema(cls, disc_name: str) -> dict:
     schema['__tablename__'] = getattr(cls, '__tablename__', '')
 
     # Methods
-    schema['methods'] = cls.__pybend_methods_json_signature__()
+    schema['methods'] = cls.__n3tx_methods_json_signature__()
 
     # Access rules
     schema['access'] = access_schema(cls)

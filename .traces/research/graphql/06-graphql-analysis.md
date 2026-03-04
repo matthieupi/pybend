@@ -1,4 +1,4 @@
-# GraphQL for PyBend: Strategic Analysis Report
+# GraphQL for N3TX: Strategic Analysis Report
 
 ## For: CEO & Engineering Team
 ## Date: February 26, 2026
@@ -12,26 +12,26 @@
 |---|---|
 | **5 minutes** | Executive Summary (Section 0) -- the answer, the numbers, the recommendation |
 | **15 minutes** | Add Market Reality (Section 1) and Decision Framework (Section 4) |
-| **30 minutes** | Add Technical Architecture (Section 3) and PyBend Fit (Section 5) |
+| **30 minutes** | Add Technical Architecture (Section 3) and N3TX Fit (Section 5) |
 | **45 minutes** | Full report including Migration Pathways and Appendix |
 
 ---
 
 ## 0. Executive Summary
 
-> **The Question:** Should PyBend adopt GraphQL as its API layer -- either replacing or supplementing the current REST + JSON Schema architecture?
+> **The Question:** Should N3TX adopt GraphQL as its API layer -- either replacing or supplementing the current REST + JSON Schema architecture?
 
-> **The Answer:** No. Not now. PyBend already delivers 70-80% of the value that drives GraphQL adoption, and the 20-30% gap can be closed with targeted REST enhancements at 1/10th the cost.
+> **The Answer:** No. Not now. N3TX already delivers 70-80% of the value that drives GraphQL adoption, and the 20-30% gap can be closed with targeted REST enhancements at 1/10th the cost.
 
-**GraphQL is a real, mainstream technology** -- 61.5% of organizations run it in production, Shopify mandated it in 2025, Netflix processes 1B+ daily requests through it. It is not a fad. But it is also not a universal upgrade. GraphQL solves a **specific organizational problem**: multiple teams with different frontend clients consuming shared backend services with divergent data needs. PyBend's architecture -- a single, tightly coupled frontend driven by a rich JSON Schema -- is the exact opposite of that problem.
+**GraphQL is a real, mainstream technology** -- 61.5% of organizations run it in production, Shopify mandated it in 2025, Netflix processes 1B+ daily requests through it. It is not a fad. But it is also not a universal upgrade. GraphQL solves a **specific organizational problem**: multiple teams with different frontend clients consuming shared backend services with divergent data needs. N3TX's architecture -- a single, tightly coupled frontend driven by a rich JSON Schema -- is the exact opposite of that problem.
 
 ### Key Findings at a Glance
 
-| Finding | Implication for PyBend |
+| Finding | Implication for N3TX |
 |---|---|
 | 61.5% of orgs run GraphQL in production | Market is real; we are not ignoring a table-stakes requirement |
 | 83% of web services still use REST | REST remains the default; GraphQL supplements, rarely replaces |
-| PyBend's schema carries UI hints, access rules, methods | GraphQL SDL cannot express this metadata -- we'd lose our differentiator |
+| N3TX's schema carries UI hints, access rules, methods | GraphQL SDL cannot express this metadata -- we'd lose our differentiator |
 | GraphQL adds +20-40% server CPU overhead | Cost increase for marginal benefit in our architecture |
 | 69% of GraphQL APIs vulnerable to DoS out of the box | Significant security hardening investment required |
 | Field selection saves 30-50% payload | Achievable with `?fields=` REST parameter (~50 lines of code) |
@@ -54,7 +54,7 @@
 
 ## 1. Market Reality
 
-> **Key Finding:** GraphQL has crossed the mainstream adoption threshold, but adoption does not mean replacement. Most organizations run GraphQL *alongside* REST for specific high-value use cases. The companies getting the most value share a trait PyBend does not: massive scale with diverse client teams.
+> **Key Finding:** GraphQL has crossed the mainstream adoption threshold, but adoption does not mean replacement. Most organizations run GraphQL *alongside* REST for specific high-value use cases. The companies getting the most value share a trait N3TX does not: massive scale with diverse client teams.
 
 ### 1.1 Adoption Numbers -- What They Actually Mean
 
@@ -128,7 +128,7 @@ Apollo's $37.3M revenue against $183M in funding implies the path to profitabili
 
 ## 2. Technical Architecture Assessment
 
-> **Key Finding:** GraphQL's power comes from client-specified field selection, single-request nested queries, and a strong type system. Its costs come from resolver-per-field N+1 problems, caching complexity, and a security surface area that requires explicit hardening. For PyBend specifically, many of GraphQL's benefits are already provided by the existing JSON Schema architecture.
+> **Key Finding:** GraphQL's power comes from client-specified field selection, single-request nested queries, and a strong type system. Its costs come from resolver-per-field N+1 problems, caching complexity, and a security surface area that requires explicit hardening. For N3TX specifically, many of GraphQL's benefits are already provided by the existing JSON Schema architecture.
 
 ### 2.1 How GraphQL Works -- The 30-Second Version
 
@@ -187,7 +187,7 @@ With DataLoader:    3 database calls (products, comments, users)
 
 **DataLoader** (Facebook's open-source solution) batches resolver calls within a single request tick, collapsing O(N * M) queries to O(depth) -- typically 2-4 queries regardless of result set size.
 
-> **Critical contrast with PyBend:** PyBend's `sqlite_storage.py` already handles relationship hydration in batched queries within a single pooled connection. Adopting GraphQL would *reintroduce* the N+1 problem, requiring DataLoader patterns everywhere. Per [Shopify engineering](https://shopify.engineering/solving-the-n-1-problem-for-graphql-through-batching): "GraphQL Batch is now considered general best-practice for all GraphQL work at Shopify" -- an acknowledgment that the problem is pervasive enough to need a dedicated solution.
+> **Critical contrast with N3TX:** N3TX's `sqlite_storage.py` already handles relationship hydration in batched queries within a single pooled connection. Adopting GraphQL would *reintroduce* the N+1 problem, requiring DataLoader patterns everywhere. Per [Shopify engineering](https://shopify.engineering/solving-the-n-1-problem-for-graphql-through-batching): "GraphQL Batch is now considered general best-practice for all GraphQL work at Shopify" -- an acknowledgment that the problem is pervasive enough to need a dedicated solution.
 
 ### 2.4 Security -- Not Optional
 
@@ -232,7 +232,7 @@ GraphQL:  POST /graphql     -->  CDN cannot cache POST  -->  No standard caching
 
 ### 2.6 The Python Ecosystem
 
-For PyBend's FastAPI backend, **Strawberry** is the clear library choice:
+For N3TX's FastAPI backend, **Strawberry** is the clear library choice:
 
 | Feature | Strawberry | Ariadne | Graphene |
 |---|---|---|---|
@@ -244,7 +244,7 @@ For PyBend's FastAPI backend, **Strawberry** is the clear library choice:
 | Async support | Native async-first | Sync and async | Limited |
 | PyPI downloads/month | ~2M | ~800K | ~1.5M |
 
-Strawberry outperforms Graphene by 46% in query time due to its async-first design ([dasroot.net benchmarks](https://dasroot.net/posts/2025/12/building-graphql-apis-python-strawberry-ariadne/)). Its code-first, type-annotation approach aligns with PyBend's Pydantic-based architecture.
+Strawberry outperforms Graphene by 46% in query time due to its async-first design ([dasroot.net benchmarks](https://dasroot.net/posts/2025/12/building-graphql-apis-python-strawberry-ariadne/)). Its code-first, type-annotation approach aligns with N3TX's Pydantic-based architecture.
 
 **Caveat:** Strawberry's Pydantic integration is **explicitly marked experimental**. Generated types do not run Pydantic validation; `all_fields=True` can accidentally expose internal fields; constrained types (`Field(gt=0)`) are not enforced in the GraphQL schema ([Strawberry Pydantic docs](https://strawberry.rocks/docs/integrations/pydantic)).
 
@@ -252,7 +252,7 @@ Strawberry outperforms Graphene by 46% in query time due to its async-first desi
 
 ## 3. Decision Framework
 
-> **Key Finding:** GraphQL's value proposition maps to a specific organizational topology: multiple teams, multiple clients, complex data aggregation. PyBend's single-frontend, schema-driven architecture is the exact scenario where REST outperforms GraphQL on every dimension except field selection.
+> **Key Finding:** GraphQL's value proposition maps to a specific organizational topology: multiple teams, multiple clients, complex data aggregation. N3TX's single-frontend, schema-driven architecture is the exact scenario where REST outperforms GraphQL on every dimension except field selection.
 
 ### 3.1 The Decision Tree
 
@@ -278,7 +278,7 @@ Is your team < 5 engineers AND building simple CRUD?
     |
     v NO
     |
-Does your schema carry UI metadata + access rules?  <-- PyBend
+Does your schema carry UI metadata + access rules?  <-- N3TX
     |
     +-- YES --> KEEP REST. Add sparse fieldsets. GraphQL cannot
     |           express your metadata.
@@ -303,15 +303,15 @@ REST is likely your best choice.
 | Multiple teams with independent frontends | Schema as contract enables parallel development | Netflix (500+ devs), PayPal (50+ products) |
 | Rapid frontend iteration | Frontend modifies queries without backend deploys | Airbnb: 23-50% TTI reduction |
 
-### 3.3 When GraphQL Loses -- And Why These Apply to PyBend
+### 3.3 When GraphQL Loses -- And Why These Apply to N3TX
 
-| Scenario | Why REST/Current Is Better | PyBend Relevance |
+| Scenario | Why REST/Current Is Better | N3TX Relevance |
 |---|---|---|
-| Single client type | No query flexibility audience | **Direct match** -- NTT is the sole consumer |
-| Schema carries UI metadata | GraphQL SDL has no concept of `ui.widget`, `field_order`, access rules | **Direct match** -- this is PyBend's differentiator |
+| Single client type | No query flexibility audience | **Direct match** -- N3TX is the sole consumer |
+| Schema carries UI metadata | GraphQL SDL has no concept of `ui.widget`, `field_order`, access rules | **Direct match** -- this is N3TX's differentiator |
 | Simple CRUD with auto-generation | REST + schema already provides zero-config CRUD | **Direct match** -- `register_routes()` does this |
-| HTTP caching matters | REST URLs are cacheable; GraphQL POST is not | **Relevant** -- NTT caches schema endpoints |
-| Small team (<10 engineers) | Schema governance overhead exceeds benefit | **Likely match** for many PyBend users |
+| HTTP caching matters | REST URLs are cacheable; GraphQL POST is not | **Relevant** -- N3TX caches schema endpoints |
+| Small team (<10 engineers) | Schema governance overhead exceeds benefit | **Likely match** for many N3TX users |
 
 ### 3.4 Total Cost of Ownership
 
@@ -333,7 +333,7 @@ The license cost is a rounding error. The organizational cost -- training, hirin
 
 1. **Don't adopt GraphQL because it's modern.** Adopt it because you have **multiple clients consuming the same data differently** and your frontend teams are **bottlenecked on backend API changes**.
 
-2. **If you're a TypeScript shop with one client type, look at tRPC first.** Better type safety with less overhead. (Not directly applicable to PyBend's Python backend, but relevant context.)
+2. **If you're a TypeScript shop with one client type, look at tRPC first.** Better type safety with less overhead. (Not directly applicable to N3TX's Python backend, but relevant context.)
 
 3. **Never use GraphQL for service-to-service communication.** gRPC is 3-4x faster.
 
@@ -343,15 +343,15 @@ The license cost is a rounding error. The organizational cost -- training, hirin
 
 ---
 
-## 4. PyBend Architecture Fit
+## 4. N3TX Architecture Fit
 
-> **Key Finding:** PyBend already delivers 70-80% of the value that drives GraphQL adoption. The remaining 20-30% gap (field selection, single-request nested queries, subscriptions) can be closed with targeted REST enhancements at a fraction of the cost and complexity.
+> **Key Finding:** N3TX already delivers 70-80% of the value that drives GraphQL adoption. The remaining 20-30% gap (field selection, single-request nested queries, subscriptions) can be closed with targeted REST enhancements at a fraction of the cost and complexity.
 
-### 4.1 What PyBend Already Provides
+### 4.1 What N3TX Already Provides
 
-This is the critical assessment. Before evaluating GraphQL, we must inventory which of its benefits PyBend's current architecture **already delivers**.
+This is the critical assessment. Before evaluating GraphQL, we must inventory which of its benefits N3TX's current architecture **already delivers**.
 
-| GraphQL Selling Point | PyBend Equivalent | Coverage |
+| GraphQL Selling Point | N3TX Equivalent | Coverage |
 |---|---|---|
 | Schema as single source of truth | `ProtoModel.schema()` generates JSON Schema | **100%** |
 | Type-safe operations | Pydantic validation on all inputs | **100%** |
@@ -366,7 +366,7 @@ This is the critical assessment. Before evaluating GraphQL, we must inventory wh
 
 ### 4.2 The Schema-Carries-UI Differentiator
 
-This is the section that changes the calculus. PyBend's `GET /Product` returns:
+This is the section that changes the calculus. N3TX's `GET /Product` returns:
 
 ```json
 {
@@ -381,7 +381,7 @@ This is the section that changes the calculus. PyBend's `GET /Product` returns:
   "ui": {
     "field_order": ["name", "price", "description"],
     "groups": { "main": ["name", "description", "price"] },
-    "renderer": { "item": "ntt-item", "list": "ntt-list" }
+    "renderer": { "item": "ntx-item", "list": "ntx-list" }
   },
   "access": {
     "create": { "rule": "authenticated" },
@@ -401,12 +401,12 @@ This is the section that changes the calculus. PyBend's `GET /Product` returns:
 - How to render method action buttons
 - What component tag to use for a model
 
-To preserve this in GraphQL, you would need custom directives or a separate "UI schema" endpoint -- rebuilding what JSON Schema already provides for free. **This is not a minor gap. It is the core of PyBend's value proposition.**
+To preserve this in GraphQL, you would need custom directives or a separate "UI schema" endpoint -- rebuilding what JSON Schema already provides for free. **This is not a minor gap. It is the core of N3TX's value proposition.**
 
 ### 4.3 Architecture Flow Comparison
 
 ```
-PyBend Flow (current):
+N3TX Flow (current):
   [ProtoModel] --schema()--> [JSON Schema] --register_routes()--> [REST API]
        |                          |                                    |
        |                    [Carries: types, UI hints,           [HTTP verbs,
@@ -414,7 +414,7 @@ PyBend Flow (current):
        |                     $defs, relationships]                 curl-friendly]
        |                          |
        v                          v
-  [Frontend NTT] <--fetch schema-- GET /Product
+  [Frontend N3TX] <--fetch schema-- GET /Product
        |
        v
   [DynamicClass] --typed properties, methods, value getter--> [Rendered UI]
@@ -436,7 +436,7 @@ GraphQL Flow (hypothetical):
                           no method buttons, no form grouping)
 ```
 
-**The visual tells the story:** PyBend's schema is richer. GraphQL's query language is more flexible. For PyBend's use case, richness matters more than flexibility.
+**The visual tells the story:** N3TX's schema is richer. GraphQL's query language is more flexible. For N3TX's use case, richness matters more than flexibility.
 
 ### 4.4 What We Would Lose
 
@@ -466,9 +466,9 @@ Being honest about the gaps:
 
 ### 4.6 The Shopify Warning
 
-Shopify's migration from REST to GraphQL surfaced a problem that directly echoes PyBend's own hard-won lesson. From [migration documentation](https://danielbeck.io/posts/migrate-shopify-graphql-product-api-rest/): "In GraphQL, you can't always rely on HTTP status codes to determine whether a query or mutation completed without errors" -- a 200 OK may contain errors in the response body.
+Shopify's migration from REST to GraphQL surfaced a problem that directly echoes N3TX's own hard-won lesson. From [migration documentation](https://danielbeck.io/posts/migrate-shopify-graphql-product-api-rest/): "In GraphQL, you can't always rely on HTTP status codes to determine whether a query or mutation completed without errors" -- a 200 OK may contain errors in the response body.
 
-This is **precisely** the anti-pattern PyBend documented in CLAUDE.md as the "200-OK error" case study. The framework invested significant effort in building `MethodError` and frontend toast notifications to prevent error-as-success patterns. **GraphQL's error model would reintroduce this class of problem by design.**
+This is **precisely** the anti-pattern N3TX documented in CLAUDE.md as the "200-OK error" case study. The framework invested significant effort in building `MethodError` and frontend toast notifications to prevent error-as-success patterns. **GraphQL's error model would reintroduce this class of problem by design.**
 
 ---
 
@@ -478,7 +478,7 @@ This is **precisely** the anti-pattern PyBend documented in CLAUDE.md as the "20
 
 ### 5.1 Integration Options -- Ranked
 
-| Option | Effort | Risk | Preserves NTT | Preserves Schema-UI | Recommended? |
+| Option | Effort | Risk | Preserves N3TX | Preserves Schema-UI | Recommended? |
 |---|---|---|---|---|---|
 | **A: GraphQL gateway over REST** | 2-4 weeks | Low | Yes | Yes | **If forced** |
 | **B: GraphQL alongside REST (dual)** | 4-8 weeks | Medium | Yes | Yes | Maybe |
@@ -488,12 +488,12 @@ This is **precisely** the anti-pattern PyBend documented in CLAUDE.md as the "20
 ### 5.2 Option A: The Gateway Pattern (Recommended if Needed)
 
 ```
-[External Client] --GraphQL--> [Strawberry Gateway] --REST--> [PyBend REST API]
+[External Client] --GraphQL--> [Strawberry Gateway] --REST--> [N3TX REST API]
                                        |
                                [Translates queries to
                                 REST calls with field filtering]
 
-[Internal NTT Frontend] --REST--> [PyBend REST API]  (unchanged)
+[Internal N3TX Frontend] --REST--> [N3TX REST API]  (unchanged)
 ```
 
 This preserves the entire existing architecture while exposing a GraphQL endpoint for external consumers. The Strawberry gateway translates GraphQL queries into REST calls behind the scenes.
@@ -502,7 +502,7 @@ This preserves the entire existing architecture while exposing a GraphQL endpoin
 # Hypothetical: ~50 lines to mount GraphQL alongside existing REST
 import strawberry
 from strawberry.fastapi import GraphQLRouter
-from pybend.core.utils.registrar import registered_models
+from n3tx.core.utils.registrar import registered_models
 
 @strawberry.type
 class Query:
@@ -534,13 +534,13 @@ Netflix's three-layer testing strategy is the gold standard:
 2. **Replay Testing:** Same request sent to both APIs, responses diffed field-by-field (idempotent operations only)
 3. **Sticky Canary:** Consistent device pools routed to canary vs baseline for full experiment duration
 
-**For PyBend specifically**, if a gateway approach were adopted, parity verification would be straightforward: compare `GET /products` responses with `POST /graphql { products { ... } }` responses, field by field.
+**For N3TX specifically**, if a gateway approach were adopted, parity verification would be straightforward: compare `GET /products` responses with `POST /graphql { products { ... } }` responses, field by field.
 
 ---
 
 ## 6. Strategic Recommendation
 
-> **Key Finding:** The recommendation is clear: do not adopt GraphQL. Instead, close the specific capability gaps through targeted REST enhancements that preserve PyBend's architectural strengths.
+> **Key Finding:** The recommendation is clear: do not adopt GraphQL. Instead, close the specific capability gaps through targeted REST enhancements that preserve N3TX's architectural strengths.
 
 ### 6.1 What We Recommend
 
@@ -560,7 +560,7 @@ Netflix's three-layer testing strategy is the gold standard:
 |---|---|
 | Document Strawberry gateway integration as a cookbook recipe | Ready if a business requirement emerges |
 | Create a reference `graphql_gateway.py` that auto-generates Strawberry types from registered models | Proof-of-concept ready to deploy in hours |
-| Add to CLAUDE.md: "When GraphQL makes sense for PyBend" section | Team alignment on decision criteria |
+| Add to CLAUDE.md: "When GraphQL makes sense for N3TX" section | Team alignment on decision criteria |
 
 **Phase 3: Monitor Triggers (Ongoing)**
 
@@ -568,25 +568,25 @@ Re-evaluate the GraphQL decision if any of these trigger conditions are met:
 
 | Trigger | Threshold | Action |
 |---|---|---|
-| Number of distinct client applications consuming PyBend API | >= 3 | Evaluate GraphQL gateway |
+| Number of distinct client applications consuming N3TX API | >= 3 | Evaluate GraphQL gateway |
 | External developer API request frequency | Weekly asks | Build Strawberry gateway |
 | Mobile client bandwidth concerns | Measured payload issues after `?fields=` | Evaluate further |
 | Multi-team backend development | >= 3 teams with shared models | Evaluate federation |
 
 ### 6.2 What We Explicitly Do NOT Recommend
 
-- **Do NOT replace the REST API with GraphQL.** The schema-carries-UI pattern is PyBend's competitive differentiator and has no GraphQL equivalent.
+- **Do NOT replace the REST API with GraphQL.** The schema-carries-UI pattern is N3TX's competitive differentiator and has no GraphQL equivalent.
 - **Do NOT add GraphQL "just in case."** Maintaining two API surfaces doubles the testing, documentation, and debugging surface for zero benefit until a concrete consumer exists.
-- **Do NOT adopt Apollo Client on the frontend.** NTT's DynamicClass system is purpose-built for schema-driven rendering. Apollo Client would add 30-80KB of dependencies while losing the schema-driven UI pipeline.
-- **Do NOT implement federation.** Federation solves multi-team, multi-service schema composition. PyBend is a monolithic framework. Federation before you need it is architecture astronautics.
+- **Do NOT adopt Apollo Client on the frontend.** N3TX's DynamicClass system is purpose-built for schema-driven rendering. Apollo Client would add 30-80KB of dependencies while losing the schema-driven UI pipeline.
+- **Do NOT implement federation.** Federation solves multi-team, multi-service schema composition. N3TX is a monolithic framework. Federation before you need it is architecture astronautics.
 
 ### 6.3 The Bottom Line
 
 ```
-GraphQL Adoption Decision for PyBend (2026)
+GraphQL Adoption Decision for N3TX (2026)
 ============================================
 
-                     Does PyBend serve multiple
+                     Does N3TX serve multiple
                      independent client teams?
                            |           |
                           Yes          No  <-- Current state
@@ -605,7 +605,7 @@ GraphQL Adoption Decision for PyBend (2026)
                               Re-evaluate when triggers fire.
 ```
 
-**Investment: ~3-4 weeks of enhancement vs. 3-6 months of GraphQL adoption.** The REST enhancements deliver 90%+ of the capability at <5% of the cost, while preserving PyBend's unique schema-driven architecture.
+**Investment: ~3-4 weeks of enhancement vs. 3-6 months of GraphQL adoption.** The REST enhancements deliver 90%+ of the capability at <5% of the cost, while preserving N3TX's unique schema-driven architecture.
 
 ---
 
@@ -613,10 +613,10 @@ GraphQL Adoption Decision for PyBend (2026)
 
 | # | Risk | Probability | Impact | Mitigation |
 |---|---|---|---|---|
-| 1 | **Market perception**: "No GraphQL = outdated" | Low-Medium | Medium | Document capability parity; market PyBend's schema-driven approach as a strength |
+| 1 | **Market perception**: "No GraphQL = outdated" | Low-Medium | Medium | Document capability parity; market N3TX's schema-driven approach as a strength |
 | 2 | **External API demand**: Partner/customer requires GraphQL | Medium | Medium | Strawberry gateway recipe ready to deploy in days |
 | 3 | **Field selection gap hurts mobile performance** | Medium | Medium | Implement `?fields=` sparse fieldsets (1-2 days) |
-| 4 | **Competitor offers GraphQL out of the box** | Low | Low | Hasura/PostGraphile lack UI metadata; PyBend's approach is differentiated |
+| 4 | **Competitor offers GraphQL out of the box** | Low | Low | Hasura/PostGraphile lack UI metadata; N3TX's approach is differentiated |
 | 5 | **GraphQL ecosystem consolidation** | Medium | Low | We have no dependency to manage; using OSS tools only |
 | 6 | **REST deprecation at platform level** | Very Low | High | Monitor Shopify's mandate; this is industry-specific, not universal |
 | 7 | **Developer hiring: candidates expect GraphQL** | Low-Medium | Low | GraphQL experience is a "nice-to-have," not a "requirement" in 95%+ of job postings |
@@ -650,14 +650,14 @@ GraphQL Adoption Decision for PyBend (2026)
 
 | Framework | Auto CRUD | GraphQL | REST | UI Metadata | Schema-Driven Rendering |
 |---|---|---|---|---|---|
-| **PyBend** | Yes | No (REST gateway possible) | Yes | **Yes** (widget, layout, access) | **Yes** |
+| **N3TX** | Yes | No (REST gateway possible) | Yes | **Yes** (widget, layout, access) | **Yes** |
 | **Hasura** | Yes | **Yes** (native) | No | No | No |
 | **PostGraphile** | Yes | **Yes** (native) | No | No | No |
 | **Django + Graphene** | Partial | Yes | Yes | No | No |
 | **Directus** | Yes | **Yes** (auto-gen) | Yes | CMS-level config | Partial (CMS paradigm) |
 | **Supabase** | Yes (PostgREST) | Optional | Yes | No | No |
 
-PyBend is **unique** in combining auto-generated CRUD with schema-carried UI metadata. No competitor delivers the "define a model, get a working UI" pipeline with the same metadata richness.
+N3TX is **unique** in combining auto-generated CRUD with schema-carried UI metadata. No competitor delivers the "define a model, get a working UI" pipeline with the same metadata richness.
 
 ### 8.3 Source References
 
@@ -712,11 +712,11 @@ PyBend is **unique** in combining auto-generated CRUD with schema-carried UI met
 - [Airbnb GraphQL Migration](https://www.infoq.com/news/2019/12/airbnb-graphql-migration/)
 - [Stellate - GraphQL Performance Solutions](https://stellate.co/blog/graphql-performance-key-challenges-and-solutions)
 
-**PyBend Architecture:**
-- [PyBend Stack Relevance Analysis](04-our-stack-relevance.md)
-- PyBend source: `proto_model.py`, `routes_fastapi.py`, `NTT.js`
-- PyBend architecture: `CLAUDE.md`
+**N3TX Architecture:**
+- [N3TX Stack Relevance Analysis](04-our-stack-relevance.md)
+- N3TX source: `proto_model.py`, `routes_fastapi.py`, `N3TX.js`
+- N3TX architecture: `CLAUDE.md`
 
 ---
 
-*Analysis compiled February 26, 2026. Based on PyBend v0.7.0 codebase analysis, 5 specialist research documents, and current industry data.*
+*Analysis compiled February 26, 2026. Based on N3TX v0.7.0 codebase analysis, 5 specialist research documents, and current industry data.*

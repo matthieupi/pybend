@@ -1,6 +1,6 @@
 # :page_facing_up: Reactive TX Responses Applied: A Technical Whitepaper
 
-> *How principles from reactive extensions can reshape PyBend's actor messaging --
+> *How principles from reactive extensions can reshape N3TX's actor messaging --
 > and where they cannot.*
 > *Companion to the [propositions document](RX-as-TX-responses-propositions.md).*
 
@@ -8,7 +8,7 @@
 
 ## Abstract
 
-PyBend's actor system routes every external request through a TX message envelope
+N3TX's actor system routes every external request through a TX message envelope
 and resolves responses via `asyncio.Future` correlation -- a pattern that works
 cleanly for single-response CRUD operations. But three emerging capabilities
 expose its ceiling: **agent progress reporting** (multi-step LLM workflows that
@@ -17,7 +17,7 @@ take seconds and produce no intermediate visibility), **real-time list updates**
 management** (the `_subscribers` list has no backpressure, no unsubscribe, and
 no error isolation). Reactive extensions address all three gaps through
 Observable streams that support zero-to-many emissions with typed completion and
-error signals. This whitepaper argues that PyBend should adopt reactive patterns
+error signals. This whitepaper argues that N3TX should adopt reactive patterns
 **at the adapter boundary only** -- specifically `aioreactive` AsyncSubjects for
 lifecycle multicasting and a new `request_stream()` method for multi-value
 responses -- while preserving TX as the core messaging primitive. The recommended
@@ -29,7 +29,7 @@ engineering hours for the first two phases.
 
 ## 1. Introduction: Why This Matters Now
 
-PyBend v0.9 has crossed a threshold. The framework is no longer just a CRUD
+N3TX v0.9 has crossed a threshold. The framework is no longer just a CRUD
 generator -- it is an **agent platform**. The `AgentActor` class
 (`agents/actor.py`) creates LLM-powered agents whose instances are data, not
 code. These agents discover tools from the Matrix, execute multi-step reasoning
@@ -48,7 +48,7 @@ mechanism is a `ClassVar[list]` of string addresses with no lifecycle management
 As the number of adapters grows (WS, AP, future MCP event streams, agent
 watchers), this pattern will accumulate dead subscribers and offer no backpressure.
 
-The question is not whether PyBend needs multi-value response patterns. It does.
+The question is not whether N3TX needs multi-value response patterns. It does.
 The question is **how to introduce them** without violating the "transparent, not
 magical" principle that makes the framework trustworthy.
 
@@ -57,7 +57,7 @@ magical" principle that makes the framework trustworthy.
 ## 2. Principles Worth Importing
 
 The research identified dozens of reactive patterns across Akka, Orleans,
-Vert.x, and Project Reactor. Three principles are directly applicable to PyBend.
+Vert.x, and Project Reactor. Three principles are directly applicable to N3TX.
 
 ### 2.1 Streams at the Boundary, Messages in the Core
 
@@ -68,7 +68,7 @@ returns a single value. Orleans grain methods return `Task<T>`. Streams are
 introduced as a **separate, complementary subsystem** that bridges actors to
 external consumers.
 
-PyBend already partially implements this principle. The `NetworkAdapter` class
+N3TX already partially implements this principle. The `NetworkAdapter` class
 (`network_adapter.py`) is the boundary between external protocols and the actor
 system. HTTP routes call `request()`, which creates a Future, sends a TX,
 and awaits the correlated reply. The actor system (Matrix, Actor, ActorModel)
@@ -87,7 +87,7 @@ RxJava's type hierarchy -- `Single` (exactly one), `Maybe` (zero or one),
 the number of expected responses part of the contract. Python's `asyncio.Future`
 conflates all of these into one type.
 
-PyBend's `tx.reply()` always produces exactly one response TX. The handler
+N3TX's `tx.reply()` always produces exactly one response TX. The handler
 dispatch in `actor.py:321-358` wraps every handler return into a single reply.
 There is no way for a handler to say "I will send three replies" and for the
 adapter to collect all three before returning to the HTTP caller.
@@ -103,7 +103,7 @@ The Reactive Streams specification defines a protocol where the subscriber tells
 the publisher how many items it can accept (`Subscription.request(n)`). Without
 this, a fast producer overwhelms a slow consumer.
 
-PyBend has two places where backpressure matters. First, the `_pending` dict in
+N3TX has two places where backpressure matters. First, the `_pending` dict in
 NetworkAdapter is an unbounded buffer of in-flight requests -- each Future
 consumes ~200 bytes, but under extreme concurrency there is no mechanism to
 reject new requests. Second, `_publish_lifecycle` fires events into
@@ -122,14 +122,14 @@ streams exist.
 
 ## 3. Our Architecture Through This Lens
 
-When we examine PyBend's actor system through the reactive lens, a clear
+When we examine N3TX's actor system through the reactive lens, a clear
 picture emerges: the **1:1 messaging core is solid**, but the **1:N edges
 are hand-rolled and fragile**.
 
 ### 3.1 Current Response Flow
 
 ```
-                    PyBend Response Architecture (Current)
+                    N3TX Response Architecture (Current)
 
   External Protocol          Adapter Boundary              Actor Core
   ==================    =========================    ====================
@@ -429,7 +429,7 @@ from the propositions document with careful safety analysis.
 
 ## 7. Conclusion
 
-The case for reactive patterns in PyBend is **narrow but compelling**. The core
+The case for reactive patterns in N3TX is **narrow but compelling**. The core
 actor system -- TX messaging, Matrix routing, interceptor chains, CRUD dispatch
 -- is well-designed for its purpose and should remain unchanged. The research
 across Akka, Erlang, and Orleans confirms that mature actor systems keep their
@@ -448,7 +448,7 @@ engineering hours**. The core actor system gains zero new dependencies. Existing
 code changes zero lines. The reactive layer is additive, opt-in, and confined
 to the adapter boundary.
 
-The strongest near-term payoff is **agent progress visibility**. As PyBend
+The strongest near-term payoff is **agent progress visibility**. As N3TX
 evolves into an agent platform, the difference between "spinner for 30 seconds"
 and "live stream of agent reasoning" is the difference between a tool and an
 experience. Reactive TX responses make that experience architecturally native
@@ -466,21 +466,21 @@ investigation becomes achievable.
 
 ### Research Documents
 - `01-technical-deep-dive.md` -- Rx fundamentals, reactive actor frameworks, backpressure, Python Rx landscape
-- `02-our-stack-relevance.md` -- PyBend response pattern audit, integration feasibility, implementation roadmap
+- `02-our-stack-relevance.md` -- N3TX response pattern audit, integration feasibility, implementation roadmap
 
 ### Codebase Files
-- `src/pybend/core/actors/tx.py` -- TX message envelope (reply, error, exception, is_error)
-- `src/pybend/core/actors/actor.py` -- Actor base class (inbox, handler, send, interceptors)
-- `src/pybend/core/actors/matrix.py` -- Matrix root actor and message router
-- `src/pybend/core/api/network_adapter.py` -- NetworkAdapter with Future-based request() correlation
-- `src/pybend/core/models/actor_model.py` -- ActorModel bridge class (handler_crud, _publish_lifecycle)
-- `src/pybend/core/api/network_ws.py` -- WebSocket adapter (lifecycle broadcast)
-- `src/pybend/core/api/network_api.py` -- HTTP REST adapter (CRUD routes)
-- `src/pybend/core/api/network_ap.py` -- ActivityPub federation adapter
-- `src/pybend/core/api/auth_interceptor.py` -- Tier 1 auth interceptor
-- `src/pybend/core/app.py` -- Application builder (routing mode, WS wiring)
-- `src/pybend/core/agents/mixin.py` -- AgentMixin with agent_run()
-- `src/pybend/core/agents/actor.py` -- AgentActor data-driven agent model
+- `src/n3tx/core/actors/tx.py` -- TX message envelope (reply, error, exception, is_error)
+- `src/n3tx/core/actors/actor.py` -- Actor base class (inbox, handler, send, interceptors)
+- `src/n3tx/core/actors/matrix.py` -- Matrix root actor and message router
+- `src/n3tx/core/api/network_adapter.py` -- NetworkAdapter with Future-based request() correlation
+- `src/n3tx/core/models/actor_model.py` -- ActorModel bridge class (handler_crud, _publish_lifecycle)
+- `src/n3tx/core/api/network_ws.py` -- WebSocket adapter (lifecycle broadcast)
+- `src/n3tx/core/api/network_api.py` -- HTTP REST adapter (CRUD routes)
+- `src/n3tx/core/api/network_ap.py` -- ActivityPub federation adapter
+- `src/n3tx/core/api/auth_interceptor.py` -- Tier 1 auth interceptor
+- `src/n3tx/core/app.py` -- Application builder (routing mode, WS wiring)
+- `src/n3tx/core/agents/mixin.py` -- AgentMixin with agent_run()
+- `src/n3tx/core/agents/actor.py` -- AgentActor data-driven agent model
 
 ### External Sources
 - [Akka Interaction Patterns](https://doc.akka.io/libraries/akka-core/current/typed/interaction-patterns.html) -- Seven actor response patterns

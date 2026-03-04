@@ -1,7 +1,7 @@
 # Web Components as a Micro-Frontend Strategy: Actor-Model Communication and Schema-Driven Architectures
 
 **Research Date:** February 2026
-**Context:** PyBend framework -- vanilla JS Web Components, actor-based message bus (Matrix/Actor/TX), schema-driven DynamicClass creation from backend JSON Schema, no build step (raw ES modules).
+**Context:** N3TX framework -- vanilla JS Web Components, actor-based message bus (Matrix/Actor/TX), schema-driven DynamicClass creation from backend JSON Schema, no build step (raw ES modules).
 
 ---
 
@@ -13,7 +13,7 @@
 4. [The Buildless / No-Bundler Approach](#4-the-buildless--no-bundler-approach)
 5. [Native Federation (ES Modules + Import Maps as MFE Infrastructure)](#5-native-federation-es-modules--import-maps-as-mfe-infrastructure)
 6. [Performance Optimization for Buildless MFE](#6-performance-optimization-for-buildless-mfe)
-7. [Relevance to PyBend](#7-relevance-to-pybend)
+7. [Relevance to N3TX](#7-relevance-to-n3tx)
 
 ---
 
@@ -204,7 +204,7 @@ Microsoft's Web Components foundation, powering Fluent UI Web Components. FAST p
 **Stencil (Ionic)**
 Stencil is a Web Components compiler that takes TypeScript + JSX input and outputs optimized Custom Elements. Version 4.40.0 was released in December 2025 with CSS improvements and SSR support for React and Vue environments. Stencil's primary consumer is the Ionic Framework component library. It occupies a niche for teams that want JSX authoring with Web Component output.
 
-**Where vanilla JS fits:** All three libraries produce standard Custom Elements. If you already have a working system of vanilla Custom Elements (as PyBend does), introducing a library adds dependency weight and API surface without necessarily adding capability. Libraries become valuable when you need their specific features: Lit's declarative templates, FAST's design token system, or Stencil's JSX compilation. If your components are primarily data-driven (rendered from schema), the template abstraction is less useful because the rendering logic is already dynamic.
+**Where vanilla JS fits:** All three libraries produce standard Custom Elements. If you already have a working system of vanilla Custom Elements (as N3TX does), introducing a library adds dependency weight and API surface without necessarily adding capability. Libraries become valuable when you need their specific features: Lit's declarative templates, FAST's design token system, or Stencil's JSX compilation. If your components are primarily data-driven (rendered from schema), the template abstraction is less useful because the rendering logic is already dynamic.
 
 **Sources:**
 - [Lit](https://lit.dev/)
@@ -366,7 +366,7 @@ The actor model maps naturally to micro-frontend boundaries:
 
 **Address space = MFE discovery.** Actors are addressed by name (e.g., `"Product"`, `"Cart"`, `"User"`). The address space provides a uniform namespace for MFE discovery without requiring compile-time knowledge of what MFEs exist.
 
-**Message protocol = MFE contract.** The message format (`TX` in PyBend's case: `{name, source, target, data, meta, timestamp}`) is the only shared contract. MFEs do not share types, state, or function signatures.
+**Message protocol = MFE contract.** The message format (`TX` in N3TX's case: `{name, source, target, data, meta, timestamp}`) is the only shared contract. MFEs do not share types, state, or function signatures.
 
 **Supervision = MFE resilience.** If a child MFE crashes, the parent can restart it without affecting siblings. This is significantly harder to achieve with shared-state architectures.
 
@@ -399,7 +399,7 @@ A well-designed actor address scheme provides:
 3. **Location transparency** -- whether `Product` runs in the same document, a Web Worker, or a remote server, the message send looks the same.
 4. **Wildcard/broadcast capability** -- sending to `Product/*` notifies all Product instances (watch/notify pattern).
 
-This is exactly the addressing scheme PyBend implements: the `NTT` class maintains a static registry (`#prototypes` Map), the `Matrix` routes messages between top-level actor types, and each `DynamicClass` manages its own instance-level children.
+This is exactly the addressing scheme N3TX implements: the `N3TX` class maintains a static registry (`#prototypes` Map), the `Matrix` routes messages between top-level actor types, and each `DynamicClass` manages its own instance-level children.
 
 **Sources:**
 - [Unleashing the Power of Actors in Frontend Application Development](https://dev.to/ibrocodes/unleashing-the-power-of-actors-in-frontend-application-development-a9b)
@@ -461,10 +461,10 @@ Server-Driven UI is an architectural pattern where the server controls not just 
 | Level | Server Controls | Client Controls | Example |
 |---|---|---|---|
 | **Data-driven** | Data only | Layout, components, interaction | Traditional REST API + SPA |
-| **Schema-driven** | Data + field types + validation + UI hints + permissions | Component rendering, styling, interaction | PyBend, JSON Schema-based systems |
+| **Schema-driven** | Data + field types + validation + UI hints + permissions | Component rendering, styling, interaction | N3TX, JSON Schema-based systems |
 | **Layout-driven** | Data + complete layout tree + component types + actions | Component implementation only | Airbnb Ghost Platform, DivKit |
 
-PyBend operates at Level 2 (schema-driven). The server provides everything except the actual rendering implementation: field types, widget hints, field ordering, grouping, access control, and callable methods. The frontend reads these instructions and renders accordingly, but owns the component implementations.
+N3TX operates at Level 2 (schema-driven). The server provides everything except the actual rendering implementation: field types, widget hints, field ordering, grouping, access control, and callable methods. The frontend reads these instructions and renders accordingly, but owns the component implementations.
 
 ### 3.3 Airbnb Ghost Platform (Case Study)
 
@@ -481,7 +481,7 @@ Airbnb's Ghost Platform (GP) is the most widely documented production SDUI syste
 2. A/B tests, personalization, and feature flags are resolved **server-side**. The client never evaluates conditions; it simply renders what the server sends.
 3. New features can ship by deploying a backend change, without waiting for app store review cycles.
 
-**Relevance to PyBend:** PyBend's schema approach is structurally similar to Ghost Platform's Sections model. A `Product` schema with `ui.groups` and `ui.field_order` is a declarative description of what to render and how to organize it. The difference is granularity: Ghost Platform specifies exact component types and layouts; PyBend specifies field semantics and lets the frontend choose the rendering.
+**Relevance to N3TX:** N3TX's schema approach is structurally similar to Ghost Platform's Sections model. A `Product` schema with `ui.groups` and `ui.field_order` is a declarative description of what to render and how to organize it. The difference is granularity: Ghost Platform specifies exact component types and layouts; N3TX specifies field semantics and lets the frontend choose the rendering.
 
 **Sources:**
 - [A Deep Dive into Airbnb's Server-Driven UI System](https://medium.com/airbnb-engineering/a-deep-dive-into-airbnbs-server-driven-ui-system-842244c5f5)
@@ -502,18 +502,18 @@ In traditional MFE architectures, discovery is a solved-but-complex problem: a m
 
 No separate registry, no manifest, no build-time configuration. The schema tells the frontend everything it needs to know: what data exists, how it is structured, what operations are available, who can perform them, and how to render it.
 
-This is the pattern PyBend implements: `NTT.SCHEMA(data)` receives a schema, calls `prototype()` to create a DynamicClass, registers nested `$defs` models, and triggers an initial `READ`. The entire MFE bootstrap is a single HTTP GET.
+This is the pattern N3TX implements: `N3TX.SCHEMA(data)` receives a schema, calls `prototype()` to create a DynamicClass, registers nested `$defs` models, and triggers an initial `READ`. The entire MFE bootstrap is a single HTTP GET.
 
 ### 3.5 Runtime Component Generation from Schema
 
-PyBend's `prototype()` function is a runtime class factory that creates a DynamicClass from a JSON Schema:
+N3TX's `prototype()` function is a runtime class factory that creates a DynamicClass from a JSON Schema:
 
 ```javascript
 function prototype(addr, schema, href) {
     const fields = Object.keys(schema.properties || {});
     const methods = Object.keys(schema.methods || {});
 
-    const DynamicClass = class extends NTT {
+    const DynamicClass = class extends N3TX {
         static _schema = schema;
         // ... typed getters/setters for each field
         // ... method stubs for each schema method
@@ -541,18 +541,18 @@ function prototype(addr, schema, href) {
 }
 ```
 
-This is a rare approach in frontend architecture. Most SDUI systems use a fixed set of component types and select between them based on server instructions. PyBend goes further: it **generates the entity class itself** from the schema, including typed properties with validation, callable methods, and lifecycle hooks. The component (`ntt-item`, `ntt-list`) is generic; the entity class is schema-specific.
+This is a rare approach in frontend architecture. Most SDUI systems use a fixed set of component types and select between them based on server instructions. N3TX goes further: it **generates the entity class itself** from the schema, including typed properties with validation, callable methods, and lifecycle hooks. The component (`ntx-item`, `ntx-list`) is generic; the entity class is schema-specific.
 
 ### 3.6 Comparison: Schema-Driven vs GraphQL-Driven vs OpenAPI-Driven vs HATEOAS
 
 | Approach | Schema Source | Discovery | UI Semantics | Runtime Adaptation |
 |---|---|---|---|---|
-| **JSON Schema (PyBend)** | Backend model -> JSON Schema | Schema endpoint per model (`GET /Product`) | Embedded (`ui`, `access`, `methods`) | Full (DynamicClass from schema) |
+| **JSON Schema (N3TX)** | Backend model -> JSON Schema | Schema endpoint per model (`GET /Product`) | Embedded (`ui`, `access`, `methods`) | Full (DynamicClass from schema) |
 | **GraphQL SDUI** | GraphQL schema + query responses | Introspection query | Union types for component variants | Moderate (component selection by type) |
 | **OpenAPI-Driven** | OpenAPI spec (YAML/JSON) | Spec endpoint (`/openapi.json`) | Limited (`x-` extensions) | Code generation (build-time, not runtime) |
 | **HATEOAS** | Hypermedia links in responses | Link relations in each response | None (links describe transitions, not UI) | Navigation only (follow links) |
 
-**JSON Schema approach (PyBend's choice):**
+**JSON Schema approach (N3TX's choice):**
 - Strengths: Self-contained (one fetch = complete UI contract), extensible (json_schema_extra carries arbitrary UI metadata), runtime-first (no code generation step).
 - Weaknesses: No standard for UI extensions (every system invents its own `ui` object), schema size grows with model complexity.
 
@@ -667,7 +667,7 @@ ESM CDNs serve npm packages as ES Modules, enabling imports directly in the brow
 
 **For production use:** esm.sh and jspm.io are the most reliable for complex packages. Skypack excels for prototyping. jsdelivr is best for popular, well-maintained packages that already ship ESM.
 
-**For PyBend's buildless architecture:** These CDNs enable the use of third-party libraries (e.g., a Markdown renderer, a date formatting library) without any build step. An import map in the HTML entry point resolves bare imports to the CDN:
+**For N3TX's buildless architecture:** These CDNs enable the use of third-party libraries (e.g., a Markdown renderer, a date formatting library) without any build step. An import map in the HTML entry point resolves bare imports to the CDN:
 
 ```html
 <script type="importmap">
@@ -688,8 +688,8 @@ ESM CDNs serve npm packages as ES Modules, enabling imports directly in the brow
 
 Despite the buildless movement, certain scenarios still require a build step:
 
-1. **TypeScript.** Browsers do not execute `.ts` files. TypeScript requires compilation to `.js`. (PyBend avoids this by using vanilla JS.)
-2. **JSX.** React's JSX requires transformation to `React.createElement()` or `jsx()` calls. (PyBend uses template literals, no JSX.)
+1. **TypeScript.** Browsers do not execute `.ts` files. TypeScript requires compilation to `.js`. (N3TX avoids this by using vanilla JS.)
+2. **JSX.** React's JSX requires transformation to `React.createElement()` or `jsx()` calls. (N3TX uses template literals, no JSX.)
 3. **Tree shaking large libraries.** Importing `lodash` without tree shaking pulls in the entire library (~70KB minified). A bundler can reduce this to only the functions used.
 4. **CSS preprocessing.** Sass, Less, PostCSS, and Tailwind all require a build step to produce browser-compatible CSS.
 5. **Image optimization.** Responsive images, WebP/AVIF conversion, and sprite generation are build-time operations.
@@ -865,7 +865,7 @@ This provides the same capability as Module Federation's `shared` scope negotiat
 
 ### 5.5 Dynamic Import Map Generation by the Server
 
-For PyBend-style architectures where the backend is authoritative, the server can generate the import map dynamically:
+For N3TX-style architectures where the backend is authoritative, the server can generate the import map dynamically:
 
 ```python
 # Conceptual: backend generates import map based on registered models
@@ -896,7 +896,7 @@ Note: As of early 2026, external import maps (via `src` attribute) are not yet s
 
 ```html
 <!-- Preload the critical module chain -->
-<link rel="modulepreload" href="/static/core/NTT.js">
+<link rel="modulepreload" href="/static/core/N3TX.js">
 <link rel="modulepreload" href="/static/core/Actor.js">
 <link rel="modulepreload" href="/static/core/Matrix.js">
 <link rel="modulepreload" href="/static/core/TX.js">
@@ -908,13 +908,13 @@ Note: As of early 2026, external import maps (via `src` attribute) are not yet s
 
 **Why this matters for buildless architectures:**
 Without `modulepreload`, the browser discovers dependencies one level at a time:
-1. Parse `app.js` -> discover it imports `NTT.js`.
-2. Fetch and parse `NTT.js` -> discover it imports `Actor.js`, `Matrix.js`, `TX.js`.
+1. Parse `app.js` -> discover it imports `N3TX.js`.
+2. Fetch and parse `N3TX.js` -> discover it imports `Actor.js`, `Matrix.js`, `TX.js`.
 3. Fetch and parse those -> discover their dependencies.
 
 Each level adds a network round-trip. With 4 levels of imports, that is 4 sequential round-trips before any code executes.
 
-`modulepreload` flattens this: all modules are fetched in parallel on page load, parsed, and compiled. When `app.js` executes and imports `NTT.js`, it is already compiled and ready in the module map. Zero waterfall.
+`modulepreload` flattens this: all modules are fetched in parallel on page load, parsed, and compiled. When `app.js` executes and imports `N3TX.js`, it is already compiled and ready in the module map. Zero waterfall.
 
 **Practical guidance:**
 - Preload your critical path (the modules that must load for first render).
@@ -994,7 +994,7 @@ HTTP/2 Server Push has been deprecated in Chrome (removed in Chrome 106). The re
 
 ```http
 HTTP/1.1 103 Early Hints
-Link: </static/core/NTT.js>; rel=modulepreload
+Link: </static/core/N3TX.js>; rel=modulepreload
 Link: </static/core/Actor.js>; rel=modulepreload
 Link: </static/core/Matrix.js>; rel=modulepreload
 Link: <https://fonts.googleapis.com>; rel=preconnect
@@ -1004,7 +1004,7 @@ Content-Type: text/html
 ...
 ```
 
-The browser starts fetching `NTT.js`, `Actor.js`, and `Matrix.js` while the server is still generating the HTML response. This can save 100-500ms on initial page load.
+The browser starts fetching `N3TX.js`, `Actor.js`, and `Matrix.js` while the server is still generating the HTML response. This can save 100-500ms on initial page load.
 
 **Requirements:**
 - HTTP/2 or HTTP/3 connection (most browsers only accept 103 over these protocols).
@@ -1051,15 +1051,15 @@ For multi-page MFE applications (or SPAs with multiple views), preloading module
 1. **Static route hints.** The current page declares which routes are likely next:
 ```html
 <!-- On the product list page, prefetch the product detail module -->
-<link rel="modulepreload" href="/static/components/ntt-detail.js">
+<link rel="modulepreload" href="/static/components/ntx-detail.js">
 ```
 
 2. **Idle-time preloading.** Use `requestIdleCallback` to preload secondary modules after the main content renders:
 ```javascript
 requestIdleCallback(() => {
   // Preload modules for routes the user might navigate to
-  import('/static/components/ntt-detail.js');
-  import('/static/components/ntt-form.js');
+  import('/static/components/ntx-detail.js');
+  import('/static/components/ntx-form.js');
 });
 ```
 
@@ -1073,11 +1073,11 @@ document.querySelectorAll('[data-route]').forEach(link => {
 });
 ```
 
-4. **Schema-based prediction.** In PyBend's architecture, the schema contains the information needed for prediction. When the Product schema includes `$defs.Comment`, the frontend knows Comment rendering will be needed soon:
+4. **Schema-based prediction.** In N3TX's architecture, the schema contains the information needed for prediction. When the Product schema includes `$defs.Comment`, the frontend knows Comment rendering will be needed soon:
 ```javascript
 // After receiving Product schema, preload Comment's component
 if (schema.$defs?.Comment) {
-  import('/static/components/ntt-item.js');
+  import('/static/components/ntx-item.js');
   // The Comment DynamicClass will be created from schema,
   // but its rendering component should be warm in the module cache.
 }
@@ -1091,42 +1091,42 @@ if (schema.$defs?.Comment) {
 
 ---
 
-## 7. Relevance to PyBend
+## 7. Relevance to N3TX
 
-### 7.1 What PyBend Already Does Right
+### 7.1 What N3TX Already Does Right
 
-PyBend's architecture aligns with several emerging best practices documented in this research:
+N3TX's architecture aligns with several emerging best practices documented in this research:
 
-**Actor-based message bus.** The `Matrix` -> `Actor` -> `TX` system implements the actor model for component communication. The `NTT` class serves as both a type registry and an actor, with hierarchical addressing (`Product/42/Comment/7`) that maps naturally to REST resource paths. This is architecturally superior to event bus or shared-state approaches for MFE isolation.
+**Actor-based message bus.** The `Matrix` -> `Actor` -> `TX` system implements the actor model for component communication. The `N3TX` class serves as both a type registry and an actor, with hierarchical addressing (`Product/42/Comment/7`) that maps naturally to REST resource paths. This is architecturally superior to event bus or shared-state approaches for MFE isolation.
 
-**Schema as single source of truth.** The `NTT.SCHEMA()` -> `prototype()` -> DynamicClass pipeline is a runtime implementation of schema-driven UI. The backend model definition generates the JSON Schema, the schema generates the frontend entity class, and the generic components (`ntt-item`, `ntt-list`) render based on schema instructions. This matches the Level 2 (schema-driven) SDUI pattern described in Section 3.2.
+**Schema as single source of truth.** The `N3TX.SCHEMA()` -> `prototype()` -> DynamicClass pipeline is a runtime implementation of schema-driven UI. The backend model definition generates the JSON Schema, the schema generates the frontend entity class, and the generic components (`ntx-item`, `ntx-list`) render based on schema instructions. This matches the Level 2 (schema-driven) SDUI pattern described in Section 3.2.
 
-**Buildless by default.** PyBend serves raw ES Modules with no build step. This is exactly the approach advocated by the open-wc community and the "going buildless" movement. The architecture is production-viable for the component-based, non-framework approach PyBend uses.
+**Buildless by default.** N3TX serves raw ES Modules with no build step. This is exactly the approach advocated by the open-wc community and the "going buildless" movement. The architecture is production-viable for the component-based, non-framework approach N3TX uses.
 
-**Custom Elements as MFE boundaries.** Each `ntt-*` component is a standard Custom Element with lifecycle management via `connectedCallback`/`disconnectedCallback`. This provides natural MFE lifecycle management without external frameworks like single-spa.
+**Custom Elements as MFE boundaries.** Each `ntx-*` component is a standard Custom Element with lifecycle management via `connectedCallback`/`disconnectedCallback`. This provides natural MFE lifecycle management without external frameworks like single-spa.
 
 ### 7.2 Opportunities Identified by This Research
 
-**Constructable Stylesheets.** PyBend could benefit from shared `CSSStyleSheet` objects for design tokens, adopted across all `ntt-*` component shadow roots. This would provide efficient theming without style duplication.
+**Constructable Stylesheets.** N3TX could benefit from shared `CSSStyleSheet` objects for design tokens, adopted across all `ntx-*` component shadow roots. This would provide efficient theming without style duplication.
 
-**Import maps for dependency management.** If PyBend ever needs third-party frontend dependencies, an import map provides resolution without a build step. The server could generate the import map dynamically based on registered models' requirements.
+**Import maps for dependency management.** If N3TX ever needs third-party frontend dependencies, an import map provides resolution without a build step. The server could generate the import map dynamically based on registered models' requirements.
 
-**`modulepreload` for critical path.** Adding `<link rel="modulepreload">` hints for `NTT.js`, `Actor.js`, `Matrix.js`, and `TX.js` in the HTML entry point would eliminate the module discovery waterfall and improve initial load performance.
+**`modulepreload` for critical path.** Adding `<link rel="modulepreload">` hints for `N3TX.js`, `Actor.js`, `Matrix.js`, and `TX.js` in the HTML entry point would eliminate the module discovery waterfall and improve initial load performance.
 
 **Service Worker caching.** A Service Worker with Cache-First for static JS modules and Stale-While-Revalidate for schema responses would provide near-instant subsequent loads and offline capability.
 
 **103 Early Hints.** With a reverse proxy (Nginx/Caddy) in front of the FastAPI server, 103 Early Hints could push critical module files to the browser before the HTML response is generated.
 
-**Declarative Shadow DOM for SSR.** If PyBend adds server-side rendering support, DSD enables Web Component content to appear before JavaScript loads, improving First Contentful Paint.
+**Declarative Shadow DOM for SSR.** If N3TX adds server-side rendering support, DSD enables Web Component content to appear before JavaScript loads, improving First Contentful Paint.
 
 ### 7.3 Architecture Validation
 
-This research validates PyBend's architectural choices:
+This research validates N3TX's architectural choices:
 
 1. **Vanilla Web Components (no framework)** is a mainstream, well-supported approach in 2026, not a niche decision.
 2. **Actor model for frontend communication** has theoretical grounding (Erlang/Akka) and practical validation (Surma's architecture, XState v5, Comlink).
-3. **Schema-driven UI** is proven at scale (Airbnb Ghost Platform, Apollo SDUI, DivKit) and PyBend's implementation is a clean instance of this pattern.
+3. **Schema-driven UI** is proven at scale (Airbnb Ghost Platform, Apollo SDUI, DivKit) and N3TX's implementation is a clean instance of this pattern.
 4. **Buildless development** is viable for Web Component architectures and is actively advocated by the open-wc community.
 5. **ES Modules + Import Maps** are the emerging standard for micro-frontend infrastructure, replacing webpack-specific solutions.
 
-The architecture is not just viable -- it is aligned with the direction the web platform is moving. The standards PyBend builds on (Custom Elements, ES Modules, JSON Schema) are stable, widely supported, and actively evolving in directions that benefit this approach.
+The architecture is not just viable -- it is aligned with the direction the web platform is moving. The standards N3TX builds on (Custom Elements, ES Modules, JSON Schema) are stable, widely supported, and actively evolving in directions that benefit this approach.

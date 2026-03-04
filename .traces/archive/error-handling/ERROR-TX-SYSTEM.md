@@ -1,8 +1,8 @@
-# PyBend Error System Remediation — ERROR TX All The Way Through
+# N3TX Error System Remediation — ERROR TX All The Way Through
 
 ## Context
 
-The error-system audit (`.traces/audit/error-system.md`) identified 6 priority issues across PyBend's full-stack error handling: format inconsistencies, a 200-OK bypass, silent message drops, frontend actor crashes, status code misuse, and a Level 3 auth gap.
+The error-system audit (`.traces/audit/error-system.md`) identified 6 priority issues across N3TX's full-stack error handling: format inconsistencies, a 200-OK bypass, silent message drops, frontend actor crashes, status code misuse, and a Level 3 auth gap.
 
 Rather than patching each issue individually, this plan establishes **ERROR TX as the canonical error representation throughout the system**. HTTP `{"detail": "..."}` becomes a boundary translation, not the primary representation. This architectural principle naturally resolves all 6 audit issues and unifies the error flow.
 
@@ -33,8 +33,8 @@ HTTP 4xx/5xx → NetworkAdapter.onError() → ERROR TX → Matrix → Component.
 ## Phase 0: Foundation — Shared Error Utilities
 
 ### 0a. Extract `_exception_to_tx_error` to shared location
-**File:** `src/pybend/core/actors/tx.py` (add method)
-**File:** `src/pybend/core/models/actor_model.py` (import from tx.py)
+**File:** `src/n3tx/core/actors/tx.py` (add method)
+**File:** `src/n3tx/core/models/actor_model.py` (import from tx.py)
 
 Move `_exception_to_tx_error()` from `actor_model.py` to `tx.py` as a module-level function. This makes it available to Actor base class, ActorModel, and any future code that needs exception→TX translation. Keep the import in `actor_model.py` for backward compat.
 
@@ -43,7 +43,7 @@ Move `_exception_to_tx_error()` from `actor_model.py` to `tx.py` as a module-lev
 def exception_to_tx_error(e: Exception, tx: 'TX') -> 'TX':
     """Map exception types to TX error responses with semantic HTTP codes."""
     # Lazy import to avoid circular
-    from pybend.core.utils.erroring import MethodError
+    from n3tx.core.utils.erroring import MethodError
 
     if isinstance(e, MethodError):
         return tx.error(e.message, code=e.status_code)
@@ -64,7 +64,7 @@ def exception_to_tx_error(e: Exception, tx: 'TX') -> 'TX':
 
 In `actor_model.py`, replace `_exception_to_tx_error` with:
 ```python
-from pybend.core.actors.tx import exception_to_tx_error as _exception_to_tx_error
+from n3tx.core.actors.tx import exception_to_tx_error as _exception_to_tx_error
 ```
 
 ### 0b. Add Pydantic ValidationError → 422 mapping
@@ -77,7 +77,7 @@ Included in the extracted function above. Currently `ValueError`/`TypeError` →
 ### 1a. Standardize error response format → `{"detail": "..."}`
 All HTTP error responses use FastAPI's `HTTPException` / `{"detail": "..."}`.
 
-**`src/pybend/core/api/network_ap.py`:**
+**`src/n3tx/core/api/network_ap.py`:**
 | Line | Change |
 |------|--------|
 | 227 | `{'error': ...}` → `{'detail': ...}` |
@@ -86,19 +86,19 @@ All HTTP error responses use FastAPI's `HTTPException` / `{"detail": "..."}`.
 | 412 | `JSONResponse({'error': ...})` → `raise HTTPException(400, detail=...)` |
 | ~415 | `if 'error' in result:` → `if 'detail' in result:` |
 
-**`src/pybend/core/api/routes_flask.py`:**
+**`src/n3tx/core/api/routes_flask.py`:**
 | Line | Change |
 |------|--------|
 | 60 | `jsonify({'error': str(e)})` → `jsonify({'detail': str(e)})` |
 | 127 | `jsonify({'error': 'Not found'})` → `jsonify({'detail': 'Not found'})` |
 | 173 | `jsonify({'error': str(e)})` → `jsonify({'detail': str(e)})` |
 
-**`src/pybend/core/tests/profiling/dashboard.py`:**
+**`src/n3tx/core/tests/profiling/dashboard.py`:**
 All `JSONResponse({'error': ...})` sites (~8) → `raise HTTPException(status_code=N, detail=...)`.
 
 ### 1b. Fix status code semantics
 
-**`src/pybend/core/api/auth_interceptor.py` — 401 vs 403:**
+**`src/n3tx/core/api/auth_interceptor.py` — 401 vs 403:**
 Line 99: unauthenticated → 401 (not 403):
 ```python
 # Before:
@@ -107,7 +107,7 @@ return tx.error("Access denied", code=403)
 return tx.error("Authentication required", code=401)
 ```
 
-**`src/pybend/core/models/actor_model.py` — create/update failure → 409:**
+**`src/n3tx/core/models/actor_model.py` — create/update failure → 409:**
 Lines 221, 264: storage returns falsy → constraint violation, not server error:
 ```python
 return tx.error("Create failed", code=409)  # was default 500
@@ -116,7 +116,7 @@ return tx.error("Update failed", code=409)  # was default 500
 
 ### 1c. Fix Level 3 custom method auth gap
 
-**`src/pybend/core/api/auth_interceptor.py` — explicit AUTHENTICATED default:**
+**`src/n3tx/core/api/auth_interceptor.py` — explicit AUTHENTICATED default:**
 Lines 56-64: When no `access=` on `@expose_route`, default to AUTHENTICATED:
 ```python
 if action not in _CRUD_OPS:
@@ -132,14 +132,14 @@ if action not in _CRUD_OPS:
     return tx
 ```
 
-**`src/pybend/core/models/actor_model.py` — Tier 2 auth for custom methods:**
+**`src/n3tx/core/models/actor_model.py` — Tier 2 auth for custom methods:**
 In `handler()` custom method path (after line 108 `if is_exposed`), add auth check before execution:
 ```python
 if is_exposed:
     endpoint_info = getattr(method, '__endpoint__', {})
     method_access = endpoint_info.get('access')
     if method_access is not None:
-        from pybend.core.authorize import AccessContext
+        from n3tx.core.authorize import AccessContext
         ctx = AccessContext(
             user=tx.meta.get('user', {}),
             action=tx.name, model_class=cls,
@@ -155,7 +155,7 @@ if is_exposed:
 ## Phase 2: Backend ERROR TX Consistency
 
 ### 2a. Fix Matrix message drop → return ERROR TX
-**File:** `src/pybend/core/actors/matrix.py`
+**File:** `src/n3tx/core/actors/matrix.py`
 
 Replace silent drops (lines 67, 70) with error TX routing back to sender:
 
@@ -178,13 +178,13 @@ async def _route_error(self, tx: TX) -> None:
 Update `inbox()` to call `_route_error()` at both warning sites.
 
 ### 2b. Actor base class — use semantic error codes
-**File:** `src/pybend/core/actors/actor.py`
+**File:** `src/n3tx/core/actors/actor.py`
 
 In `handler()` exception catch (~line 340), use semantic mapping:
 ```python
 except Exception as e:
     logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
-    from pybend.core.actors.tx import exception_to_tx_error
+    from n3tx.core.actors.tx import exception_to_tx_error
     await target.send(exception_to_tx_error(e, tx))
 ```
 
@@ -197,7 +197,7 @@ This replaces the default 500 with proper semantic codes (ValueError → 400, et
 **Goal:** Single error path. All errors flow through ERROR TX. Components handle display.
 
 ### 3a. HTTP.js — Remove direct toast display
-**File:** `src/pybend/static/core/transport/HTTP.js`
+**File:** `src/n3tx/static/core/transport/HTTP.js`
 
 **Changes to all verb methods (GET/POST/PUT/DELETE):**
 
@@ -247,7 +247,7 @@ static _extractError(json, status) {
 4. **Keep utility methods** (`_extractError`, `_extractValidationErrors`, `_checkBodyForError`, `_toastHttpError`) — they're still useful. Just stop calling `_toastHttpError` from verb methods.
 
 ### 3b. NTTElement.ERROR — Add toast display
-**File:** `src/pybend/static/components/NTTElement.js`
+**File:** `src/n3tx/static/components/NTTElement.js`
 
 Add toast to the base ERROR handler so all errors get ephemeral notification:
 ```javascript
@@ -279,7 +279,7 @@ ERROR(event) {
 Add `showToast` import at top of file.
 
 ### 3c. Frontend error boundaries — try/catch in Actor._inbox()
-**File:** `src/pybend/static/core/Actor.js`
+**File:** `src/n3tx/static/core/Actor.js`
 
 In `_inbox()` (line 130), fix two issues:
 
@@ -328,7 +328,7 @@ return tx;
 ```
 
 ### 3d. Frontend Matrix error boundary
-**File:** `src/pybend/static/core/Matrix.js`
+**File:** `src/n3tx/static/core/Matrix.js`
 
 Wrap child inbox dispatch in try/catch (line 39):
 ```javascript
@@ -343,8 +343,8 @@ try {
 }
 ```
 
-### 3e. Simplify NTT._response_ handler
-**File:** `src/pybend/static/core/NTT.js`
+### 3e. Simplify N3TX._response_ handler
+**File:** `src/n3tx/static/core/N3TX.js`
 
 With errors now routing through ERROR TX (Priority 2 fix ensures 200-OK errors → onError), the defensive check in `_response_` is no longer needed:
 
@@ -376,12 +376,12 @@ The `showToast` import for `_response_` can also be removed if no other code in 
 
 ### 4a. Backend unit tests
 
-**`src/pybend/core/tests/unit/test_actor_system.py`** — add:
+**`src/n3tx/core/tests/unit/test_actor_system.py`** — add:
 - Test `exception_to_tx_error` with Pydantic ValidationError → 422
 - Test `exception_to_tx_error` with MethodError → uses its status_code
 - Test Matrix sends ERROR TX (404) when no route found (not silent drop)
 
-**`src/pybend/core/tests/unit/test_schema_ext.py`** — update DEFAULT_STAGES if needed.
+**`src/n3tx/core/tests/unit/test_schema_ext.py`** — update DEFAULT_STAGES if needed.
 
 ### 4b. Integration tests
 
@@ -392,12 +392,12 @@ The `showToast` import for `_response_` can also be removed if no other code in 
 
 ### 4c. Frontend tests
 
-**`src/pybend/static/tests/transport/HTTP.test.js`** — add:
+**`src/n3tx/static/tests/transport/HTTP.test.js`** — add:
 - Test `_extractError` priority order: `detail` before `error`
 - Test `onSuccess` NOT called when response has embedded error
 - Test `onError` IS called when response has embedded error
 
-**`src/pybend/static/tests/transport/NetworkAdapter.test.js`** — update if needed for ERROR TX flow.
+**`src/n3tx/static/tests/transport/NetworkAdapter.test.js`** — update if needed for ERROR TX flow.
 
 ---
 
@@ -405,19 +405,19 @@ The `showToast` import for `_response_` can also be removed if no other code in 
 
 | File | Phase | Changes |
 |------|-------|---------|
-| `src/pybend/core/actors/tx.py` | 0 | Add `exception_to_tx_error()` function |
-| `src/pybend/core/models/actor_model.py` | 0,1 | Import from tx.py, fix 409 codes, add Tier 2 custom method auth |
-| `src/pybend/core/api/network_ap.py` | 1 | `error` → `detail`, use HTTPException |
-| `src/pybend/core/api/routes_flask.py` | 1 | `error` → `detail` |
-| `src/pybend/core/tests/profiling/dashboard.py` | 1 | `error` → HTTPException |
-| `src/pybend/core/api/auth_interceptor.py` | 1 | 401 for unauth, explicit AUTHENTICATED default |
-| `src/pybend/core/actors/matrix.py` | 2 | Add `_route_error()`, stop silent drops |
-| `src/pybend/core/actors/actor.py` | 2 | Use `exception_to_tx_error` in handler |
-| `src/pybend/static/core/transport/HTTP.js` | 3 | Remove toasts, route 200-OK errors to onError, reorder extraction |
-| `src/pybend/static/components/NTTElement.js` | 3 | Add toast to ERROR handler |
-| `src/pybend/static/core/Actor.js` | 3 | Error boundaries, no-throw on missing handler |
-| `src/pybend/static/core/Matrix.js` | 3 | Try/catch around child dispatch |
-| `src/pybend/static/core/NTT.js` | 3 | Simplify _response_ (remove defensive check) |
+| `src/n3tx/core/actors/tx.py` | 0 | Add `exception_to_tx_error()` function |
+| `src/n3tx/core/models/actor_model.py` | 0,1 | Import from tx.py, fix 409 codes, add Tier 2 custom method auth |
+| `src/n3tx/core/api/network_ap.py` | 1 | `error` → `detail`, use HTTPException |
+| `src/n3tx/core/api/routes_flask.py` | 1 | `error` → `detail` |
+| `src/n3tx/core/tests/profiling/dashboard.py` | 1 | `error` → HTTPException |
+| `src/n3tx/core/api/auth_interceptor.py` | 1 | 401 for unauth, explicit AUTHENTICATED default |
+| `src/n3tx/core/actors/matrix.py` | 2 | Add `_route_error()`, stop silent drops |
+| `src/n3tx/core/actors/actor.py` | 2 | Use `exception_to_tx_error` in handler |
+| `src/n3tx/static/core/transport/HTTP.js` | 3 | Remove toasts, route 200-OK errors to onError, reorder extraction |
+| `src/n3tx/static/components/NTTElement.js` | 3 | Add toast to ERROR handler |
+| `src/n3tx/static/core/Actor.js` | 3 | Error boundaries, no-throw on missing handler |
+| `src/n3tx/static/core/Matrix.js` | 3 | Try/catch around child dispatch |
+| `src/n3tx/static/core/N3TX.js` | 3 | Simplify _response_ (remove defensive check) |
 | Test files (4 files) | 4 | New + updated tests |
 
 ---
@@ -426,13 +426,13 @@ The `showToast` import for `_response_` can also be removed if no other code in 
 
 ```bash
 # Unit tests
-cd /workspace/src/pybend/core && pytest tests/unit/ -v
+cd /workspace/src/n3tx/core && pytest tests/unit/ -v
 
 # Integration tests (example_actor uses Level 3 routing)
 cd /workspace && pytest example_actor/tests/ -v
 
 # Frontend tests
-cd /workspace/src/pybend/static && npx vitest run
+cd /workspace/src/n3tx/static && npx vitest run
 
 # Manual verification
 cd /workspace/example_actor && python3 main.py

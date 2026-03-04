@@ -8,7 +8,7 @@
 
 ## Message Chain Per TX
 
-A single message (e.g., DESCRIBE to an ntt-item) traverses:
+A single message (e.g., DESCRIBE to an ntx-item) traverses:
 
 ```
 component.send(event)

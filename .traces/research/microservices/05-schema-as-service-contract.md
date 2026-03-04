@@ -29,7 +29,7 @@ relationship metadata in a single document.
 This paper examines the state of schema-driven microservice development:
 who does it, what tools exist, where the ecosystem is headed, and why
 auto-generated schemas from model definitions represent the next evolutionary
-step. We use PyBend's `ProtoModel.schema()` as a concrete reference
+step. We use N3TX's `ProtoModel.schema()` as a concrete reference
 implementation --- not because it is the only approach, but because it
 demonstrates what becomes possible when schemas are generated from the model
 rather than maintained alongside it.
@@ -216,13 +216,13 @@ REST services have no built-in introspection. OpenAPI provides a spec, but
 it must be hosted separately and is not self-generated. The service and its
 description are two different things, maintained by two different processes.
 
-### 3.2 PyBend's Approach: Schema as Complete Service Specification
+### 3.2 N3TX's Approach: Schema as Complete Service Specification
 
-PyBend's `ProtoModel.schema()` auto-generates a JSON Schema document that
+N3TX's `ProtoModel.schema()` auto-generates a JSON Schema document that
 functions as a **complete service specification**. Every model serves its
 schema at `GET /{ModelName}`. No separate spec file, no manual maintenance.
 
-Here is what a real PyBend schema contains, auto-generated from the Python
+Here is what a real N3TX schema contains, auto-generated from the Python
 model definition:
 
 ```
@@ -267,7 +267,7 @@ GET /Product  -->  JSON Schema
 |   |                 "favorites"]
 |   +-- groups       {main: ["name", "description", "price"],
 |   |                 Social: ["comments", "favorites"]}
-|   +-- renderer     {item: "ntt-item", list: "ntt-list"}
+|   +-- renderer     {item: "ntx-item", list: "ntx-list"}
 |   +-- methods      {comment: {layout: "inline", ...},
 |                      favorite: {layout: "button", icon: "star", ...}}
 |
@@ -287,10 +287,10 @@ would not carry access rules, UI hints, or method semantics.
 The complete Product definition that generates the above schema:
 
 ```python
-from pybend.core.models.proto_model import ProtoModel
-from pybend.core.models.ref import ListRef
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx.core.models.proto_model import ProtoModel
+from n3tx.core.models.ref import ListRef
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 from pydantic import Field
 
 class Product(ProtoModel):
@@ -318,7 +318,7 @@ class Product(ProtoModel):
                 'attach_to': 'favorites',
             },
         },
-        'renderer': {'item': 'ntt-item', 'list': 'ntt-list'},
+        'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
     }
     __access__ = {
         'read': ANYONE,
@@ -414,7 +414,7 @@ This is better than Pact for provider-driven workflows but still requires
 hand-writing the contracts. The contract and the code are two separate
 artifacts that can diverge.
 
-### 4.3 Schema-Generated Contracts: The PyBend Advantage
+### 4.3 Schema-Generated Contracts: The N3TX Advantage
 
 When the schema is auto-generated from the model, contract testing simplifies
 dramatically:
@@ -424,7 +424,7 @@ Traditional:
   Model (Python) --> [manual] --> OpenAPI spec --> [manual] --> Pact contracts
   Three artifacts. Two manual synchronization points. Drift at each.
 
-PyBend:
+N3TX:
   Model (Python) --> [auto] --> JSON Schema (the contract)
   One artifact. Zero manual synchronization. Zero drift.
 ```
@@ -509,7 +509,7 @@ Apply semantic versioning to schemas [14]:
 - **Major** (1.0.0 --> 2.0.0): Breaking changes. Field removal, type changes,
   required field additions.
 
-PyBend's schema includes `$id` as a URL, which can carry version information:
+N3TX's schema includes `$id` as a URL, which can carry version information:
 
 ```
 http://product-service/v1/Product    # version in URL path
@@ -519,7 +519,7 @@ http://product-service/Product       # latest (for consumers that track HEAD)
 ### 5.4 Schema Evolution in Practice
 
 The critical insight is that schema evolution should be **automated**, not
-manual. When a developer adds a field to a PyBend model:
+manual. When a developer adds a field to a N3TX model:
 
 ```python
 class Product(ProtoModel):
@@ -554,13 +554,13 @@ The OpenAPI code generation ecosystem has matured significantly [15]:
 | **oapi-codegen** | Go | Go-native, strongly typed |
 | **APIMatic** | Multi-language | Commercial, analytics built-in |
 
-### 6.2 PyBend Schema to Typed Clients
+### 6.2 N3TX Schema to Typed Clients
 
-Because PyBend's schema is a superset of JSON Schema, it can be fed directly
+Because N3TX's schema is a superset of JSON Schema, it can be fed directly
 into existing code generators. But the additional metadata (methods, access
 rules) enables richer client generation.
 
-**TypeScript client from PyBend schema:**
+**TypeScript client from N3TX schema:**
 
 ```typescript
 // Auto-generated from GET /Product schema
@@ -594,7 +594,7 @@ class ProductClient {
 }
 ```
 
-**Python client from PyBend schema:**
+**Python client from N3TX schema:**
 
 ```python
 # Auto-generated from GET /Product schema
@@ -628,19 +628,19 @@ The key advantage: the access rules are embedded in the schema. A generated
 client can know, at code generation time, which methods require authentication
 and pre-configure the appropriate headers. No documentation reading required.
 
-### 6.3 How PyBend's Frontend Already Does This
+### 6.3 How N3TX's Frontend Already Does This
 
-PyBend's frontend (`NTT.js`) already demonstrates runtime schema-to-client
+N3TX's frontend (`N3TX.js`) already demonstrates runtime schema-to-client
 generation. The `prototype()` function creates a complete typed JavaScript
 class from the schema at runtime:
 
 ```javascript
-// NTT.js: prototype() -- creates DynamicClass from schema
+// N3TX.js: prototype() -- creates DynamicClass from schema
 function prototype(addr, schema, href) {
     const fields = Object.keys(schema.properties || {});
     const methods = Object.keys(schema.methods || {});
 
-    const DynamicClass = class extends NTT {
+    const DynamicClass = class extends N3TX {
         static _schema = schema;
         // ... typed properties generated from schema.properties
         // ... methods generated from schema.methods
@@ -732,17 +732,17 @@ validates schemas. The three major implementations:
     +-----------------+          +----------------+
 ```
 
-### 7.3 PyBend as Its Own Registry
+### 7.3 N3TX as Its Own Registry
 
-PyBend services function as their own schema registry. Every service serves
+N3TX services function as their own schema registry. Every service serves
 its complete schema at `GET /{ModelName}`. This is **distributed** rather
 than centralized, but it carries an important advantage: the schema is always
 authoritative because it is generated from the running code.
 
-A centralized PyBend schema aggregator is straightforward to build:
+A centralized N3TX schema aggregator is straightforward to build:
 
 ```python
-# Schema discovery service -- aggregates schemas from all PyBend services
+# Schema discovery service -- aggregates schemas from all N3TX services
 import requests
 
 SERVICES = [
@@ -752,10 +752,10 @@ SERVICES = [
 ]
 
 def discover_all_schemas():
-    """Fetch schemas from all PyBend services."""
+    """Fetch schemas from all N3TX services."""
     registry = {}
     for service_url in SERVICES:
-        # Each PyBend service exposes a blueprint of all its models
+        # Each N3TX service exposes a blueprint of all its models
         blueprint = requests.get(f"{service_url}/Schema").json()
         for model_name, schema in blueprint.items():
             registry[model_name] = {
@@ -766,14 +766,14 @@ def discover_all_schemas():
     return registry
 ```
 
-PyBend's `ProtoModel.blueprint()` method already aggregates all registered
+N3TX's `ProtoModel.blueprint()` method already aggregates all registered
 model schemas:
 
 ```python
 @staticmethod
 def blueprint():
     """Returns the blueprint of registered models."""
-    from pybend.core.utils.registrar import registered_models
+    from n3tx.core.utils.registrar import registered_models
     blueprint = {}
     for model_name, model_cls in registered_models.items():
         blueprint[model_name] = model_cls.schema()
@@ -816,13 +816,13 @@ The CloudEvents specification [17], a CNCF graduated project since January
 ```
 
 Note the `dataschema` field. CloudEvents defines a standard attribute for
-linking to the schema that describes the event payload. PyBend entities
+linking to the schema that describes the event payload. N3TX entities
 already carry `$schema` and `$id` in every response, which maps directly
 to CloudEvents' `dataschema` and `subject` attributes.
 
-### 8.3 PyBend Events as CloudEvents
+### 8.3 N3TX Events as CloudEvents
 
-Because PyBend's `model_dump(response=True)` injects `$schema` and `$id`
+Because N3TX's `model_dump(response=True)` injects `$schema` and `$id`
 into every entity:
 
 ```python
@@ -837,7 +837,7 @@ def model_dump(self, *, response: bool = False, **kwargs):
     return data
 ```
 
-Any PyBend entity response is already a self-describing event payload. Wrapping
+Any N3TX entity response is already a self-describing event payload. Wrapping
 it in a CloudEvents envelope requires only the metadata fields:
 
 ```python
@@ -845,7 +845,7 @@ def to_cloud_event(instance):
     data = instance.model_dump(response=True)
     return {
         "specversion": "1.0",
-        "type": f"com.pybend.{instance.__class__.__name__.lower()}.created",
+        "type": f"com.n3tx.{instance.__class__.__name__.lower()}.created",
         "source": f"/{instance.__tablename__}",
         "id": str(uuid4()),
         "time": datetime.utcnow().isoformat() + "Z",
@@ -876,7 +876,7 @@ they have no knowledge of the application-level contract [18]:
 
 ### 9.2 A Schema-Driven Mesh Architecture
 
-Imagine a service mesh that reads PyBend schemas:
+Imagine a service mesh that reads N3TX schemas:
 
 ```
                         +-------------------+
@@ -926,7 +926,7 @@ What the mesh gains from schema awareness:
 
 ### 9.3 Authorization at the Mesh Layer
 
-PyBend's access rules are serialized into the schema as composable
+N3TX's access rules are serialized into the schema as composable
 JSON structures:
 
 ```json
@@ -967,11 +967,11 @@ forwards or rejects. The application code only handles business logic.
 
 ---
 
-## 10. Comparison: OpenAPI (Hand-Written) vs. PyBend Schema (Auto-Generated)
+## 10. Comparison: OpenAPI (Hand-Written) vs. N3TX Schema (Auto-Generated)
 
 ### 10.1 Feature Comparison
 
-| Feature | OpenAPI (hand-written) | OpenAPI (code-first) | PyBend Schema |
+| Feature | OpenAPI (hand-written) | OpenAPI (code-first) | N3TX Schema |
 |---------|----------------------|---------------------|--------------|
 | **Source of truth** | YAML file | Code annotations | Model definition |
 | **Data types** | Yes | Yes | Yes |
@@ -999,7 +999,7 @@ For a model with 5 fields, 2 methods, ABAC access rules, and UI configuration:
 |----------|-------|---------|-----------|
 | OpenAPI YAML (hand-written) | ~300 | Yes | Yes |
 | OpenAPI from code annotations | ~50 (annotations) + ~200 (generated) | Partial | Possible |
-| PyBend model definition | ~55 (model) + ~120 (generated schema) | No | No |
+| N3TX model definition | ~55 (model) + ~120 (generated schema) | No | No |
 
 ### 10.3 What "Zero Drift" Means in Practice
 
@@ -1019,7 +1019,7 @@ Developer changes code --> Spec auto-updates --> But was the change intentional?
   --> Accidental contract change slips through --> Consumer breaks
 ```
 
-In PyBend's model-first workflow:
+In N3TX's model-first workflow:
 ```
 Developer changes model --> Schema auto-generates --> Schema IS the model
   --> No separate artifact to drift --> No accidental changes
@@ -1077,7 +1077,7 @@ registry required --- just `old_model.schema()` vs `new_model.schema()`.
 
 ### 11.3 Pattern: Federated Schema
 
-Multiple PyBend services, each serving their own models, form a federated
+Multiple N3TX services, each serving their own models, form a federated
 schema that describes the entire system:
 
 ```python
@@ -1113,7 +1113,7 @@ phased adoption path:
 ### Phase 1: Schema Generation (Weeks 1-2)
 
 Ensure every service generates its schema from code, not from hand-written
-specs. With PyBend, this is automatic (`ProtoModel.schema()`). With other
+specs. With N3TX, this is automatic (`ProtoModel.schema()`). With other
 frameworks, use code-first OpenAPI generation (FastAPI, NestJS, etc.).
 
 **Milestone:** Every service serves its schema at a known endpoint.
@@ -1173,7 +1173,7 @@ HTTP and event-driven APIs. But the decisive step is eliminating the human
 from the schema maintenance loop. When the model IS the schema, drift is
 not a risk to be managed --- it is a category error. It cannot happen.
 
-PyBend's `ProtoModel.schema()` demonstrates this concretely: 55 lines of
+N3TX's `ProtoModel.schema()` demonstrates this concretely: 55 lines of
 Python model definition produce a 120-line JSON Schema that carries fields,
 types, validation rules, CRUD endpoints, custom methods, access control
 policies, UI rendering hints, and related entity definitions. That single

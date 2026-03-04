@@ -1,6 +1,6 @@
-# :wrench: Reactive TX Responses x PyBend: Technical Propositions
+# :wrench: Reactive TX Responses x N3TX: Technical Propositions
 
-> *How reactive observable patterns can extend PyBend's actor messaging --
+> *How reactive observable patterns can extend N3TX's actor messaging --
 > without breaking the model-is-the-app philosophy.*
 > *Based on research in `.traces/research/rx-as-tx-responses/` and codebase analysis.*
 
@@ -8,7 +8,7 @@
 
 ## :dart: The Bridge
 
-PyBend's actor system already embodies a key reactive principle: **message-driven
+N3TX's actor system already embodies a key reactive principle: **message-driven
 asynchronous communication**. TX messages flow through Matrix routing, interceptor
 pipelines transform them sequentially, and `_publish_lifecycle` broadcasts events
 to multiple subscribers. The system is reactive in spirit -- it just lacks the
@@ -230,11 +230,11 @@ by making the handle awaitable (implements `__await__`).
 > combines initial READ response with subsequent lifecycle events into one stream.
 
 **From the research:** The relevance doc (`02-our-stack-relevance.md`, Section 3.1)
-describes the polling gap: `<ntt-list>` fetches via HTTP while WS pushes lifecycle
+describes the polling gap: `<ntx-list>` fetches via HTTP while WS pushes lifecycle
 events separately. An SSE stream unifies both channels.
 
 **In our system:** `network_ws.py:200-235` broadcasts lifecycle events to WS
-clients. Frontend `ntt-list.js` fetches list data via HTTP. Two disconnected
+clients. Frontend `ntx-list.js` fetches list data via HTTP. Two disconnected
 channels for one concern: "give me this collection and keep it updated."
 
 **The idea:** `GET /products/stream` returns SSE. First event is the full list
@@ -245,7 +245,7 @@ model's `_lifecycle$` subject (Proposition 1). Mutations still use POST/PUT/DELE
 
 | Dimension | Assessment |
 |-----------|-----------|
-| Effort | **Medium** -- ~20 hours. SSE endpoint factory + frontend `EventSource` in `ntt-list.js`. |
+| Effort | **Medium** -- ~20 hours. SSE endpoint factory + frontend `EventSource` in `ntx-list.js`. |
 | Impact | **High** -- Eliminates polling. Real-time UI without WebSocket complexity. |
 | Risk | **Medium** -- SSE has browser connection limits (6/domain in HTTP/1.1). Requires P1. |
 | Timeline | **Weeks** (2 weeks) |
@@ -371,7 +371,7 @@ The interceptor chain (`actor.py:288-299`) is 11 lines of sequential `async (TX)
 Pattern C from the research (Reactive Mailbox) is architecturally elegant but operationally dangerous for a framework that values "transparent, not magical." The current `inbox() -> handler()` dispatch is traceable in under 30 seconds. A subscription-chain-based inbox distributes behavior across multiple subscription sites, making debugging require understanding the full subscription graph. The one exception is Proposition 7 (agent watches), which is scoped narrowly to agent actors only.
 
 **3. Do not adopt RxPY over aioreactive.**
-RxPY requires scheduler bridging with asyncio, which is the source of many subtle bugs in async Python. PyBend is entirely asyncio-native. aioreactive was built for this exact environment -- its `async`/`await` semantics and implicit backpressure align with the single-event-loop model. The smaller operator set (~40 vs 120+) is sufficient for the use cases identified here.
+RxPY requires scheduler bridging with asyncio, which is the source of many subtle bugs in async Python. N3TX is entirely asyncio-native. aioreactive was built for this exact environment -- its `async`/`await` semantics and implicit backpressure align with the single-event-loop model. The smaller operator set (~40 vs 120+) is sufficient for the use cases identified here.
 
 ---
 

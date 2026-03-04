@@ -8,7 +8,7 @@ from typing import ClassVar
 from pydantic import Field, ValidationError
 
 from models import Product, Comment, Like
-from pybend.core.utils.erroring import MethodError
+from n3tx.core.utils.erroring import MethodError
 
 pytestmark = pytest.mark.unit
 

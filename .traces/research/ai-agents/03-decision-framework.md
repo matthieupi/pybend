@@ -2,7 +2,7 @@
 
 **Date:** February 2026
 **Audience:** Technical CEOs, Engineering Leadership, Architecture Teams
-**Context:** Evaluating whether a schema-driven framework (e.g., PyBend) should incorporate AI agent orchestration capabilities, and how to navigate the build-vs-adopt decision.
+**Context:** Evaluating whether a schema-driven framework (e.g., N3TX) should incorporate AI agent orchestration capabilities, and how to navigate the build-vs-adopt decision.
 
 ---
 
@@ -20,7 +20,7 @@
 10. [Measurement Framework](#10-measurement-framework)
 11. [The Schema-Driven Advantage](#11-the-schema-driven-advantage)
 12. [Compliance and Governance](#12-compliance-and-governance)
-13. [Recommendations for PyBend-Class Frameworks](#13-recommendations-for-pybend-class-frameworks)
+13. [Recommendations for N3TX-Class Frameworks](#13-recommendations-for-ntx-class-frameworks)
 14. [Sources](#14-sources)
 
 ---
@@ -89,7 +89,7 @@ This document provides a structured decision framework for technical leaders eva
 
 The most successful production architectures in 2025-2026 do not choose between agents and traditional code. They use **agents as the intelligent routing layer** and **deterministic workflows as the execution engine** [3]. An agent decides *what* to do; traditional code ensures *how* it gets done is reliable, auditable, and fast.
 
-For a schema-driven framework like PyBend, this means:
+For a schema-driven framework like N3TX, this means:
 
 - **Schema resolution, CRUD operations, access control, form rendering** = always deterministic. These are solved problems. Adding agents here adds cost and latency for zero benefit.
 - **Natural language queries across entities, adaptive onboarding flows, intelligent data migration, cross-system integration** = candidates for agent-mediated interaction with the schema-driven system underneath.
@@ -181,11 +181,11 @@ Initial creation costs often represent less than a third of the total cost of ow
 
 ### When Custom Makes Sense: The Schema-Driven Case
 
-A framework like PyBend has architectural properties that generic agent frameworks do not understand:
+A framework like N3TX has architectural properties that generic agent frameworks do not understand:
 
 1. **The model IS the API.** Every `ProtoModel` subclass auto-generates routes, schemas, permissions. An agent framework that doesn't know this will duplicate effort.
 
-2. **Actor model messaging.** PyBend's frontend uses an Actor system (Matrix/Actor/TX) for all inter-component communication. A custom agent layer can be a native actor, sending and receiving messages through the same bus.
+2. **Actor model messaging.** N3TX's frontend uses an Actor system (Matrix/Actor/TX) for all inter-component communication. A custom agent layer can be a native actor, sending and receiving messages through the same bus.
 
 3. **Self-describing entities.** Every entity carries `$schema` and `$id`. This is exactly what MCP tools need---structured, typed, self-describing contracts.
 
@@ -366,7 +366,7 @@ While 78% of organizations use AI, only 11% of small and 21% of medium firms use
 | **Governance** | No AI policy | Basic usage guidelines | Formal AI governance, audit trails |
 | **Budget** | No AI line item | Experimental budget | Dedicated AI operations budget |
 
-**Schema-driven frameworks like PyBend are architecturally ready.** The data maturity dimension is already at "Ready"---every entity is typed, validated, self-describing, and accessible via structured API. This is a significant head start over organizations that must first build data pipelines before agents can interact with their systems.
+**Schema-driven frameworks like N3TX are architecturally ready.** The data maturity dimension is already at "Ready"---every entity is typed, validated, self-describing, and accessible via structured API. This is a significant head start over organizations that must first build data pipelines before agents can interact with their systems.
 
 ### Team Structure for Agent Development
 
@@ -603,7 +603,7 @@ Most applications that want to integrate agents face a "grounding problem":
 
 ### What Schema-Driven Frameworks Provide for Free
 
-A framework like PyBend already solves all four problems:
+A framework like N3TX already solves all four problems:
 
 | Agent Need | Schema-Driven Solution | Traditional Approach |
 |-----------|:---:|:---:|
@@ -628,7 +628,7 @@ The Model Context Protocol (MCP), initially released by Anthropic in November 20
 **The auto-generation path:**
 
 ```python
-# Pseudocode: auto-generate MCP server from PyBend models
+# Pseudocode: auto-generate MCP server from N3TX models
 def generate_mcp_tools(registered_models):
     tools = []
     for model_cls in registered_models.values():
@@ -671,7 +671,7 @@ This is not hypothetical engineering. The schema already contains everything nee
 
 ### The Actor Model Synergy
 
-PyBend's frontend uses an Actor model (Matrix as root actor, individual components as child actors, TX messages for communication). AI agents are, conceptually, actors:
+N3TX's frontend uses an Actor model (Matrix as root actor, individual components as child actors, TX messages for communication). AI agents are, conceptually, actors:
 
 - They have an address (identity)
 - They receive messages (tasks, observations)
@@ -772,7 +772,7 @@ A schema-driven system has structural advantages for compliance:
 
 ---
 
-## 13. Recommendations for PyBend-Class Frameworks
+## 13. Recommendations for N3TX-Class Frameworks
 
 ### Immediate Actions (Next 30 Days)
 

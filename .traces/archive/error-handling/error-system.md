@@ -1,4 +1,4 @@
-# PyBend Error System Audit
+# N3TX Error System Audit
 
 **Date:** 2026-03-04
 **Branch:** v0.9
@@ -10,7 +10,7 @@
 
 ### 1.1 The Three Formats
 
-PyBend's HTTP error responses use **three incompatible JSON formats** depending on which backend module generates them:
+N3TX's HTTP error responses use **three incompatible JSON formats** depending on which backend module generates them:
 
 | Format | Key | Example | Used By |
 |--------|-----|---------|---------|
@@ -127,7 +127,7 @@ The frontend works because it checks **all** formats. But this is fragile — th
 
 ### 2.2 Where It Matters
 
-The `DynamicClass._response_` handler (`NTT.js:1086-1096`) **does** check for embedded errors and short-circuits `pull()`. This covers method call responses.
+The `DynamicClass._response_` handler (`N3TX.js:1086-1096`) **does** check for embedded errors and short-circuits `pull()`. This covers method call responses.
 
 But for CRUD operations routed through `NetworkAdapter.httpCallback()`, the success path creates a reply TX without checking for embedded errors. The component processes the error data as valid entity data.
 
@@ -154,11 +154,11 @@ Medium. The MethodError fix eliminated the primary source of 200-OK errors (cust
 | Location | Pattern | Severity |
 |----------|---------|----------|
 | `Actor.js _inbox()` | No handler for event name → throws (uncaught) | Critical — crashes message pipeline |
-| `NTT.js` | Schema fetch failure → ERROR TX → NTT has no ERROR handler → throw | Critical — model stuck forever |
+| `N3TX.js` | Schema fetch failure → ERROR TX → N3TX has no ERROR handler → throw | Critical — model stuck forever |
 | `HTTP.js:115` | `_checkBodyForError()` return ignored → `onSuccess()` fires with error | Medium — see Section 2 |
 | `ListElement.js` | Create modal closes before response → validation errors lost | High — user must start over |
-| `ntt-item.js` | Optimistic delete → no rollback on failure | Medium — UI out of sync |
-| `ntt-method.js` | Load failures (3 sites) → `Logging.error()` only → empty component | Medium — buttons silently missing |
+| `ntx-item.js` | Optimistic delete → no rollback on failure | Medium — UI out of sync |
+| `ntx-method.js` | Load failures (3 sites) → `Logging.error()` only → empty component | Medium — buttons silently missing |
 | `Permissions.js` | `/auth/me` fails → user treated as anonymous, no feedback | Medium |
 
 ---
@@ -378,46 +378,46 @@ WS errors:    NTTElement.ERROR() reads data.message
 ## Appendix A: Files Audited
 
 ### Backend
-- `src/pybend/core/api/routes_fastapi.py` — Level 1/2 CRUD routes
-- `src/pybend/core/api/network_api.py` — Level 3 actor routing
-- `src/pybend/core/api/network_ap.py` — ActivityPub federation
-- `src/pybend/core/api/network_mcp.py` — MCP JSON-RPC
-- `src/pybend/core/api/network_ws.py` — WebSocket bridge
-- `src/pybend/core/api/auth_interceptor.py` — Tier 1 ABAC gate
-- `src/pybend/core/api/backend.py` — JWT middleware
-- `src/pybend/core/api/routes_flask.py` — Flask routes (legacy)
-- `src/pybend/core/models/actor_model.py` — ActorModel CRUD + dispatch
-- `src/pybend/core/models/proto_model.py` — ProtoModel base
-- `src/pybend/core/actors/tx.py` — TX message envelope
-- `src/pybend/core/actors/actor.py` — Actor base class
-- `src/pybend/core/actors/matrix.py` — Matrix message router
-- `src/pybend/core/storage/sqlite_storage.py` — SQLite backend
-- `src/pybend/core/storage/sqlite_migration.py` — Auto-migration
-- `src/pybend/core/authorize/errors.py` — AccessDenied exception
-- `src/pybend/core/authorize/resolver.py` — DefaultResolver
-- `src/pybend/core/utils/erroring.py` — MethodError
-- `src/pybend/core/tests/profiling/dashboard.py` — Profiling dashboard
+- `src/n3tx/core/api/routes_fastapi.py` — Level 1/2 CRUD routes
+- `src/n3tx/core/api/network_api.py` — Level 3 actor routing
+- `src/n3tx/core/api/network_ap.py` — ActivityPub federation
+- `src/n3tx/core/api/network_mcp.py` — MCP JSON-RPC
+- `src/n3tx/core/api/network_ws.py` — WebSocket bridge
+- `src/n3tx/core/api/auth_interceptor.py` — Tier 1 ABAC gate
+- `src/n3tx/core/api/backend.py` — JWT middleware
+- `src/n3tx/core/api/routes_flask.py` — Flask routes (legacy)
+- `src/n3tx/core/models/actor_model.py` — ActorModel CRUD + dispatch
+- `src/n3tx/core/models/proto_model.py` — ProtoModel base
+- `src/n3tx/core/actors/tx.py` — TX message envelope
+- `src/n3tx/core/actors/actor.py` — Actor base class
+- `src/n3tx/core/actors/matrix.py` — Matrix message router
+- `src/n3tx/core/storage/sqlite_storage.py` — SQLite backend
+- `src/n3tx/core/storage/sqlite_migration.py` — Auto-migration
+- `src/n3tx/core/authorize/errors.py` — AccessDenied exception
+- `src/n3tx/core/authorize/resolver.py` — DefaultResolver
+- `src/n3tx/core/utils/erroring.py` — MethodError
+- `src/n3tx/core/tests/profiling/dashboard.py` — Profiling dashboard
 
 ### Frontend
-- `src/pybend/static/core/transport/HTTP.js` — HTTP transport
-- `src/pybend/static/core/transport/NetworkAdapter.js` — TX/HTTP bridge
-- `src/pybend/static/core/transport/Socket.js` — WebSocket client
-- `src/pybend/static/core/NTT.js` — Entity system
-- `src/pybend/static/core/Matrix.js` — Frontend message router
-- `src/pybend/static/core/Actor.js` — Frontend actor base
-- `src/pybend/static/core/Router.js` — Navigation state
-- `src/pybend/static/components/NTTElement.js` — Base component
-- `src/pybend/static/components/ntt-item.js` — Item component
-- `src/pybend/static/components/ntt-list.js` — List component
-- `src/pybend/static/components/ntt-table.js` — Table component
-- `src/pybend/static/components/ntt-row.js` — Row component
-- `src/pybend/static/components/ntt-router.js` — View container
-- `src/pybend/static/components/ntt-modal.js` — Modal dialog
-- `src/pybend/static/components/ntt-method.js` — Method buttons
-- `src/pybend/static/generators/form.js` — Form generator
-- `src/pybend/static/utils/Permissions.js` — Frontend ABAC
-- `src/pybend/static/utils/Toast.js` — Toast notifications
-- `src/pybend/static/widgets/*.js` — Widget implementations
+- `src/n3tx/static/core/transport/HTTP.js` — HTTP transport
+- `src/n3tx/static/core/transport/NetworkAdapter.js` — TX/HTTP bridge
+- `src/n3tx/static/core/transport/Socket.js` — WebSocket client
+- `src/n3tx/static/core/N3TX.js` — Entity system
+- `src/n3tx/static/core/Matrix.js` — Frontend message router
+- `src/n3tx/static/core/Actor.js` — Frontend actor base
+- `src/n3tx/static/core/Router.js` — Navigation state
+- `src/n3tx/static/components/NTTElement.js` — Base component
+- `src/n3tx/static/components/ntx-item.js` — Item component
+- `src/n3tx/static/components/ntx-list.js` — List component
+- `src/n3tx/static/components/ntx-table.js` — Table component
+- `src/n3tx/static/components/ntx-row.js` — Row component
+- `src/n3tx/static/components/ntx-router.js` — View container
+- `src/n3tx/static/components/ntx-modal.js` — Modal dialog
+- `src/n3tx/static/components/ntx-method.js` — Method buttons
+- `src/n3tx/static/generators/form.js` — Form generator
+- `src/n3tx/static/utils/Permissions.js` — Frontend ABAC
+- `src/n3tx/static/utils/Toast.js` — Toast notifications
+- `src/n3tx/static/widgets/*.js` — Widget implementations
 
 ### Example Apps
 - `example_actor/models/product.py`, `comment.py` — MethodError usage

@@ -1,6 +1,6 @@
 # Option 4: Harden the App -- Testing, Error Handling, Security, and Production Readiness
 
-**Grant Watcher on PyBend v0.10 | Research Date: 2026-03-04**
+**Grant Watcher on N3TX v0.10 | Research Date: 2026-03-04**
 
 ---
 
@@ -21,7 +21,7 @@ Rough estimate: **30-40% of code paths are tested.** Auth edge cases, error reco
 concurrent access, agent failure modes, and security boundaries are all untested. Production
 deployment with the current test coverage would be flying blind.
 
-The good news: PyBend's architecture makes hardening efficient. The schema-driven pattern
+The good news: N3TX's architecture makes hardening efficient. The schema-driven pattern
 means many fixes apply once and propagate everywhere -- add rate limiting to `NetworkAPI`
 and every endpoint gets it. Fix error handling in `handler_crud()` and every model benefits.
 The framework's consistency is a security multiplier.
@@ -399,7 +399,7 @@ Additionally, consider [Drawbridge](https://github.com/nicois/drawbridge), an ht
 | Category | Current State | Risk Level | Effort to Fix |
 |----------|--------------|------------|---------------|
 | **SSRF** | No URL validation in WebTools | **CRITICAL** | 2-4 hours |
-| **JWT Secret** | Default `pybend-dev-secret-change-in-production` | **CRITICAL** | 10 minutes (env var) |
+| **JWT Secret** | Default `ntx-dev-secret-change-in-production` | **CRITICAL** | 10 minutes (env var) |
 | **CORS** | `allow_origins=["*"]`, `allow_credentials=True` | **HIGH** | 30 minutes |
 | **Rate Limiting** | None | **HIGH** | 2-4 hours |
 | **Input Sanitization** | Pydantic type validation only | MEDIUM | 4-8 hours |
@@ -412,7 +412,7 @@ Additionally, consider [Drawbridge](https://github.com/nicois/drawbridge), an ht
 
 ### 3.3 CORS Misconfiguration
 
-**File:** `src/pybend/core/api/backend.py`, lines 59-76
+**File:** `src/n3tx/core/api/backend.py`, lines 59-76
 
 ```python
 if cors_origins is None:
@@ -437,11 +437,11 @@ cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5000").split(","
 
 ### 3.4 JWT Security
 
-The current JWT implementation (`src/pybend/core/authorize/auth.py`) has several gaps:
+The current JWT implementation (`src/n3tx/core/authorize/auth.py`) has several gaps:
 
 | Issue | Current | Recommended |
 |-------|---------|-------------|
-| Default secret | `pybend-dev-secret-change-in-production` | **Require** non-default secret at startup |
+| Default secret | `ntx-dev-secret-change-in-production` | **Require** non-default secret at startup |
 | Algorithm | HS256 (symmetric) | HS256 is fine for single-server; RS256 for multi-server |
 | Expiry | 24 hours | 15-60 minutes for access tokens |
 | Refresh tokens | None | Implement rotation per [Auth0 best practices](https://auth0.com/docs/secure/tokens/token-best-practices) |
@@ -454,16 +454,16 @@ easily ignored. A stronger pattern:
 ```python
 def configure(*, jwt_secret: str = None, **kwargs):
     if _jwt_secret.lower() in INSECURE_SECRETS:
-        if os.environ.get('PYBEND_ENV', 'dev') == 'production':
+        if os.environ.get('N3TX_ENV', 'dev') == 'production':
             raise RuntimeError(
                 "FATAL: Using default JWT secret in production. "
-                "Set PYBEND_JWT_SECRET environment variable."
+                "Set N3TX_JWT_SECRET environment variable."
             )
 ```
 
 ### 3.5 Login Endpoint: Brute Force Risk
 
-**File:** `src/pybend/core/models/base_user.py`, lines 76-108
+**File:** `src/n3tx/core/models/base_user.py`, lines 76-108
 
 The login endpoint has two problems:
 
@@ -540,7 +540,7 @@ from typing import Literal
 status: Literal['discovered', 'reviewed', 'applied', 'expired'] = 'discovered'
 ```
 
-**Fix for XSS:** Since PyBend renders content via Web Components with `textContent`
+**Fix for XSS:** Since N3TX renders content via Web Components with `textContent`
 assignment (not `innerHTML`), XSS risk in the standard rendering path is low. However,
 any custom rendering or markdown widgets that use `innerHTML` need sanitization. The
 `MarkdownWidget` uses `marked.min.js` which should have XSS prevention enabled.
@@ -592,7 +592,7 @@ SQLite in production](https://dev.to/pockit_tools/the-sqlite-renaissance-why-the
 | Max practical DB size | ~1 TB (tested) | Unlimited | Good enough |
 | Horizontal scaling | Single server only | Multi-server | **SQLite loses** |
 | Backups | File copy (or `VACUUM INTO`) | pg_dump, streaming replication | SQLite is simpler |
-| Connection pooling | PyBend has 4-connection pool | pgBouncer / built-in | Adequate |
+| Connection pooling | N3TX has 4-connection pool | pgBouncer / built-in | Adequate |
 | Full-text search | FTS5 extension | Built-in | Both capable |
 
 **Verdict for Grant Watcher:** SQLite is fine for MVP and early production. The
@@ -626,8 +626,8 @@ formatting, no correlation IDs, no request tracing.
 
 ```
 Current:
-  INFO pybend.api: Creating Grant record
-  INFO pybend.api: Record created with ID: 42
+  INFO n3tx.api: Creating Grant record
+  INFO n3tx.api: Record created with ID: 42
 
 Production:
   {"timestamp": "2026-03-04T10:15:30Z", "level": "INFO",
@@ -702,18 +702,18 @@ Current config uses environment variables with hardcoded defaults:
 
 ```python
 # config.py
-JWT_SECRET = os.environ.get("PYBEND_JWT_SECRET",
-    "pybend-dev-secret-change-in-production")  # Dangerous default
-HOST = os.environ.get("PYBEND_HOST", "0.0.0.0")
-DEBUG = os.environ.get("PYBEND_DEBUG", "true")  # Debug ON by default
+JWT_SECRET = os.environ.get("N3TX_JWT_SECRET",
+    "ntx-dev-secret-change-in-production")  # Dangerous default
+HOST = os.environ.get("N3TX_HOST", "0.0.0.0")
+DEBUG = os.environ.get("N3TX_DEBUG", "true")  # Debug ON by default
 ```
 
 **Production checklist:**
 
-- [ ] `PYBEND_JWT_SECRET` set to a random 256-bit key
-- [ ] `PYBEND_DEBUG` set to `false`
-- [ ] `PYBEND_HOST` set to `127.0.0.1` (behind reverse proxy)
-- [ ] `PYBEND_API_URL` set to the actual public URL
+- [ ] `N3TX_JWT_SECRET` set to a random 256-bit key
+- [ ] `N3TX_DEBUG` set to `false`
+- [ ] `N3TX_HOST` set to `127.0.0.1` (behind reverse proxy)
+- [ ] `N3TX_API_URL` set to the actual public URL
 - [ ] `CORS_ORIGINS` set to actual frontend domain
 - [ ] LLM API keys in environment variables, not in code or DB
 
@@ -752,9 +752,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Production settings
-ENV PYBEND_DEBUG=false
-ENV PYBEND_HOST=0.0.0.0
-ENV PYBEND_PORT=5000
+ENV N3TX_DEBUG=false
+ENV N3TX_HOST=0.0.0.0
+ENV N3TX_PORT=5000
 
 # Run with Gunicorn + Uvicorn workers
 CMD ["gunicorn", "main:app", \
@@ -820,7 +820,7 @@ When a parent record is deleted, child records may be orphaned:
 | AgentActor (deleted) | AgentActorAgentTool (join) | `agentactor_id` | **Orphaned records** |
 | Source (deleted) | -- | -- | No children defined |
 
-SQLite supports `ON DELETE CASCADE` but PyBend's auto-migration does not add it.
+SQLite supports `ON DELETE CASCADE` but N3TX's auto-migration does not add it.
 Currently, deleting an agent leaves orphaned tool records in the join table.
 
 **Fix:** Enable foreign key enforcement and add CASCADE:
@@ -912,7 +912,7 @@ to subscribers, but `_subscribers` is empty by default -- no one is listening.
 
 ```python
 # In main.py
-from pybend.core.actors.actor import Actor
+from n3tx.core.actors.actor import Actor
 
 class AuditLogger(Actor):
     __tablename__ = 'audit_log'
@@ -1070,9 +1070,9 @@ not just one bug.
 | Operational complexity | Zero (single file) | Moderate (separate process, backups, monitoring) |
 | Write concurrency | 1 writer (queued) | Many concurrent writers |
 | When to switch | < 1000 users, < 100 concurrent requests | > 1000 users OR multi-server deployment |
-| PyBend support | Full (SQLiteStorage) | Requires new `PostgresStorage` class |
+| N3TX support | Full (SQLiteStorage) | Requires new `PostgresStorage` class |
 
-**Recommendation:** Stay on SQLite for now. The PyBend `AbstractStorage` interface
+**Recommendation:** Stay on SQLite for now. The N3TX `AbstractStorage` interface
 makes switching straightforward when the time comes. PostgreSQL is additive work, not
 a prerequisite.
 
@@ -1148,5 +1148,5 @@ default to `WARNING` with `INFO` available via configuration.
 ---
 
 *Document generated by analysis of Grant Watcher codebase (`/workspace/example_grants/`) and
-PyBend framework (`/workspace/src/pybend/core/`). All file paths, line numbers, and code
+N3TX framework (`/workspace/src/n3tx/core/`). All file paths, line numbers, and code
 references verified against the v0.9 branch as of 2026-03-04.*

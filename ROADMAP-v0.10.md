@@ -1,7 +1,7 @@
 # ROADMAP v0.10: Platform Expansion
 
 > **Theme:** From framework to platform.
-> Connect PyBend to the agentic ecosystem, the Fediverse, and the static web.
+> Connect N3TX to the agentic ecosystem, the Fediverse, and the static web.
 > Every new capability is a protocol adapter or schema consumer — not a rewrite.
 
 **Generated**: 2026-03-02
@@ -48,13 +48,13 @@ v0.9 deepened the schema and developer experience built on v0.8's actor infrastr
 
 ## 2. Strategic Direction for v0.10
 
-v0.10 expands PyBend from a schema-driven web framework into a schema-driven platform that connects to:
+v0.10 expands N3TX from a schema-driven web framework into a schema-driven platform that connects to:
 
 1. **The agentic ecosystem** — Full agent capabilities: LLM integration, planning loops, multi-agent coordination. "Define a model, get an agent."
 
-2. **The Fediverse** — Full bidirectional ActivityPub federation. PyBend content appears on Mastodon, Lemmy, WordPress. Remote interactions flow back.
+2. **The Fediverse** — Full bidirectional ActivityPub federation. N3TX content appears on Mastodon, Lemmy, WordPress. Remote interactions flow back.
 
-3. **The static web** — `pybend export` generates deployable static websites from schema. Zero server. Zero JavaScript. Zero hosting costs.
+3. **The static web** — `n3tx export` generates deployable static websites from schema. Zero server. Zero JavaScript. Zero hosting costs.
 
 4. **Real-time** — WebSocket bridge connecting frontend Matrix to backend Matrix. Lifecycle events push instantly to connected clients.
 
@@ -72,7 +72,7 @@ v0.10 expands PyBend from a schema-driven web framework into a schema-driven pla
 ## 3. Architecture Context
 
 > This section is standalone — it provides everything a clean-context agent needs
-> to understand PyBend's architecture without reading CLAUDE.md or prior conversations.
+> to understand N3TX's architecture without reading CLAUDE.md or prior conversations.
 
 ### Core Principle
 
@@ -105,56 +105,56 @@ From this definition: database table, CRUD API, JSON Schema, frontend entity cla
 ### Key Files (with full paths)
 
 **Models & Serialization:**
-- `src/pybend/core/models/proto_model.py` — Base model. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline). `model_response()` calls `proto_dump.*` pipeline. `__init_subclass__()` auto-injects `StorableMixin`, registers polymorphic subtypes.
-- `src/pybend/core/models/proto_schema.py` — Schema pipeline: 7+ composable `dict -> dict` stages (`base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`, plus extensions like `polymorphic`). Register new stages via `@schema_extension(after='methods')`.
-- `src/pybend/core/models/proto_dump.py` — Dump pipeline: composable `dict -> dict` stages (`base`, `response`, plus extensions). Register via `@dump_extension(after='response')`.
-- `src/pybend/core/models/actor_model.py` — `ActorModel(Actor, ProtoModel)` bridge. CRUD via `handler_crud()`, lifecycle events, generic handler for custom methods.
-- `src/pybend/core/models/base_user.py` — Abstract base user model with `login()` and `register_user()`.
-- `src/pybend/core/models/storable_mixin.py` — CRUD operations. `list()` supports `limit`/`offset` pagination, `sort`, `filter`, `fields`.
+- `src/n3tx/core/models/proto_model.py` — Base model. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline). `model_response()` calls `proto_dump.*` pipeline. `__init_subclass__()` auto-injects `StorableMixin`, registers polymorphic subtypes.
+- `src/n3tx/core/models/proto_schema.py` — Schema pipeline: 7+ composable `dict -> dict` stages (`base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`, plus extensions like `polymorphic`). Register new stages via `@schema_extension(after='methods')`.
+- `src/n3tx/core/models/proto_dump.py` — Dump pipeline: composable `dict -> dict` stages (`base`, `response`, plus extensions). Register via `@dump_extension(after='response')`.
+- `src/n3tx/core/models/actor_model.py` — `ActorModel(Actor, ProtoModel)` bridge. CRUD via `handler_crud()`, lifecycle events, generic handler for custom methods.
+- `src/n3tx/core/models/base_user.py` — Abstract base user model with `login()` and `register_user()`.
+- `src/n3tx/core/models/storable_mixin.py` — CRUD operations. `list()` supports `limit`/`offset` pagination, `sort`, `filter`, `fields`.
 
 **Actor System:**
-- `src/pybend/core/actors/actor.py` — Base actor: `actormethod`/`actorproperty` descriptors, `ActorMeta` metaclass, `use()` interceptors. Class/instance dual dispatch. `auto_register=False` kwarg available.
-- `src/pybend/core/actors/matrix.py` — Root actor and message router. Module-level `matrix` singleton. `register_adapter()` for protocol adapters.
-- `src/pybend/core/actors/tx.py` — TX message envelope: `name`, `source`, `target`, `data`, `meta`, `timestamp`, `uuid`. `reply()`, `error()`, `is_error`.
-- `src/pybend/core/actors/actor_proxy.py` — Actor interface wrapper without MI.
+- `src/n3tx/core/actors/actor.py` — Base actor: `actormethod`/`actorproperty` descriptors, `ActorMeta` metaclass, `use()` interceptors. Class/instance dual dispatch. `auto_register=False` kwarg available.
+- `src/n3tx/core/actors/matrix.py` — Root actor and message router. Module-level `matrix` singleton. `register_adapter()` for protocol adapters.
+- `src/n3tx/core/actors/tx.py` — TX message envelope: `name`, `source`, `target`, `data`, `meta`, `timestamp`, `uuid`. `reply()`, `error()`, `is_error`.
+- `src/n3tx/core/actors/actor_proxy.py` — Actor interface wrapper without MI.
 
 **API / Routes:**
-- `src/pybend/core/api/routes_fastapi.py` — Level 1/2 route factories with auth injection, pagination, `?fields`, `?sort`, `?filter`.
-- `src/pybend/core/api/network_adapter.py` — `NetworkAdapter(Actor)` base: `request()` for req/resp correlation, interceptor support.
-- `src/pybend/core/api/network_api.py` — `NetworkAPI`: HTTP REST bridge (Level 3).
-- `src/pybend/core/api/network_mcp.py` — `NetworkMCP`: MCP JSON-RPC 2.0 bridge (tools, resources, prompts, notifications).
-- `src/pybend/core/api/network_ap.py` — `NetworkAP`: ActivityPub federation bridge (outbox, inbox, WebFinger, Actor documents).
-- `src/pybend/core/api/auth_interceptor.py` — Tier 1 auth interceptor.
-- `src/pybend/core/api/discovery.py` — `/_meta`, `/.well-known/agent.json`.
+- `src/n3tx/core/api/routes_fastapi.py` — Level 1/2 route factories with auth injection, pagination, `?fields`, `?sort`, `?filter`.
+- `src/n3tx/core/api/network_adapter.py` — `NetworkAdapter(Actor)` base: `request()` for req/resp correlation, interceptor support.
+- `src/n3tx/core/api/network_api.py` — `NetworkAPI`: HTTP REST bridge (Level 3).
+- `src/n3tx/core/api/network_mcp.py` — `NetworkMCP`: MCP JSON-RPC 2.0 bridge (tools, resources, prompts, notifications).
+- `src/n3tx/core/api/network_ap.py` — `NetworkAP`: ActivityPub federation bridge (outbox, inbox, WebFinger, Actor documents).
+- `src/n3tx/core/api/auth_interceptor.py` — Tier 1 auth interceptor.
+- `src/n3tx/core/api/discovery.py` — `/_meta`, `/.well-known/agent.json`.
 
 **Authorization:**
-- `src/pybend/core/authorize/rules.py` — `AccessRule` base + rules: `ANYONE`, `NEVER`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`, `FEDERATED`, `LOCAL`, `FOLLOWER`. Compose with `|`/`&`/`~`. `sql_filter()` for SQL pushdown.
-- `src/pybend/core/authorize/auth.py` — JWT: password hashing, token create/decode, `configure()`.
-- `src/pybend/core/authorize/schema.py` — Serialize access rules to JSON for schema exposure.
+- `src/n3tx/core/authorize/rules.py` — `AccessRule` base + rules: `ANYONE`, `NEVER`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`, `FEDERATED`, `LOCAL`, `FOLLOWER`. Compose with `|`/`&`/`~`. `sql_filter()` for SQL pushdown.
+- `src/n3tx/core/authorize/auth.py` — JWT: password hashing, token create/decode, `configure()`.
+- `src/n3tx/core/authorize/schema.py` — Serialize access rules to JSON for schema exposure.
 
 **Storage:**
-- `src/pybend/core/storage/sqlite_storage.py` — SQLite backend with FK hydration, `_type` discriminator queries.
-- `src/pybend/core/storage/sqlite_migration.py` — Auto-migration + Rails-style manual migrations.
+- `src/n3tx/core/storage/sqlite_storage.py` — SQLite backend with FK hydration, `_type` discriminator queries.
+- `src/n3tx/core/storage/sqlite_migration.py` — Auto-migration + Rails-style manual migrations.
 
 **SSR:**
-- `src/pybend/core/ssr/html.py` — Schema injection, data pre-loading, CSS preloads, bundle mode.
+- `src/n3tx/core/ssr/html.py` — Schema injection, data pre-loading, CSS preloads, bundle mode.
 
 **CLI:**
-- `src/pybend/cli/__init__.py` — Typer app entry point.
-- `src/pybend/cli/commands/*.py` — 14 commands: run, models, describe, CRUD, migrate, seed, scaffold, model, shell, docs.
+- `src/n3tx/cli/__init__.py` — Typer app entry point.
+- `src/n3tx/cli/commands/*.py` — 14 commands: run, models, describe, CRUD, migrate, seed, scaffold, model, shell, docs.
 
 **Frontend:**
-- `src/pybend/static/core/NTT.js` — Core entity: `prototype()`, `SCHEMA()`, DynamicClass, preloaded schema/data consumption.
-- `src/pybend/static/core/Matrix.js` — Message bus / actor system.
-- `src/pybend/static/core/Actor.js` — Base actor class.
-- `src/pybend/static/components/ntt-item.js` — Item component: size methods (xs-xl).
-- `src/pybend/static/components/ntt-list.js` — List component.
-- `src/pybend/static/generators/form.js` — Formidable: schema-driven form generator.
-- `src/pybend/static/utils/Permissions.js` — Schema access rules for UI permission checks.
+- `src/n3tx/static/core/N3TX.js` — Core entity: `prototype()`, `SCHEMA()`, DynamicClass, preloaded schema/data consumption.
+- `src/n3tx/static/core/Matrix.js` — Message bus / actor system.
+- `src/n3tx/static/core/Actor.js` — Base actor class.
+- `src/n3tx/static/components/ntx-item.js` — Item component: size methods (xs-xl).
+- `src/n3tx/static/components/ntx-list.js` — List component.
+- `src/n3tx/static/generators/form.js` — Formidable: schema-driven form generator.
+- `src/n3tx/static/utils/Permissions.js` — Schema access rules for UI permission checks.
 
 **App Bootstrap:**
-- `src/pybend/core/app.py` — `PyBendApp` builder + `create_app()`. `routing='direct'` or `routing='actor'`. `setup()` for CLI (no HTTP server).
-- `src/pybend/__init__.py` — Public API re-exports.
+- `src/n3tx/core/app.py` — `N3TXApp` builder + `create_app()`. `routing='direct'` or `routing='actor'`. `setup()` for CLI (no HTTP server).
+- `src/n3tx/__init__.py` — Public API re-exports.
 
 ### Extension Points
 
@@ -167,7 +167,7 @@ From this definition: database table, CRUD API, JSON Schema, frontend entity cla
 7. **CLI** — New Typer commands in `cli/commands/`.
 8. **Lifecycle events** — ActorModel publishes `after_create`/`after_update`/`after_delete` to `_subscribers`.
 
-### Three Levels of PyBend
+### Three Levels of N3TX
 
 ```python
 # Level 1 — ProtoModel + direct routes
@@ -186,21 +186,21 @@ app = create_app(models=[Product], storage="sqlite:///app.db", routing='actor')
 Model Definition (Python)
     -> ProtoModel.schema()        [proto_schema pipeline: base -> strip_hidden -> methods -> defs -> access -> ui -> metadata -> polymorphic]
     -> GET /{ClassName}           [JSON Schema with everything]
-    -> NTT.SCHEMA(data)           [prototype() -> DynamicClass]
-    -> <ntt-list>, <ntt-item>     [Schema-driven rendering]
+    -> N3TX.SCHEMA(data)           [prototype() -> DynamicClass]
+    -> <ntx-list>, <ntx-item>     [Schema-driven rendering]
 
 MCP: schema.methods -> MCP tools/list -> AI agent calls tools/call -> TX -> ActorModel
 AP:  lifecycle event -> TX -> NetworkAP -> ActivityPub Create/Update/Delete -> followers
-CLI: pybend describe Product -> PyBendApp.setup() -> Product.schema() -> Rich table
+CLI: n3tx describe Product -> N3TXApp.setup() -> Product.schema() -> Rich table
 ```
 
 ### Test Commands
 
 ```bash
-cd /workspace/src/pybend/core && pytest tests/unit/
-cd /workspace/src/pybend/core && pytest actors/tests/
-cd /workspace/src/pybend/core && pytest ../example/tests/
-cd /workspace/src/pybend/example && python3 main.py
+cd /workspace/src/n3tx/core && pytest tests/unit/
+cd /workspace/src/n3tx/core && pytest actors/tests/
+cd /workspace/src/n3tx/core && pytest ../example/tests/
+cd /workspace/src/n3tx/example && python3 main.py
 ```
 
 ---
@@ -214,9 +214,9 @@ cd /workspace/src/pybend/example && python3 main.py
 ### Research Backing
 
 - AI agent market: $10.9B (2026) -> $52.6B (2030), 46.3% CAGR
-- 65% of agent infrastructure already exists in PyBend (Actor messaging, schema generation, ABAC, DynamicClass)
+- 65% of agent infrastructure already exists in N3TX (Actor messaging, schema generation, ABAC, DynamicClass)
 - MCP has 97M+ monthly SDK downloads, adopted by all major providers
-- JSON Schema is the universal agent contract — same format PyBend produces
+- JSON Schema is the universal agent contract — same format N3TX produces
 - Average ROI on agent investments: 171% (Google Cloud Study)
 - 40% of projects canceled by 2027 — scope discipline is survival
 - "Adopt for orchestration, build for integration" — our moat is the schema bridge
@@ -226,15 +226,15 @@ cd /workspace/src/pybend/example && python3 main.py
 Already partially done in v0.8 (`/.well-known/agent.json`). Deepen to full A2A Agent Card spec:
 
 **Files to modify:**
-- `src/pybend/core/api/discovery.py` — Full A2A v0.4+ Agent Card generation from registered models.
-- `src/pybend/core/models/proto_schema.py` — New `@schema_extension` stage that adds agent-relevant metadata (capabilities, cost hints, reliability data).
+- `src/n3tx/core/api/discovery.py` — Full A2A v0.4+ Agent Card generation from registered models.
+- `src/n3tx/core/models/proto_schema.py` — New `@schema_extension` stage that adds agent-relevant metadata (capabilities, cost hints, reliability data).
 
 ### Phase 1: LLM Integration (~3-4 weeks)
 
 **New files:**
-- `src/pybend/core/agents/__init__.py` — Agent system package.
-- `src/pybend/core/agents/llm_client.py` — `LLMClient` class: provider abstraction (OpenAI, Anthropic, Google). Uses `httpx` for HTTP calls. Structured output via JSON Schema constraint. Streaming support. Token counting and cost tracking.
-- `src/pybend/core/agents/agent_mixin.py` — `AgentMixin` for models: `__agent__ = True`, `__prompt__` dict (like `__ui__`), `__tools__` list. Adds `run()` method that executes a ReAct loop.
+- `src/n3tx/core/agents/__init__.py` — Agent system package.
+- `src/n3tx/core/agents/llm_client.py` — `LLMClient` class: provider abstraction (OpenAI, Anthropic, Google). Uses `httpx` for HTTP calls. Structured output via JSON Schema constraint. Streaming support. Token counting and cost tracking.
+- `src/n3tx/core/agents/agent_mixin.py` — `AgentMixin` for models: `__agent__ = True`, `__prompt__` dict (like `__ui__`), `__tools__` list. Adds `run()` method that executes a ReAct loop.
 
 **Key pattern:** `AgentMixin` mirrors `StorableMixin` — it's injected by `__init_subclass__()` when `__agent__ = True`.
 
@@ -255,14 +255,14 @@ class SupportAgent(ActorModel):
 ### Phase 2: Agent Memory + Context (~2-3 weeks)
 
 **New files:**
-- `src/pybend/core/agents/memory.py` — `AgentMemory(ProtoModel)`: short-term (conversation), medium-term (session), long-term (persistent). Stored via `StorableMixin`.
-- `src/pybend/core/agents/context.py` — `AgentContext`: manages tool results, conversation history, token budgets. Pruning strategies (FIFO, relevance-based, summary).
+- `src/n3tx/core/agents/memory.py` — `AgentMemory(ProtoModel)`: short-term (conversation), medium-term (session), long-term (persistent). Stored via `StorableMixin`.
+- `src/n3tx/core/agents/context.py` — `AgentContext`: manages tool results, conversation history, token budgets. Pruning strategies (FIFO, relevance-based, summary).
 
 ### Phase 3: Multi-Agent Coordination (~3-4 weeks)
 
 **New files:**
-- `src/pybend/core/agents/orchestrator.py` — `AgentOrchestrator(Actor)`: routes tasks to specialized agents. Supervision: restart crashed agents. Budget enforcement: per-agent and total cost caps.
-- `src/pybend/core/agents/delegation.py` — A2A delegation support: agents discover and delegate to other agents via Agent Cards.
+- `src/n3tx/core/agents/orchestrator.py` — `AgentOrchestrator(Actor)`: routes tasks to specialized agents. Supervision: restart crashed agents. Budget enforcement: per-agent and total cost caps.
+- `src/n3tx/core/agents/delegation.py` — A2A delegation support: agents discover and delegate to other agents via Agent Cards.
 
 **Interceptors for agent safety:**
 ```python
@@ -276,8 +276,8 @@ async def cost_guard(tx: TX) -> TX:
 ### Phase 4: Observability (~1-2 weeks)
 
 **New files:**
-- `src/pybend/core/agents/trace.py` — `AgentTrace(ProtoModel)`: records every TX in an agent workflow. Stored via `StorableMixin`. Queryable via CLI (`pybend agent:trace <id>`).
-- `src/pybend/core/agents/dashboard.py` — Agent monitoring: active agents, task completion rates, cost per task, error rates.
+- `src/n3tx/core/agents/trace.py` — `AgentTrace(ProtoModel)`: records every TX in an agent workflow. Stored via `StorableMixin`. Queryable via CLI (`n3tx agent:trace <id>`).
+- `src/n3tx/core/agents/dashboard.py` — Agent monitoring: active agents, task completion rates, cost per task, error rates.
 
 ### Tests
 
@@ -304,11 +304,11 @@ async def cost_guard(tx: TX) -> TX:
 
 **Duration**: 6-10 weeks
 **Risk**: Medium
-**Purpose**: Full bidirectional ActivityPub federation. PyBend apps participate in the Fediverse — content published on Mastodon, interactions flow back.
+**Purpose**: Full bidirectional ActivityPub federation. N3TX apps participate in the Fediverse — content published on Mastodon, interactions flow back.
 
 ### Research Backing
 
-- PyBend is 60-70% ready for federation (schema, self-describing entities, ABAC, Actor system)
+- N3TX is 60-70% ready for federation (schema, self-describing entities, ABAC, Actor system)
 - No framework offers model-driven federation — `__federated__ = True` is unique
 - Bluesky: 40M+ users. Fediverse: 12M+ registered users.
 - EU DMA review May 2026 may mandate social network interoperability
@@ -319,27 +319,27 @@ async def cost_guard(tx: TX) -> TX:
 ### Phase 1: Publish-Only (~2-3 weeks)
 
 **Files to modify:**
-- `src/pybend/core/api/network_ap.py` — Complete outbox delivery. ActivityStreams serialization for all CRUD lifecycle events. HTTP Signature on outgoing requests.
-- `src/pybend/core/models/proto_dump.py` — `@dump_extension` for ActivityStreams context injection (already partially implemented).
+- `src/n3tx/core/api/network_ap.py` — Complete outbox delivery. ActivityStreams serialization for all CRUD lifecycle events. HTTP Signature on outgoing requests.
+- `src/n3tx/core/models/proto_dump.py` — `@dump_extension` for ActivityStreams context injection (already partially implemented).
 
 **New files:**
-- `src/pybend/core/federation/signatures.py` — HTTP Signature creation and verification (RSA-SHA256).
-- `src/pybend/core/federation/delivery.py` — Async delivery queue with retry (exponential backoff).
-- `src/pybend/core/federation/keys.py` — Per-actor RSA key generation and management.
+- `src/n3tx/core/federation/signatures.py` — HTTP Signature creation and verification (RSA-SHA256).
+- `src/n3tx/core/federation/delivery.py` — Async delivery queue with retry (exponential backoff).
+- `src/n3tx/core/federation/keys.py` — Per-actor RSA key generation and management.
 
-**What ships:** Models with `__federated__ = True` produce valid ActivityPub Actor documents. Lifecycle events (create/update/delete) are serialized as Activities and delivered to followers. WebFinger makes actors discoverable. Other servers can follow PyBend users.
+**What ships:** Models with `__federated__ = True` produce valid ActivityPub Actor documents. Lifecycle events (create/update/delete) are serialized as Activities and delivered to followers. WebFinger makes actors discoverable. Other servers can follow N3TX users.
 
 ### Phase 2: Full Bidirectional (~3-4 weeks)
 
 **Files to modify:**
-- `src/pybend/core/api/network_ap.py` — Complete inbox handler. Verify incoming HTTP Signatures. Process Follow/Unfollow/Create/Update/Delete activities.
-- `src/pybend/core/authorize/rules.py` — `FOLLOWER` rule evaluates against follower list.
+- `src/n3tx/core/api/network_ap.py` — Complete inbox handler. Verify incoming HTTP Signatures. Process Follow/Unfollow/Create/Update/Delete activities.
+- `src/n3tx/core/authorize/rules.py` — `FOLLOWER` rule evaluates against follower list.
 
 **New files:**
-- `src/pybend/core/federation/inbox_processor.py` — Validate, authorize, and route inbound activities to ActorModels.
-- `src/pybend/core/federation/followers.py` — Follower list management (accept/reject, storage).
+- `src/n3tx/core/federation/inbox_processor.py` — Validate, authorize, and route inbound activities to ActorModels.
+- `src/n3tx/core/federation/followers.py` — Follower list management (accept/reject, storage).
 
-**What ships:** Remote Fediverse users can interact with PyBend content. Follows, likes, comments from Mastodon/Lemma/etc. are received, validated, and processed. `FOLLOWER` access rule works with real follower data.
+**What ships:** Remote Fediverse users can interact with N3TX content. Follows, likes, comments from Mastodon/Lemma/etc. are received, validated, and processed. `FOLLOWER` access rule works with real follower data.
 
 ### Phase 3: Interoperability Testing (~1-2 weeks)
 
@@ -356,8 +356,8 @@ async def cost_guard(tx: TX) -> TX:
 **Trigger:** eIDAS 2.0 mandate (November 2026) or federation demand.
 
 **New files:**
-- `src/pybend/core/federation/did.py` — DID document generation and resolution.
-- `src/pybend/core/models/base_user.py` — Add `did` field to BaseUser.
+- `src/n3tx/core/federation/did.py` — DID document generation and resolution.
+- `src/n3tx/core/models/base_user.py` — Add `did` field to BaseUser.
 
 ### Tests
 
@@ -386,26 +386,26 @@ async def cost_guard(tx: TX) -> TX:
 
 **Duration**: 5-7 days
 **Risk**: Low
-**Purpose**: `pybend export` generates a complete, deployable static website from schema + data. Zero server. Zero JavaScript. Zero hosting costs.
+**Purpose**: `n3tx export` generates a complete, deployable static website from schema + data. Zero server. Zero JavaScript. Zero hosting costs.
 
 ### Research Backing
 
 - No framework generates static HTML from data model definitions (whitespace opportunity)
 - Static sites: 3-10x faster than SPA, zero hosting costs on Cloudflare/GitHub/Netlify
 - Each 0.1s faster = 8-10% more conversions in e-commerce
-- PyBend's schema carries complete rendering instructions (field types, widgets, groups, access rules)
+- N3TX's schema carries complete rendering instructions (field types, widgets, groups, access rules)
 - MVP: ~980 lines of code, 5-7 engineering days
 - Jamstack market: $8.6B (2025), 60% of new projects use static-first
 
 ### Implementation
 
 **New files:**
-- `src/pybend/cli/commands/export.py` — `pybend export` CLI command. Orchestrates the export pipeline.
-- `src/pybend/core/export/__init__.py` — Export package.
-- `src/pybend/core/export/renderer.py` — Schema-to-HTML renderer. Reads schema properties, widget hints, groups, field order. Generates HTML using Jinja2 macros. ~200 LOC.
-- `src/pybend/core/export/css.py` — CSS `:host` transformer for Web Component styles -> static styles. ~80 LOC.
-- `src/pybend/core/export/orchestrator.py` — Export pipeline: enumerate models, query data, render pages, write files. ~150 LOC.
-- `src/pybend/core/export/templates/` — Base HTML template, list template, detail template. ~300 LOC.
+- `src/n3tx/cli/commands/export.py` — `n3tx export` CLI command. Orchestrates the export pipeline.
+- `src/n3tx/core/export/__init__.py` — Export package.
+- `src/n3tx/core/export/renderer.py` — Schema-to-HTML renderer. Reads schema properties, widget hints, groups, field order. Generates HTML using Jinja2 macros. ~200 LOC.
+- `src/n3tx/core/export/css.py` — CSS `:host` transformer for Web Component styles -> static styles. ~80 LOC.
+- `src/n3tx/core/export/orchestrator.py` — Export pipeline: enumerate models, query data, render pages, write files. ~150 LOC.
+- `src/n3tx/core/export/templates/` — Base HTML template, list template, detail template. ~300 LOC.
 
 **Schema-to-HTML mapping:**
 ```
@@ -456,7 +456,7 @@ dist/
 
 ### Wave 3 Deliverable
 
-- `pybend export` generates a complete static website
+- `n3tx export` generates a complete static website
 - Schema-driven HTML rendering (no templates to write)
 - CSS-only interactivity (zero JavaScript for most interactions)
 - Dark/light theme support
@@ -484,9 +484,9 @@ dist/
 ### 4a. Python Schema Renderer (~2-3 weeks)
 
 **New files:**
-- `src/pybend/core/ssr/renderer.py` — Python schema-to-HTML renderer. Reads same schema properties as `form.js`. Generates display-mode HTML. ~300 LOC.
-- `src/pybend/core/ssr/compiler.py` — Template compiler: at server start, generates HTML template strings with `{{slot}}` markers for each model x size x permission variant. ~250 LOC.
-- `src/pybend/core/ssr/dsd.py` — Declarative Shadow DOM wrapper. Wraps compiled templates in `<template shadowrootmode="open">`. ~100 LOC.
+- `src/n3tx/core/ssr/renderer.py` — Python schema-to-HTML renderer. Reads same schema properties as `form.js`. Generates display-mode HTML. ~300 LOC.
+- `src/n3tx/core/ssr/compiler.py` — Template compiler: at server start, generates HTML template strings with `{{slot}}` markers for each model x size x permission variant. ~250 LOC.
+- `src/n3tx/core/ssr/dsd.py` — Declarative Shadow DOM wrapper. Wraps compiled templates in `<template shadowrootmode="open">`. ~100 LOC.
 
 **Key design:** The compiler generates **templates** (structure), not **pages** (data). Data is injected at runtime. Templates are cached and reused across requests. This gives SSG-like speed with CSR-like freshness.
 
@@ -495,7 +495,7 @@ dist/
 ### 4b. Hydration Support (~1 week)
 
 **Files to modify:**
-- `src/pybend/static/components/ntt-item.js` — Add `hydrate()` method that detects server-rendered HTML in Shadow DOM and attaches event listeners without re-rendering.
+- `src/n3tx/static/components/ntx-item.js` — Add `hydrate()` method that detects server-rendered HTML in Shadow DOM and attaches event listeners without re-rendering.
 
 **Hydration strategy:** Progressive Islands with Embedded Schema.
 1. Server renders HTML with Declarative Shadow DOM (instant paint, zero JS)
@@ -542,12 +542,12 @@ dist/
 ### Implementation
 
 **New files:**
-- `src/pybend/core/api/network_ws.py` — `NetworkWebSocket(NetworkAdapter)`: WebSocket bridge. Serializes/deserializes TX messages. Manages connected clients. Broadcasts lifecycle events.
-- `src/pybend/static/core/transport/WebSocketAdapter.js` — Frontend WebSocket adapter. Replaces/augments HTTP NetworkAdapter for real-time connections.
+- `src/n3tx/core/api/network_ws.py` — `NetworkWebSocket(NetworkAdapter)`: WebSocket bridge. Serializes/deserializes TX messages. Manages connected clients. Broadcasts lifecycle events.
+- `src/n3tx/static/core/transport/WebSocketAdapter.js` — Frontend WebSocket adapter. Replaces/augments HTTP NetworkAdapter for real-time connections.
 
 **Files to modify:**
-- `src/pybend/core/app.py` — `create_app(realtime=True)` wires WebSocket endpoint and registers `NetworkWebSocket` adapter.
-- `src/pybend/static/core/Matrix.js` — Auto-connect to WebSocket when available. Fall back to HTTP.
+- `src/n3tx/core/app.py` — `create_app(realtime=True)` wires WebSocket endpoint and registers `NetworkWebSocket` adapter.
+- `src/n3tx/static/core/Matrix.js` — Auto-connect to WebSocket when available. Fall back to HTTP.
 
 **Message flow:**
 ```
@@ -555,7 +555,7 @@ Backend ActorModel publishes lifecycle event
     -> TX to subscribers
     -> NetworkWebSocket broadcasts to connected clients
     -> Frontend Matrix receives TX
-    -> Routes to affected NTT actors
+    -> Routes to affected N3TX actors
     -> Components re-render with new data
 ```
 
@@ -592,7 +592,7 @@ These features proceed only when specific trigger conditions are met.
 **Phase 3:** Mixed-type frontend rendering, type-aware forms, type selector in create forms.
 **Phase 4:** Polymorphic routes (`GET /content` returns all types), per-subtype auth composition.
 
-**Files:** `src/pybend/static/components/ntt-item.js`, `src/pybend/static/components/ntt-list.js`, `src/pybend/static/generators/form.js`, `src/pybend/core/api/routes_fastapi.py`.
+**Files:** `src/n3tx/static/components/ntx-item.js`, `src/n3tx/static/components/ntx-list.js`, `src/n3tx/static/generators/form.js`, `src/n3tx/core/api/routes_fastapi.py`.
 
 ### C2. Category Theory P2 (11-15 days)
 
@@ -607,13 +607,13 @@ These features proceed only when specific trigger conditions are met.
 
 **Trigger:** SSH-based server administration demand, OR 100+ external users.
 
-**New file:** `src/pybend/cli/commands/admin.py` — `pybend admin` launches a Textual-based TUI dashboard. Entity browsing, CRUD, migration management, server monitoring.
+**New file:** `src/n3tx/cli/commands/admin.py` — `n3tx admin` launches a Textual-based TUI dashboard. Entity browsing, CRUD, migration management, server monitoring.
 
 ### C4. ATProtocol Support (10-16 weeks)
 
 **Trigger:** Bluesky ecosystem reaches critical mass, OR AT governance risk settles.
 
-**New files:** `src/pybend/core/federation/atproto/` — Lexicon generation, DID integration, XRPC endpoints, Merkle Search Tree storage.
+**New files:** `src/n3tx/core/federation/atproto/` — Lexicon generation, DID integration, XRPC endpoints, Merkle Search Tree storage.
 
 ### C5. DID-based Identity (2-3 weeks)
 
@@ -630,7 +630,7 @@ These features proceed only when specific trigger conditions are met.
 | Wave 1 Ph0 | Are 3+ internal users querying via MCP? | Proceed to Phase 1 (LLM). | Investigate adoption blockers. |
 | Wave 1 Ph1 | Task completion rate > 90%? Cost per task < $0.15? | Proceed to Phase 2 (multi-agent). | Iterate on single agent. |
 | Wave 2 Ph1 | Does content appear correctly on Mastodon? | Proceed to Phase 2 (bidirectional). | Fix interop issues. |
-| Wave 3 | Do 10+ users run `pybend export` within 3 months? | Invest in Phase 2 (incremental builds, images). | Deprioritize. |
+| Wave 3 | Do 10+ users run `n3tx export` within 3 months? | Invest in Phase 2 (incremental builds, images). | Deprioritize. |
 | Wave 4 | Does the business require SEO or sub-500ms FCP? | Complete renderer + compiler. | Strategy A from v0.9 is sufficient. |
 | Wave 5 | Is there demand for real-time updates? | Ship. | Defer. |
 
@@ -672,45 +672,45 @@ These features proceed only when specific trigger conditions are met.
 
 | File | Waves |
 |------|:-----:|
-| `src/pybend/core/api/network_ap.py` | W2 |
-| `src/pybend/core/api/network_mcp.py` | W1 |
-| `src/pybend/core/api/discovery.py` | W1 |
-| `src/pybend/core/authorize/rules.py` | W2 |
-| `src/pybend/core/models/actor_model.py` | W1, W5 |
-| `src/pybend/core/models/base_user.py` | W2 (C5) |
-| `src/pybend/core/app.py` | W5 |
-| `src/pybend/static/core/Matrix.js` | W5 |
-| `src/pybend/static/components/ntt-item.js` | W4 |
-| `src/pybend/core/ssr/html.py` | W4 |
+| `src/n3tx/core/api/network_ap.py` | W2 |
+| `src/n3tx/core/api/network_mcp.py` | W1 |
+| `src/n3tx/core/api/discovery.py` | W1 |
+| `src/n3tx/core/authorize/rules.py` | W2 |
+| `src/n3tx/core/models/actor_model.py` | W1, W5 |
+| `src/n3tx/core/models/base_user.py` | W2 (C5) |
+| `src/n3tx/core/app.py` | W5 |
+| `src/n3tx/static/core/Matrix.js` | W5 |
+| `src/n3tx/static/components/ntx-item.js` | W4 |
+| `src/n3tx/core/ssr/html.py` | W4 |
 
 ### New Files (Created in v0.10)
 
 | File | Wave | Purpose |
 |------|:----:|---------|
-| `src/pybend/core/agents/__init__.py` | W1 | Agent system package |
-| `src/pybend/core/agents/llm_client.py` | W1 | LLM provider abstraction |
-| `src/pybend/core/agents/agent_mixin.py` | W1 | `__agent__ = True` mixin |
-| `src/pybend/core/agents/memory.py` | W1 | Short/medium/long-term memory |
-| `src/pybend/core/agents/context.py` | W1 | Context management, token budgets |
-| `src/pybend/core/agents/orchestrator.py` | W1 | Multi-agent coordination |
-| `src/pybend/core/agents/delegation.py` | W1 | A2A agent delegation |
-| `src/pybend/core/agents/trace.py` | W1 | Agent observability |
-| `src/pybend/core/federation/signatures.py` | W2 | HTTP Signature creation/verification |
-| `src/pybend/core/federation/delivery.py` | W2 | Async delivery queue with retry |
-| `src/pybend/core/federation/keys.py` | W2 | RSA key generation/management |
-| `src/pybend/core/federation/inbox_processor.py` | W2 | Inbound activity processing |
-| `src/pybend/core/federation/followers.py` | W2 | Follower list management |
-| `src/pybend/core/export/__init__.py` | W3 | Static export package |
-| `src/pybend/core/export/renderer.py` | W3 | Schema-to-HTML renderer |
-| `src/pybend/core/export/css.py` | W3 | CSS :host transformer |
-| `src/pybend/core/export/orchestrator.py` | W3 | Export pipeline orchestrator |
-| `src/pybend/core/export/templates/` | W3 | HTML templates |
-| `src/pybend/cli/commands/export.py` | W3 | `pybend export` CLI command |
-| `src/pybend/core/ssr/renderer.py` | W4 | Python schema-to-HTML renderer |
-| `src/pybend/core/ssr/compiler.py` | W4 | Template compiler (server startup) |
-| `src/pybend/core/ssr/dsd.py` | W4 | Declarative Shadow DOM wrapper |
-| `src/pybend/core/api/network_ws.py` | W5 | WebSocket bridge adapter |
-| `src/pybend/static/core/transport/WebSocketAdapter.js` | W5 | Frontend WebSocket adapter |
+| `src/n3tx/core/agents/__init__.py` | W1 | Agent system package |
+| `src/n3tx/core/agents/llm_client.py` | W1 | LLM provider abstraction |
+| `src/n3tx/core/agents/agent_mixin.py` | W1 | `__agent__ = True` mixin |
+| `src/n3tx/core/agents/memory.py` | W1 | Short/medium/long-term memory |
+| `src/n3tx/core/agents/context.py` | W1 | Context management, token budgets |
+| `src/n3tx/core/agents/orchestrator.py` | W1 | Multi-agent coordination |
+| `src/n3tx/core/agents/delegation.py` | W1 | A2A agent delegation |
+| `src/n3tx/core/agents/trace.py` | W1 | Agent observability |
+| `src/n3tx/core/federation/signatures.py` | W2 | HTTP Signature creation/verification |
+| `src/n3tx/core/federation/delivery.py` | W2 | Async delivery queue with retry |
+| `src/n3tx/core/federation/keys.py` | W2 | RSA key generation/management |
+| `src/n3tx/core/federation/inbox_processor.py` | W2 | Inbound activity processing |
+| `src/n3tx/core/federation/followers.py` | W2 | Follower list management |
+| `src/n3tx/core/export/__init__.py` | W3 | Static export package |
+| `src/n3tx/core/export/renderer.py` | W3 | Schema-to-HTML renderer |
+| `src/n3tx/core/export/css.py` | W3 | CSS :host transformer |
+| `src/n3tx/core/export/orchestrator.py` | W3 | Export pipeline orchestrator |
+| `src/n3tx/core/export/templates/` | W3 | HTML templates |
+| `src/n3tx/cli/commands/export.py` | W3 | `n3tx export` CLI command |
+| `src/n3tx/core/ssr/renderer.py` | W4 | Python schema-to-HTML renderer |
+| `src/n3tx/core/ssr/compiler.py` | W4 | Template compiler (server startup) |
+| `src/n3tx/core/ssr/dsd.py` | W4 | Declarative Shadow DOM wrapper |
+| `src/n3tx/core/api/network_ws.py` | W5 | WebSocket bridge adapter |
+| `src/n3tx/static/core/transport/WebSocketAdapter.js` | W5 | Frontend WebSocket adapter |
 
 ---
 

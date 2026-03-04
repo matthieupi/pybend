@@ -6,7 +6,7 @@ The **Static Shell + Dynamic Islands** pattern is a web architecture where the m
 
 The pattern was formalized by **Jason Miller** (Preact creator) in August 2020, building on a concept first coined by **Katie Sylor-Miller** (Etsy frontend architect) in 2019. It has since been adopted by Astro, Fresh (Deno), Marko (eBay), 11ty, and influenced Next.js PPR.
 
-**Key finding for PyBend**: Web Components are _inherently_ island-shaped. Custom elements are encapsulated, self-contained, independently upgradable, and progressively enhanceable. PyBend's existing `<ntt-item>`, `<ntt-list>`, and `<ntt-router>` components already exhibit island characteristics. The Actor/Matrix message bus is a natural island communication layer. The primary adoption work would be generating a static HTML shell server-side and deferring component hydration via the schema bootstrap rather than doing everything client-side.
+**Key finding for N3TX**: Web Components are _inherently_ island-shaped. Custom elements are encapsulated, self-contained, independently upgradable, and progressively enhanceable. N3TX's existing `<ntx-item>`, `<ntx-list>`, and `<ntx-router>` components already exhibit island characteristics. The Actor/Matrix message bus is a natural island communication layer. The primary adoption work would be generating a static HTML shell server-side and deferring component hydration via the schema bootstrap rather than doing everything client-side.
 
 ---
 
@@ -22,7 +22,7 @@ The pattern was formalized by **Jason Miller** (Preact creator) in August 2020, 
 8. [The Island Granularity Question](#8-the-island-granularity-question)
 9. [Progressive Enhancement Within Islands](#9-progressive-enhancement-within-islands)
 10. [Practical Patterns](#10-practical-patterns)
-11. [How This Maps to PyBend](#11-how-this-maps-to-pybend)
+11. [How This Maps to N3TX](#11-how-this-maps-to-n3tx)
 12. [Limitations and Anti-Patterns](#12-limitations-and-anti-patterns)
 13. [Sources](#13-sources)
 
@@ -312,7 +312,7 @@ Key characteristics:
 - **Nested islands**: Child `<is-land>` elements inherit parent conditions. All ancestor conditions must be satisfied before a nested island hydrates.
 - **`[ready]` attribute**: Added when hydration completes, enabling CSS transitions for progressive appearance.
 
-The `<is-land>` pattern is particularly relevant to PyBend because it demonstrates that islands can be implemented as a web component wrapper around _any_ content, without build tooling or framework lock-in.
+The `<is-land>` pattern is particularly relevant to N3TX because it demonstrates that islands can be implemented as a web component wrapper around _any_ content, without build tooling or framework lock-in.
 
 ### 3.5 Next.js PPR (Partial Pre-Rendering)
 
@@ -633,9 +633,9 @@ A parent HTML element can mediate between child islands via attributes:
 
 Using `MutationObserver` or `attributeChangedCallback`, child islands can react to attribute changes on their parent.
 
-### 6.3 How PyBend's Actor/Matrix Maps to This
+### 6.3 How N3TX's Actor/Matrix Maps to This
 
-PyBend's existing communication architecture is _already_ an island communication system:
+N3TX's existing communication architecture is _already_ an island communication system:
 
 - **Matrix (message bus)**: Acts as the shared communication backbone. All Components register with Matrix and route messages through it. This is functionally equivalent to a shared store/event bus hybrid.
 - **TX (Transfer) messages**: The `TX` class provides typed, structured messages with `name`, `source`, `target`, and `data`. This is more structured than raw DOM events.
@@ -841,19 +841,19 @@ is-land[ready] image-carousel img.active {
 - Pros: Absolute minimum JavaScript.
 - Cons: May fragment the component model; harder to maintain.
 
-**Recommendation for PyBend**: Island-per-component aligns best with PyBend's web component architecture. Each `<ntt-item>`, `<ntt-list>`, `<ntt-method>` is a natural island. The Actor/Matrix message bus handles cross-island communication without requiring islands to share a component tree.
+**Recommendation for N3TX**: Island-per-component aligns best with N3TX's web component architecture. Each `<ntx-item>`, `<ntx-list>`, `<ntx-method>` is a natural island. The Actor/Matrix message bus handles cross-island communication without requiring islands to share a component tree.
 
 ### 10.2 Nested Islands
 
 Islands can nest, with important implications:
 
 ```html
-<ntt-list model="Product">          <!-- Outer island: list -->
-  <ntt-item display="sm">           <!-- Inner island: item -->
-    <ntt-method action="favorite">  <!-- Innermost island: method button -->
-    </ntt-method>
-  </ntt-item>
-</ntt-list>
+<ntx-list model="Product">          <!-- Outer island: list -->
+  <ntx-item display="sm">           <!-- Inner island: item -->
+    <ntx-method action="favorite">  <!-- Innermost island: method button -->
+    </ntx-method>
+  </ntx-item>
+</ntx-list>
 ```
 
 Rules for nesting:
@@ -863,7 +863,7 @@ Rules for nesting:
 
 ### 10.3 Shared Islands
 
-Multiple pages may share the same island component (e.g., navigation bar, search, user menu). In a build-time framework like Astro, these are de-duplicated into shared chunks. In a runtime system like PyBend, the component class is loaded once and reused.
+Multiple pages may share the same island component (e.g., navigation bar, search, user menu). In a build-time framework like Astro, these are de-duplicated into shared chunks. In a runtime system like N3TX, the component class is loaded once and reused.
 
 ### 10.4 Island Lazy-Loading Strategies
 
@@ -876,23 +876,23 @@ Multiple pages may share the same island component (e.g., navigation bar, search
 | **Route-based** | Load on navigation to a specific view | SPAs/MPAs with route-level islands |
 | **Media query** | `matchMedia()` | Mobile-only or desktop-only islands |
 
-For PyBend, the most natural strategies are:
-- **Viewport**: `<ntt-list>` elements below the fold load when scrolled into view.
+For N3TX, the most natural strategies are:
+- **Viewport**: `<ntx-list>` elements below the fold load when scrolled into view.
 - **Idle**: Schema-driven DynamicClass creation happens at idle time.
 - **Eager**: The primary content list on the page hydrates immediately.
 
 ---
 
-## 11. How This Maps to PyBend
+## 11. How This Maps to N3TX
 
 ### 11.1 Current Architecture
 
-PyBend's frontend is currently a **fully client-side application**:
+N3TX's frontend is currently a **fully client-side application**:
 
 1. The browser loads `matrix.html` (or equivalent entry point).
-2. JavaScript modules load: `Matrix.js`, `NTT.js`, `Component.js`, component definitions.
-3. `<ntt-list model="Product">` in the HTML triggers schema fetch (`GET /Product`).
-4. `NTT.SCHEMA()` creates a `DynamicClass` from the schema.
+2. JavaScript modules load: `Matrix.js`, `N3TX.js`, `Component.js`, component definitions.
+3. `<ntx-list model="Product">` in the HTML triggers schema fetch (`GET /Product`).
+4. `N3TX.SCHEMA()` creates a `DynamicClass` from the schema.
 5. `DynamicClass` triggers `READ` to fetch entity data.
 6. Components render entirely client-side.
 
@@ -902,10 +902,10 @@ This is closer to an SPA than an islands architecture. The "shell" is minimal HT
 
 | Component | Island Type | Rationale |
 |-----------|------------|-----------|
-| `<ntt-list>` | **Client island** (viewport/idle) | Interactive: handles pagination, selection, click-to-navigate. Needs schema + data. |
-| `<ntt-item>` | **Client island** (viewport) | Interactive: edit toggle, delete, click-to-select. Needs schema + entity data. |
-| `<ntt-method>` | **Client island** (visible) | Interactive: button that calls a backend method. Needs schema method definition. |
-| `<ntt-router>` | **Client island** (load) | Interactive: handles navigation, view swapping. Core shell interaction. |
+| `<ntx-list>` | **Client island** (viewport/idle) | Interactive: handles pagination, selection, click-to-navigate. Needs schema + data. |
+| `<ntx-item>` | **Client island** (viewport) | Interactive: edit toggle, delete, click-to-select. Needs schema + entity data. |
+| `<ntx-method>` | **Client island** (visible) | Interactive: button that calls a backend method. Needs schema method definition. |
+| `<ntx-router>` | **Client island** (load) | Interactive: handles navigation, view swapping. Core shell interaction. |
 | Navigation/header | **Static shell** | Layout chrome: links, branding. Can be pure HTML. |
 | Footer | **Static shell** | Static content. |
 | Skeleton placeholders | **Static shell** | The `placeholder()` method in `NTTItem` generates bone HTML. This should be server-rendered. |
@@ -913,31 +913,31 @@ This is closer to an SPA than an islands architecture. The "shell" is minimal HT
 
 ### 11.3 How the Schema Informs Island Boundaries
 
-PyBend's schema is the perfect mechanism for determining island boundaries:
+N3TX's schema is the perfect mechanism for determining island boundaries:
 
 ```python
 __ui__ = {
     'renderer': {
-        'item': 'ntt-item',      # → this tag becomes a client island
-        'list': 'ntt-list',      # → this tag becomes a client island
-        'detail': 'ntt-detail',  # → this tag becomes a client island
+        'item': 'ntx-item',      # → this tag becomes a client island
+        'list': 'ntx-list',      # → this tag becomes a client island
+        'detail': 'ntx-detail',  # → this tag becomes a client island
     },
 }
 ```
 
-The schema's `ui.renderer` map already identifies which custom elements will be used. The `methods` section identifies which elements need `<ntt-method>` islands. The `access` rules determine whether edit/delete buttons (and their associated JavaScript) are needed for a given user.
+The schema's `ui.renderer` map already identifies which custom elements will be used. The `methods` section identifies which elements need `<ntx-method>` islands. The `access` rules determine whether edit/delete buttons (and their associated JavaScript) are needed for a given user.
 
 A server-side shell generator could:
 
 1. Read the schema at build/request time.
 2. Generate static HTML for the layout, navigation, and placeholder content.
-3. Emit custom element tags (`<ntt-list>`, `<ntt-item>`) with the necessary attributes (`model`, `display`, `ref`).
+3. Emit custom element tags (`<ntx-list>`, `<ntx-item>`) with the necessary attributes (`model`, `display`, `ref`).
 4. Include pre-rendered skeleton placeholders inside the custom elements (using the same bone HTML that `NTTItem.placeholder()` currently generates client-side).
 5. Include hydration scripts for only the islands that the page needs.
 
 ### 11.4 How the Actor/Matrix System Relates
 
-The Actor/Matrix system is PyBend's island communication layer:
+The Actor/Matrix system is N3TX's island communication layer:
 
 - **Matrix** = shared message bus (equivalent to Astro's `nanostores` or Fresh's `signals`)
 - **TX** = structured message format (superior to raw `CustomEvent`)
@@ -945,16 +945,16 @@ The Actor/Matrix system is PyBend's island communication layer:
 - **Watchers/Observers** = reactive subscriptions (islands react to data changes from other islands)
 - **DynamicClass** = shared entity registry (all islands for the same model type share a single DynamicClass, which acts as a shared store)
 
-This architecture already solves the hardest problem in islands: **cross-island state synchronization**. When `<ntt-item>` saves an entity, the `DynamicClass` notifies all watchers (including `<ntt-list>` elements showing that entity), and they update automatically. No manual event coordination needed.
+This architecture already solves the hardest problem in islands: **cross-island state synchronization**. When `<ntx-item>` saves an entity, the `DynamicClass` notifies all watchers (including `<ntx-list>` elements showing that entity), and they update automatically. No manual event coordination needed.
 
-### 11.5 Adoption Path for PyBend
+### 11.5 Adoption Path for N3TX
 
 A pragmatic adoption path:
 
 **Phase 1: Static Shell Generation (Server-Side)**
 - Generate the HTML document server-side (Python/Jinja2 or direct string generation).
 - Emit the layout structure (nav, main, footer) as static HTML.
-- Emit `<ntt-list model="Product">` tags with pre-rendered skeleton content inside.
+- Emit `<ntx-list model="Product">` tags with pre-rendered skeleton content inside.
 - The JavaScript modules load and upgrade these elements as before, but the user sees a structured page immediately.
 
 **Phase 2: Schema-Aware Pre-Rendering**
@@ -965,8 +965,8 @@ A pragmatic adoption path:
 
 **Phase 3: Hydration Directives**
 - Implement an `<is-land>`-like wrapper (or integrate `@11ty/is-land` directly) to defer component JS loading.
-- Below-fold `<ntt-list>` elements load their JS only when scrolled into view.
-- `<ntt-method>` buttons load on interaction (first click).
+- Below-fold `<ntx-list>` elements load their JS only when scrolled into view.
+- `<ntx-method>` buttons load on interaction (first click).
 - The schema's `access` rules determine whether to even include the edit/delete island scripts.
 
 **Phase 4: Server Islands for Personalized Content**
@@ -1010,7 +1010,7 @@ Island B: subscribe($cart) → renders items
 // One request, one source of truth
 ```
 
-In PyBend, this is already handled by the DynamicClass registry. All `<ntt-item>` elements for the same entity subscribe to the same DynamicClass instance, which holds the canonical data.
+In N3TX, this is already handled by the DynamicClass registry. All `<ntx-item>` elements for the same entity subscribe to the same DynamicClass instance, which holds the canonical data.
 
 ### 12.4 SEO Edge Cases
 
@@ -1026,7 +1026,7 @@ Converting an existing SPA to islands architecture is non-trivial:
 - Client-side routing must be replaced with MPA navigation or a hybrid approach.
 - Server rendering infrastructure must be added.
 
-For PyBend, the migration is more tractable because:
+For N3TX, the migration is more tractable because:
 - Components are already web components (natural island boundaries).
 - State already flows through the Actor/Matrix bus (natural shared store).
 - Schema-driven rendering means the server can generate the same structure the client would.

@@ -1,6 +1,6 @@
-# Frontend Unit Test Plan — PyBend NTT 0.6
+# Frontend Unit Test Plan — N3TX N3TX 0.6
 
-> **Scope**: Every exported function, method, class, and behavior in the NTT 0.6 frontend.
+> **Scope**: Every exported function, method, class, and behavior in the N3TX 0.6 frontend.
 > **Framework**: Vitest + jsdom (or similar JS test runner)
 > **Estimated test cases**: ~700+
 
@@ -8,7 +8,7 @@
 
 ## CORE LAYER
 
-### NTT.js (TT & NTT Classes)
+### N3TX.js (TT & N3TX Classes)
 
 #### TT Class (Base Transfer Type)
 
@@ -48,7 +48,7 @@
 - Happy path: error handler receives event with error data
 - Verify logging called
 
-#### NTT Class (Named Transfer Type — Core Entity System)
+#### N3TX Class (Named Transfer Type — Core Entity System)
 
 **Static Methods:**
 
@@ -60,7 +60,7 @@
 
 **`static get(addr)`**
 - Happy path: get DynamicClass by model name (e.g., "Product")
-- Happy path: get NTT instance by entity ref (e.g., "Product/1")
+- Happy path: get N3TX instance by entity ref (e.g., "Product/1")
 - Happy path: addr not found → returns undefined
 - Edge case: null/undefined addr → returns undefined
 - Edge case: malformed address without slash
@@ -569,7 +569,7 @@
 - Happy path: get/set href
 - Happy path: URL ref with model → ATTACH
 - Happy path: direct URL ref → READ
-- Happy path: NTT address → ATTACH
+- Happy path: N3TX address → ATTACH
 - Edge case: null ref
 
 **`value` (getter/setter)**
@@ -615,8 +615,8 @@
 
 **`attach(addr)`**
 - Happy path: cleans previous attach
-- Happy path: calls NTT.attach
-- Verify lazy import of NTT
+- Happy path: calls N3TX.attach
+- Verify lazy import of N3TX
 
 **`connectedCallback()`**
 - Happy path: applies forced display mode
@@ -720,7 +720,7 @@
 **`childTag` (getter)**
 - Happy path: item-tag attribute
 - Happy path: schema.ui.renderer.item
-- Happy path: defaults to 'ntt-item'
+- Happy path: defaults to 'ntx-item'
 
 **`childDisplay` (getter)**
 - Happy path: item-display attribute
@@ -747,7 +747,7 @@
 
 ---
 
-### ntt-item.js (Single Entity Default)
+### ntx-item.js (Single Entity Default)
 
 **`styles` (getter)**
 - Happy path: returns CSS URL
@@ -857,16 +857,16 @@
 
 **`#resolveChildTag(refModel)`**
 - Happy path: checks $defs first
-- Happy path: falls back to NTT registry
-- Happy path: defaults to 'ntt-item'
+- Happy path: falls back to N3TX registry
+- Happy path: defaults to 'ntx-item'
 
 **`#standaloneMethodsHtml(methods)`**
-- Happy path: generates ntt-method elements
+- Happy path: generates ntx-method elements
 - Happy path: renders non-attached methods
 
 ---
 
-### ntt-list.js (Collection Default)
+### ntx-list.js (Collection Default)
 
 **`styles` (getter)**
 - Happy path: returns CSS URL
@@ -874,7 +874,7 @@
 
 ---
 
-### ntt-router.js (Generic View Container)
+### ntx-router.js (Generic View Container)
 
 **`styles` (getter)**
 - Happy path: returns CSS URL
@@ -900,7 +900,7 @@
 - Happy path: shows slot content
 
 **`#mountView(routeData)`**
-- Happy path: string @app routes (@profile -> ntt-profile)
+- Happy path: string @app routes (@profile -> ntx-profile)
 - Happy path: string entity refs (Product/1)
 - Happy path: object routes {tag, attrs, title}
 - Happy path: back button if canGoBack
@@ -908,13 +908,13 @@
 - Edge case: unrecognized route (shows slot)
 
 **`#resolveTag(model)`**
-- Happy path: checks NTT schema for renderer.detail
+- Happy path: checks N3TX schema for renderer.detail
 - Happy path: falls back to renderer.item
-- Happy path: defaults to 'ntt-item'
+- Happy path: defaults to 'ntx-item'
 
 ---
 
-### ntt-method.js (Method Call Component)
+### ntx-method.js (Method Call Component)
 
 **`static get observedAttributes`**
 - Happy path: returns attribute list
@@ -942,10 +942,10 @@
 - Happy path: auto-calls if mode='auto'
 
 **`callMethod()`**
-- Happy path: instance method via NTT.call()
+- Happy path: instance method via N3TX.call()
 - Happy path: class method via proto.call()
 - Happy path: routes to _response_ handler
-- Edge case: no NTT or proto (no-op)
+- Edge case: no N3TX or proto (no-op)
 
 **`#postCall()`**
 - Happy path: clears inputs and response for inline layout
@@ -982,7 +982,7 @@
 
 ---
 
-### ntt-topbar.js (Navigation Bar)
+### ntx-topbar.js (Navigation Bar)
 
 **`connectedCallback()`**
 - Happy path: renders brand + nav
@@ -1006,7 +1006,7 @@
 
 ---
 
-### ntt-logs.js (Logging Panel)
+### ntx-logs.js (Logging Panel)
 
 **`connectedCallback()`**
 - Happy path: subscribes to Logging.addListener
@@ -1063,7 +1063,7 @@
 - Happy path: rest collapsed under .nested-collapsed
 - Happy path: counts refs from URLs or populated objects' $id
 - Happy path: shows "Show N more" button
-- Happy path: renders child items as `<ntt-item ref="..." display="sm">`
+- Happy path: renders child items as `<ntx-item ref="..." display="sm">`
 
 **`renderGroupedFields(ntt, renderableFields, groups, mode, attachedMethods)`**
 - Happy path: renders fieldsets per group
@@ -1071,7 +1071,7 @@
 - Happy path: renders ungrouped fields at end
 
 **`renderAttachedMethod(ntt, methodName, methodDef)`**
-- Happy path: generates ntt-method HTML
+- Happy path: generates ntx-method HTML
 - Happy path: passes all attributes
 
 **`refInput(ref)`**

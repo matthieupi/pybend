@@ -13,7 +13,7 @@ Decentralized identity and data portability are no longer theoretical constructs
 
 The decentralized identity market is projected to grow from $2.56 billion in 2025 to over $4.6 billion in 2026 -- an 80% CAGR -- driven by platform risk fatigue, regulatory pressure, and maturing standards. For technical leaders, the question is no longer "will this happen?" but "how do we position our architecture to benefit from it?"
 
-This document covers the technical foundations (DID methods, account portability, verifiable credentials), the business case (platform risk, customer trust, regulatory alignment), the hard problems still being solved (key management UX, cross-protocol identity), and a concrete analysis of what DID-aware authentication would look like in a schema-driven framework like PyBend.
+This document covers the technical foundations (DID methods, account portability, verifiable credentials), the business case (platform risk, customer trust, regulatory alignment), the hard problems still being solved (key management UX, cross-protocol identity), and a concrete analysis of what DID-aware authentication would look like in a schema-driven framework like N3TX.
 
 ---
 
@@ -29,7 +29,7 @@ This document covers the technical foundations (DID methods, account portability
 8. [Interoperability of Identity Across Protocols](#8-interoperability-of-identity-across-protocols)
 9. [Business Implications](#9-business-implications)
 10. [Regulatory Pressure & the eIDAS 2.0 Tailwind](#10-regulatory-pressure--the-eidas-20-tailwind)
-11. [For PyBend: DID-Augmented Authentication](#11-for-pybend-did-augmented-authentication)
+11. [For N3TX: DID-Augmented Authentication](#11-for-ntx-did-augmented-authentication)
 12. [Timeline & Adoption Projections](#12-timeline--adoption-projections)
 13. [Strategic Recommendations](#13-strategic-recommendations)
 14. [Sources](#14-sources)
@@ -679,11 +679,11 @@ Government digital identity programs create three effects that benefit the entir
 
 ---
 
-## 11. For PyBend: DID-Augmented Authentication
+## 11. For N3TX: DID-Augmented Authentication
 
-### Current PyBend Auth Architecture
+### Current N3TX Auth Architecture
 
-PyBend's current authentication model is JWT-based, centered on the `BaseUser` model and the `authorize` package:
+N3TX's current authentication model is JWT-based, centered on the `BaseUser` model and the `authorize` package:
 
 ```python
 # Current flow:
@@ -813,11 +813,11 @@ Replace role strings with verifiable credentials:
 }
 ```
 
-### Architectural Alignment with PyBend Principles
+### Architectural Alignment with N3TX Principles
 
-DID integration aligns well with PyBend's core philosophy:
+DID integration aligns well with N3TX's core philosophy:
 
-| PyBend Principle | DID Alignment |
+| N3TX Principle | DID Alignment |
 |-----------------|---------------|
 | **The model is the app** | DID/VC fields on the model propagate to schema, API, and UI automatically |
 | **Zero to working, then customize** | Email/password works by default; DID is additive |
@@ -841,7 +841,7 @@ Phase 3 (Future):  Verifiable Credential-based authorization. Access rules can
 
 ### Concrete did-jwt Integration
 
-The Decentralized Identity Foundation maintains a `did-jwt` library (JavaScript) that creates and verifies JWTs using DID-resolved keys. A Python equivalent would integrate with PyBend's auth module:
+The Decentralized Identity Foundation maintains a `did-jwt` library (JavaScript) that creates and verifies JWTs using DID-resolved keys. A Python equivalent would integrate with N3TX's auth module:
 
 ```python
 # Hypothetical: authorize/did_auth.py

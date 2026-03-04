@@ -15,12 +15,12 @@ BASE = "http://localhost:5000"
 
 
 def _wait_for_items(page, timeout=5000):
-    """Wait until the main ntt-table has at least one row rendered."""
+    """Wait until the main ntx-table has at least one row rendered."""
     page.wait_for_function("""() => {
-        const table = document.querySelector('ntt-table');
+        const table = document.querySelector('ntx-table');
         if (!table) return false;
         const body = table.shadowRoot?.querySelector('.table-body');
-        return body && body.querySelectorAll('ntt-row').length > 0;
+        return body && body.querySelectorAll('ntx-row').length > 0;
     }""", timeout=timeout)
 
 
@@ -35,26 +35,26 @@ def test_main_list_click_navigates():
         # Verify initial state: table is shown, no hash
         before = page.evaluate("""() => ({
             hash: location.hash,
-            hasSlot: !!document.querySelector('ntt-router')?.shadowRoot?.querySelector('slot'),
-            routerAttr: document.querySelector('ntt-table')?.getAttribute('router'),
+            hasSlot: !!document.querySelector('ntx-router')?.shadowRoot?.querySelector('slot'),
+            routerAttr: document.querySelector('ntx-table')?.getAttribute('router'),
         })""")
         assert before["hash"] == "", f"Expected no hash before click, got {before['hash']}"
-        assert before["routerAttr"] == "main", "ntt-table should have router='main' set by ntt-router"
+        assert before["routerAttr"] == "main", "ntx-table should have router='main' set by ntx-router"
 
         # Click the first row
         page.evaluate("""() => {
-            const table = document.querySelector('ntt-table');
+            const table = document.querySelector('ntx-table');
             const body = table.shadowRoot.querySelector('.table-body');
-            const row = body.querySelector('ntt-row');
+            const row = body.querySelector('ntx-row');
             row.shadowRoot.querySelector('.row').click();
         }""")
         page.wait_for_timeout(1500)
 
         # Verify navigation occurred
         after = page.evaluate("""() => {
-            const router = document.querySelector('ntt-router');
+            const router = document.querySelector('ntx-router');
             const content = router?.shadowRoot?.querySelector('.router-content');
-            const item = content?.querySelector('ntt-item');
+            const item = content?.querySelector('ntx-item');
             return {
                 hash: location.hash,
                 hasBackBtn: !!router?.shadowRoot?.querySelector('.back-btn'),
@@ -84,15 +84,15 @@ def test_back_button_returns_to_list():
 
         # Navigate to detail
         page.evaluate("""() => {
-            const table = document.querySelector('ntt-table');
+            const table = document.querySelector('ntx-table');
             const body = table.shadowRoot.querySelector('.table-body');
-            body.querySelector('ntt-row').shadowRoot.querySelector('.row').click();
+            body.querySelector('ntx-row').shadowRoot.querySelector('.row').click();
         }""")
         page.wait_for_timeout(1500)
 
         # Click back
         page.evaluate("""() => {
-            document.querySelector('ntt-router')
+            document.querySelector('ntx-router')
                 .shadowRoot.querySelector('.back-btn').click();
         }""")
         page.wait_for_timeout(1000)
@@ -100,10 +100,10 @@ def test_back_button_returns_to_list():
         # Verify we're back at the table
         after_back = page.evaluate("""() => ({
             hash: location.hash,
-            hasSlot: !!document.querySelector('ntt-router')?.shadowRoot?.querySelector('slot'),
-            hasBackBtn: !!document.querySelector('ntt-router')?.shadowRoot?.querySelector('.back-btn'),
-            tableRowCount: document.querySelector('ntt-table')?.shadowRoot
-                ?.querySelector('.table-body')?.querySelectorAll('ntt-row')?.length ?? 0,
+            hasSlot: !!document.querySelector('ntx-router')?.shadowRoot?.querySelector('slot'),
+            hasBackBtn: !!document.querySelector('ntx-router')?.shadowRoot?.querySelector('.back-btn'),
+            tableRowCount: document.querySelector('ntx-table')?.shadowRoot
+                ?.querySelector('.table-body')?.querySelectorAll('ntx-row')?.length ?? 0,
         })""")
         assert after_back["hash"] == "", f"Hash should be empty after back, got {after_back['hash']}"
         assert after_back["hasSlot"], "Slot (table view) should be visible after back"
@@ -122,9 +122,9 @@ def test_hash_deep_link():
         page.wait_for_timeout(4000)
 
         state = page.evaluate("""() => {
-            const router = document.querySelector('ntt-router');
+            const router = document.querySelector('ntx-router');
             const content = router?.shadowRoot?.querySelector('.router-content');
-            const item = content?.querySelector('ntt-item');
+            const item = content?.querySelector('ntx-item');
             return {
                 hasBackBtn: !!router?.shadowRoot?.querySelector('.back-btn'),
                 routerTitle: router?.shadowRoot?.querySelector('.router-title')?.textContent,
@@ -150,7 +150,7 @@ def test_sidebar_item_navigates():
 
         # Expand the sidebar's first model section (Grant)
         page.evaluate("""() => {
-            const sidebar = document.querySelector('ntt-sidebar');
+            const sidebar = document.querySelector('ntx-sidebar');
             const header = sidebar.shadowRoot.querySelector('.model-header');
             header.click();
         }""")
@@ -158,14 +158,14 @@ def test_sidebar_item_navigates():
 
         # Check that the sidebar list has router attribute
         sidebar_info = page.evaluate("""() => {
-            const sidebar = document.querySelector('ntt-sidebar');
-            const list = sidebar.shadowRoot.querySelector('ntt-list');
+            const sidebar = document.querySelector('ntx-sidebar');
+            const list = sidebar.shadowRoot.querySelector('ntx-list');
             if (!list) return { error: 'No list in sidebar' };
             const grid = list.shadowRoot?.querySelector('.list-grid');
             return {
                 routerAttr: list.getAttribute('router'),
                 headless: list.hasAttribute('headless'),
-                itemCount: grid?.querySelectorAll('ntt-item')?.length ?? 0,
+                itemCount: grid?.querySelectorAll('ntx-item')?.length ?? 0,
             };
         }""")
         assert sidebar_info.get("routerAttr") == "main", \
@@ -178,17 +178,17 @@ def test_sidebar_item_navigates():
 
         # Click the first sidebar item
         page.evaluate("""() => {
-            const sidebar = document.querySelector('ntt-sidebar');
-            const list = sidebar.shadowRoot.querySelector('ntt-list');
+            const sidebar = document.querySelector('ntx-sidebar');
+            const list = sidebar.shadowRoot.querySelector('ntx-list');
             const grid = list.shadowRoot.querySelector('.list-grid');
-            grid.querySelector('ntt-item').shadowRoot.querySelector('.card').click();
+            grid.querySelector('ntx-item').shadowRoot.querySelector('.card').click();
         }""")
         page.wait_for_timeout(2000)
 
         after = page.evaluate("""() => ({
             hash: location.hash,
-            hasBackBtn: !!document.querySelector('ntt-router')?.shadowRoot?.querySelector('.back-btn'),
-            routerTitle: document.querySelector('ntt-router')?.shadowRoot
+            hasBackBtn: !!document.querySelector('ntx-router')?.shadowRoot?.querySelector('.back-btn'),
+            routerTitle: document.querySelector('ntx-router')?.shadowRoot
                 ?.querySelector('.router-title')?.textContent,
         })""")
         assert after["hash"].startswith("#Grant/"), \

@@ -1,30 +1,30 @@
-# Frontend Performance Audit — PyBend v0.8
+# Frontend Performance Audit — N3TX v0.8
 
 **Date:** 2026-03-02
-**Scope:** `/workspace/src/pybend/static/` core framework, components, generators, utils
+**Scope:** `/workspace/src/n3tx/static/` core framework, components, generators, utils
 **Method:** Source code review + execution flow tracing + bottleneck identification
 
 ---
 
 ## Executive Summary
 
-The PyBend frontend exhibits **mixed performance characteristics**:
+The N3TX frontend exhibits **mixed performance characteristics**:
 
 **Strengths:**
-- Sophisticated schema caching and deduplication (NTT.SCHEMA)
+- Sophisticated schema caching and deduplication (N3TX.SCHEMA)
 - DocumentFragment batching in ListElement.render() and ListElement.update()
-- Surgical DOM patching in ntt-item.update() for list fields
-- AbortController-based event listener cleanup in ntt-item
+- Surgical DOM patching in ntx-item.update() for list fields
+- AbortController-based event listener cleanup in ntx-item
 - Constructable stylesheet caching in Component
 - Layout computation caching in form.js (_layoutCache)
 - Pre-loaded schema/data support (SSR optimization)
 
 **Critical Issues:**
-- **Full innerHTML re-renders on every value change** (ntt-item: 7+ reflows per edit)
+- **Full innerHTML re-renders on every value change** (ntx-item: 7+ reflows per edit)
 - **Redundant schema fetches** for nested $refs without global coordination
 - **Missing error recovery** for entity fetch failures (permanent blocks)
-- **N reflows in ntt-logs** entry append (one per log line)
-- **Event listener accumulation** in ntt-logs (no cleanup on disconnect)
+- **N reflows in ntx-logs** entry append (one per log line)
+- **Event listener accumulation** in ntx-logs (no cleanup on disconnect)
 - **Profiling overhead** in production code (Logging.profiling everywhere)
 - **Missing virtualization** for long lists (renders all entities at once)
 
@@ -39,7 +39,7 @@ The PyBend frontend exhibits **mixed performance characteristics**:
 
 ### Issue #1: Full innerHTML Replacement on Value Change
 **Severity:** HIGH
-**File:** `/workspace/src/pybend/static/components/ntt-item.js:470-489`
+**File:** `/workspace/src/n3tx/static/components/ntx-item.js:470-489`
 
 **What:**
 Every value change triggers `render()` -> `shadowRoot.innerHTML = ...` (full replacement). Even when `update()` succeeds with surgical patching, `render()` is still called for displayMode changes, edit toggle, method responses.
@@ -53,7 +53,7 @@ Every value change triggers `render()` -> `shadowRoot.innerHTML = ...` (full rep
 
 **Code path:**
 ```javascript
-// ntt-item.js:470
+// ntx-item.js:470
 render() {
     const html = (this[size] || this.md).call(this);  // Build HTML string
     this.shadowRoot.innerHTML = `<div class="card">${html}</div>`;  // FULL REPLACE
@@ -74,9 +74,9 @@ Implement proper diff/patch:
 
 ---
 
-### Issue #2: N Reflows in ntt-logs Entry Append
+### Issue #2: N Reflows in ntx-logs Entry Append
 **Severity:** MEDIUM
-**File:** `/workspace/src/pybend/example/static/components/ntt-logs.js:221-226`
+**File:** `/workspace/src/n3tx/example/static/components/ntx-logs.js:221-226`
 
 **What:**
 ```javascript
@@ -121,9 +121,9 @@ Batch appends in requestAnimationFrame:
 
 ---
 
-### Issue #3: Layout Thrashing in ntt-item.#updateListField
+### Issue #3: Layout Thrashing in ntx-item.#updateListField
 **Severity:** LOW
-**File:** `/workspace/src/pybend/static/components/ntt-item.js:391-463`
+**File:** `/workspace/src/n3tx/static/components/ntx-item.js:391-463`
 
 **What:**
 Surgical patching for array fields reads and writes DOM in interleaved fashion (Read -> Write -> Read -> Write pattern forces layout recalculation).
@@ -137,9 +137,9 @@ Batch reads first, writes second (collect all removal targets, then perform all 
 
 ## 2. Event Listener Lifecycle
 
-### Issue #4: Event Listener Accumulation in ntt-logs
+### Issue #4: Event Listener Accumulation in ntx-logs
 **Severity:** HIGH
-**File:** `/workspace/src/pybend/example/static/components/ntt-logs.js:56-102, 136-142`
+**File:** `/workspace/src/n3tx/example/static/components/ntx-logs.js:56-102, 136-142`
 
 **What:**
 `disconnectedCallback()` removes the Logging listener via `Logging.removeListener()`, but DOM event listeners on `.toggle`, `.close-btn`, `.filter-btn`, `.clear-btn`, and delegated `.expand-btn` / `.json-toggle` clicks are bound in `connectedCallback()` with **no AbortController or cleanup**.
@@ -147,7 +147,7 @@ Batch reads first, writes second (collect all removal targets, then perform all 
 Each connect/disconnect cycle leaks **~8 DOM event listeners**. If component is re-mounted, listeners accumulate. 100 remounts = 800 leaked listeners.
 
 **Fix:**
-Use AbortController (matches ntt-item pattern):
+Use AbortController (matches ntx-item pattern):
 ```javascript
 #eventAC = null;
 
@@ -170,14 +170,14 @@ disconnectedCallback() {
 
 ---
 
-### Issue #5: Event Delegation Opportunity in ntt-item
+### Issue #5: Event Delegation Opportunity in ntx-item
 **Severity:** LOW
-**File:** `/workspace/src/pybend/static/components/ntt-item.js:515-518`
+**File:** `/workspace/src/n3tx/static/components/ntx-item.js:515-518`
 
 **What:**
 Attaches individual listeners to each input/textarea. For a form with 10 fields, that's 10 listeners. Could delegate to shadow root (2 listeners).
 
-**Impact:** LOW — ~0.5KB per ntt-item instance. Negligible performance improvement.
+**Impact:** LOW — ~0.5KB per ntx-item instance. Negligible performance improvement.
 
 ---
 
@@ -185,13 +185,13 @@ Attaches individual listeners to each input/textarea. For a form with 10 fields,
 
 ### Issue #6: Redundant $defs Schema Fetches
 **Severity:** MEDIUM
-**File:** `/workspace/src/pybend/static/core/NTT.js:396-411`
+**File:** `/workspace/src/n3tx/static/core/N3TX.js:396-411`
 
 **What:**
 Race condition: nested components dispatch SCHEMA TX before parent schema arrives with inline `$defs`. Results in redundant network roundtrips for data already in parent schema.
 
 **Fix:**
-Pre-seed `NTT.#prototypes` with `null` (in-flight marker) for all `$defs` keys when parent schema arrives, BEFORE processing nested models. This prevents concurrent fetch dispatches.
+Pre-seed `N3TX.#prototypes` with `null` (in-flight marker) for all `$defs` keys when parent schema arrives, BEFORE processing nested models. This prevents concurrent fetch dispatches.
 
 **Impact:** MEDIUM — **Eliminates 1-2 redundant schema fetches per page load.** Saves 100-200ms.
 
@@ -199,7 +199,7 @@ Pre-seed `NTT.#prototypes` with `null` (in-flight marker) for all `$defs` keys w
 
 ### Issue #7: Entity Fetch Failure Blocks Permanently
 **Severity:** HIGH
-**File:** `/workspace/src/pybend/static/core/NTT.js:876-891, 953-957`
+**File:** `/workspace/src/n3tx/static/core/N3TX.js:876-891, 953-957`
 
 **What:**
 `_fetchingIds` set prevents duplicate fetches, but is ONLY cleared on successful READ. If a fetch fails (404, network error), the ID stays in the set **forever**, permanently blocking future attempts.
@@ -225,7 +225,7 @@ DynamicClass.ERROR = function(data, tx) {
 **File:** Backend routes (schema endpoints)
 
 **What:**
-Schema responses cached in memory (`NTT.#prototypes`) but browser HTTP cache not leveraged. Page refresh re-fetches all schemas.
+Schema responses cached in memory (`N3TX.#prototypes`) but browser HTTP cache not leveraged. Page refresh re-fetches all schemas.
 
 **Fix:**
 Backend: Add `Cache-Control: max-age=3600, must-revalidate` and `ETag` headers on schema endpoints.
@@ -238,7 +238,7 @@ Backend: Add `Cache-Control: max-age=3600, must-revalidate` and `ETag` headers o
 
 ### Issue #9: No Memoization of #smFields() Computation
 **Severity:** MEDIUM
-**File:** `/workspace/src/pybend/static/components/ntt-item.js:606-631`
+**File:** `/workspace/src/n3tx/static/components/ntx-item.js:606-631`
 
 **What:**
 `#smFields()` computes the renderable field list on every `sm()` render with O(n^2) field ordering. Runs for **every item in a list** even though schema is shared across all cards.
@@ -260,7 +260,7 @@ Cache at schema level with `static #smFieldsCache = new Map()` keyed by `${schem
 
 ### Issue #11: DynamicClass Instances Never Garbage Collected
 **Severity:** MEDIUM
-**File:** `/workspace/src/pybend/static/core/NTT.js:681-714`
+**File:** `/workspace/src/n3tx/static/core/N3TX.js:681-714`
 
 **What:**
 `DynamicClass.instances = new Map()` retains all entities indefinitely. Paginating through 1000 entities = ~10MB retained with no eviction.
@@ -274,7 +274,7 @@ Implement LRU eviction with `MAX_INSTANCES = 200` per model type. Clean up signa
 
 ### Issue #12: Permissions Rule Cache Never Invalidates
 **Severity:** MEDIUM
-**File:** `/workspace/src/pybend/static/utils/Permissions.js:130-138`
+**File:** `/workspace/src/n3tx/static/utils/Permissions.js:130-138`
 
 **What:**
 Cache cleared only on `#fetchUser()` (auth change). Server-side role upgrades invisible until re-login.
@@ -288,7 +288,7 @@ Add TTL to cache (60s) and periodic `init()` refresh.
 
 ### Issue #13: Observable Listener Leaks
 **Severity:** LOW
-**File:** `/workspace/src/pybend/static/core/Component.js:382-385`
+**File:** `/workspace/src/n3tx/static/core/Component.js:382-385`
 
 **What:**
 `Component.subscribe()` stores only ONE unsubscribe function. Multiple subscriptions overwrite, leaking previous ones.
@@ -310,13 +310,13 @@ Track all subscriptions in array, clean up in `disconnectedCallback()`.
 
 ### Issue #15: Modulepreload Waterfall for Component Dependencies
 **Severity:** MEDIUM
-**File:** `/workspace/src/pybend/example/static/matrix.html:16-42`
+**File:** `/workspace/src/n3tx/example/static/matrix.html:16-42`
 
 **What:**
-`ntt-method.js` (imported by `ntt-item.js`) not in modulepreload list, causing a second-level fetch waterfall (+50-100ms).
+`ntx-method.js` (imported by `ntx-item.js`) not in modulepreload list, causing a second-level fetch waterfall (+50-100ms).
 
 **Fix:**
-Add `<link rel="modulepreload" href="./components/ntt-method.js">` to matrix.html.
+Add `<link rel="modulepreload" href="./components/ntx-method.js">` to matrix.html.
 
 **Impact:** MEDIUM — **Saves 50-100ms on initial load.**
 
@@ -324,7 +324,7 @@ Add `<link rel="modulepreload" href="./components/ntt-method.js">` to matrix.htm
 
 ### Issue #16: CSS Preload Without fetchpriority="high"
 **Severity:** LOW
-**File:** `/workspace/src/pybend/example/static/matrix.html:11-15`
+**File:** `/workspace/src/n3tx/example/static/matrix.html:11-15`
 
 **Fix:** Add `fetchpriority="high"` to CSS preload link.
 
@@ -360,7 +360,7 @@ static profiling(label, detail) {
 **Severity:** MEDIUM
 
 **What:**
-All log entries stored in memory for ntt-logs panel. Long dev sessions with profiling = 10,000+ entries = ~5MB retained.
+All log entries stored in memory for ntx-logs panel. Long dev sessions with profiling = 10,000+ entries = ~5MB retained.
 
 **Fix:**
 Circular buffer (max 500 entries).
@@ -373,7 +373,7 @@ Circular buffer (max 500 entries).
 
 ### Issue #19: No Virtual Scrolling for Large Lists
 **Severity:** HIGH
-**File:** `/workspace/src/pybend/static/components/ListElement.js:217-248`
+**File:** `/workspace/src/n3tx/static/components/ListElement.js:217-248`
 
 **What:**
 `ListElement.render()` creates DOM elements for ALL entities at once:
@@ -392,7 +392,7 @@ Implement virtual scrolling — render only visible items + buffer. Use absolute
 
 ### Issue #20: Stagger Animation Delays Interactivity
 **Severity:** LOW
-**File:** `/workspace/src/pybend/static/components/ListElement.js:241`
+**File:** `/workspace/src/n3tx/static/components/ListElement.js:241`
 
 **What:**
 `--stagger-delay: ${i * 50}ms` — 30 items = last item delayed 1500ms.
@@ -416,10 +416,10 @@ Implement virtual scrolling — render only visible items + buffer. Use absolute
 | # | Issue | Severity | Impact | Effort |
 |---|-------|----------|--------|--------|
 | 1 | Full innerHTML re-renders | HIGH | 70% render time reduction | MEDIUM |
-| 2 | ntt-logs N reflows | MEDIUM | 60% log panel overhead reduction | LOW |
+| 2 | ntx-logs N reflows | MEDIUM | 60% log panel overhead reduction | LOW |
 | 3 | Layout thrashing in #updateListField | LOW | ~20ms saved per update | LOW |
-| 4 | ntt-logs event leak | HIGH | Prevents memory leak | LOW |
-| 5 | Event delegation in ntt-item | LOW | ~0.5KB per instance | LOW |
+| 4 | ntx-logs event leak | HIGH | Prevents memory leak | LOW |
+| 5 | Event delegation in ntx-item | LOW | ~0.5KB per instance | LOW |
 | 6 | Redundant $defs fetches | MEDIUM | 1-2 fewer requests per page | LOW |
 | 7 | Entity fetch error blocking | HIGH | Prevents stuck UI | LOW |
 | 8 | No HTTP cache validation | MEDIUM | 30-50% faster page reload | BACKEND |
@@ -444,7 +444,7 @@ Implement virtual scrolling — render only visible items + buffer. Use absolute
 ### Tier 1: Critical (High Severity + Low Effort)
 1. **#17** — Disable profiling in production (10-15% speedup, 5 min fix)
 2. **#7** — Fix entity fetch error blocking (prevents stuck UI, 10 min fix)
-3. **#4** — Fix ntt-logs event listener leak (prevents memory leak, 10 min fix)
+3. **#4** — Fix ntx-logs event listener leak (prevents memory leak, 10 min fix)
 4. **#6** — Pre-seed $defs to prevent redundant fetches (1-2 fewer requests, 15 min fix)
 
 ### Tier 2: High Impact (High Severity + Medium Effort)
@@ -453,10 +453,10 @@ Implement virtual scrolling — render only visible items + buffer. Use absolute
 
 ### Tier 3: Medium Impact (Medium Severity + Low Effort)
 7. **#9** — Memoize #smFields() computation (20-30% list speedup, 30 min fix)
-8. **#2** — Batch ntt-logs entry appends (60% log panel speedup, 30 min fix)
+8. **#2** — Batch ntx-logs entry appends (60% log panel speedup, 30 min fix)
 9. **#11** — Add LRU eviction to DynamicClass.instances (prevents memory leak, 1-2 hours)
 10. **#12** — Add permissions cache TTL (prevents stale permissions, 30 min fix)
-11. **#15** — Add ntt-method.js to modulepreload (50-100ms faster load, 1 min fix)
+11. **#15** — Add ntx-method.js to modulepreload (50-100ms faster load, 1 min fix)
 
 ### Tier 4: Polish (Low Severity or Backend Changes)
 12. **#8** — Add Cache-Control headers (backend change, 30 min)
@@ -468,7 +468,7 @@ Implement virtual scrolling — render only visible items + buffer. Use absolute
 
 ## Conclusion
 
-PyBend's frontend is **well-architected** for typical use cases (10-50 items), with strong patterns like schema caching, fragment batching, and surgical DOM updates. However, **scaling bottlenecks** emerge for:
+N3TX's frontend is **well-architected** for typical use cases (10-50 items), with strong patterns like schema caching, fragment batching, and surgical DOM updates. However, **scaling bottlenecks** emerge for:
 
 - **Large lists** (>100 items) — No virtualization (#19)
 - **Frequent updates** — Full re-renders instead of diffing (#1)
@@ -486,17 +486,17 @@ PyBend's frontend is **well-architected** for typical use cases (10-50 items), w
 ### Key Files Referenced
 
 **Core Framework:**
-- `src/pybend/static/core/NTT.js` — Entity system, schema caching, DynamicClass factory
-- `src/pybend/static/core/Matrix.js` — Message router
-- `src/pybend/static/core/Actor.js` — Actor base class
-- `src/pybend/static/core/Component.js` — Web component base, stylesheet cache
+- `src/n3tx/static/core/N3TX.js` — Entity system, schema caching, DynamicClass factory
+- `src/n3tx/static/core/Matrix.js` — Message router
+- `src/n3tx/static/core/Actor.js` — Actor base class
+- `src/n3tx/static/core/Component.js` — Web component base, stylesheet cache
 
 **Components:**
-- `src/pybend/static/components/ntt-item.js` — Entity item component (main bottleneck)
-- `src/pybend/static/components/ListElement.js` — Collection base (virtualization target)
-- `src/pybend/example/static/components/ntt-logs.js` — Dev tools log panel
+- `src/n3tx/static/components/ntx-item.js` — Entity item component (main bottleneck)
+- `src/n3tx/static/components/ListElement.js` — Collection base (virtualization target)
+- `src/n3tx/example/static/components/ntx-logs.js` — Dev tools log panel
 
 **Utils:**
-- `src/pybend/static/utils/Permissions.js` — Permission evaluation, rule cache
-- `src/pybend/static/utils/Logging.js` — Logging system
-- `src/pybend/static/generators/form.js` — Form generator, layout cache
+- `src/n3tx/static/utils/Permissions.js` — Permission evaluation, rule cache
+- `src/n3tx/static/utils/Logging.js` — Logging system
+- `src/n3tx/static/generators/form.js` — Form generator, layout cache

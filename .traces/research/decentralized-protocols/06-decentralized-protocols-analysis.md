@@ -1,4 +1,4 @@
-# 📋 Decentralized Protocols for PyBend: Strategic Analysis Report
+# 📋 Decentralized Protocols for N3TX: Strategic Analysis Report
 
 ## For: CEO & Engineering Team
 ## Date: February 2026
@@ -18,14 +18,14 @@ This report synthesizes five research documents totaling ~4,700 lines into an ac
 - `[R1]` = `01-industry-landscape.md` -- Market data, adoption numbers, enterprise deployments
 - `[R2]` = `02-technical-deep-dive.md` -- Protocol architectures, data formats, security models
 - `[R3]` = `03-decision-framework.md` -- Build/integrate analysis, cost models, anti-patterns
-- `[R4]` = `04-our-stack-relevance.md` -- PyBend architecture mapping, gap analysis, implementation plan
+- `[R4]` = `04-our-stack-relevance.md` -- N3TX architecture mapping, gap analysis, implementation plan
 - `[R5]` = `05-identity-data-portability.md` -- DIDs, account portability, verifiable credentials, eIDAS 2.0
 
 ---
 
 ## 📋 Executive Summary
 
-PyBend's schema-driven architecture -- where a Python model definition is the single source of truth for the entire stack -- is not just compatible with decentralized protocols. It is **convergent** with them. Both ActivityPub and ATProtocol are, at their core, schema-driven systems that derive behavior from data definitions. The structural parallels are deep enough that PyBend already has **60-70% of the conceptual machinery needed for federation**.
+N3TX's schema-driven architecture -- where a Python model definition is the single source of truth for the entire stack -- is not just compatible with decentralized protocols. It is **convergent** with them. Both ActivityPub and ATProtocol are, at their core, schema-driven systems that derive behavior from data definitions. The structural parallels are deep enough that N3TX already has **60-70% of the conceptual machinery needed for federation**.
 
 The remaining 30-40% is protocol-specific plumbing: cryptographic signatures, federation-specific serialization, delivery queues, and identity resolution. This can be built as additive modules without disrupting the existing architecture.
 
@@ -42,7 +42,7 @@ The remaining 30-40% is protocol-specific plumbing: cryptographic signatures, fe
 
 ### The Opportunity in One Sentence
 
-PyBend can become the first framework where `class Post(ProtoModel): __federated__ = True` produces a working fediverse node -- bridging the gap between schema-driven frameworks and federated applications that no one else has filled.
+N3TX can become the first framework where `class Post(ProtoModel): __federated__ = True` produces a working fediverse node -- bridging the gap between schema-driven frameworks and federated applications that no one else has filled.
 
 ---
 
@@ -139,7 +139,7 @@ The blockchain-based decentralized social media platform market: **$2.38B (2024)
 
 ## 3. ⚡ Technical Architecture
 
-**So what?** The four protocols represent fundamentally different architectural philosophies. Understanding which one fits your use case is the difference between a natural extension of your stack and a painful bolted-on integration. For PyBend specifically, ActivityPub and ATProtocol are the relevant choices -- and they map to our architecture in different but complementary ways.
+**So what?** The four protocols represent fundamentally different architectural philosophies. Understanding which one fits your use case is the difference between a natural extension of your stack and a painful bolted-on integration. For N3TX specifically, ActivityPub and ATProtocol are the relevant choices -- and they map to our architecture in different but complementary ways.
 
 ### Protocol Architecture Comparison
 
@@ -234,11 +234,11 @@ Matrix is the clear choice for real-time encrypted messaging, not social network
 
 ### Nostr: Interesting but Niche
 
-Nostr's radical simplicity (entire core spec fits on one page) and native Bitcoin Lightning payments are genuinely novel. But the user base is tiny (~21K active), the protocol lacks schema validation, and the community skews heavily toward cryptocurrency enthusiasts. Not a strategic fit for PyBend. `[R1][R2]`
+Nostr's radical simplicity (entire core spec fits on one page) and native Bitcoin Lightning payments are genuinely novel. But the user base is tiny (~21K active), the protocol lacks schema validation, and the community skews heavily toward cryptocurrency enthusiasts. Not a strategic fit for N3TX. `[R1][R2]`
 
 ### Head-to-Head: ActivityPub vs ATProtocol
 
-| Dimension | ActivityPub | ATProtocol | Winner for PyBend |
+| Dimension | ActivityPub | ATProtocol | Winner for N3TX |
 |-----------|-------------|------------|-------------------|
 | **Schema compatibility** | JSON-LD maps loosely to JSON Schema | Lexicons are structurally similar to JSON Schema | ATProtocol |
 | **Ecosystem maturity** | 8+ years, W3C standard, many implementations | 2 years, single company, growing fast | ActivityPub |
@@ -252,17 +252,17 @@ Nostr's radical simplicity (entire core spec fits on one page) and native Bitcoi
 
 `[R2][R3][R4]`
 
-> 💡 **Assessment**: ActivityPub is the safer first bet: W3C standard, regulatory tailwinds, lower implementation cost, broader ecosystem. ATProtocol is the stronger long-term play: better DX, schema alignment with PyBend, portable identity. **Implement ActivityPub first, ATProtocol second.** The abstraction layer makes both possible without doubling the work.
+> 💡 **Assessment**: ActivityPub is the safer first bet: W3C standard, regulatory tailwinds, lower implementation cost, broader ecosystem. ATProtocol is the stronger long-term play: better DX, schema alignment with N3TX, portable identity. **Implement ActivityPub first, ATProtocol second.** The abstraction layer makes both possible without doubling the work.
 
 ---
 
 ## 4. 🔍 Our Current Architecture Assessment
 
-**So what?** PyBend's architecture is not just compatible with federation -- it is *convergent* with it. The parallels between our schema-driven model and what federation protocols need are deep enough that most of the conceptual work is already done. What remains is protocol-specific plumbing.
+**So what?** N3TX's architecture is not just compatible with federation -- it is *convergent* with it. The parallels between our schema-driven model and what federation protocols need are deep enough that most of the conceptual work is already done. What remains is protocol-specific plumbing.
 
 ### The Structural Parallels
 
-| Concept | PyBend Today | ActivityPub Needs | ATProtocol Needs |
+| Concept | N3TX Today | ActivityPub Needs | ATProtocol Needs |
 |---------|-------------|-------------------|------------------|
 | **Schema format** | JSON Schema via `ProtoModel.schema()` | JSON-LD / ActivityStreams | Lexicon definitions |
 | **Self-describing instances** | `model_dump(response=True)` injects `$schema` + `$id` | Every object carries `@context` + `type` + `id` | Every record carries `$type` |
@@ -272,11 +272,11 @@ Nostr's radical simplicity (entire core spec fits on one page) and native Bitcoi
 | **Parent-child relations** | `ListRef[T]` + join models | ActivityStreams Collections | Record references |
 | **Type identity** | `$schema` URL + `$id` URL | `@context` + `type` | `$type` NSID |
 
-Source: PyBend codebase analysis, `[R4]`
+Source: N3TX codebase analysis, `[R4]`
 
 ### What We Already Have (60-70%)
 
-The following existing PyBend patterns **directly enable federation** with minimal modification:
+The following existing N3TX patterns **directly enable federation** with minimal modification:
 
 **1. Self-Describing Instances** (`proto_model.py`, line 117-137)
 
@@ -292,11 +292,11 @@ def model_dump(self, *, response: bool = False, **kwargs) -> Dict[str, Any]:
     return data
 ```
 
-This is the **same pattern** as ActivityStreams' `id` + `type` and ATProtocol's `$type`. PyBend entities already carry their own identity and type information. The `$id` on every entity is already a globally-resolvable URL -- exactly what ActivityPub requires for every object.
+This is the **same pattern** as ActivityStreams' `id` + `type` and ATProtocol's `$type`. N3TX entities already carry their own identity and type information. The `$id` on every entity is already a globally-resolvable URL -- exactly what ActivityPub requires for every object.
 
 **2. Schema as Universal Contract** (`proto_model.py`, line 197-200+)
 
-PyBend's schema already carries everything federation needs:
+N3TX's schema already carries everything federation needs:
 - **Type information** (`properties`, `$defs`) -- maps to AS types / Lexicon defs
 - **Method signatures** (`methods`) -- maps to Activities / XRPC procedures
 - **Access rules** (`access`) -- maps to federation visibility
@@ -304,7 +304,7 @@ PyBend's schema already carries everything federation needs:
 
 **3. Route Generation** (`routes_fastapi.py`, line 56-89+)
 
-PyBend's `register_routes()` auto-generates CRUD endpoints from model registration. The federation layer adds new routes alongside existing ones -- it does not replace them.
+N3TX's `register_routes()` auto-generates CRUD endpoints from model registration. The federation layer adds new routes alongside existing ones -- it does not replace them.
 
 **4. ABAC Authorization** (`authorize/rules.py`, line 13-40+)
 
@@ -325,7 +325,7 @@ The `AbstractStorage` interface means federation storage (activity store, MST re
 
 **6. Standalone Auth Package** (`authorize/`)
 
-Zero PyBend imports. Federation auth (HTTP Signatures, DID verification) can plug into the same `AccessContext`/`AccessRule` system without coupling.
+Zero N3TX imports. Federation auth (HTTP Signatures, DID verification) can plug into the same `AccessContext`/`AccessRule` system without coupling.
 
 ### What We Need to Build (30-40%)
 
@@ -348,7 +348,7 @@ Zero PyBend imports. Federation auth (HTTP Signatures, DID verification) can plu
 
 ### The `__federated__` Pattern
 
-Following PyBend's convention of model-level declarations (`__storable__`, `__access__`, `__ui__`), federation would be declared the same way:
+Following N3TX's convention of model-level declarations (`__storable__`, `__access__`, `__ui__`), federation would be declared the same way:
 
 ```python
 class Post(ProtoModel):
@@ -380,7 +380,7 @@ What `__federated__ = True` would auto-generate:
 ### Route Mapping: CRUD to Federation
 
 ```
-PyBend Today                        ActivityPub Equivalent
+N3TX Today                        ActivityPub Equivalent
 -----------------------------------------------------------------
 GET  /User                          (schema -- no AP equiv)
 GET  /users                         GET /users/{username}/outbox
@@ -394,7 +394,7 @@ POST /users/{id}/comment            Create Note activity
 --- Missing ---                     GET  /users/{username}/followers
 ```
 
-PyBend's CRUD maps to ActivityPub's Client-to-Server API. The Server-to-Server federation layer is entirely additive. `[R4]`
+N3TX's CRUD maps to ActivityPub's Client-to-Server API. The Server-to-Server federation layer is entirely additive. `[R4]`
 
 ---
 
@@ -469,7 +469,7 @@ The EU eIDAS 2.0 regulation mandates:
 
 This is not aspirational. It is law. And it creates infrastructure (verifier networks, credential issuance, revocation services) that private-sector applications can leverage. `[R5]`
 
-### What DID-Augmented Auth Would Look Like in PyBend
+### What DID-Augmented Auth Would Look Like in N3TX
 
 DIDs do not replace JWTs -- they change who issues them and what they prove:
 
@@ -489,7 +489,7 @@ Phase 3 (Future):  Verifiable Credential-based authorization. Access rules
                    reference VC claims: VC_CLAIM('AdminCredential', issuer='...')
 ```
 
-This aligns with PyBend's "zero to working, then customize" principle: email/password works by default; DID is additive. `[R5]`
+This aligns with N3TX's "zero to working, then customize" principle: email/password works by default; DID is additive. `[R5]`
 
 ---
 
@@ -553,13 +553,13 @@ For most applications, **RSS + webhooks + REST API** covers 80% of interoperabil
 | **Regulatory readiness** | DMA compliance path for framework users | 2026-2027 |
 | **Enterprise sales** | "Federation-ready" is a checkbox for EU customers | 2026+ |
 | **Developer adoption** | Significant draw for framework evaluation | Immediate |
-| **Content distribution** | Apps built with PyBend reach Fediverse + Bluesky audiences | Upon AP integration |
+| **Content distribution** | Apps built with N3TX reach Fediverse + Bluesky audiences | Upon AP integration |
 
 ---
 
 ## 7. 🗺️ Decision Framework
 
-**So what?** Not every application should federate. Most should not. But PyBend as a *framework* should provide federation as an opt-in capability, because the applications that need it have no clean alternative today.
+**So what?** Not every application should federate. Most should not. But N3TX as a *framework* should provide federation as an opt-in capability, because the applications that need it have no clean alternative today.
 
 ### The Federation Litmus Test
 
@@ -598,12 +598,12 @@ These deserve explicit callout because they are common mistakes `[R3]`:
 
 ### Decision: Framework vs. Application
 
-The decision for PyBend specifically is different from the decision for an individual app:
+The decision for N3TX specifically is different from the decision for an individual app:
 
-> PyBend is a **framework**. The question is not "should our app federate?" but "should our framework give developers the ability to federate?" The answer is yes, because:
+> N3TX is a **framework**. The question is not "should our app federate?" but "should our framework give developers the ability to federate?" The answer is yes, because:
 > 1. No one else offers this -- it is a genuine differentiator.
 > 2. The schema-driven architecture makes it natural, not bolted-on.
-> 3. The `__federated__ = True` pattern is consistent with PyBend's philosophy.
+> 3. The `__federated__ = True` pattern is consistent with N3TX's philosophy.
 > 4. The opt-in model means zero cost for apps that do not need it.
 
 ### Hybrid Approaches
@@ -634,7 +634,7 @@ We recommend building federation support as an additive module using a phased ap
 - Add `__federated__` metadata to `ProtoModel` (opt-in per model)
 - Define a `FederationAdapter` Protocol (Python Protocol class)
 - Ensure all entity IDs are globally resolvable (already true in production)
-- New module: `src/pybend/core/federation/`
+- New module: `src/n3tx/core/federation/`
 
 ```python
 # The abstraction layer
@@ -655,7 +655,7 @@ class FederationAdapter(Protocol):
 - HTTP Signature support (use [Bovine](https://pypi.org/project/bovine/) library)
 - No inbox processing yet
 
-**Key deliverable**: A model with `__federated__ = True` produces a valid ActivityPub Actor. Other Fediverse servers can follow a PyBend user and see their content.
+**Key deliverable**: A model with `__federated__ = True` produces a valid ActivityPub Actor. Other Fediverse servers can follow a N3TX user and see their content.
 
 ### Phase 2: Full ActivityPub (Weeks 7-10)
 
@@ -735,8 +735,8 @@ ActivityPub is the lower-risk, lower-cost, higher-regulatory-alignment choice fo
 | 4 | **GDPR compliance across federation** -- right to erasure is hard when data is distributed | MEDIUM | HIGH | Allow-list federation. Deletion propagation hooks. Legal review before launch. |
 | 5 | **Security vulnerability in federation endpoints** -- each endpoint is an attack surface | MEDIUM | CRITICAL | Treat federation boundary as security boundary. Regular security audits. Rate limiting. Input validation. HTTP Signature verification is non-negotiable. |
 | 6 | **Scope creep** -- federation work expands beyond planned phases | HIGH | MEDIUM | Phase strictly. Each phase produces a testable, deployable increment. Review gates between phases. |
-| 7 | **User confusion** -- federation adds complexity that confuses developers using PyBend | HIGH | MEDIUM | Federation is entirely opt-in. `__federated__` defaults to nothing. Documentation must be clear. Zero behavior change for apps that do not opt in. |
-| 8 | **Moderation cascade** -- federated content brings abuse/spam into PyBend apps | MEDIUM | HIGH | Allow-list mode by default. Content filtering at federation boundary. ABAC rules apply to federated content same as local. |
+| 7 | **User confusion** -- federation adds complexity that confuses developers using N3TX | HIGH | MEDIUM | Federation is entirely opt-in. `__federated__` defaults to nothing. Documentation must be clear. Zero behavior change for apps that do not opt in. |
+| 8 | **Moderation cascade** -- federated content brings abuse/spam into N3TX apps | MEDIUM | HIGH | Allow-list mode by default. Content filtering at federation boundary. ABAC rules apply to federated content same as local. |
 | 9 | **Interoperability testing burden** -- must test against Mastodon, Misskey, Pleroma individually | MEDIUM | MEDIUM | Target Mastodon compatibility first (75% of fediverse). Use [ActivityPub Fuzzer](https://activitypub.rocks/) for automated testing. |
 | 10 | **Market timing** -- build federation and the market does not materialize | LOW-MEDIUM | MEDIUM | Phased approach limits downside. Phase 1 (publish-only) is 2-4 weeks of work. If adoption is low, stop there. The abstraction layer has value even if full federation is deferred. |
 
@@ -746,7 +746,7 @@ ActivityPub is the lower-risk, lower-cost, higher-regulatory-alignment choice fo
 
 ## 10. 📎 Appendices
 
-### Appendix A: Architecture Diagram -- Federated PyBend
+### Appendix A: Architecture Diagram -- Federated N3TX
 
 ```
                                     External Fediverse
@@ -772,7 +772,7 @@ ActivityPub is the lower-risk, lower-cost, higher-regulatory-alignment choice fo
                             |
                             v
 +------------------------------------------------------------------+
-|                    EXISTING PYBEND CORE (unchanged)                |
+|                    EXISTING N3TX CORE (unchanged)                |
 |                                                                    |
 |  ProtoModel -----> JSON Schema -----> register_routes()            |
 |       |                                     |                      |
@@ -785,9 +785,9 @@ ActivityPub is the lower-risk, lower-cost, higher-regulatory-alignment choice fo
                             |
                             v
 +------------------------------------------------------------------+
-|                    FRONTEND (NTT.js) (minimal changes)             |
+|                    FRONTEND (N3TX.js) (minimal changes)             |
 |                                                                    |
-|  NTT.SCHEMA() ---> prototype() ---> DynamicClass                  |
+|  N3TX.SCHEMA() ---> prototype() ---> DynamicClass                  |
 |  Schema-driven rendering + federation status indicators (new)      |
 +------------------------------------------------------------------+
 ```
@@ -796,13 +796,13 @@ ActivityPub is the lower-risk, lower-cost, higher-regulatory-alignment choice fo
 
 ### Appendix B: Schema Translation Examples
 
-**PyBend Product -> ActivityStreams Article**:
+**N3TX Product -> ActivityStreams Article**:
 
 ```json
 {
   "@context": [
     "https://www.w3.org/ns/activitystreams",
-    {"pybend": "https://pybend.io/ns/v1"}
+    {"n3tx": "https://n3tx.io/ns/v1"}
   ],
   "type": "Article",
   "id": "https://example.com/products/1",
@@ -810,7 +810,7 @@ ActivityPub is the lower-risk, lower-cost, higher-regulatory-alignment choice fo
   "content": "A premium widget for professionals",
   "attributedTo": "https://example.com/users/alice",
   "published": "2026-02-25T12:00:00Z",
-  "pybend:price": 29.99,
+  "n3tx:price": 29.99,
   "replies": {
     "type": "Collection",
     "id": "https://example.com/products/1/comments",
@@ -819,7 +819,7 @@ ActivityPub is the lower-risk, lower-cost, higher-regulatory-alignment choice fo
 }
 ```
 
-**PyBend Product -> ATProtocol Lexicon**:
+**N3TX Product -> ATProtocol Lexicon**:
 
 ```json
 {
@@ -859,10 +859,10 @@ ActivityPub is the lower-risk, lower-cost, higher-regulatory-alignment choice fo
            | Django    |                    | Mastodon |
            | FastAPI   |                    | Lemmy    |
            | Rails     |                    | GoToSocial|
-           | PyBend    |<---- gap ------>   | Takahee  |
+           | N3TX    |<---- gap ------>   | Takahee  |
            +----------+                    +----------+
 
-    PyBend with __federated__ bridges this gap.
+    N3TX with __federated__ bridges this gap.
 ```
 
 `[R4]`
@@ -912,7 +912,7 @@ ActivityPub wins on governance and maturity. ATProtocol wins on DX and schema co
 - `[R1]` `/workspace/.traces/research/decentralized-protocols/01-industry-landscape.md` -- 665 lines. Market data, platform numbers, enterprise adoption, regulatory landscape, monetization.
 - `[R2]` `/workspace/.traces/research/decentralized-protocols/02-technical-deep-dive.md` -- 980 lines. Protocol architectures, data formats, security, scalability, interoperability.
 - `[R3]` `/workspace/.traces/research/decentralized-protocols/03-decision-framework.md` -- 844 lines. When to federate, build/integrate analysis, cost models, anti-patterns, decision tree.
-- `[R4]` `/workspace/.traces/research/decentralized-protocols/04-our-stack-relevance.md` -- 1,219 lines. PyBend architecture mapping, gap analysis, `__federated__` design, competitive analysis.
+- `[R4]` `/workspace/.traces/research/decentralized-protocols/04-our-stack-relevance.md` -- 1,219 lines. N3TX architecture mapping, gap analysis, `__federated__` design, competitive analysis.
 - `[R5]` `/workspace/.traces/research/decentralized-protocols/05-identity-data-portability.md` -- 1,010 lines. DIDs, account portability, VCs, platform risk, eIDAS 2.0, DID-JWT integration.
 
 **Key External Sources**:

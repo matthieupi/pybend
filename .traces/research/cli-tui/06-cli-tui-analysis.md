@@ -1,4 +1,4 @@
-# CLI and TUI for PyBend: Strategic Analysis Report
+# CLI and TUI for N3TX: Strategic Analysis Report
 
 ## For: CEO & Engineering Team
 ## Date: February 2026
@@ -21,11 +21,11 @@
 
 ## Executive Summary
 
-**Core question:** Should PyBend invest in a CLI and TUI, and if so, what should it look like?
+**Core question:** Should N3TX invest in a CLI and TUI, and if so, what should it look like?
 
-**Short answer:** Yes -- but surgically. PyBend's schema-driven architecture gives it a structural advantage that makes a CLI almost free to build and genuinely novel in capability. A 7-command CLI (approximately 104 engineering hours) would eliminate the onboarding gap that currently separates PyBend from Django, Rails, and Laravel, while a schema-driven TUI would create a category-defining capability no other framework offers. The key is to build only what the schema makes uniquely possible, and wrap everything else in a Justfile.
+**Short answer:** Yes -- but surgically. N3TX's schema-driven architecture gives it a structural advantage that makes a CLI almost free to build and genuinely novel in capability. A 7-command CLI (approximately 104 engineering hours) would eliminate the onboarding gap that currently separates N3TX from Django, Rails, and Laravel, while a schema-driven TUI would create a category-defining capability no other framework offers. The key is to build only what the schema makes uniquely possible, and wrap everything else in a Justfile.
 
-> **Key Finding:** PyBend is approximately **70% of the way to a complete CLI with zero new code**. The model registry (`registered_models`), schema generation (`ProtoModel.schema()`), CRUD operations (`StorableMixin`), migration system (`SQLiteMigration`), scaffold generator (`scaffold.py`), and seed infrastructure (`seed.py`) all exist today. What is missing is a CLI entry point to wire them together.
+> **Key Finding:** N3TX is approximately **70% of the way to a complete CLI with zero new code**. The model registry (`registered_models`), schema generation (`ProtoModel.schema()`), CRUD operations (`StorableMixin`), migration system (`SQLiteMigration`), scaffold generator (`scaffold.py`), and seed infrastructure (`seed.py`) all exist today. What is missing is a CLI entry point to wire them together.
 
 **Key findings at a glance:**
 
@@ -36,17 +36,17 @@
 | **69%** of developers lose 8+ hours weekly to tooling friction | Atlassian State of DX 2024 | CLI tools that eliminate context switches recover real capacity |
 | Typer has **66M monthly PyPI downloads**, built on Click | PyPI, Typer docs | Best-in-class foundation for type-hint-driven CLIs |
 | **Nobody** has built JSON Schema to Textual TUI forms in Python | GitHub/PyPI survey (Feb 2026) | Greenfield opportunity for schema-driven TUI rendering |
-| PyBend's `ProtoModel.schema()` carries validation, UI hints, access rules, methods | Codebase analysis (`proto_model.py` lines 198-316) | No other framework CLI can derive this much behavior from a single model |
+| N3TX's `ProtoModel.schema()` carries validation, UI hints, access rules, methods | Codebase analysis (`proto_model.py` lines 198-316) | No other framework CLI can derive this much behavior from a single model |
 
-**Recommendation:** Build in three phases. Phase 1 (foundation CLI, ~24 hours) delivers `pybend run`, `pybend models`, `pybend describe`, and `pybend scaffold`. Phase 2 (daily workflow, ~40 hours) adds `pybend migrate`, `pybend seed`, `pybend shell`, and CRUD commands. Phase 3 (differentiator, ~40+ hours) adds a Textual TUI admin dashboard -- the first schema-driven terminal admin panel in the Python ecosystem. Do NOT build a plugin system, do NOT invest in generic scaffolding templates, and do NOT add Textual as a hard dependency.
+**Recommendation:** Build in three phases. Phase 1 (foundation CLI, ~24 hours) delivers `n3tx run`, `n3tx models`, `n3tx describe`, and `n3tx scaffold`. Phase 2 (daily workflow, ~40 hours) adds `n3tx migrate`, `n3tx seed`, `n3tx shell`, and CRUD commands. Phase 3 (differentiator, ~40+ hours) adds a Textual TUI admin dashboard -- the first schema-driven terminal admin panel in the Python ecosystem. Do NOT build a plugin system, do NOT invest in generic scaffolding templates, and do NOT add Textual as a hard dependency.
 
 ---
 
 ## 1. What Are CLI and TUI Tools?
 
-**So what?** A CLI (Command-Line Interface) is the text-based command system that developers use to operate a framework -- think `django-admin migrate` or `rails generate model`. A TUI (Terminal User Interface) is a richer interactive experience inside the terminal -- menus, tables, forms, keyboard navigation -- that provides 80% of a GUI's value at 10% of the development cost. For PyBend, both represent the missing "front door" that would let developers go from installation to working application without reading documentation.
+**So what?** A CLI (Command-Line Interface) is the text-based command system that developers use to operate a framework -- think `django-admin migrate` or `rails generate model`. A TUI (Terminal User Interface) is a richer interactive experience inside the terminal -- menus, tables, forms, keyboard navigation -- that provides 80% of a GUI's value at 10% of the development cost. For N3TX, both represent the missing "front door" that would let developers go from installation to working application without reading documentation.
 
-**The analogy:** If PyBend's web UI (`matrix.html`) is the storefront, the CLI is the staff entrance. Developers do not enter through the storefront. They enter through the CLI, dozens of times per day -- starting servers, running migrations, inspecting schemas, seeding data. The quality of that staff entrance determines whether they stay or switch to a framework with a nicer one.
+**The analogy:** If N3TX's web UI (`matrix.html`) is the storefront, the CLI is the staff entrance. Developers do not enter through the storefront. They enter through the CLI, dozens of times per day -- starting servers, running migrations, inspecting schemas, seeding data. The quality of that staff entrance determines whether they stay or switch to a framework with a nicer one.
 
 **Technical picture:**
 
@@ -63,17 +63,17 @@ Developer Workflow Interfaces
     +---------v--------+  +-----v------+  +--------v--------+
     |   CLI (Typer)     |  | TUI (Textual)|  | Web (matrix.html)|
     |                   |  |             |  |                 |
-    | pybend run        |  | Model list  |  | <ntt-list>      |
-    | pybend migrate    |  | CRUD forms  |  | <ntt-item>      |
-    | pybend describe   |  | Live logs   |  | <ntt-method>    |
-    | pybend scaffold   |  | Migration   |  | form.js         |
-    | pybend shell      |  | status      |  |                 |
+    | n3tx run        |  | Model list  |  | <ntx-list>      |
+    | n3tx migrate    |  | CRUD forms  |  | <ntx-item>      |
+    | n3tx describe   |  | Live logs   |  | <ntx-method>    |
+    | n3tx scaffold   |  | Migration   |  | form.js         |
+    | n3tx shell      |  | status      |  |                 |
     +--------+----------+  +------+------+  +--------+--------+
              |                    |                  |
              +--------------------+------------------+
                                  |
                     +------------v-----------+
-                    |  PyBend Backend         |
+                    |  N3TX Backend         |
                     |  ProtoModel.schema()    |
                     |  StorableMixin CRUD     |
                     |  SQLiteMigration        |
@@ -83,7 +83,7 @@ Developer Workflow Interfaces
 
 **Strategic context:** The CLI landscape is converging. GitHub Copilot CLI went generally available on February 25, 2026, introducing agentic capabilities that can scaffold code by understanding intent ([GitHub Changelog](https://github.blog/changelog/2026-02-25-github-copilot-cli-is-now-generally-available/)). Charm (the TUI company behind Bubble Tea) raised $6M from Google's Gradient fund ([Hacker News](https://news.ycombinator.com/item?id=38126060)). Textual has reached 33.8K GitHub stars and 2.5M+ PyPI downloads. The terminal is no longer a fallback -- it is a first-class interface, and the frameworks that win are the ones whose CLIs carry the most structured knowledge about the application.
 
-> **Key Finding:** The AI-assisted CLI wave creates both an opportunity and a threat. Frameworks that expose structured metadata (schemas, types, conventions) give AI agents richer context. A framework where `pybend describe Product` returns the complete schema -- validation rules, access control, UI hints, method signatures -- is infinitely more AI-friendly than one where developers must read documentation to understand what a model can do.
+> **Key Finding:** The AI-assisted CLI wave creates both an opportunity and a threat. Frameworks that expose structured metadata (schemas, types, conventions) give AI agents richer context. A framework where `n3tx describe Product` returns the complete schema -- validation rules, access control, UI hints, method signatures -- is infinitely more AI-friendly than one where developers must read documentation to understand what a model can do.
 
 ---
 
@@ -93,7 +93,7 @@ Developer Workflow Interfaces
 
 ### 2.1 The Proven Winners
 
-| Framework | CLI Age | Key Innovation | Weekly Downloads / Usage | Lesson for PyBend |
+| Framework | CLI Age | Key Innovation | Weekly Downloads / Usage | Lesson for N3TX |
 |-----------|---------|---------------|------------------------|--------------------|
 | **Django** `manage.py` | 18 years | Extensible command dispatch | ~9M PyPI monthly | Extensibility by design: any app registers commands via file conventions |
 | **Rails** CLI | 17 years | Code generation as teaching tool | Part of gem ecosystem | Generators teach patterns; scaffolded code IS documentation |
@@ -104,7 +104,7 @@ Django holds **32.90% market share** in web frameworks with **42,880+ companies*
 
 Rails' scaffold system produces a complete CRUD resource in one command. Studies show **40% productivity increase** in early development and **25% onboarding reduction** from standardized patterns ([Moldstud](https://moldstud.com/articles/p-the-power-of-scaffolding-in-ruby-on-rails-simplifying-development-effortlessly)). But the same data shows **40% of developers** report code bloat from over-scaffolding -- a cautionary lesson about generating code developers do not understand.
 
-Prisma is the most architecturally relevant comparison for PyBend. Both are schema-first: Prisma's `.prisma` file and PyBend's `ProtoModel` class each serve as the single source of truth. Prisma has raised **$56.5M** across 3 rounds ([Tracxn](https://tracxn.com/d/companies/prisma/__B3He-4OR9yGfYYdaKBgY9_NpeSOJibbXONowfLwA3Yw/funding-and-investors)), and `prisma generate` is what most developers cite when explaining why they chose Prisma over competitors. The CLI workflow IS the developer experience.
+Prisma is the most architecturally relevant comparison for N3TX. Both are schema-first: Prisma's `.prisma` file and N3TX's `ProtoModel` class each serve as the single source of truth. Prisma has raised **$56.5M** across 3 rounds ([Tracxn](https://tracxn.com/d/companies/prisma/__B3He-4OR9yGfYYdaKBgY9_NpeSOJibbXONowfLwA3Yw/funding-and-investors)), and `prisma generate` is what most developers cite when explaining why they chose Prisma over competitors. The CLI workflow IS the developer experience.
 
 ### 2.2 The Cautionary Tales
 
@@ -114,7 +114,7 @@ Prisma is the most architecturally relevant comparison for PyBend. Both are sche
 | **Yeoman** | 5,600+ generators | **~39 weekly npm downloads** ([npm](https://npmtrends.com/yeoman)) | Generic scaffolding loses to framework-specific CLIs every time |
 | **Ember CLI** | Pioneer framework CLI | "Painful to work with" ([G2 Reviews](https://www.g2.com/products/ember-js/reviews)) | Complexity became an adoption barrier; developers spent hours fighting the CLI instead of developing |
 
-The CRA failure pattern is now a recognized anti-pattern: scaffolding tool gains mass adoption, original maintainers move on, ecosystem evolves past the tool, tool becomes actively harmful, migration is painful at scale. PyBend must avoid this trap by building schema-driven generation (which stays correct as long as the schema is correct) rather than template-based scaffolding (which drifts from actual behavior).
+The CRA failure pattern is now a recognized anti-pattern: scaffolding tool gains mass adoption, original maintainers move on, ecosystem evolves past the tool, tool becomes actively harmful, migration is painful at scale. N3TX must avoid this trap by building schema-driven generation (which stays correct as long as the schema is correct) rather than template-based scaffolding (which drifts from actual behavior).
 
 ### 2.3 The TUI Renaissance
 
@@ -129,13 +129,13 @@ The terminal is being taken seriously as a first-class interface for the first t
 
 Bloomberg built [Memray](https://github.com/bloomberg/memray), a memory profiler, with Textual. The Django community has begun exploring terminal admin panels with [django-admin-tui](https://github.com/valberg/django-admin-tui) (55 stars, v0.0.1). The economic argument is simple: **terminal interfaces have zero deployment cost** -- no browser, no Electron, no app store review. For developer tooling and infrastructure dashboards, a rich TUI provides 80% of a GUI's value at a fraction of the maintenance cost.
 
-> **Key Finding:** The TUI renaissance is being driven by developer tooling economics. With Charm raising $6M and companies like GitHub, AWS, and Bloomberg building TUI tools, the terminal is becoming a first-class interface. For a schema-driven framework like PyBend, a TUI admin that reads from the same schema as the web UI would be a genuine industry first.
+> **Key Finding:** The TUI renaissance is being driven by developer tooling economics. With Charm raising $6M and companies like GitHub, AWS, and Bloomberg building TUI tools, the terminal is becoming a first-class interface. For a schema-driven framework like N3TX, a TUI admin that reads from the same schema as the web UI would be a genuine industry first.
 
 ---
 
 ## 3. Technical Architecture Overview
 
-**So what?** The Python CLI/TUI ecosystem has matured dramatically since 2020. Typer, Rich, and Textual form a cohesive stack (all from the same creator ecosystem) that delivers type-safe commands, beautiful output, and full terminal UIs with first-class testing support. For PyBend, the technology choices are straightforward -- the question is architecture, not tooling.
+**So what?** The Python CLI/TUI ecosystem has matured dramatically since 2020. Typer, Rich, and Textual form a cohesive stack (all from the same creator ecosystem) that delivers type-safe commands, beautiful output, and full terminal UIs with first-class testing support. For N3TX, the technology choices are straightforward -- the question is architecture, not tooling.
 
 ### 3.1 CLI Framework Comparison
 
@@ -153,7 +153,7 @@ Bloomberg built [Memray](https://github.com/bloomberg/memray), a memory profiler
 
 Sources: [Typer alternatives docs](https://typer.tiangolo.com/alternatives/), [Click documentation](https://click.palletsprojects.com/en/stable/), [CodeCut comparison](https://codecut.ai/comparing-python-command-line-interface-tools-argparse-click-and-typer/)
 
-**Typer is the clear winner for PyBend.** It matches PyBend's type-hint philosophy (Pydantic models use type annotations; Typer commands use type annotations), is built by the same team as FastAPI (which PyBend already uses), provides built-in Rich integration for formatted output, and inherits Click's battle-tested plugin architecture via entry_points.
+**Typer is the clear winner for N3TX.** It matches N3TX's type-hint philosophy (Pydantic models use type annotations; Typer commands use type annotations), is built by the same team as FastAPI (which N3TX already uses), provides built-in Rich integration for formatted output, and inherits Click's battle-tested plugin architecture via entry_points.
 
 Startup time deserves attention: a [Typer GitHub discussion](https://github.com/fastapi/typer/discussions/744) revealed that >85% of Typer's startup time comes from loading Rich modules. Using `typer-slim` (without Rich bundled) and importing Rich lazily within commands reduces startup from ~230ms to ~80ms -- acceptable for interactive use.
 
@@ -172,7 +172,7 @@ Startup time deserves attention: a [Typer GitHub discussion](https://github.com/
 
 Sources: [Textual GitHub](https://github.com/Textualize/textual), [Rich GitHub](https://github.com/Textualize/rich), [Textual docs](https://textual.textualize.io/)
 
-Textual's architecture mirrors web development patterns that PyBend's frontend already uses: a DOM-like widget tree, CSS-like styling, reactive data binding, and component composition. The structural similarity between Textual's `reactive()` + `watch_*()` + `data_bind()` and PyBend's `Object.defineProperty()` + `signal()` + `watch()` in NTT.js means the DynamicClass pattern ports almost 1:1.
+Textual's architecture mirrors web development patterns that N3TX's frontend already uses: a DOM-like widget tree, CSS-like styling, reactive data binding, and component composition. The structural similarity between Textual's `reactive()` + `watch_*()` + `data_bind()` and N3TX's `Object.defineProperty()` + `signal()` + `watch()` in N3TX.js means the DynamicClass pattern ports almost 1:1.
 
 ### 3.3 Recommended Technology Stack
 
@@ -189,8 +189,8 @@ Textual's architecture mirrors web development patterns that PyBend's frontend a
 CLI tools handle credentials, generate code, and modify databases. Critical security patterns:
 
 - **Credential storage hierarchy:** OS keyring (highest security) > environment variables > `.env` file (chmod 600) > config file (non-sensitive only). Never pass secrets as CLI flags (they appear in shell history and process listings).
-- **Code generation input validation:** PyBend's existing `scaffold.py` correctly sanitizes model names via `_to_kebab()` and `_to_pascal()`. Any new generators must validate against `^[A-Z][a-zA-Z0-9]*$` for class names.
-- **Destructive command confirmation:** Commands like `pybend db migrate --production` must require explicit confirmation (type the database name to confirm).
+- **Code generation input validation:** N3TX's existing `scaffold.py` correctly sanitizes model names via `_to_kebab()` and `_to_pascal()`. Any new generators must validate against `^[A-Z][a-zA-Z0-9]*$` for class names.
+- **Destructive command confirmation:** Commands like `n3tx db migrate --production` must require explicit confirmation (type the database name to confirm).
 
 > **Key Finding:** The Python CLI/TUI ecosystem has reached maturity. Typer + Rich + Textual form a cohesive stack from the same creator ecosystem that delivers type-safe commands, beautiful output, and full terminal UIs -- with first-class testing support throughout. The technology risk is near zero; the only risk is organizational commitment to maintenance.
 
@@ -198,7 +198,7 @@ CLI tools handle credentials, generate code, and modify databases. Critical secu
 
 ## 4. Our Current Architecture Assessment
 
-**So what?** PyBend is not starting from zero. The framework's schema-driven architecture means that most CLI capabilities already exist as Python functions -- they just lack a command-line entry point. This is a fundamentally different starting position from a framework like Express.js, which would need to build model introspection, migration management, and CRUD operations from scratch before it could even begin designing a CLI.
+**So what?** N3TX is not starting from zero. The framework's schema-driven architecture means that most CLI capabilities already exist as Python functions -- they just lack a command-line entry point. This is a fundamentally different starting position from a framework like Express.js, which would need to build model introspection, migration management, and CRUD operations from scratch before it could even begin designing a CLI.
 
 ### 4.1 What We Already Have
 
@@ -206,57 +206,57 @@ Every item below is a real function in the codebase today, not a proposal:
 
 | Existing Capability | File | Key Function | CLI Mapping |
 |---------------------|------|-------------|-------------|
-| **Model registry** | `registrar.py` (line 9) | `registered_models: Dict[str, Type]` | `pybend models` |
-| **Schema generation** | `proto_model.py` (lines 198-316) | `ProtoModel.schema()` | `pybend describe Product` |
-| **Blueprint (all schemas)** | `proto_model.py` (lines 371-380) | `ProtoModel.blueprint()` | `pybend describe --all` |
-| **CRUD operations** | `storable_mixin.py` | `.create()`, `.list()`, `.get()`, `.update()`, `.delete()` | `pybend list/get/create/update/delete` |
-| **Migration system** | `sqlite_migration.py` | `run_migrations()`, `rollback()`, `migration_status()` | `pybend migrate`, `migrate:rollback`, `migrate:status` |
-| **Scaffold generator** | `scaffold.py` | `scaffold_model()`, `scaffold_single()` | `pybend scaffold Product` |
-| **Seed data** | `example/seed.py` | Script with `--reset` flag | `pybend seed [--reset]` |
-| **Auth configuration** | `authorize/auth.py` | `configure()`, `create_token()`, `hash_password()` | `pybend token --email X` |
-| **App bootstrap** | `app.py` (line 180) | `create_app()`, `PyBendApp.build()` | `pybend run` |
-| **Doc generation** | `generate_docs.py` | `generate_docs()` | `pybend docs` |
+| **Model registry** | `registrar.py` (line 9) | `registered_models: Dict[str, Type]` | `n3tx models` |
+| **Schema generation** | `proto_model.py` (lines 198-316) | `ProtoModel.schema()` | `n3tx describe Product` |
+| **Blueprint (all schemas)** | `proto_model.py` (lines 371-380) | `ProtoModel.blueprint()` | `n3tx describe --all` |
+| **CRUD operations** | `storable_mixin.py` | `.create()`, `.list()`, `.get()`, `.update()`, `.delete()` | `n3tx list/get/create/update/delete` |
+| **Migration system** | `sqlite_migration.py` | `run_migrations()`, `rollback()`, `migration_status()` | `n3tx migrate`, `migrate:rollback`, `migrate:status` |
+| **Scaffold generator** | `scaffold.py` | `scaffold_model()`, `scaffold_single()` | `n3tx scaffold Product` |
+| **Seed data** | `example/seed.py` | Script with `--reset` flag | `n3tx seed [--reset]` |
+| **Auth configuration** | `authorize/auth.py` | `configure()`, `create_token()`, `hash_password()` | `n3tx token --email X` |
+| **App bootstrap** | `app.py` (line 180) | `create_app()`, `N3TXApp.build()` | `n3tx run` |
+| **Doc generation** | `generate_docs.py` | `generate_docs()` | `n3tx docs` |
 
-**Code-level evidence:** The `PyBendApp.build()` method at `/workspace/src/pybend/core/app.py` line 128 performs model registration (lines 148-159) before creating the FastAPI instance (lines 162-177). A CLI needs only the first half -- register models and configure storage without starting an HTTP server. This is literally extracting the first 12 lines of `build()` into a `setup()` method. Zero new logic required.
+**Code-level evidence:** The `N3TXApp.build()` method at `/workspace/src/n3tx/core/app.py` line 128 performs model registration (lines 148-159) before creating the FastAPI instance (lines 162-177). A CLI needs only the first half -- register models and configure storage without starting an HTTP server. This is literally extracting the first 12 lines of `build()` into a `setup()` method. Zero new logic required.
 
 ```
 Existing Code                          Potential CLI Command
 ---------------------------------------------------------------------
-registered_models                  --> pybend models
-ProtoModel.schema()                --> pybend describe Product
-ProtoModel.blueprint()             --> pybend describe --all
-StorableMixin.list()               --> pybend list products
-StorableMixin.get(id)              --> pybend get products 42
-StorableMixin.create(data)         --> pybend create Product --name X
-SQLiteMigration.run_migrations()   --> pybend migrate
-SQLiteMigration.rollback(n)        --> pybend migrate:rollback
-scaffold_model()                   --> pybend scaffold Product
-seed.py                            --> pybend seed [--reset]
-create_app()                       --> pybend run
-auth.create_token()                --> pybend token --email X
-generate_docs()                    --> pybend docs
+registered_models                  --> n3tx models
+ProtoModel.schema()                --> n3tx describe Product
+ProtoModel.blueprint()             --> n3tx describe --all
+StorableMixin.list()               --> n3tx list products
+StorableMixin.get(id)              --> n3tx get products 42
+StorableMixin.create(data)         --> n3tx create Product --name X
+SQLiteMigration.run_migrations()   --> n3tx migrate
+SQLiteMigration.rollback(n)        --> n3tx migrate:rollback
+scaffold_model()                   --> n3tx scaffold Product
+seed.py                            --> n3tx seed [--reset]
+create_app()                       --> n3tx run
+auth.create_token()                --> n3tx token --email X
+generate_docs()                    --> n3tx docs
 ```
 
 ### 4.2 What We Lack
 
 | Gap | Effort | Why It Matters |
 |-----|--------|----------------|
-| **CLI entry point** (`__main__.py` or `console_scripts`) | ~2 hours | No way to invoke `pybend` from terminal today |
-| **Command router** (Typer app) | ~3 hours | Routes `pybend <command>` to the right function |
+| **CLI entry point** (`__main__.py` or `console_scripts`) | ~2 hours | No way to invoke `n3tx` from terminal today |
+| **Command router** (Typer app) | ~3 hours | Routes `n3tx <command>` to the right function |
 | **Model discovery without HTTP** | ~2 hours | Need to import and register models without starting uvicorn |
-| **Model file generator** | ~4 hours | `pybend model Product name:str price:float` creates `.py` file |
-| **Project scaffolding** | ~4 hours | `pybend new myapp` creates directory structure |
-| **Interactive shell** (REPL) | ~3 hours | `pybend shell` with models pre-imported |
+| **Model file generator** | ~4 hours | `n3tx model Product name:str price:float` creates `.py` file |
+| **Project scaffolding** | ~4 hours | `n3tx new myapp` creates directory structure |
+| **Interactive shell** (REPL) | ~3 hours | `n3tx shell` with models pre-imported |
 | **Schema-driven terminal forms** | ~6 hours | Interactive CRUD with validation from schema |
 | **TUI dashboard** | ~20 hours | Full Textual app for admin |
 
 ### 4.3 The Schema-Driven Advantage
 
-This is where PyBend has a **structural advantage** over every other framework. PyBend generates everything from a live schema. The frontend already proves this works at scale -- `form.js` reads `schema.properties` and emits the correct HTML input for each field type, with validation constraints, widget hints, and access-controlled visibility.
+This is where N3TX has a **structural advantage** over every other framework. N3TX generates everything from a live schema. The frontend already proves this works at scale -- `form.js` reads `schema.properties` and emits the correct HTML input for each field type, with validation constraints, widget hints, and access-controlled visibility.
 
 **What the schema carries that other framework CLIs lack:**
 
-| Information | Django CLI | Rails CLI | PyBend Schema |
+| Information | Django CLI | Rails CLI | N3TX Schema |
 |-------------|-----------|-----------|---------------|
 | Field names and types | Yes | Yes | Yes |
 | Validation constraints | No (separate) | No (separate) | **Yes** (`minLength`, `gt`, `pattern`) |
@@ -268,7 +268,7 @@ This is where PyBend has a **structural advantage** over every other framework. 
 | Related model schemas | Partial | Partial | **Yes** (`$defs` with full schemas) |
 | Protected field marking | No | No | **Yes** (`ui.protected: true`) |
 
-This means a PyBend CLI could generate interactive terminal forms from the same schema that generates web forms, enforce validation in the terminal using `minLength`, `gt`, `pattern`, hide protected fields in creation forms (same as the web UI does), and show access-aware options. No other framework CLI can do this from a single model definition.
+This means a N3TX CLI could generate interactive terminal forms from the same schema that generates web forms, enforce validation in the terminal using `minLength`, `gt`, `pattern`, hide protected fields in creation forms (same as the web UI does), and show access-aware options. No other framework CLI can do this from a single model definition.
 
 ### 4.4 The "First 5 Minutes" Gap
 
@@ -279,12 +279,12 @@ The most telling metric is time-to-first-win:
 | Rails | `gem install rails && rails new app && cd app && rails server` | ~3 min |
 | Django | `pip install django && django-admin startproject app && cd app && python manage.py runserver` | ~2 min |
 | Laravel | `composer create-project laravel/laravel app && cd app && php artisan serve` | ~3 min |
-| **PyBend (today)** | `pip install pybend && ...create main.py manually... && python main.py` | **~8-10 min** |
-| **PyBend (with CLI)** | `pip install pybend[cli] && pybend new myapp && cd myapp && pybend run` | **~2 min** |
+| **N3TX (today)** | `pip install n3tx && ...create main.py manually... && python main.py` | **~8-10 min** |
+| **N3TX (with CLI)** | `pip install n3tx[cli] && n3tx new myapp && cd myapp && n3tx run` | **~2 min** |
 
-PyBend's gap is not in framework capabilities -- it is in the ceremony required to start. A `pybend new myapp` command that generates a working `main.py` with example models would cut onboarding time by 60-70%.
+N3TX's gap is not in framework capabilities -- it is in the ceremony required to start. A `n3tx new myapp` command that generates a working `main.py` with example models would cut onboarding time by 60-70%.
 
-> **Key Finding:** Of 18 potential CLI commands mapped to the codebase, **14 are direct wrappers** around existing functions. Only 4 require genuinely new functionality (project creation, model file generation, interactive shell, TUI dashboard). The PyBend CLI is a ~500-line entry point that exposes what already exists.
+> **Key Finding:** Of 18 potential CLI commands mapped to the codebase, **14 are direct wrappers** around existing functions. Only 4 require genuinely new functionality (project creation, model file generation, interactive shell, TUI dashboard). The N3TX CLI is a ~500-line entry point that exposes what already exists.
 
 ---
 
@@ -372,27 +372,27 @@ A CLI adds value when it encodes **framework-specific knowledge** that developer
 
 Data from .NET SDK telemetry (92 million unique users) reveals the actual usage hierarchy ([Microsoft DevBlog](https://devblogs.microsoft.com/dotnet/what-weve-learned-from-net-core-sdk-telemetry/)): the top commands across every major framework are `build/serve/run`, `migrate`, `generate`, `console/shell`, and `test`. These 5 capabilities account for ~80% of all CLI usage.
 
-**PyBend-specific triggers for building each command:**
+**N3TX-specific triggers for building each command:**
 
 | Command | Trigger (Build When...) | Justification |
 |---------|------------------------|---------------|
-| `pybend run` | Now -- the framework exists | Every framework CLI starts here; eliminates "which file do I run?" |
-| `pybend models` | Now -- registered_models exists | 3 lines of new code; instant introspection |
-| `pybend describe` | Now -- ProtoModel.schema() exists | Schema-driven; unique to PyBend |
-| `pybend migrate` | Now -- SQLiteMigration exists | Prevents manual SQL errors |
-| `pybend scaffold` | Now -- scaffold.py exists | Already a manual script; CLI wraps it |
-| `pybend new myapp` | When external developers adopt PyBend | First-contact experience; currently 8-10 min vs 2 min for Django |
-| `pybend shell` | When team size > 3 | Debugging productivity; REPL with pre-imported models |
-| `pybend tui` | When SSH-based admin is a common use case | TUI dashboard; currently the web UI covers data exploration |
+| `n3tx run` | Now -- the framework exists | Every framework CLI starts here; eliminates "which file do I run?" |
+| `n3tx models` | Now -- registered_models exists | 3 lines of new code; instant introspection |
+| `n3tx describe` | Now -- ProtoModel.schema() exists | Schema-driven; unique to N3TX |
+| `n3tx migrate` | Now -- SQLiteMigration exists | Prevents manual SQL errors |
+| `n3tx scaffold` | Now -- scaffold.py exists | Already a manual script; CLI wraps it |
+| `n3tx new myapp` | When external developers adopt N3TX | First-contact experience; currently 8-10 min vs 2 min for Django |
+| `n3tx shell` | When team size > 3 | Debugging productivity; REPL with pre-imported models |
+| `n3tx tui` | When SSH-based admin is a common use case | TUI dashboard; currently the web UI covers data exploration |
 
 ### 6.2 When It Does NOT Make Sense
 
-| Anti-Pattern | Description | PyBend Applicability |
+| Anti-Pattern | Description | N3TX Applicability |
 |-------------|-------------|---------------------|
 | **Kitchen Sink CLI** | 50+ commands nobody can remember | Do NOT build commands for everything; cap at 10-15 |
-| **Mirror CLI** | CLI that duplicates what `curl` already does | Do NOT build `pybend api get /products` when `curl` works |
+| **Mirror CLI** | CLI that duplicates what `curl` already does | Do NOT build `n3tx api get /products` when `curl` works |
 | **Prompt Prison** | Required interactive prompts that break scripting | Always support `--no-input` for CI/CD |
-| **Generic Scaffolding** | Templates that drift from actual behavior | PyBend's scaffold.py reads live schema; keep it that way |
+| **Generic Scaffolding** | Templates that drift from actual behavior | N3TX's scaffold.py reads live schema; keep it that way |
 | **Plugin System** (premature) | Building extensibility before demand exists | Do NOT build a plugin system until 3+ external teams request one |
 
 ### 6.3 Decision Tree
@@ -454,7 +454,7 @@ Developer
    |
    +-- Justfile / Makefile     <-- Operations (test, deploy, docker)
    |
-   +-- pybend CLI (Typer)      <-- Schema-aware commands
+   +-- n3tx CLI (Typer)      <-- Schema-aware commands
    |   - models, describe       (introspection, generation, REPL)
    |   - scaffold, migrate
    |   - run, shell
@@ -479,10 +479,10 @@ Goal: Close the first-contact experience gap.
 
 | Command | Effort | What It Does |
 |---------|--------|-------------|
-| `pybend run` | 4h | Wraps uvicorn with config from `config.py`; `--host`, `--port`, `--reload` flags |
-| `pybend models` | 4h | Rich table of `registered_models` -- name, table, field count, method count |
-| `pybend describe Product` | 8h | Schema tree view with Rich -- properties, types, validation, access rules, methods |
-| `pybend scaffold Product` | 8h | Wraps existing `scaffold.py` with `--preview`, `--force`, Rich output |
+| `n3tx run` | 4h | Wraps uvicorn with config from `config.py`; `--host`, `--port`, `--reload` flags |
+| `n3tx models` | 4h | Rich table of `registered_models` -- name, table, field count, method count |
+| `n3tx describe Product` | 8h | Schema tree view with Rich -- properties, types, validation, access rules, methods |
+| `n3tx scaffold Product` | 8h | Wraps existing `scaffold.py` with `--preview`, `--force`, Rich output |
 
 **Phase 2: Daily Workflow (2-3 days, ~40 hours)**
 
@@ -490,55 +490,55 @@ Trigger: Phase 1 is adopted by the team.
 
 | Command | Effort | What It Does |
 |---------|--------|-------------|
-| `pybend migrate` | 8h | Run migrations with status output; `migrate:status`, `migrate:rollback` |
-| `pybend seed` | 4h | Wraps seed.py with progress bar; `--reset` flag |
-| `pybend shell` | 8h | ptpython REPL with all models pre-imported, tab completion |
-| `pybend list <table>` | 8h | Rich table output from StorableMixin.list(); `--limit`, `--json` |
-| `pybend create <Model>` | 8h | Schema-driven interactive prompts with validation |
-| `pybend doctor` | 4h | Diagnostics: Python version, dependencies, DB status, model count, route count |
+| `n3tx migrate` | 8h | Run migrations with status output; `migrate:status`, `migrate:rollback` |
+| `n3tx seed` | 4h | Wraps seed.py with progress bar; `--reset` flag |
+| `n3tx shell` | 8h | ptpython REPL with all models pre-imported, tab completion |
+| `n3tx list <table>` | 8h | Rich table output from StorableMixin.list(); `--limit`, `--json` |
+| `n3tx create <Model>` | 8h | Schema-driven interactive prompts with validation |
+| `n3tx doctor` | 4h | Diagnostics: Python version, dependencies, DB status, model count, route count |
 
 **Phase 3: Differentiator (1-2 weeks, ~40+ hours)**
 
-Trigger: External developers adopt PyBend OR SSH-based administration becomes a common use case.
+Trigger: External developers adopt N3TX OR SSH-based administration becomes a common use case.
 
 | Feature | Effort | What It Does |
 |---------|--------|-------------|
 | TUI admin dashboard | 20h | Textual app: model sidebar, DataTable, CRUD forms from schema |
 | Schema-driven terminal forms | 12h | `tui_form.py` -- Textual equivalent of `form.js` |
-| `pybend new myapp` | 8h | Project scaffolding: generates `main.py`, `models/`, example model |
+| `n3tx new myapp` | 8h | Project scaffolding: generates `main.py`, `models/`, example model |
 
 ### 7.2 Architecture
 
 ```
 pyproject.toml
   [project.scripts]
-  pybend = "pybend.cli:app"            # Entry point
+  n3tx = "n3tx.cli:app"            # Entry point
 
   [project.optional-dependencies]
   cli = ["typer>=0.12", "rich>=13.0"]
   tui = ["textual>=0.80"]
   shell = ["ptpython>=3.0"]
 
-pybend/cli/
+n3tx/cli/
 +-- __init__.py          # Typer app, command groups
-+-- run.py               # pybend run (uvicorn wrapper)
-+-- model.py             # pybend models, describe, scaffold
-+-- db.py                # pybend migrate, seed
-+-- shell.py             # pybend shell (REPL)
-+-- doctor.py            # pybend doctor (diagnostics)
-+-- crud.py              # pybend list/get/create/update/delete
++-- run.py               # n3tx run (uvicorn wrapper)
++-- model.py             # n3tx models, describe, scaffold
++-- db.py                # n3tx migrate, seed
++-- shell.py             # n3tx shell (REPL)
++-- doctor.py            # n3tx doctor (diagnostics)
++-- crud.py              # n3tx list/get/create/update/delete
 +-- discovery.py         # Model discovery + registration without HTTP
 +-- _utils.py            # Shared: config loading, Rich formatting
 ```
 
-The key architectural decision: `discovery.py` extracts the first half of `PyBendApp.build()` (model registration and storage configuration) into a standalone function that CLI commands call without starting an HTTP server.
+The key architectural decision: `discovery.py` extracts the first half of `N3TXApp.build()` (model registration and storage configuration) into a standalone function that CLI commands call without starting an HTTP server.
 
 ### 7.3 What NOT To Do
 
 | Do NOT | Why |
 |--------|-----|
 | Build a plugin system | Premature for <100 users; adds complexity without demand |
-| Add Textual as a hard dependency | 3MB package; keep CLI lean; TUI is optional via `pybend[tui]` |
+| Add Textual as a hard dependency | 3MB package; keep CLI lean; TUI is optional via `n3tx[tui]` |
 | Generate application code from templates | Template-based scaffolding drifts; schema-driven generation stays correct |
 | Build commands that wrap `curl` | If `curl` does the same thing, do not build a CLI command for it |
 | Ship without error messages that include fix suggestions | Bad error messages are the #1 adoption killer ([clig.dev](https://clig.dev/)) |
@@ -549,19 +549,19 @@ The key architectural decision: `discovery.py` extracts the first half of `PyBen
 
 | Milestone | Decision |
 |-----------|----------|
-| Phase 1 shipped | Measure: do developers use `pybend run` instead of `python main.py`? |
+| Phase 1 shipped | Measure: do developers use `n3tx run` instead of `python main.py`? |
 | 4 weeks post-Phase 1 | Measure: weekly active users of each command. If <50% of team uses CLI, diagnose why |
-| Phase 2 shipped | Measure: are `pybend migrate` and `pybend shell` replacing manual workflows? |
-| First external developer | Re-evaluate: does `pybend new myapp` need to be accelerated to Phase 2? |
+| Phase 2 shipped | Measure: are `n3tx migrate` and `n3tx shell` replacing manual workflows? |
+| First external developer | Re-evaluate: does `n3tx new myapp` need to be accelerated to Phase 2? |
 | SSH admin use case emerges | Trigger Phase 3 TUI dashboard development |
 
-> **Key Finding:** Schema-driven generation is PyBend's competitive moat. The ability to derive CLI behavior from model definitions is something Rails, Django, and Laravel cannot do. A `pybend describe Product` command that shows the schema, lists all generated routes, displays access rules, and previews the UI -- all from a single Python class -- is unique in the framework ecosystem. Lean into it.
+> **Key Finding:** Schema-driven generation is N3TX's competitive moat. The ability to derive CLI behavior from model definitions is something Rails, Django, and Laravel cannot do. A `n3tx describe Product` command that shows the schema, lists all generated routes, displays access rules, and previews the UI -- all from a single Python class -- is unique in the framework ecosystem. Lean into it.
 
 ---
 
 ## 8. Risk Register
 
-**So what?** Every investment carries risks. The probability-impact matrix below identifies the 10 most significant risks for a PyBend CLI initiative, each with a concrete mitigation strategy. The overall risk profile is LOW -- the biggest risk is not building it (competitive DX gap) rather than building it (manageable maintenance).
+**So what?** Every investment carries risks. The probability-impact matrix below identifies the 10 most significant risks for a N3TX CLI initiative, each with a concrete mitigation strategy. The overall risk profile is LOW -- the biggest risk is not building it (competitive DX gap) rather than building it (manageable maintenance).
 
 ### 8.1 Risk Matrix
 
@@ -570,7 +570,7 @@ The key architectural decision: `discovery.py` extracts the first half of `PyBen
 | R1 | **Maintenance burden exceeds team capacity** | Medium | High | 6 | Cap at 7-10 commands; thin wrappers minimize maintenance surface |
 | R2 | **CLI commands drift from framework behavior** | Low | High | 4 | CLI calls existing functions directly (not reimplemented); schema stays single source of truth |
 | R3 | **Developers ignore CLI and use manual workflows** | Medium | Medium | 4 | Measure adoption at 4-week milestones; kill commands nobody uses |
-| R4 | **Typer dependency introduces breaking changes** | Low | Medium | 3 | Pin major version; Typer is maintained by FastAPI team (same ecosystem as PyBend) |
+| R4 | **Typer dependency introduces breaking changes** | Low | Medium | 3 | Pin major version; Typer is maintained by FastAPI team (same ecosystem as N3TX) |
 | R5 | **Startup time >500ms annoys developers** | Medium | Low | 2 | Use typer-slim, lazy imports; profile startup quarterly |
 | R6 | **TUI dashboard scope creep** | High | Medium | 6 | TUI is Phase 3 with explicit trigger; do not start without demand signal |
 | R7 | **Security vulnerability in CLI credential handling** | Low | High | 4 | Use keyring library; never log tokens; never accept secrets as CLI flags |
@@ -597,9 +597,9 @@ Low    |        | R4,R9  | R2,R7  |
 
 ### 8.3 Key Mitigations
 
-**R1 (Maintenance burden):** The most effective mitigation is architectural. CLI commands that are thin wrappers around existing framework functions inherit the framework's own maintenance. When `StorableMixin.list()` changes, the CLI command `pybend list` updates automatically because it calls the same function. The maintenance burden comes from commands that reimplement logic -- which is why we explicitly recommend against template-based scaffolding.
+**R1 (Maintenance burden):** The most effective mitigation is architectural. CLI commands that are thin wrappers around existing framework functions inherit the framework's own maintenance. When `StorableMixin.list()` changes, the CLI command `n3tx list` updates automatically because it calls the same function. The maintenance burden comes from commands that reimplement logic -- which is why we explicitly recommend against template-based scaffolding.
 
-**R6 (TUI scope creep):** The TUI dashboard is the highest-risk component because it is the most complex and the most tempting to gold-plate. The mitigation is a hard trigger: do not start Phase 3 until SSH-based administration is a documented use case from real users. PyBend's web frontend (`matrix.html`) already covers data exploration.
+**R6 (TUI scope creep):** The TUI dashboard is the highest-risk component because it is the most complex and the most tempting to gold-plate. The mitigation is a hard trigger: do not start Phase 3 until SSH-based administration is a documented use case from real users. N3TX's web frontend (`matrix.html`) already covers data exploration.
 
 **R10 (Not building):** The highest-scoring risk in the register. Every modern framework that has gained significant adoption in the last decade -- Next.js, Prisma, Laravel, Rails, Django -- has a CLI as a core part of the developer experience. A framework without a CLI in 2026 signals immaturity to developers evaluating options.
 
@@ -622,10 +622,10 @@ Low    |        | R4,R9  | R2,R7  |
 | **CliRunner** | Test harness from Click/Typer that simulates terminal I/O without spawning subprocesses |
 | **ptpython** | Enhanced Python REPL with syntax highlighting, multiline editing, and tab completion |
 | **Entry points** | Python packaging mechanism for plugin discovery (`[project.entry-points]` in pyproject.toml) |
-| **DynamicClass** | PyBend's runtime-generated NTT subclass created from JSON Schema via `prototype()` in NTT.js |
-| **ProtoModel** | PyBend's base model class that generates JSON Schema, handles serialization, and injects StorableMixin |
-| **ABAC** | Attribute-Based Access Control -- PyBend's authorization system where rules are declared on models |
-| **Scaffold** | Code generation from a model definition -- PyBend's `scaffold.py` generates Web Components from schema |
+| **DynamicClass** | N3TX's runtime-generated N3TX subclass created from JSON Schema via `prototype()` in N3TX.js |
+| **ProtoModel** | N3TX's base model class that generates JSON Schema, handles serialization, and injects StorableMixin |
+| **ABAC** | Attribute-Based Access Control -- N3TX's authorization system where rules are declared on models |
+| **Scaffold** | Code generation from a model definition -- N3TX's `scaffold.py` generates Web Components from schema |
 | **keyring** | Python library providing unified credential storage across macOS Keychain, Linux Secret Service, Windows Credential Manager |
 
 ### Appendix B: Schema-to-Widget Mapping (Complete)
@@ -664,27 +664,27 @@ This is the core translation table that would drive both CLI form generation and
 
 | File | Line(s) | Relevant Content |
 |------|---------|-----------------|
-| `/workspace/src/pybend/core/models/proto_model.py` | 198-316 | `ProtoModel.schema()` -- full schema generation with access rules, UI hints, methods, $defs |
-| `/workspace/src/pybend/core/models/proto_model.py` | 371-380 | `ProtoModel.blueprint()` -- all registered model schemas in one call |
-| `/workspace/src/pybend/core/models/proto_model.py` | 117-137 | `model_dump(response=True)` -- $schema/$id injection |
-| `/workspace/src/pybend/core/app.py` | 128-177 | `PyBendApp.build()` -- model registration before HTTP server |
-| `/workspace/src/pybend/core/app.py` | 180-228 | `create_app()` -- one-liner factory |
-| `/workspace/src/pybend/core/utils/registrar.py` | 9-29 | `registered_models` dict, `register_model()` function |
-| `/workspace/src/pybend/core/api/routes_fastapi.py` | 387-497 | `register_routes()` -- auto-generated CRUD routes from registered models |
-| `/workspace/src/pybend/core/utils/decorators.py` | 3-19 | `@expose_route()` decorator |
-| `/workspace/src/pybend/static/core/NTT.js` | 390-426 | `NTT.SCHEMA()` -- schema bootstrap, DynamicClass creation |
-| `/workspace/src/pybend/static/core/NTT.js` | 663-1075 | `prototype()` -- DynamicClass factory with typed properties and methods |
-| `/workspace/src/pybend/static/core/Matrix.js` | 11-81 | `Matrix` class -- message bus / actor system |
-| `/workspace/src/pybend/core/storage/sqlite_migration.py` | 19-50 | `Migration` base class -- Rails-style up/down migrations |
+| `/workspace/src/n3tx/core/models/proto_model.py` | 198-316 | `ProtoModel.schema()` -- full schema generation with access rules, UI hints, methods, $defs |
+| `/workspace/src/n3tx/core/models/proto_model.py` | 371-380 | `ProtoModel.blueprint()` -- all registered model schemas in one call |
+| `/workspace/src/n3tx/core/models/proto_model.py` | 117-137 | `model_dump(response=True)` -- $schema/$id injection |
+| `/workspace/src/n3tx/core/app.py` | 128-177 | `N3TXApp.build()` -- model registration before HTTP server |
+| `/workspace/src/n3tx/core/app.py` | 180-228 | `create_app()` -- one-liner factory |
+| `/workspace/src/n3tx/core/utils/registrar.py` | 9-29 | `registered_models` dict, `register_model()` function |
+| `/workspace/src/n3tx/core/api/routes_fastapi.py` | 387-497 | `register_routes()` -- auto-generated CRUD routes from registered models |
+| `/workspace/src/n3tx/core/utils/decorators.py` | 3-19 | `@expose_route()` decorator |
+| `/workspace/src/n3tx/static/core/N3TX.js` | 390-426 | `N3TX.SCHEMA()` -- schema bootstrap, DynamicClass creation |
+| `/workspace/src/n3tx/static/core/N3TX.js` | 663-1075 | `prototype()` -- DynamicClass factory with typed properties and methods |
+| `/workspace/src/n3tx/static/core/Matrix.js` | 11-81 | `Matrix` class -- message bus / actor system |
+| `/workspace/src/n3tx/core/storage/sqlite_migration.py` | 19-50 | `Migration` base class -- Rails-style up/down migrations |
 
 ### Appendix D: Competitive CLI Feature Matrix
 
-| Feature | Django | Rails | Laravel | Prisma | Angular | PyBend (proposed) |
+| Feature | Django | Rails | Laravel | Prisma | Angular | N3TX (proposed) |
 |---------|--------|-------|---------|--------|---------|-------------------|
 | Code generation | Minimal | Extensive | Extensive | Schema-driven | Schematics | **Schema-driven** |
 | Database migrations | Built-in | Built-in | Built-in | Built-in | N/A | **Built-in** (wraps existing) |
-| Interactive REPL | `shell` | `console` | `tinker` | Studio (GUI) | No | **`pybend shell`** (ptpython) |
-| Schema inspection | `inspectdb` (reverse) | -- | -- | `prisma studio` | -- | **`pybend describe`** (schema-driven, unique) |
+| Interactive REPL | `shell` | `console` | `tinker` | Studio (GUI) | No | **`n3tx shell`** (ptpython) |
+| Schema inspection | `inspectdb` (reverse) | -- | -- | `prisma studio` | -- | **`n3tx describe`** (schema-driven, unique) |
 | Custom commands | Excellent | Good | Excellent | Limited | Good | Via Typer/Click entry_points |
 | Type safety in output | No | No | No | Yes | Yes (TS) | **Implicit** (Pydantic types) |
 | Visual/TUI elements | None | Minimal | Minimal | Studio GUI | Minimal | **TUI dashboard** (Phase 3) |
@@ -752,12 +752,12 @@ This is the core translation table that would drive both CLI form generation and
 39. [ptpython GitHub](https://github.com/prompt-toolkit/ptpython) -- Enhanced Python REPL
 40. [Laravel Tinker Guide](https://laravel-news.com/laravel-tinker) -- Framework REPL architecture
 
-### Appendix F: PyBend CLI Mock Outputs
+### Appendix F: N3TX CLI Mock Outputs
 
-**`pybend models`**
+**`n3tx models`**
 
 ```
-$ pybend models
+$ n3tx models
 
   Registered Models
   +---------+-----------+---------+---------+
@@ -771,10 +771,10 @@ $ pybend models
   4 models, 2 join models
 ```
 
-**`pybend describe Product`**
+**`n3tx describe Product`**
 
 ```
-$ pybend describe Product
+$ n3tx describe Product
 
   Product (products)
   ==================
@@ -820,16 +820,16 @@ $ pybend describe Product
   POST   /products/{id}/favorite  (method)
 ```
 
-**`pybend doctor`**
+**`n3tx doctor`**
 
 ```
-$ pybend doctor
+$ n3tx doctor
 
-  PyBend Diagnostics
+  N3TX Diagnostics
   ==================
 
   Python:     3.12.1          OK
-  PyBend:     0.7.0           OK
+  N3TX:     0.7.0           OK
   FastAPI:    0.115.4         OK
   Pydantic:   2.7.1           OK
   SQLite:     3.45.0          OK
@@ -854,10 +854,10 @@ $ pybend doctor
 
 ### Appendix G: The Isomorphic Form Architecture
 
-The ultimate architectural payoff of PyBend's schema-driven design: one schema, multiple renderers. No new abstraction layer is needed -- the JSON Schema already IS the abstraction.
+The ultimate architectural payoff of N3TX's schema-driven design: one schema, multiple renderers. No new abstraction layer is needed -- the JSON Schema already IS the abstraction.
 
 ```
-                    PyBend Backend
+                    N3TX Backend
                     ==============
   Model Definition (Python)
          |
@@ -873,7 +873,7 @@ The ultimate architectural payoff of PyBend's schema-driven design: one schema, 
                     |                               |
               Web Frontend                    CLI/TUI Frontend
               ============                    ===============
-         NTT.SCHEMA(data)               schema_to_form(data)
+         N3TX.SCHEMA(data)               schema_to_form(data)
               |                               |
               v                               v
          prototype()                   create_entity_widget()
@@ -902,9 +902,9 @@ What is shared vs. renderer-specific:
 | Widget hints | `ui.widget` in schema | `getInput()` switch | `get_widget()` switch |
 | Groups | `ui.groups` in schema | `<fieldset>` | `TabbedContent`/`Collapsible` |
 | Access control | `access` in schema | `Permissions.js` | Python permission checker |
-| Methods | `methods` in schema | `<ntt-method>` | `Button()` + API call |
+| Methods | `methods` in schema | `<ntx-method>` | `Button()` + API call |
 
-PyBend's approach of inlining UI metadata into the JSON Schema itself (via `json_schema_extra`) is architecturally superior for multi-renderer scenarios. A TUI renderer reads the same schema -- no separate `uiSchema` (like RJSF requires) is needed.
+N3TX's approach of inlining UI metadata into the JSON Schema itself (via `json_schema_extra`) is architecturally superior for multi-renderer scenarios. A TUI renderer reads the same schema -- no separate `uiSchema` (like RJSF requires) is needed.
 
 ---
 

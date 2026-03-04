@@ -1,4 +1,4 @@
-"""PyBend Grant-Watching Example — an agentic app that scans for government grants.
+"""N3TX Grant-Watching Example — an agentic app that scans for government grants.
 
 Usage:
     cd /workspace/example_grants && python main.py
@@ -20,16 +20,16 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import config
-from pybend.core.app import create_app
-from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.core.agents.actor import AgentActor
-from pybend.core.agents.tool_model import AgentTool
+from n3tx.core.app import create_app
+from n3tx.core.storage.sqlite_storage import SQLiteStorage
+from n3tx.core.agents.actor import AgentActor
+from n3tx.core.agents.tool_model import AgentTool
 from models import User, Grant, Source, WebTools
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get('PYBEND_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
+DB_PATH = os.environ.get('N3TX_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
 
 storage = SQLiteStorage(DB_PATH)
 app = create_app(

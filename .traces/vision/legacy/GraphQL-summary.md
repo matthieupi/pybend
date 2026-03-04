@@ -1,4 +1,4 @@
-# GraphQL for PyBend: Executive Summary
+# GraphQL for N3TX: Executive Summary
 
 > *This is a standalone summary of the full strategic analysis report.*
 > *For the complete analysis with technical details, case studies, and*
@@ -8,7 +8,7 @@
 
 ## The Question
 
-Should PyBend adopt GraphQL -- either replacing or supplementing the current REST + JSON Schema API architecture -- to stay competitive and serve developers effectively?
+Should N3TX adopt GraphQL -- either replacing or supplementing the current REST + JSON Schema API architecture -- to stay competitive and serve developers effectively?
 
 The question arises because **61.5% of organizations now run GraphQL in production**, Shopify mandated it for all new apps in April 2025, and the tooling market is projected to reach $890M. GraphQL is no longer niche. The question is whether it is right for *us*.
 
@@ -16,10 +16,10 @@ The question arises because **61.5% of organizations now run GraphQL in producti
 
 ## Key Findings at a Glance
 
-| # | Finding | Implication for PyBend |
+| # | Finding | Implication for N3TX |
 |---|---|---|
 | 1 | **61.5% of orgs** run GraphQL in production, but **83% of web services still use REST** | GraphQL supplements REST; it rarely replaces it. We are not behind. |
-| 2 | **PyBend's schema carries UI hints, access rules, and method signatures** -- metadata that GraphQL SDL cannot express | Adopting GraphQL would mean losing our core differentiator or building a parallel metadata system |
+| 2 | **N3TX's schema carries UI hints, access rules, and method signatures** -- metadata that GraphQL SDL cannot express | Adopting GraphQL would mean losing our core differentiator or building a parallel metadata system |
 | 3 | **30-50% payload reduction** from GraphQL's field selection | Achievable with `?fields=` REST parameter in ~50 lines of code |
 | 4 | **+20-40% server CPU overhead** for GraphQL at scale | Cost increase for marginal benefit in a single-frontend architecture |
 | 5 | **69% of GraphQL APIs** are vulnerable to DoS out of the box | Significant security hardening investment required (2-4 weeks) |
@@ -42,10 +42,10 @@ The honest assessment: GraphQL's value is **organizational, not just technical**
 
 ## Where We Stand Today
 
-PyBend's architecture already delivers **70-80% of the value** that drives GraphQL adoption:
+N3TX's architecture already delivers **70-80% of the value** that drives GraphQL adoption:
 
 ```
-What PyBend Has                          What GraphQL Would Add
+What N3TX Has                          What GraphQL Would Add
 -------------------------------          ---------------------------
 Schema as single source of truth  100%   Client-specified fields     NEW
 Type-safe API (Pydantic)          100%   Single-request nested       PARTIAL
@@ -56,7 +56,7 @@ UI hints in schema (widgets,       --    (No equivalent -- would
   layout, groups, renderers)             LOSE this capability)
 ```
 
-**PyBend's JSON Schema is richer than GraphQL SDL.** A single `GET /Product` call returns everything the frontend needs to render a complete, permission-aware, grouped form with action buttons. GraphQL introspection returns type information but not *how to render it*, *who can edit it*, or *what buttons to show*. Migrating to GraphQL would mean either losing this metadata or building a custom extension layer that replicates what JSON Schema provides for free.
+**N3TX's JSON Schema is richer than GraphQL SDL.** A single `GET /Product` call returns everything the frontend needs to render a complete, permission-aware, grouped form with action buttons. GraphQL introspection returns type information but not *how to render it*, *who can edit it*, or *what buttons to show*. Migrating to GraphQL would mean either losing this metadata or building a custom extension layer that replicates what JSON Schema provides for free.
 
 The capability gaps are real but narrow: field selection (addressable with `?fields=` parameter), filtered child queries (addressable with enhanced `?populate=`), real-time updates (addressable with WebSocket/SSE), and interactive schema exploration (addressable with a custom explorer UI).
 
@@ -82,9 +82,9 @@ The capability gaps are real but narrow: field selection (addressable with `?fie
 | Security hardening (depth limits, cost analysis, rate limiting) | 2-4 weeks engineering |
 | N+1 DataLoader implementation per resolver | Ongoing development tax |
 | Caching infrastructure replacement | Weeks of architecture work |
-| NTT frontend rewrite | 3-6 months (if replacing schema-driven rendering) |
+| N3TX frontend rewrite | 3-6 months (if replacing schema-driven rendering) |
 
-**Break-even analysis:** Full GraphQL adoption pays for itself only when PyBend serves **3+ distinct client applications** with different data needs. With a single NTT frontend, the investment has negative ROI.
+**Break-even analysis:** Full GraphQL adoption pays for itself only when N3TX serves **3+ distinct client applications** with different data needs. With a single N3TX frontend, the investment has negative ROI.
 
 ---
 
@@ -105,7 +105,7 @@ The capability gaps are real but narrow: field selection (addressable with `?fie
 **What we explicitly do NOT recommend:**
 - Do NOT replace the REST API with GraphQL -- the schema-carries-UI pattern is our competitive differentiator and has no GraphQL equivalent
 - Do NOT add GraphQL "just in case" -- maintaining two API surfaces doubles testing and documentation for zero benefit without a concrete consumer
-- Do NOT adopt Apollo Client on the frontend -- NTT's DynamicClass system is purpose-built for schema-driven rendering
+- Do NOT adopt Apollo Client on the frontend -- N3TX's DynamicClass system is purpose-built for schema-driven rendering
 
 **If a business requirement for GraphQL emerges** (e.g., a partner integration demands it), deploy a **Strawberry read-only gateway** over existing REST in 2-4 weeks. The existing architecture stays intact; external consumers get GraphQL.
 
@@ -115,7 +115,7 @@ The capability gaps are real but narrow: field selection (addressable with `?fie
 
 | Risk | Probability | Impact | Mitigation |
 |---|---|---|---|
-| **Market perception**: "No GraphQL = outdated" | Low-Medium | Medium | Document capability parity; PyBend's schema-driven approach is a differentiator, not a limitation. Prepare Strawberry gateway recipe. |
+| **Market perception**: "No GraphQL = outdated" | Low-Medium | Medium | Document capability parity; N3TX's schema-driven approach is a differentiator, not a limitation. Prepare Strawberry gateway recipe. |
 | **External API demand**: Partner/customer requires GraphQL | Medium | Medium | Strawberry gateway is ready to deploy in days. No architectural change needed. Documented in cookbook. |
 | **Over-fetching hurts mobile performance** | Low-Medium | Medium | `?fields=` implementation (1-2 days) closes this gap. Measure payload sizes before and after. |
 
@@ -140,4 +140,4 @@ The capability gaps are real but narrow: field selection (addressable with `?fie
 
 ---
 
-*Summary compiled February 26, 2026. Based on 5 specialist research documents, PyBend v0.7.0 codebase analysis, and current industry data. For the complete analysis with detailed case studies, technical architecture assessment, code-level analysis, and full source references, see [graphql-analysis.md](../research/graphql/graphql-analysis.md).*
+*Summary compiled February 26, 2026. Based on 5 specialist research documents, N3TX v0.7.0 codebase analysis, and current industry data. For the complete analysis with detailed case studies, technical architecture assessment, code-level analysis, and full source references, see [graphql-analysis.md](../research/graphql/graphql-analysis.md).*

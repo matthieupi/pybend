@@ -1,4 +1,4 @@
-# Decision Framework: Static Site Generation for PyBend
+# Decision Framework: Static Site Generation for N3TX
 
 **Document:** 03-decision-framework.md
 **Date:** 2026-02-25
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-PyBend is a schema-driven dynamic framework: a Python model definition
+N3TX is a schema-driven dynamic framework: a Python model definition
 produces an API, JSON Schema, storage, and a live web UI at runtime. The
 question is whether building a static HTML export capability is worth the
 engineering investment, and for which project profiles it would deliver
@@ -74,7 +74,7 @@ START: Does the site require user authentication for core features?
                       |
                       NO  --> FULLY STATIC
                               Best cost/performance profile.
-                              Ideal for PyBend static export.
+                              Ideal for N3TX static export.
 ```
 
 ### 1.3 Project Type Classification
@@ -133,10 +133,10 @@ FULLY STATIC ---- STATIC + JS ISLANDS ---- ISR/SSG ---- SSR ---- FULL SPA
 | **Offline support** | Trivial | Easy | Moderate | Hard | Moderate |
 | **Framework example** | Hugo, 11ty | Astro | Next.js ISR | Next.js SSR | React SPA |
 
-### 2.3 Where PyBend Projects Belong
+### 2.3 Where N3TX Projects Belong
 
-Given PyBend's architecture -- schema-driven, model-as-source-of-truth,
-auto-generated CRUD UI -- most PyBend applications are inherently
+Given N3TX's architecture -- schema-driven, model-as-source-of-truth,
+auto-generated CRUD UI -- most N3TX applications are inherently
 dynamic. They rely on:
 
 - Live API calls to fetch entity data
@@ -144,7 +144,7 @@ dynamic. They rely on:
 - Real-time schema resolution for UI rendering
 - Server-side access control enforcement
 
-**However**, a meaningful subset of PyBend deployments are read-only
+**However**, a meaningful subset of N3TX deployments are read-only
 public sites: product catalogs, documentation, company directories,
 event listings. For these, the dynamic capabilities are overhead. A
 static export would:
@@ -160,12 +160,12 @@ static export would:
 
 ### 3.1 Engineering Effort Estimate
 
-Building a static export capability for PyBend requires:
+Building a static export capability for N3TX requires:
 
 | Component | Effort | Description |
 |-----------|--------|-------------|
-| **HTML template engine** | 3-4 weeks | Convert NTT.js runtime rendering to server-side HTML generation. Must read the same JSON Schema and produce equivalent markup without JavaScript. |
-| **Static file generator** | 2-3 weeks | CLI command (`pybend export --output ./dist`) that iterates all models, fetches all entities, renders pages, writes HTML/CSS. |
+| **HTML template engine** | 3-4 weeks | Convert N3TX.js runtime rendering to server-side HTML generation. Must read the same JSON Schema and produce equivalent markup without JavaScript. |
+| **Static file generator** | 2-3 weeks | CLI command (`n3tx export --output ./dist`) that iterates all models, fetches all entities, renders pages, writes HTML/CSS. |
 | **Asset pipeline** | 1-2 weeks | CSS extraction, image optimization, sitemap.xml, robots.txt generation. |
 | **Incremental rebuild** | 2-3 weeks | Content hashing, dependency tracking, rebuild only changed pages. Critical for sites > 1K pages. |
 | **Testing + docs** | 1-2 weeks | Verify output matches dynamic rendering. Document configuration. |
@@ -176,7 +176,7 @@ Building a static export capability for PyBend requires:
 
 Those 10-16 engineering weeks could alternatively fund:
 
-- HTTP caching layer for dynamic PyBend (2-3 weeks, benefits all users)
+- HTTP caching layer for dynamic N3TX (2-3 weeks, benefits all users)
 - Five new framework features from the backlog
 - Performance optimization of the existing stack
 - Additional storage backends (PostgreSQL, MongoDB)
@@ -185,7 +185,7 @@ Those 10-16 engineering weeks could alternatively fund:
 
 | Metric | Without Static Export | With Static Export |
 |--------|---------------------|-------------------|
-| Addressable market | 100% of PyBend users | +30% catalog/docs users |
+| Addressable market | 100% of N3TX users | +30% catalog/docs users |
 | Hosting cost for static projects | $6-50/mo (VPS) | $0-5/mo (CDN) |
 | Performance (TTFB) | 100-300 ms | 10-50 ms |
 | Reliability (uptime) | 99.5-99.9% | 99.99%+ (CDN) |
@@ -199,7 +199,7 @@ Those 10-16 engineering weeks could alternatively fund:
 
 ### 4.1 Hosting Cost Matrix (Monthly)
 
-The following compares the total monthly cost of serving a PyBend
+The following compares the total monthly cost of serving a N3TX
 application as a static site on a CDN versus running it as a dynamic
 FastAPI application on a VPS.
 
@@ -253,7 +253,7 @@ of $10-50/month (typical range for the target segment):
 | $25/mo | 333-533 | 167-267 |
 | $50/mo | 167-267 | 83-133 |
 
-**Verdict:** The feature pays for itself only if PyBend captures
+**Verdict:** The feature pays for itself only if N3TX captures
 hundreds of static-site projects. As a framework feature, the value is
 strategic (market positioning, competitive differentiation) rather than
 direct cost recovery.
@@ -281,13 +281,13 @@ Actual times depend on page complexity, template logic, and hardware.*
 [7][8][9]
 
 Hugo is 40-250x faster than framework-based generators at scale. For a
-hypothetical PyBend static exporter (Python-based), expect performance
+hypothetical N3TX static exporter (Python-based), expect performance
 in the Eleventy/Jekyll range -- Python template engines (Jinja2) are
 comparable to Ruby/Node for this workload.
 
-### 5.2 PyBend-Specific Build Time Estimates
+### 5.2 N3TX-Specific Build Time Estimates
 
-A PyBend static export would need to:
+A N3TX static export would need to:
 
 1. Boot the application (load models, connect to storage)
 2. Query all entities from SQLite
@@ -310,7 +310,7 @@ A PyBend static export would need to:
 | **Dependency graph** | High | ~4s (rebuilds 1K + dependents only) | Full dep graph |
 | **ISR (on-demand)** | Medium | ~0.05s per page (on request) | Requires server |
 
-For PyBend's target use cases (< 10K pages), full rebuilds under 1
+For N3TX's target use cases (< 10K pages), full rebuilds under 1
 minute are acceptable. **Incremental builds add complexity that is
 justified only above 10K pages.**
 
@@ -337,7 +337,7 @@ justified only above 10K pages.**
 ```
 CONTENT CHANGE
      |
-     +-- Manual trigger (CLI: pybend export)
+     +-- Manual trigger (CLI: n3tx export)
      |     Best for: Documentation, portfolios
      |     Latency: Developer-initiated
      |
@@ -378,18 +378,18 @@ Freshness        Cost/Complexity
  Weekly+ -------> ~$0    Static files, deploy and forget
 ```
 
-For the PyBend target segment (catalogs, docs, blogs), 15-minute to
+For the N3TX target segment (catalogs, docs, blogs), 15-minute to
 1-hour staleness is typically acceptable, putting the optimal strategy
 at **webhook-triggered or scheduled rebuilds** -- the sweet spot of low
 cost and adequate freshness.
 
 ---
 
-## 7. Migration Effort: Adding Static Export to PyBend
+## 7. Migration Effort: Adding Static Export to N3TX
 
-### 7.1 What PyBend Already Has
+### 7.1 What N3TX Already Has
 
-PyBend's architecture provides several advantages for static export:
+N3TX's architecture provides several advantages for static export:
 
 | Existing Capability | Static Export Leverage |
 |--------------------|----------------------|
@@ -405,9 +405,9 @@ PyBend's architecture provides several advantages for static export:
 
 | Component | Gap | Approach |
 |-----------|-----|---------|
-| **Server-side HTML renderer** | NTT.js renders in the browser; no Python equivalent | Jinja2 templates that consume the same JSON Schema. Must replicate `ntt-item`, `ntt-list`, `form.js` layout logic. |
+| **Server-side HTML renderer** | N3TX.js renders in the browser; no Python equivalent | Jinja2 templates that consume the same JSON Schema. Must replicate `ntx-item`, `ntx-list`, `form.js` layout logic. |
 | **CSS extraction** | Styles are in JS component files | Extract to standalone `.css` files. Most styles are already in CSS custom properties. |
-| **Static file writer** | No CLI export command | New `pybend export` command that boots app, queries all data, renders, writes to `dist/`. |
+| **Static file writer** | No CLI export command | New `n3tx export` command that boots app, queries all data, renders, writes to `dist/`. |
 | **URL mapping** | Dynamic routes (`/{tablename}/{id}`) to file paths | `/{tablename}/{id}` becomes `/{tablename}/{id}/index.html`. Collection pages become `/{tablename}/index.html` with pagination. |
 | **Asset handling** | Images/uploads are served dynamically | Copy to `dist/assets/`, rewrite URLs in HTML. |
 | **Search** | Dynamic search relies on API | Options: (a) generate a JSON index for client-side search (Lunr.js, Pagefind), (b) skip search, (c) external search service. |
@@ -419,7 +419,7 @@ PyBend's architecture provides several advantages for static export:
 |--------|-----------------|-----------|
 | Data extraction | 1 | `StorableMixin.list()` already works |
 | Schema interpretation | 2 | JSON Schema is well-structured |
-| HTML rendering | 4 | Must replicate all NTT.js display logic in Python |
+| HTML rendering | 4 | Must replicate all N3TX.js display logic in Python |
 | CSS pipeline | 2 | Mostly extraction and concatenation |
 | URL structure | 2 | Straightforward mapping |
 | Pagination (static) | 3 | Generate page-1.html, page-2.html, etc. |
@@ -434,7 +434,7 @@ PyBend's architecture provides several advantages for static export:
 
 ### 8.1 Trying to Make Interactive Apps Static
 
-**The trap:** A team builds a PyBend app with authentication, user
+**The trap:** A team builds a N3TX app with authentication, user
 dashboards, and real-time comments, then asks "can we make this static?"
 
 **Why it fails:** Static generation can only capture the public,
@@ -497,7 +497,7 @@ would achieve 80% of the benefit.
 near-static performance (20-50ms TTFB) without any code changes. The
 static export adds build complexity for marginal improvement.
 
-**This is the most relevant anti-pattern for PyBend.** See Section 10
+**This is the most relevant anti-pattern for N3TX.** See Section 10
 for the caching-first alternative.
 
 ---
@@ -536,11 +536,11 @@ JavaScript islands for search, comments, or analytics).
 **~55-65% require dynamic serving** and would not benefit from static
 export at all.
 
-For PyBend specifically, the framework's value proposition is
+For N3TX specifically, the framework's value proposition is
 schema-driven dynamic applications. Users who need a static blog are
-more likely to reach for Hugo or Astro directly. The PyBend static
+more likely to reach for Hugo or Astro directly. The N3TX static
 export feature targets a narrower segment: **users who build their data
-model in PyBend for the authoring/admin experience, then want to publish
+model in N3TX for the authoring/admin experience, then want to publish
 the public-facing site as static HTML.**
 
 ---
@@ -555,7 +555,7 @@ that deliver many of the same benefits with less effort:
 **Effort:** 2-3 weeks
 **Impact:** 70-80% of the performance benefit of static
 
-Add `Cache-Control` headers to PyBend API responses:
+Add `Cache-Control` headers to N3TX API responses:
 
 ```
 # Read-only entity responses
@@ -572,7 +572,7 @@ With a CDN in front (Cloudflare free tier), this reduces origin requests
 by 80-95% and delivers TTFB of 20-50ms for cached responses -- matching
 static site performance for repeat visitors.
 
-**Pros:** Benefits ALL PyBend users, not just the static segment. Zero
+**Pros:** Benefits ALL N3TX users, not just the static segment. Zero
 change to development workflow. Works with authentication (vary by token).
 
 **Cons:** First request to each URL still hits origin. Stale content
@@ -583,7 +583,7 @@ window is configurable but non-zero.
 **Effort:** 1 week (configuration only)
 **Impact:** Equivalent to static for read-heavy sites
 
-Place the entire PyBend application behind a CDN with aggressive caching
+Place the entire N3TX application behind a CDN with aggressive caching
 rules. Cloudflare's free tier includes:
 
 - Unlimited bandwidth
@@ -625,14 +625,14 @@ pattern:
   <body>
     <nav>...</nav>  <!-- Static, rendered at build time -->
     <main>
-      <ntt-list model="Product"></ntt-list>  <!-- Hydrates from API -->
+      <ntx-list model="Product"></ntx-list>  <!-- Hydrates from API -->
     </main>
     <footer>...</footer>  <!-- Static -->
   </body>
 </html>
 ```
 
-**This is the most natural fit for PyBend's architecture.** The web
+**This is the most natural fit for N3TX's architecture.** The web
 components already fetch data from the API at runtime. The "static
 export" is simply pre-rendering the page chrome and letting the
 components hydrate normally.
@@ -653,14 +653,14 @@ components hydrate normally.
 
 ### 11.1 Phase 1: Caching First (Weeks 1-3)
 
-Implement aggressive HTTP caching in PyBend's route layer:
+Implement aggressive HTTP caching in N3TX's route layer:
 
 1. Add `Cache-Control` headers to all read endpoints
 2. Add `ETag` support for conditional requests
 3. Document CDN setup (Cloudflare free tier) in deployment guide
 4. Add cache purge webhook endpoint for on-demand invalidation
 
-**This benefits 100% of PyBend users immediately**, not just the
+**This benefits 100% of N3TX users immediately**, not just the
 static-site segment. For read-heavy sites behind a CDN, the
 performance will approach static-site levels.
 
@@ -668,7 +668,7 @@ performance will approach static-site levels.
 
 Collect usage data:
 
-- How many PyBend projects are read-only / public?
+- How many N3TX projects are read-only / public?
 - What is the average page count?
 - Are users requesting static export?
 - How do sites perform with Phase 1 caching?
@@ -679,8 +679,8 @@ If data confirms demand, proceed to Phase 3.
 
 Build the minimal viable static exporter:
 
-1. `pybend export` CLI command
-2. Jinja2 templates mirroring NTT.js layout
+1. `n3tx export` CLI command
+2. Jinja2 templates mirroring N3TX.js layout
 3. Full rebuild only (skip incremental for v1)
 4. Output to `dist/` with deployment docs for Cloudflare Pages / Netlify
 
@@ -705,7 +705,7 @@ forms).
 ## 12. Key Takeaways
 
 1. **Static export is a real capability with a bounded market.** ~30% of
-   web projects could benefit, but only a subset of PyBend users fit the
+   web projects could benefit, but only a subset of N3TX users fit the
    profile (read-only, public, < 10K pages).
 
 2. **The cost savings are real but conditional.** At 100K+ visitors/day,
@@ -724,7 +724,7 @@ forms).
 5. **The biggest risk is building for a segment that uses other tools.**
    Developers who need static sites already have Hugo (builds 64K pages
    in 15 seconds), Astro (islands architecture), and Eleventy (Node
-   simplicity). PyBend's unique value is the dynamic, schema-driven
+   simplicity). N3TX's unique value is the dynamic, schema-driven
    stack. A static exporter is a nice-to-have, not a differentiator.
 
 6. **If you build it, build it minimal.** Full rebuild, Jinja2 templates,

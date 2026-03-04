@@ -1,15 +1,15 @@
 # Option 2: Expand Agent Capabilities -- Advanced Tooling, Multi-Agent Pipelines, and Intelligent Orchestration
 
-**Grant Watcher on PyBend v0.10**
+**Grant Watcher on N3TX v0.10**
 *Research Date: 2026-03-04*
 
 ---
 
 ## Executive Summary
 
-Grant Watcher today is a **single-agent system**: one LLM agent scrapes web pages, extracts grant data, and writes records to a database. It works. But it does not scale -- in accuracy, in coverage, in reliability, or in operational intelligence. This document analyzes how to evolve the agent layer from "one agent scrapes pages" to a **multi-agent grant intelligence platform**, while staying grounded in PyBend's existing Actor/Matrix/TX primitives.
+Grant Watcher today is a **single-agent system**: one LLM agent scrapes web pages, extracts grant data, and writes records to a database. It works. But it does not scale -- in accuracy, in coverage, in reliability, or in operational intelligence. This document analyzes how to evolve the agent layer from "one agent scrapes pages" to a **multi-agent grant intelligence platform**, while staying grounded in N3TX's existing Actor/Matrix/TX primitives.
 
-> **Key Insight:** PyBend's Actor/Matrix/TX messaging system is already a multi-agent message bus. The infrastructure for inter-agent communication, routing, and correlation exists today. What is missing is not plumbing -- it is **orchestration logic, domain-specific tools, agent memory, and structured validation**.
+> **Key Insight:** N3TX's Actor/Matrix/TX messaging system is already a multi-agent message bus. The infrastructure for inter-agent communication, routing, and correlation exists today. What is missing is not plumbing -- it is **orchestration logic, domain-specific tools, agent memory, and structured validation**.
 
 The recommended path is a **three-phase rollout** over 8-12 weeks:
 
@@ -293,7 +293,7 @@ Adding a new tool actor to Grant Watcher requires exactly two changes:
 1. **Create the actor class** (e.g., `models/grants_gov_tools.py`)
 2. **Register it in `main.py`**: Add to the `models=[]` list in `create_app()`
 
-That is it. The `discover_tools()` function in `/workspace/src/pybend/core/agents/tools.py` reads the actor's `schema()`, finds all `@expose_route` methods, and generates `ToolSpec` objects. The agent's `AgentTool` join records just need a new entry pointing to the actor address:
+That is it. The `discover_tools()` function in `/workspace/src/n3tx/core/agents/tools.py` reads the actor's `schema()`, finds all `@expose_route` methods, and generates `ToolSpec` objects. The agent's `AgentTool` join records just need a new entry pointing to the actor address:
 
 ```python
 # In seed.py or via API
@@ -394,9 +394,9 @@ Grant discovery qualifies: a single well-matched grant can be worth $100K-$1M+ i
                           +------------------+
 ```
 
-### How PyBend's Matrix/TX Enables This Natively
+### How N3TX's Matrix/TX Enables This Natively
 
-This is the critical insight: **PyBend already has the multi-agent message bus**. The Actor/Matrix/TX system is exactly the inter-agent communication layer that frameworks like LangGraph, CrewAI, and AutoGen build from scratch.
+This is the critical insight: **N3TX already has the multi-agent message bus**. The Actor/Matrix/TX system is exactly the inter-agent communication layer that frameworks like LangGraph, CrewAI, and AutoGen build from scratch.
 
 Current Matrix routing already supports:
 
@@ -479,7 +479,7 @@ async def scan_and_review_pipeline(sources: list, user: dict):
     return {'discovered': len(candidates), 'approved': len(approved)}
 ```
 
-> **Key Insight:** We do not need to pick between "pydantic-ai orchestration" and "PyBend TX routing." The beauty of the current architecture is that **pydantic-ai handles the LLM reasoning loop** (prompt -> think -> tool call -> repeat) while **Matrix/TX handles the tool execution** (tool call -> TX -> actor -> response). Each layer does what it is good at.
+> **Key Insight:** We do not need to pick between "pydantic-ai orchestration" and "N3TX TX routing." The beauty of the current architecture is that **pydantic-ai handles the LLM reasoning loop** (prompt -> think -> tool call -> repeat) while **Matrix/TX handles the tool execution** (tool call -> TX -> actor -> response). Each layer does what it is good at.
 
 ### Minimum Viable Multi-Agent: Scanner + Reviewer
 
@@ -713,7 +713,7 @@ async def agent_run(self, prompt: str, tools: list, task: str,
 Pydantic AI has built-in retry via `ModelRetry`. When a tool call fails validation, the error message goes back to the LLM, which adjusts and retries. The current tool code already does this:
 
 ```python
-# From /workspace/src/pybend/core/agents/tools.py line 195-196
+# From /workspace/src/n3tx/core/agents/tools.py line 195-196
 if response.is_error:
     from pydantic_ai import ModelRetry
     raise ModelRetry(response.data.get('message', 'Tool call failed'))
@@ -957,7 +957,7 @@ The grant discovery market is well-established. [Fundsprout's comparison of 12 p
 
 Grant Watcher is **not competing** with these platforms. It is:
 
-1. **A framework demonstration** -- showing how PyBend's agent system works
+1. **A framework demonstration** -- showing how N3TX's agent system works
 2. **A self-hosted alternative** -- for organizations that want to run their own grant discovery
 3. **A customizable platform** -- where the matching criteria are defined by the user, not the vendor
 
@@ -1227,4 +1227,4 @@ Grant discovery is inherently a **batch process** -- grants do not appear in rea
 
 ---
 
-*Document generated 2026-03-04. Agent system analysis based on PyBend v0.10 codebase at `/workspace/src/pybend/core/agents/` and Grant Watcher application at `/workspace/example_grants/`.*
+*Document generated 2026-03-04. Agent system analysis based on N3TX v0.10 codebase at `/workspace/src/n3tx/core/agents/` and Grant Watcher application at `/workspace/example_grants/`.*

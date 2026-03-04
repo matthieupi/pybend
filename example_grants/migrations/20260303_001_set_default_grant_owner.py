@@ -1,4 +1,4 @@
-from pybend.core.storage.sqlite_migration import Migration
+from n3tx.core.storage.sqlite_migration import Migration
 
 
 class SetDefaultGrantOwner(Migration):

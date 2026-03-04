@@ -18,7 +18,7 @@ The core thesis: when the discriminator lives in the schema (not in application 
 2. **Runtime extensibility** -- user-defined types register at startup (or later) without redeployment.
 3. **Three-layer propagation** -- a single `type` field declaration cascades from database column to API schema to UI form adaptation.
 
-We examine how this plays out across JSON Schema, OpenAPI 3.1, GraphQL, event sourcing registries, and schema-driven frameworks like PyBend.
+We examine how this plays out across JSON Schema, OpenAPI 3.1, GraphQL, event sourcing registries, and schema-driven frameworks like N3TX.
 
 ---
 
@@ -288,7 +288,7 @@ For frameworks building their own extension systems, JSON Schema provides three 
 | `patternProperties` | Fields matching a pattern | `"x-.*": { "type": "string" }` for extension fields |
 | `$dynamicRef` / `$dynamicAnchor` | Runtime schema composition | Base schema references dynamic anchor; extensions provide it |
 
-> **For leadership:** The CMS industry has converged on a pattern: define types through an admin interface, generate schemas and APIs automatically, render UI from the schema. Strapi, Contentful, Sanity, and others all work this way. Schema-driven frameworks like PyBend apply the same pattern but with code-first model definitions instead of a visual builder -- same principle, different entry point.
+> **For leadership:** The CMS industry has converged on a pattern: define types through an admin interface, generate schemas and APIs automatically, render UI from the schema. Strapi, Contentful, Sanity, and others all work this way. Schema-driven frameworks like N3TX apply the same pattern but with code-first model definitions instead of a visual builder -- same principle, different entry point.
 
 ---
 
@@ -322,9 +322,9 @@ Server running
   -> UI renders "Event" CRUD immediately
 ```
 
-### How this maps to PyBend's architecture
+### How this maps to N3TX's architecture
 
-PyBend's current flow already has the primitives for runtime registration:
+N3TX's current flow already has the primitives for runtime registration:
 
 **Backend (`register_model` + `ProtoModel.schema()`):**
 
@@ -341,7 +341,7 @@ def register_model(model_class, storage=None):
     registered_models[model_class.__tablename__] = model_class
 ```
 
-**Frontend (`NTT.SCHEMA()` + `prototype()`):** When the frontend receives a schema via `NTT.SCHEMA()`, it first iterates `$defs` to register nested types, then calls `prototype(addr, data, href)` to generate a DynamicClass -- a JavaScript class with typed properties, methods, and labels all derived from the JSON Schema document. This is already dynamic type registration. The `#prototypes` Map holds all registered DynamicClasses keyed by model name. The only missing piece for full CMS-style workflows is a backend API to create model classes from schema definitions (rather than from Python source code).
+**Frontend (`N3TX.SCHEMA()` + `prototype()`):** When the frontend receives a schema via `N3TX.SCHEMA()`, it first iterates `$defs` to register nested types, then calls `prototype(addr, data, href)` to generate a DynamicClass -- a JavaScript class with typed properties, methods, and labels all derived from the JSON Schema document. This is already dynamic type registration. The `#prototypes` Map holds all registered DynamicClasses keyed by model name. The only missing piece for full CMS-style workflows is a backend API to create model classes from schema definitions (rather than from Python source code).
 
 ### What runtime registration requires
 
@@ -424,7 +424,7 @@ User switches to "Payment Type: Bank Transfer"
   -> Hides: card_number, exp_month, exp_year fields
 ```
 
-This is the pattern that schema-driven form generators (like PyBend's `Formidable`) can implement: read the discriminator field, resolve which branch of the schema applies, render only the relevant fields.
+This is the pattern that schema-driven form generators (like N3TX's `Formidable`) can implement: read the discriminator field, resolve which branch of the schema applies, render only the relevant fields.
 
 ### Widening: accepting broader types
 
@@ -812,11 +812,11 @@ In a schema-driven framework, the discriminator declared in the model definition
    ┌──────────┐   ┌──────────┐   ┌──────────────┐
    │ STORAGE  │   │   API    │   │      UI      │
    │          │   │          │   │              │
-   │ content  │   │ GET /    │   │ <ntt-list>   │
+   │ content  │   │ GET /    │   │ <ntx-list>   │
    │ ┌──────┐ │   │ Content  │   │ renders base │
    │ │type  │ │   │ returns  │   │ fields;      │
    │ │title │ │   │ oneOf    │   │              │
-   │ │body? │ │   │ schema   │   │ <ntt-item>   │
+   │ │body? │ │   │ schema   │   │ <ntx-item>   │
    │ │url?  │ │   │ with     │   │ reads type,  │
    │ │...   │ │   │ discrim. │   │ shows type-  │
    │ └──────┘ │   │          │   │ specific     │
@@ -829,7 +829,7 @@ In a schema-driven framework, the discriminator declared in the model definition
 
 **API layer:** `ProtoModel.schema()` generates a JSON Schema with `oneOf` + `discriminator` referencing the `type` field. Each variant is a `$defs` entry. The GET endpoint returns the polymorphic schema; CRUD operations validate against the correct variant based on the discriminator value.
 
-**UI layer:** `NTT.SCHEMA()` receives the polymorphic schema, `prototype()` creates DynamicClasses for each variant. The form generator reads the discriminator and renders the appropriate fields. Type switching in a create/edit form dynamically swaps the field set.
+**UI layer:** `N3TX.SCHEMA()` receives the polymorphic schema, `prototype()` creates DynamicClasses for each variant. The form generator reads the discriminator and renders the appropriate fields. Type switching in a create/edit form dynamically swaps the field set.
 
 ### What auto-generation buys you
 

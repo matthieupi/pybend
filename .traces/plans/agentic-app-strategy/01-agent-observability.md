@@ -1,7 +1,7 @@
 # Agent Observability for Grant Watcher
 
 **Research Date:** 2026-03-04
-**Scope:** Persistent run tracking, tool call tracing, cost accounting, live progress, and external observability integration for the PyBend agent system.
+**Scope:** Persistent run tracking, tool call tracing, cost accounting, live progress, and external observability integration for the N3TX agent system.
 **Audience:** Technical CEO + Engineering Leadership
 
 ---
@@ -152,7 +152,7 @@ Right now, `POST /agents/1/run` is fire-and-hope. The operator has no idea if th
 
 ### 4.1 AgentRun Model Definition
 
-This follows the standard PyBend model pattern. It lives in the Grant Watcher example app (not the framework), since run tracking is application-level, not framework-level.
+This follows the standard N3TX model pattern. It lives in the Grant Watcher example app (not the framework), since run tracking is application-level, not framework-level.
 
 ```python
 # example_grants/models/agent_run.py
@@ -162,9 +162,9 @@ import json
 from typing import ClassVar, Optional
 from pydantic import Field, model_validator
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.authorize import ANYONE, AUTHENTICATED, ROLE
-from pybend.core.widgets import DateTimeField, TextareaField, CurrencyField
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.authorize import ANYONE, AUTHENTICATED, ROLE
+from n3tx.core.widgets import DateTimeField, TextareaField, CurrencyField
 
 _JSON_FIELDS = ('tool_calls', 'messages')
 
@@ -233,7 +233,7 @@ class AgentRun(ActorModel):
         return d
 ```
 
-> **Key Insight:** This model follows the exact same JSON-field serialization pattern as `AgentActor` (see `/workspace/src/pybend/core/agents/actor.py` lines 67-87). The `_JSON_FIELDS` / `_storage_dict` / `@model_validator` trio is a proven pattern for SQLite storage of complex types.
+> **Key Insight:** This model follows the exact same JSON-field serialization pattern as `AgentActor` (see `/workspace/src/n3tx/core/agents/actor.py` lines 67-87). The `_JSON_FIELDS` / `_storage_dict` / `@model_validator` trio is a proven pattern for SQLite storage of complex types.
 
 ### 4.2 Registration and Join Model
 
@@ -254,7 +254,7 @@ This gives us:
 - `GET /agent_runs` -- list all runs (paginated, auth-gated)
 - `GET /agent_runs/{id}` -- single run detail
 - `GET /agents/{agent_id}/agent_runs` -- runs for a specific agent (via join model)
-- Frontend: `<ntt-list model="AgentRun">` renders a browsable run history
+- Frontend: `<ntx-list model="AgentRun">` renders a browsable run history
 
 The join model `AgentActorAgentRun` is generated automatically by `generate_join_model()` with an `agentactor_id` FK column, following the exact pattern used for `AgentActorAgentTool` already in the codebase.
 
@@ -347,13 +347,13 @@ async def instrumented_run(self, task: str, user=None, **kwargs) -> str:
 
 ### 4.4 Tool Call Trace Interceptor
 
-The tracing interceptor hooks into the transient `NetworkAdapter` that `agent_run()` creates for each run (see `/workspace/src/pybend/core/agents/mixin.py` line 89). The key insight: `adapter.use()` already exists and supports both `request` and `inbox` hooks.
+The tracing interceptor hooks into the transient `NetworkAdapter` that `agent_run()` creates for each run (see `/workspace/src/n3tx/core/agents/mixin.py` line 89). The key insight: `adapter.use()` already exists and supports both `request` and `inbox` hooks.
 
 ```python
 # agents/tracing.py
 
 import time
-from pybend.core.actors.tx import TX
+from n3tx.core.actors.tx import TX
 
 
 def create_trace_interceptor():
@@ -401,7 +401,7 @@ To wire this into `agent_run()`, the change is minimal -- 4 lines added to `mixi
 adapter = NetworkAdapter(addr=adapter_addr)
 
 # ADD: Wire trace interceptor
-from pybend.core.agents.tracing import create_trace_interceptor
+from n3tx.core.agents.tracing import create_trace_interceptor
 on_req, on_inbox, tool_traces = create_trace_interceptor()
 adapter.use(on_req, on='request')
 adapter.use(on_inbox, on='inbox')
@@ -569,18 +569,18 @@ The `msg_to_dict` serializer handles Pydantic AI's message types, extracting the
 
 ### 5.2 What Changes in Framework vs. App Code
 
-This is critical. The vast majority of the work happens in **application code** (the Grant Watcher app), not in the PyBend framework:
+This is critical. The vast majority of the work happens in **application code** (the Grant Watcher app), not in the N3TX framework:
 
 | Change | Where | Impact |
 |--------|-------|--------|
 | AgentRun model | `example_grants/models/agent_run.py` | **New file** (app code) |
 | Pricing module | `example_grants/agents/pricing.py` | **New file** (app code) |
-| Trace interceptor | `example_grants/agents/tracing.py` or `src/pybend/core/agents/tracing.py` | **New file** (could live in either) |
+| Trace interceptor | `example_grants/agents/tracing.py` or `src/n3tx/core/agents/tracing.py` | **New file** (could live in either) |
 | Instrumented run | `example_grants/models/agent_run.py` or override | **New code** (app code) |
-| agent_run() changes | `src/pybend/core/agents/mixin.py` | **Minimal** -- expose `tool_traces` + `message_history` in return dict |
+| agent_run() changes | `src/n3tx/core/agents/mixin.py` | **Minimal** -- expose `tool_traces` + `message_history` in return dict |
 | main.py registration | `example_grants/main.py` | **2 lines** (add model + join) |
 
-The only framework-level change is enhancing `agent_run()` to return the raw data. The interpretation, storage, and presentation are all application-level. This is consistent with PyBend's principle: **"primitives, not opinions."**
+The only framework-level change is enhancing `agent_run()` to return the raw data. The interpretation, storage, and presentation are all application-level. This is consistent with N3TX's principle: **"primitives, not opinions."**
 
 ### 5.3 Risk Factors
 
@@ -644,7 +644,7 @@ Even at 10 runs/day, the debug time savings alone justify the investment within 
 
 | Approach | Pros | Cons |
 |----------|------|------|
-| **Built-in (AgentRun model)** | Zero dependencies, works offline, schema-driven UI for free, full data ownership, fits PyBend philosophy | No waterfall visualization, no advanced analytics, no alert system |
+| **Built-in (AgentRun model)** | Zero dependencies, works offline, schema-driven UI for free, full data ownership, fits N3TX philosophy | No waterfall visualization, no advanced analytics, no alert system |
 | **Langfuse (self-hosted)** | Beautiful UI, span waterfalls, cost tracking, evals, collaborative | Docker dependency, separate data store (Postgres), learning curve, network dependency |
 | **Pydantic Logfire** | First-party Pydantic AI integration (2 lines of code), OTel-native, purpose-built LLM panels | SaaS (data leaves your infra), pricing scales with usage, vendor lock-in |
 | **Arize Phoenix (self-hosted)** | Open source, no feature gates, OTel-native, evals built in | Docker dependency, separate data store, Python-heavy |
@@ -663,7 +663,7 @@ Even at 10 runs/day, the debug time savings alone justify the investment within 
 | Offline operation | Yes | No | Yes (self-hosted) | No |
 | Visualization | Basic (schema UI) | Excellent | Excellent | Excellent |
 | Alerting | Manual | Built-in | Built-in | Built-in |
-| PyBend integration | Native | OTel bridge | OTel bridge | OTel bridge |
+| N3TX integration | Native | OTel bridge | OTel bridge | OTel bridge |
 | Persistence | SQLite | External DB | Postgres | External DB |
 
 ### 7.3 What You Give Up
@@ -770,9 +770,9 @@ This is architecturally pure but operationally heavy: it produces far more data 
 
 ## 9. Integration with Existing Architecture
 
-### 9.1 How AgentRun Fits the PyBend Pattern
+### 9.1 How AgentRun Fits the N3TX Pattern
 
-| PyBend Pattern | AgentRun Implementation |
+| N3TX Pattern | AgentRun Implementation |
 |----------------|------------------------|
 | Model is the app | AgentRun model definition carries all schema, UI, access rules |
 | Zero to working | Register model, get CRUD API + browsable UI instantly |
@@ -784,7 +784,7 @@ This is architecturally pure but operationally heavy: it produces far more data 
 
 ### 9.2 How Tracing Fits the Actor Pattern
 
-The trace interceptor uses `adapter.use()`, which is the canonical cross-cutting concern mechanism in the actor system. It follows the exact same pattern as `auth_interceptor` in `/workspace/src/pybend/core/api/auth_interceptor.py`:
+The trace interceptor uses `adapter.use()`, which is the canonical cross-cutting concern mechanism in the actor system. It follows the exact same pattern as `auth_interceptor` in `/workspace/src/n3tx/core/api/auth_interceptor.py`:
 
 ```python
 # Auth interceptor (existing):
@@ -878,4 +878,4 @@ total = sum(r.estimated_cost for r in runs['data'])
 
 ---
 
-*Report generated for the Grant Watcher observability evaluation. All code sketches reference the PyBend codebase at `/workspace/src/pybend/` and the Grant Watcher app at `/workspace/example_grants/`.*
+*Report generated for the Grant Watcher observability evaluation. All code sketches reference the N3TX codebase at `/workspace/src/n3tx/` and the Grant Watcher app at `/workspace/example_grants/`.*

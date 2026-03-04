@@ -100,9 +100,9 @@ from __future__ import annotations
 from typing import ClassVar, Optional
 from pydantic import Field
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.authorize import OWNER, ROLE, AUTHENTICATED
-from pybend.core.widgets import TextareaField
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.authorize import OWNER, ROLE, AUTHENTICATED
+from n3tx.core.widgets import TextareaField
 from models.user import User
 
 
@@ -184,7 +184,7 @@ This generates a `UserNotification` join model with auto-generated `user_id` FK 
 
 ### Task 4.3: WebSocket Notification Targeting (Days 2-3)
 
-**File:** `/workspace/src/pybend/core/api/network_ws.py` (modification)
+**File:** `/workspace/src/n3tx/core/api/network_ws.py` (modification)
 
 **Dependencies:** Task 4.1
 
@@ -204,7 +204,7 @@ The modification is a targeted filter *before* the broadcast loop. The existing 
 3. For all other events, preserve existing broadcast-to-all behavior
 4. Write integration test with mock WebSocket clients: create a notification, verify only the target user's connection receives it
 
-**Test file:** `/workspace/src/pybend/core/tests/unit/test_ws_notification_targeting.py`
+**Test file:** `/workspace/src/n3tx/core/tests/unit/test_ws_notification_targeting.py`
 
 ---
 
@@ -218,7 +218,7 @@ The modification is a targeted filter *before* the broadcast loop. The existing 
 
 **Implementation:**
 
-The `Notification` model needs its lifecycle events broadcast via WebSocket. When `create_app` is called with `routing='actor'`, the framework already appends `'ws'` to every model's `_subscribers` list (see `/workspace/src/pybend/core/app.py` lines 245-247). So `Notification._subscribers` will include `'ws'` automatically.
+The `Notification` model needs its lifecycle events broadcast via WebSocket. When `create_app` is called with `routing='actor'`, the framework already appends `'ws'` to every model's `_subscribers` list (see `/workspace/src/n3tx/core/app.py` lines 245-247). So `Notification._subscribers` will include `'ws'` automatically.
 
 Verification: After creating a notification via API, the WebSocket `LIFECYCLE` handler fires and routes the event only to the target user's connection.
 
@@ -277,10 +277,10 @@ import logging
 import os
 from typing import ClassVar
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import AUTHENTICATED, ROLE
-from pybend.core.utils.erroring import MethodError
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import AUTHENTICATED, ROLE
+from n3tx.core.utils.erroring import MethodError
 
 logger = logging.getLogger('grants.notifier')
 
@@ -483,9 +483,9 @@ import logging
 from typing import ClassVar, Optional
 from pydantic import Field, model_validator
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.authorize import OWNER, AUTHENTICATED
-from pybend.core.widgets import DateTimeField
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.authorize import OWNER, AUTHENTICATED
+from n3tx.core.widgets import DateTimeField
 from models.user import User
 
 logger = logging.getLogger('grants.saved_search')
@@ -559,7 +559,7 @@ class SavedSearch(ActorModel):
 ```
 
 **Key decisions:**
-- `filters` and `last_result_ids` use the identical JSON serialization pattern as `AgentActor.constraints` (see `/workspace/src/pybend/core/agents/actor.py` lines 39-102). This is a proven pattern in the codebase.
+- `filters` and `last_result_ids` use the identical JSON serialization pattern as `AgentActor.constraints` (see `/workspace/src/n3tx/core/agents/actor.py` lines 39-102). This is a proven pattern in the codebase.
 - `last_run_at` uses `DateTimeField` (datetime widget) for proper display.
 - `frequency` is a plain string enum. We could use a Python `Enum`, but string fields are simpler for SQLite and consistent with `Grant.status`.
 
@@ -590,10 +590,10 @@ import logging
 from datetime import datetime, timedelta
 from typing import ClassVar
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import ROLE, AUTHENTICATED
-from pybend.core.actors.tx import TX
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import ROLE, AUTHENTICATED
+from n3tx.core.actors.tx import TX
 
 logger = logging.getLogger('grants.alert_runner')
 
@@ -859,9 +859,9 @@ from __future__ import annotations
 from typing import ClassVar, Optional
 from pydantic import Field
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.authorize import OWNER, AUTHENTICATED
-from pybend.core.widgets import UrlField
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.authorize import OWNER, AUTHENTICATED
+from n3tx.core.widgets import UrlField
 from models.user import User
 
 
@@ -923,8 +923,8 @@ from models import (
     SavedSearch, AlertRunner,
     NotificationPrefs,
 )
-from pybend.core.agents.actor import AgentActor
-from pybend.core.agents.tool_model import AgentTool
+from n3tx.core.agents.actor import AgentActor
+from n3tx.core.agents.tool_model import AgentTool
 
 app = create_app(
     models=[
@@ -1058,7 +1058,7 @@ SavedSearch.create(SavedSearch(
 
 ### Current State
 
-`NetworkWebSocket.LIFECYCLE()` at `/workspace/src/pybend/core/api/network_ws.py` lines 200-236:
+`NetworkWebSocket.LIFECYCLE()` at `/workspace/src/n3tx/core/api/network_ws.py` lines 200-236:
 
 ```python
 async def LIFECYCLE(self, data: dict, tx: TX):
@@ -1525,8 +1525,8 @@ async def test_email_delivery():
 ```python
 async def test_notification_targets_user():
     """Test that notification lifecycle events only reach the target user."""
-    from pybend.core.api.network_ws import NetworkWebSocket
-    from pybend.core.actors.tx import TX
+    from n3tx.core.api.network_ws import NetworkWebSocket
+    from n3tx.core.actors.tx import TX
     from unittest.mock import AsyncMock
 
     ws = NetworkWebSocket()
@@ -1648,13 +1648,13 @@ aiosmtplib>=2.0
 | `/workspace/example_grants/tests/test_alert_runner.py` | Test | Alert execution + filter matching tests |
 | `/workspace/example_grants/tests/test_notification_prefs.py` | Test | NotificationPrefs CRUD tests |
 | `/workspace/example_grants/tests/test_e2e_notification_chain.py` | Test | End-to-end notification chain test |
-| `/workspace/src/pybend/core/tests/unit/test_ws_notification_targeting.py` | Test | WebSocket user targeting tests |
+| `/workspace/src/n3tx/core/tests/unit/test_ws_notification_targeting.py` | Test | WebSocket user targeting tests |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `/workspace/src/pybend/core/api/network_ws.py` | Add user-targeted delivery in `LIFECYCLE()` |
+| `/workspace/src/n3tx/core/api/network_ws.py` | Add user-targeted delivery in `LIFECYCLE()` |
 | `/workspace/example_grants/models/__init__.py` | Add new model imports |
 | `/workspace/example_grants/main.py` | Register new models, add subscriber wiring |
 | `/workspace/example_grants/seed.py` | Add NotificationPrefs + SavedSearch seed data |
@@ -1671,5 +1671,5 @@ The following framework files require **zero modifications**:
 - `storable_mixin.py` -- `list(sql_filter=...)` unchanged
 - `rules.py` -- OWNER, AUTHENTICATED, ROLE unchanged
 - `decorators.py` -- `@expose_route` unchanged
-- `app.py` -- `create_app` and `PyBendApp.build()` unchanged
+- `app.py` -- `create_app` and `N3TXApp.build()` unchanged
 - `widget.py` -- TextareaField, DateTimeField, UrlField unchanged

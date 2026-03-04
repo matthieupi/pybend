@@ -1,32 +1,32 @@
-# Server-Side Rendering for PyBend: Stack Relevance Analysis
+# Server-Side Rendering for N3TX: Stack Relevance Analysis
 
 **Date:** 2025-02-25
-**Scope:** How SSR maps to PyBend's schema-driven architecture
+**Scope:** How SSR maps to N3TX's schema-driven architecture
 **Audience:** Engineering leadership + technical CEO
 
 ---
 
 ## Executive Summary
 
-PyBend's architecture is **unusually well-positioned** for server-side rendering, but
+N3TX's architecture is **unusually well-positioned** for server-side rendering, but
 not in the way most frameworks approach it. The conventional SSR story -- React
 Server Components, Next.js hydration, Nuxt universal rendering -- assumes a
-JavaScript-centric stack where the server duplicates client logic. PyBend's story
+JavaScript-centric stack where the server duplicates client logic. N3TX's story
 is different: **the server already owns the complete rendering specification**.
 The JSON Schema that `ProtoModel.schema()` emits carries field types, UI widget
 hints, field ordering, group layouts, access rules, and method signatures. The
-frontend's `form.js` and `ntt-item.js` are essentially schema interpreters -- they
+frontend's `form.js` and `ntx-item.js` are essentially schema interpreters -- they
 read instructions and produce HTML. That interpretation can happen on the server
 in Python just as easily as it happens in the browser in JavaScript.
 
-This document traces exactly how PyBend's current rendering pipeline works, identifies
+This document traces exactly how N3TX's current rendering pipeline works, identifies
 which parts are purely data-driven (and therefore server-renderable), maps out where
 client-side interactivity is genuinely required, and proposes a concrete SSR
 implementation strategy that leverages what the framework already has.
 
-**Key finding:** PyBend already has nascent SSR infrastructure. The `NTT.js` file
+**Key finding:** N3TX already has nascent SSR infrastructure. The `N3TX.js` file
 contains `#consumePreloadedSchema()` and `#consumePreloadedData()` methods (lines
-244-277) that parse inline `<script data-ntt-schema>` and `<script data-ntt-data>`
+244-277) that parse inline `<script data-ntx-schema>` and `<script data-ntx-data>`
 tags -- a server can inject these and skip both network fetches entirely. This
 is not hypothetical; the code exists today.
 
@@ -39,7 +39,7 @@ is not hypothetical; the code exists today.
 3. [What Requires Client-Side JavaScript](#3-what-requires-client-side-javascript)
 4. [The Actor/Matrix System and SSR Boundaries](#4-the-actormatrix-system-and-ssr-boundaries)
 5. [Existing SSR-Ready Infrastructure](#5-existing-ssr-ready-infrastructure)
-6. [Proposed SSR Implementation for PyBend](#6-proposed-ssr-implementation)
+6. [Proposed SSR Implementation for N3TX](#6-proposed-ssr-implementation)
 7. [FastAPI Async and Streaming SSR](#7-fastapi-async-and-streaming-ssr)
 8. [Authorization and Per-User SSR](#8-authorization-and-per-user-ssr)
 9. [Gaps and Work Required](#9-gaps-and-work-required)
@@ -59,15 +59,15 @@ Here is the exact sequence, traced through actual code paths:
 Browser loads matrix.html
          |
          v
-<ntt-list model="Product"> parsed by browser
+<ntx-list model="Product"> parsed by browser
          |
          v
 Component.attributeChangedCallback('model', null, 'Product')
-  --> sends TX { name: 'ATTACH', target: 'NTT', data: 'Product' }
+  --> sends TX { name: 'ATTACH', target: 'N3TX', data: 'Product' }
          |
          v
-NTT.ATTACH('Product', tx)                         [NTT.js:357-384]
-  --> NTT.#prototypes.get('Product') === undefined (never seen)
+N3TX.ATTACH('Product', tx)                         [N3TX.js:357-384]
+  --> N3TX.#prototypes.get('Product') === undefined (never seen)
   --> Sets #prototypes('Product') = null (in-flight)
   --> Queues the TX in #waiting
   --> Dispatches TX { name: 'SCHEMA', target: 'http://..../Product' }
@@ -81,9 +81,9 @@ Backend: make_get_schema(Product)                  [routes_fastapi.py:168-180]
   --> Returns JSON Schema with properties, methods, $defs, access, ui
          |
          v
-NTT.SCHEMA(data)                                   [NTT.js:390-426]
+N3TX.SCHEMA(data)                                   [N3TX.js:390-426]
   --> Registers $defs (Comment, etc.) as DynamicClasses
-  --> prototype('Product', schema, href) creates DynamicClass [NTT.js:663-]
+  --> prototype('Product', schema, href) creates DynamicClass [N3TX.js:663-]
       --> Defines typed getters/setters for each schema property
       --> Defines callable methods from schema.methods
       --> Wires READ/CREATE/UPDATE/DELETE static handlers
@@ -100,10 +100,10 @@ Backend: make_get_all_instances(Product)           [routes_fastapi.py:92-137]
   --> Returns { data: [...], meta: {total, limit, offset, has_more} }
          |
          v
-DynamicClass.READ(data)                            [NTT.js:908-980]
-  --> Creates NTT instances for each record
+DynamicClass.READ(data)                            [N3TX.js:908-980]
+  --> Creates N3TX instances for each record
   --> Normalizes populated data (inline objects -> href strings)
-  --> Notifies watchers (ntt-list component) with address array
+  --> Notifies watchers (ntx-list component) with address array
          |
          v
 ListElement.UPDATE([addrs])                        [ListElement.js:77-86]
@@ -112,23 +112,23 @@ ListElement.UPDATE([addrs])                        [ListElement.js:77-86]
          |
          v
 ListElement.render()
-  --> For each addr, creates <ntt-item ref="addr">
-  --> Each ntt-item sends ATTACH to NTT for its individual entity
+  --> For each addr, creates <ntx-item ref="addr">
+  --> Each ntx-item sends ATTACH to N3TX for its individual entity
          |
          v
-NTT instance ATTACH response -> DESCRIBE           [NTTElement.js:78-95]
+N3TX instance ATTACH response -> DESCRIBE           [NTTElement.js:78-95]
   --> Sets schema + value on the component
   --> value setter triggers render()
          |
          v
-NTTItem.render()                                   [ntt-item.js:468-486]
+NTTItem.render()                                   [ntx-item.js:468-486]
   --> Dispatches to size method: xs(), sm(), md(), lg(), xl()
   --> md() calls Formidable.getForm(...)           [form.js:17-65]
       --> Reads schema.properties, ui.field_order, ui.groups
       --> For each field: getInput() maps type+widget to HTML
       --> Returns HTML string
   --> Sets shadowRoot.innerHTML = html
-  --> Binds event listeners                        [ntt-item.js:494-598]
+  --> Binds event listeners                        [ntx-item.js:494-598]
 ```
 
 ### Waterfall Visualization
@@ -157,11 +157,11 @@ data) before any content appears. This is the core latency problem SSR addresses
 | Stage | Input | Output | Location |
 |-------|-------|--------|----------|
 | Schema fetch | Model name | JSON Schema | `GET /Product` -> `proto_model.py:199` |
-| prototype() | JSON Schema | DynamicClass with typed properties | `NTT.js:663-791` |
+| prototype() | JSON Schema | DynamicClass with typed properties | `N3TX.js:663-791` |
 | Data fetch | DynamicClass.href | Array of entity records | `GET /products` -> `routes_fastapi.py:92` |
-| DynamicClass.READ | Entity records | NTT instances in registry | `NTT.js:908-980` |
+| DynamicClass.READ | Entity records | N3TX instances in registry | `N3TX.js:908-980` |
 | Formidable.getForm | schema + value | HTML string | `form.js:17-65` |
-| ntt-item.render | HTML string | Shadow DOM content | `ntt-item.js:468-486` |
+| ntx-item.render | HTML string | Shadow DOM content | `ntx-item.js:468-486` |
 
 ---
 
@@ -205,10 +205,10 @@ Every decision this function makes is answerable from data the server already ha
 
 ### 2.2 Size-Method HTML (xs, sm, md)
 
-The `ntt-item.js` size methods are also pure HTML generators:
+The `ntx-item.js` size methods are also pure HTML generators:
 
 ```javascript
-// ntt-item.js:143-146 -- xs() is trivially data-driven
+// ntx-item.js:143-146 -- xs() is trivially data-driven
 xs() {
     const name = this.value.name || this.value.title || this.schema.__name__;
     return `<span class="pill-label" data-value="name">${name}</span>`;
@@ -216,7 +216,7 @@ xs() {
 ```
 
 ```javascript
-// ntt-item.js:284-318 -- md() delegates to Formidable
+// ntx-item.js:284-318 -- md() delegates to Formidable
 md() {
     const html = [];
     // ... permission-gated buttons ...
@@ -228,7 +228,7 @@ md() {
 ```
 
 Every size method follows the same pattern: read schema, read value, produce HTML
-string. The `sm()` method (`ntt-item.js:156-282`) is the most complex, resolving
+string. The `sm()` method (`ntx-item.js:156-282`) is the most complex, resolving
 leading elements, field values, and method buttons -- but every decision is still
 schema-driven.
 
@@ -241,7 +241,7 @@ determined by the data fetch, which the server can perform directly.
 
 ### 2.4 Skeleton Placeholders
 
-The `NTTItem.placeholder()` method (`ntt-item.js:44-60`) returns layout-matching
+The `NTTItem.placeholder()` method (`ntx-item.js:44-60`) returns layout-matching
 bone HTML for skeleton loading states. This is pure data (size parameter) to HTML.
 With SSR, skeletons become unnecessary for the initial render -- the real content
 arrives in the first byte.
@@ -255,11 +255,11 @@ arrives in the first byte.
 | Form groups/fieldsets | `form.js:renderGroupedFields()` | **Yes** | Schema.ui.groups -> fieldsets |
 | Validation attributes | `form.js:validationAttrs()` | **Yes** | Schema constraints -> HTML5 attrs |
 | Header (h2/h4) | `form.js:getHeader()` | **Yes** | name + description |
-| xs pill | `ntt-item.js:xs()` | **Yes** | Single span |
-| sm compact row | `ntt-item.js:sm()` | **Yes** | Requires permission check (server can do) |
-| md card | `ntt-item.js:md()` | **Yes** | Full form + methods |
+| xs pill | `ntx-item.js:xs()` | **Yes** | Single span |
+| sm compact row | `ntx-item.js:sm()` | **Yes** | Requires permission check (server can do) |
+| md card | `ntx-item.js:md()` | **Yes** | Full form + methods |
 | List grid | `ListElement.render()` | **Yes** | Container + children |
-| Method buttons | `ntt-method` tag generation | **Yes** | Schema.methods -> button HTML |
+| Method buttons | `ntx-method` tag generation | **Yes** | Schema.methods -> button HTML |
 | List field (nested refs) | `form.js:getListInput()` | **Partial** | Structure yes; child resolution needs data |
 | Currency formatting | `form.js:getInput()` | **Yes** | `$${value.toFixed(2)}` |
 
@@ -271,7 +271,7 @@ arrives in the first byte.
 
 ### 3.1 The Actor/Message Bus (Matrix)
 
-The `Matrix` class (`Matrix.js:11-81`) is PyBend's message routing backbone.
+The `Matrix` class (`Matrix.js:11-81`) is N3TX's message routing backbone.
 It cannot run on the server because it:
 
 - Manages WebSocket/HTTP connections via `NetworkAdapter`
@@ -287,15 +287,15 @@ These require JavaScript and cannot be server-rendered:
 
 | Behavior | Code Location | Why Client-Only |
 |----------|--------------|-----------------|
-| Edit/Save toggle | `ntt-item.js:103-109` | User-initiated state change |
-| Input change handling | `ntt-item.js:113-135` | Real-time form binding |
-| Delete confirmation | `ntt-item.js:65-98` | `confirm()` dialog + network call |
-| Card click -> SELECT | `ntt-item.js:588-597` | Navigation via actor message |
-| Show more/less toggle | `ntt-item.js:517-527` | DOM class toggle |
-| Reply input box | `ntt-item.js:530-585` | Dynamic DOM creation + method call |
+| Edit/Save toggle | `ntx-item.js:103-109` | User-initiated state change |
+| Input change handling | `ntx-item.js:113-135` | Real-time form binding |
+| Delete confirmation | `ntx-item.js:65-98` | `confirm()` dialog + network call |
+| Card click -> SELECT | `ntx-item.js:588-597` | Navigation via actor message |
+| Show more/less toggle | `ntx-item.js:517-527` | DOM class toggle |
+| Reply input box | `ntx-item.js:530-585` | Dynamic DOM creation + method call |
 | Load More pagination | `ListElement.js:63-68` | Incremental data fetch |
-| Method button execution | `ntt-method.js` | Network call + response handling |
-| Surgical DOM updates | `ntt-item.js:336-461` | In-place patching (avoids full re-render) |
+| Method button execution | `ntx-method.js` | Network call + response handling |
+| Surgical DOM updates | `ntx-item.js:336-461` | In-place patching (avoids full re-render) |
 | Entity signal subscription | `NTTElement.js:84-94` | Live update from other components |
 
 ### 3.3 The Permission Check Edge Case
@@ -327,23 +327,23 @@ only through server components or middleware.
 ```
 Matrix (root)                            [Matrix.js]
   |-- NetworkAdapter (HTTP/WS bridge)    [NetworkAdapter.js]
-  |-- NTT (type registry)               [NTT.js - static level]
-  |     |-- DynamicClass "Product"       [NTT.js - prototype()]
-  |     |     |-- NTT instance "1"
-  |     |     |-- NTT instance "2"
+  |-- N3TX (type registry)               [N3TX.js - static level]
+  |     |-- DynamicClass "Product"       [N3TX.js - prototype()]
+  |     |     |-- N3TX instance "1"
+  |     |     |-- N3TX instance "2"
   |     |-- DynamicClass "Comment"
-  |           |-- NTT instance "1"
+  |           |-- N3TX instance "1"
   |-- Component instances                [Component.js]
-        |-- ntt-list-abc123
-        |-- ntt-item-def456
+        |-- ntx-list-abc123
+        |-- ntx-item-def456
 ```
 
 ### What the Actor System Does vs. What SSR Replaces
 
 | Actor System Function | Needed for SSR? | Replacement |
 |-----------------------|-----------------|-------------|
-| Schema fetch + DynamicClass creation | **No** | Server inlines schema as `<script data-ntt-schema>` |
-| Data fetch + instance creation | **No** | Server inlines data as `<script data-ntt-data>` |
+| Schema fetch + DynamicClass creation | **No** | Server inlines schema as `<script data-ntx-schema>` |
+| Data fetch + instance creation | **No** | Server inlines data as `<script data-ntx-data>` |
 | ATTACH/DESCRIBE handshake | **No** | Server renders HTML directly |
 | Watcher notification (list updates) | **Post-hydration only** | Client JS picks up after initial render |
 | Real-time entity updates | **Post-hydration only** | Client JS handles live changes |
@@ -360,7 +360,7 @@ After SSR delivers the initial HTML, the client-side JavaScript needs to:
 1. Parse the inlined schema (already supported via `#consumePreloadedSchema`)
 2. Parse the inlined data (already supported via `#consumePreloadedData`)
 3. Create DynamicClasses from the schema (no network request)
-4. Create NTT instances from the data (no network request)
+4. Create N3TX instances from the data (no network request)
 5. Attach event listeners to the already-rendered DOM
 
 Steps 1-4 are already optimized in the codebase. Step 5 is the hydration gap --
@@ -371,58 +371,58 @@ Hydration would need to adopt the DOM instead of replacing it.
 
 ## 5. Existing SSR-Ready Infrastructure
 
-PyBend already has several pieces that directly support SSR:
+N3TX already has several pieces that directly support SSR:
 
-### 5.1 Schema Pre-loading (NTT.js:244-257)
+### 5.1 Schema Pre-loading (N3TX.js:244-257)
 
 ```javascript
-// NTT.js:244-257 -- Already in the codebase
+// N3TX.js:244-257 -- Already in the codebase
 static #consumePreloadedSchema(model) {
-    const el = document.querySelector(`script[data-ntt-schema="${model}"]`);
+    const el = document.querySelector(`script[data-ntx-schema="${model}"]`);
     if (!el) return false;
     try {
         const data = JSON.parse(el.textContent);
         el.remove();
-        Logging.debug(`[NTT] Pre-loaded schema for ${model}`);
-        NTT.SCHEMA(data);
+        Logging.debug(`[N3TX] Pre-loaded schema for ${model}`);
+        N3TX.SCHEMA(data);
         return true;
     } catch (e) {
-        Logging.error(`[NTT] Failed to parse pre-loaded schema for ${model}`, e);
+        Logging.error(`[N3TX] Failed to parse pre-loaded schema for ${model}`, e);
         return false;
     }
 }
 ```
 
 This method is called at two points in the code:
-- `NTT.ATTACH()` (line 333): Before dispatching a network SCHEMA request
-- `NTT.attach()` (line 375): Before dispatching a network SCHEMA request in the callback path
+- `N3TX.ATTACH()` (line 333): Before dispatching a network SCHEMA request
+- `N3TX.attach()` (line 375): Before dispatching a network SCHEMA request in the callback path
 
-**What this means:** If the server injects `<script data-ntt-schema="Product">{ ... }</script>`
+**What this means:** If the server injects `<script data-ntx-schema="Product">{ ... }</script>`
 into the HTML, the client skips the schema fetch entirely. NETWORK REQUEST 1 is eliminated.
 
-### 5.2 Data Pre-loading (NTT.js:265-277)
+### 5.2 Data Pre-loading (N3TX.js:265-277)
 
 ```javascript
-// NTT.js:265-277 -- Already in the codebase
+// N3TX.js:265-277 -- Already in the codebase
 static #consumePreloadedData(tablename) {
-    const el = document.querySelector(`script[data-ntt-data="${tablename}"]`);
+    const el = document.querySelector(`script[data-ntx-data="${tablename}"]`);
     if (!el) return null;
     try {
         const data = JSON.parse(el.textContent);
         el.remove();
-        Logging.debug(`[NTT] Pre-loaded data for ${tablename}`);
+        Logging.debug(`[N3TX] Pre-loaded data for ${tablename}`);
         return data;
     } catch (e) {
-        Logging.error(`[NTT] Failed to parse pre-loaded data for ${tablename}`, e);
+        Logging.error(`[N3TX] Failed to parse pre-loaded data for ${tablename}`, e);
         return null;
     }
 }
 ```
 
-This is consumed in `NTT.SCHEMA()` (line 419-425):
+This is consumed in `N3TX.SCHEMA()` (line 419-425):
 
 ```javascript
-const preloadedData = NTT.#consumePreloadedData(tablename);
+const preloadedData = N3TX.#consumePreloadedData(tablename);
 if (preloadedData) {
     DC.READ(preloadedData);
 } else {
@@ -430,7 +430,7 @@ if (preloadedData) {
 }
 ```
 
-**What this means:** If the server injects `<script data-ntt-data="products">[...]</script>`,
+**What this means:** If the server injects `<script data-ntx-data="products">[...]</script>`,
 the client skips the data fetch. NETWORK REQUEST 2 is eliminated.
 
 ### 5.3 Schema Completeness
@@ -450,7 +450,7 @@ rendering specification. The schema already carries:
 
 This is not metadata bolted on after the fact -- it is the schema itself, generated
 from the same model definition that drives the API and the database. Every piece of
-information `form.js` and `ntt-item.js` need is already in this schema.
+information `form.js` and `ntx-item.js` need is already in this schema.
 
 ### 5.4 The `model_dump(response=True)` Pattern
 
@@ -473,7 +473,7 @@ lookups -- the entity record plus the cached schema is sufficient.
 
 ---
 
-## 6. Proposed SSR Implementation for PyBend
+## 6. Proposed SSR Implementation for N3TX
 
 ### 6.1 Three Strategies (Pick One or Layer Them)
 
@@ -487,9 +487,9 @@ Server receives GET /app/products
   --> Calls Product.schema() (cached, ~0ms)
   --> Calls Product.list(limit=20, offset=0) (~5ms)
   --> Returns HTML with:
-      <script data-ntt-schema="Product">{...schema...}</script>
-      <script data-ntt-data="products">{...data...}</script>
-      <ntt-list model="Product"></ntt-list>
+      <script data-ntx-schema="Product">{...schema...}</script>
+      <script data-ntx-data="products">{...data...}</script>
+      <ntx-list model="Product"></ntx-list>
 ```
 
 **Result:** Eliminates 2 network round-trips. Client still renders HTML, but from
@@ -508,10 +508,10 @@ Server receives GET /app/products
   --> Calls Product.list(limit=20, offset=0)
   --> Runs Python port of form.js logic to produce HTML
   --> Returns:
-      <ntt-list model="Product">
+      <ntx-list model="Product">
         <template shadowrootmode="open">
           <div class="list-grid">
-            <ntt-item ref="http://.../products/1">
+            <ntx-item ref="http://.../products/1">
               <template shadowrootmode="open">
                 <div class="card" data-display="md">
                   <h2 class="Product" data-value="name">Widget Pro</h2>
@@ -519,13 +519,13 @@ Server receives GET /app/products
                   ...
                 </div>
               </template>
-            </ntt-item>
+            </ntx-item>
             ...
           </div>
         </template>
-      </ntt-list>
-      <script data-ntt-schema="Product">{...}</script>
-      <script data-ntt-data="products">{...}</script>
+      </ntx-list>
+      <script data-ntx-schema="Product">{...}</script>
+      <script data-ntx-data="products">{...}</script>
 ```
 
 This uses **Declarative Shadow DOM** (DSD) -- the `<template shadowrootmode="open">`
@@ -549,13 +549,13 @@ Server returns HTML fragments. JavaScript only handles what HTMX cannot.
      hx-get="/products?format=html&limit=20&offset=20"
      hx-trigger="revealed"
      hx-swap="beforeend">
-  <ntt-item>
+  <ntx-item>
     <div class="card" data-display="md">
       <h2>Widget Pro</h2>
       <div class="currency-display">$29.99</div>
       <button hx-post="/products/1/like" hx-swap="outerHTML">Like</button>
     </div>
-  </ntt-item>
+  </ntx-item>
   ...
 </div>
 ```
@@ -598,12 +598,12 @@ def render_field(key: str, schema: dict, value: Any) -> str:
 Here is what the server-side route looks like:
 
 ```python
-# New file: src/pybend/core/api/ssr.py
+# New file: src/n3tx/core/api/ssr.py
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from jinja2 import Template
-from pybend.core.utils.registrar import registered_models
+from n3tx.core.utils.registrar import registered_models
 import json
 
 ssr_router = APIRouter()
@@ -618,21 +618,21 @@ SSR_TEMPLATE = Template("""
 </head>
 <body>
   {% for model_name, schema_json in schemas.items() %}
-  <script type="application/json" data-ntt-schema="{{ model_name }}">
+  <script type="application/json" data-ntx-schema="{{ model_name }}">
   {{ schema_json }}
   </script>
   {% endfor %}
 
   {% for table_name, data_json in datasets.items() %}
-  <script type="application/json" data-ntt-data="{{ table_name }}">
+  <script type="application/json" data-ntx-data="{{ table_name }}">
   {{ data_json }}
   </script>
   {% endfor %}
 
-  <ntt-list model="{{ primary_model }}"></ntt-list>
+  <ntx-list model="{{ primary_model }}"></ntx-list>
 
-  <script type="module" src="/core/NTT.js"></script>
-  <script type="module" src="/components/ntt-list.js"></script>
+  <script type="module" src="/core/N3TX.js"></script>
+  <script type="module" src="/components/ntx-list.js"></script>
 </body>
 </html>
 """)
@@ -687,28 +687,28 @@ async def stream_ssr_page(model_name: str):
     async def generate():
         # Phase 1: Send HTML head + shell immediately
         yield "<!DOCTYPE html><html><head>...</head><body>\n"
-        yield '<div id="app-shell"><ntt-list model="Product"></ntt-list></div>\n'
+        yield '<div id="app-shell"><ntx-list model="Product"></ntx-list></div>\n'
 
         # Phase 2: Stream schema (likely cached, instant)
         schema = model_class.schema()
-        yield f'<script data-ntt-schema="{model_name}">{json.dumps(schema)}</script>\n'
+        yield f'<script data-ntx-schema="{model_name}">{json.dumps(schema)}</script>\n'
 
         # Phase 3: Stream data (may take time for complex queries)
         result = model_class.list(limit=20, offset=0)
         serialized = [item.model_dump(response=True) for item in result['data']]
         tablename = schema.get('__tablename__', model_name.lower() + 's')
-        yield f'<script data-ntt-data="{tablename}">{json.dumps(serialized)}</script>\n'
+        yield f'<script data-ntx-data="{tablename}">{json.dumps(serialized)}</script>\n'
 
         # Phase 4: Load JS (triggers hydration)
-        yield '<script type="module" src="/core/NTT.js"></script>\n'
+        yield '<script type="module" src="/core/N3TX.js"></script>\n'
         yield '</body></html>'
 
     return StreamingResponse(generate(), media_type="text/html")
 ```
 
-### 7.2 Why Streaming Matters for PyBend
+### 7.2 Why Streaming Matters for N3TX
 
-PyBend's schema is cached after first generation (`ProtoModel._schema_cache`),
+N3TX's schema is cached after first generation (`ProtoModel._schema_cache`),
 so Phase 2 is nearly instant. The database query in Phase 3 is the bottleneck.
 Streaming means the browser can begin parsing the HTML shell, loading CSS, and
 even loading JavaScript modules *while the database query runs*.
@@ -765,7 +765,7 @@ SSR must respect per-user authorization. Different users see different:
 - Data subsets (ABAC list filtering via `sql_filter_for()`)
 - Field visibility (field-level access rules)
 
-### 8.2 What PyBend Already Has
+### 8.2 What N3TX Already Has
 
 The `routes_fastapi.py` authorization chain provides everything needed:
 
@@ -838,7 +838,7 @@ This covers the SEO and first-visit use cases perfectly.
 
 ### 9.1 No Server-Side Template Engine (for Strategy B)
 
-PyBend currently has no HTML template rendering on the backend. The `FastAPIBackend`
+N3TX currently has no HTML template rendering on the backend. The `FastAPIBackend`
 serves static files directly (`backend.py:125-162`). Adding Jinja2 requires:
 
 - `pip install jinja2` (FastAPI already depends on Starlette which has optional Jinja2 support)
@@ -868,8 +868,8 @@ around component content. This means:
 - The emitted HTML must match what the client-side `render()` would produce
 - Stylesheets must be included in the DSD template (either inline or via `<link>`)
 
-**Challenge:** The current `ntt-item.css` is loaded via a `<link>` in the shadow root
-(`ntt-item.js:30`). DSD supports `<link>` inside `<template shadowrootmode>`, but
+**Challenge:** The current `ntx-item.css` is loaded via a `<link>` in the shadow root
+(`ntx-item.js:30`). DSD supports `<link>` inside `<template shadowrootmode>`, but
 the browser will fetch the CSS file. For optimal performance, inline `<style>` in
 the DSD template is preferred.
 
@@ -881,10 +881,10 @@ Reference: [Declarative Shadow DOM on web.dev](https://web.dev/articles/declarat
 ### 9.4 Hydration Mismatch Prevention
 
 When client-side JavaScript loads after SSR, it must not blow away the server-rendered
-DOM. The current `render()` method in `ntt-item.js` does exactly that:
+DOM. The current `render()` method in `ntx-item.js` does exactly that:
 
 ```javascript
-// ntt-item.js:480 -- This replaces the entire shadow root
+// ntx-item.js:480 -- This replaces the entire shadow root
 this.shadowRoot.innerHTML = `<div class="card${indentClass}" ...>${html}</div>`;
 ```
 
@@ -909,7 +909,7 @@ render() {
 }
 ```
 
-**Effort:** ~20 lines per component (`ntt-item`, `ntt-list`). The `#bindEvents()`
+**Effort:** ~20 lines per component (`ntx-item`, `ntx-list`). The `#bindEvents()`
 method already exists and is self-contained.
 
 ### 9.5 CSS-in-DSD Strategy
@@ -917,7 +917,7 @@ method already exists and is self-contained.
 Each component currently loads CSS via:
 
 ```javascript
-get styles() { return new URL('./ntt-item.css', import.meta.url).href; }
+get styles() { return new URL('./ntx-item.css', import.meta.url).href; }
 ```
 
 For DSD, the server needs to either:
@@ -958,10 +958,10 @@ and the framework stitches them together.
 | Nuxt | Vue Universal Rendering | Vue SFCs | Same component runs on server (Node.js) and client |
 | Astro | Islands Architecture | Astro components + framework islands | Static HTML by default, JS only for interactive islands |
 | SvelteKit | Universal + Streaming | Svelte components | Same component runs on server and client |
-| **PyBend** | **Schema-driven** | **Python model only** | **Schema carries rendering spec; server or client interprets it** |
+| **N3TX** | **Schema-driven** | **Python model only** | **Schema carries rendering spec; server or client interprets it** |
 
 The fundamental difference: in Next.js, the developer writes `<ProductCard>` as a
-React component that renders HTML. In PyBend, the developer writes `class Product(ProtoModel)`
+React component that renders HTML. In N3TX, the developer writes `class Product(ProtoModel)`
 and the rendering is derived. This means:
 
 1. **No rendering code duplication.** The Python model is the single source of truth.
@@ -977,7 +977,7 @@ and the rendering is derived. This means:
 
 ### 10.2 Comparison Matrix
 
-| Capability | Next.js 15 | Nuxt 3 | Astro 5 | PyBend (proposed) |
+| Capability | Next.js 15 | Nuxt 3 | Astro 5 | N3TX (proposed) |
 |-----------|-----------|--------|---------|-------------------|
 | Time to first byte | ~100ms (edge) | ~150ms | ~50ms (static) | ~50ms (streaming) |
 | Zero-JS initial render | No (hydration required) | No | Yes (non-island) | Yes (Strategy B with DSD) |
@@ -991,7 +991,7 @@ and the rendering is derived. This means:
 
 ### 10.3 The Strategic Position
 
-**PyBend's SSR story is not "we added SSR to a SPA framework." It is: "the server
+**N3TX's SSR story is not "we added SSR to a SPA framework." It is: "the server
 already knows everything about the UI. We are simply having it render HTML directly
 instead of sending JSON and making the client do it."**
 
@@ -1004,7 +1004,7 @@ This is a stronger narrative than any JavaScript meta-framework can offer becaus
 
 The closest comparison is **Astro's content collections** -- where data shapes drive
 page generation. But Astro still requires the developer to write Astro components.
-PyBend's schemas carry enough information to render without any template code.
+N3TX's schemas carry enough information to render without any template code.
 
 Reference frameworks and their SSR approaches:
 - [Lit SSR with Declarative Shadow DOM](https://lit.dev/docs/ssr/overview/)
@@ -1021,19 +1021,19 @@ Reference frameworks and their SSR approaches:
 
 ### For the CEO
 
-1. **SSR is not a rewrite.** PyBend's architecture makes SSR an additive feature,
+1. **SSR is not a rewrite.** N3TX's architecture makes SSR an additive feature,
    not a migration. The existing client-side rendering continues to work. SSR
    adds a faster path for initial page loads and SEO.
 
 2. **Competitive moat.** "Define a model, get a server-rendered page" is a pitch
    no JavaScript framework can match. Next.js requires writing React components.
-   Nuxt requires writing Vue components. PyBend requires writing a Python class.
+   Nuxt requires writing Vue components. N3TX requires writing a Python class.
 
 3. **Strategy A (data injection) costs 1 day and eliminates 200-400ms of latency.**
    This is the immediate win. Ship it, measure the impact, then invest in Strategy B.
 
-4. **SEO unlocked.** Search engines can index PyBend applications without executing
-   JavaScript. This opens PyBend to content-heavy use cases (product catalogs,
+4. **SEO unlocked.** Search engines can index N3TX applications without executing
+   JavaScript. This opens N3TX to content-heavy use cases (product catalogs,
    documentation sites, blogs) that currently require a separate static site generator.
 
 ### For the Engineering Team
@@ -1046,17 +1046,17 @@ Reference frameworks and their SSR approaches:
    or Python function. Begin with display-mode-only rendering (skip edit mode).
    Target: render a Product card in pure HTML from schema + data.
 
-3. **Add hydration detection to `ntt-item.render()`.** A 20-line change: if the
+3. **Add hydration detection to `ntx-item.render()`.** A 20-line change: if the
    shadow root already has a `.card` element, skip `innerHTML` replacement and
    go straight to `#bindEvents()`.
 
 4. **Do NOT adopt HTMX yet.** Strategy C (HTMX) creates a dual rendering path
-   (JSON + HTML) that adds complexity. PyBend's actor system handles interactivity
+   (JSON + HTML) that adds complexity. N3TX's actor system handles interactivity
    well. HTMX would be useful only if the goal is to eliminate client-side JS entirely,
    which would sacrifice real-time updates and the actor coordination model.
 
-5. **Consider CSS extraction.** Build a utility that reads `ntt-item.css` and
-   `ntt-list.css` at startup, stores the content in memory, and injects it into
+5. **Consider CSS extraction.** Build a utility that reads `ntx-item.css` and
+   `ntx-list.css` at startup, stores the content in memory, and injects it into
    DSD templates as `<style>` blocks. This prevents FOUC without requiring a build step.
 
 ### Implementation Roadmap
@@ -1075,12 +1075,12 @@ Week 2-3: Strategy B Foundation (Python Form Renderer)
   - [ ] Port form.js:getInput() display branches to Python
   - [ ] Port form.js:getHeader() to Python
   - [ ] Port form.js:validationAttrs() to Python
-  - [ ] Port ntt-item:xs(), sm() to Python template functions
+  - [ ] Port ntx-item:xs(), sm() to Python template functions
   - [ ] Add DSD <template shadowrootmode> wrapper generation
   - [ ] Test: compare Python-rendered HTML vs JS-rendered HTML for parity
 
 Week 4: Hydration
-  - [ ] Add hydration detection to ntt-item.render()
+  - [ ] Add hydration detection to ntx-item.render()
   - [ ] Add hydration detection to ListElement.render()
   - [ ] CSS extraction utility for DSD inline styles
   - [ ] Test: SSR -> hydration -> edit mode -> save round-trip
@@ -1101,30 +1101,30 @@ All file paths referenced in this document:
 
 | File | Role | Key Lines |
 |------|------|-----------|
-| `/workspace/src/pybend/static/core/NTT.js` | Entity system, DynamicClass factory, SSR pre-loading | 244-277 (pre-loading), 390-426 (SCHEMA), 663-791 (prototype) |
-| `/workspace/src/pybend/static/generators/form.js` | Schema-driven form HTML generation | 17-65 (getForm), 173-236 (getInput), 159-171 (validationAttrs) |
-| `/workspace/src/pybend/static/components/ntt-item.js` | Entity rendering at all sizes | 143-146 (xs), 156-282 (sm), 284-318 (md), 468-486 (render) |
-| `/workspace/src/pybend/static/components/ntt-list.js` | Collection component (delegates to ListElement) | 1-19 (entire file) |
-| `/workspace/src/pybend/static/components/ListElement.js` | Collection base: data lifecycle, child stamping | 52-68 (definedCallback, loadMore), 146-161 (createChild) |
-| `/workspace/src/pybend/static/components/NTTElement.js` | Single entity base: data lifecycle, auto-render | 32-41 (value setter), 78-95 (DESCRIBE) |
-| `/workspace/src/pybend/static/core/Matrix.js` | Actor message bus (root router) | 26-48 (inbox routing), 50-52 (dispatch) |
-| `/workspace/src/pybend/static/core/Component.js` | Web Component base: actor bridge + schema lifecycle | 63-92 (constructor), 99-129 (attributeChangedCallback) |
-| `/workspace/src/pybend/static/core/Actor.js` | Actor base class: addressing, routing, message dispatch | 17-32 (constructor), 62-100 (_send routing) |
-| `/workspace/src/pybend/core/models/proto_model.py` | Base model, schema generation, response serialization | 117-137 (model_dump), 199-316 (schema) |
-| `/workspace/src/pybend/core/api/routes_fastapi.py` | Route factories, auth injection, CRUD endpoints | 20-32 (user extraction, context building), 92-137 (list), 168-180 (schema) |
-| `/workspace/src/pybend/core/api/backend.py` | FastAPI backend setup, middleware, static file serving | 48-168 (FastAPIBackend) |
-| `/workspace/src/pybend/core/app.py` | Application builder and factory | 59-100 (PyBendApp) |
+| `/workspace/src/n3tx/static/core/N3TX.js` | Entity system, DynamicClass factory, SSR pre-loading | 244-277 (pre-loading), 390-426 (SCHEMA), 663-791 (prototype) |
+| `/workspace/src/n3tx/static/generators/form.js` | Schema-driven form HTML generation | 17-65 (getForm), 173-236 (getInput), 159-171 (validationAttrs) |
+| `/workspace/src/n3tx/static/components/ntx-item.js` | Entity rendering at all sizes | 143-146 (xs), 156-282 (sm), 284-318 (md), 468-486 (render) |
+| `/workspace/src/n3tx/static/components/ntx-list.js` | Collection component (delegates to ListElement) | 1-19 (entire file) |
+| `/workspace/src/n3tx/static/components/ListElement.js` | Collection base: data lifecycle, child stamping | 52-68 (definedCallback, loadMore), 146-161 (createChild) |
+| `/workspace/src/n3tx/static/components/NTTElement.js` | Single entity base: data lifecycle, auto-render | 32-41 (value setter), 78-95 (DESCRIBE) |
+| `/workspace/src/n3tx/static/core/Matrix.js` | Actor message bus (root router) | 26-48 (inbox routing), 50-52 (dispatch) |
+| `/workspace/src/n3tx/static/core/Component.js` | Web Component base: actor bridge + schema lifecycle | 63-92 (constructor), 99-129 (attributeChangedCallback) |
+| `/workspace/src/n3tx/static/core/Actor.js` | Actor base class: addressing, routing, message dispatch | 17-32 (constructor), 62-100 (_send routing) |
+| `/workspace/src/n3tx/core/models/proto_model.py` | Base model, schema generation, response serialization | 117-137 (model_dump), 199-316 (schema) |
+| `/workspace/src/n3tx/core/api/routes_fastapi.py` | Route factories, auth injection, CRUD endpoints | 20-32 (user extraction, context building), 92-137 (list), 168-180 (schema) |
+| `/workspace/src/n3tx/core/api/backend.py` | FastAPI backend setup, middleware, static file serving | 48-168 (FastAPIBackend) |
+| `/workspace/src/n3tx/core/app.py` | Application builder and factory | 59-100 (N3TXApp) |
 
 ## Appendix B: Glossary
 
 | Term | Definition |
 |------|-----------|
-| **DynamicClass** | Runtime-generated NTT subclass created by `prototype()` from a JSON Schema. Holds typed properties, methods, and CRUD handlers for a specific model. |
+| **DynamicClass** | Runtime-generated N3TX subclass created by `prototype()` from a JSON Schema. Holds typed properties, methods, and CRUD handlers for a specific model. |
 | **DSD** | Declarative Shadow DOM. HTML syntax (`<template shadowrootmode="open">`) that browsers parse into shadow roots without JavaScript. |
 | **Hydration** | The process of attaching JavaScript event handlers to server-rendered HTML, making it interactive. |
-| **Matrix** | PyBend's actor message bus. Routes TX (transaction) messages between actors (components, NTT instances, network adapter). |
+| **Matrix** | N3TX's actor message bus. Routes TX (transaction) messages between actors (components, N3TX instances, network adapter). |
 | **Schema injection** | Embedding JSON Schema and entity data as `<script>` tags in the HTML, consumed by `#consumePreloadedSchema()` and `#consumePreloadedData()`. |
-| **ABAC** | Attribute-Based Access Control. PyBend's authorization model where rules like `OWNER | ROLE('admin')` are declared on models and evaluated at runtime. |
+| **ABAC** | Attribute-Based Access Control. N3TX's authorization model where rules like `OWNER | ROLE('admin')` are declared on models and evaluated at runtime. |
 | **Formidable** | The exported name of `form.js`'s public API (`Formidable.getForm()`). Generates HTML forms from schema properties. |
 | **Strategy A** | Schema+Data injection: server embeds JSON in HTML, client renders from local data (no network fetches). |
 | **Strategy B** | Pre-rendered HTML with DSD: server renders full HTML, client hydrates for interactivity. |

@@ -6,12 +6,12 @@
 
 ```
 /workspace/
-├── src/pybend/                # Framework source
+├── src/n3tx/                # Framework source
 │   ├── core/                  # Core framework (all backend logic)
 │   │   ├── actors/            # Actor system (Actor, Matrix, TX, ActorProxy)
 │   │   ├── agents/            # Agent system (AgentMixin, AgentActor, tools, schema ext)
 │   │   ├── api/               # Route generation, network adapters, auth interceptor
-│   │   ├── authorize/         # ABAC authorization (standalone, zero PyBend imports)
+│   │   ├── authorize/         # ABAC authorization (standalone, zero N3TX imports)
 │   │   ├── models/            # ProtoModel, ActorModel, BaseUser, mixins, pipelines
 │   │   ├── storage/           # Storage backends (SQLite, JSON, abstract interface)
 │   │   ├── ssr/               # Server-side rendering (schema injection, JS bundling)
@@ -19,13 +19,13 @@
 │   │   ├── utils/             # Decorators, registrar, introspection, scaffolding
 │   │   ├── widgets/           # Widget type system (field -> renderer mapping)
 │   │   ├── tests/             # Framework unit tests
-│   │   ├── app.py             # PyBendApp builder + create_app() factory
+│   │   ├── app.py             # N3TXApp builder + create_app() factory
 │   │   ├── config.py          # Framework configuration (env vars, defaults)
 │   │   ├── conftest.py        # Shared pytest fixtures for core tests
 │   │   └── __init__.py        # Public API re-exports
 │   ├── static/                # Frontend (vanilla JS, Web Components)
-│   │   ├── core/              # Core JS: Actor.js, Matrix.js, TX.js, NTT.js, Router.js
-│   │   ├── components/        # Web Components: ntt-list, ntt-item, ntt-method, etc.
+│   │   ├── core/              # Core JS: Actor.js, Matrix.js, TX.js, N3TX.js, Router.js
+│   │   ├── components/        # Web Components: ntx-list, ntx-item, ntx-method, etc.
 │   │   ├── generators/        # form.js (Formidable schema-driven form generation)
 │   │   ├── widgets/           # JS widget renderers (Markdown, Url, Currency, etc.)
 │   │   ├── utils/             # JS utilities (Permissions, Toast, DateFormat, etc.)
@@ -66,7 +66,7 @@
 
 ## Directory Purposes
 
-**`src/pybend/core/actors/`**
+**`src/n3tx/core/actors/`**
 - Purpose: Actor system -- the messaging backbone for Level 3 routing and agents
 - Contains: Actor base, Matrix root, TX message envelope, ActorProxy, legacy actor
 - Key files:
@@ -77,7 +77,7 @@
   - `__init__.py`: Re-exports TX, Actor, Matrix, matrix
   - `tests/`: Actor-specific unit tests (actor, matrix, tx, interceptors, auth_interceptor, integration)
 
-**`src/pybend/core/agents/`**
+**`src/n3tx/core/agents/`**
 - Purpose: LLM-powered agent system built on the actor layer
 - Contains: AgentMixin (runtime injection), AgentActor (data-driven agents), tool discovery, schema extension
 - Key files:
@@ -90,7 +90,7 @@
   - `__init__.py`: Re-exports + registers schema extension via side-effect import
   - `tests/`: Agent unit tests (mixin, actor, tools)
 
-**`src/pybend/core/api/`**
+**`src/n3tx/core/api/`**
 - Purpose: HTTP/protocol layer -- route generation, network adapters, auth
 - Contains: Two route systems (direct + actor), four network adapters, auth middleware
 - Key files:
@@ -105,8 +105,8 @@
   - `discovery.py`: `GET /_meta` and `GET /.well-known/agent.json` discovery endpoints
   - `tests/`: Network adapter unit tests
 
-**`src/pybend/core/authorize/`**
-- Purpose: Standalone ABAC authorization (zero PyBend imports)
+**`src/n3tx/core/authorize/`**
+- Purpose: Standalone ABAC authorization (zero N3TX imports)
 - Contains: Rule algebra, access context, resolver, JWT auth, error types
 - Key files:
   - `rules.py`: `AccessRule` ABC + concrete rules: `ANYONE`, `NEVER`, `AUTHENTICATED`, `OWNER`, `ROLE(name)`, `Where(clause)`, `Federated`, `Local`, `Follower`. Compose with `|` (OR), `&` (AND), `~` (NOT)
@@ -117,7 +117,7 @@
   - `errors.py`: `AccessDenied` exception
   - `__init__.py`: Re-exports all public API
 
-**`src/pybend/core/models/`**
+**`src/n3tx/core/models/`**
 - Purpose: Model definitions, schema/dump pipelines, mixins, type system
 - Contains: The model hierarchy and both composable pipelines
 - Key files:
@@ -131,7 +131,7 @@
   - `ref.py`: `ListRef[T]` type alias factory for collection reference fields
   - `__init__.py`: Empty (imports are in `core/__init__.py`)
 
-**`src/pybend/core/storage/`**
+**`src/n3tx/core/storage/`**
 - Purpose: Pluggable storage backends
 - Contains: Abstract interface + SQLite implementation + JSON fallback
 - Key files:
@@ -141,7 +141,7 @@
   - `sqlite_helpers.py`: SQLite type mapping utilities
   - `json_storage.py`: `JSONStorage` -- legacy JSON file storage
 
-**`src/pybend/core/widgets/`**
+**`src/n3tx/core/widgets/`**
 - Purpose: Field-type-aware rendering system
 - Contains: Widget metaclass, built-in field types, schema pipeline extension
 - Key files:
@@ -149,7 +149,7 @@
   - `schema_ext.py`: `@schema_extension(before='ui')` -- injects `ui.widget` + `ui.config` into schema properties
   - `__init__.py`: Re-exports + registers schema extension
 
-**`src/pybend/core/ssr/`**
+**`src/n3tx/core/ssr/`**
 - Purpose: Server-side rendering for initial page load optimization
 - Contains: HTML injection + JS module bundling
 - Key files:
@@ -157,7 +157,7 @@
   - `bundler.py`: `build_bundle()` (resolve ES module imports into single script), `discover_css_deps()`
   - `__init__.py`: Re-exports injection functions
 
-**`src/pybend/core/utils/`**
+**`src/n3tx/core/utils/`**
 - Purpose: Cross-cutting utilities
 - Contains: Decorators, model registration, introspection, scaffolding, error types
 - Key files:
@@ -171,9 +171,9 @@
   - `generate_docs.py`: Auto-generate model documentation from schemas
   - `modeling.py`: Model utility functions
 
-**`src/pybend/core/tests/`**
+**`src/n3tx/core/tests/`**
 - Purpose: Framework-level unit tests
-- Location: `src/pybend/core/tests/unit/`
+- Location: `src/n3tx/core/tests/unit/`
 - Contains: 40+ test files covering models, storage, auth, routes, actors, schema, widgets
 - Key files:
   - `conftest.py`: Shared fixtures (temp storage, model factories, auth tokens)
@@ -189,13 +189,13 @@
   - `unit/test_schema_ext.py`: Agent schema extension
   - `unit/widgets/`: Widget-specific tests
 
-**`src/pybend/static/`**
+**`src/n3tx/static/`**
 - Purpose: Frontend -- schema-driven Web Components, no build step required
 - Contains: Core JS framework, Web Components, form generator, widgets, utilities
 - Key subdirectories:
-  - `core/`: Actor.js, Matrix.js, TX.js, NTT.js (DynamicClass), Component.js, Router.js, Observable.js, Utils.js
+  - `core/`: Actor.js, Matrix.js, TX.js, N3TX.js (DynamicClass), Component.js, Router.js, Observable.js, Utils.js
   - `core/transport/`: HTTP.js, Socket.js, NetworkAdapter.js
-  - `components/`: ntt-list.js, ntt-item.js, ntt-method.js, ntt-router.js, ntt-sidebar.js, ntt-topbar.js, ntt-modal.js, ntt-table.js, ntt-row.js, ntt-user.js, ntt-profile.js, ntt-ref-picker.js, NTTElement.js (base), ListElement.js (base)
+  - `components/`: ntx-list.js, ntx-item.js, ntx-method.js, ntx-router.js, ntx-sidebar.js, ntx-topbar.js, ntx-modal.js, ntx-table.js, ntx-row.js, ntx-user.js, ntx-profile.js, ntx-ref-picker.js, NTTElement.js (base), ListElement.js (base)
   - `generators/`: form.js (Formidable -- renders forms from schema)
   - `widgets/`: Widget.js (base), registry.js, index.js, MarkdownWidget.js, UrlWidget.js, CurrencyWidget.js, etc.
   - `utils/`: Permissions.js, Toast.js, DateFormat.js, Logging.js, str_utils.js, Snippets.js, theme.js, registrar.js
@@ -205,50 +205,50 @@
 ## Key File Locations
 
 **Entry Points:**
-- `src/pybend/core/app.py`: `create_app()` factory and `PyBendApp` builder
-- `src/pybend/core/__init__.py`: Public framework API re-exports
-- `src/pybend/core/config.py`: Framework configuration (env vars)
-- `src/pybend/core/main.py`: Legacy main.py shim (delegates to example app)
+- `src/n3tx/core/app.py`: `create_app()` factory and `N3TXApp` builder
+- `src/n3tx/core/__init__.py`: Public framework API re-exports
+- `src/n3tx/core/config.py`: Framework configuration (env vars)
+- `src/n3tx/core/main.py`: Legacy main.py shim (delegates to example app)
 - `example_api/main.py`: Level 1/2 example app entry point
 - `example_actor/main.py`: Level 3 example app entry point
 - `example_grants/main.py`: Agentic app entry point
 
 **Configuration:**
-- `src/pybend/core/config.py`: Framework defaults + PYBEND_* env overrides
+- `src/n3tx/core/config.py`: Framework defaults + N3TX_* env overrides
 - `example_api/config.py`: App-specific config (JWT secret, DB path, host/port)
 - `example_actor/config.py`: App-specific config
 - `example_grants/config.py`: App-specific config
 - `pyproject.toml`: Package metadata, dependencies, build config
 
 **Core Logic:**
-- `src/pybend/core/models/proto_model.py`: ProtoModel + generate_join_model
-- `src/pybend/core/models/actor_model.py`: ActorModel bridge class
-- `src/pybend/core/models/proto_schema.py`: Schema pipeline engine
-- `src/pybend/core/models/proto_dump.py`: Dump pipeline engine
-- `src/pybend/core/actors/actor.py`: Actor system foundation
-- `src/pybend/core/actors/matrix.py`: Matrix root + module-level singleton
-- `src/pybend/core/api/routes_fastapi.py`: Level 1/2 route generation
-- `src/pybend/core/api/network_api.py`: Level 3 route generation
-- `src/pybend/core/api/backend.py`: FastAPI app setup (CORS, JWT, static)
-- `src/pybend/core/utils/registrar.py`: Model registration (global dicts)
+- `src/n3tx/core/models/proto_model.py`: ProtoModel + generate_join_model
+- `src/n3tx/core/models/actor_model.py`: ActorModel bridge class
+- `src/n3tx/core/models/proto_schema.py`: Schema pipeline engine
+- `src/n3tx/core/models/proto_dump.py`: Dump pipeline engine
+- `src/n3tx/core/actors/actor.py`: Actor system foundation
+- `src/n3tx/core/actors/matrix.py`: Matrix root + module-level singleton
+- `src/n3tx/core/api/routes_fastapi.py`: Level 1/2 route generation
+- `src/n3tx/core/api/network_api.py`: Level 3 route generation
+- `src/n3tx/core/api/backend.py`: FastAPI app setup (CORS, JWT, static)
+- `src/n3tx/core/utils/registrar.py`: Model registration (global dicts)
 
 **Testing:**
-- `src/pybend/core/tests/unit/`: Framework unit tests (40+ files)
-- `src/pybend/core/actors/tests/`: Actor system unit tests
-- `src/pybend/core/agents/tests/`: Agent system unit tests
-- `src/pybend/core/api/tests/`: Network adapter unit tests
+- `src/n3tx/core/tests/unit/`: Framework unit tests (40+ files)
+- `src/n3tx/core/actors/tests/`: Actor system unit tests
+- `src/n3tx/core/agents/tests/`: Agent system unit tests
+- `src/n3tx/core/api/tests/`: Network adapter unit tests
 - `example_api/tests/`: Integration tests (Level 1/2)
 - `example_actor/tests/`: Integration tests (Level 3)
 - `example_grants/tests/`: Integration + e2e tests (agents, grants)
-- `src/pybend/static/tests/`: Frontend Vitest tests
+- `src/n3tx/static/tests/`: Frontend Vitest tests
 
 ## Naming Conventions
 
 **Files:**
 - Python modules: `snake_case.py` (e.g., `proto_model.py`, `actor_model.py`, `auth_interceptor.py`)
 - Test files: `test_{module}.py` (e.g., `test_proto_schema.py`, `test_actor_system.py`)
-- JS files: `PascalCase.js` for core classes (e.g., `Actor.js`, `NTT.js`), `kebab-case.js` for components (e.g., `ntt-list.js`), `PascalCase.js` for widgets (e.g., `MarkdownWidget.js`)
-- CSS files: `kebab-case.css` matching component names (e.g., `ntt-item.css`)
+- JS files: `PascalCase.js` for core classes (e.g., `Actor.js`, `N3TX.js`), `kebab-case.js` for components (e.g., `ntx-list.js`), `PascalCase.js` for widgets (e.g., `MarkdownWidget.js`)
+- CSS files: `kebab-case.css` matching component names (e.g., `ntx-item.css`)
 
 **Directories:**
 - Python packages: `snake_case` (e.g., `actors`, `models`, `authorize`)
@@ -264,51 +264,51 @@
 - Tests in `example_*/tests/test_{model_name}_crud.py`
 
 **New Framework Model Feature (core):**
-- Model behavior: `src/pybend/core/models/`
+- Model behavior: `src/n3tx/core/models/`
 - Schema pipeline stage: `@schema_extension()` in a new file, import from `__init__.py` for side-effect registration
 - Dump pipeline stage: `@dump_extension()` in a new file
-- Tests: `src/pybend/core/tests/unit/test_{feature}.py`
+- Tests: `src/n3tx/core/tests/unit/test_{feature}.py`
 
 **New Network Adapter:**
-- Implementation: `src/pybend/core/api/network_{protocol}.py`
-- Extend `NetworkAdapter` from `src/pybend/core/api/network_adapter.py`
+- Implementation: `src/n3tx/core/api/network_{protocol}.py`
+- Extend `NetworkAdapter` from `src/n3tx/core/api/network_adapter.py`
 - Use `auto_register=False`, manual registration via `matrix.register()`
-- Tests: `src/pybend/core/api/tests/test_network_{protocol}.py`
+- Tests: `src/n3tx/core/api/tests/test_network_{protocol}.py`
 
 **New Authorization Rule:**
-- Add to `src/pybend/core/authorize/rules.py`
-- Export from `src/pybend/core/authorize/__init__.py`
-- Tests: `src/pybend/core/tests/unit/test_rules.py`
+- Add to `src/n3tx/core/authorize/rules.py`
+- Export from `src/n3tx/core/authorize/__init__.py`
+- Tests: `src/n3tx/core/tests/unit/test_rules.py`
 
 **New Widget Type (Python):**
-- Define in `src/pybend/core/widgets/widget.py` (or a separate file)
-- Export from `src/pybend/core/widgets/__init__.py`
+- Define in `src/n3tx/core/widgets/widget.py` (or a separate file)
+- Export from `src/n3tx/core/widgets/__init__.py`
 - The schema pipeline extension in `widgets/schema_ext.py` auto-detects Widget subclasses
 
 **New Widget Type (JS Frontend):**
-- Create `src/pybend/static/widgets/{Name}Widget.js`
-- Register in `src/pybend/static/widgets/index.js`
+- Create `src/n3tx/static/widgets/{Name}Widget.js`
+- Register in `src/n3tx/static/widgets/index.js`
 
 **New Web Component:**
-- Create `src/pybend/static/components/ntt-{name}.js` + `.css`
+- Create `src/n3tx/static/components/ntx-{name}.js` + `.css`
 - Components auto-register via `customElements.define()`
 
 **New Utility:**
-- Backend: `src/pybend/core/utils/{name}.py`
-- Frontend: `src/pybend/static/utils/{Name}.js`
+- Backend: `src/n3tx/core/utils/{name}.py`
+- Frontend: `src/n3tx/static/utils/{Name}.js`
 
 ## Special Directories
 
-**`src/pybend/core/actors/legacy/`**
+**`src/n3tx/core/actors/legacy/`**
 - Purpose: Deprecated actor implementation (pre-ActorMeta refactor)
 - Generated: No
 - Committed: Yes (historical reference)
 
-**`src/pybend/core/tests/profiling/`**
+**`src/n3tx/core/tests/profiling/`**
 - Purpose: Performance profiling tools (middleware, seed data, comparison)
 - Generated: No
 - Committed: Yes
-- Activated via `PYBEND_PROFILING=1` env var
+- Activated via `N3TX_PROFILING=1` env var
 
 **`example_grants/migrations/`**
 - Purpose: Manual SQL migrations for the grants app
@@ -316,17 +316,17 @@
 - Committed: Yes
 - Format: `{date}_{seq}_{description}.py`
 
-**`src/pybend/core/docs/`**
+**`src/n3tx/core/docs/`**
 - Purpose: Auto-generated model documentation + changelogs
 - Generated: Partially (model docs auto-generated by `generate_docs.py`)
 - Committed: Yes
 
-**`src/pybend/static/vendor/`**
+**`src/n3tx/static/vendor/`**
 - Purpose: Third-party JS libraries (marked.min.js, ansi_up.min.js)
 - Generated: No (vendored)
 - Committed: Yes
 
-**`src/pybend/static/node_modules/`**
+**`src/n3tx/static/node_modules/`**
 - Purpose: Vitest test dependencies
 - Generated: Yes (npm install)
 - Committed: Partially (present in repo)
@@ -334,7 +334,7 @@
 ## Module Boundaries and Dependencies
 
 ```
-authorize/          # ZERO PyBend imports (standalone ABAC package)
+authorize/          # ZERO N3TX imports (standalone ABAC package)
     |
 actors/             # Depends on: Pydantic (BaseModel), actors/tx.py only
     |
@@ -354,7 +354,7 @@ app.py              # Depends on: EVERYTHING (orchestration point)
 ```
 
 **Enforced boundaries:**
-- `authorize/` has zero PyBend imports -- can be extracted as standalone package
+- `authorize/` has zero N3TX imports -- can be extracted as standalone package
 - `StorableMixin` is injected, not inherited -- models don't import storage directly
 - `AgentMixin` is injected, not inherited -- models don't import agents directly
 - Actor system knows nothing about HTML, storage, or auth

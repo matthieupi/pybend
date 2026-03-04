@@ -1,4 +1,4 @@
-# Improving Abstraction Purity in PyBend Through Category Theory
+# Improving Abstraction Purity in N3TX Through Category Theory
 
 **Research Document -- February 2026**
 **Audience:** Technical CEOs, Engineering Leadership, Framework Architects
@@ -7,9 +7,9 @@
 
 ## Executive Summary
 
-PyBend's core thesis -- "the model is the app" -- is a fundamentally algebraic claim. A Python class definition is a specification from which the framework *derives* an entire working stack: API, schema, storage, UI, permissions. This derivation pipeline is, in categorical terms, a series of functors mapping between categories of concern. The current implementation achieves this vision with remarkable economy, but several of these mappings exhibit impurities -- hidden side effects, broken composition laws, or structural inconsistencies -- that reduce predictability, testability, and composability.
+N3TX's core thesis -- "the model is the app" -- is a fundamentally algebraic claim. A Python class definition is a specification from which the framework *derives* an entire working stack: API, schema, storage, UI, permissions. This derivation pipeline is, in categorical terms, a series of functors mapping between categories of concern. The current implementation achieves this vision with remarkable economy, but several of these mappings exhibit impurities -- hidden side effects, broken composition laws, or structural inconsistencies -- that reduce predictability, testability, and composability.
 
-This document identifies ten concrete areas where category-theoretic reasoning reveals structural defects in PyBend's abstractions, quantifies their practical impact, and provides prioritized, code-level recommendations for remediation. Each recommendation includes before/after examples, difficulty ratings, and an estimated return on investment.
+This document identifies ten concrete areas where category-theoretic reasoning reveals structural defects in N3TX's abstractions, quantifies their practical impact, and provides prioritized, code-level recommendations for remediation. Each recommendation includes before/after examples, difficulty ratings, and an estimated return on investment.
 
 **Key findings:**
 - The `model_dump()` method conflates two distinct morphisms (data extraction and metadata injection), violating functor identity laws
@@ -132,7 +132,7 @@ def _serialize(instance):
 
 ### Current State
 
-PyBend has three error channels, documented in CLAUDE.md's "200-OK error" case study:
+N3TX has three error channels, documented in CLAUDE.md's "200-OK error" case study:
 
 1. **Exceptions** (`MethodError`, `HTTPException`) -- proper failures
 2. **Error strings returned as success** -- the anti-pattern that CLAUDE.md warns about
@@ -366,13 +366,13 @@ def _schema_strip_hidden(cls, schema: dict) -> dict:
 @classmethod
 def _schema_methods(cls, schema: dict) -> dict:
     """Inject exposed method signatures."""
-    schema['methods'] = cls.__pybend_methods_json_signature__()
+    schema['methods'] = cls.__n3tx_methods_json_signature__()
     return schema
 
 @classmethod
 def _schema_access(cls, schema: dict) -> dict:
     """Serialize access rules into schema."""
-    from pybend.core.authorize.schema import access_schema
+    from n3tx.core.authorize.schema import access_schema
     schema['access'] = access_schema(cls)
     return schema
 
@@ -517,7 +517,7 @@ DynamicClass.prototype[method] = function(...args) {
 | Difficulty | Medium (4-5 days) |
 | Risk | Moderate -- must not break existing untyped flows; introduce gradually |
 | Impact | Catches malformed messages at send time; enables future message-level routing optimization |
-| Files changed | `TX.js`, `NTT.js` (prototype method generation) |
+| Files changed | `TX.js`, `N3TX.js` (prototype method generation) |
 
 ---
 
@@ -567,7 +567,7 @@ Formalize and test the adjunction laws explicitly:
 # Proposed: core/tests/unit/test_storage_adjunction.py
 
 import pytest
-from pybend.core.models.proto_model import ProtoModel
+from n3tx.core.models.proto_model import ProtoModel
 
 
 class AdjunctionTestModel(ProtoModel):
@@ -685,11 +685,11 @@ Add property-based tests that verify the algebra laws:
 # Proposed: core/tests/unit/test_access_algebra.py
 
 import pytest
-from pybend.core.authorize.rules import (
+from n3tx.core.authorize.rules import (
     ANYONE, AUTHENTICATED, OWNER, ROLE, Where,
     OrRule, AndRule, NotRule
 )
-from pybend.core.authorize.context import AccessContext
+from n3tx.core.authorize.context import AccessContext
 
 
 def make_ctx(authenticated=True, user_id=1, role='user', resource=None):
@@ -787,11 +787,11 @@ NEVER = _Never()
 
 ### Current State
 
-The `prototype()` function (`NTT.js`, line 663) transforms a JSON Schema into a JavaScript class (DynamicClass):
+The `prototype()` function (`N3TX.js`, line 663) transforms a JSON Schema into a JavaScript class (DynamicClass):
 
 ```javascript
 function prototype(addr, schema, href) {
-    const DynamicClass = class extends NTT { ... };
+    const DynamicClass = class extends N3TX { ... };
     // Add properties from schema.properties
     for (const field of fields) { ... }
     // Add methods from schema.methods
@@ -804,7 +804,7 @@ function prototype(addr, schema, href) {
 
 `prototype` is a functor `F: Schema -> Class` mapping JSON Schema objects to JavaScript classes. For functor laws to hold:
 
-1. **Identity:** `prototype(empty_schema)` should produce a class with no custom properties or methods (just the NTT base functionality). Currently, an empty schema (`{properties: {}, methods: {}}`) *does* produce a minimal DynamicClass, so identity approximately holds.
+1. **Identity:** `prototype(empty_schema)` should produce a class with no custom properties or methods (just the N3TX base functionality). Currently, an empty schema (`{properties: {}, methods: {}}`) *does* produce a minimal DynamicClass, so identity approximately holds.
 
 2. **Composition (homomorphism):** Does `prototype(merge(schema1, schema2))` behave equivalently to some merge of `prototype(schema1)` and `prototype(schema2)`? This is the critical question.
 
@@ -812,7 +812,7 @@ Currently, `prototype` does not support schema composition at all. Each DynamicC
 
 ### Key Issue: prototype() is not compositional but does not need to be
 
-The `prototype` function maps *individual* schemas to *individual* classes. It is functorial in the sense that schema structure is preserved: properties become getters/setters, methods become callable functions, types are preserved via validation. The composition question is moot because schemas do not compose via merging in PyBend's model -- they compose via $defs references.
+The `prototype` function maps *individual* schemas to *individual* classes. It is functorial in the sense that schema structure is preserved: properties become getters/setters, methods become callable functions, types are preserved via validation. The composition question is moot because schemas do not compose via merging in N3TX's model -- they compose via $defs references.
 
 The real functor law to verify is:
 
@@ -833,7 +833,7 @@ For any schema S:
 Add structural verification tests:
 
 ```javascript
-// Proposed: tests/ntt-prototype.spec.js
+// Proposed: tests/ntx-prototype.spec.js
 
 describe('prototype() functor laws', () => {
     test('identity: empty schema produces minimal DynamicClass', () => {
@@ -947,15 +947,15 @@ import os
 
 
 @dataclass(frozen=True)
-class PyBendConfig:
+class N3TXConfig:
     """Immutable configuration. Compose via merge()."""
     backend: str = "fastapi"
     version: str = "0.7.0"
     host: str = "0.0.0.0"
     port: int = 5000
     api_url: Optional[str] = None  # computed from port if None
-    sqlite_db_file: str = "pybend.db"
-    jwt_secret: str = "pybend-dev-secret-change-in-production"
+    sqlite_db_file: str = "n3tx.db"
+    jwt_secret: str = "ntx-dev-secret-change-in-production"
     jwt_expiry_hours: int = 24
     debug: bool = True
 
@@ -963,9 +963,9 @@ class PyBendConfig:
     def effective_api_url(self) -> str:
         return self.api_url or f"http://localhost:{self.port}"
 
-    def merge(self, overrides: PyBendConfig) -> PyBendConfig:
+    def merge(self, overrides: N3TXConfig) -> N3TXConfig:
         """Monoidal merge: override only non-default fields from overrides."""
-        defaults = PyBendConfig()
+        defaults = N3TXConfig()
         changes = {}
         for f in self.__dataclass_fields__:
             override_val = getattr(overrides, f)
@@ -974,32 +974,32 @@ class PyBendConfig:
         return replace(self, **changes)
 
     @classmethod
-    def from_env(cls) -> PyBendConfig:
-        """Build config from PYBEND_* environment variables."""
+    def from_env(cls) -> N3TXConfig:
+        """Build config from N3TX_* environment variables."""
         overrides = {}
-        if os.getenv("PYBEND_BACKEND"):
-            overrides['backend'] = os.environ["PYBEND_BACKEND"]
-        if os.getenv("PYBEND_PORT"):
-            overrides['port'] = int(os.environ["PYBEND_PORT"])
-        if os.getenv("PYBEND_API_URL"):
-            overrides['api_url'] = os.environ["PYBEND_API_URL"]
-        if os.getenv("PYBEND_HOST"):
-            overrides['host'] = os.environ["PYBEND_HOST"]
-        if os.getenv("PYBEND_SQLITE_DB"):
-            overrides['sqlite_db_file'] = os.environ["PYBEND_SQLITE_DB"]
-        if os.getenv("PYBEND_JWT_SECRET"):
-            overrides['jwt_secret'] = os.environ["PYBEND_JWT_SECRET"]
-        if os.getenv("PYBEND_DEBUG"):
-            overrides['debug'] = os.environ["PYBEND_DEBUG"].lower() in ("1", "true")
+        if os.getenv("N3TX_BACKEND"):
+            overrides['backend'] = os.environ["N3TX_BACKEND"]
+        if os.getenv("N3TX_PORT"):
+            overrides['port'] = int(os.environ["N3TX_PORT"])
+        if os.getenv("N3TX_API_URL"):
+            overrides['api_url'] = os.environ["N3TX_API_URL"]
+        if os.getenv("N3TX_HOST"):
+            overrides['host'] = os.environ["N3TX_HOST"]
+        if os.getenv("N3TX_SQLITE_DB"):
+            overrides['sqlite_db_file'] = os.environ["N3TX_SQLITE_DB"]
+        if os.getenv("N3TX_JWT_SECRET"):
+            overrides['jwt_secret'] = os.environ["N3TX_JWT_SECRET"]
+        if os.getenv("N3TX_DEBUG"):
+            overrides['debug'] = os.environ["N3TX_DEBUG"].lower() in ("1", "true")
         return cls(**overrides) if overrides else cls()
 
 
 # Monoid: defaults <> env <> user = final
-DEFAULT_CONFIG = PyBendConfig()
-ENV_CONFIG = PyBendConfig.from_env()
+DEFAULT_CONFIG = N3TXConfig()
+ENV_CONFIG = N3TXConfig.from_env()
 
 # Global active config (backward compat: migrate gradually)
-_active: PyBendConfig = DEFAULT_CONFIG.merge(ENV_CONFIG)
+_active: N3TXConfig = DEFAULT_CONFIG.merge(ENV_CONFIG)
 
 # Backward-compatible accessors
 HOST = _active.host
@@ -1012,15 +1012,15 @@ API_URL = _active.effective_api_url
 
 ```python
 def test_monoid_identity():
-    defaults = PyBendConfig()
-    custom = PyBendConfig(port=8080)
+    defaults = N3TXConfig()
+    custom = N3TXConfig(port=8080)
     assert defaults.merge(custom).port == 8080
     assert custom.merge(defaults).port == 8080  # identity on right
 
 def test_monoid_associativity():
-    a = PyBendConfig(port=8080)
-    b = PyBendConfig(host="127.0.0.1")
-    c = PyBendConfig(debug=False)
+    a = N3TXConfig(port=8080)
+    b = N3TXConfig(host="127.0.0.1")
+    c = N3TXConfig(debug=False)
     ab_c = a.merge(b).merge(c)
     a_bc = a.merge(b.merge(c))
     assert ab_c == a_bc
@@ -1061,11 +1061,11 @@ Registration should be a morphism in the category of **application configuration
 - Objects: application states (set of registered models, storage mappings, routes)
 - Morphisms: registration operations that transform one state into another
 
-Currently, registration is an *effectful* operation on global state. The `PyBendApp` builder (`app.py`) partially addresses this -- it accumulates model registrations as data (`self._models` list) and defers side effects to `build()`. This is the right pattern.
+Currently, registration is an *effectful* operation on global state. The `N3TXApp` builder (`app.py`) partially addresses this -- it accumulates model registrations as data (`self._models` list) and defers side effects to `build()`. This is the right pattern.
 
 ### Recommendation
 
-Push the builder pattern further. Make `PyBendApp.build()` the *only* entry point for side effects.
+Push the builder pattern further. Make `N3TXApp.build()` the *only* entry point for side effects.
 
 ```python
 # Proposed: registrar.py -- pure accumulation, no side effects
@@ -1105,7 +1105,7 @@ class ModelRegistry:
 
 This makes the registration phase pure (just data accumulation) and the materialization phase explicit (all side effects in one place).
 
-**PyBendApp.build() already does this partially.** The recommendation is to remove the direct `register_model()` function from the public API and route everything through the builder. Keep the function for backward compatibility but mark it as the effectful entry point.
+**N3TXApp.build() already does this partially.** The recommendation is to remove the direct `register_model()` function from the public API and route everything through the builder. Keep the function for backward compatibility but mark it as the effectful entry point.
 
 | Metric | Value |
 |--------|-------|
@@ -1138,11 +1138,11 @@ This makes the registration phase pure (just data accumulation) and the material
 
 **P1 (Soon) -- Items 5, 6, 7**: These are test-only changes that verify existing behavior. Zero risk, high confidence gain. The AccessRule algebra tests (item 6) should be done first because authorization bugs are security bugs.
 
-**P2 (Later) -- Items 4, 8, 9**: These require broader API changes and careful migration. The configuration monoid (item 8) has the widest blast radius because every file imports config values. The typed actor messages (item 4) require frontend changes. Pure registration (item 9) is partially done via PyBendApp already.
+**P2 (Later) -- Items 4, 8, 9**: These require broader API changes and careful migration. The configuration monoid (item 8) has the widest blast radius because every file imports config values. The typed actor messages (item 4) require frontend changes. Pure registration (item 9) is partially done via N3TXApp already.
 
 ### What NOT to do
 
-The following category-theoretic ideas were considered and rejected for PyBend:
+The following category-theoretic ideas were considered and rejected for N3TX:
 
 | Idea | Why Not |
 |------|---------|
@@ -1171,7 +1171,7 @@ Week 4+: Items 4, 8, 9 as capacity allows
 
 ## Appendix A: Category Theory Glossary for Engineering Teams
 
-| CT Concept | PyBend Equivalent | One-Line Definition |
+| CT Concept | N3TX Equivalent | One-Line Definition |
 |-----------|------------------|---------------------|
 | **Functor** | `model_dump()`, `prototype()`, `schema()` | A structure-preserving map between two categories |
 | **Monad** | `Result[T, E]` (proposed) | A functor with `return` and `bind` that chains computations |
@@ -1184,7 +1184,7 @@ Week 4+: Items 4, 8, 9 as capacity allows
 | **Identity** | Default config, empty schema | The "do nothing" element that leaves things unchanged |
 | **Composition** | Pipeline steps, rule chaining | Combining two morphisms into one: `g . f` |
 
-## Appendix B: Mapping PyBend's Architecture to Categories
+## Appendix B: Mapping N3TX's Architecture to Categories
 
 ```
 Category: Models
@@ -1209,7 +1209,7 @@ Category: AccessRules
 
 Functors between categories:
   schema():    Models -> Schemas        (ProtoModel.schema())
-  prototype(): Schemas -> Classes       (NTT.prototype())
+  prototype(): Schemas -> Classes       (N3TX.prototype())
   create():    Models -> Storage        (StorableMixin.create())
   get():       Storage -> Models        (StorableMixin.get())
   access_schema(): AccessRules -> Schemas (authorize.schema.access_schema())
@@ -1230,8 +1230,8 @@ Functors between categories:
 
 5. Python `returns` library. https://github.com/dry-python/returns -- Production-quality Result/Either monad implementation for Python. Reference for the Result type proposed in Section 2.
 
-6. FastAPI Documentation. https://fastapi.tiangolo.com/ -- Framework underlying PyBend's API layer.
+6. FastAPI Documentation. https://fastapi.tiangolo.com/ -- Framework underlying N3TX's API layer.
 
-7. JSON Schema Specification (2020-12). https://json-schema.org/specification -- Reference for `$schema`, `$id`, `$defs` semantics used in PyBend's schema pipeline.
+7. JSON Schema Specification (2020-12). https://json-schema.org/specification -- Reference for `$schema`, `$id`, `$defs` semantics used in N3TX's schema pipeline.
 
-8. PyBend CLAUDE.md. `/workspace/CLAUDE.md` -- Project philosophy, the 200-OK error case study, and architectural documentation that informed this analysis.
+8. N3TX CLAUDE.md. `/workspace/CLAUDE.md` -- Project philosophy, the 200-OK error case study, and architectural documentation that informed this analysis.

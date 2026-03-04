@@ -1,6 +1,6 @@
 # Sprint 2: Frontend Quick Wins + API Integration
 
-**Grant Watcher Application -- PyBend v0.10**
+**Grant Watcher Application -- N3TX v0.10**
 **Sprint Duration: ~6 days**
 **Branch: v0.10 (from current v0.9)**
 
@@ -28,7 +28,7 @@ A generic, reusable status widget that renders color-coded chips in display/list
 
 ### 1.2 Backend: Python `StatusField` Type
 
-**File: `/workspace/src/pybend/core/widgets/widget.py`** (modify)
+**File: `/workspace/src/n3tx/core/widgets/widget.py`** (modify)
 
 Add `StatusField` to the built-in widget field types, after `TextareaField`:
 
@@ -50,7 +50,7 @@ class StatusField(Widget, name='status', base_type=str):
     pass
 ```
 
-**File: `/workspace/src/pybend/core/widgets/__init__.py`** (modify)
+**File: `/workspace/src/n3tx/core/widgets/__init__.py`** (modify)
 
 Add `StatusField` to the public exports. Currently exports:
 `UrlField, EmailField, DateField, DateTimeField, MarkdownField, ConsoleField, ReferenceField, CurrencyField, TextareaField`
@@ -64,7 +64,7 @@ Add `StatusField` to the import list and `__all__`.
 Change the `status` field from plain `str` to `StatusField` with `json_schema_extra` providing the color map and allowed values:
 
 ```python
-from pybend.core.widgets import UrlField, DateField, CurrencyField, TextareaField, StatusField
+from n3tx.core.widgets import UrlField, DateField, CurrencyField, TextareaField, StatusField
 
 # Replace:
 #   status: str = Field(default='discovered', description="discovered | reviewed | applied | expired")
@@ -104,9 +104,9 @@ from pybend.core.widgets import UrlField, DateField, CurrencyField, TextareaFiel
 
 ### 1.4 Frontend: StatusWidget JS
 
-**File: `/workspace/src/pybend/static/widgets/StatusWidget.js`** (create)
+**File: `/workspace/src/n3tx/static/widgets/StatusWidget.js`** (create)
 
-This is a framework-level widget (lives in `src/pybend/static/widgets/`, not in `example_grants/`), because status chips are generic and useful for any PyBend application.
+This is a framework-level widget (lives in `src/n3tx/static/widgets/`, not in `example_grants/`), because status chips are generic and useful for any N3TX application.
 
 ```javascript
 import { Widget } from './Widget.js';
@@ -170,13 +170,13 @@ export class StatusWidget extends Widget {
 ```
 
 **Design decisions:**
-- **Inline styles, not CSS classes.** The `list()` method returns an HTML string (not a DOM node), and that string is injected into various shadow roots (`ntt-item`, `ntt-table`, `form.js`). External CSS classes would not penetrate those shadow boundaries. Inline styles are the correct approach, consistent with how `CurrencyWidget.list()` returns formatted strings.
+- **Inline styles, not CSS classes.** The `list()` method returns an HTML string (not a DOM node), and that string is injected into various shadow roots (`ntx-item`, `ntx-table`, `form.js`). External CSS classes would not penetrate those shadow boundaries. Inline styles are the correct approach, consistent with how `CurrencyWidget.list()` returns formatted strings.
 - **`display()` uses `this.el()`.** The `display()` method returns a DOM node (used by `form.js` line 237 which calls `wrapper.appendChild(widgetEl)`). The `el()` helper from the Widget base class creates elements cleanly.
 - **`validate()` checks against `config.values`.** This provides client-side enforcement that the status is one of the declared values, consistent with `CurrencyWidget.validate()`.
 
 ### 1.5 Frontend: Register StatusWidget
 
-**File: `/workspace/src/pybend/static/widgets/index.js`** (modify)
+**File: `/workspace/src/n3tx/static/widgets/index.js`** (modify)
 
 Add import and registration:
 
@@ -192,15 +192,15 @@ registerWidget('status', new StatusWidget());
 
 #### 1.6.1 Backend: Schema Pipeline Test
 
-**File: `/workspace/src/pybend/core/tests/unit/test_widgets.py`** (modify, or create if not exists)
+**File: `/workspace/src/n3tx/core/tests/unit/test_widgets.py`** (modify, or create if not exists)
 
 Test that `StatusField` annotation produces the correct schema output:
 
 ```python
 def test_status_field_schema():
     """StatusField annotation should inject ui.widget='status' into schema."""
-    from pybend.core.widgets import StatusField
-    from pybend.core.models.proto_model import ProtoModel
+    from n3tx.core.widgets import StatusField
+    from n3tx.core.models.proto_model import ProtoModel
     from pydantic import Field
 
     class TestModel(ProtoModel):
@@ -245,13 +245,13 @@ No frontend test framework is currently in place. Verification is manual:
 
 | File | Action | Description |
 |------|--------|-------------|
-| `/workspace/src/pybend/core/widgets/widget.py` | Modify | Add `StatusField` class (2 lines) |
-| `/workspace/src/pybend/core/widgets/__init__.py` | Modify | Export `StatusField` |
-| `/workspace/src/pybend/static/widgets/StatusWidget.js` | Create | JS widget implementation (~60 lines) |
-| `/workspace/src/pybend/static/widgets/index.js` | Modify | Import + register StatusWidget (2 lines) |
+| `/workspace/src/n3tx/core/widgets/widget.py` | Modify | Add `StatusField` class (2 lines) |
+| `/workspace/src/n3tx/core/widgets/__init__.py` | Modify | Export `StatusField` |
+| `/workspace/src/n3tx/static/widgets/StatusWidget.js` | Create | JS widget implementation (~60 lines) |
+| `/workspace/src/n3tx/static/widgets/index.js` | Modify | Import + register StatusWidget (2 lines) |
 | `/workspace/example_grants/models/grant.py` | Modify | Change `status` field annotation |
 | `/workspace/example_grants/tests/test_schema_endpoints.py` | Modify | Add status widget schema test |
-| `/workspace/src/pybend/core/tests/unit/test_widgets.py` | Modify/Create | Add StatusField unit test |
+| `/workspace/src/n3tx/core/tests/unit/test_widgets.py` | Modify/Create | Add StatusField unit test |
 
 ---
 
@@ -259,7 +259,7 @@ No frontend test framework is currently in place. Verification is manual:
 
 ### 2.1 Goal
 
-A custom `<grant-detail>` web component that replaces the generic `ntt-item` when navigating to a single Grant entity. It renders:
+A custom `<grant-detail>` web component that replaces the generic `ntx-item` when navigating to a single Grant entity. It renders:
 - Agency badge with distinct styling
 - Status chip via StatusWidget
 - Deadline countdown with urgency coloring (expired/urgent/soon/ok)
@@ -267,7 +267,7 @@ A custom `<grant-detail>` web component that replaces the generic `ntt-item` whe
 - Description block
 - "View Grant Listing" action button (external link)
 
-Activated via `ui.renderer.detail = 'grant-detail'` in Grant's `__ui__` dict. The existing `ntt-router.js` `#resolveTag()` (line 137-144) already reads this field and creates the component dynamically.
+Activated via `ui.renderer.detail = 'grant-detail'` in Grant's `__ui__` dict. The existing `ntx-router.js` `#resolveTag()` (line 137-144) already reads this field and creates the component dynamically.
 
 ### 2.2 Backend: Add `__ui__` to Grant Model
 
@@ -283,7 +283,7 @@ class Grant(ActorModel):
     __ui__: ClassVar[dict] = {
         'renderer': {
             'detail': 'grant-detail',
-            'item': 'ntt-item',
+            'item': 'ntx-item',
         },
         'field_order': ['title', 'agency', 'status', 'deadline',
                         'amount_min', 'amount_max', 'url', 'description'],
@@ -291,7 +291,7 @@ class Grant(ActorModel):
     # ... existing fields ...
 ```
 
-**What this does:** When a user clicks a Grant row in the table, `ntt-router.js` receives a NAVIGATE TX with the entity address (e.g., `Grant/5`). `#resolveTag('Grant')` (line 137-144) looks up the DynamicClass, reads `schema.ui.renderer.detail`, and gets `'grant-detail'`. It then creates `<grant-detail ref="http://.../grants/5" display="lg">` and mounts it in the router content area.
+**What this does:** When a user clicks a Grant row in the table, `ntx-router.js` receives a NAVIGATE TX with the entity address (e.g., `Grant/5`). `#resolveTag('Grant')` (line 137-144) looks up the DynamicClass, reads `schema.ui.renderer.detail`, and gets `'grant-detail'`. It then creates `<grant-detail ref="http://.../grants/5" display="lg">` and mounts it in the router content area.
 
 **Verification:** After this change, `GET /Grant` should return a schema where `ui.renderer.detail` is `'grant-detail'`.
 
@@ -401,7 +401,7 @@ class GrantDetail extends NTTElement {
 
     #bindEvents() {
         this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', () => {
-            // Navigate to edit -- for now, open the generic ntt-item in edit mode
+            // Navigate to edit -- for now, open the generic ntx-item in edit mode
             // Future: inline edit form within grant-detail
         });
         this.shadowRoot.querySelector('.delete-btn')?.addEventListener('click', () => {
@@ -413,8 +413,8 @@ class GrantDetail extends NTTElement {
 customElements.define('grant-detail', GrantDetail);
 ```
 
-**Import path strategy:** The `example_grants/static/` directory is served as explicit routes by the backend (`backend.py` line 139-156). Files in `example_grants/static/components/` are served at `/components/grant-detail.js`. Meanwhile, the framework's static directory (`src/pybend/static/`) is mounted at `/` as a catch-all. So:
-- `/components/NTTElement.js` resolves to `src/pybend/static/components/NTTElement.js` (framework catch-all)
+**Import path strategy:** The `example_grants/static/` directory is served as explicit routes by the backend (`backend.py` line 139-156). Files in `example_grants/static/components/` are served at `/components/grant-detail.js`. Meanwhile, the framework's static directory (`src/n3tx/static/`) is mounted at `/` as a catch-all. So:
+- `/components/NTTElement.js` resolves to `src/n3tx/static/components/NTTElement.js` (framework catch-all)
 - `/components/grant-detail.js` resolves to `example_grants/static/components/grant-detail.js` (explicit route, higher priority)
 - `/components/grant-detail.css` resolves to `example_grants/static/components/grant-detail.css` (explicit route)
 
@@ -621,7 +621,7 @@ Add two things:
 import './components/grant-detail.js';
 ```
 
-**Why both modulepreload AND import:** The `modulepreload` eliminates the network waterfall (the browser starts fetching the JS before it is needed). The `import` actually executes the module (which calls `customElements.define('grant-detail', GrantDetail)`), registering the element so it is available when `ntt-router` creates it.
+**Why both modulepreload AND import:** The `modulepreload` eliminates the network waterfall (the browser starts fetching the JS before it is needed). The `import` actually executes the module (which calls `customElements.define('grant-detail', GrantDetail)`), registering the element so it is available when `ntx-router` creates it.
 
 ### 2.6 Frontend: CSS Preload
 
@@ -648,7 +648,7 @@ def test_grant_schema_detail_renderer(self, client, seed_data):
     assert resp.status_code == 200
     schema = resp.json()
     assert schema["ui"]["renderer"]["detail"] == "grant-detail"
-    assert schema["ui"]["renderer"]["item"] == "ntt-item"
+    assert schema["ui"]["renderer"]["item"] == "ntx-item"
 ```
 
 #### 2.7.2 Backend: Field Order Test
@@ -666,7 +666,7 @@ def test_grant_schema_field_order(self, client, seed_data):
 
 1. Navigate to `http://localhost:5000/`
 2. The grant table loads normally (StatusWidget shows colored chips in table cells)
-3. Click a grant row -- `ntt-router` creates `<grant-detail>` (not `<ntt-item>`)
+3. Click a grant row -- `ntx-router` creates `<grant-detail>` (not `<ntx-item>`)
 4. Verify the detail view shows:
    - Agency badge (teal pill with agency name)
    - Status chip (colored, from StatusWidget)
@@ -710,10 +710,10 @@ Follows the exact `WebTools` pattern from `/workspace/example_grants/models/web_
 from __future__ import annotations
 from typing import ClassVar
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.utils.decorators import expose_route
-from pybend.core.utils.erroring import MethodError
-from pybend.core.authorize import AUTHENTICATED
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.utils.erroring import MethodError
+from n3tx.core.authorize import AUTHENTICATED
 
 
 class GrantsGovAPI(ActorModel):
@@ -904,7 +904,7 @@ tool_data = [
 The tool discovery flow (no code changes needed):
 
 1. Agent's `tools` field contains `AgentTool` records with `target = "grants_gov_api"`
-2. `discover_tools(["grants_gov_api"], matrix)` in `/workspace/src/pybend/core/agents/tools.py`:
+2. `discover_tools(["grants_gov_api"], matrix)` in `/workspace/src/n3tx/core/agents/tools.py`:
    - Finds `GrantsGovAPI` as a child of Matrix (registered via `ActorMeta.__new__`)
    - Reads `GrantsGovAPI.schema()` which includes `methods.search` and `methods.fetch`
    - Generates `ToolSpec` objects: `grants_gov_api_search` and `grants_gov_api_fetch`
@@ -1045,7 +1045,7 @@ class TestGrantsGovAPIToolDiscovery:
 
     def test_model_registered(self, client, seed_data):
         """GrantsGovAPI should be in registered_models."""
-        from pybend.core.utils.registrar import registered_models
+        from n3tx.core.utils.registrar import registered_models
         assert 'grants_gov_api' in registered_models
 
     def test_schema_has_methods(self, client, seed_data):
@@ -1147,7 +1147,7 @@ StatusField (widget.py)
     │
     └──> Grant.__ui__ (grant.py)
             │
-            └──> ntt-router.js #resolveTag() reads ui.renderer.detail
+            └──> ntx-router.js #resolveTag() reads ui.renderer.detail
                     (no changes needed -- already works)
 
 GrantsGovAPI (independent)
@@ -1167,21 +1167,21 @@ GrantsGovAPI (independent)
 |------|-----------|--------|------------|
 | **StatusWidget inline styles look different across browsers** | Low | Low | Inline styles are standardized; test Chrome + Firefox |
 | **grant-detail.css vars not defined** | Medium | Low | CSS custom properties fall back to hardcoded values (every `var()` has a fallback) |
-| **ntt-router does not find grant-detail element** | Low | High | Element must be defined BEFORE router navigates; the `import` in index.html ensures this. Verify with `customElements.get('grant-detail')` in console |
+| **ntx-router does not find grant-detail element** | Low | High | Element must be defined BEFORE router navigates; the `import` in index.html ensures this. Verify with `customElements.get('grant-detail')` in console |
 | **grants.gov API response format changes** | Low | Medium | Response parsing is defensive (`.get()` with defaults throughout). Add schema test against live API as a smoke test (run manually, not in CI) |
 | **httpx not installed** | Low | High | `httpx` is already a dependency (used by `WebTools.scrape()`). Verify in `requirements.txt` or `pyproject.toml` |
-| **Widget edit mode select not triggering handleInputChange** | Medium | Medium | The `edit()` method returns a `<select>` element. `form.js` (line 224-228) stamps `data-key` and `data-type` on the editable element. The `NTTItem.handleInputChange` listens for `change` events on `select` elements (line 657-660 binds to `input, textarea` but not `select`). **Action required:** Verify that `ntt-item.js` line 657 also binds `select` elements. If not, add `select` to the querySelectorAll. |
+| **Widget edit mode select not triggering handleInputChange** | Medium | Medium | The `edit()` method returns a `<select>` element. `form.js` (line 224-228) stamps `data-key` and `data-type` on the editable element. The `NTTItem.handleInputChange` listens for `change` events on `select` elements (line 657-660 binds to `input, textarea` but not `select`). **Action required:** Verify that `ntx-item.js` line 657 also binds `select` elements. If not, add `select` to the querySelectorAll. |
 
 ### Known Issue: Select Element Event Binding
 
-Looking at `ntt-item.js` line 657:
+Looking at `ntx-item.js` line 657:
 ```javascript
 this.shadowRoot.querySelectorAll('input, textarea').forEach(el => {
 ```
 
 This does NOT include `select` elements. The StatusWidget's edit mode renders a `<select>`, so change events will not be captured by `handleInputChange`.
 
-**Fix required in `/workspace/src/pybend/static/components/ntt-item.js`** (line 657):
+**Fix required in `/workspace/src/n3tx/static/components/ntx-item.js`** (line 657):
 ```javascript
 // Before:
 this.shadowRoot.querySelectorAll('input, textarea').forEach(el => {
@@ -1207,7 +1207,7 @@ This is a framework-level fix that benefits any widget using `<select>` in edit 
 
 | File | Lines (est.) | Purpose |
 |------|-------------|---------|
-| `/workspace/src/pybend/static/widgets/StatusWidget.js` | ~65 | Framework widget: status chip rendering |
+| `/workspace/src/n3tx/static/widgets/StatusWidget.js` | ~65 | Framework widget: status chip rendering |
 | `/workspace/example_grants/static/components/grant-detail.js` | ~120 | App component: rich grant detail view |
 | `/workspace/example_grants/static/components/grant-detail.css` | ~180 | Shadow DOM styles for grant-detail |
 | `/workspace/example_grants/models/grants_gov_api.py` | ~110 | GrantsGovAPI tool actor model |
@@ -1217,10 +1217,10 @@ This is a framework-level fix that benefits any widget using `<select>` in edit 
 
 | File | Change Size | Description |
 |------|------------|-------------|
-| `/workspace/src/pybend/core/widgets/widget.py` | +2 lines | Add `StatusField` class |
-| `/workspace/src/pybend/core/widgets/__init__.py` | +1 line | Export `StatusField` |
-| `/workspace/src/pybend/static/widgets/index.js` | +2 lines | Import + register StatusWidget |
-| `/workspace/src/pybend/static/components/ntt-item.js` | +2 lines | Add `select` to event binding |
+| `/workspace/src/n3tx/core/widgets/widget.py` | +2 lines | Add `StatusField` class |
+| `/workspace/src/n3tx/core/widgets/__init__.py` | +1 line | Export `StatusField` |
+| `/workspace/src/n3tx/static/widgets/index.js` | +2 lines | Import + register StatusWidget |
+| `/workspace/src/n3tx/static/components/ntx-item.js` | +2 lines | Add `select` to event binding |
 | `/workspace/example_grants/models/grant.py` | +15 lines | StatusField annotation + `__ui__` dict |
 | `/workspace/example_grants/models/__init__.py` | +2 lines | Export GrantsGovAPI |
 | `/workspace/example_grants/main.py` | +2 lines | Register GrantsGovAPI |
@@ -1234,14 +1234,14 @@ This is a framework-level fix that benefits any widget using `<select>` in edit 
 
 ### Automated Tests
 - [ ] `python3 -m pytest example_grants/tests/` -- all pass
-- [ ] `python3 -m pytest src/pybend/core/tests/unit/` -- all pass (no regressions)
+- [ ] `python3 -m pytest src/n3tx/core/tests/unit/` -- all pass (no regressions)
 
 ### Manual Frontend Tests
 - [ ] Table view: Grant rows show colored status chips (not plain text)
 - [ ] Table view: Status chips use correct colors (indigo=discovered, amber=reviewed, etc.)
 - [ ] Edit mode: Status field shows `<select>` dropdown with 5 options
 - [ ] Edit mode: Changing status via dropdown and saving persists the change
-- [ ] Detail view: Clicking a grant row opens `<grant-detail>` (not `<ntt-item>`)
+- [ ] Detail view: Clicking a grant row opens `<grant-detail>` (not `<ntx-item>`)
 - [ ] Detail view: Agency badge, status chip, title, description all render
 - [ ] Detail view: Deadline shows countdown with urgency colors
 - [ ] Detail view: Amount range shows formatted currency
@@ -1272,10 +1272,10 @@ This is a framework-level fix that benefits any widget using `<select>` in edit 
 
 ### Architecture Validation
 
-This sprint validates three key PyBend extension patterns:
+This sprint validates three key N3TX extension patterns:
 
 - **Widget system works end-to-end:** Python annotation -> schema pipeline -> JSON Schema -> frontend registry -> rendering. Zero framework changes needed (except the `select` event binding fix).
 
-- **`ui.renderer.detail` works:** Backend declares the component tag, `ntt-router.js` reads it, creates the element. Custom components plug in without modifying any routing code.
+- **`ui.renderer.detail` works:** Backend declares the component tag, `ntx-router.js` reads it, creates the element. Custom components plug in without modifying any routing code.
 
 - **Non-storable ActorModel works as tool actor:** `GrantsGovAPI` follows the exact `WebTools` pattern. `discover_tools()` finds it automatically. Zero agent framework changes needed.

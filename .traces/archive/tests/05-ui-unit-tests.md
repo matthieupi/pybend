@@ -15,7 +15,7 @@ You are writing Playwright E2E tests for a schema-driven web application. The ap
 
 1. **App URL**: `/matrix.html`
 2. **Base URL**: `http://localhost:5000` (configured in `playwright.config.js`)
-3. **Shadow DOM**: All NTT components (`ntt-list`, `ntt-item`, `ntt-topbar`, `ntt-router`, `ntt-method`, `ntt-logs`, `ntt-favorites`) use Shadow DOM. You CANNOT use normal CSS selectors to reach into them. You MUST use `.evaluate()` to access `el.shadowRoot`.
+3. **Shadow DOM**: All N3TX components (`ntx-list`, `ntx-item`, `ntx-topbar`, `ntx-router`, `ntx-method`, `ntx-logs`, `ntx-favorites`) use Shadow DOM. You CANNOT use normal CSS selectors to reach into them. You MUST use `.evaluate()` to access `el.shadowRoot`.
 4. **Auth**: Use the helpers from `./fixtures/auth.js`:
    ```js
    import { loginAs, logout, getToken, USERS } from './fixtures/auth.js';
@@ -27,7 +27,7 @@ You are writing Playwright E2E tests for a schema-driven web application. The ap
 5. **Wait pattern**: After page load, use `await page.waitForLoadState('networkidle')` then `await page.waitForTimeout(2000)` for Shadow DOM rendering
 6. **Schema endpoints** are public (no auth needed): `GET /Product`, `GET /Comment`, etc.
 7. **Data endpoints** require auth: `GET /products`, `POST /products`, etc.
-8. **The existing tests are in** `src/pybend/static/tests/e2e/` — read them first to understand patterns and avoid duplication
+8. **The existing tests are in** `src/n3tx/static/tests/e2e/` — read them first to understand patterns and avoid duplication
 
 ### File Organization
 
@@ -35,7 +35,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 
 ---
 
-## AGENT 1: `ntt-topbar-unit.spec.js` — Topbar Component
+## AGENT 1: `ntx-topbar-unit.spec.js` — Topbar Component
 
 ### Component Structure (Shadow DOM)
 - `.topbar` container
@@ -85,7 +85,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 **Theme Toggle**
 28. Clicking theme toggle changes `document.documentElement.dataset.theme`
 29. Theme toggle has visual indicator of current theme (icon or text)
-30. Theme persists in `localStorage['ntt-theme']` after toggle
+30. Theme persists in `localStorage['ntx-theme']` after toggle
 
 **Edge Cases**
 31. Topbar renders correctly at 360px mobile viewport
@@ -97,22 +97,22 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 
 ---
 
-## AGENT 2: `ntt-list-unit.spec.js` — List Component
+## AGENT 2: `ntx-list-unit.spec.js` — List Component
 
 ### Component Structure (Shadow DOM)
 - `.list-header` with `h1` (model name) and `.list-count` badge
 - `.list-actions` — action buttons area (create button for authenticated users)
-- `.list-grid` — container for `ntt-item` elements
+- `.list-grid` — container for `ntx-item` elements
 - Optional "Load More" button when pagination has more items
 
 ### Tests to Write
 
 **Basic Rendering**
-1. `ntt-list` element is visible on page load
+1. `ntx-list` element is visible on page load
 2. `.list-header h1` contains "Product"
 3. `.list-count` shows total product count
-4. `.list-grid` contains at least 3 `ntt-item` elements (seed data)
-5. Each `ntt-item` in the grid has a `display` attribute set
+4. `.list-grid` contains at least 3 `ntx-item` elements (seed data)
+5. Each `ntx-item` in the grid has a `display` attribute set
 
 **Item Display Content**
 6. First item shows product name in a visible element
@@ -142,7 +142,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 **Click-to-Navigate**
 25. Clicking an item navigates to detail view (URL hash changes to `#Product/{id}`)
 26. Click triggers hash change without full page reload
-27. After click, `ntt-router` shows the detail view
+27. After click, `ntx-router` shows the detail view
 
 **Empty State**
 28. If no products exist, list shows empty state or zero count
@@ -158,7 +158,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 
 ---
 
-## AGENT 3: `ntt-item-unit.spec.js` — Item Component (All Display Sizes)
+## AGENT 3: `ntx-item-unit.spec.js` — Item Component (All Display Sizes)
 
 ### Component Structure (Shadow DOM)
 - `.card` wrapper with `data-display` attribute (xs/sm/md/lg/xl)
@@ -189,7 +189,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 11. XL display shows all fields including comments list
 12. Comments section shows as `.list-field` with count badge
 13. Method buttons (comment, like) are visible in detail view
-14. `ntt-method` elements present for exposed methods
+14. `ntx-method` elements present for exposed methods
 15. All visible fields are rendered (hidden fields like `id`, `image` are NOT shown)
 
 **Edit Mode (Owner)**
@@ -243,7 +243,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 
 ---
 
-## AGENT 4: `ntt-method-unit.spec.js` — Method Button Component
+## AGENT 4: `ntx-method-unit.spec.js` — Method Button Component
 
 ### Component Structure (Shadow DOM)
 - `.method-btn` — the clickable button
@@ -257,7 +257,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 ### Tests to Write
 
 **Product Favorite Button**
-1. `ntt-method[method="favorite"]` element exists on product detail
+1. `ntx-method[method="favorite"]` element exists on product detail
 2. Favorite button has star icon (`.method-btn-icon` contains star SVG)
 3. Favorite button shows count badge with current favorites count
 4. Favorite button is clickable for authenticated users
@@ -270,7 +270,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 11. Rapidly clicking favorite multiple times — toggle behavior consistent
 
 **Product Comment Method (Inline Form)**
-12. `ntt-method[method="comment"]` element exists on product detail
+12. `ntx-method[method="comment"]` element exists on product detail
 13. Comment method has inline layout (textarea widget, not just a button)
 14. Comment form has textarea placeholder "Add your comment..."
 15. Comment form has "Post" button label
@@ -280,14 +280,14 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 19. Comment method requires authentication — anonymous user cannot submit
 
 **Comment Like Button (Nested in Product Detail)**
-20. On product detail, expand comments, find a comment's `ntt-method[method="like"]`
+20. On product detail, expand comments, find a comment's `ntx-method[method="like"]`
 21. Comment like button has heart icon
 22. Comment like button shows count badge
 23. Click like — API call `POST /products/{pid}/comments/{cid}/like` sent
 24. Toggle behavior: first click "liked", second click "unliked"
 
 **Comment Reply Method (Nested)**
-25. On product detail, expand comments, find `ntt-method[method="reply"]`
+25. On product detail, expand comments, find `ntx-method[method="reply"]`
 26. Reply method has inline layout with textarea
 27. Reply placeholder says "Write a reply..."
 28. Reply button label says "Reply"
@@ -310,24 +310,24 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 
 ---
 
-## AGENT 5: `ntt-router-unit.spec.js` — Router/Navigation Component
+## AGENT 5: `ntx-router-unit.spec.js` — Router/Navigation Component
 
 ### Component Structure (Shadow DOM)
 - `.router-content` — main content area (renders selected view)
 - `.router-title` — title showing current model/view name
 - `.back-btn` — back navigation button (only in detail/sub views)
-- Slot fallback — shows `ntt-list` when no hash route active
+- Slot fallback — shows `ntx-list` when no hash route active
 
 ### Tests to Write
 
 **Root State (No Hash)**
-1. At root (`matrix.html` or `matrix.html#`), router shows slot content (ntt-list)
+1. At root (`matrix.html` or `matrix.html#`), router shows slot content (ntx-list)
 2. Back button is NOT visible at root
 3. Router title is empty or shows default at root
-4. `ntt-list` is rendered inside router's slot
+4. `ntx-list` is rendered inside router's slot
 
 **Detail Navigation**
-5. Navigate to `#Product/1` — router shows ntt-item with product detail
+5. Navigate to `#Product/1` — router shows ntx-item with product detail
 6. Router title shows "Product" for product detail
 7. Back button IS visible in detail view
 8. Detail item uses xl display mode
@@ -336,7 +336,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 **Back Navigation**
 10. Click back button — returns to previous view (list)
 11. After back, URL hash is empty
-12. After back, ntt-list is visible again with all items
+12. After back, ntx-list is visible again with all items
 13. Multiple forward/back navigations maintain correct state
 
 **Hash-Based Routing**
@@ -346,7 +346,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 17. Programmatic hash change to `''` returns to root/list view
 
 **Special Routes**
-18. `#@favorites` navigates to favorites view (ntt-favorites component)
+18. `#@favorites` navigates to favorites view (ntx-favorites component)
 19. `#@profile` navigates to profile view
 20. Unknown hash routes (e.g., `#@unknown`) don't crash the router
 
@@ -365,7 +365,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 
 ---
 
-## AGENT 6: `ntt-logs-unit.spec.js` — Logs Panel Component
+## AGENT 6: `ntx-logs-unit.spec.js` — Logs Panel Component
 
 ### Component Structure (Shadow DOM)
 - `.toggle` button with `.badge` count
@@ -475,7 +475,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 28. Count badge shows correct number of items
 29. First 2 items are visible, rest collapsed with "Show N more" toggle
 30. Clicking "Show N more" expands all items
-31. Each list item rendered as `ntt-item` sub-component with xs display
+31. Each list item rendered as `ntx-item` sub-component with xs display
 
 **Edge Cases**
 32. Form handles schema with no `ui` key (uses defaults)
@@ -504,13 +504,13 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 7. `--spacing-*` variables resolve (if defined)
 
 **Dark Theme**
-8. With `ntt-theme=dark`, `--surface-0` is a dark color (not white)
-9. With `ntt-theme=dark`, `--text-0` is a light color (for contrast)
+8. With `ntx-theme=dark`, `--surface-0` is a dark color (not white)
+9. With `ntx-theme=dark`, `--text-0` is a light color (for contrast)
 10. Dark theme `--surface-0` differs from light theme `--surface-0`
 
 **Light Theme**
-11. With `ntt-theme=light`, `--surface-0` is a light color (not black)
-12. With `ntt-theme=light`, `--text-0` is a dark color (for contrast)
+11. With `ntx-theme=light`, `--surface-0` is a light color (not black)
+12. With `ntx-theme=light`, `--text-0` is a dark color (for contrast)
 13. Light theme screenshot differs from dark theme screenshot
 
 **Font & Typography**
@@ -519,11 +519,11 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 16. Text is readable (sufficient contrast between text and background)
 
 **Component-Level Styles**
-17. `ntt-topbar` has fixed/sticky positioning at top
-18. `ntt-item .card` has border-radius and border styling
-19. `ntt-item .card` has hover state (cursor pointer in list view)
-20. `ntt-method .method-btn` has button styling (background, padding, border-radius)
-21. `ntt-logs .panel` has slide-in animation or transition
+17. `ntx-topbar` has fixed/sticky positioning at top
+18. `ntx-item .card` has border-radius and border styling
+19. `ntx-item .card` has hover state (cursor pointer in list view)
+20. `ntx-method .method-btn` has button styling (background, padding, border-radius)
+21. `ntx-logs .panel` has slide-in animation or transition
 
 **Responsive Breakpoints**
 22. At 360px: items render in single column
@@ -596,7 +596,7 @@ Each test file below maps to a single `.spec.js` file. Tests within a file run s
 - Each agent works on ONE spec file independently and in parallel
 - Tests MUST pass against the live server (Playwright starts it automatically)
 - Tests use seed data (3+ products, users alice/bob/charlie)
-- After writing tests, run them with: `cd /workspace/src/pybend/static && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/{filename}.spec.js`
+- After writing tests, run them with: `cd /workspace/src/n3tx/static && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/{filename}.spec.js`
 - Fix any failing tests before declaring done
 - Each test should be self-contained and not depend on other test files' side effects
 - Use `test.describe()` blocks to group related tests

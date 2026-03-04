@@ -28,7 +28,7 @@
 - Constants: `UPPER_SNAKE_CASE` (`JWT_SECRET`, `SQLITE_DB_FILE`, `_CRUD_OPS`, `_NOT_HANDLED`)
 - ClassVars: `__dunder__` for framework attrs (`__tablename__`, `__storable__`, `__access__`, `__agent__`)
 - PrivateAttrs: `_snake_case` for Pydantic PrivateAttr (`_addr`, `_children`, `_parent`, `_interceptors`)
-- Logger instances: `logger = logging.getLogger('pybend.{module}')` at module level
+- Logger instances: `logger = logging.getLogger('n3tx.{module}')` at module level
 
 **Types:**
 - Type aliases: `PascalCase` (`Ref`, `ListRef`, `CurrencyField`, `DateField`, `UrlField`)
@@ -57,17 +57,17 @@
 **Order:**
 1. Standard library (`os`, `sys`, `logging`, `asyncio`, `json`, `time`, `tempfile`)
 2. Third-party (`pydantic`, `fastapi`, `pytest`, `httpx`)
-3. Framework internals (`pybend.core.actors`, `pybend.core.models`, `pybend.core.utils`)
+3. Framework internals (`n3tx.core.actors`, `n3tx.core.models`, `n3tx.core.utils`)
 4. Local app modules (`models`, `config`, `helpers`)
 
 **Path Aliases:**
 - No path aliases (`tsconfig` paths or similar) — uses `sys.path.insert()` in conftest and entry points
 - Example apps prepend `src/` to `sys.path`: `sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))`
-- Test conftest files use namespace shims for `pybend` and `pybend.core`:
+- Test conftest files use namespace shims for `n3tx` and `n3tx.core`:
   ```python
   _namespace_shims = {
-      'pybend': _pybend,
-      'pybend.core': _core,
+      'n3tx': _n3tx,
+      'n3tx.core': _core,
   }
   for name, path in _namespace_shims.items():
       if name not in sys.modules:
@@ -94,9 +94,9 @@ from __future__ import annotations
 from typing import ClassVar, Optional
 from pydantic import Field
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
-from pybend.core.widgets import UrlField, DateField, CurrencyField, TextareaField
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx.core.widgets import UrlField, DateField, CurrencyField, TextareaField
 
 class Grant(ActorModel):
     """A government grant discovered by an agent."""
@@ -144,7 +144,7 @@ class WebTools(ActorModel):
 
 Use `__init_subclass__` to dynamically inject mixins based on class attributes. This is the framework's primary extension mechanism.
 
-**Pattern in `ProtoModel.__init_subclass__`** (`src/pybend/core/models/proto_model.py`):
+**Pattern in `ProtoModel.__init_subclass__`** (`src/n3tx/core/models/proto_model.py`):
 ```python
 def __init_subclass__(cls, **kwargs):
     __storable__ = getattr(cls, '__storable__', False)
@@ -153,11 +153,11 @@ def __init_subclass__(cls, **kwargs):
             cls.__bases__ = (StorableMixin,) + cls.__bases__
 ```
 
-**Pattern in `AgentMixin`** (`src/pybend/core/agents/mixin.py`):
+**Pattern in `AgentMixin`** (`src/n3tx/core/agents/mixin.py`):
 - `__agent__ = True` on a model triggers `AgentMixin` injection
 - Provides `agent_run()` method for LLM execution
 
-**Pattern in `ActorMeta` metaclass** (`src/pybend/core/actors/actor.py`):
+**Pattern in `ActorMeta` metaclass** (`src/n3tx/core/actors/actor.py`):
 - Each Actor subclass gets its own `__children__` dict and `__interceptors__` dict
 - `__addr__` defaults from `__tablename__` or class name
 - Auto-registers with root Matrix if `auto_register=True` (default)
@@ -167,8 +167,8 @@ def __init_subclass__(cls, **kwargs):
 Use `@expose_route` to add API endpoints to models:
 
 ```python
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import AUTHENTICATED
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import AUTHENTICATED
 
 @expose_route('/like', methods=['POST'], access=AUTHENTICATED)
 def like(self, user: User = None) -> str:
@@ -184,20 +184,20 @@ func.__endpoint__ = {
     'access': access,
 }
 ```
-Defined in `src/pybend/core/utils/decorators.py`.
+Defined in `src/n3tx/core/utils/decorators.py`.
 
 ## Error Handling
 
 **MethodError for custom method errors:**
 ```python
-from pybend.core.utils.erroring import MethodError
+from n3tx.core.utils.erroring import MethodError
 
 @expose_route('/like', methods=['POST'])
 def like(self, user=None):
     if not user:
         raise MethodError("authentication required", 401)
 ```
-Defined in `src/pybend/core/utils/erroring.py`. Route layer converts to HTTP response with proper status code.
+Defined in `src/n3tx/core/utils/erroring.py`. Route layer converts to HTTP response with proper status code.
 
 **TX.error() for actor-routed error responses:**
 ```python
@@ -210,7 +210,7 @@ try:
 except Exception as e:
     return tx.exception(e)
 ```
-Exception-to-HTTP-code mapping (`src/pybend/core/actors/tx.py`):
+Exception-to-HTTP-code mapping (`src/n3tx/core/actors/tx.py`):
 | Exception | HTTP Code |
 |-----------|-----------|
 | `MethodError` | Uses its `.status_code` |
@@ -323,7 +323,7 @@ def mock_method(instance, name, replacement):
     finally:
         object.__delattr__(instance, name)
 ```
-Defined in `src/pybend/core/tests/unit/test_actor_system.py`. Use for any Actor/Model instance.
+Defined in `src/n3tx/core/tests/unit/test_actor_system.py`. Use for any Actor/Model instance.
 
 **TestModel for agent LLM testing:**
 ```python
@@ -350,20 +350,20 @@ def reset_actor_state():
 
 ## Configuration Patterns
 
-**Framework config (`src/pybend/core/config.py`):**
+**Framework config (`src/n3tx/core/config.py`):**
 - Module-level globals with `UPPER_SNAKE_CASE`
-- `PYBEND_*` env var overrides applied at import time
+- `N3TX_*` env var overrides applied at import time
 - `config.configure(**kwargs)` for programmatic override
 
 **App config (`example_grants/config.py`):**
 ```python
 import os
-from pybend.core import config as _fw
+from n3tx.core import config as _fw
 
-HOST = os.environ.get("PYBEND_HOST", "0.0.0.0")
-PORT = int(os.environ.get("PYBEND_PORT", "5000"))
-SQLITE_DB_FILE = os.environ.get("PYBEND_SQLITE_DB", "grants.db")
-JWT_SECRET = os.environ.get("PYBEND_JWT_SECRET", "pybend-dev-secret-change-in-production")
+HOST = os.environ.get("N3TX_HOST", "0.0.0.0")
+PORT = int(os.environ.get("N3TX_PORT", "5000"))
+SQLITE_DB_FILE = os.environ.get("N3TX_SQLITE_DB", "grants.db")
+JWT_SECRET = os.environ.get("N3TX_JWT_SECRET", "ntx-dev-secret-change-in-production")
 
 _fw.configure(host=HOST, port=PORT, api_url=API_URL, ...)
 ```
@@ -392,7 +392,7 @@ test: Add auth, authorization, and security test suites [0.9]
 
 **Level 1 (create_app):**
 ```python
-from pybend.core.app import create_app
+from n3tx.core.app import create_app
 
 app = create_app(
     models=[User, Grant, Source, WebTools, AgentTool, AgentActor],
@@ -410,7 +410,7 @@ See `example_grants/main.py` for the canonical example.
 
 **Declarative ABAC via `__access__`:**
 ```python
-from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 
 __access__ = {
     'read': ANYONE,
@@ -419,7 +419,7 @@ __access__ = {
     'delete': OWNER | ROLE('admin'),
 }
 ```
-Rules compose with `|` (OR) and `&` (AND). The `authorize` package has zero PyBend imports.
+Rules compose with `|` (OR) and `&` (AND). The `authorize` package has zero N3TX imports.
 
 **Method-level access:**
 ```python

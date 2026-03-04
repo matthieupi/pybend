@@ -116,7 +116,7 @@ join_models=[..., (Grant, GrantTransition)]
 
 ### Framework Enhancement: `@expose_route(workflow=...)`
 
-**`src/pybend/core/utils/decorators.py`** — Add `workflow` parameter (3 lines):
+**`src/n3tx/core/utils/decorators.py`** — Add `workflow` parameter (3 lines):
 ```python
 def expose_route(route, methods=["POST"], access=None, workflow=None):
     def decorator(func):
@@ -127,7 +127,7 @@ def expose_route(route, methods=["POST"], access=None, workflow=None):
     return decorator
 ```
 
-**`src/pybend/core/models/proto_model.py`** — Propagate into schema (2 lines):
+**`src/n3tx/core/models/proto_model.py`** — Propagate into schema (2 lines):
 ```python
 if endpoint_info.get('workflow'):
     method_entry['workflow'] = endpoint_info['workflow']
@@ -149,7 +149,7 @@ Schema output:
 
 ### Frontend: Conditional Method Buttons
 
-**`src/pybend/static/components/ntt-item.js`** — In `#standaloneMethodsHtml()` and `sm()`:
+**`src/n3tx/static/components/ntx-item.js`** — In `#standaloneMethodsHtml()` and `sm()`:
 ```javascript
 const workflow = def.ui?.workflow || def.workflow;
 if (workflow?.from && !workflow.from.includes(this.value.status)) {
@@ -220,7 +220,7 @@ Phase 3: Tests (Day 2)
   - seed.py (diverse lifecycle data)
 
 Phase 4: Frontend (Day 3)
-  - ntt-item.js (conditional method buttons)
+  - ntx-item.js (conditional method buttons)
   - Status badge CSS for new states
 ```
 
@@ -236,6 +236,6 @@ Phase 4: Frontend (Day 3)
 - `example_grants/main.py`
 - `example_grants/seed.py`
 - `example_grants/tests/conftest.py`
-- `src/pybend/core/utils/decorators.py`
-- `src/pybend/core/models/proto_model.py`
-- `src/pybend/static/components/ntt-item.js`
+- `src/n3tx/core/utils/decorators.py`
+- `src/n3tx/core/models/proto_model.py`
+- `src/n3tx/static/components/ntx-item.js`

@@ -1,6 +1,6 @@
 # Pydantic v2 Metaclass Behavior and Multiple Inheritance Constraints
 
-**Project:** PyBend
+**Project:** N3TX
 **Researched:** 2026-02-26
 **Python:** 3.11.2
 **Pydantic:** 2.12.5
@@ -19,7 +19,7 @@
 7. [__init_subclass__ Chaining](#6-init_subclass-chaining)
 8. [Descriptor and Property Conflicts](#7-descriptor-and-property-conflicts)
 9. [SQLModel Precedent](#8-sqlmodel-precedent)
-10. [Current PyBend Pattern Analysis](#9-current-pybend-pattern-analysis)
+10. [Current N3TX Pattern Analysis](#9-current-ntx-pattern-analysis)
 11. [Recommendations for Actor Integration](#10-recommendations-for-actor-integration)
 12. [Risk Assessment](#11-risk-assessment)
 13. [Sources](#sources)
@@ -28,9 +28,9 @@
 
 ## Executive Summary
 
-**The core question:** Can we safely add Actor messaging behavior to Pydantic models in PyBend?
+**The core question:** Can we safely add Actor messaging behavior to Pydantic models in N3TX?
 
-**Answer: YES**, with well-understood constraints. The research reveals that PyBend's existing pattern of injecting `StorableMixin` via `cls.__bases__` modification in `__init_subclass__` is technically sound and can be extended to support an `ActorMixin`. Key findings:
+**Answer: YES**, with well-understood constraints. The research reveals that N3TX's existing pattern of injecting `StorableMixin` via `cls.__bases__` modification in `__init_subclass__` is technically sound and can be extended to support an `ActorMixin`. Key findings:
 
 1. **`cls.__bases__` modification works reliably** with Pydantic v2 models. Pydantic's schema, validation, serialization, and `model_fields` all continue to function correctly after bases are modified. Verified empirically.
 
@@ -131,9 +131,9 @@ class ChildModel(ParentModel):
 | Standard Python hook | YES | NO (Pydantic-specific) |
 | Called for `__bases__` injection | NO (on the injected mixin) | NO (on the injected mixin) |
 
-### Critical Implication for PyBend
+### Critical Implication for N3TX
 
-PyBend's current `ProtoModel.__init_subclass__` does NOT need `model_fields` for its work. It only checks `__storable__` (a ClassVar) and modifies `__bases__`. This is WHY the current pattern works -- it uses `__init_subclass__` for operations that don't require field metadata.
+N3TX's current `ProtoModel.__init_subclass__` does NOT need `model_fields` for its work. It only checks `__storable__` (a ClassVar) and modifies `__bases__`. This is WHY the current pattern works -- it uses `__init_subclass__` for operations that don't require field metadata.
 
 If a future mixin injection needs to inspect `model_fields` (e.g., to validate that certain fields exist), it MUST use `__pydantic_init_subclass__` instead.
 
@@ -203,7 +203,7 @@ When `cls.__bases__ = (NewMixin,) + cls.__bases__` is executed:
 3. Method resolution follows the new MRO correctly
 4. `issubclass()` and `isinstance()` reflect the new hierarchy
 
-Verified with PyBend's actual `ProtoModel`:
+Verified with N3TX's actual `ProtoModel`:
 
 ```python
 class ActorProduct(ProtoModel):
@@ -324,7 +324,7 @@ class StatefulMixin:
         object.__setattr__(self, '_mixin_state', {})
 ```
 
-However, Pydantic's `Config.extra = 'allow'` (which PyBend uses) means extra attributes are accepted without needing `object.__setattr__`. They end up in `__pydantic_extra__`.
+However, Pydantic's `Config.extra = 'allow'` (which N3TX uses) means extra attributes are accepted without needing `object.__setattr__`. They end up in `__pydantic_extra__`.
 
 ---
 
@@ -360,7 +360,7 @@ class Combined(MixinA, MixinB, BaseModel):
 
 ### Critical: Injected Mixins Don't Get Their __init_subclass__ Called
 
-When a mixin is injected via `cls.__bases__` modification (as PyBend does), Python does NOT retroactively call the mixin's `__init_subclass__`. This means:
+When a mixin is injected via `cls.__bases__` modification (as N3TX does), Python does NOT retroactively call the mixin's `__init_subclass__`. This means:
 
 ```python
 class ActorMixin:
@@ -491,7 +491,7 @@ This is included in `model_dump()` and `model_json_schema()`. It does NOT confli
 
 ### How SQLModel Solves the Same Problem
 
-SQLModel faces the exact same challenge as PyBend: combining Pydantic validation with a second concern (SQLAlchemy ORM). Its approach:
+SQLModel faces the exact same challenge as N3TX: combining Pydantic validation with a second concern (SQLAlchemy ORM). Its approach:
 
 **Custom dual metaclass:**
 
@@ -508,27 +508,27 @@ class SQLModelMetaclass(ModelMetaclass, DeclarativeMeta):
         return new_class
 ```
 
-**Key differences from PyBend's approach:**
+**Key differences from N3TX's approach:**
 
-| Aspect | SQLModel | PyBend |
+| Aspect | SQLModel | N3TX |
 |--------|----------|--------|
 | Metaclass | Custom dual metaclass | Standard ModelMetaclass |
 | Injection | At metaclass level | Via `__bases__` in `__init_subclass__` |
 | Toggle | `table=True` kwarg | `__storable__=True` ClassVar |
 | Scope | Always SQLAlchemy | Conditional mixin |
 
-**Why PyBend's approach is actually simpler and less fragile:**
+**Why N3TX's approach is actually simpler and less fragile:**
 
 1. No custom metaclass = no risk of metaclass conflicts with future Pydantic versions
 2. `__bases__` injection is a standard Python feature
 3. Less coupling to Pydantic internals
 4. Easier to add additional mixins without metaclass diamond problems
 
-**SQLModel's known issue:** SQLModel models cannot be extended with non-Pydantic bases (Issue #348) precisely BECAUSE of the dual metaclass constraint. PyBend does not have this limitation.
+**SQLModel's known issue:** SQLModel models cannot be extended with non-Pydantic bases (Issue #348) precisely BECAUSE of the dual metaclass constraint. N3TX does not have this limitation.
 
 ---
 
-## 9. Current PyBend Pattern Analysis
+## 9. Current N3TX Pattern Analysis
 
 **Confidence: HIGH** (verified against actual codebase)
 
@@ -717,7 +717,7 @@ Both are safe. The order only matters if the two mixins define methods with the 
 ### Python 3.11
 
 - No significant changes to `__init_subclass__` mechanics
-- Enum members now defined before `__init_subclass__()` is called (not relevant to PyBend)
+- Enum members now defined before `__init_subclass__()` is called (not relevant to N3TX)
 - Performance improvements to `type.__new__()` (beneficial but transparent)
 
 ### Python 3.12
@@ -763,7 +763,7 @@ Not directly relevant. `__class_getitem__` is used for generic type subscripting
 
 ## Appendix: Test Results Summary
 
-All tests run against Python 3.11.2, Pydantic 2.12.5, on the actual PyBend codebase.
+All tests run against Python 3.11.2, Pydantic 2.12.5, on the actual N3TX codebase.
 
 | Test # | Scenario | Result |
 |--------|----------|--------|

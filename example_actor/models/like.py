@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from pybend.core.models.actor_model import ActorModel
+from n3tx.core.models.actor_model import ActorModel
 from typing import ClassVar
 from models.user import User
 

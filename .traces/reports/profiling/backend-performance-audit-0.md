@@ -1,14 +1,14 @@
-# PyBend Backend Performance Audit
+# N3TX Backend Performance Audit
 
 **Date**: 2026-02-25  
-**Scope**: Complete performance analysis of PyBend backend (Python/FastAPI)  
+**Scope**: Complete performance analysis of N3TX backend (Python/FastAPI)  
 **Methodology**: Comprehensive code review of all critical paths
 
 ---
 
 ## Executive Summary
 
-PyBend has **15 critical and high-impact performance issues** that affect schema generation, database access patterns, connection management, and serialization. These issues span multiple layers (routes, storage, authorization, models). Most are fixable without architectural changes; some require moderate refactoring.
+N3TX has **15 critical and high-impact performance issues** that affect schema generation, database access patterns, connection management, and serialization. These issues span multiple layers (routes, storage, authorization, models). Most are fixable without architectural changes; some require moderate refactoring.
 
 **Impact Range**: Medium to Critical
 - **Critical Issues**: 3 (N+1 queries, connection leaks, schema caching)
@@ -22,7 +22,7 @@ PyBend has **15 critical and high-impact performance issues** that affect schema
 ### CRITICAL SEVERITY
 
 #### 1. **N+1 Query Problem in FK Hydration (List Fields)**
-**File**: `src/pybend/core/storage/sqlite_storage.py`  
+**File**: `src/n3tx/core/storage/sqlite_storage.py`  
 **Lines**: 148-167 (list operation), 240-258 (get operation)  
 **Problem**:
 - In `list()` method: For EACH parent row returned, a separate query is executed to fetch child IDs (line 157-160)
@@ -60,7 +60,7 @@ SELECT id FROM comments WHERE product_id = ? (run 20 times)
 ---
 
 #### 2. **SQLite Connection Leak & No Connection Pooling**
-**File**: `src/pybend/core/storage/sqlite_storage.py`  
+**File**: `src/n3tx/core/storage/sqlite_storage.py`  
 **Lines**: 72-77, 103-107, 118-121, 196-198, 513-514, 531-532, and many more  
 **Problem**:
 - Every operation opens a NEW connection: `conn = sqlite3.connect(self.database)`
@@ -116,7 +116,7 @@ class SQLiteStorage:
 ---
 
 #### 3. **Schema Generation Called on Every Request (GET /{ClassName})**
-**File**: `src/pybend/core/models/proto_model.py`  
+**File**: `src/n3tx/core/models/proto_model.py`  
 **Lines**: 170-279 (`schema()` method)  
 **Problem**:
 - `schema()` is NOT cached; it's a classmethod that runs the full schema pipeline every single time
@@ -124,7 +124,7 @@ class SQLiteStorage:
 - Schema generation is EXPENSIVE:
   - Line 174: `collect_all_referenced_models()` — walks the entire object graph
   - Line 175: `model_json_schema()` — Pydantic introspection of all fields
-  - Line 186: `__pybend_methods_json_signature__()` — introspects every method with signatures
+  - Line 186: `__n3tx_methods_json_signature__()` — introspects every method with signatures
   - Line 222: `access_schema()` — evaluates access rules for serialization
   - Lines 193-212: Recursive $defs building for referenced models
   - Multiple dict builds, field iteration, protected field filtering
@@ -138,7 +138,7 @@ class SQLiteStorage:
 # This runs on EVERY schema request:
 referenced_models = collect_all_referenced_models(cls)  # Walks graph
 schema = cls.model_json_schema(ref_template=...)         # Pydantic introspection
-methods = cls.__pybend_methods_json_signature__()        # Dir + getattr + inspect on every method
+methods = cls.__n3tx_methods_json_signature__()        # Dir + getattr + inspect on every method
 # ... then $defs merging, field filtering, protection marking, ui injection
 ```
 
@@ -173,7 +173,7 @@ class ProtoModel:
 ### HIGH SEVERITY
 
 #### 4. **FK Hydration Inefficiency in Populate (Eager Loading)**
-**File**: `src/pybend/core/storage/sqlite_storage.py`  
+**File**: `src/n3tx/core/storage/sqlite_storage.py`  
 **Lines**: 275-419 (`_populate_fields()` method)  
 **Problem**:
 - Batch loading is partially optimized BUT:
@@ -236,9 +236,9 @@ class SQLiteStorage:
 ---
 
 #### 5. **migrate_table Runs on Every Model Registration**
-**File**: `src/pybend/core/storage/sqlite_migration.py`  
+**File**: `src/n3tx/core/storage/sqlite_migration.py`  
 **Lines**: 185-298 (migrate_table method)  
-**Also**: `src/pybend/core/utils/registrar.py` line 28 — calls `migrate_table()` on every `register_model()`  
+**Also**: `src/n3tx/core/utils/registrar.py` line 28 — calls `migrate_table()` on every `register_model()`  
 **Problem**:
 - `register_model()` calls `model_class.create_table()` AND `storage.migrate_table(model_class)`
 - `migrate_table()` runs PRAGMA table_info (line 199) to inspect the table, even if it was just created
@@ -280,9 +280,9 @@ def register_model(model_class, storage):
 ---
 
 #### 6. **Redundant model_dump(response=True) Calls & Serialization**
-**File**: `src/pybend/core/api/routes_fastapi.py`  
+**File**: `src/n3tx/core/api/routes_fastapi.py`  
 **Lines**: 34-40 (_serialize function), 126, 160, 227, and many more  
-**Also**: `src/pybend/core/storage/sqlite_storage.py` lines 390, 463 (populate)  
+**Also**: `src/n3tx/core/storage/sqlite_storage.py` lines 390, 463 (populate)  
 **Problem**:
 - `model_dump(response=True)` is called to inject `$schema` and `$id` on every single response
 - In `_serialize()` function (line 34-40):
@@ -348,7 +348,7 @@ class ProtoModel:
 ---
 
 #### 7. **Inefficient List Field & Ref Field Detection (Called Per Request)**
-**File**: `src/pybend/core/utils/introspection.py`  
+**File**: `src/n3tx/core/utils/introspection.py`  
 **Lines**: 138-178 (get_list_fields), 181-203 (get_ref_fields)  
 **Also Called From**:
 - `routes_fastapi.py` line 88 (per list request)
@@ -388,7 +388,7 @@ def get_list_fields(model_class):
 ---
 
 #### 8. **Authorization Rule Evaluation Not Optimized for SQL Pushdown**
-**File**: `src/pybend/core/authorize/rules.py`  
+**File**: `src/n3tx/core/authorize/rules.py`  
 **Lines**: 59-62 (sql_filter_for in resolver), 173-177 (_Role rule)  
 **Also**: `routes_fastapi.py` line 103, 151  
 **Problem**:
@@ -437,7 +437,7 @@ class _Role(AccessRule):
 ### MEDIUM SEVERITY
 
 #### 9. **Auto-Hide Fields Convention Applied at Schema Generation Time**
-**File**: `src/pybend/core/models/proto_model.py`  
+**File**: `src/n3tx/core/models/proto_model.py`  
 **Lines**: 22-40 (_apply_field_exclusion function)  
 **Also**: Line 225 (called in schema())  
 **Problem**:
@@ -465,7 +465,7 @@ def __init_subclass__(cls, **kwargs):
 ---
 
 #### 10. **Pydantic's model_json_schema() Called Without Caching**
-**File**: `src/pybend/core/models/proto_model.py`  
+**File**: `src/n3tx/core/models/proto_model.py`  
 **Line**: 175 (model_json_schema call in schema())  
 **Problem**:
 - `cls.model_json_schema(ref_template="#/$defs/{model}")` is a heavy Pydantic call
@@ -485,11 +485,11 @@ def __init_subclass__(cls, **kwargs):
 ---
 
 #### 11. **collect_all_referenced_models() Called Twice in Schema Pipeline**
-**File**: `src/pybend/core/models/proto_model.py`  
-**Lines**: 174, 260, 82 (called in __pybend_methods_json_signature__)  
+**File**: `src/n3tx/core/models/proto_model.py`  
+**Lines**: 174, 260, 82 (called in __n3tx_methods_json_signature__)  
 **Problem**:
 - Line 174: `referenced_models = collect_all_referenced_models(cls)`
-- Line 82 (in collect_all_referenced_models): `_ = cls.__pybend_methods_json_signature__()` — calls methods signature, which ALSO calls collect_all_referenced_models
+- Line 82 (in collect_all_referenced_models): `_ = cls.__n3tx_methods_json_signature__()` — calls methods signature, which ALSO calls collect_all_referenced_models
 - Recursive walk happens multiple times
 - Also has TODO comment (line 78-81) acknowledging the inefficiency
 
@@ -498,10 +498,10 @@ def __init_subclass__(cls, **kwargs):
 def schema(cls):
     referenced_models = collect_all_referenced_models(cls)  # ← Walk 1
     # ...
-    schema['methods'] = cls.__pybend_methods_json_signature__()  # ← Walk 2 inside this
+    schema['methods'] = cls.__n3tx_methods_json_signature__()  # ← Walk 2 inside this
 
 def collect_all_referenced_models(cls):
-    _ = cls.__pybend_methods_json_signature__()  # ← Walk happens here too
+    _ = cls.__n3tx_methods_json_signature__()  # ← Walk happens here too
 ```
 
 **Why It's Expensive**:
@@ -515,7 +515,7 @@ def collect_all_referenced_models(cls):
 ---
 
 #### 12. **Migration Auto-Detection on Startup Scans Directory**
-**File**: `src/pybend/core/storage/sqlite_migration.py`  
+**File**: `src/n3tx/core/storage/sqlite_migration.py`  
 **Lines**: 304-320 (_discover_migrations)  
 **Also**: Line 354 (run_migrations called on app startup)  
 **Problem**:
@@ -536,7 +536,7 @@ def collect_all_referenced_models(cls):
 ---
 
 #### 13. **Protected Fields Checked on Every Schema Generation**
-**File**: `src/pybend/core/models/proto_model.py`  
+**File**: `src/n3tx/core/models/proto_model.py`  
 **Lines**: 228-247  
 **Problem**:
 - Lines 228-247: Iterate protected fields, update schema properties
@@ -555,7 +555,7 @@ def collect_all_referenced_models(cls):
 ---
 
 #### 14. **No Database Indexes on Foreign Key Columns**
-**File**: `src/pybend/core/storage/sqlite_migration.py`  
+**File**: `src/n3tx/core/storage/sqlite_migration.py`  
 **Lines**: 111-179 (create_table), 185-298 (migrate_table)  
 **Problem**:
 - FK columns are created (e.g., `product_id`, `user_owner`) but NO indexes
@@ -597,7 +597,7 @@ def create_table(self, model_class):
 ---
 
 #### 15. **Ref Type Unwrapping is O(n) in ListRef/Ref Field Detection**
-**File**: `src/pybend/core/utils/introspection.py`  
+**File**: `src/n3tx/core/utils/introspection.py`  
 **Lines**: 121-135 (_unwrap_listref)  
 **Also**: Lines 161-161 (called in get_list_fields), 199-202 (in get_ref_fields)  
 **Problem**:
@@ -744,7 +744,7 @@ Use `pytest` with `pytest-benchmark` or `locust` for load testing.
 
 ## Conclusion
 
-PyBend has **solid architecture** but **critical performance inefficiencies** in caching, query batching, and resource management. Most issues are **fixable without architectural changes** and deliver **5-50x improvements** on common request paths. Issues #1, #2, and #3 are **blocking production use** and should be addressed first.
+N3TX has **solid architecture** but **critical performance inefficiencies** in caching, query batching, and resource management. Most issues are **fixable without architectural changes** and deliver **5-50x improvements** on common request paths. Issues #1, #2, and #3 are **blocking production use** and should be addressed first.
 
 **Estimated Total Effort**: 10-12 hours  
 **Estimated Performance Gain**: 5-10x on paginated lists, 10-50x on schema endpoints, 2-5s startup improvement

@@ -8,8 +8,8 @@ from typing import ClassVar
 from pydantic import ValidationError
 
 from models import Comment, Like
-from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
-from pybend.core.utils.erroring import MethodError
+from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx.core.utils.erroring import MethodError
 
 pytestmark = pytest.mark.unit
 
@@ -48,7 +48,7 @@ class TestCommentFields:
         assert 'delete' in Comment.__access__
 
     def test_access_read_anyone(self):
-        from pybend.core.authorize.rules import _Anyone
+        from n3tx.core.authorize.rules import _Anyone
         assert isinstance(Comment.__access__['read'], _Anyone)
 
     def test_parent_id_default_none(self):

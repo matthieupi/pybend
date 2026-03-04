@@ -5,18 +5,18 @@ from datetime import datetime
 
 from pydantic import Field, field_validator
 
-from pybend.core.models.viewable_mixin import ViewableMixin
+from n3tx.core.models.viewable_mixin import ViewableMixin
 from models.comment import Comment
 from models.like import Like
-from pybend.core.models.proto_model import ProtoModel
+from n3tx.core.models.proto_model import ProtoModel
 from models.user import User
-from pybend.core.models.ref import ListRef
+from n3tx.core.models.ref import ListRef
 from typing import ClassVar
-from pybend.core.utils.decorators import expose_route
-from pybend.core.utils.registrar import join_models
-from pybend.core.authorize import AUTHENTICATED
-from pybend.core.utils.erroring import MethodError
-from pybend.core.widgets import CurrencyField, TextareaField
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.utils.registrar import join_models
+from n3tx.core.authorize import AUTHENTICATED
+from n3tx.core.utils.erroring import MethodError
+from n3tx.core.widgets import CurrencyField, TextareaField
 
 
 class Product(ProtoModel):
@@ -48,8 +48,8 @@ class Product(ProtoModel):
         },
         'populate': {'depth': 2},
         'renderer': {
-            'item': 'ntt-item',
-            'list': 'ntt-list',
+            'item': 'ntx-item',
+            'list': 'ntx-list',
         },
     }
     image: str = Field(default='https://placehold.co/400x300/e2e8f0/64748b?text=No+Image')

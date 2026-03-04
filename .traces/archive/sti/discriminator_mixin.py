@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger('pybend.models')
+logger = logging.getLogger('n3tx.models')
 
 
 class DiscriminatorMixin:

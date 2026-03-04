@@ -1,4 +1,4 @@
-# Frontend Integration & E2E Test Plan — PyBend NTT 0.6
+# Frontend Integration & E2E Test Plan — N3TX N3TX 0.6
 
 > **Scope**: Component interactions, message flows, data binding (integration) + real browser automation (Playwright E2E)
 > **Framework**: Integration — Vitest + jsdom; E2E — Playwright
@@ -11,14 +11,14 @@
 ### 1. Schema Bootstrap Flow
 
 **Test: Schema fetch triggers DynamicClass creation and READ**
-- Component sends ATTACH with model name 'Product' to NTT
-- NTT.SCHEMA handler receives schema from backend
-- DynamicClass created, registered in NTT.#prototypes
+- Component sends ATTACH with model name 'Product' to N3TX
+- N3TX.SCHEMA handler receives schema from backend
+- DynamicClass created, registered in N3TX.#prototypes
 - $defs nested schemas (Comment, ProductLike) also registered
 - DynamicClass.READ called with initial READ TX
 - Product instances created from response, stored in DynamicClass.instances
-- Edge: pre-loaded schema via `<script data-ntt-schema>` consumed before network
-- Edge: pre-loaded data via `<script data-ntt-data>` skips network fetch
+- Edge: pre-loaded schema via `<script data-ntx-schema>` consumed before network
+- Edge: pre-loaded data via `<script data-ntx-data>` skips network fetch
 - Edge: multiple simultaneous ATTACH requests queue and replay once schema ready
 - Edge: timeout on /Product fetch → error logging
 
@@ -30,7 +30,7 @@
 - product.comment() sends TX with correct target and payload
 
 **Test: $defs registered with own schemas and instances**
-- NTT.get('Comment') returns DynamicClass
+- N3TX.get('Comment') returns DynamicClass
 - Comment has own .instances map
 - Comment properties and methods available independently
 
@@ -69,18 +69,18 @@
 ### 3. Actor Messaging (TX Routing Through Matrix)
 
 **Test: TX routed from component to DynamicClass**
-- TX(name: 'ATTACH', target: 'NTT', data: 'Product') → Matrix → NTT.ATTACH
+- TX(name: 'ATTACH', target: 'N3TX', data: 'Product') → Matrix → N3TX.ATTACH
 
 **Test: TX routed to network (remote)**
 - TX(name: 'READ', target: 'http://localhost:5000/products') → Matrix → NetworkAdapter.send
 - x-access-token header included if jwtToken in localStorage
 
 **Test: Parent-child message delivery**
-- ntt-list registers as watcher on DynamicClass
-- DynamicClass.READ sends UPDATE TX to ntt-list with instance addresses
+- ntx-list registers as watcher on DynamicClass
+- DynamicClass.READ sends UPDATE TX to ntx-list with instance addresses
 
 **Test: TX bubble-up through Actor hierarchy**
-- ntt-item sends TX to non-existent local actor → bubbles to Matrix
+- ntx-item sends TX to non-existent local actor → bubbles to Matrix
 
 **Test: Message ordering and delivery guarantees**
 - 5 sequential ATTACHes before schema ready → all queued
@@ -108,12 +108,12 @@
 - Others not called
 
 **Test: Cross-component reactivity**
-- ntt-item and ntt-list both observe same DynamicClass
+- ntx-item and ntx-list both observe same DynamicClass
 - Update triggers both independently
 
 ---
 
-### 5. Router + ntt-router Integration
+### 5. Router + ntx-router Integration
 
 **Test: Router initialization**
 - Router created with name "main", hash sync enabled
@@ -122,7 +122,7 @@
 **Test: NAVIGATE changes route and hash**
 - Router.current = new data
 - Stack updated, hash updated
-- ntt-router re-renders with new view
+- ntx-router re-renders with new view
 
 **Test: BACK pops route**
 - Returns to previous route, hash updated
@@ -136,7 +136,7 @@
 **Test: Route types**
 - String 'Product/3' → resolves tag from schema
 - Object {tag, attrs, title} → creates custom component
-- String '@profile' → creates ntt-profile
+- String '@profile' → creates ntx-profile
 
 ---
 
@@ -193,7 +193,7 @@
 
 ### 8. Network Adapter + Entity Sync
 
-**Test: HTTP GET schema** → NTT.SCHEMA handler invoked
+**Test: HTTP GET schema** → N3TX.SCHEMA handler invoked
 **Test: HTTP POST create** → instance added to DynamicClass
 **Test: HTTP PUT update** → entity refreshed
 **Test: HTTP DELETE** → instance removed, watchers notified
@@ -233,7 +233,7 @@
 - href array rendered as comment list
 
 **Test: Add comment via method**
-- ntt-method POST → product._response_ → pull() → comment list updated
+- ntx-method POST → product._response_ → pull() → comment list updated
 
 **Test: Reply (self-referential)**
 - parent_id creates nested comment
@@ -273,14 +273,14 @@
   - No exceptions, shadow DOM exists, stylesheets load (no 404)
 
 - **Product list appears with seeded data**
-  - `<ntt-list model="Product">` rendered, items visible (at least 3)
+  - `<ntx-list model="Product">` rendered, items visible (at least 3)
   - Each product shows name field
 
 - **Schema fetch completes**
   - GET /Product → 200, response has $schema, $id, properties, methods
 
 - **Framework components register**
-  - `window.NTT` available, `NTT.get('Product')` returns DynamicClass
+  - `window.N3TX` available, `N3TX.get('Product')` returns DynamicClass
 
 - **Theme CSS loads**
   - CSS variables defined (--surface-0, --text-0, --accent)
@@ -359,7 +359,7 @@
 
 ### 8. Comments (Nested Entity)
 
-- **Comment form on product detail** — `ntt-method[method="comment"]` visible
+- **Comment form on product detail** — `ntx-method[method="comment"]` visible
 - **Submit comment** — POST sent, comment appears in list, count updated
 - **Comments list** — shows author, text, timestamp
 - **Delete own comment** — confirm → removed → count decreases
@@ -370,7 +370,7 @@
 
 ### 9. Likes (Method Button)
 
-- **Like button visible** — `ntt-method[method="like"]` with heart icon + count
+- **Like button visible** — `ntx-method[method="like"]` with heart icon + count
 - **Click like** — POST sent, count increments, visual feedback
 - **Unlike (toggle)** — click again, count decrements
 - **Count badge** — matches actual likes, persists after reload
@@ -446,15 +446,15 @@
 
 ```
 // Components
-'ntt-list'                                    // List container
-'ntt-item[ref="Product/1"]'                   // Specific item
-'ntt-router[name="main"]'                     // Router
-'ntt-topbar'                                  // Top navigation
-'ntt-logs'                                    // Logs panel
-'ntt-method[method="like"]'                   // Method button
+'ntx-list'                                    // List container
+'ntx-item[ref="Product/1"]'                   // Specific item
+'ntx-router[name="main"]'                     // Router
+'ntx-topbar'                                  // Top navigation
+'ntx-logs'                                    // Logs panel
+'ntx-method[method="like"]'                   // Method button
 
 // Shadow DOM piercing (Playwright)
-'ntt-item[ref="Product/1"] >>> span'
+'ntx-item[ref="Product/1"] >>> span'
 
 // Form elements
 'input[data-key="name"]'
@@ -496,8 +496,8 @@ GET  /auth/me                          — User info
 ### Browser Evaluation Commands
 
 ```javascript
-window.NTT.get('Product')                     // DynamicClass
-window.NTT.get('Product').instances.size       // Instance count
+window.N3TX.get('Product')                     // DynamicClass
+window.N3TX.get('Product').instances.size       // Instance count
 document.documentElement.getAttribute('data-theme')  // Theme
 window.localStorage.getItem('jwtToken')        // Auth token
 ```

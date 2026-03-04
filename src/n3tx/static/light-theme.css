@@ -1,0 +1,118 @@
+/* N3TXTX Framework — Light Theme Override
+ *
+ * Activates when <html data-theme="light"> is set.
+ * Only overrides CSS custom properties — all component CSS
+ * continues to work via var() references.
+ *
+ * "Light and Shadows" — not flat white, but frosted glass
+ * with visible depth, colored reflections, and warm highlights.
+ */
+
+[data-theme="light"] {
+    /* Surface — warm-tinted, not stark white */
+    --surface-0: #f0f2f6;
+    --surface-1: #fafbfd;
+    --surface-2: #f0f1f5;
+    --surface-3: #e4e7ee;
+    --surface-4: #d4d8e2;
+    --surface-glass: rgba(255, 255, 255, 0.75);
+
+    /* Text — rich dark, high contrast */
+    --text-0: #141722;
+    --text-1: #363b50;
+    --text-2: #5d6380;
+    --text-3: #8d93aa;
+
+    /* Accent — vibrant teal, tuned for light bg contrast */
+    --accent: #14b8a6;
+    --accent-dim: rgba(20, 184, 166, 0.12);
+    --accent-glow: rgba(20, 184, 166, 0.25);
+    --accent-text: #0d9485;
+    --accent-subtle: rgba(20, 184, 166, 0.06);
+
+    /* Secondary accent — warm amber */
+    --warm: #e8860d;
+    --warm-dim: rgba(232, 134, 13, 0.10);
+    --warm-glow: rgba(232, 134, 13, 0.18);
+
+    /* Semantic — vivid for light bg */
+    --success: #059669;
+    --warning: #d97706;
+    --error: #dc2626;
+
+    /* Borders — teal-tinted for character */
+    --border: rgba(20, 184, 166, 0.08);
+    --border-hover: rgba(20, 184, 166, 0.16);
+    --border-accent: rgba(20, 184, 166, 0.40);
+
+    /* Shadows — colored, not just black */
+    --shadow-xs: 0 1px 2px rgba(20, 60, 80, 0.06);
+    --shadow-sm: 0 1px 3px rgba(20, 60, 80, 0.08), 0 2px 6px rgba(20, 60, 80, 0.04);
+    --shadow-md: 0 2px 4px rgba(20, 60, 80, 0.06), 0 6px 20px rgba(20, 60, 80, 0.08), 0 1px 2px rgba(20, 60, 80, 0.04);
+    --shadow-lg: 0 4px 8px rgba(20, 60, 80, 0.07), 0 12px 36px rgba(20, 60, 80, 0.10), 0 2px 4px rgba(20, 60, 80, 0.04);
+    --shadow-xl: 0 8px 16px rgba(20, 60, 80, 0.08), 0 24px 56px rgba(20, 60, 80, 0.13), 0 4px 8px rgba(20, 60, 80, 0.05);
+    --shadow-accent: 0 4px 24px rgba(20, 184, 166, 0.15);
+    --shadow-accent-sm: 0 2px 12px rgba(20, 184, 166, 0.10);
+    --shadow-accent-md: 0 4px 24px rgba(20, 184, 166, 0.18);
+    --shadow-accent-lg: 0 8px 40px rgba(20, 184, 166, 0.22);
+    --shadow-inset: inset 0 1px 3px rgba(20, 60, 80, 0.08);
+
+    /* Glass surfaces — frosted with teal tint */
+    --glass-bg: rgba(255, 255, 255, 0.60);
+    --glass-bg-light: rgba(255, 255, 255, 0.45);
+    --glass-bg-hover: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(20, 184, 166, 0.10);
+    --glass-border-hover: rgba(20, 184, 166, 0.18);
+    --glass-blur: 18px;
+    --glass-blur-sm: 10px;
+    --glass-blur-lg: 28px;
+    --glass-gradient: linear-gradient(135deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.20) 40%, transparent 60%, rgba(20,184,166,0.02) 100%);
+
+    /* Light source simulation — bright with colored edge */
+    --light-highlight: rgba(255, 255, 255, 0.80);
+    --light-shadow: rgba(20, 60, 80, 0.10);
+
+    /* Gradients */
+    --gradient-accent: linear-gradient(135deg, #14b8a6, #0d9485);
+    --gradient-text: linear-gradient(135deg, #141722 0%, #0d9485 50%, #e8860d 100%);
+
+    /* Legacy aliases */
+    --border-color: var(--border);
+    --bg-glass: var(--glass-bg);
+    --bg-tertiary: var(--surface-3);
+    --text-primary: var(--text-0);
+    --text-secondary: var(--text-2);
+}
+
+/* ── Body — warm gradient ambient ── */
+[data-theme="light"] body {
+    background: var(--surface-0);
+    color: var(--text-0);
+}
+
+[data-theme="light"] body::before {
+    background:
+        radial-gradient(ellipse 90% 55% at 50% -25%, rgba(20, 184, 166, 0.10), transparent 70%),
+        radial-gradient(ellipse 50% 35% at 90% 105%, rgba(232, 134, 13, 0.07), transparent 70%),
+        radial-gradient(ellipse 40% 30% at 5% 75%, rgba(20, 184, 166, 0.05), transparent 70%);
+}
+
+/* ── Scrollbar ── */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background: var(--surface-4);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-3);
+}
+
+/* ── Selection — teal highlight ── */
+[data-theme="light"] ::selection {
+    background: rgba(20, 184, 166, 0.22);
+    color: var(--text-0);
+}
+
+/* ── Topbar — frosted glass with teal accent line ── */
+[data-theme="light"] ntx-topbar {
+    --topbar-bg: rgba(255, 255, 255, 0.82);
+}

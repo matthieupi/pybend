@@ -26,11 +26,11 @@ class TestDebugMode:
         # In test environment, DEBUG may be True
         # This test verifies the default in the actual config file
         # which we can't directly test without resetting the env
-        # So we check that the config respects PYBEND_DEBUG env var
+        # So we check that the config respects N3TX_DEBUG env var
         assert hasattr(config, 'DEBUG')
 
     def test_debug_can_be_enabled_via_env(self):
-        """DEBUG can be enabled via PYBEND_DEBUG env var."""
+        """DEBUG can be enabled via N3TX_DEBUG env var."""
         # This is a documentation test — actual env var handling
         # happens at import time, so we can't test it dynamically
         # without subprocess or import reloading
@@ -42,7 +42,7 @@ class TestCORSConfig:
 
     def test_cors_backend_module_exists(self):
         """Backend module has FastAPIBackend class with CORS handling."""
-        from pybend.core.api import backend
+        from n3tx.core.api import backend
         assert hasattr(backend, 'FastAPIBackend')
 
     def test_cors_implementation_documented(self):

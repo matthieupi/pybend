@@ -234,7 +234,7 @@ class TestJoinModelBehavior:
 class TestCascadeDelete:
     """IT-7: Verify behavior when parent entities are deleted.
 
-    Note: PyBend may or may not implement true cascade deletes.
+    Note: N3TX may or may not implement true cascade deletes.
     These tests verify the observable behavior: after deleting a parent,
     either children are also deleted (cascade) or they become orphaned
     but the parent is gone. Both are valid; the test documents which.

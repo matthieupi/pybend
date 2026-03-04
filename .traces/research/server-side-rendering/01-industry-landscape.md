@@ -1,6 +1,6 @@
 # Server-Side Rendering: Industry Landscape
 
-**Research Document for PyBend Strategic Planning**
+**Research Document for N3TX Strategic Planning**
 *Date: February 2026 | Audience: Technical CEO + Engineering Leadership*
 
 ---
@@ -9,9 +9,9 @@
 
 Server-side rendering is no longer a niche technique -- it is the **default architecture** for production web applications at scale. SSR adoption increased **41% year-over-year** through 2025, and **59% of JavaScript developers** now use SSR in their projects (State of JS 2024). The global web frameworks market, heavily driven by SSR-capable meta-frameworks, reached **$959.67M in 2025** and is projected to hit **$1.92B by 2035** at a 7.2% CAGR.
 
-For PyBend -- a schema-driven framework with a vanilla JS Web Components frontend -- the SSR question is not "should we?" but "which flavor, and when?" This document maps the competitive landscape, quantifies business outcomes, identifies who wins and who loses with SSR, and charts the trajectory toward newer patterns (islands architecture, React Server Components, resumability) that may be more aligned with PyBend's architecture than traditional SSR.
+For N3TX -- a schema-driven framework with a vanilla JS Web Components frontend -- the SSR question is not "should we?" but "which flavor, and when?" This document maps the competitive landscape, quantifies business outcomes, identifies who wins and who loses with SSR, and charts the trajectory toward newer patterns (islands architecture, React Server Components, resumability) that may be more aligned with N3TX's architecture than traditional SSR.
 
-> **Key Takeaway for Leadership:** SSR delivers measurable ROI for SEO-dependent and e-commerce applications (conversion lifts of 5-33%, FCP improvements of 30-55%). However, for schema-driven frameworks serving authenticated SPA-like experiences, the cost-benefit calculus is different. The emerging "islands" and "partial hydration" patterns may offer PyBend a better path than full SSR adoption.
+> **Key Takeaway for Leadership:** SSR delivers measurable ROI for SEO-dependent and e-commerce applications (conversion lifts of 5-33%, FCP improvements of 30-55%). However, for schema-driven frameworks serving authenticated SPA-like experiences, the cost-benefit calculus is different. The emerging "islands" and "partial hydration" patterns may offer N3TX a better path than full SSR adoption.
 
 ---
 
@@ -44,7 +44,7 @@ Sources: [Netflix Web Performance Case Study (Addy Osmani)](https://medium.com/d
 
 Notice that most companies **do not SSR their entire application**. Netflix only SSRs the logged-out homepage. Airbnb SSRs search results but the authenticated dashboard is client-rendered. Notion SSRs marketing and public pages, not the editor. This pattern -- **selective SSR for public-facing, SEO-critical surfaces** -- is the dominant real-world approach, not full-application SSR.
 
-> **Relevance to PyBend:** PyBend's current architecture serves authenticated, schema-driven applications. If the primary users are logged-in and interacting with dynamic data, the SSR value proposition is weaker than for a public e-commerce site. The strategic question is whether PyBend needs SSR for public-facing read views (product catalogs, public profiles) while keeping the authenticated experience client-rendered.
+> **Relevance to N3TX:** N3TX's current architecture serves authenticated, schema-driven applications. If the primary users are logged-in and interacting with dynamic data, the SSR value proposition is weaker than for a public e-commerce site. The strategic question is whether N3TX needs SSR for public-facing read views (product catalogs, public profiles) while keeping the authenticated experience client-rendered.
 
 ---
 
@@ -52,7 +52,7 @@ Notice that most companies **do not SSR their entire application**. Netflix only
 
 ### The So-What
 
-Next.js has won the SSR framework war by a wide margin, but developer satisfaction is declining while smaller frameworks (Astro, SvelteKit) show higher retention. The market is consolidating around Next.js for React shops, but fragmenting philosophically around new rendering paradigms. For a Python-first framework like PyBend, the relevant insight is that **SSR is increasingly a solved problem at the framework level** -- the question is which approach to adopt, not whether to build from scratch.
+Next.js has won the SSR framework war by a wide margin, but developer satisfaction is declining while smaller frameworks (Astro, SvelteKit) show higher retention. The market is consolidating around Next.js for React shops, but fragmenting philosophically around new rendering paradigms. For a Python-first framework like N3TX, the relevant insight is that **SSR is increasingly a solved problem at the framework level** -- the question is which approach to adopt, not whether to build from scratch.
 
 ### Framework Comparison (2025-2026 Data)
 
@@ -71,7 +71,7 @@ Sources: [npm trends](https://npmtrends.com/astro-vs-next-vs-nuxt-vs-remix-vs-sv
 
 > **Key Insight:** Next.js dominates usage but is losing developer love. The State of JS 2024 survey reveals "a subtle but discernible downturn in user sentiment about meta-frameworks, even while actual usage continues to increase." This mirrors the jQuery pattern of the early 2010s -- ubiquitous but increasingly resented.
 
-**Astro at 94% satisfaction** is notable because its architecture (islands, zero-JS by default, framework-agnostic) most closely resembles what PyBend could adopt: server-render the static shell, hydrate only interactive components. Astro proves you do not need full SSR hydration to win on performance.
+**Astro at 94% satisfaction** is notable because its architecture (islands, zero-JS by default, framework-agnostic) most closely resembles what N3TX could adopt: server-render the static shell, hydrate only interactive components. Astro proves you do not need full SSR hydration to win on performance.
 
 ### Framework Rendering Strategy Matrix
 
@@ -129,7 +129,7 @@ Industry data consistently shows:
 
 Source: [Shopify Hydrogen Performance Guide](https://shopify.engineering/high-performance-hydrogen-powered-storefronts)
 
-> **Relevance to PyBend:** These numbers are most relevant for **e-commerce and content sites** where every visitor is a potential conversion. For internal tools, dashboards, and authenticated SaaS applications -- PyBend's primary use case -- the SEO argument evaporates and the conversion argument weakens (users are already committed). The performance argument remains, but the ROI threshold is higher.
+> **Relevance to N3TX:** These numbers are most relevant for **e-commerce and content sites** where every visitor is a potential conversion. For internal tools, dashboards, and authenticated SaaS applications -- N3TX's primary use case -- the SEO argument evaporates and the conversion argument weakens (users are already committed). The performance argument remains, but the ROI threshold is higher.
 
 ---
 
@@ -235,7 +235,7 @@ The most compelling SSR success stories share common traits: they are **e-commer
 
 Source: [Netflix Web Performance Case Study](https://medium.com/dev-channel/a-netflix-web-performance-case-study-c0bcde26a9d9), [Jake Archibald Analysis](https://jakearchibald.com/2017/netflix-and-react/)
 
-> **Relevance to PyBend:** PyBend's vanilla JS Web Components frontend already avoids the heavy framework overhead that SSR is often used to compensate for. Netflix's lesson reinforces that **less JavaScript beats server-rendered JavaScript** when the goal is raw performance.
+> **Relevance to N3TX:** N3TX's vanilla JS Web Components frontend already avoids the heavy framework overhead that SSR is often used to compensate for. Netflix's lesson reinforces that **less JavaScript beats server-rendered JavaScript** when the goal is raw performance.
 
 ---
 
@@ -362,7 +362,7 @@ A well-circulated analysis from [Meanderings Blog](https://meanderingthoughts.ha
 3. **If your content does not change per-request**, SSG (static generation) gives SSR's benefits without SSR's costs
 4. **If you are a small team**, the infrastructure and debugging overhead of SSR will slow feature delivery
 
-This matches the profile of many PyBend deployments: authenticated applications serving dynamic, schema-driven content to known users on modern devices.
+This matches the profile of many N3TX deployments: authenticated applications serving dynamic, schema-driven content to known users on modern devices.
 
 ---
 
@@ -424,7 +424,7 @@ Traditional SSR (full-page server render + full hydration) has **plateaued**. Wh
 
 **Weaknesses:** Less suitable for highly interactive apps where most of the page is "islands." Coordination between islands requires explicit patterns.
 
-> **Key Insight for PyBend:** Islands architecture is the most natural fit for PyBend's Web Components approach. Each `<ntt-item>`, `<ntt-list>`, or `<ntt-method>` component is already a self-contained interactive unit -- a natural "island." A server could render the static HTML shell (layout, navigation, non-interactive content), and each Web Component would hydrate independently. This avoids the full-page hydration problem entirely.
+> **Key Insight for N3TX:** Islands architecture is the most natural fit for N3TX's Web Components approach. Each `<ntx-item>`, `<ntx-list>`, or `<ntx-method>` component is already a self-contained interactive unit -- a natural "island." A server could render the static HTML shell (layout, navigation, non-interactive content), and each Web Component would hydrate independently. This avoids the full-page hydration problem entirely.
 
 #### 3. Resumability (Qwik)
 
@@ -438,14 +438,14 @@ Traditional SSR (full-page server render + full hydration) has **plateaued**. Wh
 
 ### Emerging Patterns: What Comes After SSR?
 
-| Pattern | Description | Maturity | Implication for PyBend |
+| Pattern | Description | Maturity | Implication for N3TX |
 |---------|-------------|----------|----------------------|
 | **Partial Hydration** | Only hydrate interactive parts of the page | Production (Astro) | Natural fit for Web Components |
 | **Streaming SSR** | Send HTML in chunks as data resolves | Production (React 18, Remix) | Could benefit schema-driven pages |
 | **Edge Rendering** | SSR at CDN edge (Cloudflare Workers, Deno Deploy) | Production | Reduces TTFB globally |
-| **Server-Driven UI** | Server sends UI descriptions, client renders | Production (Airbnb, Netflix, Lyft mobile) | **PyBend already does this** via JSON Schema |
+| **Server-Driven UI** | Server sends UI descriptions, client renders | Production (Airbnb, Netflix, Lyft mobile) | **N3TX already does this** via JSON Schema |
 | **HTMX / Hypermedia** | Server sends HTML fragments, client swaps DOM | Growing rapidly | Compatible with FastAPI; alternative to SSR |
-| **Declarative Shadow DOM** | Server-render Web Component shadow DOM without JS | Shipping (Chrome, Safari) | Direct relevance to PyBend's Web Components |
+| **Declarative Shadow DOM** | Server-render Web Component shadow DOM without JS | Shipping (Chrome, Safari) | Direct relevance to N3TX's Web Components |
 
 ---
 
@@ -457,19 +457,19 @@ Python's SSR story is fundamentally different from the JavaScript world. Python 
 
 ### Python SSR Approaches
 
-| Approach | How It Works | Ecosystem | Fit for PyBend |
+| Approach | How It Works | Ecosystem | Fit for N3TX |
 |----------|-------------|-----------|---------------|
-| **Jinja2 Templates** | Server renders full HTML pages via templates | FastAPI native, Django, Flask | Low fit -- replaces PyBend's Web Components |
+| **Jinja2 Templates** | Server renders full HTML pages via templates | FastAPI native, Django, Flask | Low fit -- replaces N3TX's Web Components |
 | **FastAPI + HTMX** | Server returns HTML fragments; HTMX swaps DOM regions | fasthx, fastapi-htmx packages | Medium fit -- could complement Web Components |
 | **Starlette StreamingResponse** | Stream HTML to client as data resolves | FastAPI native (Starlette) | Medium fit -- initial HTML shell streaming |
-| **Server-Driven UI (JSON)** | Server sends structured data, client renders | **PyBend's current model** | High fit -- already implemented |
-| **Declarative Shadow DOM** | Server pre-renders Web Component shadow trees | Emerging browser standard | High fit -- natural evolution for NTT components |
+| **Server-Driven UI (JSON)** | Server sends structured data, client renders | **N3TX's current model** | High fit -- already implemented |
+| **Declarative Shadow DOM** | Server pre-renders Web Component shadow trees | Emerging browser standard | High fit -- natural evolution for N3TX components |
 
 ### fasthx: The FastAPI SSR Library
 
 [fasthx](https://github.com/volfpeter/fasthx) is a declarative Python server-side rendering utility for FastAPI with built-in HTMX support. It works with any templating engine (Jinja2, htmy, dominate) and provides decorators for SSR routes.
 
-> **Relevance to PyBend:** Rather than adopting a JavaScript SSR framework, PyBend could adopt a Python-native approach: use FastAPI to render initial HTML (from the schema) and let Web Components hydrate interactively. This keeps the "backend is authoritative" principle intact and avoids introducing a Node.js SSR layer.
+> **Relevance to N3TX:** Rather than adopting a JavaScript SSR framework, N3TX could adopt a Python-native approach: use FastAPI to render initial HTML (from the schema) and let Web Components hydrate interactively. This keeps the "backend is authoritative" principle intact and avoids introducing a Node.js SSR layer.
 
 ---
 
@@ -477,29 +477,29 @@ Python's SSR story is fundamentally different from the JavaScript world. Python 
 
 ### The So-What
 
-Web Components have historically been incompatible with SSR because Shadow DOM required JavaScript to create. **Declarative Shadow DOM** (DSD) changes this entirely -- it allows server-rendered HTML to include Shadow DOM without any JavaScript. This is the most architecturally relevant SSR development for PyBend.
+Web Components have historically been incompatible with SSR because Shadow DOM required JavaScript to create. **Declarative Shadow DOM** (DSD) changes this entirely -- it allows server-rendered HTML to include Shadow DOM without any JavaScript. This is the most architecturally relevant SSR development for N3TX.
 
 ### Declarative Shadow DOM: The Game Changer
 
 Traditional Web Component (requires JS):
 ```html
-<ntt-item>
+<ntx-item>
   <!-- Shadow DOM cannot exist until JS executes -->
-</ntt-item>
+</ntx-item>
 ```
 
 Declarative Shadow DOM (works without JS):
 ```html
-<ntt-item>
+<ntx-item>
   <template shadowrootmode="open">
     <style>:host { display: block; }</style>
     <h2>Product Name</h2>
     <p>$19.99</p>
   </template>
-</ntt-item>
+</ntx-item>
 ```
 
-**Browser Support (2026):** Chrome and Safari support Declarative Shadow DOM natively. Firefox shipped support in 2024. This means PyBend could server-render Web Components with full Shadow DOM, and they would **display correctly with zero JavaScript**.
+**Browser Support (2026):** Chrome and Safari support Declarative Shadow DOM natively. Firefox shipped support in 2024. This means N3TX could server-render Web Components with full Shadow DOM, and they would **display correctly with zero JavaScript**.
 
 ### SSR Libraries for Web Components
 
@@ -512,13 +512,13 @@ Declarative Shadow DOM (works without JS):
 
 Source: [Lit SSR Documentation](https://lit.dev/docs/ssr/overview/), [Stencil SSR](https://stenciljs.com/docs/server-side-rendering), [Spicy Web: How to Server-Render a Web Component](https://www.spicyweb.dev/web-components-ssr-node/)
 
-> **Key Insight:** For PyBend, the most natural SSR path is not adopting Next.js or any JavaScript meta-framework. It is **rendering Web Component HTML (with Declarative Shadow DOM) directly from Python/FastAPI**, using the schema as the source of truth. The server already knows the schema, the data, and the component structure -- it can produce the initial HTML without a JavaScript runtime.
+> **Key Insight:** For N3TX, the most natural SSR path is not adopting Next.js or any JavaScript meta-framework. It is **rendering Web Component HTML (with Declarative Shadow DOM) directly from Python/FastAPI**, using the schema as the source of truth. The server already knows the schema, the data, and the component structure -- it can produce the initial HTML without a JavaScript runtime.
 
 ---
 
-## 11. Strategic Implications for PyBend
+## 11. Strategic Implications for N3TX
 
-### Where SSR Makes Sense for PyBend
+### Where SSR Makes Sense for N3TX
 
 | Use Case | SSR Benefit | Recommended Approach |
 |----------|-------------|---------------------|
@@ -527,7 +527,7 @@ Source: [Lit SSR Documentation](https://lit.dev/docs/ssr/overview/), [Stencil SS
 | **Marketing / landing pages** | FCP + SEO | SSG (pre-render at build time from schema) |
 | **Documentation** | SEO | SSG with Astro or similar |
 
-### Where SSR Does NOT Make Sense for PyBend
+### Where SSR Does NOT Make Sense for N3TX
 
 | Use Case | Why Not | Better Alternative |
 |----------|---------|-------------------|
@@ -536,9 +536,9 @@ Source: [Lit SSR Documentation](https://lit.dev/docs/ssr/overview/), [Stencil SS
 | **Complex form interactions** | Hydration adds complexity without benefit | Client-side form.js (current approach) |
 | **Admin interfaces** | Authenticated users on fast connections | CSR (current approach) |
 
-### The PyBend-Native SSR Strategy
+### The N3TX-Native SSR Strategy
 
-Rather than adopting a JavaScript SSR framework, PyBend's architecture suggests a **schema-driven server rendering** approach:
+Rather than adopting a JavaScript SSR framework, N3TX's architecture suggests a **schema-driven server rendering** approach:
 
 1. **FastAPI renders initial HTML** from the model schema (the server already has all the information)
 2. **Declarative Shadow DOM** pre-populates Web Component shadow trees
@@ -550,15 +550,15 @@ This approach:
 - Keeps Python authoritative (no Node.js SSR layer)
 - Uses the schema as the single source of truth for both SSR HTML and client-side rendering
 - Avoids the hydration penalty (Web Components hydrate independently, not as a monolithic tree)
-- Works with existing `ntt-item`, `ntt-list`, and `ntt-element` components
+- Works with existing `ntx-item`, `ntx-list`, and `ntx-element` components
 
 ---
 
 ## 12. Competitive Positioning Matrix
 
-### How PyBend Compares to SSR-Native Frameworks
+### How N3TX Compares to SSR-Native Frameworks
 
-| Capability | Next.js | Nuxt | Astro | PyBend (Current) | PyBend (With SSR) |
+| Capability | Next.js | Nuxt | Astro | N3TX (Current) | N3TX (With SSR) |
 |-----------|---------|------|-------|-------------------|-------------------|
 | First Contentful Paint | Excellent (SSR) | Excellent (SSR) | Excellent (Islands) | Poor (CSR only) | Good-Excellent |
 | Time to Interactive | Good (hydration cost) | Good | Excellent (minimal JS) | Good (lightweight JS) | Good-Excellent |
@@ -569,7 +569,7 @@ This approach:
 | Web Components | Partial support | Partial support | Excellent support | **Native** | **Native** |
 | Infrastructure complexity | High | High | Low (mostly static) | **Low** | Medium |
 
-> **Key Insight:** PyBend's competitive advantage is **not** in rendering performance -- it is in **developer productivity** (schema-driven, zero-config). Adding SSR should preserve this advantage, not undermine it. The SSR implementation should be automatic (derived from the schema), not manually configured per route.
+> **Key Insight:** N3TX's competitive advantage is **not** in rendering performance -- it is in **developer productivity** (schema-driven, zero-config). Adding SSR should preserve this advantage, not undermine it. The SSR implementation should be automatic (derived from the schema), not manually configured per route.
 
 ---
 
@@ -577,11 +577,11 @@ This approach:
 
 ### For the CEO
 
-1. **SSR is table stakes for SEO-dependent products.** If PyBend users build public-facing applications that need Google visibility, SSR capability is a competitive requirement. Without it, PyBend loses to Next.js and Nuxt for any project where SEO matters.
+1. **SSR is table stakes for SEO-dependent products.** If N3TX users build public-facing applications that need Google visibility, SSR capability is a competitive requirement. Without it, N3TX loses to Next.js and Nuxt for any project where SEO matters.
 
-2. **SSR is NOT table stakes for all products.** For authenticated dashboards, internal tools, and admin panels -- a significant portion of PyBend's target market -- SSR adds cost without proportional benefit.
+2. **SSR is NOT table stakes for all products.** For authenticated dashboards, internal tools, and admin panels -- a significant portion of N3TX's target market -- SSR adds cost without proportional benefit.
 
-3. **The market is moving past traditional SSR.** Islands architecture and partial hydration are superseding full-page SSR. PyBend's Web Components architecture is naturally aligned with this newer pattern, which is a strategic advantage.
+3. **The market is moving past traditional SSR.** Islands architecture and partial hydration are superseding full-page SSR. N3TX's Web Components architecture is naturally aligned with this newer pattern, which is a strategic advantage.
 
 4. **Investment recommendation:** Implement a **lightweight, schema-driven SSR** capability that works automatically (no per-route configuration). This fills the SEO gap without the infrastructure burden of a full SSR framework. Estimated investment: 2-4 engineering months.
 
@@ -593,7 +593,7 @@ This approach:
 
 3. **Phase 3: HTMX Integration (Optional)** -- For navigation between server-rendered pages without full page reloads. Complements Web Components rather than replacing them.
 
-4. **Do NOT adopt Next.js, Nuxt, or any JavaScript meta-framework.** These would replace PyBend's frontend architecture entirely and introduce a Node.js dependency. The Python-native path (FastAPI rendering HTML from schema + Declarative Shadow DOM + Web Components) is more aligned with PyBend's philosophy.
+4. **Do NOT adopt Next.js, Nuxt, or any JavaScript meta-framework.** These would replace N3TX's frontend architecture entirely and introduce a Node.js dependency. The Python-native path (FastAPI rendering HTML from schema + Declarative Shadow DOM + Web Components) is more aligned with N3TX's philosophy.
 
 ---
 

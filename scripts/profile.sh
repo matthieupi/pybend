@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Performance profiling pipeline for PyBend.
+# Performance profiling pipeline for N3TX.
 #
 # Usage:
 #   ./scripts/profile.sh baseline          # Run API + E2E profiling (all tiers)
@@ -23,7 +23,7 @@ mkdir -p "$PROFILING_DIR"
 
 PYTHON="${PYTHON:-python3}"
 export PYTHONPATH="${WORKSPACE}/src${PYTHONPATH:+:$PYTHONPATH}"
-E2E_DIR="src/pybend/static/tests/e2e"
+E2E_DIR="src/n3tx/static/tests/e2e"
 
 run_api_profile() {
     local label="$1"
@@ -31,7 +31,7 @@ run_api_profile() {
     echo "=========================================="
     echo " API Profiling: $label"
     echo "=========================================="
-    $PYTHON -m pybend.core.tests.profiling.run_profile "$label"
+    $PYTHON -m n3tx.core.tests.profiling.run_profile "$label"
 }
 
 run_e2e_profile() {
@@ -42,7 +42,7 @@ run_e2e_profile() {
     echo " Playwright E2E Profiling: $label (tier=$tier)"
     echo "=========================================="
     cd "$WORKSPACE/$E2E_DIR"
-    PERF_LABEL="$label" PERF_TIER="$tier" PYBEND_PROFILING_DIR="$WORKSPACE/$PROFILING_DIR" npx playwright test --config playwright.perf.config.js
+    PERF_LABEL="$label" PERF_TIER="$tier" N3TX_PROFILING_DIR="$WORKSPACE/$PROFILING_DIR" npx playwright test --config playwright.perf.config.js
     cd "$WORKSPACE"
 }
 
@@ -51,7 +51,7 @@ run_compare() {
     echo "=========================================="
     echo " Comparing baseline vs optimized"
     echo "=========================================="
-    $PYTHON -m pybend.core.tests.profiling.compare \
+    $PYTHON -m n3tx.core.tests.profiling.compare \
         "$PROFILING_DIR/api_perf_baseline.json" \
         "$PROFILING_DIR/api_perf_optimized.json"
 }
@@ -75,15 +75,15 @@ case "${1:-help}" in
         ;;
     dashboard)
         echo "Launching profiling dashboard at http://localhost:5555"
-        $PYTHON -m pybend.core.tests.profiling.dashboard
+        $PYTHON -m n3tx.core.tests.profiling.dashboard
         ;;
     full)
         echo "=== Full profiling pipeline ==="
 
         # 1. Stash current changes
         echo "Stashing current changes..."
-        if ! git diff --quiet src/pybend/core/models/proto_model.py 2>/dev/null; then
-            git stash push -m "perf: auto-stash for profiling" -- src/pybend/core/models/proto_model.py
+        if ! git diff --quiet src/n3tx/core/models/proto_model.py 2>/dev/null; then
+            git stash push -m "perf: auto-stash for profiling" -- src/n3tx/core/models/proto_model.py
             STASHED=1
         else
             echo "  (no changes to stash)"

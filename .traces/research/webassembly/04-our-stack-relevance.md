@@ -1,4 +1,4 @@
-# WebAssembly for Compute-Heavy Operations: Relevance to PyBend's Architecture
+# WebAssembly for Compute-Heavy Operations: Relevance to N3TX's Architecture
 
 **Research Brief** | February 2026
 **Audience:** Technical CEOs, Engineering Leadership
@@ -8,17 +8,17 @@
 
 ## Executive Summary
 
-PyBend is a schema-driven, buildless framework where a Python model definition is the single source of truth for the entire stack. We analyzed every compute path in PyBend's ~38K-line codebase (27K JS / 11K Python across 118 JS files and ~80 Python files) to determine where WebAssembly could deliver measurable value.
+N3TX is a schema-driven, buildless framework where a Python model definition is the single source of truth for the entire stack. We analyzed every compute path in N3TX's ~38K-line codebase (27K JS / 11K Python across 118 JS files and ~80 Python files) to determine where WebAssembly could deliver measurable value.
 
-**Bottom line:** PyBend's workload is overwhelmingly I/O-bound, not CPU-bound. The framework's computational hot paths -- schema parsing, `prototype()` class factory, form generation, permission evaluation -- each execute in single-digit milliseconds on modest hardware. The one area where Wasm could provide genuine architectural value is not performance but **portability**: sharing validation and schema logic between Python backend and JS frontend via a single Wasm module. That said, Wasm integration carries real friction for PyBend's buildless, no-npm philosophy, and the ROI at current scale is low.
+**Bottom line:** N3TX's workload is overwhelmingly I/O-bound, not CPU-bound. The framework's computational hot paths -- schema parsing, `prototype()` class factory, form generation, permission evaluation -- each execute in single-digit milliseconds on modest hardware. The one area where Wasm could provide genuine architectural value is not performance but **portability**: sharing validation and schema logic between Python backend and JS frontend via a single Wasm module. That said, Wasm integration carries real friction for N3TX's buildless, no-npm philosophy, and the ROI at current scale is low.
 
-> **Verdict:** Wasm is premature for PyBend today. Two scenarios change that calculus: (1) PyBend begins processing datasets with 10K+ entities client-side, or (2) the team wants shared validation logic across Python and JS without duplicating code. Both are worth monitoring but neither is urgent.
+> **Verdict:** Wasm is premature for N3TX today. Two scenarios change that calculus: (1) N3TX begins processing datasets with 10K+ entities client-side, or (2) the team wants shared validation logic across Python and JS without duplicating code. Both are worth monitoring but neither is urgent.
 
 ---
 
 ## Table of Contents
 
-1. [PyBend's Compute Profile: Where the Time Goes](#1-pybends-compute-profile-where-the-time-goes)
+1. [N3TX's Compute Profile: Where the Time Goes](#1-n3txs-compute-profile-where-the-time-goes)
 2. [Candidate Subsystems: Wasm Benefit vs. Cost](#2-candidate-subsystems-wasm-benefit-vs-cost)
 3. [Architecture Diagram: Where Wasm Would Fit](#3-architecture-diagram-where-wasm-would-fit)
 4. [The Buildless Constraint](#4-the-buildless-constraint)
@@ -32,23 +32,23 @@ PyBend is a schema-driven, buildless framework where a Python model definition i
 
 ---
 
-## 1. PyBend's Compute Profile: Where the Time Goes
+## 1. N3TX's Compute Profile: Where the Time Goes
 
 ### Operation Frequency Matrix
 
-Every operation in PyBend falls into one of four frequency categories. Understanding this is critical because Wasm only helps with CPU time, and CPU time only matters if the operation runs frequently enough.
+Every operation in N3TX falls into one of four frequency categories. Understanding this is critical because Wasm only helps with CPU time, and CPU time only matters if the operation runs frequently enough.
 
 | **Frequency** | **Operation** | **Where** | **Typical Duration** | **Bottleneck Type** |
 |---|---|---|---|---|
-| **Once per model** | Schema fetch + parse | `NTT.SCHEMA()` | 5-15ms network, <1ms parse | **Network** |
-| **Once per model** | `prototype()` class factory | `NTT.js:663` | <2ms (creates class, defines properties) | **CPU** (trivial) |
-| **Once per model** | `$defs` registration | `NTT.SCHEMA()` loop | <1ms per nested model | **CPU** (trivial) |
+| **Once per model** | Schema fetch + parse | `N3TX.SCHEMA()` | 5-15ms network, <1ms parse | **Network** |
+| **Once per model** | `prototype()` class factory | `N3TX.js:663` | <2ms (creates class, defines properties) | **CPU** (trivial) |
+| **Once per model** | `$defs` registration | `N3TX.SCHEMA()` loop | <1ms per nested model | **CPU** (trivial) |
 | **Per-entity (N)** | Instance creation | `DynamicClass` constructor | <0.1ms each | **CPU** (trivial) |
-| **Per-entity (N)** | `normalizePopulated()` | `NTT.js:614` | <0.1ms per entity | **CPU** (trivial) |
+| **Per-entity (N)** | `normalizePopulated()` | `N3TX.js:614` | <0.1ms per entity | **CPU** (trivial) |
 | **Per-entity (N)** | Permission evaluation | `Permissions.canAction()` | <0.05ms per call | **CPU** (trivial) |
 | **Per-render** | `Formidable.getForm()` | `form.js:17` | 1-5ms (string concat, DOM not touched) | **CPU** (light) |
-| **Per-render** | `ntt-item.render()` | `ntt-item.js:468` | 2-8ms (innerHTML assign + event binding) | **DOM** |
-| **Per-render** | Surgical DOM update | `ntt-item.update()` | <1ms (patch in place) | **DOM** |
+| **Per-render** | `ntx-item.render()` | `ntx-item.js:468` | 2-8ms (innerHTML assign + event binding) | **DOM** |
+| **Per-render** | Surgical DOM update | `ntx-item.update()` | <1ms (patch in place) | **DOM** |
 | **Per-message** | Matrix routing | `Matrix.inbox()` | <0.05ms per dispatch | **CPU** (trivial) |
 | **Per-message** | Actor._send routing | `Actor.js:62` | <0.1ms (map lookup + inbox call) | **CPU** (trivial) |
 | **Per-request** | HTTP fetch + JSON parse | `NetworkAdapter` | 50-200ms | **Network** |
@@ -58,7 +58,7 @@ Every operation in PyBend falls into one of four frequency categories. Understan
 
 ### The Critical Insight
 
-**PyBend's latency budget is dominated by network round-trips, not computation.**
+**N3TX's latency budget is dominated by network round-trips, not computation.**
 
 A typical page load:
 1. **HTML + JS load**: ~200ms (static files, cacheable)
@@ -75,9 +75,9 @@ A typical page load:
 
 ### 2.1 Schema Parsing and `prototype()` Class Factory
 
-**What it does:** `NTT.SCHEMA()` receives a JSON Schema from the backend, iterates `$defs` to register nested models, then calls `prototype()` which creates a DynamicClass with typed getters/setters for each schema property and method stubs for each exposed route.
+**What it does:** `N3TX.SCHEMA()` receives a JSON Schema from the backend, iterates `$defs` to register nested models, then calls `prototype()` which creates a DynamicClass with typed getters/setters for each schema property and method stubs for each exposed route.
 
-**Code path** (`NTT.js:663-1075`):
+**Code path** (`N3TX.js:663-1075`):
 ```javascript
 function prototype(addr, schema, href) {
     const fields = Object.keys(schema.properties || {});
@@ -173,7 +173,7 @@ inbox(event) {
 
 **What it does:** Walks entity objects, converts inline populated data back to href strings, pre-registers child instances.
 
-**Code path** (`NTT.js:614-651`):
+**Code path** (`N3TX.js:614-651`):
 ```javascript
 function normalizePopulated(entity, schema) {
     for (const [key, def] of Object.entries(schema.properties)) {
@@ -253,10 +253,10 @@ def schema(cls) -> Dict[str, Any]:
   matrix.html
       |
       v
-  <ntt-list model="Product">                       GET /Product
+  <ntx-list model="Product">                       GET /Product
       |                                                 |
       v                                                 v
-  NTT.SCHEMA(data)               <--- HTTP ---    ProtoModel.schema()
+  N3TX.SCHEMA(data)               <--- HTTP ---    ProtoModel.schema()
       |                                            [cached after 1st call]
       |--- Register $defs                               |
       |--- prototype(addr,schema,href)                   |
@@ -275,7 +275,7 @@ def schema(cls) -> Dict[str, Any]:
       |--- new DynamicClass(data) per entity
       |
       v
-  <ntt-item>.DESCRIBE()
+  <ntx-item>.DESCRIBE()
       |--- Permissions.canAction()   [CPU: <0.05ms]
       |--- Formidable.getForm()      [CPU: 1-5ms, strings]
       |--- render() -> innerHTML     [DOM: 2-8ms]
@@ -291,10 +291,10 @@ def schema(cls) -> Dict[str, Any]:
   matrix.html
       |
       v
-  <ntt-list model="Product">
+  <ntx-list model="Product">
       |
       v
-  NTT.SCHEMA(data)              <--- HTTP ---     ProtoModel.schema()
+  N3TX.SCHEMA(data)              <--- HTTP ---     ProtoModel.schema()
       |
       |  +--[WASM CANDIDATE A]--+                  +--[WASM CANDIDATE D]--+
       |  | Shared validation    |                  | Schema gen in Rust   |
@@ -316,7 +316,7 @@ def schema(cls) -> Dict[str, Any]:
       |  +----------------------+
       |
       v
-  ntt-item.render()
+  ntx-item.render()
       |
       |  +--[WASM CANDIDATE C]-----------+
       |  | Form HTML generation in Wasm  |
@@ -325,13 +325,13 @@ def schema(cls) -> Dict[str, Any]:
       |  +-------------------------------+
 ```
 
-**Only Candidate A (shared validation) has positive expected ROI, and only when PyBend needs to guarantee validation parity across frontend and backend.**
+**Only Candidate A (shared validation) has positive expected ROI, and only when N3TX needs to guarantee validation parity across frontend and backend.**
 
 ---
 
 ## 4. The Buildless Constraint
 
-PyBend's frontend is **buildless** -- no webpack, no npm, no bundler. All JavaScript is vanilla ES Modules served as static files. This is a core philosophical choice:
+N3TX's frontend is **buildless** -- no webpack, no npm, no bundler. All JavaScript is vanilla ES Modules served as static files. This is a core philosophical choice:
 
 > *"Everything works out of the box with no configuration. Customization is additive."*
 
@@ -354,7 +354,7 @@ The `wasm-bindgen --target web` output mode is designed for exactly this use cas
 - A `.js` glue file with an `init()` function
 - ES Module exports after `init()` is called
 
-This can work in PyBend's architecture:
+This can work in N3TX's architecture:
 
 ```javascript
 // Hypothetical: static/wasm/validator.js (generated by wasm-bindgen --target web)
@@ -367,7 +367,7 @@ await init();  // fetches validator_bg.wasm relative to this file
 const result = validate_schema(schemaJson, dataJson);
 ```
 
-**The init pattern requires an async initialization step**, which complicates PyBend's synchronous module loading. The `NTT.SCHEMA()` handler would need to await Wasm initialization before proceeding.
+**The init pattern requires an async initialization step**, which complicates N3TX's synchronous module loading. The `N3TX.SCHEMA()` handler would need to await Wasm initialization before proceeding.
 
 > **Key risk:** The ESM Integration proposal (Phase 3) would allow `import module from './validator.wasm'`, eliminating the async init step. Chrome and Firefox have partial support as of early 2026; Safari/WebKit lags behind. Full cross-browser support is expected by late 2026 or 2027.
 
@@ -379,7 +379,7 @@ const result = validate_schema(schemaJson, dataJson);
 
 The `wasmtime` Python package allows running pre-compiled `.wasm` modules from Python with near-native performance (0.5x-0.9x native speed, per Bytecode Alliance benchmarks).
 
-**Potential use cases for PyBend's backend:**
+**Potential use cases for N3TX's backend:**
 
 | Use Case | Feasibility | Value |
 |---|---|---|
@@ -391,7 +391,7 @@ The `wasmtime` Python package allows running pre-compiled `.wasm` modules from P
 
 ### The Shared Validation Opportunity
 
-This is the most architecturally interesting Wasm opportunity for PyBend:
+This is the most architecturally interesting Wasm opportunity for N3TX:
 
 ```
   Rust source (single truth)
@@ -425,20 +425,20 @@ Both the Python backend (via `wasmtime`) and the JS frontend (via `WebAssembly.i
 
 ### Industry Patterns
 
-The WebAssembly Component Model (Bytecode Alliance, 2025-2026) introduces a composable module system where Wasm modules expose typed interfaces and can be linked together. This aligns conceptually with PyBend's actor model:
+The WebAssembly Component Model (Bytecode Alliance, 2025-2026) introduces a composable module system where Wasm modules expose typed interfaces and can be linked together. This aligns conceptually with N3TX's actor model:
 
-| Concept | PyBend | Wasm Component Model |
+| Concept | N3TX | Wasm Component Model |
 |---|---|---|
 | Message contract | TX objects with name/source/target/data | WIT (Wasm Interface Types) |
 | Actor isolation | Matrix routes messages between actors | Component sandboxing (memory isolation) |
 | Dynamic dispatch | `Actor._inbox` resolves method by name | Component linking resolves imports |
 | Schema-driven | JSON Schema defines entity structure | WIT defines component interface |
 
-**However**, the Component Model targets inter-module composition (think microservices in Wasm), not intra-application message routing. PyBend's actor messages are lightweight JS objects routed via Map lookups. The Component Model's interface negotiation would add overhead, not reduce it.
+**However**, the Component Model targets inter-module composition (think microservices in Wasm), not intra-application message routing. N3TX's actor messages are lightweight JS objects routed via Map lookups. The Component Model's interface negotiation would add overhead, not reduce it.
 
 ### UMA (Universal Module Architecture) Pattern
 
-Some Wasm-native frameworks define services as `run(input): output` -- a single entry point that turns any logic into a message-driven contract. This resonates with PyBend's TX-based messaging. A Wasm module could theoretically implement an Actor:
+Some Wasm-native frameworks define services as `run(input): output` -- a single entry point that turns any logic into a message-driven contract. This resonates with N3TX's TX-based messaging. A Wasm module could theoretically implement an Actor:
 
 ```javascript
 // Hypothetical: Wasm-backed Actor
@@ -454,7 +454,7 @@ class WasmActor extends Actor {
 }
 ```
 
-**Problem:** The serialization overhead per message (JSON encode -> copy to Wasm memory -> process -> copy back -> JSON decode) would vastly exceed the cost of PyBend's current JS-native message handling. This pattern only makes sense when the `handle()` function does significant computation -- which PyBend's actors do not.
+**Problem:** The serialization overhead per message (JSON encode -> copy to Wasm memory -> process -> copy back -> JSON decode) would vastly exceed the cost of N3TX's current JS-native message handling. This pattern only makes sense when the `handle()` function does significant computation -- which N3TX's actors do not.
 
 ---
 
@@ -472,9 +472,9 @@ class WasmActor extends Actor {
 | Medium input (10-100KB) | Baseline | **1.7x slower** (some benchmarks) | JS wins | [ResearchGate](https://www.researchgate.net/publication/374785179_A_Systematic_Review_of_WebAssembly_VS_Javascript_Performance_Comparison) |
 | DOM manipulation | Native | **No direct access** | JS only | [MDN](https://developer.mozilla.org/en-US/docs/WebAssembly) |
 
-### Applying Benchmarks to PyBend's Workloads
+### Applying Benchmarks to N3TX's Workloads
 
-| PyBend Operation | Input Size | Best Analogy | Expected Wasm Impact |
+| N3TX Operation | Input Size | Best Analogy | Expected Wasm Impact |
 |---|---|---|---|
 | Schema parsing (JSON) | 2-10KB | JSON parse benchmark | **Slower** (boundary overhead dominates) |
 | `prototype()` property loop | 10-20 iterations | Micro-loop | **Slower** (V8 optimizes small loops aggressively) |
@@ -483,9 +483,9 @@ class WasmActor extends Actor {
 | 1000-entity normalization | ~500KB data | Medium JSON transform | **2x faster** (if data stays in Wasm) |
 | Matrix message routing | <100 bytes per TX | Micro-function call | **Slower** (boundary overhead) |
 
-> **The JS-Wasm Boundary Tax:** Every call from JS into Wasm (and back) has overhead. For functions that take microseconds, this overhead can exceed the function's execution time. PyBend's hot paths are all microsecond-scale operations. This is the fundamental reason Wasm does not help here.
+> **The JS-Wasm Boundary Tax:** Every call from JS into Wasm (and back) has overhead. For functions that take microseconds, this overhead can exceed the function's execution time. N3TX's hot paths are all microsecond-scale operations. This is the fundamental reason Wasm does not help here.
 
-### PyBend's Real Bottleneck
+### N3TX's Real Bottleneck
 
 ```
   Time breakdown for a typical page load (Products + Comments):
@@ -510,17 +510,17 @@ class WasmActor extends Actor {
 
 ## 8. Integration Patterns for Buildless ES Module Architecture
 
-If PyBend were to adopt Wasm for a specific subsystem, here is how it would integrate with the buildless architecture.
+If N3TX were to adopt Wasm for a specific subsystem, here is how it would integrate with the buildless architecture.
 
 ### Pattern A: Pre-compiled `.wasm` Binary + Glue Module
 
 ```
-src/pybend/static/
+src/n3tx/static/
     wasm/
         validator.js          # wasm-bindgen glue (ES module)
         validator_bg.wasm     # Pre-compiled binary
     core/
-        NTT.js                # Imports from ../wasm/validator.js
+        N3TX.js                # Imports from ../wasm/validator.js
 ```
 
 **Initialization flow:**
@@ -539,7 +539,7 @@ export async function ensureReady() {
 export { validate, evaluate_access };
 ```
 
-**Integration in NTT.js:**
+**Integration in N3TX.js:**
 
 ```javascript
 import { ensureReady, validate } from '../wasm/loader.js';
@@ -578,7 +578,7 @@ function validate(schema, data) {
 }
 ```
 
-This preserves PyBend's synchronous startup but requires maintaining two implementations (JS fallback + Wasm) -- exactly the duplication Wasm was supposed to eliminate.
+This preserves N3TX's synchronous startup but requires maintaining two implementations (JS fallback + Wasm) -- exactly the duplication Wasm was supposed to eliminate.
 
 ### Pattern C: Top-Level Await (Modern Browsers)
 
@@ -593,7 +593,7 @@ This preserves PyBend's synchronous startup but requires maintaining two impleme
 <script type="module" src="./core/Matrix.js"></script>
 ```
 
-This works but couples the HTML entry point to Wasm initialization, which conflicts with PyBend's principle that the entry point should be minimal.
+This works but couples the HTML entry point to Wasm initialization, which conflicts with N3TX's principle that the entry point should be minimal.
 
 ### Recommended Pattern (If Adopted)
 
@@ -612,7 +612,7 @@ Any module that imports from `loader.js` will automatically wait for Wasm to be 
 
 ## 9. Decision Framework
 
-### When to Add Wasm to PyBend
+### When to Add Wasm to N3TX
 
 | Trigger | Wasm Opportunity | Expected Gain | Priority |
 |---|---|---|---|
@@ -639,7 +639,7 @@ Any module that imports from `loader.js` will automatically wait for Wasm to be 
 
 ### Immediate (Now)
 
-1. **Do nothing.** PyBend's compute profile does not justify Wasm integration. The 3% CPU time is not the bottleneck. Focus engineering effort on:
+1. **Do nothing.** N3TX's compute profile does not justify Wasm integration. The 3% CPU time is not the bottleneck. Focus engineering effort on:
    - SSR / pre-loaded schema (already partially implemented via `#consumePreloadedSchema`)
    - HTTP caching headers for schema endpoints
    - WebSocket for real-time entity updates (eliminates polling)
@@ -657,11 +657,11 @@ Any module that imports from `loader.js` will automatically wait for Wasm to be 
 
 3. **Monitor the ESM Integration proposal.** When `import mod from './module.wasm'` works cross-browser, the integration friction drops dramatically. Expected timeline: late 2026 to mid-2027.
 
-4. **If validation parity becomes a problem**, prototype a minimal Rust crate that encodes PyBend's field validation rules (type checks, min/max, pattern matching) and compile it to Wasm. Test with `wasm-bindgen --target web`. Measure whether the shared module eliminates real bugs without adding disproportionate complexity.
+4. **If validation parity becomes a problem**, prototype a minimal Rust crate that encodes N3TX's field validation rules (type checks, min/max, pattern matching) and compile it to Wasm. Test with `wasm-bindgen --target web`. Measure whether the shared module eliminates real bugs without adding disproportionate complexity.
 
 ### Medium-Term (12-24 months)
 
-5. **If PyBend grows to handle 1000+ entities client-side**, evaluate Wasm for batch operations:
+5. **If N3TX grows to handle 1000+ entities client-side**, evaluate Wasm for batch operations:
    - Bulk `normalizePopulated()` across large datasets
    - Client-side filtering/sorting (currently server-side via SQLite)
    - Client-side full-text search
@@ -671,8 +671,8 @@ Any module that imports from `loader.js` will automatically wait for Wasm to be 
 ### What NOT to Do
 
 - Do not rewrite `prototype()`, `Formidable`, `Permissions`, or `Matrix` in Wasm. The gains are zero to negative.
-- Do not add Rust to the developer toolchain for building PyBend apps. The framework's value proposition is zero-config Python-to-full-stack.
-- Do not chase Wasm for performance reasons at PyBend's current scale. The numbers do not support it.
+- Do not add Rust to the developer toolchain for building N3TX apps. The framework's value proposition is zero-config Python-to-full-stack.
+- Do not chase Wasm for performance reasons at N3TX's current scale. The numbers do not support it.
 
 ---
 
@@ -718,4 +718,4 @@ Any module that imports from `loader.js` will automatically wait for Wasm to be 
 
 ---
 
-*Research compiled February 2026. All performance figures are approximate and based on published benchmarks applied to PyBend's measured codebase characteristics. Actual performance should be validated with instrumentation before making architectural decisions.*
+*Research compiled February 2026. All performance figures are approximate and based on published benchmarks applied to N3TX's measured codebase characteristics. Actual performance should be validated with instrumentation before making architectural decisions.*

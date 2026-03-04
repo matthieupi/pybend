@@ -8,9 +8,9 @@
 
 The Grant Watcher application currently has **one agent type** -- the Grant Scanner -- backed by a single `AgentActor` instance with three tool addresses (`grants`, `sources`, `web_tools`). It works: it can scrape web pages, extract content, and create grant records. But it is a blunt instrument. It scrapes HTML indiscriminately, cannot evaluate grant relevance, has no memory of previous scans, and cannot notify users when something interesting appears. The agent is a web scraper that happens to use an LLM, not an intelligent grant discovery system.
 
-This report evaluates **six capability expansions** that would transform Grant Watcher from a proof-of-concept into a production-grade agentic platform: new domain-specific tool actors, multi-agent coordination via PyBend's native subscriber/TX system, structured LLM output, agent specialization patterns, external government API integration (grants.gov, SAM.gov, NSF), and persistent agent memory. Each is assessed for business value, implementation complexity, and fit with the existing `ActorModel` / `Matrix` / `TX` architecture.
+This report evaluates **six capability expansions** that would transform Grant Watcher from a proof-of-concept into a production-grade agentic platform: new domain-specific tool actors, multi-agent coordination via N3TX's native subscriber/TX system, structured LLM output, agent specialization patterns, external government API integration (grants.gov, SAM.gov, NSF), and persistent agent memory. Each is assessed for business value, implementation complexity, and fit with the existing `ActorModel` / `Matrix` / `TX` architecture.
 
-The bottom line: **the architecture is already built for this**. PyBend's actor system, lifecycle event subscribers, and tool discovery mechanism mean that adding new agent capabilities is largely a matter of writing new `ActorModel` classes with `@expose_route` methods -- the same pattern used for `WebTools` today. The hard parts are not framework changes but domain logic: scoring algorithms, API integrations, and deduplication strategies. Estimated total scope is **6-10 weeks** for a single engineer, with each capability independently deployable.
+The bottom line: **the architecture is already built for this**. N3TX's actor system, lifecycle event subscribers, and tool discovery mechanism mean that adding new agent capabilities is largely a matter of writing new `ActorModel` classes with `@expose_route` methods -- the same pattern used for `WebTools` today. The hard parts are not framework changes but domain logic: scoring algorithms, API integrations, and deduplication strategies. Estimated total scope is **6-10 weeks** for a single engineer, with each capability independently deployable.
 
 ---
 
@@ -112,7 +112,7 @@ Every new tool actor follows the `WebTools` pattern. Here is the architecture:
                               - extract()         - fetch()
 ```
 
-The key insight: **`discover_tools()` in `/workspace/src/pybend/core/agents/tools.py` already handles this**. When the scanner agent lists `"grants_gov_api"` in its tool addresses, `discover_tools()` reads the schema from `Matrix._children["grants_gov_api"]`, finds the `@expose_route` methods, and generates `ToolSpec` objects. Zero framework changes needed.
+The key insight: **`discover_tools()` in `/workspace/src/n3tx/core/agents/tools.py` already handles this**. When the scanner agent lists `"grants_gov_api"` in its tool addresses, `discover_tools()` reads the schema from `Matrix._children["grants_gov_api"]`, finds the `@expose_route` methods, and generates `ToolSpec` objects. Zero framework changes needed.
 
 #### 4.1.1 GrantsGovAPI Tool Actor
 
@@ -193,7 +193,7 @@ class SamGovAPI(ActorModel):
                 params={k: v for k, v in params.items() if v},
             )
         if resp.status_code != 200:
-            from pybend.core.utils.erroring import MethodError
+            from n3tx.core.utils.erroring import MethodError
             raise MethodError(f"SAM.gov API error: {resp.status_code}", resp.status_code)
         data = resp.json()
         return {
@@ -285,7 +285,7 @@ class NotificationTools(ActorModel):
 
 ### 4.2 Multi-Agent Coordination
 
-This is where PyBend's architecture pays off. The coordination mechanism **already exists** in `ActorModel._publish_lifecycle()` at `/workspace/src/pybend/core/models/actor_model.py:280-293`:
+This is where N3TX's architecture pays off. The coordination mechanism **already exists** in `ActorModel._publish_lifecycle()` at `/workspace/src/n3tx/core/models/actor_model.py:280-293`:
 
 ```python
 @classmethod
@@ -352,7 +352,7 @@ Wiring it up in `main.py`:
 
 ```python
 # After create_app()
-from pybend.core.actors.matrix import matrix
+from n3tx.core.actors.matrix import matrix
 
 monitor = AnalyzerMonitor(addr='analyzer_monitor')
 matrix.register(monitor)
@@ -361,11 +361,11 @@ matrix.register(monitor)
 Grant._subscribers.append('analyzer_monitor')
 ```
 
-> **Key Insight:** PyBend's actor system provides agent-to-agent communication **without external frameworks**. An agent's tool call routes through `Matrix` as a `TX`, arrives at the target actor's `inbox()`, gets dispatched to `handler()`, and the response routes back via `TX.reply()`. This is the same mechanism used for all CRUD operations -- agents just happen to be the callers instead of HTTP routes.
+> **Key Insight:** N3TX's actor system provides agent-to-agent communication **without external frameworks**. An agent's tool call routes through `Matrix` as a `TX`, arrives at the target actor's `inbox()`, gets dispatched to `handler()`, and the response routes back via `TX.reply()`. This is the same mechanism used for all CRUD operations -- agents just happen to be the callers instead of HTTP routes.
 
-#### Comparison: PyBend Native vs External Frameworks
+#### Comparison: N3TX Native vs External Frameworks
 
-| Feature | PyBend Native (TX/Matrix) | CrewAI | LangGraph |
+| Feature | N3TX Native (TX/Matrix) | CrewAI | LangGraph |
 |---|---|---|---|
 | **Agent-to-agent routing** | TX messages via Matrix children | Role-based task delegation | Graph node transitions |
 | **State management** | TX.meta + AgentDeps | Shared memory module | Persistent state dict |
@@ -376,11 +376,11 @@ Grant._subscribers.append('analyzer_monitor')
 | **Observability** | TX.uuid correlation | CrewAI logs | LangSmith integration |
 | **Production readiness** | Matches app architecture exactly | General-purpose, proven | Production-grade, battle-tested |
 
-> **Key Insight:** For this codebase, PyBend's native TX routing is the correct choice. CrewAI and LangGraph solve a problem PyBend already solved: routing messages between actors. Adding an external multi-agent framework would introduce a **parallel coordination layer** that duplicates Matrix's routing, conflicts with the interceptor/auth system, and adds 2-3 transitive dependencies. The value of these frameworks is in their pre-built patterns (role-based crews, graph workflows), but PyBend's subscriber + lifecycle event pattern is simpler and native.
+> **Key Insight:** For this codebase, N3TX's native TX routing is the correct choice. CrewAI and LangGraph solve a problem N3TX already solved: routing messages between actors. Adding an external multi-agent framework would introduce a **parallel coordination layer** that duplicates Matrix's routing, conflicts with the interceptor/auth system, and adds 2-3 transitive dependencies. The value of these frameworks is in their pre-built patterns (role-based crews, graph workflows), but N3TX's subscriber + lifecycle event pattern is simpler and native.
 
 ### 4.3 Structured Output
 
-Currently, `agent_run()` in `/workspace/src/pybend/core/agents/mixin.py` returns `result.output` as a raw string. Pydantic AI's `output_type` parameter ([docs](https://ai.pydantic.dev/output/)) enables typed returns:
+Currently, `agent_run()` in `/workspace/src/n3tx/core/agents/mixin.py` returns `result.output` as a raw string. Pydantic AI's `output_type` parameter ([docs](https://ai.pydantic.dev/output/)) enables typed returns:
 
 ```python
 from pydantic import BaseModel, Field
@@ -464,7 +464,7 @@ POST /agents/2/agent_tools {"target": "grants", "description": "Read grant recor
 POST /agents/2/agent_tools {"target": "grant_analyzer", "description": "Scoring and dedup"}
 ```
 
-**No code deployment needed for new agent types.** This is the architectural payoff of "agents are data, not code" as stated in `/workspace/src/pybend/core/agents/actor.py`.
+**No code deployment needed for new agent types.** This is the architectural payoff of "agents are data, not code" as stated in `/workspace/src/n3tx/core/agents/actor.py`.
 
 ### 4.5 External API Integration Details
 
@@ -513,7 +513,7 @@ The `fetchOpportunity` endpoint provides full details for a single opportunity:
 
 ### 4.6 Agent Memory & Context
 
-Pydantic AI supports [message history persistence](https://ai.pydantic.dev/message-history/) via `message_history` parameter and `result.all_messages()`. The integration with PyBend is straightforward since `AgentActor` is already a storable model.
+Pydantic AI supports [message history persistence](https://ai.pydantic.dev/message-history/) via `message_history` parameter and `result.all_messages()`. The integration with N3TX is straightforward since `AgentActor` is already a storable model.
 
 #### Design: AgentRun Model
 
@@ -661,26 +661,26 @@ CrewAI provides [role-based agent teams](https://docs.crewai.com/en/concepts/age
 
 - Adds `crewai` + `langchain-core` dependencies (~50+ transitive packages)
 - Duplicates Matrix routing with its own coordination layer
-- Does not integrate with PyBend's ABAC interceptors
+- Does not integrate with N3TX's ABAC interceptors
 - [5-second agent-to-agent latency gap](https://openagents.org/blog/posts/2026-02-23-open-source-ai-agent-frameworks-compared) vs ~0ms for TX routing
 - Loses the "agents are data" pattern -- CrewAI agents are code objects
 
-**Verdict:** Wrong fit. PyBend already has the primitives.
+**Verdict:** Wrong fit. N3TX already has the primitives.
 
 #### Alternative B: Use LangGraph for Workflow Orchestration
 
 LangGraph provides [graph-based state machines](https://dev.to/pockit_tools/langgraph-vs-crewai-vs-autogen-the-complete-multi-agent-ai-orchestration-guide-for-2026-2d63) ideal for complex conditional workflows. However:
 
 - The grant pipeline is **linear** (scan -> analyze -> notify), not a complex DAG
-- LangGraph's state management conflicts with PyBend's StorableMixin
+- LangGraph's state management conflicts with N3TX's StorableMixin
 - Adds `langgraph` + `langchain-core` dependencies
-- Observability requires LangSmith; PyBend has TX.uuid correlation
+- Observability requires LangSmith; N3TX has TX.uuid correlation
 
 **Verdict:** Overkill for this use case. Revisit if workflows become conditional/branching.
 
 #### Alternative C: Use Pydantic AI's Built-in Agent Delegation
 
-Pydantic AI supports [agent delegation](https://ai.pydantic.dev/multi-agent-applications/) where a parent agent calls delegate agents as tools. This is closer to PyBend's model:
+Pydantic AI supports [agent delegation](https://ai.pydantic.dev/multi-agent-applications/) where a parent agent calls delegate agents as tools. This is closer to N3TX's model:
 
 ```python
 @scanner_agent.tool
@@ -692,7 +692,7 @@ async def analyze_grant(ctx: RunContext[AgentDeps], grant_id: int) -> str:
     return result.output
 ```
 
-**Verdict:** Viable complement. Use Pydantic AI delegation for **within-run** coordination (scanner calls analyzer during the same LLM session) and PyBend lifecycle events for **cross-run** coordination (new grant created -> trigger separate analysis run). They are not mutually exclusive.
+**Verdict:** Viable complement. Use Pydantic AI delegation for **within-run** coordination (scanner calls analyzer during the same LLM session) and N3TX lifecycle events for **cross-run** coordination (new grant created -> trigger separate analysis run). They are not mutually exclusive.
 
 #### Alternative D: Do Nothing -- Keep the Single Scanner
 
@@ -703,7 +703,7 @@ async def analyze_grant(ctx: RunContext[AgentDeps], grant_id: int) -> str:
 
 ### 7.3 Build vs Buy
 
-| Capability | Build (in PyBend) | Buy/Integrate |
+| Capability | Build (in N3TX) | Buy/Integrate |
 |---|---|---|
 | Grant API integration | 2 days per API | N/A (must build wrappers) |
 | Analysis/scoring | 3-4 days | Instrumentl ($179/mo) or OpenGrants API ($149/mo) |
@@ -760,7 +760,7 @@ Phase 5 (Week 9-10, optional): Advanced
 
 - **Vector database for semantic dedup.** Hash-based dedup covers 80% of cases at 0.1% of the cost. Revisit when you have >10K grants.
 - **Custom scheduling engine.** Use APScheduler or OS-level cron. Scheduling is not a core competency.
-- **External multi-agent framework.** PyBend's TX/Matrix routing is sufficient and native. Do not add CrewAI or LangGraph.
+- **External multi-agent framework.** N3TX's TX/Matrix routing is sufficient and native. Do not add CrewAI or LangGraph.
 - **Real-time streaming output.** Pydantic AI supports it, but agent runs are background tasks -- streaming to a UI is premature.
 
 ---
