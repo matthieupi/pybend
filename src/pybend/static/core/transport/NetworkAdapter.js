@@ -38,15 +38,17 @@ export class NetworkAdapter {
 
     assert(this, event && event.target, `Event must have a target property.`);
     assert(this, this.matrix.has(event.source), `No callback registered for target: ${event.source}`);
-    // Updater the event with the response data
-    if (event.meta['inbox'])
-      event.name = event.meta['inbox']; // Use inbox as the event name if provided
-    let source = event.source, target = event.target
-    event.source = target;
-    event.target = source
-    event.data = response; // Assuming response is the data we want to send back
-    // Dispatch the event through the system layer
-    this.matrix.dispatch(event)
+    // Create a reply with swapped source/target (don't mutate the original event)
+    let reply = {
+      name: event.meta?.['inbox'] || event.name,
+      id: event.id,
+      source: event.target,
+      target: event.source,
+      data: response,
+      meta: event.meta || {},
+      timestamp: Date.now()
+    };
+    this.matrix.dispatch(reply)
   }
 
   /**

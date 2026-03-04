@@ -78,7 +78,7 @@ describe('NetworkAdapter.js', () => {
   });
 
   describe('httpCallback(event, response)', () => {
-    it('should swap source and target', () => {
+    it('should dispatch reply with swapped source and target', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
         name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
@@ -86,11 +86,24 @@ describe('NetworkAdapter.js', () => {
       };
       adapter.httpCallback(event, { id: 1 });
 
-      expect(event.source).toBe('http://localhost:5000/products');
-      expect(event.target).toBe('actor-1');
+      const reply = matrix.dispatch.mock.calls[0][0];
+      expect(reply.source).toBe('http://localhost:5000/products');
+      expect(reply.target).toBe('actor-1');
     });
 
-    it('should set event.data to response', () => {
+    it('should not mutate the original event', () => {
+      const adapter = new NetworkAdapter(matrix);
+      const event = {
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        data: null, meta: {},
+      };
+      adapter.httpCallback(event, { id: 1 });
+      expect(event.source).toBe('actor-1');
+      expect(event.target).toBe('http://localhost:5000/products');
+      expect(event.data).toBe(null);
+    });
+
+    it('should set reply data to response', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
         name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
@@ -98,37 +111,44 @@ describe('NetworkAdapter.js', () => {
       };
       const response = { id: 1, name: 'Product' };
       adapter.httpCallback(event, response);
-      expect(event.data).toBe(response);
+      const reply = matrix.dispatch.mock.calls[0][0];
+      expect(reply.data).toBe(response);
     });
 
-    it('should update event.name from meta.inbox when provided', () => {
+    it('should use meta.inbox as reply name when provided', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
         name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
         data: null, meta: { inbox: 'DESCRIBE' },
       };
       adapter.httpCallback(event, {});
-      expect(event.name).toBe('DESCRIBE');
+      const reply = matrix.dispatch.mock.calls[0][0];
+      expect(reply.name).toBe('DESCRIBE');
     });
 
-    it('should keep event.name when no meta.inbox', () => {
+    it('should keep event.name in reply when no meta.inbox', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
         name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
         data: null, meta: {},
       };
       adapter.httpCallback(event, {});
-      expect(event.name).toBe('READ');
+      const reply = matrix.dispatch.mock.calls[0][0];
+      expect(reply.name).toBe('READ');
     });
 
-    it('should dispatch event via matrix', () => {
+    it('should dispatch reply via matrix', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
         name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
         data: null, meta: {},
       };
       adapter.httpCallback(event, {});
-      expect(matrix.dispatch).toHaveBeenCalledWith(event);
+      expect(matrix.dispatch).toHaveBeenCalledTimes(1);
+      const reply = matrix.dispatch.mock.calls[0][0];
+      expect(reply.source).toBe('http://localhost:5000/products');
+      expect(reply.target).toBe('actor-1');
+      expect(reply.name).toBe('READ');
     });
   });
 
