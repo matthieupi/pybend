@@ -93,7 +93,7 @@ class TestForbidden403:
 
     def test_create_product_no_token(self, client):
         resp = client.post("/products", json={"name": "Test", "price": 10.0})
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_update_comment_non_owner(self, client, charlie_token, seed_data):
         """Comment 0 owned by bob, charlie cannot update."""
@@ -114,7 +114,7 @@ class TestForbidden403:
     def test_custom_method_no_token(self, client, seed_data):
         product = seed_data["products"][0]
         resp = client.post(f"/products/{product.id}/favorite", json={})
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
 
 class TestUnprocessableEntity422:

@@ -50,12 +50,12 @@ class TestCreateProduct:
         assert isinstance(data.get("comments"), list)
         assert isinstance(data.get("favorites"), list)
 
-    def test_create_product_unauthenticated_returns_403(self, client):
+    def test_create_product_unauthenticated_returns_401(self, client):
         resp = client.post("/products", json={
             "name": "No Auth",
             "price": 10.00,
         })
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_create_product_missing_name_returns_422(self, client, alice_token):
         resp = client.post("/products", json={
@@ -127,10 +127,10 @@ class TestReadProduct:
 
     def test_read_product_requires_auth(self, client, seed_data):
         """Product has no __access__, defaults to AUTHENTICATED for read.
-        Unauthenticated request should return 403."""
+        Unauthenticated request should return 401."""
         product = seed_data["products"][0]
         resp = client.get(f"/products/{product.id}")
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
 
 class TestListProducts:
@@ -211,7 +211,7 @@ class TestUpdateProduct:
         data = resp.json()
         assert data["name"] == "Updated Headphones"
 
-    def test_update_product_unauthenticated_returns_403(self, client, seed_data):
+    def test_update_product_unauthenticated_returns_401(self, client, seed_data):
         """PUT without auth token. Validation runs first (422 if body incomplete),
         so we must provide a valid body to test auth enforcement."""
         product = seed_data["products"][0]
@@ -219,7 +219,7 @@ class TestUpdateProduct:
             "name": "Should Fail",
             "price": product.price,
         })
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_update_product_changes_only_specified_fields(self, client, alice_token, seed_data):
         """Update name while keeping the same price -- price stays the same."""

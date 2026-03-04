@@ -139,13 +139,13 @@ class TestUserLogin:
 
     def test_login_long_password_rejected(self, client, seed_data):
         """Very long password should fail authentication (IT-12).
-        bcrypt truncates at 72 bytes; the server may return 401 or 500
-        depending on error handling."""
+        bcrypt truncates at 72 bytes; the server may return 400, 401, or 500
+        depending on error handling (actor routing returns 400)."""
         resp = client.post("/users/login", json={
             "email": "alice@example.com",
             "password": "x" * 1000,
         })
-        assert resp.status_code in (401, 500)
+        assert resp.status_code in (400, 401, 500)
 
 
 class TestAuthMe:

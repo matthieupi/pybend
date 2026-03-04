@@ -35,11 +35,11 @@ class TestAnyoneRule:
 class TestAuthenticatedRule:
     """AUTHENTICATED rule -- requires valid JWT."""
 
-    def test_create_product_no_token_403(self, client):
+    def test_create_product_no_token_401(self, client):
         resp = client.post("/products", json={
             "name": "Fail", "price": 10.00,
         })
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_create_product_with_token_201(self, client, alice_token):
         resp = client.post("/products", json={
@@ -47,12 +47,12 @@ class TestAuthenticatedRule:
         }, headers=auth_header(alice_token))
         assert resp.status_code == 201
 
-    def test_create_comment_no_token_403(self, client, seed_data):
+    def test_create_comment_no_token_401(self, client, seed_data):
         product = seed_data["products"][0]
         resp = client.post(f"/products/{product.id}/comments", json={
             "name": "No auth", "description": "Should fail",
         })
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_create_comment_with_token_201(self, client, alice_token, seed_data):
         product = seed_data["products"][0]

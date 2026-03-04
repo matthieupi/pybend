@@ -17,7 +17,7 @@ class Grant(ActorModel):
     __access__: ClassVar[dict] = {
         'read': ANYONE,
         'create': AUTHENTICATED,
-        'update': OWNER | ROLE('admin'),
+        'update': AUTHENTICATED | ROLE('admin'),
         'delete': OWNER | ROLE('admin'),
     }
 

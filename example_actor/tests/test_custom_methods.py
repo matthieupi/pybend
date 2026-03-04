@@ -45,7 +45,7 @@ class TestProductComment:
             user_owner = int(user_owner.rstrip("/").rsplit("/", 1)[-1])
         assert user_owner == alice.id
 
-    def test_comment_unauthenticated_returns_403(self, client, seed_data):
+    def test_comment_unauthenticated_returns_401(self, client, seed_data):
         product = seed_data["products"][0]
         resp = client.post(f"/products/{product.id}/comment", json={
             "comment": {
@@ -53,7 +53,7 @@ class TestProductComment:
                 "description": "Should fail",
             },
         })
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_comment_missing_comment_field_returns_400(self, client, alice_token, seed_data):
         product = seed_data["products"][0]
@@ -103,10 +103,10 @@ class TestProductFavorite:
 
         assert data1["action"] != data2["action"]
 
-    def test_favorite_unauthenticated_returns_403(self, client, seed_data):
+    def test_favorite_unauthenticated_returns_401(self, client, seed_data):
         product = seed_data["products"][0]
         resp = client.post(f"/products/{product.id}/favorite", json={})
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
 
 class TestCommentLike:
@@ -143,11 +143,11 @@ class TestCommentLike:
 
         assert data1["action"] != data2["action"]
 
-    def test_like_unauthenticated_returns_403(self, client, seed_data):
+    def test_like_unauthenticated_returns_401(self, client, seed_data):
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
         resp = client.post(f"/products/{product.id}/comments/{comment.id}/like", json={})
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
 
 class TestCommentReply:
@@ -202,12 +202,12 @@ class TestCommentReply:
             data = json.loads(data)
         assert data.get("id", 0) > 0
 
-    def test_reply_unauthenticated_returns_403(self, client, seed_data):
+    def test_reply_unauthenticated_returns_401(self, client, seed_data):
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
         resp = client.post(f"/products/{product.id}/comments/{comment.id}/reply",
                            json={"text": "No auth"})
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
 
 class TestCustomMethodPersistence:
@@ -285,32 +285,32 @@ class TestCustomMethodPersistence:
 class TestCustomMethodNegativeCases:
     """SD-5: Negative authorization tests for custom methods."""
 
-    def test_anonymous_comment_returns_403(self, client, seed_data):
-        """Anonymous user gets 403 on custom method."""
+    def test_anonymous_comment_returns_401(self, client, seed_data):
+        """Anonymous user gets 401 on custom method."""
         product = seed_data["products"][0]
         resp = client.post(f"/products/{product.id}/comment", json={
             "comment": {"name": "Anon", "description": "test"},
         })
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
-    def test_anonymous_favorite_returns_403(self, client, seed_data):
+    def test_anonymous_favorite_returns_401(self, client, seed_data):
         product = seed_data["products"][0]
         resp = client.post(f"/products/{product.id}/favorite", json={})
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
-    def test_anonymous_like_returns_403(self, client, seed_data):
+    def test_anonymous_like_returns_401(self, client, seed_data):
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
         resp = client.post(f"/products/{product.id}/comments/{comment.id}/like",
                            json={})
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
-    def test_anonymous_reply_returns_403(self, client, seed_data):
+    def test_anonymous_reply_returns_401(self, client, seed_data):
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
         resp = client.post(f"/products/{product.id}/comments/{comment.id}/reply",
                            json={"text": "nope"})
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_custom_method_on_nonexistent_entity_returns_404(self, client, alice_token):
         resp = client.post("/products/99999/comment", json={

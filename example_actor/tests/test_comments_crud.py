@@ -60,13 +60,13 @@ class TestCreateComment:
         data = resp.json()
         assert data.get("parent_id") is None
 
-    def test_create_comment_unauthenticated_returns_403(self, client, seed_data):
+    def test_create_comment_unauthenticated_returns_401(self, client, seed_data):
         product = seed_data["products"][0]
         resp = client.post(f"/products/{product.id}/comments", json={
             "name": "No auth",
             "description": "Should fail",
         })
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
 
 class TestReadComment:

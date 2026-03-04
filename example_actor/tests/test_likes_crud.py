@@ -68,13 +68,13 @@ class TestCommentLikes:
             data2 = json.loads(data2)
         assert data1["action"] != data2["action"]
 
-    def test_like_unauthenticated_returns_403(self, client, seed_data):
+    def test_like_unauthenticated_returns_401(self, client, seed_data):
         """IT-4: Anonymous user cannot like."""
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
         resp = client.post(f"/products/{product.id}/comments/{comment.id}/like",
                            json={})
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_like_different_users(self, client, alice_token, bob_token, seed_data):
         """IT-4: Different users can independently like the same comment."""

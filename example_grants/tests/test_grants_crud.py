@@ -64,7 +64,7 @@ class TestGrantUpdate:
         resp = client.put(f"/grants/{grant.id}", json={
             "title": grant.title,
             "agency": grant.agency,
-            "url": grant.url,
+            "url": str(grant.url),
             "status": "reviewed",
         }, headers=auth_header(admin_token))
         assert resp.status_code == 200
