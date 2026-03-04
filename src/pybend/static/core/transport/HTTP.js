@@ -58,6 +58,7 @@ export default class HTTP {
             header.append('x-access-token', `${token}`);
         }
 
+        let errorHandled = false;
         fetch(url, {
             method: 'GET',
             headers: header
@@ -67,33 +68,36 @@ export default class HTTP {
             }
             else if(this.checkIfUnauthorized(resp)) {
                 window.location = "/login.html";
+                return;
             }
             else if (resp.status == 404) {
                 Logging.warn("[HTTP] Resource not found", url);
                 showToast(`Resource not found: ${url}`, 'error');
+                errorHandled = true;
                 onError(resp);
-                return new Promise((resolve, reject) => {
-                    return {};
-                })
+                return;
             }
             else {
-                resp.json().then((json) => {
+                errorHandled = true;
+                return resp.json().then((json) => {
                     HTTP._toastHttpError(resp.status, json);
-                    onError(resp);
+                    onError(json);
                 });
             }
         }).then((resp) => {
-            let response = resp;
-            if(response && response.hasOwnProperty('token')) {
-                window.localStorage['jwtToken'] = response.token;
+            if (resp === undefined) return;
+            if(resp.hasOwnProperty('token')) {
+                window.localStorage['jwtToken'] = resp.token;
             }
-            if (response) HTTP._checkBodyForError(response);
-            onSuccess(response);
+            HTTP._checkBodyForError(resp);
+            onSuccess(resp);
 
         }).catch((e) => {
             Logging.error("[HTTP] Error fetching " + url, e.message);
-            showToast(e.message || 'Network error', 'error');
-            onError(e.message);
+            if (!errorHandled) {
+                showToast(e.message || 'Network error', 'error');
+                onError(e.message);
+            }
         });
 
     }
@@ -113,6 +117,7 @@ export default class HTTP {
         // 0.3 Debug print
         Logging.dev("[HTTP] PUT", url);
 
+        let errorHandled = false;
         fetch(url, {
             method: 'PUT',
             headers: header,
@@ -123,23 +128,28 @@ export default class HTTP {
             }
             else if(this.checkIfUnauthorized(resp)) {
                 window.location = "/login.html";
+                return;
             }
             else {
-                resp.json().then((json) => {
+                errorHandled = true;
+                return resp.json().then((json) => {
                     HTTP._toastHttpError(resp.status, json);
-                    onError(json.error);
+                    onError(json);
                 });
             }
         }).then((resp) => {
-            if(resp?.hasOwnProperty('token')) {
+            if (resp === undefined) return;
+            if(resp.hasOwnProperty('token')) {
                 window.localStorage['jwtToken'] = resp.token;
             }
-            if (resp) HTTP._checkBodyForError(resp);
+            HTTP._checkBodyForError(resp);
             onSuccess(resp);
         }).catch((e) => {
             Logging.error("[HTTP] PUT error", e.message);
-            showToast(e.message || 'Network error', 'error');
-            onError(e.message);
+            if (!errorHandled) {
+                showToast(e.message || 'Network error', 'error');
+                onError(e.message);
+            }
         });
     }
 
@@ -158,6 +168,7 @@ export default class HTTP {
         // 0.3 Debug print
         Logging.dev("[HTTP] POST", url);
 
+        let errorHandled = false;
         fetch(url, {
             method: 'POST',
             headers: header,
@@ -168,23 +179,28 @@ export default class HTTP {
             }
             else if(this.checkIfUnauthorized(resp)) {
                 window.location = "/login.html";
+                return;
             }
             else {
-                resp.json().then((json) => {
+                errorHandled = true;
+                return resp.json().then((json) => {
                     HTTP._toastHttpError(resp.status, json);
-                    onError(json.error + resp.toString());
+                    onError(json);
                 });
             }
         }).then((resp) => {
-            if(resp?.hasOwnProperty('token')) {
+            if (resp === undefined) return;
+            if(resp.hasOwnProperty('token')) {
                 window.localStorage['jwtToken'] = resp.token;
             }
-            if (resp) HTTP._checkBodyForError(resp);
+            HTTP._checkBodyForError(resp);
             onSuccess(resp);
         }).catch((e) => {
             Logging.error("[HTTP] POST error", e.message);
-            showToast(e.message || 'Network error', 'error');
-            onError(e.message);
+            if (!errorHandled) {
+                showToast(e.message || 'Network error', 'error');
+                onError(e.message);
+            }
         });
     }
 
@@ -195,6 +211,7 @@ export default class HTTP {
             header.append('x-access-token', `${token}`);
         }
 
+        let errorHandled = false;
         fetch(url, {
             method: 'DELETE',
             headers: header
@@ -204,19 +221,24 @@ export default class HTTP {
             }
             else if(this.checkIfUnauthorized(resp)) {
                 window.location = "/login.html";
+                return;
             }
             else {
-                resp.json().then((json) => {
+                errorHandled = true;
+                return resp.json().then((json) => {
                     HTTP._toastHttpError(resp.status, json);
-                    onError(json.error);
+                    onError(json);
                 });
             }
         }).then((resp) => {
-            if (resp) HTTP._checkBodyForError(resp);
+            if (resp === undefined) return;
+            HTTP._checkBodyForError(resp);
             onSuccess(resp);
         }).catch((e) => {
-            showToast(e.message || 'Network error', 'error');
-            onError(e.message);
+            if (!errorHandled) {
+                showToast(e.message || 'Network error', 'error');
+                onError(e.message);
+            }
         });
     }
 
