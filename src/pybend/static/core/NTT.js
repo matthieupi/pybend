@@ -598,12 +598,12 @@ function resolveModelName(def) {
  * Updates existing instances or creates new ones.
  */
 function registerInstance(DC, data) {
-    const id = data.id;
+    const id = String(data.id);
     if (DC.instances.has(id)) {
         DC.instances.get(id).update(data);
     } else {
-        const inst = new DC(data);
-        DC.instances.set(id, inst);
+        // Constructor registers instance via Actor._register (string key)
+        new DC(data);
     }
 }
 
@@ -930,22 +930,23 @@ function prototype(addr, schema, href) {
         if (Array.isArray(data)) {
             for (const value of data) {
                 normalizePopulated(value, DynamicClass._schema);
-                const id = value.id;
+                // Use string key — Actor constructor registers with string addr
+                const id = String(value.id);
                 if (DynamicClass.instances.has(id)) {
                     DynamicClass.instances.get(id).update(value);
                 } else {
-                    const instance = new DynamicClass(value);
-                    DynamicClass.instances.set(id, instance);
+                    // Constructor registers instance via Actor._register (string key)
+                    new DynamicClass(value);
                 }
             }
         } else if (typeof data === 'object') {
             for (const [id, value] of Object.entries(data)) {
                 normalizePopulated(value, DynamicClass._schema);
+                // Object.entries keys are already strings
                 if (DynamicClass.instances.has(id)) {
                     DynamicClass.instances.get(id).update(value);
                 } else {
-                    const instance = new DynamicClass(value);
-                    DynamicClass.instances.set(id, instance);
+                    new DynamicClass(value);
                 }
             }
         }
@@ -1007,11 +1008,12 @@ function prototype(addr, schema, href) {
      */
     DynamicClass.CREATE = function(data, tx) {
         if (data && data.id !== undefined) {
-            if (!DynamicClass.instances.has(data.id)) {
-                const instance = new DynamicClass(data);
-                DynamicClass.instances.set(data.id, instance);
+            const id = String(data.id);
+            if (!DynamicClass.instances.has(id)) {
+                // Constructor registers instance via Actor._register (string key)
+                new DynamicClass(data);
             } else {
-                DynamicClass.instances.get(data.id).update(data);
+                DynamicClass.instances.get(id).update(data);
             }
         }
         // Re-notify watchers with updated instance list
@@ -1026,6 +1028,11 @@ function prototype(addr, schema, href) {
                 data: childrenAddrs
             }));
         });
+
+        // Notify class-level observers (ListElement subscribes here)
+        if (DynamicClass.__observers.has('UPDATE')) {
+            DynamicClass.__observers.get('UPDATE').forEach(cb => cb(childrenAddrs));
+        }
     };
 
     /**
@@ -1034,8 +1041,9 @@ function prototype(addr, schema, href) {
      * The httpCallback swaps source/target, so tx.source is the entity URL.
      */
     DynamicClass.DELETE = function(data, tx) {
-        const id = parseInt(tx.source?.split('/').pop());
-        if (!isNaN(id)) {
+        // Keep as string — Map keys are strings (from Actor constructor registration)
+        const id = tx.source?.split('/').pop();
+        if (id) {
             DynamicClass.instances.delete(id);
         }
         // Re-notify watchers with updated instance list
@@ -1050,6 +1058,11 @@ function prototype(addr, schema, href) {
                 data: childrenAddrs
             }));
         });
+
+        // Notify class-level observers (ListElement subscribes here)
+        if (DynamicClass.__observers.has('UPDATE')) {
+            DynamicClass.__observers.get('UPDATE').forEach(cb => cb(childrenAddrs));
+        }
     };
 
     /**
