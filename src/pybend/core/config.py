@@ -18,7 +18,7 @@ JWT_SECRET = os.getenv("PYBEND_JWT_SECRET", "pybend-dev-secret-change-in-product
 JWT_EXPIRY_HOURS = int(os.getenv("PYBEND_JWT_EXPIRY_HOURS", "24"))
 
 # Debug mode — controls error detail in API responses
-DEBUG = os.getenv("PYBEND_DEBUG", "true").lower() in ("1", "true")
+DEBUG = os.getenv("PYBEND_DEBUG", "false").lower() in ("1", "true")
 
 # SSR configuration
 SSR = os.getenv("PYBEND_SSR", "off").lower()  # "off" | "schema" | "bundle" | "full"

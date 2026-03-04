@@ -62,15 +62,18 @@ class FastAPIBackend(BaseBackend):
         if "*" in cors_origins:
             logger.warning("CORS allows all origins ('*'). Set explicit origins for production.")
 
+        from pybend.core.config import DEBUG
         self.app = FastAPI(
             title=self.name,
             version=self.version,
-            description=self.description
+            description=self.description,
+            docs_url="/docs" if DEBUG else None,
+            redoc_url="/redoc" if DEBUG else None,
         )
         self.app.add_middleware(
             CORSMiddleware,
             allow_origins=cors_origins,
-            allow_credentials=True,
+            allow_credentials="*" not in cors_origins,
             allow_methods=["*"],
             allow_headers=["*"],
         )
