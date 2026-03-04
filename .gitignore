@@ -13,3 +13,4 @@ node_modules/
 *.db-shm
 *.db-wal
 .coverage
+.planning/intel/
