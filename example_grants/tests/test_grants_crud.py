@@ -1,6 +1,6 @@
 """Tests for Grant CRUD operations via the API."""
 import pytest
-from pybend.example_grants.tests.helpers import auth_header
+from helpers import auth_header
 
 
 class TestGrantList:

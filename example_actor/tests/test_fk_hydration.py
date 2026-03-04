@@ -6,7 +6,7 @@ Tests href arrays, populated responses, depth levels, Ref fields.
 
 import json
 import pytest
-from pybend.example_actor.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

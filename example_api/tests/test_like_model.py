@@ -1,7 +1,7 @@
 """Tests for models/like_model.py — Like model fields."""
 
 import pytest
-from pybend.example_api.models import Like
+from models import Like
 
 pytestmark = pytest.mark.unit
 

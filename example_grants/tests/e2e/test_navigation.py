@@ -6,7 +6,7 @@ Validates:
   3. Back button returns to the list view
   4. Hash-based deep linking works (navigate directly via URL hash)
 
-Requires a running server: cd src/pybend/example_grants && python main.py
+Requires a running server: cd example_grants && python main.py
 """
 import json
 from playwright.sync_api import sync_playwright

@@ -4,7 +4,7 @@ from pydantic import Field
 
 from pybend.core.models.proto_model import ProtoModel
 from typing import ClassVar
-from pybend.example_api.models.user import User
+from models.user import User
 
 
 class Like(ProtoModel):

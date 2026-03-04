@@ -5,7 +5,7 @@ Tests GET-only collection routes that return all records across parents.
 """
 
 import pytest
-from pybend.example_api.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

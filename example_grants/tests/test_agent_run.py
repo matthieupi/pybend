@@ -5,7 +5,7 @@ tools from real registered actors and routes calls through Matrix.
 """
 import json
 import pytest
-from pybend.example_grants.tests.helpers import auth_header
+from helpers import auth_header
 from pybend.core.agents.actor import AgentActor
 
 

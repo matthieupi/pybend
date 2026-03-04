@@ -1,7 +1,7 @@
 """PyBend Grant-Watching Example — an agentic app that scans for government grants.
 
 Usage:
-    cd src/pybend/example_grants && python main.py
+    cd /workspace/example_grants && python main.py
 
 Models:
     User        — authentication (inherited from BaseUser)
@@ -17,14 +17,14 @@ import logging
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+import config
 from pybend.core.app import create_app
 from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.core import config
 from pybend.core.agents.actor import AgentActor
 from pybend.core.agents.tool_model import AgentTool
-from pybend.example_grants.models import User, Grant, Source, WebTools
+from models import User, Grant, Source, WebTools
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
 

@@ -6,16 +6,17 @@ from datetime import datetime
 from pydantic import Field, field_validator
 
 from pybend.core.models.viewable_mixin import ViewableMixin
-from pybend.example_api.models.comment import Comment
-from pybend.example_api.models.like import Like
+from models.comment import Comment
+from models.like import Like
 from pybend.core.models.proto_model import ProtoModel
-from pybend.example_api.models.user import User
+from models.user import User
 from pybend.core.models.ref import ListRef
 from typing import ClassVar
 from pybend.core.utils.decorators import expose_route
 from pybend.core.utils.registrar import join_models
 from pybend.core.authorize import AUTHENTICATED
 from pybend.core.utils.erroring import MethodError
+from pybend.core.widgets import CurrencyField, TextareaField
 
 
 class Product(ProtoModel):
@@ -53,8 +54,8 @@ class Product(ProtoModel):
     }
     image: str = Field(default='https://placehold.co/400x300/e2e8f0/64748b?text=No+Image')
     name: str = Field(min_length=1, max_length=200, json_schema_extra={'ui': {'placeholder': 'Product name...'}})
-    price: float = Field(gt=0, json_schema_extra={'ui': {'widget': 'currency'}, 'access': {'view': 'anyone', 'edit': 'admin'}})
-    description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
+    price: CurrencyField = Field(gt=0, json_schema_extra={'access': {'view': 'anyone', 'edit': 'admin'}})
+    description: TextareaField = Field(default='')
     comments: ListRef[Comment] = Field(default=[], alias='comments', description="List of comments associated with the product")
     favorites: ListRef[Like] = Field(default=[], description="Users who favorited this product")
 

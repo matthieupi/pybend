@@ -8,7 +8,7 @@ import pytest
 from typing import ClassVar
 from unittest.mock import MagicMock
 
-from pybend.example_actor.models import User, Bot
+from models import User, Bot
 from pybend.core.models.proto_model import ProtoModel
 from pybend.core.models.storable_mixin import StorableMixin
 

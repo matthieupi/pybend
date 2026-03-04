@@ -4,7 +4,8 @@ from pydantic import Field
 
 from pybend.core.models.actor_model import ActorModel
 from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
-from pybend.example_grants.models.user import User
+from pybend.core.widgets import UrlField, DateField, CurrencyField, TextareaField
+from models.user import User
 
 
 class Grant(ActorModel):
@@ -22,11 +23,11 @@ class Grant(ActorModel):
 
     title: str = Field(min_length=1, max_length=500)
     agency: str = Field(min_length=1, max_length=200)
-    deadline: Optional[str] = Field(default=None, description="Application deadline")
-    amount_min: Optional[float] = Field(default=None, description="Minimum award amount")
-    amount_max: Optional[float] = Field(default=None, description="Maximum award amount")
-    url: str = Field(min_length=1, description="URL to the grant listing")
-    description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
+    deadline: Optional[DateField] = Field(default=None, description="Application deadline")
+    amount_min: Optional[CurrencyField] = Field(default=None, description="Minimum award amount")
+    amount_max: Optional[CurrencyField] = Field(default=None, description="Maximum award amount")
+    url: UrlField = Field(description="URL to the grant listing")
+    description: TextareaField = Field(default='')
     status: str = Field(default='discovered', description="discovered | reviewed | applied | expired")
     user_owner: User = Field(default=None, description="User who created this grant",
                              json_schema_extra={'access': {'view': 'authenticated', 'edit': 'owner'}})

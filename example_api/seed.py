@@ -11,11 +11,13 @@ import os
 import sys
 from datetime import datetime
 
-from pybend.core import config
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+import config
 
 logger = logging.getLogger('pybend.seed')
 from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.example_api.models import Product, Comment, Like, User, Bot
+from models import Product, Comment, Like, User, Bot
 from pybend.core.models.proto_model import generate_join_model
 from pybend.core.utils.registrar import register_model, join_models
 from pybend.core.authorize import hash_password

@@ -8,7 +8,7 @@ IT-4: Expanded from 3 tests to comprehensive like CRUD coverage.
 
 import json
 import pytest
-from pybend.example_actor.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

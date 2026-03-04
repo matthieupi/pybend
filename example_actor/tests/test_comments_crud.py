@@ -6,7 +6,7 @@ Routes: /products/{parent_id}/comments/...
 """
 
 import pytest
-from pybend.example_actor.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

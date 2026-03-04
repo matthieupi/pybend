@@ -13,21 +13,23 @@ import types
 import tempfile
 import pytest
 
-_example_tests = os.path.dirname(os.path.abspath(__file__))
-_example = os.path.dirname(_example_tests)
-_pybend = os.path.dirname(_example)
-_src = os.path.dirname(_pybend)
+_tests = os.path.dirname(os.path.abspath(__file__))
+_example = os.path.dirname(_tests)
+_workspace = os.path.dirname(_example)
+_src = os.path.join(_workspace, 'src')
+_pybend = os.path.join(_src, 'pybend')
 _core = os.path.join(_pybend, 'core')
 
-if _core not in sys.path:
-    sys.path.insert(0, _core)
+if _tests not in sys.path:
+    sys.path.insert(0, _tests)
+if _example not in sys.path:
+    sys.path.insert(0, _example)
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
 _namespace_shims = {
     'pybend': _pybend,
     'pybend.core': _core,
-    'pybend.example_grants': _example,
 }
 for name, path in _namespace_shims.items():
     if name not in sys.modules:
@@ -36,16 +38,16 @@ for name, path in _namespace_shims.items():
         m.__package__ = name
         sys.modules[name] = m
 
-from pybend.core import config
+import config
 from pybend.core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 os.environ["GENERATE_DOCS"] = "false"
-from pybend.example_grants.main import app  # noqa: triggers model registration
+from main import app  # noqa: triggers model registration
 
 from pybend.core.storage.sqlite_storage import SQLiteStorage
 from pybend.core.utils.registrar import registered_models
-from pybend.example_grants.models import User, Grant, Source, WebTools
+from models import User, Grant, Source, WebTools
 from pybend.core.agents.actor import AgentActor
 from pybend.core.agents.tool_model import AgentTool
 from pybend.core.authorize import create_token

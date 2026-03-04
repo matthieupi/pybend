@@ -6,7 +6,7 @@ Schema endpoints are public (no auth required).
 """
 
 import pytest
-from pybend.example_actor.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

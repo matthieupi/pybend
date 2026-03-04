@@ -1,6 +1,6 @@
 """Tests for AgentActor CRUD in the grant-watching app."""
 import pytest
-from pybend.example_grants.tests.helpers import auth_header
+from helpers import auth_header
 
 
 class TestAgentCRUD:

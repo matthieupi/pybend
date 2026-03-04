@@ -7,7 +7,7 @@ Tests create_token, decode_token, header extraction, user resolution.
 import pytest
 import jwt
 from datetime import datetime, timedelta, timezone
-from pybend.example_api.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

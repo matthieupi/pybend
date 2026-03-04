@@ -14,6 +14,10 @@
     <link rel="preload" href="./components/ntt-topbar.css" as="style">
     <link rel="preload" href="./components/ntt-user.css" as="style">
     <link rel="preload" href="./components/ntt-modal.css" as="style">
+    <link rel="preload" href="./widgets/widgets.css" as="style">
+    <!-- Vendor libraries (optional — widgets degrade gracefully without them) -->
+    <script src="./vendor/marked.min.js"></script>
+    <script src="./vendor/ansi_up.min.js"></script>
     <!-- Modulepreload entire dependency tree — eliminates import waterfall -->
     <!-- Leaves -->
     <link rel="modulepreload" href="./config.js">
@@ -42,6 +46,10 @@
     <link rel="modulepreload" href="./components/ntt-modal.js">
     <link rel="modulepreload" href="./components/ntt-favorites.js">
     <link rel="modulepreload" href="./generators/form.js">
+    <!-- Widgets -->
+    <link rel="modulepreload" href="./widgets/Widget.js">
+    <link rel="modulepreload" href="./widgets/registry.js">
+    <link rel="modulepreload" href="./widgets/index.js">
     <script type="module" src="./utils/theme.js"></script>
 </head>
 <body>

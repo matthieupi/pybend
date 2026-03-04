@@ -9,14 +9,15 @@ import logging
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+import config
 from pybend.core.storage.sqlite_storage import SQLiteStorage
 from pybend.core.utils.registrar import register_model
 from pybend.core.models.proto_model import generate_join_model
 from pybend.core.agents.actor import AgentActor
 from pybend.core.agents.tool_model import AgentTool
-from pybend.example_grants.models import User, Grant, Source, WebTools
+from models import User, Grant, Source, WebTools
 
 logger = logging.getLogger('pybend.seed')
 

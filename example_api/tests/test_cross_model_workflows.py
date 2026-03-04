@@ -6,7 +6,7 @@ End-to-end lifecycle tests spanning multiple models.
 
 import json
 import pytest
-from pybend.example_api.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 
@@ -308,7 +308,7 @@ class TestDataConsistency:
         comment_id = create_resp.json()["id"]
 
         # Fetch product and check comments contain the new one (IT-3: exact match)
-        from pybend.example_api.tests.helpers import href_ends_with
+        from helpers import href_ends_with
         get_resp = client.get(f"/products/{product.id}", headers=auth_header(alice_token))
         comments = get_resp.json().get("comments", [])
         # Use exact suffix match instead of substring (IT-3)

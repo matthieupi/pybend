@@ -7,13 +7,14 @@ from pydantic import Field
 
 from pybend.core.models.actor_model import ActorModel
 from pybend.core.models.ref import ListRef, Ref
-from pybend.example_actor.models.like import Like
+from models.like import Like
 from typing import ClassVar, Optional
-from pybend.example_actor.models.user import User
+from models.user import User
 from pybend.core.utils.decorators import expose_route
 from pybend.core.utils.registrar import join_models
 from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 from pybend.core.utils.erroring import MethodError
+from pybend.core.widgets import TextareaField
 
 
 class Comment(ActorModel):
@@ -35,7 +36,7 @@ class Comment(ActorModel):
         },
     }
     name: str = Field(min_length=1, max_length=500)
-    description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
+    description: TextareaField = Field(default='')
     user_owner: User = Field(default=None, alias='user_owner', description="User who owns the comment",
                              json_schema_extra={'access': {'view': 'authenticated', 'edit': 'owner'}})
     parent_id: Optional[Ref['self']] = Field(default=None, description="Parent comment for nesting")
@@ -66,7 +67,7 @@ class Comment(ActorModel):
         # Find the product parent so the reply goes into the same ProductComment join table
         product_id = getattr(self, 'product_id', None)
         if product_id:
-            from pybend.example_actor.models.product import Product
+            from models.product import Product
             comment.__owner__ = Product.get(product_id)
         created = comment.save()
         return created.model_dump_json() if created else comment.model_dump_json()

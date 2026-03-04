@@ -6,7 +6,7 @@ UT-11: Enhanced to verify seed creates expected entities.
 import pytest
 from unittest.mock import patch, MagicMock
 
-from pybend.example_api import seed as seed_module
+import seed as seed_module
 
 pytestmark = pytest.mark.unit
 

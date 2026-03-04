@@ -7,7 +7,7 @@ from typing import ClassVar
 
 from pydantic import Field, ValidationError
 
-from pybend.example_api.models import Product, Comment, Like
+from models import Product, Comment, Like
 from pybend.core.utils.erroring import MethodError
 
 pytestmark = pytest.mark.unit
@@ -112,7 +112,7 @@ class TestProductFavorite:
         mock_user = MagicMock()
         mock_user.id = 1
 
-        with patch('pybend.example_api.models.product.join_models', {}):
+        with patch('models.product.join_models', {}):
             with pytest.raises(MethodError):
                 p.favorite(user=mock_user)
 
@@ -124,7 +124,7 @@ class TestProductFavorite:
         mock_join = MagicMock()
         mock_join.list.return_value = []
 
-        with patch('pybend.example_api.models.product.join_models', {('Product', 'Like'): mock_join}):
+        with patch('models.product.join_models', {('Product', 'Like'): mock_join}):
             with patch.object(Like, 'save', return_value=Like(user=1)):
                 result = p.favorite(user=mock_user)
                 parsed = json.loads(result)
@@ -140,7 +140,7 @@ class TestProductFavorite:
         mock_join = MagicMock()
         mock_join.list.return_value = [existing_like]
 
-        with patch('pybend.example_api.models.product.join_models', {('Product', 'Like'): mock_join}):
+        with patch('models.product.join_models', {('Product', 'Like'): mock_join}):
             result = p.favorite(user=mock_user)
             parsed = json.loads(result)
             assert parsed['action'] == 'unfavorited'

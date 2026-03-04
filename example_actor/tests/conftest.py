@@ -17,15 +17,18 @@ import tempfile
 import pytest
 
 # Derive directory paths
-_example_tests = os.path.dirname(os.path.abspath(__file__))
-_example = os.path.dirname(_example_tests)
-_pybend = os.path.dirname(_example)
-_src = os.path.dirname(_pybend)
+_tests = os.path.dirname(os.path.abspath(__file__))
+_example = os.path.dirname(_tests)
+_workspace = os.path.dirname(_example)
+_src = os.path.join(_workspace, 'src')
+_pybend = os.path.join(_src, 'pybend')
 _core = os.path.join(_pybend, 'core')
 
-# Ensure core/ and src/ are on sys.path
-if _core not in sys.path:
-    sys.path.insert(0, _core)
+# Ensure tests/, example/, and src/ are on sys.path
+if _tests not in sys.path:
+    sys.path.insert(0, _tests)
+if _example not in sys.path:
+    sys.path.insert(0, _example)
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
@@ -35,7 +38,6 @@ if _src not in sys.path:
 _namespace_shims = {
     'pybend':           _pybend,
     'pybend.core':      _core,
-    'pybend.example_actor':   _example,
 }
 
 for name, path in _namespace_shims.items():
@@ -45,17 +47,17 @@ for name, path in _namespace_shims.items():
         m.__package__ = name
         sys.modules[name] = m
 
-from pybend.core import config
+import config
 from pybend.core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 # Import app to trigger model registration and route setup
 os.environ["GENERATE_DOCS"] = "false"  # Skip doc generation during tests
-from pybend.example_actor.main import app  # noqa: triggers model registration
+from main import app  # noqa: triggers model registration
 
 from pybend.core.storage.sqlite_storage import SQLiteStorage
 from pybend.core.utils.registrar import registered_models, join_models
-from pybend.example_actor.models import Product, Comment, Like, User
+from models import Product, Comment, Like, User
 from pybend.core.authorize import create_token
 
 
@@ -242,7 +244,7 @@ def _seed_favorites(users, products):
 
 def _make_product(client, token, name="Factory Product", price=19.99, **overrides):
     """Create a product via the API and return the response data dict."""
-    from pybend.example_actor.tests.helpers import auth_header
+    from helpers import auth_header
     payload = {"name": name, "price": price, **overrides}
     resp = client.post("/products", json=payload, headers=auth_header(token))
     assert resp.status_code == 201, f"Failed to create product: {resp.text}"
@@ -252,7 +254,7 @@ def _make_product(client, token, name="Factory Product", price=19.99, **override
 def _make_comment(client, token, product_id, name="Factory Comment",
                   description="Factory description", **overrides):
     """Create a comment on a product via the API and return the response data dict."""
-    from pybend.example_actor.tests.helpers import auth_header
+    from helpers import auth_header
     payload = {"name": name, "description": description, **overrides}
     resp = client.post(f"/products/{product_id}/comments", json=payload,
                        headers=auth_header(token))

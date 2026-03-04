@@ -5,7 +5,7 @@ Tests ANYONE, AUTHENTICATED, OWNER, ROLE, composite rules, SQL pushdown.
 """
 
 import pytest
-from pybend.example_actor.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

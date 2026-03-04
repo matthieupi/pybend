@@ -5,7 +5,7 @@ Tests auto-injection on create, stripping on update, schema marking.
 """
 
 import pytest
-from pybend.example_api.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

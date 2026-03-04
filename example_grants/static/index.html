@@ -15,6 +15,11 @@
     <link rel="preload" href="./components/ntt-sidebar.css" as="style">
     <link rel="preload" href="./components/ntt-table.css" as="style">
     <link rel="preload" href="./components/ntt-row.css" as="style">
+    <link rel="preload" href="./components/ntt-user.css" as="style">
+    <link rel="preload" href="./widgets/widgets.css" as="style">
+    <!-- Vendor libraries (optional — widgets degrade gracefully without them) -->
+    <script src="./vendor/marked.min.js"></script>
+    <script src="./vendor/ansi_up.min.js"></script>
     <!-- Modulepreload entire dependency tree — eliminates import waterfall -->
     <!-- Leaves -->
     <link rel="modulepreload" href="./config.js">
@@ -45,8 +50,13 @@
     <link rel="modulepreload" href="./components/ntt-sidebar.js">
     <link rel="modulepreload" href="./components/ntt-profile.js">
     <link rel="modulepreload" href="./components/ntt-row.js">
+    <link rel="modulepreload" href="./components/ntt-user.js">
     <link rel="modulepreload" href="./components/ntt-table.js">
     <link rel="modulepreload" href="./generators/form.js">
+    <!-- Widgets -->
+    <link rel="modulepreload" href="./widgets/Widget.js">
+    <link rel="modulepreload" href="./widgets/registry.js">
+    <link rel="modulepreload" href="./widgets/index.js">
     <script type="module" src="./utils/theme.js"></script>
 </head>
 <body>
@@ -79,6 +89,7 @@
         import './components/ntt-topbar.js';
         import './components/ntt-sidebar.js';
         import './components/ntt-profile.js';
+        import './components/ntt-user.js';
         import './components/ntt-row.js';
         import './components/ntt-table.js';
 

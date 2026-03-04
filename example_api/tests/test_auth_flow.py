@@ -5,7 +5,7 @@ Covers user registration, login, and /auth/me.
 """
 
 import pytest
-from pybend.example_api.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

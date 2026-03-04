@@ -7,7 +7,7 @@ from typing import ClassVar
 
 from pydantic import ValidationError
 
-from pybend.example_actor.models import Comment, Like
+from models import Comment, Like
 from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 from pybend.core.utils.erroring import MethodError
 
@@ -72,7 +72,7 @@ class TestCommentLike:
         mock_user = MagicMock()
         mock_user.id = 1
 
-        with patch('pybend.example_actor.models.comment.join_models', {}):
+        with patch('models.comment.join_models', {}):
             with pytest.raises(MethodError):
                 c.like(user=mock_user)
 
@@ -84,7 +84,7 @@ class TestCommentLike:
         mock_join = MagicMock()
         mock_join.list.return_value = []
 
-        with patch('pybend.example_actor.models.comment.join_models', {('Comment', 'Like'): mock_join}):
+        with patch('models.comment.join_models', {('Comment', 'Like'): mock_join}):
             with patch.object(Like, 'save', return_value=Like(user=1)):
                 result = c.like(user=mock_user)
                 parsed = json.loads(result)
@@ -100,7 +100,7 @@ class TestCommentLike:
         mock_join = MagicMock()
         mock_join.list.return_value = [existing]
 
-        with patch('pybend.example_actor.models.comment.join_models', {('Comment', 'Like'): mock_join}):
+        with patch('models.comment.join_models', {('Comment', 'Like'): mock_join}):
             result = c.like(user=mock_user)
             parsed = json.loads(result)
             assert parsed['action'] == 'unliked'

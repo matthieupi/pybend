@@ -5,7 +5,7 @@ Tests 404, 401, 403, 422, 400, 409 responses.
 """
 
 import pytest
-from pybend.example_api.tests.helpers import auth_header
+from helpers import auth_header
 
 pytestmark = pytest.mark.integration
 

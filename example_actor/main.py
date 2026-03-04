@@ -4,12 +4,12 @@ import os
 import sys
 
 # Add src/ to path for development
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+import config
 from pybend.core.app import create_app
 from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.core import config
-from pybend.example_actor.models import User, Bot, Product, Comment, Like
+from models import User, Bot, Product, Comment, Like
 
 # Configure logging for development
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
