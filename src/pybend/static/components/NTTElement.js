@@ -13,6 +13,7 @@ import {Component} from '../core/Component.js';
 import {NTT} from '../core/NTT.js';
 import {deepEqual} from '../core/Utils.js';
 import Logging from '../utils/Logging.js';
+import { showToast } from '../utils/Toast.js';
 import assert from '../utils/Assert.js';
 import TX from '../core/TX.js';
 
@@ -145,6 +146,7 @@ export class NTTElement extends Component {
       }));
       // Human-readable summary for the error banner
       this.error = validationErrors.map(e => `${e.field}: ${e.message}`).join('; ');
+      showToast(this.error, 'error');
       Logging.error(`[NTTElement] ${this.schema?.__name__ || '?'} — ERROR`, this.error);
       this.onValidationError(validationErrors);
       return;
@@ -153,6 +155,7 @@ export class NTTElement extends Component {
     const msg = (typeof d === 'string') ? d
       : d?.detail || d?.error || d?.message || 'An error occurred';
     this.error = msg;
+    showToast(msg, 'error');
     Logging.error(`[NTTElement] ${this.schema?.__name__ || '?'} — ERROR`, msg);
     this.scheduleRender();
   }

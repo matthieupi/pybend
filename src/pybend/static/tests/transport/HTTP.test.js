@@ -245,7 +245,8 @@ describe('HTTP.js', () => {
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledTimes(1);
       expect(onSuccess).not.toHaveBeenCalled();
-      expect(showToast).toHaveBeenCalledTimes(1);
+      // Toasts removed from HTTP.js — handled by NTTElement.ERROR via ERROR TX
+      expect(showToast).not.toHaveBeenCalled();
     });
 
     // 2. GET: should pass json object to onError (not string)
@@ -316,7 +317,8 @@ describe('HTTP.js', () => {
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledTimes(1);
       expect(onSuccess).not.toHaveBeenCalled();
-      expect(showToast).toHaveBeenCalledTimes(1);
+      // Toasts removed from HTTP.js — handled by NTTElement.ERROR via ERROR TX
+      expect(showToast).not.toHaveBeenCalled();
     });
 
     // 6. GET 404: should call onError once, not call onSuccess
@@ -332,8 +334,8 @@ describe('HTTP.js', () => {
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledTimes(1);
       expect(onSuccess).not.toHaveBeenCalled();
-      expect(showToast).toHaveBeenCalledTimes(1);
-      expect(showToast).toHaveBeenCalledWith(expect.stringContaining('not found'), 'error');
+      // Toasts removed from HTTP.js — handled by NTTElement.ERROR via ERROR TX
+      expect(showToast).not.toHaveBeenCalled();
     });
 
     // 7. Network error: should call onError once with message
@@ -459,8 +461,8 @@ describe('HTTP.js', () => {
       expect(window.localStorage.getItem('jwtToken')).toBeNull();
     });
 
-    // 15. Verify showToast is called with correct error messages
-    it('GET should show toast with error field from response', async () => {
+    // 15. HTTP.js no longer calls showToast directly — errors go through onError → ERROR TX
+    it('GET should pass error json to onError (no direct toast)', async () => {
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -470,12 +472,13 @@ describe('HTTP.js', () => {
       const onError = vi.fn();
       HTTP.get('http://localhost:5000/fail', onSuccess, onError);
 
-      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
-      expect(showToast).toHaveBeenCalledWith('Database connection failed', 'error');
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith({ error: 'Database connection failed' });
+      expect(showToast).not.toHaveBeenCalled();
     });
 
-    // 16. Verify showToast uses detail field if no error field
-    it('POST should show toast with detail field from response', async () => {
+    // 16. HTTP.js passes error json to onError (no direct toast)
+    it('POST should pass error json to onError (no direct toast)', async () => {
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
@@ -485,66 +488,73 @@ describe('HTTP.js', () => {
       const onError = vi.fn();
       HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
 
-      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
-      expect(showToast).toHaveBeenCalledWith('Invalid input format', 'error');
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith({ detail: 'Invalid input format' });
+      expect(showToast).not.toHaveBeenCalled();
     });
 
-    // 17. Pydantic 422 validation errors — array detail should produce readable string
-    it('should format Pydantic array detail as "field: msg" string', async () => {
+    // 17. Pydantic 422 validation errors — passed to onError (no direct toast)
+    it('should pass Pydantic 422 json to onError (no direct toast)', async () => {
+      const errorBody = {
+        detail: [
+          { loc: ['body', 'website'], msg: 'Invalid URL', type: 'value_error', input: 'not-a-url' }
+        ]
+      };
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 422,
-        json: () => Promise.resolve({
-          detail: [
-            { loc: ['body', 'website'], msg: 'Invalid URL', type: 'value_error', input: 'not-a-url' }
-          ]
-        })
+        json: () => Promise.resolve(errorBody)
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
       HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
 
-      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
-      expect(showToast).toHaveBeenCalledWith('website: Invalid URL', 'error');
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith(errorBody);
+      expect(showToast).not.toHaveBeenCalled();
     });
 
-    // 18. Multiple Pydantic validation errors joined with "; "
-    it('should join multiple Pydantic errors with "; "', async () => {
+    // 18. Multiple Pydantic validation errors — passed to onError
+    it('should pass multiple Pydantic errors to onError', async () => {
+      const errorBody = {
+        detail: [
+          { loc: ['body', 'name'], msg: 'Field required', type: 'missing' },
+          { loc: ['body', 'price'], msg: 'Value must be greater than 0', type: 'value_error' },
+        ]
+      };
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 422,
-        json: () => Promise.resolve({
-          detail: [
-            { loc: ['body', 'name'], msg: 'Field required', type: 'missing' },
-            { loc: ['body', 'price'], msg: 'Value must be greater than 0', type: 'value_error' },
-          ]
-        })
+        json: () => Promise.resolve(errorBody)
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
       HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
 
-      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
-      expect(showToast).toHaveBeenCalledWith('name: Field required; price: Value must be greater than 0', 'error');
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith(errorBody);
+      expect(showToast).not.toHaveBeenCalled();
     });
 
-    // 19. String detail should still work unchanged
-    it('should pass through string detail unchanged', async () => {
+    // 19. String detail — passed to onError
+    it('should pass string detail to onError', async () => {
+      const errorBody = { detail: 'Simple string error' };
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
-        json: () => Promise.resolve({ detail: 'Simple string error' })
+        json: () => Promise.resolve(errorBody)
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
       HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
 
-      await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
-      expect(showToast).toHaveBeenCalledWith('Simple string error', 'error');
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith(errorBody);
+      expect(showToast).not.toHaveBeenCalled();
     });
 
-    // 20. Verify embedded error in 200 response shows toast
-    it('GET should detect embedded error in successful response', async () => {
+    // 20. Embedded error in 200 response now routes to onError (not onSuccess)
+    it('GET should route embedded error in 200 response to onError', async () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -554,9 +564,34 @@ describe('HTTP.js', () => {
       const onError = vi.fn();
       HTTP.get('http://localhost:5000/products/1/favorite', onSuccess, onError);
 
-      await vi.waitFor(() => expect(onSuccess).toHaveBeenCalled());
-      expect(showToast).toHaveBeenCalledWith('authentication required', 'error');
-      expect(onError).not.toHaveBeenCalled();
+      await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+      expect(onError).toHaveBeenCalledWith({ error: 'authentication required' });
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('_extractError priority order', () => {
+    it('should check detail before error (FastAPI format primary)', () => {
+      // When both detail and error exist, detail wins
+      const json = { detail: 'FastAPI error', error: 'Legacy error' };
+      expect(HTTP._extractError(json)).toBe('FastAPI error');
+    });
+
+    it('should return error when detail is absent', () => {
+      const json = { error: 'Legacy error' };
+      expect(HTTP._extractError(json)).toBe('Legacy error');
+    });
+
+    it('should handle Pydantic array detail before string detail', () => {
+      const json = {
+        detail: [{ loc: ['body', 'name'], msg: 'Required' }],
+      };
+      expect(HTTP._extractError(json)).toBe('name: Required');
+    });
+
+    it('should return null for clean response body', () => {
+      const json = { id: 1, name: 'Product' };
+      expect(HTTP._extractError(json)).toBeNull();
     });
   });
 

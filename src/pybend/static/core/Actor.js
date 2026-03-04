@@ -91,11 +91,7 @@ export default class Actor {
                 tx.target = rawTarget.replace(typeAddr, "");
                 children.get(targetChild).inbox(tx);
             } else {
-                Logging.error(`[Actor.${this.addr}_send] Cannot route to ${targetChild}`)
-                throw new Error(
-                    `[Actor.${this.addr}_send] Cannot route message to target: ${targetChild}. No such child actor.`
-                );
-            
+                Logging.error(`[Actor.${this.addr}] Cannot route to '${targetChild}' — no such child`);
             }
         }
         // Case 3: we don’t recognize the target – bubble it in the system's hierarchy
@@ -132,14 +128,18 @@ export default class Actor {
         const Type = this;
         const Prototype = Object.getPrototypeOf(this);
         if (tx.target === `/${Type.addr}` || tx.target === Type.addr) {
-            // Check if has method
-            if (typeof this[tx.name] === "function") {
-                return this[tx.name](tx.data, tx);
-            } else if(tx.name in Prototype){
-                return Prototype[tx.name].call(this, tx.data);
-            } else {
-                Logging.warn(`[${this.addr}._inbox] No handler for event ${tx.name}`)
-                throw new Error(`[${this.addr}._inbox] No handler for event ${tx.name}.`);
+            try {
+                if (typeof this[tx.name] === "function") {
+                    return this[tx.name](tx.data, tx);
+                } else if (tx.name in Prototype) {
+                    return Prototype[tx.name].call(this, tx.data);
+                } else {
+                    Logging.warn(`[${this.addr}] No handler for '${tx.name}', ignoring`);
+                    return tx;
+                }
+            } catch (e) {
+                Logging.error(`[${this.addr}] Error in handler '${tx.name}':`, e.message);
+                return tx;
             }
         } else {
           Type.send(event)

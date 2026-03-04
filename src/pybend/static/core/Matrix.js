@@ -36,7 +36,11 @@ export class Matrix extends Actor {
             throw new Error(`Matrix cannot send messages to itself at address ${this.addr}.`);
         } else if (this.children.has(targetAddr)) {
             Logging.dev(`[MATRIX] Forwarding '${tx.name}' to ${targetAddr}`)
-            tx = this.children.get(targetAddr).inbox(tx)
+            try {
+                tx = this.children.get(targetAddr).inbox(tx);
+            } catch (e) {
+                Logging.error(`[Matrix] Error dispatching '${tx.name}' to ${targetAddr}:`, e.message);
+            }
         } else {
             tx = this.remote.send(tx);
         }

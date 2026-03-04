@@ -7,7 +7,7 @@ import TX from "./TX.js";
 
 import Logging from "../utils/Logging.js";
 import Actor from "./Actor.js";
-import { showToast } from "../utils/Toast.js";
+
 
 import {matrix} from "./Matrix.js";
 import Observable from "./Observable.js";
@@ -1066,6 +1066,17 @@ function prototype(addr, schema, href) {
     };
 
     /**
+     * Static ERROR — notifies observers when an error occurs (e.g. failed CREATE).
+     * Components subscribe via proto.observe('ERROR', cb) to handle error recovery.
+     */
+    DynamicClass.ERROR = function(data, tx) {
+        Logging.error(`[${DynamicClass.addr}] ERROR from ${tx?.source || 'unknown'}`, data);
+        if (DynamicClass.__observers.has('ERROR')) {
+            DynamicClass.__observers.get('ERROR').forEach(cb => cb({ data, tx }));
+        }
+    };
+
+    /**
      * Instance READ — handles pull() responses for individual entities.
      * Normalizes populated wrappers ({data, meta} → href arrays) and
      * pre-registers child instances, same as the class-level READ.
@@ -1081,17 +1092,9 @@ function prototype(addr, schema, href) {
      * Instance _response_ — handles method call responses (e.g. comment).
      * After a method executes server-side, re-pull the entity so child
      * lists (comments, etc.) reflect the new state.
-     * Shows a toast when the response contains an error.
+     * Errors now flow through ERROR TX → NTTElement.ERROR() → toast.
      */
     DynamicClass.prototype._response_ = function(data, tx) {
-        if (data && typeof data === 'object') {
-            const errorMsg = data.error || data.detail;
-            if (errorMsg) {
-                showToast(String(errorMsg), 'error');
-                Logging.warn(`[${className}._response_] Error from method call`, errorMsg);
-                return;
-            }
-        }
         this.pull();
     };
 

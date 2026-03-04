@@ -15,8 +15,6 @@ export default class HTTP {
      */
     static _extractError(json, status) {
         if (!json || typeof json !== 'object') return null;
-        // Explicit "error" field (backend convention)
-        if (json.error)  return String(json.error);
         // Pydantic 422: detail is an array of validation error objects
         if (Array.isArray(json.detail)) {
             return json.detail.map(e => {
@@ -24,7 +22,10 @@ export default class HTTP {
                 return `${field}: ${e.msg}`;
             }).join('; ');
         }
+        // FastAPI standard format (primary)
         if (json.detail) return String(json.detail);
+        // Legacy format (fallback)
+        if (json.error) return String(json.error);
         if (json.message && status && status >= 400) return String(json.message);
         return null;
     }
@@ -95,15 +96,13 @@ export default class HTTP {
             }
             else if (resp.status == 404) {
                 Logging.warn("[HTTP] Resource not found", url);
-                showToast(`Resource not found: ${url}`, 'error');
                 errorHandled = true;
-                onError(resp);
+                onError({detail: `Resource not found: ${url}`});
                 return;
             }
             else {
                 errorHandled = true;
                 return resp.json().then((json) => {
-                    HTTP._toastHttpError(resp.status, json);
                     onError(json);
                 });
             }
@@ -112,8 +111,11 @@ export default class HTTP {
             if(resp.hasOwnProperty('token')) {
                 window.localStorage['jwtToken'] = resp.token;
             }
-            HTTP._checkBodyForError(resp);
-            onSuccess(resp);
+            if (HTTP._checkBodyForError(resp)) {
+                onError(resp);
+            } else {
+                onSuccess(resp);
+            }
 
         }).catch((e) => {
             Logging.error("[HTTP] Error fetching " + url, e.message);
@@ -156,7 +158,6 @@ export default class HTTP {
             else {
                 errorHandled = true;
                 return resp.json().then((json) => {
-                    HTTP._toastHttpError(resp.status, json);
                     onError(json);
                 });
             }
@@ -165,8 +166,11 @@ export default class HTTP {
             if(resp.hasOwnProperty('token')) {
                 window.localStorage['jwtToken'] = resp.token;
             }
-            HTTP._checkBodyForError(resp);
-            onSuccess(resp);
+            if (HTTP._checkBodyForError(resp)) {
+                onError(resp);
+            } else {
+                onSuccess(resp);
+            }
         }).catch((e) => {
             Logging.error("[HTTP] PUT error", e.message);
             if (!errorHandled) {
@@ -207,7 +211,6 @@ export default class HTTP {
             else {
                 errorHandled = true;
                 return resp.json().then((json) => {
-                    HTTP._toastHttpError(resp.status, json);
                     onError(json);
                 });
             }
@@ -216,8 +219,11 @@ export default class HTTP {
             if(resp.hasOwnProperty('token')) {
                 window.localStorage['jwtToken'] = resp.token;
             }
-            HTTP._checkBodyForError(resp);
-            onSuccess(resp);
+            if (HTTP._checkBodyForError(resp)) {
+                onError(resp);
+            } else {
+                onSuccess(resp);
+            }
         }).catch((e) => {
             Logging.error("[HTTP] POST error", e.message);
             if (!errorHandled) {
@@ -249,14 +255,16 @@ export default class HTTP {
             else {
                 errorHandled = true;
                 return resp.json().then((json) => {
-                    HTTP._toastHttpError(resp.status, json);
                     onError(json);
                 });
             }
         }).then((resp) => {
             if (resp === undefined) return;
-            HTTP._checkBodyForError(resp);
-            onSuccess(resp);
+            if (HTTP._checkBodyForError(resp)) {
+                onError(resp);
+            } else {
+                onSuccess(resp);
+            }
         }).catch((e) => {
             if (!errorHandled) {
                 showToast(e.message || 'Network error', 'error');
