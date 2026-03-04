@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import ClassVar, Optional
+from typing import ClassVar, Literal, Optional
 from pydantic import Field
 
 from pybend.core.models.actor_model import ActorModel
@@ -28,6 +28,6 @@ class Grant(ActorModel):
     amount_max: Optional[CurrencyField] = Field(default=None, description="Maximum award amount")
     url: UrlField = Field(description="URL to the grant listing")
     description: TextareaField = Field(default='')
-    status: str = Field(default='discovered', description="discovered | reviewed | applied | expired")
+    status: Literal['discovered', 'reviewed', 'applied', 'expired'] = Field(default='discovered', description="Grant processing status")
     user_owner: User = Field(default=None, description="User who created this grant",
                              json_schema_extra={'access': {'view': 'authenticated', 'edit': 'owner'}})
