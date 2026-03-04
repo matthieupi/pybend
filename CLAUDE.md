@@ -80,9 +80,33 @@ and follow that pattern.
 
 ### Bug Fixes
 
-Standard bug fix procedure applies: reproduce, isolate, fix, verify.
-But before jumping to a fix, ask **why** the bug exists in the first
-place.
+**Test-Driven Bug Fixing (TDD).** Every bug fix MUST follow the
+red-green-refactor cycle:
+
+1. **Red — Write a failing test first.** Before touching any
+   production code, write a test that reproduces the reported bug. The
+   test should fail for the same reason the bug manifests. This proves
+   you understand the bug and gives you a clear signal when it's
+   fixed. Place the test in the appropriate test directory
+   (`core/tests/unit/` for framework bugs, `example/tests/` for
+   integration/app bugs, `static/tests/` for frontend bugs).
+
+2. **Green — Fix the bug.** Make the minimal change needed to turn the
+   failing test green. Do not refactor, do not clean up, do not fix
+   adjacent issues — just make the test pass.
+
+3. **Refactor — Clean up if needed.** Once green, improve the fix if
+   the code can be clearer or more consistent with surrounding
+   patterns. The test ensures you don't regress.
+
+If the bug cannot be reproduced with a test (e.g., environment-specific,
+timing-dependent), document why in a comment on the fix and describe
+the manual reproduction steps. But the default is always: **test first,
+fix second**.
+
+Standard bug fix analysis also applies: reproduce, isolate, fix,
+verify. But before jumping to a fix, ask **why** the bug exists in the
+first place.
 
 Most bugs introduced by developers are not simple typos — they are
 symptoms of a deeper misalignment. There are typically two root causes:
@@ -179,7 +203,7 @@ ProtoModel           Base class: injects StorableMixin, rewrites FK fields,
                       orchestrates schema pipeline, handles serialization
      |
      +-- schema()              Orchestrates proto_schema.* pipeline (base → strip_hidden →
-     |                         methods → defs → access → ui → metadata)
+     |                         methods → defs → access → widget → ui → metadata)
      +-- model_dump()          Plain dict (DB). model_response() adds $schema/$id via dump pipeline
      +-- __init_subclass__()   Auto-injects StorableMixin for __storable__=True models
      |
@@ -376,7 +400,7 @@ GET /Product → JSON Schema
    Product(ProtoModel) with fields, __ui__, __access__, @expose_route
                     │
 2. Schema Generation (Backend, on GET /Product)
-   ProtoModel.schema() → proto_schema pipeline (base → strip_hidden → methods → defs → access → ui → metadata)
+   ProtoModel.schema() → proto_schema pipeline (base → strip_hidden → methods → defs → access → widget → ui → metadata)
                     │
 3. Network Transport
    HTTP GET /Product → JSON response
@@ -462,6 +486,18 @@ GET /Product → JSON Schema
 - `src/pybend/static/components/ntt-element.js` - Base component class
 - `src/pybend/static/generators/form.js` - Formidable: schema-driven form generator
 - `src/pybend/static/utils/Permissions.js` - Reads schema access rules for UI permission checks
+
+### Widgets
+- `src/pybend/core/widgets/widget.py` - `Widget` base class, `WidgetMeta` metaclass, built-in field types (Url, Email, Date, DateTime, Markdown, Console, Reference, Currency, Textarea), auto-detection registry
+- `src/pybend/core/widgets/schema_ext.py` - Schema pipeline stage (`@schema_extension(before='ui')`) — injects `ui.widget` + `ui.config` from Widget annotations
+- `src/pybend/core/widgets/__init__.py` - Package init, re-exports, triggers schema_ext registration
+- `src/pybend/static/widgets/Widget.js` - JS base Widget class with display/edit/list methods + shared utilities
+- `src/pybend/static/widgets/registry.js` - JS registry: `registerWidget()`, `getWidgetForField()`
+- `src/pybend/static/widgets/index.js` - Loader: imports all built-ins, registers them, exports public API
+- `src/pybend/static/widgets/*.js` - Built-in widget implementations (UrlWidget, EmailWidget, DateWidget, MarkdownWidget, ConsoleWidget, ReferenceWidget, CurrencyWidget, TextareaWidget)
+- `src/pybend/static/widgets/widgets.css` - Widget-specific styles
+- `src/pybend/static/vendor/marked.min.js` - Vendored markdown parser (~40KB)
+- `src/pybend/static/vendor/ansi_up.min.js` - Vendored ANSI color renderer (~15KB)
 
 ### App Bootstrap
 - `src/pybend/core/app.py` - `PyBendApp` builder class + `create_app()` one-liner factory. Supports `routing='direct'` (Level 1/2) and `routing='actor'` (Level 3 via NetworkAPI).
@@ -713,6 +749,35 @@ for model in registered_models.values():
 **MCP adapter** converts model schemas to MCP tools. Tool names follow `{tablename}_{action}` (e.g., `products_create`, `products_favorite`). JSON-RPC methods: `initialize`, `ping`, `tools/list`, `tools/call`.
 
 **AP adapter** receives LIFECYCLE TXs from ActorModel subscribers, converts to ActivityPub Activities (Create/Update/Delete), stores in outbox. Handles inbound Follow/Unfollow. Provides WebFinger actor discovery.
+
+### Widget Pattern
+Widget fields map Python types to specialized frontend renderers. The `Widget` class hierarchy serves as both a type annotation and a metadata carrier:
+
+```python
+from pybend.core.widgets import MarkdownField, UrlField, CurrencyField
+
+class BlogPost(ProtoModel):
+    body: MarkdownField                  # bare — validates as str, widget=markdown
+    body: MarkdownField(rows=10)         # with config — Annotated[str, MarkdownField(rows=10)]
+    website: UrlField                    # validates as AnyHttpUrl, widget=url
+    price: CurrencyField                 # validates as float, widget=currency
+```
+
+The `widget` schema pipeline stage (registered `before='ui'`) injects `ui.widget` + `ui.config` into JSON Schema properties. Three detection cases:
+1. `Annotated[str, <MarkdownField instance>]` — from `MarkdownField(rows=10)` call
+2. Bare `MarkdownField` class — `issubclass(annotation, Widget)`
+3. Auto-detect: bare `AnyHttpUrl` → check `AUTO_DETECT_MAP`
+
+On the frontend, `form.js` and `ntt-item.js` dispatch to registered JS Widget instances (`getWidgetForField()`) before falling through to type-based rendering. Zero-risk: fields without `ui.widget` render identically to before.
+
+App developers extend with a single class:
+```python
+class ColorField(Widget, name='color', base_type=str): pass
+```
+```javascript
+class ColorWidget extends Widget { display(v) { ... } }
+registerWidget('color', new ColorWidget());
+```
 
 ### Interceptor Pattern (`use()`)
 Universal TX interceptors on any Actor method. Registered via `use()`, run before the method body.
