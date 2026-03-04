@@ -63,7 +63,12 @@ export class NTTRow extends NTTItem {
       const type = def?.type || 'string';
       const widget = def?.ui?.widget;
 
-      if (type === 'boolean') {
+      if (def?.enum) {
+        const options = def.enum.map(opt =>
+          `<option value="${opt}"${opt === val ? ' selected' : ''}>${opt}</option>`
+        ).join('');
+        cells.push(`<span class="cell edit-cell"><select data-key="${key}" data-type="string" class="cell-input">${options}</select></span>`);
+      } else if (type === 'boolean') {
         const checked = val ? ' checked' : '';
         cells.push(`<span class="cell edit-cell"><input type="checkbox" data-key="${key}" data-type="boolean"${checked}></span>`);
       } else {
@@ -255,7 +260,7 @@ export class NTTRow extends NTTItem {
 
     // Edit mode: Enter saves, Escape cancels
     if (this.mode === 'edit') {
-      this.shadowRoot.querySelectorAll('input').forEach(el => {
+      this.shadowRoot.querySelectorAll('input, select').forEach(el => {
         el.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') { e.preventDefault(); this.toggleMode(); }
           if (e.key === 'Escape') { this.mode = 'display'; this.render(); }

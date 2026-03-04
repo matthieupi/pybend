@@ -474,7 +474,9 @@ export class NTTItem extends NTTElement {
         if (def?.type === '$ref' || def?.$ref) {
           return false;  // $ref contains child component — full re-render
         }
-        el.textContent = Formidable.formatDisplayValue(props[key], key, next[key]);
+        const formatted = Formidable.formatDisplayValue(props[key], key, next[key]);
+        if (props[key]?.enum) el.innerHTML = formatted;
+        else el.textContent = formatted;
         continue;
       }
 
@@ -654,8 +656,8 @@ export class NTTItem extends NTTElement {
     }, {signal});
 
     // Input changes
-    this.shadowRoot.querySelectorAll('input, textarea').forEach(el => {
-      const event = (el.type === 'checkbox') ? 'change' : 'input';
+    this.shadowRoot.querySelectorAll('input, textarea, select').forEach(el => {
+      const event = (el.type === 'checkbox' || el.tagName === 'SELECT') ? 'change' : 'input';
       el.addEventListener(event, e => this.handleInputChange(e), {signal});
     });
 

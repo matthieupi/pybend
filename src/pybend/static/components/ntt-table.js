@@ -185,8 +185,9 @@ export class NTTTable extends ListElement {
       row.style.display = 'none';
       row.classList.remove('loading');
       // Clear inputs and error states
-      row.querySelectorAll('input, textarea').forEach(el => {
-        el.value = '';
+      row.querySelectorAll('input, textarea, select').forEach(el => {
+        if (el.tagName === 'SELECT') el.selectedIndex = 0;
+        else el.value = '';
         el.disabled = false;
         el.classList.remove('input-error');
       });
@@ -206,7 +207,7 @@ export class NTTTable extends ListElement {
     } else {
       row.classList.remove('loading');
     }
-    row.querySelectorAll('input, textarea, button').forEach(el => {
+    row.querySelectorAll('input, textarea, select, button').forEach(el => {
       el.disabled = loading;
     });
   }
@@ -394,6 +395,12 @@ export class NTTTable extends ListElement {
         const type = def?.type || 'string';
         const widget = def?.ui?.widget;
         const placeholder = def?.ui?.placeholder || this.#headerLabel(key);
+        if (def?.enum) {
+          const options = def.enum.map(opt =>
+            `<option value="${opt}">${opt}</option>`
+          ).join('');
+          return `<span class="create-cell"><select data-key="${key}" class="cell-input">${options}</select></span>`;
+        }
         if (type === 'boolean') {
           return `<span class="create-cell"><input type="checkbox" data-key="${key}"></span>`;
         }
@@ -482,7 +489,7 @@ export class NTTTable extends ListElement {
       () => this.#toggleCreate(), {signal});
 
     // Create row: Enter key submits
-    this.shadowRoot.querySelectorAll('.create-row input').forEach(el => {
+    this.shadowRoot.querySelectorAll('.create-row input, .create-row select').forEach(el => {
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); this.#submitCreate(); }
         if (e.key === 'Escape') this.#toggleCreate();

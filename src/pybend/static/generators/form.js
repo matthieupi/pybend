@@ -254,8 +254,14 @@ function getInput(ntt, key, mode = 'display') {
         // Build HTML5 validation attributes from schema constraints
         const v = validationAttrs(def, schema.required?.includes(key));
 
+        // Enum fields → <select> dropdown
+        if (def.enum) {
+            const options = def.enum.map(opt =>
+                `<option value="${opt}"${opt === value ? ' selected' : ''}>${opt}</option>`
+            ).join('');
+            html.push(`<select id="${key}" data-key="${key}" data-type="string"${v}>${options}</select>`);
         // Widget hint takes priority over type for edit rendering
-        if (widget === 'textarea' || type === 'text') {
+        } else if (widget === 'textarea' || type === 'text') {
             html.push(`<textarea id="${key}" data-key="${key}" data-type="string"${v}>${value}</textarea>`);
         } else if (widget === 'currency') {
             html.push(`<div class="currency-input"><span class="currency-symbol">$</span><input type="number" step="0.01" id="${key}" data-key="${key}" data-type="number" value="${value}"${v}></div>`);
@@ -276,8 +282,11 @@ function getInput(ntt, key, mode = 'display') {
             html.push(`<input type="${type}" data-key="${key}" data-type="${type}" value="${value}" id="${key}"${v}>`);
         }
     } else {
+        // Enum fields → styled pill
+        if (def.enum) {
+            html.push(`<span class="enum-pill" data-value="${key}" data-status="${value}">${value}</span>`);
         // Widget hint takes priority for display rendering too
-        if (widget === 'currency') {
+        } else if (widget === 'currency') {
             const formatted = typeof value === 'number' ? `$${value.toFixed(2)}` : value;
             html.push(`<div class="currency-display" data-value="${key}">${formatted}</div>`);
         } else if (widget === 'textarea') {
@@ -491,6 +500,7 @@ function formatDisplayValue(def, key, value) {
         return _wr.widget.list(value, _wr.config, def);
     }
     const type = def?.type || 'string';
+    if (def?.enum) return `<span class="enum-pill" data-status="${value}">${value}</span>`;
     if (type === '$ref' || def?.$ref) return formatRefDisplay(def, value);
     if (type === 'selfref') return value ? `[Parent: #${value}]` : '(top-level)';
     if (type === 'object') return formatObjectDisplay(value);

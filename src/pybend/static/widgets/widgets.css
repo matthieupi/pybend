@@ -139,6 +139,20 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* Enum Pill (display mode for Literal/enum fields) */
+.enum-pill {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: capitalize;
+    padding: 0.15rem 0.6rem;
+    border-radius: 100px;
+    background: var(--accent-dim, rgba(99, 102, 241, 0.12));
+    color: var(--accent-primary, #6366f1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
 /* Widget Wrappers (form.js integration) */
 .widget-display-wrapper,
 .widget-edit-wrapper {
