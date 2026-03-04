@@ -65,13 +65,25 @@ class Matrix(Actor):
                     await adapter.send(tx)
                     return
             logger.warning(f"[Matrix] No route to {tx.target}")
+            await self._route_error(tx)
 
         else:
             logger.warning(f"[Matrix] No route to {tx.target}")
+            await self._route_error(tx)
 
     async def send(self, tx: TX) -> None:
         """Matrix routes internally -- no parent needed."""
         await self.inbox(tx)
+
+    async def _route_error(self, tx: TX) -> None:
+        """Route error TX back to sender when no route is found."""
+        # Don't bounce error TXs — prevents infinite loops
+        if tx.is_error:
+            return
+        error_tx = tx.error(f"No route to '{tx.target}'", code=404)
+        source_root = tx.source.split('/')[0] if tx.source else ''
+        if source_root and source_root in self._children:
+            await self._children[source_root].inbox(error_tx)
 
     def register_adapter(self, adapter: Any):
         """Add a protocol adapter (HTTP, WS, MCP, AP...)."""

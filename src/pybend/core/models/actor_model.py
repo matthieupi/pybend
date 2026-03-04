@@ -22,35 +22,13 @@ from typing import ClassVar
 from pydantic import ConfigDict
 
 from pybend.core.actors.actor import Actor, actormethod, actorproperty
-from pybend.core.actors.tx import TX
+from pybend.core.actors.tx import TX, exception_to_tx_error as _exception_to_tx_error
 from pybend.core.models.proto_model import ProtoModel
 
 logger = logging.getLogger('pybend.actors')
 
 # Sentinel — distinguishes "not a CRUD message" from legitimate None returns
 _NOT_HANDLED = object()
-
-
-def _exception_to_tx_error(e: Exception, tx: 'TX') -> 'TX':
-    """Map exception types to TX error responses with appropriate HTTP codes.
-
-    Centralizes the exception → error TX translation for both CRUD
-    and custom method dispatch paths.
-    """
-    from pybend.core.utils.erroring import MethodError
-
-    if isinstance(e, MethodError):
-        return tx.error(e.message, code=e.status_code)
-    if hasattr(e, 'status_code') and hasattr(e, 'detail'):
-        # HTTPException from FastAPI
-        return tx.error(e.detail, code=e.status_code)
-    if isinstance(e, (ValueError, TypeError)):
-        return tx.error(str(e), code=400)
-    if isinstance(e, PermissionError):
-        return tx.error(str(e), code=403)
-    if isinstance(e, KeyError):
-        return tx.error(f"Missing required field: {e}", code=400)
-    return tx.error(str(e), code=500)
 
 # CRUD message names handled by handler_crud
 _CRUD_OPS = frozenset({'schema', 'create', 'get', 'list', 'update', 'delete'})
@@ -106,6 +84,19 @@ class ActorModel(Actor, ProtoModel):
                     is_exposed = hasattr(method, '__endpoint__')
 
                     if is_exposed:
+                        # Tier 2 auth: check @expose_route access before execution
+                        endpoint_info = getattr(method, '__endpoint__', {})
+                        method_access = endpoint_info.get('access')
+                        if method_access is not None:
+                            from pybend.core.authorize import AccessContext
+                            ctx = AccessContext(
+                                user=tx.meta.get('user', {}),
+                                action=tx.name, model_class=cls,
+                            )
+                            if not method_access.evaluate(ctx):
+                                await target.send(tx.error("Access denied", code=403))
+                                return
+
                         # @expose_route method: unpack data as kwargs.
                         # Instance methods need 'self' resolved from id in data.
                         from inspect import signature as get_sig
@@ -218,7 +209,7 @@ class ActorModel(Actor, ProtoModel):
                 if result:
                     cls._publish_lifecycle('after_create', result.model_response())
                     return result.model_response()
-                return tx.error("Create failed")
+                return tx.error("Create failed", code=409)
 
             elif name == 'get':
                 entity_id = data.get('id')
@@ -261,7 +252,7 @@ class ActorModel(Actor, ProtoModel):
                 if result:
                     cls._publish_lifecycle('after_update', result.model_response())
                     return result.model_response()
-                return tx.error("Update failed")
+                return tx.error("Update failed", code=409)
 
             elif name == 'delete':
                 entity_id = data.get('id')

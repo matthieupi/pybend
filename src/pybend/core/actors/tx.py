@@ -47,3 +47,29 @@ class TX:
     @property
     def is_error(self) -> bool:
         return self.name == 'ERROR' or self.meta.get('error', False)
+
+
+def exception_to_tx_error(e: Exception, tx: 'TX') -> 'TX':
+    """Map exception types to TX error responses with semantic HTTP codes.
+
+    Centralizes the exception → error TX translation for CRUD,
+    custom method dispatch, and generic Actor handler paths.
+    """
+    from pybend.core.utils.erroring import MethodError
+
+    if isinstance(e, MethodError):
+        return tx.error(e.message, code=e.status_code)
+    if hasattr(e, 'status_code') and hasattr(e, 'detail'):
+        # HTTPException from FastAPI
+        return tx.error(e.detail, code=e.status_code)
+
+    from pydantic import ValidationError
+    if isinstance(e, ValidationError):
+        return tx.error(str(e), code=422)
+    if isinstance(e, (ValueError, TypeError)):
+        return tx.error(str(e), code=400)
+    if isinstance(e, PermissionError):
+        return tx.error(str(e), code=403)
+    if isinstance(e, KeyError):
+        return tx.error(f"Missing required field: {e}", code=400)
+    return tx.error(str(e), code=500)

@@ -812,3 +812,118 @@ class TestDefaultMatrix:
         from pybend.core.actors.matrix import matrix as default_matrix
         assert isinstance(default_matrix, Matrix)
         assert default_matrix.addr == 'matrix'
+
+
+# ===================================================================
+# Test exception_to_tx_error (shared utility in tx.py)
+# ===================================================================
+
+class TestExceptionToTxError:
+    """exception_to_tx_error() maps exception types to semantic HTTP codes."""
+
+    def _make_tx(self):
+        return TX(name='test', source='a', target='b')
+
+    def test_method_error_uses_its_status_code(self):
+        from pybend.core.actors.tx import exception_to_tx_error
+        from pybend.core.utils.erroring import MethodError
+        tx = self._make_tx()
+        result = exception_to_tx_error(MethodError('auth required', 401), tx)
+        assert result.is_error
+        assert result.data['code'] == 401
+        assert 'auth required' in result.data['message']
+
+    def test_pydantic_validation_error_maps_to_422(self):
+        from pybend.core.actors.tx import exception_to_tx_error
+        from pydantic import BaseModel, ValidationError
+        class _M(BaseModel):
+            x: int
+        tx = self._make_tx()
+        try:
+            _M(x='not-an-int')
+        except ValidationError as e:
+            result = exception_to_tx_error(e, tx)
+        assert result.is_error
+        assert result.data['code'] == 422
+
+    def test_value_error_maps_to_400(self):
+        from pybend.core.actors.tx import exception_to_tx_error
+        tx = self._make_tx()
+        result = exception_to_tx_error(ValueError('bad value'), tx)
+        assert result.data['code'] == 400
+
+    def test_type_error_maps_to_400(self):
+        from pybend.core.actors.tx import exception_to_tx_error
+        tx = self._make_tx()
+        result = exception_to_tx_error(TypeError('wrong type'), tx)
+        assert result.data['code'] == 400
+
+    def test_permission_error_maps_to_403(self):
+        from pybend.core.actors.tx import exception_to_tx_error
+        tx = self._make_tx()
+        result = exception_to_tx_error(PermissionError('forbidden'), tx)
+        assert result.data['code'] == 403
+
+    def test_key_error_maps_to_400_with_field(self):
+        from pybend.core.actors.tx import exception_to_tx_error
+        tx = self._make_tx()
+        result = exception_to_tx_error(KeyError('missing_field'), tx)
+        assert result.data['code'] == 400
+        assert 'missing_field' in result.data['message']
+
+    def test_runtime_error_maps_to_500(self):
+        from pybend.core.actors.tx import exception_to_tx_error
+        tx = self._make_tx()
+        result = exception_to_tx_error(RuntimeError('unexpected'), tx)
+        assert result.data['code'] == 500
+
+    def test_http_exception_uses_its_status_code(self):
+        from pybend.core.actors.tx import exception_to_tx_error
+        from fastapi import HTTPException
+        tx = self._make_tx()
+        result = exception_to_tx_error(HTTPException(status_code=409, detail='conflict'), tx)
+        assert result.data['code'] == 409
+        assert 'conflict' in result.data['message']
+
+
+# ===================================================================
+# Test Matrix error routing (no silent drops)
+# ===================================================================
+
+class TestMatrixErrorRouting:
+    """Matrix sends ERROR TX back to sender when no route found."""
+
+    @pytest.mark.asyncio
+    async def test_no_route_sends_error_tx_to_sender(self):
+        """When no child or adapter matches, Matrix routes ERROR TX back."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        sender = Actor(addr='sender')
+        m.register(sender)
+
+        mock_inbox = AsyncMock()
+        tx = TX(name='X', source='sender', target='nonexistent')
+        with mock_method(sender, 'inbox', mock_inbox):
+            await m.inbox(tx)
+        # sender should receive an ERROR TX
+        mock_inbox.assert_awaited_once()
+        error_tx = mock_inbox.call_args[0][0]
+        assert error_tx.is_error
+        assert error_tx.data['code'] == 404
+        assert 'nonexistent' in error_tx.data['message']
+
+    @pytest.mark.asyncio
+    async def test_no_route_does_not_bounce_error_tx(self):
+        """ERROR TX targeting unknown addr should NOT generate another error (infinite loop)."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        sender = Actor(addr='sender')
+        m.register(sender)
+
+        mock_inbox = AsyncMock()
+        error_tx = TX(name='ERROR', source='sender', target='nonexistent',
+                      meta={'error': True})
+        with mock_method(sender, 'inbox', mock_inbox):
+            await m.inbox(error_tx)
+        # Should NOT route error back (would cause infinite loop)
+        mock_inbox.assert_not_awaited()
