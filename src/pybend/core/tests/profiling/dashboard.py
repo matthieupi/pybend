@@ -13,7 +13,7 @@ import threading
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 import uvicorn
 
@@ -74,18 +74,18 @@ async def get_run(label: str):
                         return record
                 except json.JSONDecodeError:
                     continue
-    return JSONResponse({'error': f'Run "{label}" not found'}, status_code=404)
+    raise HTTPException(status_code=404, detail=f'Run "{label}" not found')
 
 
 @app.get('/api/run-by-index/{index}')
 async def get_run_by_index(index: int):
     """Return full results for a run by history index."""
     if not HISTORY_FILE.exists():
-        return JSONResponse({'error': 'No history'}, status_code=404)
+        raise HTTPException(status_code=404, detail='No history')
     lines = [l for l in HISTORY_FILE.read_text().strip().split('\n') if l.strip()]
     if 0 <= index < len(lines):
         return json.loads(lines[index])
-    return JSONResponse({'error': 'Index out of range'}, status_code=404)
+    raise HTTPException(status_code=404, detail='Index out of range')
 
 
 @app.get('/api/frontend-run/{label}')
@@ -93,7 +93,7 @@ async def get_frontend_run(label: str):
     """Return frontend profiling results for a specific run label."""
     path = PROFILING_DIR / f'frontend_perf_{label}.json'
     if not path.exists():
-        return JSONResponse({'error': f'Frontend run "{label}" not found'}, status_code=404)
+        raise HTTPException(status_code=404, detail=f'Frontend run "{label}" not found')
     return json.loads(path.read_text())
 
 
@@ -104,9 +104,9 @@ async def compare_runs(a: str = Query(...), b: str = Query(...)):
     file_a = PROFILING_DIR / f'api_perf_{a}.json'
     file_b = PROFILING_DIR / f'api_perf_{b}.json'
     if not file_a.exists():
-        return JSONResponse({'error': f'Run "{a}" not found'}, status_code=404)
+        raise HTTPException(status_code=404, detail=f'Run "{a}" not found')
     if not file_b.exists():
-        return JSONResponse({'error': f'Run "{b}" not found'}, status_code=404)
+        raise HTTPException(status_code=404, detail=f'Run "{b}" not found')
     return compare_json(str(file_a), str(file_b))
 
 
@@ -122,7 +122,7 @@ async def start_run(body: dict):
     label = body.get('label', 'run')
     mode = body.get('mode', 'all')
     if label in _running_jobs and _running_jobs[label].get('running'):
-        return JSONResponse({'error': f'Run "{label}" already in progress'}, status_code=409)
+        raise HTTPException(status_code=409, detail=f'Run "{label}" already in progress')
 
     job = {'running': True, 'label': label, 'mode': mode,
            'started': time.strftime('%H:%M:%S'), 'output': ''}
@@ -165,7 +165,7 @@ async def get_job(label: str):
     """Check status of a running profiling job."""
     job = _running_jobs.get(label)
     if not job:
-        return JSONResponse({'error': 'No such job'}, status_code=404)
+        raise HTTPException(status_code=404, detail='No such job')
     return job
 
 

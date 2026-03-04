@@ -224,10 +224,10 @@ class NetworkAP(NetworkAdapter, auto_register=False):
         actor = activity.get('actor', '')
 
         if not activity_type:
-            return {'error': 'Activity must have a type'}
+            return {'detail': 'Activity must have a type'}
 
         if not actor:
-            return {'error': 'Activity must have an actor'}
+            return {'detail': 'Activity must have an actor'}
 
         # Handle Follow specially
         if activity_type == 'follow':
@@ -379,7 +379,7 @@ def create_federation_routes(ap_adapter: NetworkAP):
     - GET  /{tablename}/outbox     — Published activities
     - POST /{tablename}/inbox      — Receive activities (basic, Wave 1)
     """
-    from fastapi import APIRouter, Request, Query
+    from fastapi import APIRouter, HTTPException, Request, Query
     from fastapi.responses import JSONResponse
 
     router = APIRouter(tags=['Federation'])
@@ -389,7 +389,7 @@ def create_federation_routes(ap_adapter: NetworkAP):
         """WebFinger endpoint for actor discovery."""
         result = ap_adapter.webfinger(resource)
         if result is None:
-            return JSONResponse({'error': 'Not found'}, status_code=404)
+            raise HTTPException(status_code=404, detail='Not found')
         return JSONResponse(result, headers={
             'Content-Type': 'application/jrd+json',
             'Access-Control-Allow-Origin': '*',
@@ -409,10 +409,10 @@ def create_federation_routes(ap_adapter: NetworkAP):
         try:
             activity = await request.json()
         except Exception:
-            return JSONResponse({'error': 'Invalid JSON'}, status_code=400)
+            raise HTTPException(status_code=400, detail='Invalid JSON')
 
         result = await ap_adapter.handle_inbox(activity, tablename)
-        if 'error' in result:
+        if 'detail' in result:
             return JSONResponse(result, status_code=422)
         return JSONResponse(result, status_code=202, headers={
             'Content-Type': 'application/activity+json',

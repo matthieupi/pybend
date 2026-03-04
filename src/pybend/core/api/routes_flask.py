@@ -57,7 +57,7 @@ def create_api_blueprint(registered_models):
                     instance = model_class.create(instance)
                     return jsonify(instance.model_dump()), 201
                 except Exception as e:
-                    return jsonify({'error': str(e)}), 400
+                    return jsonify({'detail': str(e)}), 400
             return create
 
         if is_storable:
@@ -124,7 +124,7 @@ def create_api_blueprint(registered_models):
                 if instance:
                     return jsonify(instance.model_dump()), 200
                 else:
-                    return jsonify({'error': 'Not found'}), 404
+                    return jsonify({'detail': 'Not found'}), 404
             return get_instance_by_id
 
         if hasattr(model_class, 'get'):
@@ -170,7 +170,7 @@ def create_api_blueprint(registered_models):
                     model_class.update(id, instance)
                     return jsonify({'message': 'Updated successfully'}), 200
                 except Exception as e:
-                    return jsonify({'error': str(e)}), 400
+                    return jsonify({'detail': str(e)}), 400
             return update_instance
 
         if hasattr(model_class, 'update'):
