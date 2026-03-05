@@ -14,13 +14,29 @@ from playwright.sync_api import sync_playwright
 BASE = "http://localhost:5000"
 
 
-def _wait_for_items(page, timeout=5000):
-    """Wait until the main ntx-table has at least one row rendered."""
+def _login(page, email="alice@example.com", password="alice123"):
+    """Log in via the API and inject the token into localStorage."""
+    resp = page.request.post(f"{BASE}/users/login", data={
+        "email": email, "password": password,
+    })
+    body = resp.json()
+    token = body.get("token")
+    assert token, f"Login failed: {body}"
+    page.evaluate(f"() => localStorage.setItem('jwtToken', '{token}')")
+    return token
+
+
+def _wait_for_items(page, timeout=10000):
+    """Wait until the main grant table has at least one fully-rendered row."""
     page.wait_for_function("""() => {
-        const table = document.querySelector('ntx-table');
+        const table = document.querySelector('#grant-table');
         if (!table) return false;
         const body = table.shadowRoot?.querySelector('.table-body');
-        return body && body.querySelectorAll('ntx-row').length > 0;
+        if (!body) return false;
+        const rows = body.querySelectorAll('ntx-row');
+        if (rows.length === 0) return false;
+        // Ensure first row's shadow DOM is fully rendered
+        return !!rows[0].shadowRoot?.querySelector('.row');
     }""", timeout=timeout)
 
 
@@ -30,20 +46,22 @@ def test_main_list_click_navigates():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 800})
         page.goto(BASE)
+        _login(page)
+        page.reload()
         _wait_for_items(page)
 
         # Verify initial state: table is shown, no hash
         before = page.evaluate("""() => ({
             hash: location.hash,
             hasSlot: !!document.querySelector('ntx-router')?.shadowRoot?.querySelector('slot'),
-            routerAttr: document.querySelector('ntx-table')?.getAttribute('router'),
+            routerAttr: document.querySelector('#grant-table')?.getAttribute('router'),
         })""")
         assert before["hash"] == "", f"Expected no hash before click, got {before['hash']}"
         assert before["routerAttr"] == "main", "ntx-table should have router='main' set by ntx-router"
 
         # Click the first row
         page.evaluate("""() => {
-            const table = document.querySelector('ntx-table');
+            const table = document.querySelector('#grant-table');
             const body = table.shadowRoot.querySelector('.table-body');
             const row = body.querySelector('ntx-row');
             row.shadowRoot.querySelector('.row').click();
@@ -80,11 +98,13 @@ def test_back_button_returns_to_list():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 800})
         page.goto(BASE)
+        _login(page)
+        page.reload()
         _wait_for_items(page)
 
         # Navigate to detail
         page.evaluate("""() => {
-            const table = document.querySelector('ntx-table');
+            const table = document.querySelector('#grant-table');
             const body = table.shadowRoot.querySelector('.table-body');
             body.querySelector('ntx-row').shadowRoot.querySelector('.row').click();
         }""")
@@ -102,7 +122,7 @@ def test_back_button_returns_to_list():
             hash: location.hash,
             hasSlot: !!document.querySelector('ntx-router')?.shadowRoot?.querySelector('slot'),
             hasBackBtn: !!document.querySelector('ntx-router')?.shadowRoot?.querySelector('.back-btn'),
-            tableRowCount: document.querySelector('ntx-table')?.shadowRoot
+            tableRowCount: document.querySelector('#grant-table')?.shadowRoot
                 ?.querySelector('.table-body')?.querySelectorAll('ntx-row')?.length ?? 0,
         })""")
         assert after_back["hash"] == "", f"Hash should be empty after back, got {after_back['hash']}"
@@ -118,8 +138,11 @@ def test_hash_deep_link():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 800})
+        # Login first (detail view hydrates user_owner FK which requires auth)
+        page.goto(BASE)
+        _login(page)
         page.goto(f"{BASE}/#Grant/1")
-        page.wait_for_timeout(4000)
+        page.wait_for_timeout(6000)
 
         state = page.evaluate("""() => {
             const router = document.querySelector('ntx-router');
@@ -146,6 +169,8 @@ def test_sidebar_item_navigates():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 800})
         page.goto(BASE)
+        _login(page)
+        page.reload()
         _wait_for_items(page)
 
         # Expand the sidebar's first model section (Grant)

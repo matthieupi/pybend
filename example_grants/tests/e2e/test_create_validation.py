@@ -41,13 +41,21 @@ def _wait_for_table(page, timeout=15000):
     }""", timeout=timeout)
 
 
-def _wait_for_create_row(page, timeout=3000):
-    """Wait until the inline create row is visible."""
+def _open_create_row(page, timeout=10000):
+    """Click the add button and wait until the inline create row is visible.
+
+    Polls because the table may re-render between _wait_for_table passing and
+    the click, losing the event listener.  Clicking inside the poll is harmless
+    if the row is already open (toggle would close+reopen, but we guard that).
+    """
     page.wait_for_function("""() => {
         const table = document.querySelector('#grant-table');
         if (!table) return false;
         const row = table.shadowRoot?.querySelector('.create-row');
-        return row && row.style.display !== 'none';
+        if (row && row.style.display !== 'none') return true;
+        // Not open yet — try clicking the add button
+        table.shadowRoot?.querySelector('.inline-add-btn')?.click();
+        return false;
     }""", timeout=timeout)
 
 
@@ -72,12 +80,7 @@ def test_create_grant_title_only_client_validation():
         }""")
 
         # Click the "+ Add Grant" button to open inline create row
-        page.evaluate("""() => {
-            const table = document.querySelector('#grant-table');
-            const btn = table.shadowRoot.querySelector('.inline-add-btn');
-            btn.click();
-        }""")
-        _wait_for_create_row(page)
+        _open_create_row(page)
 
         # Type only a title into the create row
         page.evaluate("""() => {
@@ -177,11 +180,7 @@ def test_create_grant_title_only_detailed_feedback_analysis():
         _wait_for_table(page)
 
         # Open create row
-        page.evaluate("""() => {
-            const table = document.querySelector('#grant-table');
-            table.shadowRoot.querySelector('.inline-add-btn').click();
-        }""")
-        _wait_for_create_row(page)
+        _open_create_row(page)
 
         # Capture the schema to understand what the form knows about required fields
         schema_info = page.evaluate("""() => {
@@ -333,11 +332,7 @@ def test_create_grant_title_only_error_visibility():
         _wait_for_table(page)
 
         # Open create, fill title only, submit
-        page.evaluate("""() => {
-            const table = document.querySelector('#grant-table');
-            table.shadowRoot.querySelector('.inline-add-btn').click();
-        }""")
-        _wait_for_create_row(page)
+        _open_create_row(page)
 
         page.evaluate("""() => {
             const table = document.querySelector('#grant-table');
