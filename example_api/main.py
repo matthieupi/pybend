@@ -34,4 +34,7 @@ app = create_app(
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host=config.HOST, port=config.PORT)
+    if config.DEBUG:
+        uvicorn.run("main:app", host=config.HOST, port=config.PORT, reload=True)
+    else:
+        uvicorn.run(app, host=config.HOST, port=config.PORT)
