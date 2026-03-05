@@ -431,12 +431,12 @@ class TestHandlerCrudErrors:
         assert result.source == 'crud_test'
         assert result.target == 'client'
 
-    def test_error_tx_has_in_reply_to(self, mock_storage, make_tx):
-        """Error TX meta includes in_reply_to referencing original uuid."""
+    def test_error_tx_has_req(self, mock_storage, make_tx):
+        """Error TX meta includes req referencing original uuid."""
         mock_storage.create.side_effect = ValueError('fail')
         tx = make_tx('create', {'name': 'X'})
         result = _CrudModel.handler_crud(tx)
-        assert result.meta['in_reply_to'] == tx.uuid
+        assert result.meta['req'] == tx.uuid
 
 
 # ===================================================================

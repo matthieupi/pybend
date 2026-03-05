@@ -1,7 +1,11 @@
+import asyncio
+import inspect
+import json
 import logging
 import traceback
 
 from fastapi import APIRouter, Request, HTTPException, status, Body, Path, Query
+from fastapi.responses import StreamingResponse
 from typing import Dict, Type, Any, List
 from n3tx.core import config
 from n3tx.core.models.storable_mixin import StorableMixin
@@ -329,7 +333,20 @@ def make_custom_post(attr, model_class, route_path):
                 parsed_args['user'] = user
 
         try:
-            return attr(instance, **parsed_args)
+            result = attr(instance, **parsed_args)
+            if asyncio.iscoroutine(result):
+                result = await result
+            if inspect.isasyncgen(result):
+                async def sse(_gen=result):
+                    async for chunk in _gen:
+                        data = chunk if isinstance(chunk, dict) else {'chunk': chunk}
+                        yield f"event: chunk\ndata: {json.dumps(data, default=str)}\n\n"
+                    yield f"event: done\ndata: {{}}\n\n"
+                return StreamingResponse(
+                    sse(), media_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                )
+            return result
         except MethodError as e:
             raise HTTPException(status_code=e.status_code, detail=e.message)
 
@@ -362,9 +379,22 @@ def make_custom_post(attr, model_class, route_path):
 
         try:
             if is_class_method:
-                return attr(model_class, **parsed_args)
+                result = attr(model_class, **parsed_args)
             else:
-                return attr(**parsed_args)
+                result = attr(**parsed_args)
+            if asyncio.iscoroutine(result):
+                result = await result
+            if inspect.isasyncgen(result):
+                async def sse(_gen=result):
+                    async for chunk in _gen:
+                        data = chunk if isinstance(chunk, dict) else {'chunk': chunk}
+                        yield f"event: chunk\ndata: {json.dumps(data, default=str)}\n\n"
+                    yield f"event: done\ndata: {{}}\n\n"
+                return StreamingResponse(
+                    sse(), media_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                )
+            return result
         except MethodError as e:
             raise HTTPException(status_code=e.status_code, detail=e.message)
 

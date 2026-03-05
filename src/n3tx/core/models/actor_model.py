@@ -16,6 +16,7 @@ fall through to Actor's generic handler (getattr dispatch).
 """
 
 import asyncio
+import inspect
 import logging
 from typing import ClassVar
 
@@ -125,6 +126,24 @@ class ActorModel(Actor, ProtoModel):
                 except Exception as e:
                     logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
                     await target.send(tx.exception(e))
+                    return
+
+                # If result is a coroutine, await it first
+                if asyncio.iscoroutine(result):
+                    result = await result
+
+                # Streaming: handler returned an async generator
+                if inspect.isasyncgen(result):
+                    seq = 0
+                    try:
+                        async for chunk in result:
+                            chunk_data = chunk if isinstance(chunk, dict) else {'chunk': chunk}
+                            await target.send(tx.stream_chunk(chunk_data, seq))
+                            seq += 1
+                        await target.send(tx.stream_end(seq=seq))
+                    except Exception as e:
+                        logger.error(f"[{target.addr}] Stream error in {tx.name}: {e}")
+                        await target.send(tx.exception(e))
                     return
 
                 if isinstance(result, TX):

@@ -182,18 +182,52 @@ class NetworkWebSocket(NetworkAdapter, auto_register=False):
 
     # ── Connection management ──
 
-    async def handle_message(self, client_id: str, msg: dict) -> dict:
+    async def handle_message(self, client_id: str, msg: dict) -> dict | None:
         """Process a single message from a WebSocket client.
 
         Translates frontend TX -> backend TX, routes through Matrix,
         translates response back to frontend format.
+
+        Returns None for streaming requests (sent directly via background task).
         """
         conn = self._connections.get(client_id)
         user = conn['user'] if conn else {}
 
         tx = self._translate_incoming(msg, user)
+
+        is_stream = msg.get('meta', {}).get('stream', False)
+        if is_stream:
+            ws = conn['ws']
+            asyncio.create_task(self._stream_to_ws(ws, tx))
+            return None
+
         response = await self.request(tx, timeout=30.0)
         return self._translate_outgoing(response)
+
+    async def _stream_to_ws(self, ws, tx: TX):
+        """Stream chunks directly to a WebSocket client.
+
+        Runs as a background task so the WebSocket message loop remains
+        free for heartbeats and other requests during streaming.
+        """
+        try:
+            async for chunk in self.stream(tx, timeout=120.0):
+                response = self._translate_outgoing(chunk)
+                response['meta'] = response.get('meta', {})
+                response['meta']['stream'] = True
+                if chunk.meta.get('stream_end'):
+                    response['meta']['stream_end'] = True
+                await ws.send_json(response)
+        except Exception as e:
+            logger.error("WS stream error: %s", e)
+            try:
+                await ws.send_json({
+                    'name': 'ERROR', 'source': 'ws', 'target': '',
+                    'data': {'message': str(e), 'code': 500},
+                    'meta': {'error': True, 'stream_end': True},
+                })
+            except Exception:
+                pass
 
     # ── Lifecycle event handler ──
 
@@ -277,7 +311,8 @@ def create_ws_routes(ws_adapter: NetworkWebSocket):
                 # Process TX message
                 try:
                     response = await ws_adapter.handle_message(client_id, raw)
-                    await websocket.send_json(response)
+                    if response is not None:
+                        await websocket.send_json(response)
                 except Exception as e:
                     logger.error("WS message handling error: %s", e)
                     await websocket.send_json({

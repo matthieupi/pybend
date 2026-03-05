@@ -58,13 +58,21 @@ class NetworkAdapter(Actor, auto_register=False):
         """Check for pending request correlation before normal dispatch.
 
         When request() sends a TX, it stores a Future keyed by tx.uuid.
-        When the reply arrives, its meta['in_reply_to'] matches that uuid.
-        If found, resolve the Future and short-circuit — no handler dispatch.
+        When stream() sends a TX, it stores a Queue keyed by tx.uuid.
+        Reply TXs with meta['req'] matching that uuid resolve the
+        Future (single response) or feed the Queue (streaming chunks).
         Otherwise, fall through to normal Actor.inbox() → handler().
         """
-        reply_to = tx.meta.get('in_reply_to')
+        reply_to = tx.meta.get('req')
         if reply_to and reply_to in self._pending:
-            self._pending.pop(reply_to).set_result(tx)
+            pending = self._pending[reply_to]
+            if isinstance(pending, asyncio.Future):
+                self._pending.pop(reply_to)
+                pending.set_result(tx)
+            elif isinstance(pending, asyncio.Queue):
+                await pending.put(tx)
+                if tx.is_error or tx.meta.get('stream_end'):
+                    self._pending.pop(reply_to, None)
             return
         await super().inbox(tx)
 
@@ -75,8 +83,10 @@ class NetworkAdapter(Actor, auto_register=False):
         messaging. Runs 'request' interceptors first (e.g., authentication),
         then sends the TX and awaits the correlated reply.
 
-        The reply TX arrives at self.inbox() with meta['in_reply_to'] set
+        The reply TX arrives at self.inbox() with meta['req'] set
         to the original tx.uuid — standard TX.reply() behavior from Wave 0.
+
+        For streaming (multiple correlated replies), use stream() instead.
 
         Args:
             tx: The message to send. tx.source should be this adapter's addr.
@@ -104,3 +114,40 @@ class NetworkAdapter(Actor, auto_register=False):
             return tx.error(
                 f"Request to {tx.target} timed out after {timeout}s", code=504
             )
+
+    async def stream(self, tx: TX, timeout: float = 120.0):
+        """Send TX and yield correlated stream chunks.
+
+        Like request() but yields multiple TX responses. Terminates on
+        stream_end or error TX. Uses asyncio.Queue for correlation.
+
+        Args:
+            tx: The message to send. tx.source should be this adapter's addr.
+            timeout: Seconds to wait for each chunk before yielding a timeout error.
+
+        Yields:
+            TX: Stream chunk, stream_end, or error TXs.
+        """
+        from n3tx.core.actors.actor import Actor
+        interceptors = Actor._get_interceptors(self, 'request')
+        if interceptors:
+            tx = await Actor._run_interceptors(interceptors, tx)
+            if tx.is_error:
+                yield tx
+                return
+
+        queue = asyncio.Queue()
+        self._pending[tx.uuid] = queue
+        await self.send(tx)
+        try:
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(queue.get(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    yield tx.error(f"Stream timed out after {timeout}s", code=504)
+                    return
+                yield chunk
+                if chunk.is_error or chunk.meta.get('stream_end'):
+                    return
+        finally:
+            self._pending.pop(tx.uuid, None)

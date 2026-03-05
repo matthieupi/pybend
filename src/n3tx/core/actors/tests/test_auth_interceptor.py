@@ -411,7 +411,7 @@ class TestTXResponseContract:
         )
         result = run_async(auth_interceptor(tx))
         assert result.meta['trace_id'] == 'abc123'
-        assert result.meta['in_reply_to'] == tx.uuid
+        assert result.meta['req'] == tx.uuid
 
     def test_error_401_has_code_in_data(self):
         tx = make_tx_with_model('read', AuthOnlyModel, user=NO_USER)

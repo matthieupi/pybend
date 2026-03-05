@@ -16,11 +16,13 @@ Usage:
     app.include_router(create_api_routes(api, registered_models))
 """
 
+import json
 import logging
 from inspect import signature
 from typing import Any, Dict, Type
 
 from fastapi import APIRouter, Body, HTTPException, Path, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from n3tx.core.actors.tx import TX
@@ -374,10 +376,17 @@ def _register_custom_routes(router, api_adapter, model_class, endpoint_base, tag
         else:
             full_route = f"{endpoint_base}{route}"
 
-        _add_custom_handler(
-            router, api_adapter, model_class, attr, attr_name,
-            full_route, methods, tag, is_instance_method, addr,
-        )
+        is_stream = route_info.get('stream', False)
+        if is_stream:
+            _add_streaming_handler(
+                router, api_adapter, model_class, attr, attr_name,
+                full_route, methods, tag, is_instance_method, addr,
+            )
+        else:
+            _add_custom_handler(
+                router, api_adapter, model_class, attr, attr_name,
+                full_route, methods, tag, is_instance_method, addr,
+            )
 
 
 def _add_custom_handler(
@@ -436,6 +445,73 @@ def _add_custom_handler(
                 timeout=30.0,
             )
             return _response_or_raise(response)
+
+
+async def _sse_from_stream(adapter, tx):
+    """Convert NetworkAdapter.stream() into SSE text lines."""
+    async for chunk in adapter.stream(tx, timeout=120.0):
+        if chunk.is_error:
+            yield f"event: error\ndata: {json.dumps(chunk.data)}\n\n"
+            return
+        if chunk.meta.get('stream_end'):
+            yield f"event: done\ndata: {json.dumps(chunk.data)}\n\n"
+            return
+        yield f"event: chunk\ndata: {json.dumps(chunk.data, default=str)}\n\n"
+
+
+def _add_streaming_handler(
+    router, api_adapter, model_class, attr, attr_name,
+    full_route, methods, tag, is_instance_method, addr,
+):
+    """SSE route for streaming @expose_route methods (Level 3)."""
+    from inspect import signature as get_sig
+    from typing import get_type_hints
+    sig = get_sig(attr)
+    type_hints = get_type_hints(attr)
+
+    if is_instance_method:
+        @router.api_route(full_route, methods=methods, tags=[tag],
+                          name=f"stream_{addr}_{attr_name}")
+        async def stream_with_id(
+            request: Request, id: int = Path(...),
+            data: Dict[str, Any] = Body(default={}),
+            _attr=attr, _attr_name=attr_name, _sig=sig,
+            _type_hints=type_hints, _addr=addr, _cls=model_class,
+        ):
+            user = _get_user(request)
+            payload = _parse_method_args(_sig, _type_hints, data, request)
+            payload['id'] = id
+            tx = TX(
+                name=_attr_name, source=api_adapter.addr, target=_addr,
+                data=payload,
+                meta={'user': user, 'model_cls': _cls, 'stream': True},
+            )
+            return StreamingResponse(
+                _sse_from_stream(api_adapter, tx),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+    else:
+        @router.api_route(full_route, methods=methods, tags=[tag],
+                          name=f"stream_{addr}_{attr_name}")
+        async def stream_no_id(
+            request: Request,
+            data: Dict[str, Any] = Body(default={}),
+            _attr=attr, _attr_name=attr_name, _sig=sig,
+            _type_hints=type_hints, _addr=addr, _cls=model_class,
+        ):
+            user = _get_user(request)
+            payload = _parse_method_args(_sig, _type_hints, data, request)
+            tx = TX(
+                name=_attr_name, source=api_adapter.addr, target=_addr,
+                data=payload,
+                meta={'user': user, 'model_cls': _cls, 'stream': True},
+            )
+            return StreamingResponse(
+                _sse_from_stream(api_adapter, tx),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
 
 
 def _parse_method_args(sig, type_hints, data, request):

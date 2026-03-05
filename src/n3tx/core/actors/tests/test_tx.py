@@ -68,7 +68,7 @@ class TestTXReply:
     def test_stores_original_uuid_in_meta(self):
         tx = TX(name='READ', source='a', target='b')
         reply = tx.reply()
-        assert reply.meta['in_reply_to'] == tx.uuid
+        assert reply.meta['req'] == tx.uuid
 
     def test_default_name_appends_response(self):
         tx = TX(name='READ', source='a', target='b')
@@ -91,7 +91,7 @@ class TestTXReply:
         tx = TX(name='X', source='a', target='b', meta={'trace': '123'})
         reply = tx.reply()
         assert reply.meta['trace'] == '123'
-        assert reply.meta['in_reply_to'] == tx.uuid
+        assert reply.meta['req'] == tx.uuid
 
 
 class TestTXError:
@@ -123,7 +123,7 @@ class TestTXError:
         err = tx.error('fail')
         assert err.meta['trace'] == '123'
         assert err.meta['error'] is True
-        assert err.meta['in_reply_to'] == tx.uuid
+        assert err.meta['req'] == tx.uuid
 
     def test_new_uuid(self):
         tx = TX(name='X', source='a', target='b')

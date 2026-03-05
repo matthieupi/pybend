@@ -99,7 +99,7 @@ class TestTX:
     def test_reply_stores_original_uuid_in_meta(self):
         tx = TX(name='READ', source='a', target='b')
         reply = tx.reply()
-        assert reply.meta['in_reply_to'] == tx.uuid
+        assert reply.meta['req'] == tx.uuid
 
     def test_reply_default_name_appends_response(self):
         tx = TX(name='READ', source='a', target='b')

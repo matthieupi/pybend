@@ -170,6 +170,8 @@ class ProtoModel(PydanticBaseModel):
                 'parameters': parameters,
                 'returns': return_type_schema,
             }
+            if endpoint_info.get('stream'):
+                method_entry['stream'] = True
             if endpoint_info.get('access') and hasattr(endpoint_info['access'], 'to_dict'):
                 method_entry['access'] = endpoint_info['access'].to_dict()
             methods[method_name] = method_entry

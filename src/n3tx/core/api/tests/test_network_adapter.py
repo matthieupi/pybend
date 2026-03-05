@@ -13,8 +13,8 @@ UNIT TESTS — behavior validation
 EDGE CASES — boundary conditions
   - test_request_timeout_returns_error_tx
   - test_request_timeout_cleans_up_pending_entry
-  - test_inbox_with_no_in_reply_to_meta
-  - test_inbox_with_in_reply_to_but_no_matching_pending
+  - test_inbox_with_no_req_meta
+  - test_inbox_with_req_but_no_matching_pending
   - test_multiple_concurrent_requests_resolve_independently
 
 BAD INPUTS — error handling and validation
@@ -142,7 +142,7 @@ class TestNetworkAdapterRequest:
 
     @pytest.mark.asyncio
     async def test_request_resolves_when_correlated_reply_arrives(self):
-        """request() should resolve when inbox() receives a reply with matching in_reply_to."""
+        """request() should resolve when inbox() receives a reply with matching req."""
         Actor.__matrix__ = None
         m = Matrix()
         adapter = NetworkAdapter(addr='adapter')
@@ -174,7 +174,7 @@ class TestNetworkAdapterRequest:
 
         assert result.name == 'SCHEMA_RESPONSE'
         assert result.data == {'schema': 'data'}
-        assert result.meta['in_reply_to'] == tx.uuid
+        assert result.meta['req'] == tx.uuid
 
     @pytest.mark.asyncio
     async def test_request_timeout_returns_error_tx(self):
@@ -323,7 +323,7 @@ class TestNetworkAdapterInbox:
 
     @pytest.mark.asyncio
     async def test_inbox_intercepts_correlated_reply_and_resolves_future(self):
-        """inbox() should resolve the Future when receiving a TX with matching in_reply_to."""
+        """inbox() should resolve the Future when receiving a TX with matching req."""
         Actor.__matrix__ = None
         m = Matrix()
         adapter = NetworkAdapter(addr='adapter')
@@ -335,9 +335,9 @@ class TestNetworkAdapterInbox:
         original_uuid = 'abc123'
         adapter._pending[original_uuid] = future
 
-        # Create a reply TX with in_reply_to matching the original uuid
+        # Create a reply TX with req matching the original uuid
         reply = TX(name='RESPONSE', source='target', target='adapter',
-                   data={'result': 'ok'}, meta={'in_reply_to': original_uuid})
+                   data={'result': 'ok'}, meta={'req': original_uuid})
 
         # Send to inbox
         await adapter.inbox(reply)
@@ -368,8 +368,8 @@ class TestNetworkAdapterInbox:
         assert handler_calls[0].name == 'UNCORRELATED'
 
     @pytest.mark.asyncio
-    async def test_inbox_with_no_in_reply_to_meta(self):
-        """inbox() should fall through to handler if TX has no in_reply_to meta."""
+    async def test_inbox_with_no_req_meta(self):
+        """inbox() should fall through to handler if TX has no req meta."""
         Actor.__matrix__ = None
         m = Matrix()
         adapter = NetworkAdapter(addr='adapter')
@@ -386,8 +386,8 @@ class TestNetworkAdapterInbox:
         assert len(handler_calls) == 1
 
     @pytest.mark.asyncio
-    async def test_inbox_with_in_reply_to_but_no_matching_pending(self):
-        """inbox() should fall through to handler if in_reply_to doesn't match any pending."""
+    async def test_inbox_with_req_but_no_matching_pending(self):
+        """inbox() should fall through to handler if req doesn't match any pending."""
         Actor.__matrix__ = None
         m = Matrix()
         adapter = NetworkAdapter(addr='adapter')
@@ -399,7 +399,7 @@ class TestNetworkAdapterInbox:
 
         with mock_method(adapter, 'handler', capture_handler):
             tx = TX(name='ORPHAN', source='client', target='adapter',
-                    meta={'in_reply_to': 'nonexistent'})
+                    meta={'req': 'nonexistent'})
             await adapter.inbox(tx)
 
         assert len(handler_calls) == 1
@@ -481,7 +481,7 @@ class TestNetworkAdapterSubclass:
 
         # Send a correlated reply
         reply = TX(name='REPLY', source='target', target='custom',
-                   meta={'in_reply_to': original_uuid})
+                   meta={'req': original_uuid})
         await adapter.inbox(reply)
 
         # Handler should NOT have been called

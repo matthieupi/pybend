@@ -25,13 +25,13 @@ class TX:
 
     def reply(self, data=None, name=None) -> 'TX':
         """Create a response TX with source/target swapped.
-        Gets a new uuid; stores original uuid in meta['in_reply_to']."""
+        Gets a new uuid; stores original uuid in meta['req']."""
         return TX(
             name=name or f'{self.name}_RESPONSE',
             source=self.target,
             target=self.source,
             data=data if data is not None else {},
-            meta={**self.meta, 'in_reply_to': self.uuid},
+            meta={**self.meta, 'req': self.uuid},
         )
 
     def error(self, message: str, code: int = 500) -> 'TX':
@@ -41,7 +41,25 @@ class TX:
             source=self.target,
             target=self.source,
             data={'message': message, 'code': code},
-            meta={**self.meta, 'in_reply_to': self.uuid, 'error': True},
+            meta={**self.meta, 'req': self.uuid, 'error': True},
+        )
+
+    def stream_chunk(self, data, seq: int) -> 'TX':
+        """Create a stream chunk reply."""
+        return TX(
+            name=self.name,
+            source=self.target, target=self.source,
+            data=data if isinstance(data, dict) else {'chunk': data},
+            meta={**self.meta, 'req': self.uuid, 'stream': True, 'seq': seq},
+        )
+
+    def stream_end(self, data=None, seq: int = 0) -> 'TX':
+        """Create a stream-end reply."""
+        return TX(
+            name=self.name,
+            source=self.target, target=self.source,
+            data=data if data is not None else {},
+            meta={**self.meta, 'req': self.uuid, 'stream': True, 'stream_end': True, 'seq': seq},
         )
 
     def exception(self, e: Exception) -> 'TX':

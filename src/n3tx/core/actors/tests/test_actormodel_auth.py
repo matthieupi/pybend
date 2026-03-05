@@ -406,7 +406,7 @@ class TestErrorTXStructure:
         assert 'message' in result.data
         assert 'code' in result.data
         assert result.meta.get('error') is True
-        assert result.meta.get('in_reply_to') == tx.uuid
+        assert result.meta.get('req') == tx.uuid
 
     def test_handler_crud_auth_denial_returns_error_directly(self):
         """handler_crud() should return error TX directly (not wrapped)."""
