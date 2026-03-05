@@ -4,7 +4,7 @@ export const config = {
     LOGEVENTS: true,
     LOGSPAWN: true,
     DEBUG: true,
-    API_URL: 'http://localhost:5000',
+    API_URL: (typeof window !== 'undefined' && window.location?.origin) || 'http://localhost:5000',
     WS_URL: '',  // Set to 'ws://localhost:5000/ws' to enable WebSocket bridge
     DEFAULT_HEADERS: {
         'Content-Type': 'application/json',
