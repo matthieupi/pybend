@@ -12,6 +12,7 @@
     <link rel="preload" href="./components/ntx-list.css" as="style">
     <link rel="preload" href="./components/ntx-router.css" as="style">
     <link rel="preload" href="./components/ntx-topbar.css" as="style">
+    <link rel="preload" href="./components/ntx-sidebar.css" as="style">
     <link rel="preload" href="./components/ntx-user.css" as="style">
     <link rel="preload" href="./components/ntx-modal.css" as="style">
     <link rel="preload" href="./widgets/widgets.css" as="style">
@@ -44,6 +45,7 @@
     <link rel="modulepreload" href="./components/ntx-router.js">
     <link rel="modulepreload" href="./components/ntx-method.js">
     <link rel="modulepreload" href="./components/ntx-modal.js">
+    <link rel="modulepreload" href="./components/ntx-sidebar.js">
     <link rel="modulepreload" href="./components/ntx-favorites.js">
     <link rel="modulepreload" href="./generators/form.js">
     <!-- Widgets -->
@@ -55,6 +57,9 @@
 <body>
 
     <ntx-topbar></ntx-topbar>
+    <ntx-sidebar router="main">
+        <ntx-list model="Product" allow-create></ntx-list>
+    </ntx-sidebar>
 
     <div class="page">
         <ntx-router name="main" hash>
@@ -77,6 +82,7 @@
         import './components/ntx-list.js';
         import './components/ntx-router.js';
         import './components/ntx-topbar.js';
+        import './components/ntx-sidebar.js';
         import './components/ntx-profile.js';
         import './components/ntx-logs.js';
         import './components/ntx-favorites.js';
