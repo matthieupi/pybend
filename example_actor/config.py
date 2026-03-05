@@ -8,7 +8,7 @@ from n3tx.core import config as _fw
 HOST = os.environ.get("N3TX_HOST", "0.0.0.0")
 PORT = int(os.environ.get("N3TX_PORT", "5000"))
 API_URL = os.environ.get("N3TX_API_URL", f"http://localhost:{PORT}")
-SQLITE_DB_FILE = "n3tx.db"
+SQLITE_DB_FILE = os.environ.get("N3TX_SQLITE_DB", "n3tx.db")
 JWT_SECRET = os.environ.get("N3TX_JWT_SECRET", "ntx-dev-secret-change-in-production")
 JWT_EXPIRY_HOURS = int(os.environ.get("N3TX_JWT_EXPIRY_HOURS", "24"))
 DEBUG = os.environ.get("N3TX_DEBUG", "true").lower() == "true"
