@@ -86,6 +86,11 @@ def collect_all_referenced_models(cls_, seen: set = None) -> set:
     for field_name, target_cls in get_ref_fields(cls_):
         cls_._referenced_models.add(target_cls)
 
+    # Also collect ListRef[T] targets (collection references) so their
+    # schemas get the Ref[T] patching treatment in the defs() stage.
+    for field_name, target_cls in get_list_fields(cls_):
+        cls_._referenced_models.add(target_cls)
+
     # Recurse into referenced models
     for model in cls_._referenced_models.copy():
         if model not in seen:
