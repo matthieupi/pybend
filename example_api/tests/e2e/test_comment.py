@@ -2,6 +2,8 @@
 from playwright.sync_api import sync_playwright
 import json
 
+BASE = "http://localhost:5000"
+
 def test_comment():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -33,7 +35,7 @@ def test_comment():
         page.on("response", on_response)
 
         # Navigate
-        page.goto("http://localhost:5000/")
+        page.goto(f"{BASE}/")
         page.wait_for_timeout(5000)
 
         # Check ntx-method exists and has correct form
