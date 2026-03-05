@@ -33,6 +33,7 @@ _Python · Models · Storage · API · Auth · Actors · Agents_
 - [ ] Add dict and list types (saved as JSON) based on AgentActor idea
 - [ ] AgentMixin improvements
   - The docstring as the prompt?
+  - Magentic
 
 ---
 
