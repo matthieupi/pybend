@@ -1,8 +1,8 @@
-# HTML Compiler for PyBend: Executive Summary
+# HTML Compiler for N3TX: Executive Summary
 
 **Date:** February 2026
 **Scope:** Strategic analysis of HTML compilation for a schema-driven web framework
-**Based on:** 4 research briefs covering industry landscape, technical deep-dive, decision framework, and PyBend-specific relevance
+**Based on:** 4 research briefs covering industry landscape, technical deep-dive, decision framework, and N3TX-specific relevance
 
 ---
 
@@ -10,7 +10,7 @@
 
 The web industry has converged on a single thesis: **the less JavaScript you ship and the earlier you deliver HTML, the better every metric gets** -- performance, SEO, conversion, bounce rate, and developer experience. Static HTML pages achieve TTFB under 50ms from CDN edge versus 1-3 seconds for client-rendered SPAs, and a 0.1-second improvement in load time lifts e-commerce conversions by 8-10%.
 
-PyBend sits at a unique intersection in this landscape. **No existing framework compiles directly from a data schema to static HTML.** Every competitor (Next.js, Astro, Nuxt, SvelteKit) still requires developers to write templates, components, or pages. PyBend's JSON Schema carries everything needed to generate HTML -- field types, widget hints, layout groups, permissions, and method signatures -- making a template-less compilation pipeline genuinely feasible.
+N3TX sits at a unique intersection in this landscape. **No existing framework compiles directly from a data schema to static HTML.** Every competitor (Next.js, Astro, Nuxt, SvelteKit) still requires developers to write templates, components, or pages. N3TX's JSON Schema carries everything needed to generate HTML -- field types, widget hints, layout groups, permissions, and method signatures -- making a template-less compilation pipeline genuinely feasible.
 
 ---
 
@@ -22,11 +22,11 @@ PyBend sits at a unique intersection in this landscape. **No existing framework 
 - The Jamstack market grew from $1.8B (2020) to $8.6B (2025). 35% of developers identify as Jamstack-aligned. Edge computing is accelerating this trend.
 - Qwik proves that serializing state into HTML eliminates hydration entirely, achieving near-zero TTI regardless of app complexity.
 
-### PyBend's Unique Position
-- PyBend's schema already carries rendering instructions (`ui.widget`, `ui.field_order`, `ui.groups`, `access`, `methods`). The compiler input is **complete** -- no separate templates required.
+### N3TX's Unique Position
+- N3TX's schema already carries rendering instructions (`ui.widget`, `ui.field_order`, `ui.groups`, `access`, `methods`). The compiler input is **complete** -- no separate templates required.
 - Of ~25 rendering decisions made per entity, **18 are fully compilable at build time**, 4 are partially compilable, and only 3 require runtime evaluation.
-- PyBend's Web Components (`ntt-item`, `ntt-list`) are **natural islands** -- each custom element is a self-contained unit that can hydrate independently.
-- Declarative Shadow DOM (now supported in all major browsers) enables server-rendered Web Components without JavaScript, directly applicable to PyBend's architecture.
+- N3TX's Web Components (`ntx-item`, `ntx-list`) are **natural islands** -- each custom element is a self-contained unit that can hydrate independently.
+- Declarative Shadow DOM (now supported in all major browsers) enables server-rendered Web Components without JavaScript, directly applicable to N3TX's architecture.
 
 ### Performance Projections
 | Metric | Current (CSR) | After Compiler | Improvement |
@@ -57,7 +57,7 @@ The research converges on a clear sequencing recommendation:
 
 The recommended approach is a **Python-side template compiler** that runs at server start (no Node.js, no npm, no build pipeline). It reads `ProtoModel.schema()`, generates parameterized HTML templates with data slots, and serves them as static files. The frontend selects the appropriate template, interpolates entity values, and assigns to `innerHTML`.
 
-This preserves PyBend's core philosophy:
+This preserves N3TX's core philosophy:
 - **Zero configuration:** The compiler is opt-in (`create_app(compile=True)`)
 - **Buildless:** Runs at server start alongside migrations and route registration
 - **The model is still the app:** The schema remains the single source of truth
@@ -66,8 +66,8 @@ This preserves PyBend's core philosophy:
 **Estimated effort:** ~770 lines of code, 5-7 days implementation, no new infrastructure dependencies.
 
 ### What NOT to Do
-- **Don't adopt Qwik wholesale.** The ROI doesn't justify rethinking the entire component model at PyBend's current scale.
-- **Don't add a Node.js SSR layer.** PyBend is a Python framework. Adding Node.js creates operational complexity that violates the zero-config philosophy.
+- **Don't adopt Qwik wholesale.** The ROI doesn't justify rethinking the entire component model at N3TX's current scale.
+- **Don't add a Node.js SSR layer.** N3TX is a Python framework. Adding Node.js creates operational complexity that violates the zero-config philosophy.
 - **Don't use headless browser pre-rendering.** Puppeteer/Playwright consume 300MB-1GB RAM per instance. Schema compilation is orders of magnitude cheaper.
 - **Don't compile data into HTML at build time.** Compile templates (structure) once; inject data at runtime.
 
@@ -99,7 +99,7 @@ The compiler provides capabilities that go beyond raw speed:
 
 ## Bottom Line
 
-PyBend's schema-driven architecture is **uniquely positioned** for HTML compilation because the schema IS the template specification. The compiler is technically straightforward (the schema carries all rendering information), architecturally clean (only the template generation step changes, the Actor system is unaffected), and strategically valuable (SEO, offline, testability, competitive positioning).
+N3TX's schema-driven architecture is **uniquely positioned** for HTML compilation because the schema IS the template specification. The compiler is technically straightforward (the schema carries all rendering information), architecturally clean (only the template generation step changes, the Actor system is unaffected), and strategically valuable (SEO, offline, testability, competitive positioning).
 
 **But start with caching.** Measure first. Build the compiler when the data says you need it -- or when the strategic benefits (SEO, offline, competitive positioning) outweigh the implementation cost regardless of raw performance gains.
 

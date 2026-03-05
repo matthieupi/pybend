@@ -1,8 +1,8 @@
-# P4: Search & Filter — Generic PyBend Core Feature
+# P4: Search & Filter — Generic N3TX Core Feature
 
 ## Summary
 
-Full-stack generic search, filter, and sort capability built directly into PyBend core. Any PyBend app gets search/filter for free — no app-specific code needed.
+Full-stack generic search, filter, and sort capability built directly into N3TX core. Any N3TX app gets search/filter for free — no app-specific code needed.
 
 ## Architecture & Data Flow
 
@@ -26,7 +26,7 @@ Key insight: Frontend's `NetworkAdapter.send()` already encodes `tx.data` as URL
 
 ## Backend: Storage Layer
 
-### `src/pybend/core/storage/sqlite_storage.py`
+### `src/n3tx/core/storage/sqlite_storage.py`
 
 **Extended `list()` signature:**
 ```python
@@ -62,18 +62,18 @@ def list(self, model_class, sql_filter=None, limit=None, offset=None, populate=N
 
 **Search fallback:** If no FTS5 table exists, falls back to OR chain of LIKE on string fields.
 
-### `src/pybend/core/storage/abstract_storage.py`
+### `src/n3tx/core/storage/abstract_storage.py`
 Update abstract `list()` signature with new optional parameters.
 
-### `src/pybend/core/models/storable_mixin.py`
+### `src/n3tx/core/models/storable_mixin.py`
 Pass through new parameters to storage.
 
-### `src/pybend/core/storage/sqlite_migration.py`
+### `src/n3tx/core/storage/sqlite_migration.py`
 Add `create_fts_table()` and `migrate_fts_table()` methods.
 
 ## Backend: Route Layer
 
-### `src/pybend/core/api/filter_utils.py` (New — shared helper)
+### `src/n3tx/core/api/filter_utils.py` (New — shared helper)
 
 ```python
 def _extract_filters(request, model_class) -> dict | None:
@@ -84,7 +84,7 @@ def _extract_filters(request, model_class) -> dict | None:
     # Return filter dict or None
 ```
 
-### `src/pybend/core/api/routes_fastapi.py` (Level 1/2)
+### `src/n3tx/core/api/routes_fastapi.py` (Level 1/2)
 
 Add to `make_get_all_instances()`:
 ```python
@@ -96,7 +96,7 @@ Extract filters via `_extract_filters(request, model_class)`.
 
 Same change for `make_collection_list()`.
 
-### `src/pybend/core/api/network_api.py` (Level 3)
+### `src/n3tx/core/api/network_api.py` (Level 3)
 
 Extract filter params, include in TX data:
 ```python
@@ -106,7 +106,7 @@ data['sort_by'] = sort_by
 data['sort_order'] = sort_order
 ```
 
-### `src/pybend/core/models/actor_model.py` (Level 3 handler)
+### `src/n3tx/core/models/actor_model.py` (Level 3 handler)
 
 Pass through in `handler_crud` list branch:
 ```python
@@ -120,7 +120,7 @@ result = cls.list(
 
 ## Backend: Schema Extension
 
-### `src/pybend/core/models/filter_schema.py` (New)
+### `src/n3tx/core/models/filter_schema.py` (New)
 
 ```python
 @schema_extension(after='widget', before='ui')
@@ -143,12 +143,12 @@ Also adds: `search: true` (if `__searchable__`), `sort: true`.
 
 ## Frontend: Filter Bar Component
 
-### New: `src/pybend/static/components/ntt-filter-bar.js`
+### New: `src/n3tx/static/components/ntx-filter-bar.js`
 
 Auto-generates filter controls from schema `filterable` metadata.
 
 ```html
-<ntt-filter-bar>
+<ntx-filter-bar>
   <div class="filter-bar">
     <div class="search-box"><input type="search" placeholder="Search..." /></div>
     <div class="filters">
@@ -166,26 +166,26 @@ Auto-generates filter controls from schema `filterable` metadata.
       <button class="clear-btn">Clear</button>
     </div>
   </div>
-</ntt-filter-bar>
+</ntx-filter-bar>
 ```
 
 **Properties:** `schema` (set by parent), `filters` (get: current state)
 **Events:** `filter-change` (debounced 300ms for text, immediate for select)
 
-### New: `src/pybend/static/components/ntt-filter-bar.css`
+### New: `src/n3tx/static/components/ntx-filter-bar.css`
 
-### Modified: `src/pybend/static/components/ntt-table.js`
-- Render `<ntt-filter-bar>` before table header
+### Modified: `src/n3tx/static/components/ntx-table.js`
+- Render `<ntx-filter-bar>` before table header
 - Wire `filter-change` event to `#applyFilters(criteria)`
 - `#applyFilters()`: Resets offset to 0, sends READ with filter data
 - `loadMore()`: Preserves `#currentFilters` when paginating
 
-### Modified: `src/pybend/static/components/ListElement.js`
+### Modified: `src/n3tx/static/components/ListElement.js`
 - Add `#currentFilters` property
 - `loadMore()` includes current filters in READ data
 
-### Modified: `src/pybend/static/components/ntt-list.js`
-- Same filter bar integration as ntt-table
+### Modified: `src/n3tx/static/components/ntx-list.js`
+- Same filter bar integration as ntx-table
 
 ## Security
 
@@ -197,7 +197,7 @@ Auto-generates filter controls from schema `filterable` metadata.
 
 ## Tests
 
-### `src/pybend/core/tests/unit/test_filter_storage.py`
+### `src/n3tx/core/tests/unit/test_filter_storage.py`
 - Filter exact string, like string, numeric range, date range, boolean
 - Filters compose with ABAC sql_filter via AND
 - Unknown field names silently ignored
@@ -206,18 +206,18 @@ Auto-generates filter controls from schema `filterable` metadata.
 - Pagination with filters (total reflects filtered count)
 - FTS5 search, fallback LIKE search
 
-### `src/pybend/core/tests/unit/test_fts.py`
+### `src/n3tx/core/tests/unit/test_fts.py`
 - FTS5 index creation, trigger insert/update/delete
 - Search ranking, prefix search, phrase search
 - `__searchable__ = False` opt-out
 
-### `src/pybend/core/tests/unit/test_filter_schema.py`
+### `src/n3tx/core/tests/unit/test_filter_schema.py`
 - String → text filterable, numeric → range, date → daterange
 - Status with options → select, array → not filterable
 - Hidden fields not filterable
 - `search: true` flag, `$defs` get filterable
 
-### `src/pybend/static/tests/components/ntt-filter-bar.test.js`
+### `src/n3tx/static/tests/components/ntx-filter-bar.test.js`
 - Renders search input, select for status, range for numeric, daterange for date
 - Emits filter-change on input/select, clear resets all
 - Filter count updates
@@ -233,33 +233,33 @@ Auto-generates filter controls from schema `filterable` metadata.
 ```
 Day 1: Storage layer (_build_filter_clauses, extend list(), tests)
 Day 2: FTS5 + Route layer (filter_utils.py, routes_fastapi.py, network_api.py, actor_model.py)
-Day 3: Schema extension + Frontend filter bar (filter_schema.py, ntt-filter-bar.js)
-Day 4: Integration + Polish (ntt-table.js, ntt-list.js, ListElement.js, integration tests)
+Day 3: Schema extension + Frontend filter bar (filter_schema.py, ntx-filter-bar.js)
+Day 4: Integration + Polish (ntx-table.js, ntx-list.js, ListElement.js, integration tests)
 ```
 
 ## Files Summary
 
 **New files (5):**
-- `src/pybend/core/api/filter_utils.py`
-- `src/pybend/core/models/filter_schema.py`
-- `src/pybend/static/components/ntt-filter-bar.js`
-- `src/pybend/static/components/ntt-filter-bar.css`
-- `src/pybend/static/tests/components/ntt-filter-bar.test.js`
+- `src/n3tx/core/api/filter_utils.py`
+- `src/n3tx/core/models/filter_schema.py`
+- `src/n3tx/static/components/ntx-filter-bar.js`
+- `src/n3tx/static/components/ntx-filter-bar.css`
+- `src/n3tx/static/tests/components/ntx-filter-bar.test.js`
 
 **New test files (3):**
-- `src/pybend/core/tests/unit/test_filter_storage.py`
-- `src/pybend/core/tests/unit/test_fts.py`
-- `src/pybend/core/tests/unit/test_filter_schema.py`
+- `src/n3tx/core/tests/unit/test_filter_storage.py`
+- `src/n3tx/core/tests/unit/test_fts.py`
+- `src/n3tx/core/tests/unit/test_filter_schema.py`
 
 **Modified files (6):**
-- `src/pybend/core/storage/sqlite_storage.py`
-- `src/pybend/core/storage/abstract_storage.py`
-- `src/pybend/core/models/storable_mixin.py`
-- `src/pybend/core/api/routes_fastapi.py`
-- `src/pybend/core/api/network_api.py`
-- `src/pybend/core/models/actor_model.py`
+- `src/n3tx/core/storage/sqlite_storage.py`
+- `src/n3tx/core/storage/abstract_storage.py`
+- `src/n3tx/core/models/storable_mixin.py`
+- `src/n3tx/core/api/routes_fastapi.py`
+- `src/n3tx/core/api/network_api.py`
+- `src/n3tx/core/models/actor_model.py`
 
 **Modified frontend files (3):**
-- `src/pybend/static/components/ntt-table.js`
-- `src/pybend/static/components/ntt-list.js`
-- `src/pybend/static/components/ListElement.js`
+- `src/n3tx/static/components/ntx-table.js`
+- `src/n3tx/static/components/ntx-list.js`
+- `src/n3tx/static/components/ListElement.js`

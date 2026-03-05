@@ -1,0 +1,36 @@
+/* ntx-user — User component styles (inherits ntx-item base) */
+@import url('./ntx-item.css');
+
+/* ── xs — Circle avatar pill ── */
+.card[data-display="xs"] {
+    padding: 0.15rem;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.card[data-display="xs"]:hover {
+    background: none;
+    border-color: transparent;
+}
+
+.card[data-display="xs"] .user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+}
+
+/* ── sm — Round avatar (override square default) ── */
+.card[data-display="sm"] .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+}

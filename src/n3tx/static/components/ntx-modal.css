@@ -1,0 +1,147 @@
+/* ntx-modal — Overlay dialog */
+
+:host {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    animation: modalFadeIn 0.2s ease both;
+}
+
+.backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.modal-panel {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    background: var(--surface-2, #141824);
+    background-image: var(--glass-gradient, none);
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+    border-top-color: var(--light-highlight, rgba(255,255,255,0.12));
+    border-radius: var(--radius-xl, 16px);
+    box-shadow: var(--shadow-xl, 0 25px 50px rgba(0,0,0,0.5));
+    animation: modalSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+}
+
+.modal-title {
+    flex: 1;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-1, #c4c9da);
+    letter-spacing: -0.01em;
+}
+
+.close-btn {
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    font-size: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 8px);
+    cursor: pointer;
+    color: var(--text-3, #6b7394);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7394' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 14px;
+    transition: all 0.15s;
+}
+
+.close-btn:hover {
+    background-color: var(--surface-3, #1c2030);
+    border-color: var(--glass-border, rgba(255,255,255,0.08));
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+}
+
+.modal-footer button {
+    padding: 0.5rem 1.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.modal-submit {
+    color: white;
+    background: var(--gradient-accent, linear-gradient(135deg, #22d3c5, #1a9e94));
+    border: none;
+}
+
+.modal-submit:hover {
+    opacity: 0.85;
+}
+
+.modal-cancel {
+    color: var(--text-2, #9ba3bd);
+    background: var(--glass-bg-light, rgba(22, 26, 38, 0.45));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+}
+
+.modal-cancel:hover {
+    border-color: var(--glass-border-hover, rgba(255,255,255,0.14));
+    background: var(--surface-3, #1c2030);
+}
+
+/* ── Close animation (applied via class before removal) ── */
+:host(.closing) {
+    animation: modalFadeOut 0.15s ease both;
+}
+
+:host(.closing) .modal-panel {
+    animation: modalSlideOut 0.15s ease both;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes modalFadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+@keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes modalSlideOut {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to   { opacity: 0; transform: translateY(8px) scale(0.98); }
+}

@@ -1,6 +1,6 @@
-# Rx as TX Responses: Relevance to PyBend's Actor Stack
+# Rx as TX Responses: Relevance to N3TX's Actor Stack
 
-**Research Focus**: How PyBend's current TX/response system compares to reactive observable patterns, and where (if anywhere) Rx would deliver concrete value.
+**Research Focus**: How N3TX's current TX/response system compares to reactive observable patterns, and where (if anywhere) Rx would deliver concrete value.
 
 **Date**: 2026-03-04 | **Audience**: Technical CEO + Engineering Leadership
 
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-PyBend's actor system uses a **single-response TX model**: every message gets exactly one reply (or one error). This works well for CRUD -- which is ~90% of what the system does today. But the architecture has **four specific gaps** where the single-response model creates friction: streaming responses, fan-out/fan-in aggregation, progress reporting for long-running operations, and lifecycle event subscriptions. Reactive extensions (Rx) could address these gaps, but the cost-benefit math only justifies adoption in a **targeted, additive** manner -- not a wholesale replacement.
+N3TX's actor system uses a **single-response TX model**: every message gets exactly one reply (or one error). This works well for CRUD -- which is ~90% of what the system does today. But the architecture has **four specific gaps** where the single-response model creates friction: streaming responses, fan-out/fan-in aggregation, progress reporting for long-running operations, and lifecycle event subscriptions. Reactive extensions (Rx) could address these gaps, but the cost-benefit math only justifies adoption in a **targeted, additive** manner -- not a wholesale replacement.
 
 > **Key Finding**: The current TX.reply() + Future correlation pattern is the right tool for request/response CRUD. Rx would add value at exactly two integration points: **lifecycle event multicasting** and **NetworkAdapter streaming responses**. Everywhere else, the added complexity exceeds the benefit.
 
@@ -130,7 +130,7 @@ This is **manual multicast with manual dead-letter cleanup**. It works, but it r
 ### 1.3 Response Pattern Summary
 
 ```
-                    PyBend Response Patterns Today
+                    N3TX Response Patterns Today
 
   +-----------+   tx.reply()   +-----------+  Future.set_result  +----------+
   |  Handler  | ------------> |  Routing   | -----------------> | Adapter  |
@@ -167,7 +167,7 @@ This is the critical question. Not everything benefits from reactive streams. He
 
 ### 2.2 Analysis: What to Leave Alone
 
-**Handler result wrapping (Pattern 1)** -- This is PyBend's bread and butter. A CRUD operation takes a dict in, returns a dict out. Wrapping it in an Observable adds ceremony with zero benefit:
+**Handler result wrapping (Pattern 1)** -- This is N3TX's bread and butter. A CRUD operation takes a dict in, returns a dict out. Wrapping it in an Observable adds ceremony with zero benefit:
 
 ```python
 # Current -- simple, clear, works
@@ -268,7 +268,7 @@ The CEO question: "When does our system need to send more than one response to a
 
 ### 3.1 Streaming Responses (SSE / WebSocket Push)
 
-**The scenario**: A user opens a dashboard showing real-time product prices. Currently, the frontend polls via `<ntt-list>` which fetches, renders, and waits for the next manual refresh. With WebSocket lifecycle events (already partially implemented in `network_ws.py`), updates push automatically -- but only for *changes*, not for the initial load + subsequent stream.
+**The scenario**: A user opens a dashboard showing real-time product prices. Currently, the frontend polls via `<ntx-list>` which fetches, renders, and waits for the next manual refresh. With WebSocket lifecycle events (already partially implemented in `network_ws.py`), updates push automatically -- but only for *changes*, not for the initial load + subsequent stream.
 
 **Current architecture**:
 
@@ -377,7 +377,7 @@ Two Python Rx libraries are viable. The choice matters for our asyncio-native ar
 | **Threading model** | Multi-scheduler (threads, asyncio, etc.) | **Single event loop** (no threading) |
 | **Integration risk** | [Cohabitation with asyncio requires care](https://oakbits.com/rxpy-and-asyncio.html) | Designed for asyncio from ground up |
 
-> **Recommendation**: **aioreactive** is the better fit for PyBend. Its async-native design means no scheduler bridging, no thread conflicts, and the implicit backpressure model aligns with our single-event-loop architecture. The smaller operator set is sufficient -- we need `merge`, `filter`, `map`, `flat_map`, `take`, `share`, not 120 operators.
+> **Recommendation**: **aioreactive** is the better fit for N3TX. Its async-native design means no scheduler bridging, no thread conflicts, and the implicit backpressure model aligns with our single-event-loop architecture. The smaller operator set is sufficient -- we need `merge`, `filter`, `map`, `flat_map`, `take`, `share`, not 120 operators.
 
 ### 4.2 Bridging Rx with the Existing Actor System
 
@@ -566,13 +566,13 @@ The interceptor pattern handles 1-3 functions in a sequential chain for 99% of u
 
 ## 6. Comparative Architecture
 
-How does PyBend's current TX/response model compare to other actor systems, and what have they learned about reactive response patterns?
+How does N3TX's current TX/response model compare to other actor systems, and what have they learned about reactive response patterns?
 
 ### 6.1 Comparison Table
 
 | System | Request/Response | Multi-Response | Streaming | Backpressure |
 |--------|-----------------|----------------|-----------|--------------|
-| **PyBend (current)** | `TX.reply()` + Future correlation | Manual (`_subscribers` list) | None | None |
+| **N3TX (current)** | `TX.reply()` + Future correlation | Manual (`_subscribers` list) | None | None |
 | **Akka (Ask)** | `ask()` returns `Future[T]` | Not via Ask | Akka Streams (separate API) | Reactive Streams spec |
 | **Erlang GenServer** | `call/3` (sync), `cast/2` (fire-forget) | Process mailbox + selective receive | GenStage / Flow | Demand-driven |
 | **Orleans** | Grain method returns `Task<T>` | Orleans Streams ([IAsyncObservable](https://learn.microsoft.com/en-us/dotnet/orleans/streaming/)) | Built-in streaming provider | Provider-dependent |
@@ -580,7 +580,7 @@ How does PyBend's current TX/response model compare to other actor systems, and 
 
 ### 6.2 Akka: Ask Pattern vs Akka Streams
 
-Akka's architecture is the closest analog to PyBend's. The [Ask pattern](https://doc.akka.io/docs/akka/current/stream/operators/Source-or-Flow/ask.html) works exactly like our `NetworkAdapter.request()`:
+Akka's architecture is the closest analog to N3TX's. The [Ask pattern](https://doc.akka.io/docs/akka/current/stream/operators/Source-or-Flow/ask.html) works exactly like our `NetworkAdapter.request()`:
 
 ```scala
 // Akka Ask -- 1:1, Future-based, timeout
@@ -597,7 +597,7 @@ Source(requests)
   .runWith(Sink.foreach(println))
 ```
 
-**Lesson for PyBend**: Akka's 15+ years of production experience validates our approach. Keep TX.reply() for request/response. Add Observable streams at the adapter boundary. Do not merge the two.
+**Lesson for N3TX**: Akka's 15+ years of production experience validates our approach. Keep TX.reply() for request/response. Add Observable streams at the adapter boundary. Do not merge the two.
 
 ### 6.3 Erlang/OTP: GenServer call/cast
 
@@ -605,7 +605,7 @@ Erlang's [GenServer](https://www.erlang.org/doc/apps/stdlib/gen_server.html) has
 - **`call/3`** -- synchronous request/response (blocks caller until `handle_call` returns)
 - **`cast/2`** -- fire-and-forget (no response)
 
-This is even simpler than PyBend's model -- Erlang's call is truly synchronous (the caller process blocks), while our Future-based approach is async. Erlang handles multi-response use cases through a completely separate mechanism: **GenStage** (demand-driven producer/consumer) and **Flow** (parallel processing pipelines).
+This is even simpler than N3TX's model -- Erlang's call is truly synchronous (the caller process blocks), while our Future-based approach is async. Erlang handles multi-response use cases through a completely separate mechanism: **GenStage** (demand-driven producer/consumer) and **Flow** (parallel processing pipelines).
 
 The parallel is exact: call/cast for state management, GenStage/Flow for streaming. Just like our proposed TX.reply() for CRUD, Observable for streaming.
 
@@ -622,9 +622,9 @@ await stream.OnNextAsync(42);  // Produce
 var handle = await stream.SubscribeAsync(observer);  // Subscribe
 ```
 
-Orleans proves that Rx-style streams *can* coexist with actor messaging at scale (Xbox Live, Halo, Azure services). But Orleans grains are virtual actors with automatic lifecycle management -- a much heavier runtime than PyBend's lightweight actors. The streaming infrastructure is a significant portion of Orleans' codebase.
+Orleans proves that Rx-style streams *can* coexist with actor messaging at scale (Xbox Live, Halo, Azure services). But Orleans grains are virtual actors with automatic lifecycle management -- a much heavier runtime than N3TX's lightweight actors. The streaming infrastructure is a significant portion of Orleans' codebase.
 
-**Lesson for PyBend**: Rx-style streaming in actors is proven at scale, but requires careful scoping. Orleans adds it as a separate subsystem (streaming providers, stream namespaces, subscription management), not by making every grain response an Observable.
+**Lesson for N3TX**: Rx-style streaming in actors is proven at scale, but requires careful scoping. Orleans adds it as a separate subsystem (streaming providers, stream namespaces, subscription management), not by making every grain response an Observable.
 
 ### 6.5 Architecture Decision Record
 
@@ -640,8 +640,8 @@ Based on the comparative analysis:
   | Akka            | Tell/Ask (actors)  | Akka Streams (sep.) |
   | Erlang/OTP      | call/cast (GenSrv) | GenStage/Flow (sep.)|
   | Orleans         | Grain methods      | Orleans Streams     |
-  | PyBend (current)| TX.reply() + Fut.  | (none)              |
-  | PyBend (target) | TX.reply() + Fut.  | aioreactive (edges) |
+  | N3TX (current)| TX.reply() + Fut.  | (none)              |
+  | N3TX (target) | TX.reply() + Fut.  | aioreactive (edges) |
   +-----------------+--------------------+---------------------+
 
   All mature actor systems keep core messaging simple
@@ -670,7 +670,7 @@ The frontend Mirror of the backend actor system (`Actor.js`, `Matrix.js`, `TX.js
 }
 ```
 
-2. **NetworkAdapter.request_stream()** -- Backend change only for HTTP. The frontend's `httpCallback` (`NTT.js:1041`) and `_response_` handlers (`NTT.js:1092-1097`) already process responses asynchronously. No change needed.
+2. **NetworkAdapter.request_stream()** -- Backend change only for HTTP. The frontend's `httpCallback` (`N3TX.js:1041`) and `_response_` handlers (`N3TX.js:1092-1097`) already process responses asynchronously. No change needed.
 
 3. **WebSocket streaming** -- This *would* require frontend changes. If the backend sends multiple response messages for a single WS request, the frontend needs to aggregate them. Currently, the frontend WebSocket handler in `NetworkAdapter.js:37` (`httpCallback`) expects a single response per request. Supporting multi-message responses would require:
 
@@ -691,7 +691,7 @@ wsCallback(event, partialResponse) {
 
 ### 7.2 Frontend Rx Considerations
 
-The frontend already has reactive-like patterns via the `_watchers` and `_pendingAttaches` mechanisms in `NTT.js` (lines 729, 882, 962-974). These are hand-rolled observer patterns. A future consideration would be adopting RxJS on the frontend to unify these, but that is a separate decision with its own tradeoffs (bundle size, learning curve, consistency with the "vanilla JS" philosophy).
+The frontend already has reactive-like patterns via the `_watchers` and `_pendingAttaches` mechanisms in `N3TX.js` (lines 729, 882, 962-974). These are hand-rolled observer patterns. A future consideration would be adopting RxJS on the frontend to unify these, but that is a separate decision with its own tradeoffs (bundle size, learning curve, consistency with the "vanilla JS" philosophy).
 
 > **Recommendation**: For Phase 1, make zero frontend changes. Backend Rx changes are invisible to the frontend. Revisit frontend reactive patterns only if/when WebSocket streaming (Phase 2) is implemented.
 

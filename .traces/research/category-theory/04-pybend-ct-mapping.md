@@ -1,6 +1,6 @@
-# PyBend Through the Category Theory Lens
+# N3TX Through the Category Theory Lens
 
-**Mapping PyBend's Architecture to Categorical Structures**
+**Mapping N3TX's Architecture to Categorical Structures**
 
 *Research Document -- February 2026*
 
@@ -8,18 +8,18 @@
 
 ## Executive Summary
 
-PyBend is a schema-driven full-stack framework where a single Python model
+N3TX is a schema-driven full-stack framework where a single Python model
 definition generates an API, database schema, JSON Schema, access control,
-and a runtime frontend. This document analyzes PyBend's architecture through
+and a runtime frontend. This document analyzes N3TX's architecture through
 the formal lens of category theory (CT), identifying where its abstractions
 already embody categorical structures, where the functor laws hold, and where
 they break. The goal is not academic decoration but actionable insight: by
-understanding *which* categorical laws PyBend's pipeline satisfies and *which*
+understanding *which* categorical laws N3TX's pipeline satisfies and *which*
 it violates, we can identify concrete opportunities to make its abstractions
 more composable, more predictable, and more testable.
 
 **Key findings:**
-- PyBend's `Model -> Schema -> DynamicClass` pipeline is a composition of two
+- N3TX's `Model -> Schema -> DynamicClass` pipeline is a composition of two
   functors that *mostly* preserves structure, with specific, enumerable points
   of failure.
 - The `AccessRule` algebra is already a well-formed Boolean algebra (a
@@ -32,11 +32,11 @@ more composable, more predictable, and more testable.
 
 ---
 
-## 1. Categorical Foundations in PyBend
+## 1. Categorical Foundations in N3TX
 
 ### 1.1 The Categories at Play
 
-PyBend's architecture spans several implicit categories:
+N3TX's architecture spans several implicit categories:
 
 ```
 Category          Objects                  Morphisms
@@ -55,7 +55,7 @@ HTTPEnd           HTTP endpoints           Route handlers (GET, POST, PUT,
                                            DELETE)
 ```
 
-The entire PyBend pipeline can be understood as functors and natural
+The entire N3TX pipeline can be understood as functors and natural
 transformations between these categories.
 
 ---
@@ -72,7 +72,7 @@ F_schema(ModelClass) = ModelClass.schema()
 ```
 
 Concretely, this is defined at line 199 of
-`/workspace/src/pybend/core/models/proto_model.py`:
+`/workspace/src/n3tx/core/models/proto_model.py`:
 
 ```python
 @classmethod
@@ -196,7 +196,7 @@ The precise points of failure, with line references:
 
 ### 3.1 Definition
 
-The `prototype()` function in `/workspace/src/pybend/static/core/NTT.js`
+The `prototype()` function in `/workspace/src/n3tx/static/core/N3TX.js`
 (line 663) maps from **JSchema** to **JSType**:
 
 ```
@@ -232,12 +232,12 @@ properties[f].readOnly   -> read-only getter (throws on set)
 properties[f].title      -> DynamicClass.labels[f]
 methods[m].route         -> prototype method calling this.call(m, ...)
 methods[m].parameters    -> parameter validation before call
-$defs[D]                 -> separate DynamicClass (registered in NTT.SCHEMA)
+$defs[D]                 -> separate DynamicClass (registered in N3TX.SCHEMA)
 ```
 
 ### 3.3 Nested Schema Handling
 
-`NTT.SCHEMA()` (line 390) processes `$defs` before creating the main
+`N3TX.SCHEMA()` (line 390) processes `$defs` before creating the main
 DynamicClass:
 
 ```javascript
@@ -245,10 +245,10 @@ DynamicClass:
 if (data.$defs && typeof data.$defs === 'object') {
     for (const [key, value] of Object.entries(data.$defs)) {
         if (key === addr) continue;
-        if (value.type === 'object' && value.properties && !NTT.has(key)) {
+        if (value.type === 'object' && value.properties && !N3TX.has(key)) {
             const DC = prototype(key, value, defHref);
-            NTT.#prototypes.set(key, DC);
-            NTT.#replayWaiting(key, DC);
+            N3TX.#prototypes.set(key, DC);
+            N3TX.#replayWaiting(key, DC);
         }
     }
 }
@@ -260,15 +260,15 @@ if (data.$defs && typeof data.$defs === 'object') {
 F_proto(ProductSchema)  produces:
   - DynamicClass("Product") with typed properties
   - DynamicClass("Comment") registered from $defs.Comment
-  - Product.instances: Map<id, NTT>
-  - Comment.instances: Map<id, NTT>
+  - Product.instances: Map<id, N3TX>
+  - Comment.instances: Map<id, N3TX>
 
 F_proto(CommentSchema)  produces:
   - DynamicClass("Comment") with typed properties
 ```
 
 **Verdict: PRESERVES COMPOSITION** with caveats. If `Comment` is already
-registered (from a prior `SCHEMA` call), the `!NTT.has(key)` guard (line
+registered (from a prior `SCHEMA` call), the `!N3TX.has(key)` guard (line
 400) prevents re-registration. This makes the functor *idempotent* on nested
 types, which is desirable but means `F_proto(A.schema) != F_proto(A.schema)`
 on repeated application (the second call is a no-op for `$defs`).
@@ -313,7 +313,7 @@ This functor "forgets":
 - Collection fields (stored in separate join tables, not in the parent row)
 - Behavioral mixins (Observable, Actor patterns)
 
-The implementation is in `/workspace/src/pybend/core/storage/sqlite_storage.py`.
+The implementation is in `/workspace/src/n3tx/core/storage/sqlite_storage.py`.
 The `create()` method (line 93) explicitly excludes collection fields:
 
 ```python
@@ -411,8 +411,8 @@ and default values.
 
 ### 5.1 Category Definition
 
-The Actor system defined in `/workspace/src/pybend/static/core/Actor.js` and
-`/workspace/src/pybend/static/core/Matrix.js` forms a category:
+The Actor system defined in `/workspace/src/n3tx/static/core/Actor.js` and
+`/workspace/src/n3tx/static/core/Matrix.js` forms a category:
 
 ```
 Category ActorMsg:
@@ -424,7 +424,7 @@ Category ActorMsg:
 
 ### 5.2 Message Routing as Composition
 
-A TX object (`/workspace/src/pybend/static/core/TX.js`, line 7) carries:
+A TX object (`/workspace/src/n3tx/static/core/TX.js`, line 7) carries:
 
 ```javascript
 constructor(event) {
@@ -535,7 +535,7 @@ or, more precisely, a **message-passing algebra** than a strict category.
 ### 6.1 The Algebraic Structure
 
 The `AccessRule` hierarchy in
-`/workspace/src/pybend/core/authorize/rules.py` defines:
+`/workspace/src/n3tx/core/authorize/rules.py` defines:
 
 ```python
 class AccessRule(ABC):
@@ -725,9 +725,9 @@ TYPE LEVEL:
                                                     .instances (Map)
                                                          |
                                                          v
-INSTANCE LEVEL:                                    NTT instances
+INSTANCE LEVEL:                                    N3TX instances
 
-  model_instance ──model_dump(response=True)──> JSON data ──new DC(data)──> NTT
+  model_instance ──model_dump(response=True)──> JSON data ──new DC(data)──> N3TX
        |                                            |                         |
        | .id                                        | .id                     | .addr
        v                                            v                         v
@@ -763,7 +763,7 @@ Backend: model_dump(response=True).$id     == "http://.../products/1"
 Frontend: instance.value.$id              == instance.href         == "http://.../products/1"
 ```
 
-**Verdict: COMMUTES for $schema and $id.** The frontend value getter (NTT.js
+**Verdict: COMMUTES for $schema and $id.** The frontend value getter (N3TX.js
 lines 691-698) independently reconstructs the same metadata that the backend
 injects. This is a form of *naturality*: both paths produce the same result.
 
@@ -775,7 +775,7 @@ sent. If the backend's `config.API_URL` differs from the frontend's
 `config.API_URL` (e.g., behind a proxy), the values diverge:
 
 ```javascript
-// Line 696-697 in NTT.js:
+// Line 696-697 in N3TX.js:
 get value() {
     let data = this._data;
     data["$schema"] = `${config.API_URL}/${this.constructor.addr}`;
@@ -790,7 +790,7 @@ frontend.config.API_URL`.
 
 ---
 
-## 8. Natural Transformations in PyBend
+## 8. Natural Transformations in N3TX
 
 ### 8.1 `model_dump()` vs `model_dump(response=True)`
 
@@ -834,7 +834,7 @@ cached class-level metadata (lines 124-130).
 
 ### 8.2 `@expose_route` as a Natural Transformation
 
-The `@expose_route` decorator (`/workspace/src/pybend/core/utils/decorators.py`)
+The `@expose_route` decorator (`/workspace/src/n3tx/core/utils/decorators.py`)
 transforms Python methods into HTTP endpoints:
 
 ```
@@ -875,7 +875,7 @@ for any method on any model.
 
 ### 8.3 `access_schema()` as a Natural Transformation
 
-The function in `/workspace/src/pybend/core/authorize/schema.py` (line 11)
+The function in `/workspace/src/n3tx/core/authorize/schema.py` (line 11)
 maps access rules to JSON:
 
 ```python
@@ -900,7 +900,7 @@ to the **JSON** functor, restricted to the access-rule component.
 
 ---
 
-## 9. Where PyBend's Abstractions Are NOT Pure
+## 9. Where N3TX's Abstractions Are NOT Pure
 
 ### 9.1 Side Effects in Model Methods
 
@@ -931,7 +931,7 @@ The Actor system relies heavily on mutable state:
 // Actor.js line 25:
 this.#children = new Map();
 
-// NTT.js line 528:
+// N3TX.js line 528:
 update(data) {
     this.value = {...this.#data, ...data};  // destructive merge
 }
@@ -943,7 +943,7 @@ may produce different results because the actor's internal state has changed.
 
 ### 9.3 Non-Composable Error Handling
 
-PyBend uses exceptions for error signaling:
+N3TX uses exceptions for error signaling:
 
 ```python
 # routes_fastapi.py line 64-65:
@@ -970,7 +970,7 @@ pipeline = authorize >>= handler   (monadic bind, total function)
 ### 9.4 Registration as Global Side Effect
 
 The `registered_models` dictionary in
-`/workspace/src/pybend/core/utils/registrar.py` is a module-level mutable
+`/workspace/src/n3tx/core/utils/registrar.py` is a module-level mutable
 global:
 
 ```python
@@ -986,7 +986,7 @@ def register_model(model_class, storage=None):
     registered_models[model_class.__tablename__] = model_class
 ```
 
-**CT violation:** This is the most significant impurity in PyBend's
+**CT violation:** This is the most significant impurity in N3TX's
 architecture. The `register_model` function is not a morphism -- it modifies
 shared global state. The `register_routes()` function then reads this global
 state to generate routes. This means:
@@ -1035,7 +1035,7 @@ during construction.
 ### 9.7 The DynamicClass Value Getter Mutation
 
 ```javascript
-// NTT.js lines 691-698:
+// N3TX.js lines 691-698:
 get value() {
     if (!this._data) return undefined;
     let data = this._data;
@@ -1101,7 +1101,7 @@ Proposed (pure):
     app = mount(routes)                  # pure function of routes
 ```
 
-The `PyBendApp` builder (in `/workspace/src/pybend/core/app.py`) already
+The `N3TXApp` builder (in `/workspace/src/n3tx/core/app.py`) already
 *approximates* this pattern -- it collects models in `self._models` (line 92)
 before calling `register_model()` in `build()` (line 148-154). The
 improvement would be to make `register_model()` return a new registry value
@@ -1166,9 +1166,9 @@ for entity-level data.
 
 ## 11. Comparison with Explicit CT Frameworks
 
-### 11.1 PyBend vs. Explicit CT Libraries
+### 11.1 N3TX vs. Explicit CT Libraries
 
-| Framework | CT Approach | PyBend Equivalent |
+| Framework | CT Approach | N3TX Equivalent |
 |-----------|-------------|-------------------|
 | **Haskell (Lens)** | Optics for nested data access | `model_dump()` + `form.js` field access |
 | **Scala (Cats)** | Typeclass-based functors, monads | `ProtoModel.schema()` as implicit functor |
@@ -1176,9 +1176,9 @@ for entity-level data.
 | **Arrow** (Kotlin) | Validated, Either for error handling | Exceptions (no explicit Result type) |
 | **Elm Architecture** | `Model -> Msg -> Model` pure cycle | `Actor.inbox(TX) -> state change` (impure) |
 
-### 11.2 What PyBend Gets Right Without Trying
+### 11.2 What N3TX Gets Right Without Trying
 
-PyBend's architecture, despite not being designed with CT in mind, naturally
+N3TX's architecture, despite not being designed with CT in mind, naturally
 embodies several categorical patterns:
 
 1. **The AccessRule algebra is a textbook Boolean algebra.** The `|`, `&`,
@@ -1198,9 +1198,9 @@ embodies several categorical patterns:
    streams.** `signal()` maps state changes to callback invocations,
    preserving the update ordering.
 
-### 11.3 What Would Change If PyBend Were Explicitly Categorical
+### 11.3 What Would Change If N3TX Were Explicitly Categorical
 
-If PyBend adopted explicit CT constructs, the architecture would look like:
+If N3TX adopted explicit CT constructs, the architecture would look like:
 
 ```
 # Functor typeclass
@@ -1220,7 +1220,7 @@ class AppMonad(Protocol):
 pipeline = SchemaFunctor() >> PrototypeFunctor() >> RenderFunctor()
 ```
 
-The question is whether this abstraction pays for itself. PyBend's philosophy
+The question is whether this abstraction pays for itself. N3TX's philosophy
 ("primitives, not opinions") suggests that explicit CT would be over-
 engineering for most users. The *implicit* CT that already exists -- the
 schema pipeline, the Boolean algebra, the natural transformations -- provides
@@ -1231,18 +1231,18 @@ the structural guarantees without requiring users to understand the theory.
 ## 12. The Complete Categorical Map
 
 ```
-                              PyBend Architecture
+                              N3TX Architecture
                           (Categorical Structure Map)
 
     +-----------+     F_schema      +-----------+     F_proto      +-----------+
     |  PyModel  |  ===============> |  JSchema  |  ===============> |  JSType   |
     |           |   (Functor)       |           |   (Functor)       |           |
-    | ProtoModel|   proto_model.py  | JSON      |   NTT.js          | Dynamic   |
+    | ProtoModel|   proto_model.py  | JSON      |   N3TX.js          | Dynamic   |
     | subclasses|   :199-316        | Schema    |   :663-1074       | Class     |
     +-----------+                   +-----------+                   +-----------+
          |                               |                               |
          | U (forgetful)                 | eta_json (nat. trans.)        | F_render
-         | model_dump()                  | JSON.stringify()              | ntt-item.js
+         | model_dump()                  | JSON.stringify()              | ntx-item.js
          |                               |                               |
          v                               v                               v
     +-----------+     serialize     +-----------+     parse         +-----------+
@@ -1318,7 +1318,7 @@ the structural guarantees without requiring users to understand the theory.
 - Milewski, B. (2019). *Category Theory for Programmers*. Blurb.
 - Awodey, S. (2010). *Category Theory*. Oxford University Press.
 - Riehl, E. (2016). *Category Theory in Context*. Dover.
-- PyBend codebase: `/workspace/src/pybend/` (commit `7550aeb`)
+- N3TX codebase: `/workspace/src/n3tx/` (commit `7550aeb`)
 - JSON Schema Specification: https://json-schema.org/specification
 - Hewitt, C. (1973). "A Universal Modular ACTOR Formalism for Artificial
   Intelligence." *IJCAI*.

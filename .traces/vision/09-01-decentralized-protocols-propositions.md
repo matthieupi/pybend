@@ -7,11 +7,11 @@
 
 ## 🎯 The Bridge
 
-PyBend and decentralized protocols are solving the same problem from opposite ends. PyBend says: "Define a model once, derive the entire stack." Decentralized protocols say: "Carry a schema everywhere, and any node can participate." Both are schema-driven, self-describing, and derive behavior from data definitions. The difference is scope: PyBend operates within a single deployment; decentralized protocols operate across trust boundaries.
+N3TX and decentralized protocols are solving the same problem from opposite ends. N3TX says: "Define a model once, derive the entire stack." Decentralized protocols say: "Carry a schema everywhere, and any node can participate." Both are schema-driven, self-describing, and derive behavior from data definitions. The difference is scope: N3TX operates within a single deployment; decentralized protocols operate across trust boundaries.
 
 The deep structural convergence is not coincidence. `ProtoModel.schema()` generates JSON Schema with `$id` and `$schema` URLs on every entity -- the same self-describing pattern that ActivityPub uses (`@context` + `id`) and AT Protocol uses (`$type` + DID). Our `model_dump(response=True)` already injects globally-resolvable identifiers into every API response. Our Actor-based message bus (`Matrix.js`) routes messages by address in the same way Nostr relays route events by pubkey. The conceptual distance is shorter than it appears.
 
-The propositions below are not about making PyBend a federation framework. They are about importing the *principles* that make decentralized systems resilient -- self-describing data, portable identity, content-addressable integrity, composable authorization -- and applying them where they make our centralized architecture demonstrably better. Some are afternoon changes. Some reshape entire subsystems. All trace directly to both the research and our codebase.
+The propositions below are not about making N3TX a federation framework. They are about importing the *principles* that make decentralized systems resilient -- self-describing data, portable identity, content-addressable integrity, composable authorization -- and applying them where they make our centralized architecture demonstrably better. Some are afternoon changes. Some reshape entire subsystems. All trace directly to both the research and our codebase.
 
 ---
 
@@ -55,7 +55,7 @@ The `$hash` is informational in Phase 1 (clients can verify but servers do not e
 
 **From the research:** AT Protocol's `did:plc` method has 12M+ registered identifiers. The key insight is the "custodial by default, sovereign by choice" model: most users authenticate with email/password (the PDS manages keys), but power users can set their own rotation keys for full sovereignty. This is not either/or -- it is additive. [05-identity-data-portability.md, sections 1-2, 7]
 
-**In our system:** `base_user.py` defines identity as `email` + `password_hash`, with JWTs issued by `auth.py` using a shared server secret (`_jwt_secret`, HS256). Identity is server-bound: if the server disappears, user identity disappears. The `create_token()` function on line 46 of `auth.py` encodes `user_id`, `email`, and `role` -- all server-local values. There is no mechanism for a user to prove their identity to a different PyBend deployment.
+**In our system:** `base_user.py` defines identity as `email` + `password_hash`, with JWTs issued by `auth.py` using a shared server secret (`_jwt_secret`, HS256). Identity is server-bound: if the server disappears, user identity disappears. The `create_token()` function on line 46 of `auth.py` encodes `user_id`, `email`, and `role` -- all server-local values. There is no mechanism for a user to prove their identity to a different N3TX deployment.
 
 **The idea:** Add three fields to `BaseUser`:
 
@@ -67,7 +67,7 @@ did_method: Optional[str] = Field(default=None, json_schema_extra={'ui': {'displ
 
 Add a `login_did` class method that accepts a DID, a signed challenge, and verifies the signature against the DID document's public key. This produces the same server-issued JWT that `login()` produces -- downstream code (routes, ABAC rules, `_resolve_user()`) is completely unaware.
 
-The `did:web` method is the natural fit: a PyBend deployment at `example.com` can serve `/.well-known/did.json` as a static route, making every user addressable as `did:web:example.com:users:alice`. This costs one new route handler and one JSON file.
+The `did:web` method is the natural fit: a N3TX deployment at `example.com` can serve `/.well-known/did.json` as a static route, making every user addressable as `did:web:example.com:users:alice`. This costs one new route handler and one JSON file.
 
 **Effort/Impact:**
 
@@ -106,7 +106,7 @@ class _Labeled(AccessRule):
 
 Usage: `__access__ = {'read': ANYONE, 'feature': LABELED('premium', source='billing-service')}`. Labels are stored as a JSON array on the entity and can be set by any authorized service -- not just the local system. This opens the door for:
 
-- Cross-deployment trust (a user verified on one PyBend instance is recognized on another)
+- Cross-deployment trust (a user verified on one N3TX instance is recognized on another)
 - External moderation services (content labeled by a moderation API)
 - Graduated access (labels like "trusted-contributor" unlock capabilities)
 
@@ -123,9 +123,9 @@ The composability is key: `LABELED('verified') & AUTHENTICATED` or `OWNER | LABE
 
 ---
 
-### Proposition 4: Add WebFinger discovery to make PyBend entities addressable across the web
+### Proposition 4: Add WebFinger discovery to make N3TX entities addressable across the web
 
-> 🔧 **Proposition:** Add a `/.well-known/webfinger` endpoint that resolves `acct:user@domain` to a user's actor URL and JSON Schema, making PyBend users discoverable by any federated system without implementing full federation.
+> 🔧 **Proposition:** Add a `/.well-known/webfinger` endpoint that resolves `acct:user@domain` to a user's actor URL and JSON Schema, making N3TX users discoverable by any federated system without implementing full federation.
 
 **From the research:** WebFinger is the universal discovery layer for ActivityPub. A query to `/.well-known/webfinger?resource=acct:alice@mastodon.social` returns a JSON document with links to the user's actor profile. Ghost, WordPress, and every Fediverse server implements this. It is the cheapest possible federation touchpoint. [02-technical-deep-dive.md, section 1.5]
 
@@ -147,7 +147,7 @@ async def webfinger(resource: str):
     }
 ```
 
-This is the "publish-only" first step from the decision framework [03-decision-framework.md, section 10, Hybrid Model 1]. It makes PyBend users discoverable by Mastodon, Ghost, and any ActivityPub-compatible system -- without implementing inbox/outbox, HTTP Signatures, or any federation machinery. The cost is one route handler. The benefit is interoperability readiness.
+This is the "publish-only" first step from the decision framework [03-decision-framework.md, section 10, Hybrid Model 1]. It makes N3TX users discoverable by Mastodon, Ghost, and any ActivityPub-compatible system -- without implementing inbox/outbox, HTTP Signatures, or any federation machinery. The cost is one route handler. The benefit is interoperability readiness.
 
 **Effort/Impact:**
 
@@ -164,7 +164,7 @@ This is the "publish-only" first step from the decision framework [03-decision-f
 
 > 🔧 **Proposition:** Build a `SchemaTranslator` that converts `ProtoModel.schema()` output into ActivityStreams JSON-LD and AT Protocol Lexicon formats, establishing the bridge between our schema system and federation protocols.
 
-**From the research:** The structural parallels between PyBend's JSON Schema and federation schemas are documented in detail: `$schema`/`$id` maps to `@context`/`type`/`id` in ActivityStreams and to `$type`/NSID in Lexicons. The research explicitly maps every PyBend concept to its federation equivalents. [04-our-stack-relevance.md, section 1, the full mapping table]
+**From the research:** The structural parallels between N3TX's JSON Schema and federation schemas are documented in detail: `$schema`/`$id` maps to `@context`/`type`/`id` in ActivityStreams and to `$type`/NSID in Lexicons. The research explicitly maps every N3TX concept to its federation equivalents. [04-our-stack-relevance.md, section 1, the full mapping table]
 
 **In our system:** `ProtoModel.schema()` (lines 197-316 of `proto_model.py`) generates a complete JSON Schema document with properties, methods, access rules, UI hints, and `$defs`. This schema carries *everything* -- it is the universal contract. The `model_dump(response=True)` method injects `$schema` and `$id` into every instance. The translation from our schema format to ActivityStreams or Lexicon is mechanical, not creative.
 
@@ -187,7 +187,7 @@ The translator maps:
 - `access.read: anyone` to ActivityStreams public addressing
 - `$defs` to nested object types or Lexicon definitions
 
-This does not implement federation. It establishes the *translation layer* that federation would use. And it has immediate non-federation value: any PyBend app can export its schema in standard formats for documentation, API catalogs, or third-party integrations.
+This does not implement federation. It establishes the *translation layer* that federation would use. And it has immediate non-federation value: any N3TX app can export its schema in standard formats for documentation, API catalogs, or third-party integrations.
 
 **Effort/Impact:**
 
@@ -220,7 +220,7 @@ Each event includes a hash of the entity's data at that point and a reference to
 1. **Audit trail** -- who changed what, when
 2. **Tamper evidence** -- if someone modifies the events table directly, the hash chain breaks
 3. **Point-in-time state** -- replay events to reconstruct past state
-4. **Foundation for sync** -- two PyBend deployments can compare hash chains to detect divergence
+4. **Foundation for sync** -- two N3TX deployments can compare hash chains to detect divergence
 
 The storage cost is one row per mutation, stored in a single table shared across all auditable models. The runtime cost is one hash computation and one INSERT per write operation.
 
@@ -241,7 +241,7 @@ The storage cost is one row per mutation, stored in a single table shared across
 
 **From the research:** Nostr's relay protocol defines `REQ` (subscribe to events matching filters) and `EVENT` (publish an event). Clients subscribe with filter criteria and receive matching events in real-time. AT Protocol's firehose emits every repository update as a stream event. Both patterns decouple publishers from subscribers -- the publisher does not need to know who is listening. [02-technical-deep-dive.md, sections 2.5, 3.4]
 
-**In our system:** `Matrix.js` routes messages by target address. It is fundamentally point-to-point: a TX has one `target`, and the Matrix routes it to that target's inbox. The `DynamicClass._watchers` pattern in `NTT.js` (line 718+) adds basic observation, but it is per-type, not per-topic. There is no way for an Actor to say "I care about all CREATE events across all models" or "notify me when any Product with price > 100 is updated."
+**In our system:** `Matrix.js` routes messages by target address. It is fundamentally point-to-point: a TX has one `target`, and the Matrix routes it to that target's inbox. The `DynamicClass._watchers` pattern in `N3TX.js` (line 718+) adds basic observation, but it is per-type, not per-topic. There is no way for an Actor to say "I care about all CREATE events across all models" or "notify me when any Product with price > 100 is updated."
 
 **The idea:** Add a `Channel` concept to Matrix:
 
@@ -272,9 +272,9 @@ The immediate benefit is decoupling: components that need to react to entity cha
 
 ### Proposition 8: Introduce a FederationAdapter protocol as the abstraction boundary
 
-> 🔧 **Proposition:** Define a `FederationAdapter` Python Protocol that formalizes the boundary between PyBend's core and any external protocol, enabling ActivityPub, AT Protocol, or future protocols to plug in without touching core code.
+> 🔧 **Proposition:** Define a `FederationAdapter` Python Protocol that formalizes the boundary between N3TX's core and any external protocol, enabling ActivityPub, AT Protocol, or future protocols to plug in without touching core code.
 
-**From the research:** The decision framework explicitly recommends: "Build an abstraction layer first. Never couple your application logic to protocol specifics." The `AuthorizationResolver` Protocol pattern in our codebase is the template -- it works as a standalone ABAC library that happens to plug into PyBend. [03-decision-framework.md, section 13; 04-our-stack-relevance.md, Phase 0]
+**From the research:** The decision framework explicitly recommends: "Build an abstraction layer first. Never couple your application logic to protocol specifics." The `AuthorizationResolver` Protocol pattern in our codebase is the template -- it works as a standalone ABAC library that happens to plug into N3TX. [03-decision-framework.md, section 13; 04-our-stack-relevance.md, Phase 0]
 
 **In our system:** The `authorize` package demonstrates the pattern perfectly. `resolver.py` defines `AuthorizationResolver` as a runtime-checkable Protocol with three methods (`resolve_rule`, `authorize`, `sql_filter_for`). `DefaultResolver` implements it. The route layer consumes the Protocol, not the implementation. This is exactly the boundary we need for federation.
 
@@ -311,7 +311,7 @@ This is Phase 0 of the integration path -- no protocol implementation, just the 
 
 **From the research:** In decentralized systems, the integer `user_id` is meaningless -- it is local to one database. AT Protocol uses DIDs as the universal identity anchor. A `did:plc:abc123` is the same identity regardless of which PDS hosts the account. Verifiable Credentials enable portable trust: a credential issued by one system is verifiable by any other. [05-identity-data-portability.md, sections 1, 4, 11]
 
-**In our system:** `context.py` defines `AccessContext` with `user_id` (integer, from JWT), `user_role` (string), and `user_email` (string). The `_Owner` rule in `rules.py` compares `ctx.user_id` to the resource's `user_owner` field. This is inherently local -- if the same person authenticates against two different PyBend deployments, they have different `user_id` values and OWNER checks fail across deployments.
+**In our system:** `context.py` defines `AccessContext` with `user_id` (integer, from JWT), `user_role` (string), and `user_email` (string). The `_Owner` rule in `rules.py` compares `ctx.user_id` to the resource's `user_owner` field. This is inherently local -- if the same person authenticates against two different N3TX deployments, they have different `user_id` values and OWNER checks fail across deployments.
 
 **The idea:** Add `user_did: Optional[str]` to `AccessContext`:
 
@@ -382,7 +382,7 @@ def export(self, user: User = None) -> dict:
     return archive
 ```
 
-The archive is self-describing (includes schemas) and self-contained (includes all referenced data). It can be imported into another PyBend deployment or consumed by any tool that reads JSON Schema.
+The archive is self-describing (includes schemas) and self-contained (includes all referenced data). It can be imported into another N3TX deployment or consumed by any tool that reads JSON Schema.
 
 **Effort/Impact:**
 
@@ -432,7 +432,7 @@ The archive is self-describing (includes schemas) and self-contained (includes a
 
 **2. Do not replace JWT authentication with DID authentication.** DIDs are additive, not a replacement. The "custodial by default, sovereign by choice" model from AT Protocol is the right pattern. Most users will never manage cryptographic keys. Add DID as an alternative login path (Proposition 2), but keep email/password as the primary experience. Forcing cryptographic identity on mainstream users is a UX dead end.
 
-**3. Do not adopt Nostr's "trust nobody" model.** Nostr's radical minimalism -- no accounts, no servers with authority, no recovery -- is philosophically interesting but operationally hostile. PyBend's strength is that the backend is authoritative. Importing selective decentralization (content hashes, portable identity, composable labels) strengthens the system. Importing full trustlessness would undermine the "backend is authoritative" principle that makes the framework coherent.
+**3. Do not adopt Nostr's "trust nobody" model.** Nostr's radical minimalism -- no accounts, no servers with authority, no recovery -- is philosophically interesting but operationally hostile. N3TX's strength is that the backend is authoritative. Importing selective decentralization (content hashes, portable identity, composable labels) strengthens the system. Importing full trustlessness would undermine the "backend is authoritative" principle that makes the framework coherent.
 
 ---
 
@@ -442,10 +442,10 @@ The archive is self-describing (includes schemas) and self-contained (includes a
 
 **Proposition 8 (FederationAdapter Protocol)** costs 2-3 days and establishes the architectural guardrail. Every subsequent federation-related change slots into this boundary. It also validates the design pattern -- if the Protocol definition feels wrong, we learn that before building anything behind it.
 
-**Proposition 4 (WebFinger)** costs 1 day and produces an immediately visible result: any Fediverse user can discover PyBend users. This is the minimum viable interoperability step that the decision framework recommends [03-decision-framework.md, Hybrid Model 1].
+**Proposition 4 (WebFinger)** costs 1 day and produces an immediately visible result: any Fediverse user can discover N3TX users. This is the minimum viable interoperability step that the decision framework recommends [03-decision-framework.md, Hybrid Model 1].
 
 **Proposition 1 (Content-addressable `$hash`)** costs 2-3 days and provides non-federation value immediately (cache validation, data integrity) while laying groundwork for content-addressing.
 
-**Validation approach:** Deploy a PyBend instance with WebFinger enabled. Search for a PyBend user from a Mastodon instance. If the discovery resolves correctly, the interoperability path is validated. Measure: can a Mastodon user find a PyBend user without knowing the URL structure?
+**Validation approach:** Deploy a N3TX instance with WebFinger enabled. Search for a N3TX user from a Mastodon instance. If the discovery resolves correctly, the interoperability path is validated. Measure: can a Mastodon user find a N3TX user without knowing the URL structure?
 
 Total investment: **~1 week**. Total risk: **near zero** (all changes are additive). Signal strength: **high** (real interoperability test with real Fediverse servers).

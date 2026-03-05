@@ -8,7 +8,7 @@
 
 **Key Characteristics:**
 - The Python model definition is the **single source of truth** for the entire stack (data, API, schema, UI, auth)
-- Three bootstrapping levels: one-liner (`create_app`), builder (`PyBendApp`), raw primitives
+- Three bootstrapping levels: one-liner (`create_app`), builder (`N3TXApp`), raw primitives
 - Actor system (Actor/Matrix/TX) provides uniform class/instance messaging, routing, and interceptors
 - Composable pipelines for both schema generation and response serialization
 - Frontend consumes JSON Schema at runtime to render UI with zero frontend code changes
@@ -18,64 +18,64 @@
 
 **Model Layer:**
 - Purpose: Define data structures, validation, access control, UI hints, and custom methods
-- Location: `src/pybend/core/models/`
+- Location: `src/n3tx/core/models/`
 - Contains: `ProtoModel`, `ActorModel`, `BaseUser`, `StorableMixin`, `ViewableMixin`, `Ref`, `ListRef`
 - Depends on: Pydantic V2, `authorize` package, `utils/decorators.py`, `utils/typer.py`
 - Used by: Schema pipeline, dump pipeline, route generation, actor system
 
 **Actor Layer:**
 - Purpose: Unified messaging, routing, lifecycle events, and interceptors
-- Location: `src/pybend/core/actors/`
+- Location: `src/n3tx/core/actors/`
 - Contains: `Actor`, `Matrix`, `TX`, `ActorProxy`, `ActorMeta`, descriptors (`actormethod`, `actorproperty`)
 - Depends on: Pydantic V2 (Actor extends PydanticBaseModel)
 - Used by: `ActorModel`, network adapters, agent system
 
 **Storage Layer:**
 - Purpose: Persist model data via pluggable backends
-- Location: `src/pybend/core/storage/`
+- Location: `src/n3tx/core/storage/`
 - Contains: `AbstractStorage` (interface), `SQLiteStorage` (primary), `JSONStorage` (legacy)
 - Depends on: Python sqlite3
 - Used by: `StorableMixin` (injected into models with `__storable__ = True`)
 
 **API / Route Layer:**
 - Purpose: Expose models as HTTP endpoints (CRUD + custom methods)
-- Location: `src/pybend/core/api/`
+- Location: `src/n3tx/core/api/`
 - Contains: `routes_fastapi.py` (Level 1/2 direct), `network_api.py` (Level 3 actor), `backend.py` (FastAPI setup)
 - Depends on: FastAPI, model layer, authorize layer
-- Used by: `PyBendApp.build()`, `create_app()`
+- Used by: `N3TXApp.build()`, `create_app()`
 
 **Authorization Layer:**
-- Purpose: ABAC rules with algebraic composition, zero PyBend imports
-- Location: `src/pybend/core/authorize/`
+- Purpose: ABAC rules with algebraic composition, zero N3TX imports
+- Location: `src/n3tx/core/authorize/`
 - Contains: `AccessRule` hierarchy (ANYONE, NEVER, AUTHENTICATED, OWNER, ROLE, Where, Federated), `AccessContext`, `DefaultResolver`, JWT auth
-- Depends on: PyJWT, bcrypt (no PyBend imports -- fully standalone)
+- Depends on: PyJWT, bcrypt (no N3TX imports -- fully standalone)
 - Used by: Route layer, auth interceptor, model `__access__` declarations
 
 **Agent Layer:**
 - Purpose: LLM-powered reasoning via actor system, tool discovery from schemas
-- Location: `src/pybend/core/agents/`
+- Location: `src/n3tx/core/agents/`
 - Contains: `AgentMixin`, `AgentActor`, `AgentTool`, `AgentDeps`, `ToolSpec`, tool discovery/generation
 - Depends on: pydantic-ai, actor system, network adapter
 - Used by: Models with `__agent__ = True`, `example_grants/`
 
 **Widget Layer:**
 - Purpose: Map Python types to frontend renderers via schema metadata
-- Location: `src/pybend/core/widgets/`
+- Location: `src/n3tx/core/widgets/`
 - Contains: `Widget` base (metaclass-driven), built-in fields (Url, Email, Date, Markdown, Currency, Textarea, Console, Reference)
 - Depends on: Pydantic types (AnyHttpUrl, EmailStr, date, datetime)
 - Used by: Model field annotations, schema pipeline (widget stage), frontend form.js
 
 **SSR Layer:**
 - Purpose: Server-side rendering for initial page load optimization
-- Location: `src/pybend/core/ssr/`
+- Location: `src/n3tx/core/ssr/`
 - Contains: `html.py` (schema/bundle/full injection), `bundler.py` (JS module bundling, CSS discovery)
 - Depends on: Model schemas, static file system
 - Used by: `FastAPIBackend._mount_ssr_route()`
 
 **Frontend Layer:**
 - Purpose: Schema-driven Web Components UI -- no build step
-- Location: `src/pybend/static/`
-- Contains: Core (Actor.js, Matrix.js, TX.js, NTT.js), Components (ntt-list, ntt-item, ntt-method, etc.), Widgets, Generators (form.js)
+- Location: `src/n3tx/static/`
+- Contains: Core (Actor.js, Matrix.js, TX.js, N3TX.js), Components (ntx-list, ntx-item, ntx-method, etc.), Widgets, Generators (form.js)
 - Depends on: Backend JSON Schema API
 - Used by: Browser, served as static files
 
@@ -130,7 +130,7 @@ PydanticBaseModel (pydantic)
 
 ## Three Bootstrapping Levels
 
-**Level 1 -- One-liner via `create_app()`** (`src/pybend/core/app.py`):
+**Level 1 -- One-liner via `create_app()`** (`src/n3tx/core/app.py`):
 ```python
 app = create_app(models=[Product, User], storage="sqlite:///app.db")
 ```
@@ -138,9 +138,9 @@ app = create_app(models=[Product, User], storage="sqlite:///app.db")
 - Models extend `ProtoModel`
 - Single-pass auth via `DefaultResolver.authorize(ctx)`
 
-**Level 2 -- Builder via `PyBendApp`** (`src/pybend/core/app.py`):
+**Level 2 -- Builder via `N3TXApp`** (`src/n3tx/core/app.py`):
 ```python
-pb = PyBendApp(storage="sqlite:///app.db")
+pb = N3TXApp(storage="sqlite:///app.db")
 pb.model(Product).model(User).join(Product, Comment)
 app = pb.build()
 ```
@@ -160,7 +160,7 @@ app = create_app(models=[Product], storage="sqlite:///app.db", routing='actor')
 
 ## Schema Pipeline
 
-Defined in `src/pybend/core/models/proto_schema.py`. Composable `dict -> dict` stages:
+Defined in `src/n3tx/core/models/proto_schema.py`. Composable `dict -> dict` stages:
 
 ```
 1. base(cls)              -- Pydantic model_json_schema() + Ref/ListRef patches
@@ -180,7 +180,7 @@ Defined in `src/pybend/core/models/proto_schema.py`. Composable `dict -> dict` s
 
 ## Dump Pipeline
 
-Defined in `src/pybend/core/models/proto_dump.py`. Composable `dict -> dict` stages for response serialization:
+Defined in `src/n3tx/core/models/proto_dump.py`. Composable `dict -> dict` stages for response serialization:
 
 ```
 1. base(instance)             -- Pydantic model_dump()
@@ -194,7 +194,7 @@ Called via `instance.model_response()`.
 
 ## Route Generation
 
-**Level 1/2 (direct):** `src/pybend/core/api/routes_fastapi.py`
+**Level 1/2 (direct):** `src/n3tx/core/api/routes_fastapi.py`
 
 1. `register_routes()` iterates `registered_models`
 2. **Pass 1:** Register static collection routes for join models (must precede `{id:int}` routes)
@@ -208,7 +208,7 @@ Called via `instance.model_response()`.
    - Custom `@expose_route` methods (instance methods get `/{id}{route}`)
 4. Join models get parent-scoped routes: `/{parent_table}/{parent_id}/{tagname}`
 
-**Level 3 (actor):** `src/pybend/core/api/network_api.py`
+**Level 3 (actor):** `src/n3tx/core/api/network_api.py`
 
 Same route structure, but every handler:
 1. Creates a `TX(name=action, source='api', target=tablename, data=..., meta={user, model_cls})`
@@ -218,7 +218,7 @@ Same route structure, but every handler:
 
 **Registration flow:**
 ```
-create_app() / PyBendApp.build()
+create_app() / N3TXApp.build()
     -> prepare_model() per model (pure, no side effects)
     -> generate_join_model() for join pairs
     -> apply_registration() per model (set_storage, create_table, migrate)
@@ -227,7 +227,7 @@ create_app() / PyBendApp.build()
 
 ## Actor System
 
-### TX Message Envelope (`src/pybend/core/actors/tx.py`)
+### TX Message Envelope (`src/n3tx/core/actors/tx.py`)
 
 Dataclass with: `name`, `source`, `target`, `data`, `meta`, `timestamp`, `uuid`.
 
@@ -237,7 +237,7 @@ Key methods:
 - `exception(e)` -- maps Python exceptions to error TX with semantic HTTP codes
 - `is_error` -- property checking name or meta flag
 
-### Actor Base Class (`src/pybend/core/actors/actor.py`)
+### Actor Base Class (`src/n3tx/core/actors/actor.py`)
 
 **Descriptors** (the key innovation):
 - `actormethod` -- binds `target = cls or self`, so `Product.inbox(tx)` and `product.inbox(tx)` use the same function
@@ -256,7 +256,7 @@ Key methods:
 - `__addr__` from `__tablename__` or class name
 - Auto-registers with root Matrix (unless `auto_register=False`)
 
-### Matrix (`src/pybend/core/actors/matrix.py`)
+### Matrix (`src/n3tx/core/actors/matrix.py`)
 
 Root actor and message router. Module-level `matrix = Matrix()` created at import time.
 
@@ -267,7 +267,7 @@ Routing:
 
 Self-send prevention: target == own addr -> log error, return.
 
-### ActorProxy (`src/pybend/core/actors/actor_proxy.py`)
+### ActorProxy (`src/n3tx/core/actors/actor_proxy.py`)
 
 Lightweight wrapper using `__slots__`. Gives any class or instance the actor interface (inbox/handler/send/register/spawn) without inheritance. Matrix routes uniformly to Actor and ActorProxy children.
 
@@ -283,7 +283,7 @@ Signature: `async (TX) -> TX`. Return error TX to short-circuit. Class + instanc
 
 ## Two-Tier Authorization (Level 3)
 
-**Tier 1 -- `auth_interceptor`** (`src/pybend/core/api/auth_interceptor.py`):
+**Tier 1 -- `auth_interceptor`** (`src/n3tx/core/api/auth_interceptor.py`):
 - Registered on `NetworkAPI.request()` via `api.use(auth_interceptor, on='request')`
 - Fast gate at protocol boundary
 - schema: pass-through (always public)
@@ -292,7 +292,7 @@ Signature: `async (TX) -> TX`. Return error TX to short-circuit. Class + instanc
 - read/update/delete: identity gate only (OWNER deferred to Tier 2)
 - custom methods: check `@expose_route(access=...)` rules
 
-**Tier 2 -- `ActorModel._authorize()`** (`src/pybend/core/models/actor_model.py`):
+**Tier 2 -- `ActorModel._authorize()`** (`src/n3tx/core/models/actor_model.py`):
 - Called inside `handler_crud()` after fetching the resource instance
 - Full ABAC evaluation with resource context (enables OWNER rules)
 - Internal messages (no `meta.user`) pass through unchecked
@@ -301,7 +301,7 @@ Signature: `async (TX) -> TX`. Return error TX to short-circuit. Class + instanc
 
 ## Agent System
 
-### AgentMixin (`src/pybend/core/agents/mixin.py`)
+### AgentMixin (`src/n3tx/core/agents/mixin.py`)
 
 Injected into models with `__agent__ = True`. Provides `agent_run()`:
 
@@ -313,14 +313,14 @@ Injected into models with `__agent__ = True`. Provides `agent_run()`:
 6. Tool calls route through Matrix as TX messages
 7. Cleans up transient adapter
 
-### AgentActor (`src/pybend/core/agents/actor.py`)
+### AgentActor (`src/n3tx/core/agents/actor.py`)
 
 Concrete `ActorModel` whose instances ARE agents. Configuration stored in fields (DB-storable):
 - `name`, `prompt`, `llm`, `constraints` (serialized as JSON TEXT)
 - `tools`: `ListRef[AgentTool]` -- join table pattern
 - `run()`: `@expose_route('/run', methods=['POST'])` -- triggers `agent_run()`
 
-### Tool Discovery (`src/pybend/core/agents/tools.py`)
+### Tool Discovery (`src/n3tx/core/agents/tools.py`)
 
 `discover_tools(actor_addrs, root)`:
 - Reads schemas from Matrix children
@@ -332,7 +332,7 @@ Concrete `ActorModel` whose instances ARE agents. Configuration stored in fields
 - Generated functions route calls through Matrix via `_route_tool_call()`
 - Wrapped as `pydantic_ai.Tool` objects with `takes_ctx=True`
 
-### Schema Extension (`src/pybend/core/agents/schema_ext.py`)
+### Schema Extension (`src/n3tx/core/agents/schema_ext.py`)
 
 `@schema_extension(after='methods')` adds `agent` stage:
 ```json
@@ -342,45 +342,45 @@ Concrete `ActorModel` whose instances ARE agents. Configuration stored in fields
 ## Frontend Architecture
 
 **Core system** (mirrors backend Actor/Matrix/TX):
-- `src/pybend/static/core/Actor.js` -- base actor class
-- `src/pybend/static/core/Matrix.js` -- root message router
-- `src/pybend/static/core/TX.js` -- message envelope
-- `src/pybend/static/core/NTT.js` -- `NTT.SCHEMA()` creates DynamicClasses via `prototype()`
-- `src/pybend/static/core/Component.js` -- base Web Component class
-- `src/pybend/static/core/Router.js` -- client-side routing
-- `src/pybend/static/core/Observable.js` -- reactive data binding
+- `src/n3tx/static/core/Actor.js` -- base actor class
+- `src/n3tx/static/core/Matrix.js` -- root message router
+- `src/n3tx/static/core/TX.js` -- message envelope
+- `src/n3tx/static/core/N3TX.js` -- `N3TX.SCHEMA()` creates DynamicClasses via `prototype()`
+- `src/n3tx/static/core/Component.js` -- base Web Component class
+- `src/n3tx/static/core/Router.js` -- client-side routing
+- `src/n3tx/static/core/Observable.js` -- reactive data binding
 
 **Components** (Web Components consuming schema):
-- `src/pybend/static/components/ntt-list.js` -- list view with pagination
-- `src/pybend/static/components/ntt-item.js` -- single entity view with adaptive sizing
-- `src/pybend/static/components/ntt-method.js` -- custom method buttons
-- `src/pybend/static/components/ntt-router.js` -- navigation and route resolution
-- `src/pybend/static/components/ntt-sidebar.js` -- model navigation sidebar
-- `src/pybend/static/components/ntt-topbar.js` -- top navigation bar
-- `src/pybend/static/components/ntt-modal.js` -- modal dialogs
-- `src/pybend/static/components/ntt-table.js` -- table/row view
-- `src/pybend/static/components/ntt-user.js` -- user auth UI
+- `src/n3tx/static/components/ntx-list.js` -- list view with pagination
+- `src/n3tx/static/components/ntx-item.js` -- single entity view with adaptive sizing
+- `src/n3tx/static/components/ntx-method.js` -- custom method buttons
+- `src/n3tx/static/components/ntx-router.js` -- navigation and route resolution
+- `src/n3tx/static/components/ntx-sidebar.js` -- model navigation sidebar
+- `src/n3tx/static/components/ntx-topbar.js` -- top navigation bar
+- `src/n3tx/static/components/ntx-modal.js` -- modal dialogs
+- `src/n3tx/static/components/ntx-table.js` -- table/row view
+- `src/n3tx/static/components/ntx-user.js` -- user auth UI
 
 **Generators:**
-- `src/pybend/static/generators/form.js` -- schema-driven form generation (`Formidable`)
+- `src/n3tx/static/generators/form.js` -- schema-driven form generation (`Formidable`)
 
 **Widgets (JS side):**
-- `src/pybend/static/widgets/Widget.js` -- base widget class
-- `src/pybend/static/widgets/registry.js` -- widget registry
+- `src/n3tx/static/widgets/Widget.js` -- base widget class
+- `src/n3tx/static/widgets/registry.js` -- widget registry
 - Individual widgets: `UrlWidget.js`, `MarkdownWidget.js`, `CurrencyWidget.js`, etc.
 
 **Transport:**
-- `src/pybend/static/core/transport/HTTP.js` -- HTTP adapter
-- `src/pybend/static/core/transport/Socket.js` -- WebSocket adapter
-- `src/pybend/static/core/transport/NetworkAdapter.js` -- base adapter
+- `src/n3tx/static/core/transport/HTTP.js` -- HTTP adapter
+- `src/n3tx/static/core/transport/Socket.js` -- WebSocket adapter
+- `src/n3tx/static/core/transport/NetworkAdapter.js` -- base adapter
 
 ## Data Flow: Request Lifecycle
 
 ### Schema Fetch (Frontend Bootstrap)
 
 ```
-Browser: <ntt-list model="Product">
-    -> NTT.SCHEMA("Product")
+Browser: <ntx-list model="Product">
+    -> N3TX.SCHEMA("Product")
     -> GET /Product (no auth required)
     -> Backend: proto_schema.run_pipeline(Product)
         -> base: model_json_schema()
@@ -448,7 +448,7 @@ POST /agents/1/run {"task": "Scan sources for grants"}
 
 ## Network Adapters
 
-All extend `NetworkAdapter` (`src/pybend/core/api/network_adapter.py`) which extends `Actor`:
+All extend `NetworkAdapter` (`src/n3tx/core/api/network_adapter.py`) which extends `Actor`:
 
 | Adapter | File | Protocol | Purpose |
 |---------|------|----------|---------|
@@ -461,7 +461,7 @@ All extend `NetworkAdapter` (`src/pybend/core/api/network_adapter.py`) which ext
 
 ## Discovery Endpoints
 
-Defined in `src/pybend/core/api/discovery.py`:
+Defined in `src/n3tx/core/api/discovery.py`:
 
 - `GET /_meta` -- Model registry, capabilities, health (from registered_models)
 - `GET /.well-known/agent.json` -- A2A Agent Card for inter-agent discovery
@@ -473,20 +473,20 @@ Defined in `src/pybend/core/api/discovery.py`:
 **Patterns:**
 - `TX.error(message, code)` creates error TX with semantic HTTP code
 - `TX.from_exception(e, tx)` maps exception types: MethodError -> custom code, ValidationError -> 422, ValueError -> 400, PermissionError -> 403, KeyError -> 400
-- `MethodError` (`src/pybend/core/utils/erroring.py`) carries status_code + message for custom method errors
+- `MethodError` (`src/n3tx/core/utils/erroring.py`) carries status_code + message for custom method errors
 - Error TXs short-circuit interceptor chains (`tx.is_error` check)
 - Handler drops unhandled error/response TXs silently to prevent infinite bounce loops
 - `_response_or_raise(response)` in network_api.py converts error TX to `HTTPException`
 
 ## Cross-Cutting Concerns
 
-**Logging:** Python `logging` module with `pybend.*` namespace hierarchy (`pybend.actors`, `pybend.models`, `pybend.api`, `pybend.schema`, `pybend.agents`, `pybend.network`, etc.)
+**Logging:** Python `logging` module with `n3tx.*` namespace hierarchy (`n3tx.actors`, `n3tx.models`, `n3tx.api`, `n3tx.schema`, `n3tx.agents`, `n3tx.network`, etc.)
 
 **Validation:** Pydantic V2 model validation + `Field()` constraints. Frontend gets constraints from JSON Schema properties.
 
-**Authentication:** JWT via `x-access-token` header. `JWTAuthMiddleware` in `FastAPIBackend` decodes token and sets `request.state.user`. Auth package (`src/pybend/core/authorize/`) is standalone -- zero PyBend imports.
+**Authentication:** JWT via `x-access-token` header. `JWTAuthMiddleware` in `FastAPIBackend` decodes token and sets `request.state.user`. Auth package (`src/n3tx/core/authorize/`) is standalone -- zero N3TX imports.
 
-**Configuration:** Module-level `src/pybend/core/config.py` with env var overrides (`PYBEND_*`). Per-app config in `example_*/config.py`.
+**Configuration:** Module-level `src/n3tx/core/config.py` with env var overrides (`N3TX_*`). Per-app config in `example_*/config.py`.
 
 **Pagination:** `?limit=N&offset=M` query params. Returns `{data: [...], meta: {total, limit, offset, has_more}}` when limit/offset provided; plain array when not.
 

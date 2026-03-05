@@ -26,11 +26,11 @@ These are assumed complete before starting Fork C:
 
 | Sprint 1 Deliverable | File | Status |
 |---|---|---|
-| SSRF prevention | `src/pybend/core/agents/security.py` | Done |
-| Error classification | `src/pybend/core/agents/errors.py` | Done |
-| SQLite pragmas (NORMAL sync, 10s busy_timeout, cache_size) | `src/pybend/core/storage/sqlite_storage.py` | Done |
-| AgentRun model (run history) | `example_grants/models/agent_run.py` (or `src/pybend/core/agents/`) | Done |
-| Trace interceptor (agent run logging) | `src/pybend/core/agents/` or `example_grants/` | Done |
+| SSRF prevention | `src/n3tx/core/agents/security.py` | Done |
+| Error classification | `src/n3tx/core/agents/errors.py` | Done |
+| SQLite pragmas (NORMAL sync, 10s busy_timeout, cache_size) | `src/n3tx/core/storage/sqlite_storage.py` | Done |
+| AgentRun model (run history) | `example_grants/models/agent_run.py` (or `src/n3tx/core/agents/`) | Done |
+| Trace interceptor (agent run logging) | `src/n3tx/core/agents/` or `example_grants/` | Done |
 
 **From Sprint 1, Fork C inherits:**
 - `errors.py` with `classify_tx_error()`, `TransientError`, `PermanentError`, `ResourceError` -- used by Tasks 1 and 2.
@@ -107,8 +107,8 @@ Parallelizable groups:
 **Goal:** Wire Pydantic AI's built-in `retries` parameter into `make_tool()` so that per-tool retry count is configurable via agent constraints.
 
 **Files modified:**
-- `src/pybend/core/agents/tools.py` -- `make_tool()` accepts `retries` parameter
-- `src/pybend/core/agents/mixin.py` -- `agent_run()` reads `constraints['tool_retries']` and passes to `make_tool()`
+- `src/n3tx/core/agents/tools.py` -- `make_tool()` accepts `retries` parameter
+- `src/n3tx/core/agents/mixin.py` -- `agent_run()` reads `constraints['tool_retries']` and passes to `make_tool()`
 
 **Changes to `tools.py`:**
 
@@ -145,7 +145,7 @@ ai_tools = [make_tool(spec, retries=tool_retries) for spec in tool_specs]
 **Goal:** Replace the generic `ModelRetry("Tool call failed")` with classified error messages that guide the LLM's retry behavior.
 
 **Files modified:**
-- `src/pybend/core/agents/tools.py` -- `_route_tool_call()` function
+- `src/n3tx/core/agents/tools.py` -- `_route_tool_call()` function
 
 **Current code (line 194-196):**
 ```python
@@ -158,7 +158,7 @@ if response.is_error:
 ```python
 if response.is_error:
     from pydantic_ai import ModelRetry
-    from pybend.core.agents.errors import classify_tx_error
+    from n3tx.core.agents.errors import classify_tx_error
 
     error = classify_tx_error(response)
     if error.retryable:
@@ -182,7 +182,7 @@ if response.is_error:
   - 400, 401, 403, 404, 422 -> `PermanentError` (not retryable)
   - Default -> `TransientError`
 
-**Test:** Unit test in `src/pybend/core/tests/unit/test_agent_tools.py` (new file) that creates mock error TXs with various codes and verifies the correct ModelRetry messages.
+**Test:** Unit test in `src/n3tx/core/tests/unit/test_agent_tools.py` (new file) that creates mock error TXs with various codes and verifies the correct ModelRetry messages.
 
 ---
 
@@ -204,7 +204,7 @@ from tenacity import (
 import httpx
 import logging
 
-logger = logging.getLogger('pybend.agents')
+logger = logging.getLogger('n3tx.agents')
 
 class WebTools(ActorModel):
     __tablename__ = 'web_tools'
@@ -220,7 +220,7 @@ class WebTools(ActorModel):
     )
     async def scrape(self, url: str) -> dict:
         """Fetch a URL and return its HTML content."""
-        from pybend.core.agents.security import validate_url
+        from n3tx.core.agents.security import validate_url
         url = validate_url(url)  # SSRF prevention from Sprint 1
         async with httpx.AsyncClient(
             follow_redirects=True,
@@ -246,7 +246,7 @@ class WebTools(ActorModel):
 
 **Goal:** In-process, per-domain circuit breaker for external service calls. Pure Python, no dependencies, ~80 lines.
 
-**New file:** `src/pybend/core/agents/circuit.py`
+**New file:** `src/n3tx/core/agents/circuit.py`
 
 **This is a framework-level component** because circuit breakers are reusable across any agentic app, not specific to grants.
 
@@ -272,7 +272,7 @@ import time
 import logging
 from enum import Enum
 
-logger = logging.getLogger('pybend.circuit')
+logger = logging.getLogger('n3tx.circuit')
 
 
 class CircuitState(Enum):
@@ -374,8 +374,8 @@ def reset_all():
 **The interceptor function (in `web_tools.py` or a separate `interceptors.py`):**
 
 ```python
-from pybend.core.agents.circuit import get_breaker
-from pybend.core.actors.tx import TX
+from n3tx.core.agents.circuit import get_breaker
+from n3tx.core.actors.tx import TX
 
 async def scrape_circuit_breaker(tx: TX) -> TX:
     """TX interceptor: check circuit breaker before scraping.
@@ -414,7 +414,7 @@ WebTools.use(scrape_circuit_breaker, on='inbox')
 ```python
 async def scrape(self, url: str) -> dict:
     from urllib.parse import urlparse
-    from pybend.core.agents.circuit import get_breaker
+    from n3tx.core.agents.circuit import get_breaker
     domain = urlparse(url).netloc
     breaker = get_breaker(f"scrape:{domain}")
     try:
@@ -430,7 +430,7 @@ This is simpler and more explicit. The interceptor blocks when open; the method 
 
 **Approach B: Send interceptor on WebTools that inspects replies.** More complex, requires correlating request/response TXs. Not worth the complexity for this use case.
 
-**How this maps to PyBend primitives:**
+**How this maps to N3TX primitives:**
 - `WebTools.use(fn, on='inbox')` -- same pattern as `api.use(auth_interceptor, on='request')` in `app.py`
 - Error TX returned from interceptor short-circuits the chain (line 314-317 in `actor.py`): `if tx.is_error: await target.send(tx); return`
 - The error TX routes back through Matrix to the agent's adapter, where `_route_tool_call` classifies it as a `TransientError` (code 503) and raises `ModelRetry` with an appropriate message
@@ -440,7 +440,7 @@ This is simpler and more explicit. The interceptor blocks when open; the method 
 ### T6: Circuit Breaker Tests (0.5 days)
 
 **New files:**
-- `src/pybend/core/tests/unit/test_circuit.py` -- unit tests for `CircuitBreaker` class
+- `src/n3tx/core/tests/unit/test_circuit.py` -- unit tests for `CircuitBreaker` class
 - `example_grants/tests/test_circuit_interceptor.py` -- integration test for the TX interceptor
 
 **Unit tests (`test_circuit.py`):**
@@ -465,8 +465,8 @@ This is simpler and more explicit. The interceptor blocks when open; the method 
 **Goal:** Add HTTP-level rate limiting to FastAPI endpoints using SlowAPI middleware.
 
 **Files modified:**
-- `src/pybend/core/api/backend.py` -- add SlowAPI limiter state and error handler
-- `src/pybend/core/app.py` -- pass rate limit config, apply to sensitive routes
+- `src/n3tx/core/api/backend.py` -- add SlowAPI limiter state and error handler
+- `src/n3tx/core/app.py` -- pass rate limit config, apply to sensitive routes
 - `pyproject.toml` -- add `slowapi` dependency
 
 **Changes to `backend.py` (`FastAPIBackend.__init__`):**
@@ -558,7 +558,7 @@ async def _rate_limit_domain(domain: str):
 **Called at the top of `scrape()`:**
 ```python
 async def scrape(self, url: str) -> dict:
-    from pybend.core.agents.security import validate_url
+    from n3tx.core.agents.security import validate_url
     url = validate_url(url)
     domain = urlparse(url).netloc
     await _rate_limit_domain(domain)
@@ -578,7 +578,7 @@ async def scrape(self, url: str) -> dict:
 **Goal:** Extend `agent_run()` to read token limits from agent constraints and pass them to Pydantic AI's `UsageLimits`.
 
 **Files modified:**
-- `src/pybend/core/agents/mixin.py` -- `agent_run()` method
+- `src/n3tx/core/agents/mixin.py` -- `agent_run()` method
 
 **Current code (line 122-126):**
 ```python
@@ -674,7 +674,7 @@ class Grant(ActorModel):
 
 **Goal:** Migrate from stdlib `logging` to `structlog` for JSON-structured output in production and human-readable output in development. Incremental -- existing `logging.getLogger()` calls continue to work.
 
-**New file:** `src/pybend/core/logging.py`
+**New file:** `src/n3tx/core/logging.py`
 
 **Files modified:**
 - `pyproject.toml` -- add `structlog` dependency
@@ -683,19 +683,19 @@ class Grant(ActorModel):
 **Implementation (`logging.py`):**
 
 ```python
-"""Structured logging configuration for PyBend.
+"""Structured logging configuration for N3TX.
 
 Wraps stdlib logging with structlog processors. Existing
 logging.getLogger() calls work unchanged -- structlog captures
 them via ProcessorFormatter on the root handler.
 
 Usage:
-    from pybend.core.logging import configure_logging
+    from n3tx.core.logging import configure_logging
     configure_logging(json_output=False)  # dev mode
 
     # Then in any module:
     import structlog
-    logger = structlog.get_logger('pybend.agents')
+    logger = structlog.get_logger('n3tx.agents')
     logger.info("agent_run.start", run_id="abc123", tools=["grants"])
 """
 
@@ -704,7 +704,7 @@ import structlog
 
 
 def configure_logging(json_output: bool = True, level: int = logging.INFO):
-    """Configure structlog for PyBend.
+    """Configure structlog for N3TX.
 
     Args:
         json_output: True for production (JSON lines), False for dev (colored console).
@@ -754,8 +754,8 @@ def configure_logging(json_output: bool = True, level: int = logging.INFO):
 ```python
 # Replace: logging.basicConfig(level=logging.INFO, format='...')
 # With:
-from pybend.core.logging import configure_logging
-is_production = os.environ.get('PYBEND_ENV') == 'production'
+from n3tx.core.logging import configure_logging
+is_production = os.environ.get('N3TX_ENV') == 'production'
 configure_logging(json_output=is_production)
 ```
 
@@ -764,9 +764,9 @@ configure_logging(json_output=is_production)
 2. Over time, replace `logging.getLogger()` with `structlog.get_logger()` in specific modules to get structured key-value logging. This is additive and non-breaking.
 3. Never remove stdlib logging support -- third-party libraries use it.
 
-**Framework vs App:** `configure_logging()` lives in framework (`src/pybend/core/logging.py`) because structured logging is a framework concern. The call site is the app (`main.py`) because logging configuration is a startup decision.
+**Framework vs App:** `configure_logging()` lives in framework (`src/n3tx/core/logging.py`) because structured logging is a framework concern. The call site is the app (`main.py`) because logging configuration is a startup decision.
 
-**Test:** `src/pybend/core/tests/unit/test_logging_config.py` -- call `configure_logging(json_output=True)`, emit a log message via `logging.getLogger('test')`, capture output and verify it's valid JSON with expected keys (`timestamp`, `level`, `logger`).
+**Test:** `src/n3tx/core/tests/unit/test_logging_config.py` -- call `configure_logging(json_output=True)`, emit a log message via `logging.getLogger('test')`, capture output and verify it's valid JSON with expected keys (`timestamp`, `level`, `logger`).
 
 ---
 
@@ -775,15 +775,15 @@ configure_logging(json_output=is_production)
 **Goal:** Add correlation IDs to agent run logs so every log line from a single run can be traced.
 
 **Files modified:**
-- `src/pybend/core/agents/mixin.py` -- use structlog context vars in `agent_run()`
-- `src/pybend/core/agents/tools.py` -- log tool calls with run context
+- `src/n3tx/core/agents/mixin.py` -- use structlog context vars in `agent_run()`
+- `src/n3tx/core/agents/tools.py` -- log tool calls with run context
 
 **Changes to `mixin.py`:**
 
 ```python
 import structlog
 
-logger = structlog.get_logger('pybend.agents')
+logger = structlog.get_logger('n3tx.agents')
 
 async def agent_run(self, prompt, tools, task, user=None, **kwargs):
     # ... existing setup ...
@@ -831,7 +831,7 @@ async def agent_run(self, prompt, tools, task, user=None, **kwargs):
 ```python
 import structlog
 
-logger = structlog.get_logger('pybend.agents.tools')
+logger = structlog.get_logger('n3tx.agents.tools')
 
 async def _route_tool_call(ctx, target_addr, method_name, data):
     logger.info("tool_call.start", target=target_addr, method=method_name)
@@ -861,9 +861,9 @@ async def _route_tool_call(ctx, target_addr, method_name, data):
 **Goal:** Track active agent runs and drain them with a configurable timeout before the server stops.
 
 **Files modified:**
-- `src/pybend/core/agents/mixin.py` -- register/deregister active runs
-- `src/pybend/core/app.py` -- add FastAPI lifespan with shutdown drain
-- `src/pybend/core/api/backend.py` -- pass lifespan to FastAPI constructor
+- `src/n3tx/core/agents/mixin.py` -- register/deregister active runs
+- `src/n3tx/core/app.py` -- add FastAPI lifespan with shutdown drain
+- `src/n3tx/core/api/backend.py` -- pass lifespan to FastAPI constructor
 
 **Active run tracking (in `mixin.py`):**
 
@@ -907,13 +907,13 @@ async def _lifespan(app):
     # Startup (nothing needed)
     yield
     # Shutdown
-    from pybend.core.agents.mixin import get_active_runs
+    from n3tx.core.agents.mixin import get_active_runs
     active = get_active_runs()
     if active:
         import logging
-        logger = logging.getLogger('pybend.shutdown')
+        logger = logging.getLogger('n3tx.shutdown')
         logger.info("Shutdown: waiting for %d active agent runs", len(active))
-        timeout = float(os.environ.get('PYBEND_SHUTDOWN_TIMEOUT', '30'))
+        timeout = float(os.environ.get('N3TX_SHUTDOWN_TIMEOUT', '30'))
         done, pending = await asyncio.wait(
             active.values(),
             timeout=timeout,
@@ -938,7 +938,7 @@ self.app = FastAPI(
 )
 ```
 
-The `lifespan` parameter needs to be threaded through from `create_app()` / `PyBendApp.build()` to `FastAPIBackend.__init__()`. Add it as an optional parameter to `FastAPIBackend`:
+The `lifespan` parameter needs to be threaded through from `create_app()` / `N3TXApp.build()` to `FastAPIBackend.__init__()`. Add it as an optional parameter to `FastAPIBackend`:
 
 ```python
 def __init__(self, cors_origins=None, ssr_mode='off', lifespan=None, **data):
@@ -951,7 +951,7 @@ def __init__(self, cors_origins=None, ssr_mode='off', lifespan=None, **data):
     )
 ```
 
-**Test:** `src/pybend/core/tests/unit/test_graceful_shutdown.py` -- create a mock async task registered in `_active_runs`, call `shutdown_agents()` with a 1-second timeout, verify the task is cancelled. Also test the happy path where the task completes before the timeout.
+**Test:** `src/n3tx/core/tests/unit/test_graceful_shutdown.py` -- create a mock async task registered in `_active_runs`, call `shutdown_agents()` with a 1-second timeout, verify the task is cancelled. Also test the happy path where the task completes before the timeout.
 
 ---
 
@@ -960,7 +960,7 @@ def __init__(self, cors_origins=None, ssr_mode='off', lifespan=None, **data):
 **Goal:** Add `/health` (liveness) and `/ready` (readiness) endpoints.
 
 **Files modified:**
-- `src/pybend/core/app.py` -- add health check routes in `PyBendApp.build()`
+- `src/n3tx/core/app.py` -- add health check routes in `N3TXApp.build()`
 
 **Implementation (in `build()`, after route registration):**
 
@@ -997,14 +997,14 @@ async def ready():
         checks['database'] = f'error: {e}'
 
     # Matrix check
-    from pybend.core.actors.actor import Actor
+    from n3tx.core.actors.actor import Actor
     root = Actor.root()
     checks['matrix'] = 'ok' if root else 'error: no root actor'
     if root:
         checks['actor_count'] = len(root.children)
 
     # Active agent runs
-    from pybend.core.agents.mixin import get_active_runs
+    from n3tx.core.agents.mixin import get_active_runs
     checks['active_agent_runs'] = len(get_active_runs())
 
     all_ok = all(
@@ -1021,9 +1021,9 @@ async def ready():
     )
 ```
 
-**Why `include_in_schema=False`:** Health check endpoints are operational, not part of the API contract. They should not appear in OpenAPI docs or be discoverable by NTT schema resolution.
+**Why `include_in_schema=False`:** Health check endpoints are operational, not part of the API contract. They should not appear in OpenAPI docs or be discoverable by N3TX schema resolution.
 
-**Why framework-level:** Every PyBend app needs health checks for deployment. The `/health` endpoint is universal. The `/ready` endpoint checks PyBend-specific dependencies (Matrix, storage).
+**Why framework-level:** Every N3TX app needs health checks for deployment. The `/health` endpoint is universal. The `/ready` endpoint checks N3TX-specific dependencies (Matrix, storage).
 
 **Test:** `example_grants/tests/test_health.py` -- GET `/health` returns 200 with `status: healthy`. GET `/ready` returns 200 with `database: ok` and `matrix: ok`.
 
@@ -1191,10 +1191,10 @@ agent_run() completes, returns result dict
 
 | File | Tests | Covers |
 |---|---|---|
-| `src/pybend/core/tests/unit/test_circuit.py` | 8 tests | CircuitBreaker state machine (T4, T6) |
-| `src/pybend/core/tests/unit/test_agent_tools.py` | 4 tests | `make_tool()` retries param, `_route_tool_call` error classification (T1, T2) |
-| `src/pybend/core/tests/unit/test_logging_config.py` | 3 tests | `configure_logging()` JSON/console modes (T11) |
-| `src/pybend/core/tests/unit/test_graceful_shutdown.py` | 3 tests | Active run tracking, shutdown drain (T13) |
+| `src/n3tx/core/tests/unit/test_circuit.py` | 8 tests | CircuitBreaker state machine (T4, T6) |
+| `src/n3tx/core/tests/unit/test_agent_tools.py` | 4 tests | `make_tool()` retries param, `_route_tool_call` error classification (T1, T2) |
+| `src/n3tx/core/tests/unit/test_logging_config.py` | 3 tests | `configure_logging()` JSON/console modes (T11) |
+| `src/n3tx/core/tests/unit/test_graceful_shutdown.py` | 3 tests | Active run tracking, shutdown drain (T13) |
 
 ### Integration Tests (App)
 
@@ -1309,12 +1309,12 @@ def test_duplicate_grant_url_returns_existing(test_db, seed_data, alice_token):
 
 | File | Type | Task |
 |---|---|---|
-| `src/pybend/core/agents/circuit.py` | Framework | T4 |
-| `src/pybend/core/logging.py` | Framework | T11 |
-| `src/pybend/core/tests/unit/test_circuit.py` | Test | T6 |
-| `src/pybend/core/tests/unit/test_agent_tools.py` | Test | T1, T2 |
-| `src/pybend/core/tests/unit/test_logging_config.py` | Test | T11 |
-| `src/pybend/core/tests/unit/test_graceful_shutdown.py` | Test | T13 |
+| `src/n3tx/core/agents/circuit.py` | Framework | T4 |
+| `src/n3tx/core/logging.py` | Framework | T11 |
+| `src/n3tx/core/tests/unit/test_circuit.py` | Test | T6 |
+| `src/n3tx/core/tests/unit/test_agent_tools.py` | Test | T1, T2 |
+| `src/n3tx/core/tests/unit/test_logging_config.py` | Test | T11 |
+| `src/n3tx/core/tests/unit/test_graceful_shutdown.py` | Test | T13 |
 | `example_grants/tests/test_web_tools_retry.py` | Test | T3, T8 |
 | `example_grants/tests/test_circuit_interceptor.py` | Test | T5 |
 | `example_grants/tests/test_rate_limiting.py` | Test | T7 |
@@ -1326,10 +1326,10 @@ def test_duplicate_grant_url_returns_existing(test_db, seed_data, alice_token):
 
 | File | Tasks | Nature of Change |
 |---|---|---|
-| `src/pybend/core/agents/tools.py` | T1, T2 | `make_tool()` retries param, `_route_tool_call()` error classification |
-| `src/pybend/core/agents/mixin.py` | T1, T9, T12, T13 | Tool retries, UsageLimits, correlation IDs, active run tracking |
-| `src/pybend/core/app.py` | T7, T13, T14 | Lifespan, health endpoints, rate limit wiring |
-| `src/pybend/core/api/backend.py` | T7, T13 | SlowAPI setup, lifespan parameter |
+| `src/n3tx/core/agents/tools.py` | T1, T2 | `make_tool()` retries param, `_route_tool_call()` error classification |
+| `src/n3tx/core/agents/mixin.py` | T1, T9, T12, T13 | Tool retries, UsageLimits, correlation IDs, active run tracking |
+| `src/n3tx/core/app.py` | T7, T13, T14 | Lifespan, health endpoints, rate limit wiring |
+| `src/n3tx/core/api/backend.py` | T7, T13 | SlowAPI setup, lifespan parameter |
 | `example_grants/models/web_tools.py` | T3, T5, T8 | Tenacity, circuit breaker record, domain rate limit |
 | `example_grants/models/grant.py` | T10 | Idempotent create override |
 | `example_grants/main.py` | T5, T11 | Circuit breaker interceptor registration, configure_logging() |
@@ -1340,13 +1340,13 @@ def test_duplicate_grant_url_returns_existing(test_db, seed_data, alice_token):
 
 | File | Reason |
 |---|---|
-| `src/pybend/core/actors/actor.py` | `use()` and interceptor chain already support all patterns |
-| `src/pybend/core/actors/tx.py` | `error()` and `is_error` already provide the error channel |
-| `src/pybend/core/api/auth_interceptor.py` | Unchanged; auth remains the first interceptor |
-| `src/pybend/core/api/network_adapter.py` | `request()` already runs interceptors |
-| `src/pybend/core/storage/sqlite_storage.py` | Pragmas done in Sprint 1 |
-| `src/pybend/core/agents/errors.py` | Done in Sprint 1, consumed by T2 |
-| `src/pybend/core/agents/security.py` | Done in Sprint 1, consumed by T3 |
+| `src/n3tx/core/actors/actor.py` | `use()` and interceptor chain already support all patterns |
+| `src/n3tx/core/actors/tx.py` | `error()` and `is_error` already provide the error channel |
+| `src/n3tx/core/api/auth_interceptor.py` | Unchanged; auth remains the first interceptor |
+| `src/n3tx/core/api/network_adapter.py` | `request()` already runs interceptors |
+| `src/n3tx/core/storage/sqlite_storage.py` | Pragmas done in Sprint 1 |
+| `src/n3tx/core/agents/errors.py` | Done in Sprint 1, consumed by T2 |
+| `src/n3tx/core/agents/security.py` | Done in Sprint 1, consumed by T3 |
 
 ---
 

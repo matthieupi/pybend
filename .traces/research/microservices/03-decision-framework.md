@@ -2,7 +2,7 @@
 
 **Audience:** Technical CEOs, CTOs, and Engineering Teams
 **Last Updated:** 2026-02-26
-**Context:** PyBend schema-driven monolithic framework; evaluating architectural evolution paths
+**Context:** N3TX schema-driven monolithic framework; evaluating architectural evolution paths
 
 ---
 
@@ -28,7 +28,7 @@ The right architecture is not the one that sounds most modern. It is the one tha
 10. [Alternatives to Microservices](#10-alternatives-to-microservices)
 11. [Decision Tree](#11-decision-tree)
 12. [Success Metrics: DORA and Beyond](#12-success-metrics-dora-and-beyond)
-13. [PyBend-Specific Guidance](#13-pybend-specific-guidance)
+13. [N3TX-Specific Guidance](#13-ntx-specific-guidance)
 14. [Sources](#14-sources)
 
 ---
@@ -70,12 +70,12 @@ Each transition also removes:
 
 **The mistake most teams make is jumping from simple monolith directly to microservices**, skipping the modular monolith stage entirely. This is like going from a bicycle to a Formula 1 car without learning to drive. The modular monolith is where 80% of organizations should land and stay for years ([ThoughtWorks Technology Radar](https://www.javacodegeeks.com/2025/12/microservices-vs-modular-monoliths-in-2025-when-each-approach-wins.html)).
 
-### 1.3 Where PyBend Sits Today
+### 1.3 Where N3TX Sits Today
 
-PyBend is a schema-driven monolith with strong modular characteristics:
+N3TX is a schema-driven monolith with strong modular characteristics:
 
 ```
-PyBend Architecture Classification:
+N3TX Architecture Classification:
   - Deployment: Single process (Uvicorn + FastAPI)
   - Storage: Single SQLite database
   - Communication: In-process function calls
@@ -83,7 +83,7 @@ PyBend Architecture Classification:
   - Classification: Simple Monolith trending toward Modular Monolith
 ```
 
-PyBend's `authorize` package is already fully decoupled (zero PyBend imports). The storage layer is abstracted behind `AbstractStorage`. These are the hallmarks of a codebase that can evolve toward a modular monolith without a rewrite.
+N3TX's `authorize` package is already fully decoupled (zero N3TX imports). The storage layer is abstracted behind `AbstractStorage`. These are the hallmarks of a codebase that can evolve toward a modular monolith without a rewrite.
 
 ---
 
@@ -110,9 +110,9 @@ Evaluate your organization across five dimensions. Each dimension scores on a 1-
 | **18-21** | Extract 2-5 services from hot paths | Targeted decomposition where scaling demands it |
 | **22-25** | Full microservices | Organization, domain, and ops maturity justify it |
 
-### 2.3 Worked Example: A PyBend Application
+### 2.3 Worked Example: A N3TX Application
 
-Consider a PyBend e-commerce application:
+Consider a N3TX e-commerce application:
 
 ```
 Dimension Assessment:
@@ -125,7 +125,7 @@ Dimension Assessment:
   Total: 11  ->  Recommendation: Modular Monolith
 ```
 
-This team should invest in module boundaries within their monolith, not in Kubernetes clusters. The PyBend model-driven approach already provides natural boundaries (each model is its own domain entity with schema, routes, and access rules).
+This team should invest in module boundaries within their monolith, not in Kubernetes clusters. The N3TX model-driven approach already provides natural boundaries (each model is its own domain entity with schema, routes, and access rules).
 
 ---
 
@@ -178,9 +178,9 @@ Bad service boundary:
   - Service that requires another service to validate its own data
 ```
 
-### 3.5 Conway's Law for PyBend Teams
+### 3.5 Conway's Law for N3TX Teams
 
-A PyBend application maps models to teams naturally:
+A N3TX application maps models to teams naturally:
 
 ```
 Team "Commerce":   Product, Order, Cart models
@@ -190,7 +190,7 @@ Team "Identity":   User model + authorize package
 Each team owns their models, schemas, and access rules.
 All deploy as one artifact (modular monolith).
 If/when Team Commerce needs independent scaling, extract their
-models into a separate PyBend instance with its own database.
+models into a separate N3TX instance with its own database.
 ```
 
 ---
@@ -589,10 +589,10 @@ Before committing to microservices, evaluate these alternatives that deliver man
 
 **What it is:** A single deployable artifact with enforced internal module boundaries. Modules communicate through defined interfaces, not direct database access.
 
-**How to implement in PyBend:**
+**How to implement in N3TX:**
 
 ```python
-# PyBend's model-driven architecture naturally creates module boundaries.
+# N3TX's model-driven architecture naturally creates module boundaries.
 # Each model is its own domain entity with:
 #   - Schema (data contract)
 #   - Routes (API surface)
@@ -601,7 +601,7 @@ Before committing to microservices, evaluate these alternatives that deliver man
 
 # Enforce boundaries:
 # 1. Models only reference other models through ListRef/Ref (no raw SQL joins)
-# 2. The authorize package has zero PyBend imports (already decoupled)
+# 2. The authorize package has zero N3TX imports (already decoupled)
 # 3. Storage is behind AbstractStorage interface (swappable)
 # 4. Each model defines its own __access__ rules (domain-level auth)
 ```
@@ -626,9 +626,9 @@ Before committing to microservices, evaluate these alternatives that deliver man
 - High-throughput, low-latency requirements (cold starts add 100ms-2s)
 - Complex domain logic requiring local state
 
-**Hybrid approach:** Keep PyBend as the core application; offload specific tasks:
+**Hybrid approach:** Keep N3TX as the core application; offload specific tasks:
 ```
-PyBend (monolith)
+N3TX (monolith)
   ├── Core CRUD operations, schema serving, auth
   ├── Synchronous request handling
   └── Publishes events to queue
@@ -650,7 +650,7 @@ PyBend (monolith)
 
 **Implementation pattern:**
 ```
-Web tier (PyBend)  ──publish──>  Message Queue  ──consume──>  Worker Process
+Web tier (N3TX)  ──publish──>  Message Queue  ──consume──>  Worker Process
                                 (Redis, RabbitMQ,             (same codebase,
                                  SQS)                          different entry point)
 ```
@@ -740,7 +740,7 @@ START
 
 | Your Situation | Recommended Architecture | Next Step |
 |---|---|---|
-| Startup, 1-5 devs, finding PMF | Simple monolith (PyBend default) | Ship features, validate market |
+| Startup, 1-5 devs, finding PMF | Simple monolith (N3TX default) | Ship features, validate market |
 | Growing startup, 5-15 devs, product validated | Modular monolith | Enforce module boundaries, add CI/CD |
 | Scale-up, 15-50 devs, multiple domains | Modular monolith + 1-3 extracted services | Extract only what must scale independently |
 | Enterprise, 50+ devs, complex domain | Microservices (with platform team) | Invest in platform, observability, contracts |
@@ -807,49 +807,49 @@ The DORA Report 2025 found that AI coding assistants increase individual output 
 
 ---
 
-## 13. PyBend-Specific Guidance
+## 13. N3TX-Specific Guidance
 
-### 13.1 PyBend's Natural Architecture Evolution
+### 13.1 N3TX's Natural Architecture Evolution
 
-PyBend's schema-driven, model-centric design creates a natural evolution path:
+N3TX's schema-driven, model-centric design creates a natural evolution path:
 
 ```
-Stage 1: Single PyBend Instance (Today)
+Stage 1: Single N3TX Instance (Today)
   - One create_app() call
   - One SQLite database
   - All models in one process
   - Perfect for: MVP, small teams, simple domains
 
-Stage 2: Modular PyBend (6-18 months)
+Stage 2: Modular N3TX (6-18 months)
   - Same deployment, enforced module boundaries
   - Replace SQLite with PostgreSQL for concurrent access
   - Separate concerns: authorize (already standalone), storage, API
   - Multiple __access__ rule sets per domain
   - Perfect for: Growing teams, multiple domain areas
 
-Stage 3: PyBend Service Extraction (18+ months)
-  - Extract hot-path models into separate PyBend instances
+Stage 3: N3TX Service Extraction (18+ months)
+  - Extract hot-path models into separate N3TX instances
   - Each instance: own create_app(), own database, own deployment
   - Shared schema contract (JSON Schema is the API)
-  - API Gateway routes to correct PyBend instance
+  - API Gateway routes to correct N3TX instance
   - Perfect for: Independent scaling of specific domains
 
 Stage 4: Full Service Architecture (Only if needed)
-  - Multiple PyBend instances + non-PyBend services
+  - Multiple N3TX instances + non-N3TX services
   - Event-driven communication between services
   - Service mesh for observability
   - Platform team required
   - Perfect for: Large teams, complex domains, proven scaling needs
 ```
 
-### 13.2 What PyBend Gets Right for Modularity
+### 13.2 What N3TX Gets Right for Modularity
 
 | Feature | How It Helps |
 |---|---|
 | Schema as contract | JSON Schema already defines the API contract. If you extract a model into a separate service, the schema does not change. Frontend does not know the difference. |
 | `AbstractStorage` interface | Swap SQLite for PostgreSQL or a remote storage adapter without changing model code. |
 | `authorize` package (zero imports) | Auth is already a standalone module. It can become a separate service with no code changes. |
-| Model-driven routes | `register_routes()` generates API endpoints from models. Two PyBend instances with different models produce different, non-overlapping routes. |
+| Model-driven routes | `register_routes()` generates API endpoints from models. Two N3TX instances with different models produce different, non-overlapping routes. |
 | `@expose_route` with `access=` | Custom methods carry their own authorization. When extracted to a service, the access rules move with the method. |
 
 ### 13.3 What to Invest In Now (Regardless of Future Architecture)
@@ -864,11 +864,11 @@ Whether you eventually adopt microservices or stay monolithic, these investments
 
 ### 13.4 Extraction Playbook: Moving a Model to Its Own Service
 
-When the time comes to extract a PyBend model into a separate service:
+When the time comes to extract a N3TX model into a separate service:
 
 ```
 Step 1: Identify the model to extract (e.g., Product)
-Step 2: Create a new PyBend instance:
+Step 2: Create a new N3TX instance:
           app = create_app(models=[Product], storage="postgres://...")
 Step 3: Migrate Product data to the new database
 Step 4: Update API Gateway to route /products/* to the new instance
@@ -878,7 +878,7 @@ Step 7: Monitor DORA metrics for 2-4 weeks
 Step 8: If metrics improve, proceed. If not, consolidate back.
 ```
 
-The key advantage of PyBend's architecture: the JSON Schema contract is the same whether the model lives in the monolith or in its own service. The frontend fetches the schema, creates DynamicClasses, and renders. It does not care where the schema came from.
+The key advantage of N3TX's architecture: the JSON Schema contract is the same whether the model lives in the monolith or in its own service. The frontend fetches the schema, creates DynamicClasses, and renders. It does not care where the schema came from.
 
 ---
 
@@ -940,4 +940,4 @@ The key advantage of PyBend's architecture: the JSON Schema contract is the same
 
 ---
 
-*This document is part of the PyBend research series on architecture decisions. It should be revisited quarterly as team size, traffic patterns, and operational maturity evolve.*
+*This document is part of the N3TX research series on architecture decisions. It should be revisited quarterly as team size, traffic patterns, and operational maturity evolve.*

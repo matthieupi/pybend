@@ -33,29 +33,29 @@ example_grants/static/           <-- App-level components (this fork)
     grant-dashboard.css          <-- Dashboard styles (Shadow DOM encapsulated)
   index.html                     <-- Updated: new imports + sidebar entries
 
-src/pybend/static/               <-- Framework (NOT modified)
-  core/NTT.js                    <-- DynamicClass, instances Map, prototype()
+src/n3tx/static/               <-- Framework (NOT modified)
+  core/N3TX.js                    <-- DynamicClass, instances Map, prototype()
   core/Component.js              <-- Base HTMLElement (shadow DOM, stylesheet caching)
   core/Actor.js                  <-- Actor base (addr, send, inbox, register)
   core/TX.js                     <-- TX message envelope
   core/Router.js                 <-- Navigation state actor
   components/ListElement.js      <-- Collection base class
   components/NTTElement.js       <-- Single entity base class
-  components/ntt-item.js         <-- Default entity renderer (xs--xl)
-  components/ntt-sidebar.js      <-- Sidebar with route templates
-  components/ntt-router.js       <-- View container (mounts components)
+  components/ntx-item.js         <-- Default entity renderer (xs--xl)
+  components/ntx-sidebar.js      <-- Sidebar with route templates
+  components/ntx-router.js       <-- View container (mounts components)
   widgets/registry.js            <-- getWidgetForField()
 ```
 
 ### Import Resolution
 
-The `create_app()` static file serving mounts app static files (`example_grants/static/`) as explicit routes that take precedence over the framework's catch-all `StaticFiles` mount of `src/pybend/static/`. Both app and framework files are served from the web root `/`. This means:
+The `create_app()` static file serving mounts app static files (`example_grants/static/`) as explicit routes that take precedence over the framework's catch-all `StaticFiles` mount of `src/n3tx/static/`. Both app and framework files are served from the web root `/`. This means:
 
 - `example_grants/static/components/grant-kanban.js` is served at `/components/grant-kanban.js`
-- Framework files like `src/pybend/static/core/NTT.js` are served at `/core/NTT.js`
+- Framework files like `src/n3tx/static/core/N3TX.js` are served at `/core/N3TX.js`
 - Imports from app components use the same relative paths as framework components:
   ```javascript
-  import { NTT } from '../core/NTT.js';         // resolves to framework NTT
+  import { N3TX } from '../core/N3TX.js';         // resolves to framework N3TX
   import { ListElement } from './ListElement.js'; // resolves to framework ListElement
   ```
 
@@ -67,10 +67,10 @@ Both new components consume data from the same pipeline every other component us
 Grant model (Python)
   |
   v
-GET /Grant -> JSON Schema -> NTT.SCHEMA() -> DynamicClass "Grant"
+GET /Grant -> JSON Schema -> N3TX.SCHEMA() -> DynamicClass "Grant"
   |
   v
-DynamicClass.READ() -> NTT instances in DynamicClass.instances (Map)
+DynamicClass.READ() -> N3TX instances in DynamicClass.instances (Map)
   |
   v
 grant-kanban: groups instances by status, renders columns
@@ -108,7 +108,7 @@ No new backend endpoints. No new API calls. Client-side grouping and aggregation
 
 ### 3.1 Base Class Selection
 
-The kanban extends `ListElement` from `/workspace/src/pybend/static/components/ListElement.js`. This is the correct choice because:
+The kanban extends `ListElement` from `/workspace/src/n3tx/static/components/ListElement.js`. This is the correct choice because:
 
 1. `ListElement` handles the full data lifecycle: schema resolution via `define()`, DynamicClass subscription via `definedCallback()`, and address array updates via `UPDATE()`.
 2. The kanban is a collection view -- it shows many Grant entities grouped by status.
@@ -118,17 +118,17 @@ The kanban extends `ListElement` from `/workspace/src/pybend/static/components/L
 
 ### 3.2 Shadow DOM + Drag-and-Drop Architecture
 
-**The problem:** HTML5 Drag and Drop API events (`dragstart`, `dragover`, `drop`) interact poorly with Shadow DOM boundaries. When dragging across shadow roots, `event.target` returns the shadow host element, not the internal target. Each `<ntt-item>` card lives in its own shadow root, and the kanban column structure lives in the kanban's shadow root.
+**The problem:** HTML5 Drag and Drop API events (`dragstart`, `dragover`, `drop`) interact poorly with Shadow DOM boundaries. When dragging across shadow roots, `event.target` returns the shadow host element, not the internal target. Each `<ntx-item>` card lives in its own shadow root, and the kanban column structure lives in the kanban's shadow root.
 
 **The solution: Single shadow root strategy.** The entire kanban board -- all columns and all card wrappers -- lives inside the `<grant-kanban>` element's single shadow root. Drag events never cross a shadow boundary because both the drag source (`.kanban-card` wrapper) and the drop target (`.column-body`) are siblings within the same shadow root.
 
-The `<ntt-item display="sm">` elements nested inside `.kanban-card` wrappers have their own shadow roots, but drag events are bound to the outer `.kanban-card` div, not to the `<ntt-item>` inside it. This means:
+The `<ntx-item display="sm">` elements nested inside `.kanban-card` wrappers have their own shadow roots, but drag events are bound to the outer `.kanban-card` div, not to the `<ntx-item>` inside it. This means:
 
 - `dragstart` fires on `.kanban-card` (kanban's shadow root) -- works.
 - `dragover`/`drop` fire on `.column-body` (kanban's shadow root) -- works.
 - No cross-shadow-root drag events occur.
 
-**Why `composedPath()` is not needed (but documented as fallback):** Because both drag source and drop target are in the same shadow root, standard `event.target` works. If a future iteration needs to detect drops on the `<ntt-item>` itself (e.g., for reordering within a column), `event.composedPath()` would be needed to traverse into the `<ntt-item>` shadow root. The code should include a comment documenting this for future reference.
+**Why `composedPath()` is not needed (but documented as fallback):** Because both drag source and drop target are in the same shadow root, standard `event.target` works. If a future iteration needs to detect drops on the `<ntx-item>` itself (e.g., for reordering within a column), `event.composedPath()` would be needed to traverse into the `<ntx-item>` shadow root. The code should include a comment documenting this for future reference.
 
 ### 3.3 Component Structure
 
@@ -146,7 +146,7 @@ The `<ntt-item display="sm">` elements nested inside `.kanban-card` wrappers hav
  *   <grant-kanban model="Grant"></grant-kanban>
  */
 import { ListElement } from './ListElement.js';
-import { NTT } from '../core/NTT.js';
+import { N3TX } from '../core/N3TX.js';
 import TX from '../core/TX.js';
 import { getWidgetForField } from '../widgets/index.js';
 
@@ -189,8 +189,8 @@ Step 3: User drops on .column-body[data-status="reviewed"]
 Step 4: drop handler calls #changeStatus("Grant/5", "reviewed")
   |
   v
-Step 5: #changeStatus() resolves the NTT entity instance:
-         const entity = NTT.get("Grant/5");     // DynamicClass instance lookup
+Step 5: #changeStatus() resolves the N3TX entity instance:
+         const entity = N3TX.get("Grant/5");     // DynamicClass instance lookup
          entity.value = { ...entity.value, status: "reviewed" };  // optimistic
   |
   v
@@ -226,7 +226,7 @@ Step 11: entity.signal() fires -> subscribed NTTElement/NTTItem re-renders
 #changeStatus(addr, newStatus) {
   const parts = addr.split('/');
   const id = parts[parts.length - 1];
-  const entity = NTT.get(`Grant/${id}`);
+  const entity = N3TX.get(`Grant/${id}`);
   if (!entity) return;
 
   const oldStatus = entity.value?.status;
@@ -245,7 +245,7 @@ Step 11: entity.signal() fires -> subscribed NTTElement/NTTItem re-renders
 }
 ```
 
-The `entity.UPDATE()` handler (from NTT.js DynamicClass prototype, line 525-529) calls `entity.update(data)` which sets `entity.value` and fires `entity.signal()`. The kanban subscribes to each visible entity's signal so it re-renders when any entity changes.
+The `entity.UPDATE()` handler (from N3TX.js DynamicClass prototype, line 525-529) calls `entity.update(data)` which sets `entity.value` and fires `entity.signal()`. The kanban subscribes to each visible entity's signal so it re-renders when any entity changes.
 
 ### 3.5 Entity Reactivity
 
@@ -282,7 +282,7 @@ render() {
   for (const addr of this.value) {
     const parts = addr.split('/');
     const id = parts[parts.length - 1];
-    const entity = NTT.get(`Grant/${id}`);
+    const entity = N3TX.get(`Grant/${id}`);
     const status = entity?.value?.status || 'discovered';
     if (columns[status]) columns[status].push({ addr, entity });
   }
@@ -292,8 +292,8 @@ render() {
     const items = columns[status];
     const cardsHtml = items.map(({ addr }) => `
       <div class="kanban-card" draggable="true" data-addr="${addr}">
-        <ntt-item ref="${addr}" display="sm"
-                  data-model="Grant" select-target="${this.addr}"></ntt-item>
+        <ntx-item ref="${addr}" display="sm"
+                  data-model="Grant" select-target="${this.addr}"></ntx-item>
       </div>
     `).join('');
 
@@ -399,7 +399,7 @@ update(prev, next) {
 
 The kanban deliberately does NOT do surgical updates. Full re-renders are acceptable because:
 1. The kanban shows at most a few hundred cards
-2. `<ntt-item>` children have their own shadow roots and maintain internal state
+2. `<ntx-item>` children have their own shadow roots and maintain internal state
 3. Re-render frequency is low (status changes are infrequent)
 4. The `scheduleRender()` coalescing in `Component` prevents multiple renders per frame
 
@@ -421,12 +421,12 @@ disconnectedCallback() {
 
 ### 4.1 Base Class Selection
 
-The dashboard extends `Component` from `/workspace/src/pybend/static/core/Component.js` directly, NOT `ListElement`. Rationale:
+The dashboard extends `Component` from `/workspace/src/n3tx/static/core/Component.js` directly, NOT `ListElement`. Rationale:
 
 1. The dashboard is not a collection view -- it does not stamp child elements per entity.
 2. It does not need the watcher/UPDATE/value-as-array lifecycle that `ListElement` provides.
-3. It needs to aggregate data from the DynamicClass instances Map, which requires direct access to `NTT.get('Grant')`.
-4. It bootstraps via `NTT.attach('Grant', callback)`, same as `NTTSidebar`.
+3. It needs to aggregate data from the DynamicClass instances Map, which requires direct access to `N3TX.get('Grant')`.
+4. It bootstraps via `N3TX.attach('Grant', callback)`, same as `NTTSidebar`.
 
 ### 4.2 Data Strategy: Client-Side Aggregation
 
@@ -434,7 +434,7 @@ The dashboard computes all stats client-side from `DynamicClass.instances`:
 
 ```javascript
 #computeStats() {
-  const DC = NTT.get('Grant');
+  const DC = N3TX.get('Grant');
   if (!DC) return null;
 
   const grants = [...DC.instances.values()]
@@ -491,7 +491,7 @@ The dashboard subscribes to the DynamicClass UPDATE observable so it re-renders 
 ```javascript
 connectedCallback() {
   super.connectedCallback();
-  NTT.attach('Grant', (DC) => {
+  N3TX.attach('Grant', (DC) => {
     this._DC = DC;
     this._unsub?.();
     this._unsub = DC.observe('UPDATE', () => this.scheduleRender());
@@ -528,7 +528,7 @@ This means: drag a card in the kanban view, switch to the dashboard -- it shows 
  *   <grant-dashboard></grant-dashboard>
  */
 import { Component } from '../core/Component.js';
-import { NTT } from '../core/NTT.js';
+import { N3TX } from '../core/N3TX.js';
 
 const STATUSES = ['discovered', 'reviewed', 'applied', 'awarded', 'expired'];
 const STATUS_COLORS = {
@@ -679,7 +679,7 @@ Implemented as connected circles with labels and counts. This is the "wow" visua
 
 ### 4.7 Chart.js Integration (Optional, Day 7)
 
-For richer visualizations, Chart.js (~11KB gzipped) can be vendored at `/workspace/src/pybend/static/vendor/chart.min.js`. The dashboard would dynamically import it:
+For richer visualizations, Chart.js (~11KB gzipped) can be vendored at `/workspace/src/n3tx/static/vendor/chart.min.js`. The dashboard would dynamically import it:
 
 ```javascript
 async #renderChart(container, data) {
@@ -696,10 +696,10 @@ This is optional and deferred to the polish phase. The CSS-only bar charts and s
 
 ### 5.1 How Sidebar Route Templates Work
 
-The `NTTSidebar` component (`/workspace/src/pybend/static/components/ntt-sidebar.js`) scans its Light DOM children for elements with a `model` attribute. Each child becomes a "route template":
+The `NTTSidebar` component (`/workspace/src/n3tx/static/components/ntx-sidebar.js`) scans its Light DOM children for elements with a `model` attribute. Each child becomes a "route template":
 
 ```javascript
-// ntt-sidebar.js, connectedCallback(), lines 76-87
+// ntx-sidebar.js, connectedCallback(), lines 76-87
 const children = [...this.querySelectorAll(':scope > [model]')];
 for (const child of children) {
   const modelName = child.getAttribute('model');
@@ -730,14 +730,14 @@ The Router's `NTTRouter` component receives this and creates the specified eleme
 
 ```html
 <!-- Current index.html -->
-<ntt-sidebar router="main">
-    <ntt-list model="Grant" allow-create></ntt-list>
-    <ntt-table model="Source"></ntt-table>
-    <ntt-list model="AgentActor"></ntt-list>
-</ntt-sidebar>
+<ntx-sidebar router="main">
+    <ntx-list model="Grant" allow-create></ntx-list>
+    <ntx-table model="Source"></ntx-table>
+    <ntx-list model="AgentActor"></ntx-list>
+</ntx-sidebar>
 ```
 
-This creates one sidebar entry per model. Clicking "Grant" navigates to `<ntt-list model="Grant" allow-create>`.
+This creates one sidebar entry per model. Clicking "Grant" navigates to `<ntx-list model="Grant" allow-create>`.
 
 ### 5.3 Adding Kanban and Dashboard as Additional Views
 
@@ -747,7 +747,7 @@ This creates one sidebar entry per model. Clicking "Grant" navigates to `<ntt-li
 
 **Approach A: Add as named route templates in the sidebar.**
 
-We can add the kanban and dashboard as additional children of `<ntt-sidebar>`. The sidebar derives its model list from children with `model` attribute. But the kanban and dashboard both relate to `model="Grant"`. Adding them with the same model name would overwrite the route template.
+We can add the kanban and dashboard as additional children of `<ntx-sidebar>`. The sidebar derives its model list from children with `model` attribute. But the kanban and dashboard both relate to `model="Grant"`. Adding them with the same model name would overwrite the route template.
 
 **Approach B (Recommended): Use the dashboard and kanban as the default Grant view, with a view switcher.**
 
@@ -764,18 +764,18 @@ However, this adds complexity. For the demo/investor path, the simpler approach 
 The sidebar template children do not require unique model names -- they just need to be different elements. We can use a wrapper approach:
 
 ```html
-<ntt-sidebar router="main">
-    <ntt-table model="Grant" allow-create></ntt-table>
+<ntx-sidebar router="main">
+    <ntx-table model="Grant" allow-create></ntx-table>
     <grant-kanban model="Grant"></grant-kanban>
     <grant-dashboard model="Grant"></grant-dashboard>
-    <ntt-table model="Source"></ntt-table>
-    <ntt-list model="AgentActor"></ntt-list>
-</ntt-sidebar>
+    <ntx-table model="Source"></ntx-table>
+    <ntx-list model="AgentActor"></ntx-list>
+</ntx-sidebar>
 ```
 
 **Issue:** The sidebar deduplicates by model name. All three Grant entries would collapse to the last one.
 
-**Resolution: The dashboard does not have `model="Grant"` -- it bootstraps via `NTT.attach()` internally.** So we give it a synthetic model name or no model attribute at all.
+**Resolution: The dashboard does not have `model="Grant"` -- it bootstraps via `N3TX.attach()` internally.** So we give it a synthetic model name or no model attribute at all.
 
 Actually, re-reading the sidebar code more carefully: when `#routeTemplates` has multiple entries with the same model name, each `.set()` call overwrites the previous. So we need a different approach.
 
@@ -784,21 +784,21 @@ Actually, re-reading the sidebar code more carefully: when `#routeTemplates` has
 Add a lightweight `<grant-views>` wrapper component OR simply add a tab bar directly to `index.html` that dispatches NAVIGATE TXs for each view:
 
 ```html
-<ntt-sidebar router="main">
-    <ntt-table model="Grant" allow-create></ntt-table>
-    <ntt-table model="Source"></ntt-table>
-    <ntt-list model="AgentActor"></ntt-list>
-</ntt-sidebar>
+<ntx-sidebar router="main">
+    <ntx-table model="Grant" allow-create></ntx-table>
+    <ntx-table model="Source"></ntx-table>
+    <ntx-list model="AgentActor"></ntx-list>
+</ntx-sidebar>
 
 <div class="page">
-    <ntt-router name="main" hash>
+    <ntx-router name="main" hash>
         <div class="view-tabs">
             <button class="view-tab active" data-view="table">Table</button>
             <button class="view-tab" data-view="kanban">Pipeline</button>
             <button class="view-tab" data-view="dashboard">Dashboard</button>
         </div>
-        <ntt-table model="Grant" id="grant-table" allow-create></ntt-table>
-    </ntt-router>
+        <ntx-table model="Grant" id="grant-table" allow-create></ntx-table>
+    </ntx-router>
 </div>
 ```
 
@@ -809,7 +809,7 @@ document.querySelectorAll('.view-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const view = tab.dataset.view;
     const views = {
-      table:     { tag: 'ntt-table', attrs: { model: 'Grant', 'allow-create': '' } },
+      table:     { tag: 'ntx-table', attrs: { model: 'Grant', 'allow-create': '' } },
       kanban:    { tag: 'grant-kanban', attrs: { model: 'Grant' } },
       dashboard: { tag: 'grant-dashboard', attrs: {} },
     };
@@ -829,7 +829,7 @@ document.querySelectorAll('.view-tab').forEach(tab => {
 });
 ```
 
-The tabs appear at the top of the main content area, above whichever view is active. They persist across navigations because they are slotted content of the `<ntt-router>` -- but wait, `ntt-router.render()` replaces slot content with the navigated view. So the tabs would disappear on navigation.
+The tabs appear at the top of the main content area, above whichever view is active. They persist across navigations because they are slotted content of the `<ntx-router>` -- but wait, `ntx-router.render()` replaces slot content with the navigated view. So the tabs would disappear on navigation.
 
 **Revised approach: Tabs live outside the router.**
 
@@ -840,9 +840,9 @@ The tabs appear at the top of the main content area, above whichever view is act
         <button class="view-tab" data-view="kanban">Pipeline</button>
         <button class="view-tab" data-view="dashboard">Dashboard</button>
     </div>
-    <ntt-router name="main" hash>
-        <ntt-table model="Grant" id="grant-table" allow-create></ntt-table>
-    </ntt-router>
+    <ntx-router name="main" hash>
+        <ntx-table model="Grant" id="grant-table" allow-create></ntx-table>
+    </ntx-router>
 </div>
 ```
 
@@ -1176,7 +1176,7 @@ source.drag_to(target)
 def test_kanban_card_click_navigates():
     """Clicking a kanban card navigates to the grant detail view."""
     # Navigate to kanban
-    # Click on a card's ntt-item
+    # Click on a card's ntx-item
     # Verify router shows detail view
     # Verify hash changed
 ```
@@ -1241,7 +1241,7 @@ def test_view_tab_switching():
     # Click "Dashboard" tab
     # Verify grant-dashboard element exists in router content
     # Click "Table" tab
-    # Verify ntt-table element exists in router content
+    # Verify ntx-table element exists in router content
 ```
 
 ### 7.5 Testing the Aggregation Logic
@@ -1251,7 +1251,7 @@ If we want to test the dashboard aggregation logic in isolation (without Playwri
 ```javascript
 // example_grants/static/utils/grant-stats.js
 export function computeGrantStats(grants) {
-  // ... pure function, no DOM, no NTT
+  // ... pure function, no DOM, no N3TX
 }
 ```
 
@@ -1266,10 +1266,10 @@ This can be tested with Node.js + a simple test runner. But for the 7-day timeli
 | **Drag/drop flicker on dragleave** | High | Low | Use `col.contains(e.relatedTarget)` check in dragleave handler |
 | **Firefox drag/drop requires setData** | High | Medium | Always call `e.dataTransfer.setData('text/plain', addr)` in dragstart |
 | **Shadow DOM blocks drag events** | Low | High | Mitigated by design: all drag sources and drop targets are in the same shadow root |
-| **Performance with 500+ cards in kanban** | Low | Medium | Each card is an `<ntt-item display="sm">` which is lightweight. If needed, virtualize by only rendering visible columns. |
+| **Performance with 500+ cards in kanban** | Low | Medium | Each card is an `<ntx-item display="sm">` which is lightweight. If needed, virtualize by only rendering visible columns. |
 | **Dashboard FOUC on first load** | Low | Low | `Component.scheduleRender()` already defers until stylesheet is adopted |
 | **Tab state lost on browser refresh** | Medium | Low | Tabs are not persisted in hash. Default view (table) shows on refresh. Could add `?view=kanban` query param if needed. |
-| **DynamicClass not ready when dashboard mounts** | Low | Medium | `NTT.attach()` handles the timing: if DC exists, callback fires immediately; if pending, queued. Dashboard shows "Loading..." until callback fires. |
+| **DynamicClass not ready when dashboard mounts** | Low | Medium | `N3TX.attach()` handles the timing: if DC exists, callback fires immediately; if pending, queued. Dashboard shows "Loading..." until callback fires. |
 | **Grant entity lacks status field** | Very Low | High | Sprint 1 already added the status field. If missing, kanban groups all grants into "discovered". |
 
 ---
@@ -1295,15 +1295,15 @@ This can be tested with Node.js + a simple test runner. But for the 7-day timeli
 
 | File | What's Used |
 |------|-------------|
-| `src/pybend/static/components/ListElement.js` | Base class for grant-kanban |
-| `src/pybend/static/core/Component.js` | Base class for grant-dashboard |
-| `src/pybend/static/core/NTT.js` | `NTT.get()`, `NTT.attach()`, DynamicClass.instances |
-| `src/pybend/static/core/TX.js` | TX constructor for UPDATE messages |
-| `src/pybend/static/core/Matrix.js` | `matrix.dispatch()` for NAVIGATE |
-| `src/pybend/static/components/ntt-item.js` | `<ntt-item display="sm">` inside kanban cards |
-| `src/pybend/static/components/ntt-sidebar.js` | Route template mechanism |
-| `src/pybend/static/components/ntt-router.js` | View mounting via NAVIGATE |
-| `src/pybend/static/widgets/registry.js` | `getWidgetForField()` for status chips in cards |
+| `src/n3tx/static/components/ListElement.js` | Base class for grant-kanban |
+| `src/n3tx/static/core/Component.js` | Base class for grant-dashboard |
+| `src/n3tx/static/core/N3TX.js` | `N3TX.get()`, `N3TX.attach()`, DynamicClass.instances |
+| `src/n3tx/static/core/TX.js` | TX constructor for UPDATE messages |
+| `src/n3tx/static/core/Matrix.js` | `matrix.dispatch()` for NAVIGATE |
+| `src/n3tx/static/components/ntx-item.js` | `<ntx-item display="sm">` inside kanban cards |
+| `src/n3tx/static/components/ntx-sidebar.js` | Route template mechanism |
+| `src/n3tx/static/components/ntx-router.js` | View mounting via NAVIGATE |
+| `src/n3tx/static/widgets/registry.js` | `getWidgetForField()` for status chips in cards |
 
 ---
 
@@ -1317,7 +1317,7 @@ This can be tested with Node.js + a simple test runner. But for the 7-day timeli
 | **4** | Task 1f: Polish -- empty states, counts, animations | Task 3: Sidebar/tabs integration, index.html |
 | **5** | Task 2a: Dashboard skeleton + stat cards | Task 2d: Dashboard CSS |
 | **6** | Task 2b: Upcoming deadlines list | Task 2c: Agency breakdown bars |
-| **7** | Task 2e: Live reactivity + NTT.attach bootstrap | Task 2f: Polish -- pipeline visual, empty states |
+| **7** | Task 2e: Live reactivity + N3TX.attach bootstrap | Task 2f: Polish -- pipeline visual, empty states |
 
 **Parallelization note:** If two developers are available, kanban (days 1--4) and dashboard (days 5--7) can run in parallel, reducing total calendar time to ~4 days. Task 3 (sidebar integration) takes 0.5 days and depends on both having at least a skeleton.
 

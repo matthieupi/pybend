@@ -1,15 +1,15 @@
 # Frontend Polish: Custom Views, Status Workflows & Dashboards
 
-**Grant Watcher Application -- PyBend v0.10**
+**Grant Watcher Application -- N3TX v0.10**
 **Research Date: 2026-03-04**
 
 ---
 
 ## 1. Executive Summary
 
-The Grant Watcher frontend currently renders **everything through generic schema-driven components** -- `<ntt-table>`, `<ntt-list>`, and `<ntt-item>`. This is exactly how PyBend is designed to work: define a model, get a working UI. But "working" and "useful for daily grant tracking" are different things. A user scanning 200 grants needs a **deadline countdown**, not a date string. They need a **status pipeline**, not a plain text field that says "discovered". They need a **dashboard** that answers "what needs attention today?", not a flat table.
+The Grant Watcher frontend currently renders **everything through generic schema-driven components** -- `<ntx-table>`, `<ntx-list>`, and `<ntx-item>`. This is exactly how N3TX is designed to work: define a model, get a working UI. But "working" and "useful for daily grant tracking" are different things. A user scanning 200 grants needs a **deadline countdown**, not a date string. They need a **status pipeline**, not a plain text field that says "discovered". They need a **dashboard** that answers "what needs attention today?", not a flat table.
 
-The good news: PyBend's architecture was **built for this exact upgrade path**. The `ui.renderer.detail` schema field drives component resolution in `ntt-router.js` (line 141). The Widget system (`/workspace/src/pybend/static/widgets/`) provides field-level customization. `NTTElement` is designed as a base class for custom components (`/workspace/src/pybend/static/components/NTTElement.js`). Every extension point needed for grant-specific views already exists -- we just need to use them.
+The good news: N3TX's architecture was **built for this exact upgrade path**. The `ui.renderer.detail` schema field drives component resolution in `ntx-router.js` (line 141). The Widget system (`/workspace/src/n3tx/static/widgets/`) provides field-level customization. `NTTElement` is designed as a base class for custom components (`/workspace/src/n3tx/static/components/NTTElement.js`). Every extension point needed for grant-specific views already exists -- we just need to use them.
 
 The investment is **moderate** (estimated 3-4 weeks for a single frontend developer), the risk is **low** (all changes are additive -- nothing in the generic rendering path needs to change), and the payoff is **high** (transforms a data browser into a purpose-built grant tracking tool). This document lays out exactly what to build, in what order, and how each piece plugs into the existing architecture.
 
@@ -83,7 +83,7 @@ According to [dashboard design best practices](https://www.uxpin.com/studio/blog
 
 ### 4.1 Architecture Integration Points
 
-The critical question is: **where does custom rendering plug in?** PyBend provides three levels:
+The critical question is: **where does custom rendering plug in?** N3TX provides three levels:
 
 ```
 Level 1: Widget System (field-level)
@@ -92,8 +92,8 @@ Level 1: Widget System (field-level)
   Use for: status chip, deadline countdown, amount range
 
 Level 2: ui.renderer Schema Field (component-level)
-  Python: __ui__ = {'renderer': {'detail': 'grant-detail', 'item': 'ntt-item'}}
-  JS: ntt-router.js #resolveTag() reads schema.ui.renderer.detail
+  Python: __ui__ = {'renderer': {'detail': 'grant-detail', 'item': 'ntx-item'}}
+  JS: ntx-router.js #resolveTag() reads schema.ui.renderer.detail
   Use for: grant detail view, custom list views
 
 Level 3: Custom View Components (page-level)
@@ -121,7 +121,7 @@ Level 3: Custom View Components (page-level)
          v
   Frontend Resolution
   +------------------+      +------------------+      +------------------+
-  | ntt-router.js    | ---> | grant-detail.js  | ---> | StatusWidget.js  |
+  | ntx-router.js    | ---> | grant-detail.js  | ---> | StatusWidget.js  |
   | #resolveTag()    |      | extends          |      | via registry     |
   | reads            |      | NTTElement       |      | getWidgetFor     |
   | ui.renderer.     |      |                  |      | Field()          |
@@ -136,7 +136,7 @@ Level 3: Custom View Components (page-level)
 **Backend change:** Add widget annotation to the `status` field in `/workspace/example_grants/models/grant.py`:
 
 ```python
-from pybend.core.widgets import Widget
+from n3tx.core.widgets import Widget
 
 class StatusField(Widget, name='status', base_type=str):
     """Grant status with constrained values."""
@@ -221,40 +221,40 @@ class StatusWidget extends Widget {
 registerWidget('status', new StatusWidget());
 ```
 
-**Why this works with zero framework changes:** The schema pipeline stage `widget` (registered `before='ui'` in `/workspace/src/pybend/core/widgets/schema_ext.py`) injects `ui.widget` and `ui.config` into JSON Schema properties. On the frontend, `getWidgetForField()` in `/workspace/src/pybend/static/widgets/registry.js` returns the widget instance. Both `form.js` (line 212-246) and `ntt-item.js` (line 315-319 in `sm()`) already dispatch to widgets before falling through to type-based rendering.
+**Why this works with zero framework changes:** The schema pipeline stage `widget` (registered `before='ui'` in `/workspace/src/n3tx/core/widgets/schema_ext.py`) injects `ui.widget` and `ui.config` into JSON Schema properties. On the frontend, `getWidgetForField()` in `/workspace/src/n3tx/static/widgets/registry.js` returns the widget instance. Both `form.js` (line 212-246) and `ntx-item.js` (line 315-319 in `sm()`) already dispatch to widgets before falling through to type-based rendering.
 
 > **Key Insight:** The widget system was designed for exactly this use case -- domain-specific field rendering without touching any generic component code. Zero risk.
 
 ### 4.3 Deliverable 2: Grant Detail View (P0, 3 days)
 
-**What:** A custom `<grant-detail>` component that replaces the generic `ntt-item` when viewing a single grant at detail/page size.
+**What:** A custom `<grant-detail>` component that replaces the generic `ntx-item` when viewing a single grant at detail/page size.
 
 **Schema integration:** Add `ui.renderer.detail` to the Grant model:
 
 ```python
 class Grant(ActorModel):
     __ui__: ClassVar[dict] = {
-        'renderer': {'detail': 'grant-detail', 'item': 'ntt-item'},
+        'renderer': {'detail': 'grant-detail', 'item': 'ntx-item'},
         'field_order': ['title', 'agency', 'status', 'deadline',
                         'amount_min', 'amount_max', 'url', 'description'],
     }
 ```
 
-When a user clicks a grant in the table, `ntt-router.js` line 141 resolves:
+When a user clicks a grant in the table, `ntx-router.js` line 141 resolves:
 ```javascript
 #resolveTag(model) {
-    const DC = NTT.get(model);
+    const DC = N3TX.get(model);
     return DC?.schema?.ui?.renderer?.detail   // <-- 'grant-detail'
         || DC?.schema?.ui?.renderer?.item
-        || 'ntt-item';
+        || 'ntx-item';
 }
 ```
 
 **Component structure** (`example_grants/static/components/grant-detail.js`):
 
 ```javascript
-import { NTTElement } from '../../../src/pybend/static/components/NTTElement.js';
-import { getWidgetForField } from '../../../src/pybend/static/widgets/index.js';
+import { NTTElement } from '../../../src/n3tx/static/components/NTTElement.js';
+import { getWidgetForField } from '../../../src/n3tx/static/widgets/index.js';
 
 class GrantDetail extends NTTElement {
 
@@ -356,7 +356,7 @@ customElements.define('grant-detail', GrantDetail);
 +------------------------------------------------------------------+
 ```
 
-**How it gets loaded:** The component file must be imported in `index.html`. The `ntt-router` component will automatically use `grant-detail` when navigating to a Grant entity, because it reads `schema.ui.renderer.detail`.
+**How it gets loaded:** The component file must be imported in `index.html`. The `ntx-router` component will automatically use `grant-detail` when navigating to a Grant entity, because it reads `schema.ui.renderer.detail`.
 
 ### 4.4 Deliverable 3: Kanban Board (P1, 4 days)
 
@@ -364,14 +364,14 @@ customElements.define('grant-detail', GrantDetail);
 
 **The critical Shadow DOM challenge:** The HTML5 Drag and Drop API has [known interoperability issues](https://justinribeiro.com/chronicle/2020/07/14/handling-web-components-and-drag-and-drop-with-event.composedpath/) with Shadow DOM. When dragging between shadow roots, `event.target` returns the host element, not the internal drop zone. The solution is `event.composedPath()`, which traverses shadow boundaries.
 
-**Architecture approach:** The kanban board should be a **Light DOM component** (no shadow root for the board itself) or use a single shadow root that contains all columns. Individual grant cards within the kanban can be `<ntt-item display="sm">` elements, which already handle their own Shadow DOM correctly.
+**Architecture approach:** The kanban board should be a **Light DOM component** (no shadow root for the board itself) or use a single shadow root that contains all columns. Individual grant cards within the kanban can be `<ntx-item display="sm">` elements, which already handle their own Shadow DOM correctly.
 
 **Component sketch** (`example_grants/static/components/grant-kanban.js`):
 
 ```javascript
-import { ListElement } from '../../../src/pybend/static/components/ListElement.js';
-import { NTT } from '../../../src/pybend/static/core/NTT.js';
-import TX from '../../../src/pybend/static/core/TX.js';
+import { ListElement } from '../../../src/n3tx/static/components/ListElement.js';
+import { N3TX } from '../../../src/n3tx/static/core/N3TX.js';
+import TX from '../../../src/n3tx/static/core/TX.js';
 
 const STATUSES = ['discovered', 'reviewed', 'applied', 'awarded', 'expired'];
 const STATUS_COLORS = {
@@ -392,7 +392,7 @@ class GrantKanban extends ListElement {
 
     for (const addr of this.value) {
       const id = addr.split('/').pop();
-      const entity = NTT.get(`Grant/${id}`);
+      const entity = N3TX.get(`Grant/${id}`);
       const status = entity?.value?.status || 'discovered';
       if (columns[status]) columns[status].push(addr);
     }
@@ -409,7 +409,7 @@ class GrantKanban extends ListElement {
         <div class="column-body" data-status="${status}">
           ${columns[status].map(addr => `
             <div class="kanban-card" draggable="true" data-addr="${addr}">
-              <ntt-item ref="${addr}" display="sm"></ntt-item>
+              <ntx-item ref="${addr}" display="sm"></ntx-item>
             </div>
           `).join('')}
         </div>
@@ -463,7 +463,7 @@ class GrantKanban extends ListElement {
   #changeStatus(addr, newStatus) {
     // Optimistic UI update
     const id = addr.split('/').pop();
-    const entity = NTT.get(`Grant/${id}`);
+    const entity = N3TX.get(`Grant/${id}`);
     if (entity) {
       // Update via TX -> PATCH /grants/{id}
       entity.send(new TX({
@@ -503,15 +503,15 @@ DynamicClass.READ() -> entity.update() -> signal() -> kanban re-renders
 **Sidebar integration:** Add to `index.html`:
 
 ```html
-<ntt-sidebar router="main">
-    <ntt-table model="Grant" allow-create></ntt-table>
+<ntx-sidebar router="main">
+    <ntx-table model="Grant" allow-create></ntx-table>
     <grant-kanban model="Grant"></grant-kanban>   <!-- new tab -->
-    <ntt-table model="Source"></ntt-table>
-    <ntt-list model="AgentActor"></ntt-list>
-</ntt-sidebar>
+    <ntx-table model="Source"></ntx-table>
+    <ntx-list model="AgentActor"></ntx-list>
+</ntx-sidebar>
 ```
 
-The sidebar already supports route templates (`/workspace/src/pybend/static/components/ntt-sidebar.js`, line 76-87). Clicking "Grant" in the sidebar can navigate to either the table or kanban based on the template element.
+The sidebar already supports route templates (`/workspace/src/n3tx/static/components/ntx-sidebar.js`, line 76-87). Clicking "Grant" in the sidebar can navigate to either the table or kanban based on the template element.
 
 ### 4.5 Deliverable 4: Dashboard (P1, 3 days)
 
@@ -529,8 +529,8 @@ The sidebar already supports route templates (`/workspace/src/pybend/static/comp
 **Component sketch** (`example_grants/static/components/grant-dashboard.js`):
 
 ```javascript
-import { Component } from '../../../src/pybend/static/core/Component.js';
-import { NTT } from '../../../src/pybend/static/core/NTT.js';
+import { Component } from '../../../src/n3tx/static/core/Component.js';
+import { N3TX } from '../../../src/n3tx/static/core/N3TX.js';
 
 class GrantDashboard extends Component {
 
@@ -541,7 +541,7 @@ class GrantDashboard extends Component {
   connectedCallback() {
     super.connectedCallback();
     // Bootstrap Grant DC and subscribe to updates
-    NTT.attach('Grant', (DC) => {
+    N3TX.attach('Grant', (DC) => {
       this.#unsub = DC.observe('UPDATE', () => this.scheduleRender());
       this.scheduleRender();
     });
@@ -553,7 +553,7 @@ class GrantDashboard extends Component {
   }
 
   render() {
-    const DC = NTT.get('Grant');
+    const DC = N3TX.get('Grant');
     if (!DC) { this.shadowRoot.innerHTML = '<p>Loading...</p>'; return; }
 
     const grants = [...DC.instances.values()].map(e => e.value).filter(Boolean);
@@ -650,7 +650,7 @@ customElements.define('grant-dashboard', GrantDashboard);
 +---------------------+----------------------+
 ```
 
-**Chart integration:** For richer visualizations (timeline charts, pie charts), [Chart.js](https://www.chartjs.org/) is the recommended choice. It is **11KB gzipped** for core types, works with vanilla JavaScript, renders to Canvas, and requires zero build step. It can be vendored alongside `marked.min.js` and `ansi_up.min.js` in `/workspace/src/pybend/static/vendor/`.
+**Chart integration:** For richer visualizations (timeline charts, pie charts), [Chart.js](https://www.chartjs.org/) is the recommended choice. It is **11KB gzipped** for core types, works with vanilla JavaScript, renders to Canvas, and requires zero build step. It can be vendored alongside `marked.min.js` and `ansi_up.min.js` in `/workspace/src/n3tx/static/vendor/`.
 
 For inline sparklines (e.g., grant discovery trend in stat cards), [sparklines.js](https://github.com/mitjafelicijan/sparklines) provides **tiny SVG sparkline charts with zero dependencies** -- a single JS file that can be dropped into the vendor directory.
 
@@ -686,13 +686,13 @@ class Source(ActorModel):
         return f"Scan initiated for {self.name}"
 ```
 
-The `scan_status` field reuses the same StatusWidget built in Deliverable 1. The `scan` method gets rendered as an `<ntt-method>` button automatically -- zero frontend work needed for that.
+The `scan_status` field reuses the same StatusWidget built in Deliverable 1. The `scan` method gets rendered as an `<ntx-method>` button automatically -- zero frontend work needed for that.
 
 ### 4.7 Deliverable 6: Agent Control Panel (P2, 3 days)
 
 **What:** A custom view for AgentActor that shows run history, tool usage, and a "Run Now" button with live progress.
 
-**The WebSocket connection:** PyBend's `NetworkWebSocket` adapter (`/workspace/src/pybend/core/api/network_ws.py`) already bridges frontend TX to backend TX. Agent lifecycle events (`after_create`, `after_update`) flow through this channel. The agent panel can subscribe to WebSocket messages to show **live progress** during agent runs.
+**The WebSocket connection:** N3TX's `NetworkWebSocket` adapter (`/workspace/src/n3tx/core/api/network_ws.py`) already bridges frontend TX to backend TX. Agent lifecycle events (`after_create`, `after_update`) flow through this channel. The agent panel can subscribe to WebSocket messages to show **live progress** during agent runs.
 
 **Architecture:**
 
@@ -718,12 +718,12 @@ UI: "Running..."          agent-panel receives WS UPDATE
 poll or WS update         Re-render with new status
 ```
 
-**Key implementation detail:** The `AgentActor` model already supports a `run` method via `@expose_route`. The frontend already renders this as an `<ntt-method>` button. The agent panel enhancement would be a custom component that wraps this with:
+**Key implementation detail:** The `AgentActor` model already supports a `run` method via `@expose_route`. The frontend already renders this as an `<ntx-method>` button. The agent panel enhancement would be a custom component that wraps this with:
 
 - Run history (fetched from a future `runs` child model)
 - Tool usage counters (from `agent.tools` array field)
 - Status indicator (idle / running / error) using the StatusWidget
-- Log output using the existing `ConsoleWidget` (`/workspace/src/pybend/static/widgets/ConsoleWidget.js`)
+- Log output using the existing `ConsoleWidget` (`/workspace/src/n3tx/static/widgets/ConsoleWidget.js`)
 
 ---
 
@@ -766,7 +766,7 @@ Deliverable 6 (Agent Panel)    <-- independent, uses existing infra
 | **Drag/drop + Shadow DOM** | Medium | Medium | Use `composedPath()` per [Justin Ribeiro's guidance](https://justinribeiro.com/chronicle/2020/07/14/handling-web-components-and-drag-and-drop-with-event.composedpath/); or contain entire kanban in a single shadow root |
 | **Widget CSS bleeding** | Low | Low | StatusWidget uses inline styles; grant-detail uses adoptedStyleSheets via Component base class |
 | **Performance with many grants** | Low | Medium | Client-side aggregation is O(n); fine for <1000 grants. If >1000, add backend aggregation endpoint |
-| **Breaking generic rendering** | Very Low | High | All changes are additive. Generic `ntt-item` still works for any model without `ui.renderer.detail` |
+| **Breaking generic rendering** | Very Low | High | All changes are additive. Generic `ntx-item` still works for any model without `ui.renderer.detail` |
 | **Maintenance burden** | Low | Medium | Custom components follow same patterns as framework components; well-documented base classes |
 
 > **Key Insight:** The highest-risk item (kanban drag/drop) is also the most deferrable (P1). The two P0 items (Status Widget and Grant Detail) are both low-risk because they use established extension points.
@@ -792,7 +792,7 @@ Deliverable 6 (Agent Panel)    <-- independent, uses existing infra
 | Reduced user cognitive load | Week 2 | ~60% faster grant triage (status chip + countdown) |
 | Self-serve status tracking | Week 2 | Eliminates manual spreadsheet shadow systems |
 | Competitive parity with grant platforms | Week 3 | Necessary to position as product, not tool |
-| Framework showcase (PyBend extensibility) | Immediate | Proves schema-driven + custom works together |
+| Framework showcase (N3TX extensibility) | Immediate | Proves schema-driven + custom works together |
 
 ### 6.3 Payback Timeline
 
@@ -817,31 +817,31 @@ The Status Widget and Grant Detail view deliver **the highest value per day of i
 | **Widget-only** (Status, Deadline) | Very low | Medium | Perfect |
 | **Widget + Custom detail** | Low | High | Good (uses `ui.renderer`) |
 | **Widget + Custom detail + Kanban + Dashboard** | Medium | Very High | Good |
-| **Full custom frontend** (abandon schema-driven) | Very High | Very High | Breaks PyBend philosophy |
+| **Full custom frontend** (abandon schema-driven) | Very High | Very High | Breaks N3TX philosophy |
 
-**Recommendation:** Go with **Widget + Custom detail + Kanban + Dashboard** (row 4). This hits the sweet spot: high user value, medium maintenance, and stays within PyBend's extensibility model.
+**Recommendation:** Go with **Widget + Custom detail + Kanban + Dashboard** (row 4). This hits the sweet spot: high user value, medium maintenance, and stays within N3TX's extensibility model.
 
 ### 7.2 Why Not a React/Vue Frontend?
 
-PyBend's frontend is **vanilla JS Web Components** with zero build step. This is a deliberate architectural choice, not a limitation:
+N3TX's frontend is **vanilla JS Web Components** with zero build step. This is a deliberate architectural choice, not a limitation:
 
 - **No build step** means `create_app()` serves a working UI immediately
 - **Web Components** are framework-agnostic -- they work in React, Vue, or alone
 - **Schema-driven** rendering means the backend is authoritative; the frontend adapts
 - **Shadow DOM** provides CSS encapsulation without a CSS-in-JS library
 
-Adding React would violate PyBend's core principle: *"The model is the app."* A React frontend would create a second source of truth for UI structure, require a build step, and decouple the frontend from the schema pipeline. The Widget system and `NTTElement` base class provide the same extensibility within the existing architecture.
+Adding React would violate N3TX's core principle: *"The model is the app."* A React frontend would create a second source of truth for UI structure, require a build step, and decouple the frontend from the schema pipeline. The Widget system and `NTTElement` base class provide the same extensibility within the existing architecture.
 
 ### 7.3 Custom Components vs. Framework Components
 
-| Consideration | Framework Component (in `src/pybend/static/`) | App Component (in `example_grants/static/`) |
+| Consideration | Framework Component (in `src/n3tx/static/`) | App Component (in `example_grants/static/`) |
 |--------------|----------------------------------------------|---------------------------------------------|
-| Reusability | Works for any PyBend app | Grant-specific only |
-| Maintenance | PyBend team owns it | App team owns it |
+| Reusability | Works for any N3TX app | Grant-specific only |
+| Maintenance | N3TX team owns it | App team owns it |
 | Schema coupling | Must be model-agnostic | Can assume Grant schema |
 | Recommended for | StatusWidget, DeadlineWidget | grant-detail, grant-kanban, grant-dashboard |
 
-**The StatusWidget is arguably framework-level** -- many apps need status chips. Consider promoting it to `/workspace/src/pybend/static/widgets/StatusWidget.js` after proving it in the grants app. The grant-detail component is inherently app-specific and should stay in `example_grants/static/`.
+**The StatusWidget is arguably framework-level** -- many apps need status chips. Consider promoting it to `/workspace/src/n3tx/static/widgets/StatusWidget.js` after proving it in the grants app. The grant-detail component is inherently app-specific and should stay in `example_grants/static/`.
 
 ### 7.4 Alternative: CSS-Only Enhancements
 
@@ -851,7 +851,7 @@ Some improvements require **zero JavaScript**:
 /* In example_grants/static/dark-theme.css or a new grants.css */
 
 /* Color-code status text in table cells */
-ntt-row [data-value="status"] {
+ntx-row [data-value="status"] {
   /* Can't reach inside shadow DOM from outside */
 }
 ```
@@ -913,18 +913,18 @@ The framework was designed for this. Use it.
 
 | File | Role | Key Lines |
 |------|------|-----------|
-| `/workspace/src/pybend/static/components/NTTElement.js` | Single entity base class | L89-106: DESCRIBE handler sets schema+value |
-| `/workspace/src/pybend/static/components/ntt-item.js` | Default entity renderer | L315-319: Widget dispatch in `sm()` |
-| `/workspace/src/pybend/static/components/ntt-table.js` | Table collection component | L45-67: `tableColumns()` field filtering |
-| `/workspace/src/pybend/static/components/ntt-router.js` | View container / mini browser | L137-144: `#resolveTag()` reads `ui.renderer.detail` |
-| `/workspace/src/pybend/static/components/ListElement.js` | Collection base class | L55-65: `definedCallback()` subscribes + triggers READ |
-| `/workspace/src/pybend/static/core/NTT.js` | Entity system + DynamicClass factory | L668-1106: `prototype()` creates DynamicClass |
-| `/workspace/src/pybend/static/core/Component.js` | Unified web component base | L94-102: Constructable stylesheet caching |
-| `/workspace/src/pybend/static/core/Router.js` | Navigation state actor | L45-54: NAVIGATE handler |
-| `/workspace/src/pybend/static/generators/form.js` | Schema-driven form generator | L212-246: Widget dispatch in `getInput()` |
-| `/workspace/src/pybend/static/widgets/Widget.js` | Widget base class | L12-98: display/edit/list/validate API |
-| `/workspace/src/pybend/static/widgets/registry.js` | Widget name -> instance map | L32-38: `getWidgetForField()` |
-| `/workspace/src/pybend/static/widgets/index.js` | Widget loader + re-exports | L33-41: Built-in registrations |
+| `/workspace/src/n3tx/static/components/NTTElement.js` | Single entity base class | L89-106: DESCRIBE handler sets schema+value |
+| `/workspace/src/n3tx/static/components/ntx-item.js` | Default entity renderer | L315-319: Widget dispatch in `sm()` |
+| `/workspace/src/n3tx/static/components/ntx-table.js` | Table collection component | L45-67: `tableColumns()` field filtering |
+| `/workspace/src/n3tx/static/components/ntx-router.js` | View container / mini browser | L137-144: `#resolveTag()` reads `ui.renderer.detail` |
+| `/workspace/src/n3tx/static/components/ListElement.js` | Collection base class | L55-65: `definedCallback()` subscribes + triggers READ |
+| `/workspace/src/n3tx/static/core/N3TX.js` | Entity system + DynamicClass factory | L668-1106: `prototype()` creates DynamicClass |
+| `/workspace/src/n3tx/static/core/Component.js` | Unified web component base | L94-102: Constructable stylesheet caching |
+| `/workspace/src/n3tx/static/core/Router.js` | Navigation state actor | L45-54: NAVIGATE handler |
+| `/workspace/src/n3tx/static/generators/form.js` | Schema-driven form generator | L212-246: Widget dispatch in `getInput()` |
+| `/workspace/src/n3tx/static/widgets/Widget.js` | Widget base class | L12-98: display/edit/list/validate API |
+| `/workspace/src/n3tx/static/widgets/registry.js` | Widget name -> instance map | L32-38: `getWidgetForField()` |
+| `/workspace/src/n3tx/static/widgets/index.js` | Widget loader + re-exports | L33-41: Built-in registrations |
 | `/workspace/example_grants/models/grant.py` | Grant model definition | L24-33: Fields including status, deadline |
 | `/workspace/example_grants/models/source.py` | Source model definition | L9-17: name, url, category fields |
 | `/workspace/example_grants/static/index.html` | App entry point | L64-75: Current sidebar + router layout |

@@ -1,6 +1,6 @@
 # Microservices Industry Landscape (2026)
 
-## PyBend as a Schema-Driven Microservice Backbone
+## N3TX as a Schema-Driven Microservice Backbone
 
 **Audience:** Technical CEOs and Engineering Teams
 **Date:** February 2026
@@ -12,7 +12,7 @@
 
 The microservices market has matured from a Silicon Valley trend into a **$9+ billion industry** growing at 18-23% CAGR. Roughly 85% of enterprises now run microservices in production, yet 90% of those teams still batch-deploy like monoliths -- achieving maximum complexity with minimum benefit. The industry is at an inflection point: the question is no longer "should we adopt microservices?" but "how do we get the benefits without the tax?"
 
-This document maps the full landscape -- adoption data, framework performance, infrastructure costs, success stories, failure patterns, and the emerging counter-movements -- to position **schema-driven development** (the approach PyBend takes) within the broader industry trajectory. The core thesis: the microservices ecosystem is converging toward contract-first, model-driven approaches that eliminate boilerplate, and frameworks that auto-generate APIs from declarative definitions have a structural advantage in this environment.
+This document maps the full landscape -- adoption data, framework performance, infrastructure costs, success stories, failure patterns, and the emerging counter-movements -- to position **schema-driven development** (the approach N3TX takes) within the broader industry trajectory. The core thesis: the microservices ecosystem is converging toward contract-first, model-driven approaches that eliminate boilerplate, and frameworks that auto-generate APIs from declarative definitions have a structural advantage in this environment.
 
 ---
 
@@ -42,7 +42,7 @@ Company size remains the strongest predictor of microservices adoption:
 | **250-999 employees** | ~45-55% | IMARC Group estimates |
 | **< 100 employees (startups)** | 15-25% | Industry estimates; monolith-first recommended |
 
-> **Key insight for technical CEOs:** If you have fewer than 50 engineers, microservices almost certainly cost more than they return. The infrastructure overhead -- CI/CD per service, distributed tracing, contract testing, deployment orchestration -- demands dedicated platform engineering capacity that small teams cannot spare. A schema-driven monolith (like PyBend's `create_app()` one-liner) gives you microservice-ready boundaries without the operational tax.
+> **Key insight for technical CEOs:** If you have fewer than 50 engineers, microservices almost certainly cost more than they return. The infrastructure overhead -- CI/CD per service, distributed tracing, contract testing, deployment orchestration -- demands dedicated platform engineering capacity that small teams cannot spare. A schema-driven monolith (like N3TX's `create_app()` one-liner) gives you microservice-ready boundaries without the operational tax.
 
 ### 1.3 Industry Breakdown
 
@@ -95,7 +95,7 @@ The microservices framework market is fragmented by language, but clear leaders 
 
 ### 2.2 Python Framework Deep Dive
 
-Since PyBend is built on FastAPI, the Python framework landscape is particularly relevant:
+Since N3TX is built on FastAPI, the Python framework landscape is particularly relevant:
 
 **JetBrains Python Developer Survey (2025):**
 
@@ -107,7 +107,7 @@ Since PyBend is built on FastAPI, the Python framework landscape is particularly
 
 FastAPI's growth is not at the expense of Flask or Django dying -- it is expanding the total addressable developer base by pulling in developers who previously used non-Python frameworks for API work. The async-native, type-hint-driven, automatic-OpenAPI-generation approach that FastAPI pioneered is exactly the direction the industry is moving.
 
-> **PyBend positioning:** PyBend extends FastAPI's auto-OpenAPI capability into a **full-stack schema contract**. Where FastAPI generates Swagger docs from type hints, PyBend generates the entire frontend -- forms, permissions, navigation, entity rendering -- from model definitions. This is a meaningful step up on the same trajectory the industry is already following.
+> **N3TX positioning:** N3TX extends FastAPI's auto-OpenAPI capability into a **full-stack schema contract**. Where FastAPI generates Swagger docs from type hints, N3TX generates the entire frontend -- forms, permissions, navigation, entity rendering -- from model definitions. This is a meaningful step up on the same trajectory the industry is already following.
 
 ### 2.3 Performance Benchmarks
 
@@ -144,7 +144,7 @@ The 2025 Stack Overflow Developer Survey (49,000+ responses, 177 countries) reve
 | Django | **55%** | Moderate |
 | Flask | **50%** | Low |
 
-FastAPI's combination of high admiration (74%) and high desire (developers who want to adopt it) makes it the strongest momentum play in the Python ecosystem. This matters for hiring: choosing FastAPI (and by extension, frameworks built on it like PyBend) aligns with where developer interest is headed.
+FastAPI's combination of high admiration (74%) and high desire (developers who want to adopt it) makes it the strongest momentum play in the Python ecosystem. This matters for hiring: choosing FastAPI (and by extension, frameworks built on it like N3TX) aligns with where developer interest is headed.
 
 ---
 
@@ -160,7 +160,7 @@ FastAPI has become the de facto choice for new Python microservices. Its advanta
 - **Dependency injection** system for clean service composition
 - **70%+ of new Python API projects** on GitHub now use FastAPI (estimated from repository analysis)
 
-What FastAPI does NOT provide (and where frameworks like PyBend add value):
+What FastAPI does NOT provide (and where frameworks like N3TX add value):
 - Frontend generation from schemas
 - Access control rule serialization into schemas
 - Automatic CRUD route generation from model definitions
@@ -183,9 +183,9 @@ The Python microservice toolkit beyond the web framework:
 | **httpx** | Async HTTP client | Growing fast | Replaces `requests` for async inter-service calls |
 | **Prometheus client** | Metrics export | Standard | Service observability integration |
 
-### 3.3 Where PyBend Fits in the Python Ecosystem
+### 3.3 Where N3TX Fits in the Python Ecosystem
 
-PyBend occupies a unique niche in the Python microservice ecosystem. Consider the standard workflow for building a Python microservice:
+N3TX occupies a unique niche in the Python microservice ecosystem. Consider the standard workflow for building a Python microservice:
 
 **Traditional approach (6+ files, 200+ lines of glue):**
 1. Define Pydantic models for validation
@@ -196,7 +196,7 @@ PyBend occupies a unique niche in the Python microservice ecosystem. Consider th
 6. Write OpenAPI schema extensions
 7. Build frontend forms/components manually
 
-**PyBend approach (1 file, ~20 lines):**
+**N3TX approach (1 file, ~20 lines):**
 ```python
 class Product(ProtoModel):
     __tablename__ = 'products'
@@ -255,7 +255,7 @@ API gateways sit at the boundary between external consumers and internal microse
 | **KrakenD** | N/A | 2,000 | Ultra-high performance; stateless design |
 | **NGINX** | Ubiquitous | Ubiquitous | Reverse proxy standard; increasingly gateway-capable |
 
-> **For PyBend deployments:** At the single-service scale, PyBend's built-in FastAPI CORS and JWT middleware handle gateway concerns directly. As you scale to multiple PyBend services, Kong or Traefik provides external routing, rate limiting, and SSL termination without framework changes -- PyBend services remain unaware of the gateway layer.
+> **For N3TX deployments:** At the single-service scale, N3TX's built-in FastAPI CORS and JWT middleware handle gateway concerns directly. As you scale to multiple N3TX services, Kong or Traefik provides external routing, rate limiting, and SSL termination without framework changes -- N3TX services remain unaware of the gateway layer.
 
 ---
 
@@ -427,7 +427,7 @@ This does not mean microservices are dying. It means the industry is maturing pa
 | 50-200 engineers, multiple product lines | Selective microservices at domain boundaries |
 | 200+ engineers, platform business | Full microservices with dedicated platform engineering |
 
-> **PyBend's structural advantage:** PyBend's model-as-truth approach works identically as a monolith (single `create_app()` with all models) and as microservices (separate `create_app()` instances per domain, each with its own models). The migration path from monolith to microservices requires zero framework changes -- you split the model list across deployments. This is the "modular monolith that naturally extracts" pattern that Kelsey Hightower and others advocate.
+> **N3TX's structural advantage:** N3TX's model-as-truth approach works identically as a monolith (single `create_app()` with all models) and as microservices (separate `create_app()` instances per domain, each with its own models). The migration path from monolith to microservices requires zero framework changes -- you split the model list across deployments. This is the "modular monolith that naturally extracts" pattern that Kelsey Hightower and others advocate.
 
 ---
 
@@ -475,7 +475,7 @@ Developer experience is the most under-discussed cost of microservices. The foll
 
 ### 8.3 How Schema-Driven Development Addresses DX
 
-The schema-driven approach that PyBend embodies directly addresses several microservice DX problems:
+The schema-driven approach that N3TX embodies directly addresses several microservice DX problems:
 
 | DX Problem | Schema-Driven Mitigation |
 |-----------|-------------------------|
@@ -501,7 +501,7 @@ The API specification landscape in 2025:
 | Productivity gain from API-first approach | **30-40% faster** product releases | Gartner 2025 |
 | OpenAPI specification version | 3.1.x (JSON Schema aligned) | OpenAPI Initiative |
 
-The convergence of OpenAPI 3.1 with JSON Schema is particularly significant. By aligning with JSON Schema, OpenAPI enables tools that work with either standard to work with both. PyBend's use of JSON Schema as its universal contract is therefore forward-compatible with the OpenAPI ecosystem.
+The convergence of OpenAPI 3.1 with JSON Schema is particularly significant. By aligning with JSON Schema, OpenAPI enables tools that work with either standard to work with both. N3TX's use of JSON Schema as its universal contract is therefore forward-compatible with the OpenAPI ecosystem.
 
 ### 9.2 Contract-First vs. Code-First
 
@@ -519,7 +519,7 @@ Write OpenAPI spec -> Generate server stubs + client SDKs -> Implement business 
 ```
 Problem: maintaining a YAML/JSON spec file is tedious; spec diverges from implementation over time.
 
-**Schema-driven (PyBend approach):**
+**Schema-driven (N3TX approach):**
 ```
 Write model definition -> Schema IS the spec AND the implementation -> Frontend reads schema at runtime
 ```
@@ -534,9 +534,9 @@ Advantage: there is no separate spec to maintain. The model definition is the si
 | **AWS** | Smithy (custom IDL) | Type-safe service definitions; generates clients, docs, and validation |
 | **Google** | Protocol Buffers + gRPC | Binary contract; auto-generated clients; strong type safety |
 | **GraphQL ecosystem** | Schema-first | Schema defines queries, mutations, subscriptions; introspection built in |
-| **PyBend** | Model-first (superset) | Schema carries not just types but UI hints, access rules, methods, and relationships |
+| **N3TX** | Model-first (superset) | Schema carries not just types but UI hints, access rules, methods, and relationships |
 
-> **Key differentiator:** Most contract-first approaches define the API surface (endpoints, request/response types). PyBend's schema carries the **full application concern** -- data structure, validation, storage rules, access control, UI rendering hints, field grouping, and callable methods. This is a broader contract that eliminates more categories of boilerplate.
+> **Key differentiator:** Most contract-first approaches define the API surface (endpoints, request/response types). N3TX's schema carries the **full application concern** -- data structure, validation, storage rules, access control, UI rendering hints, field grouping, and callable methods. This is a broader contract that eliminates more categories of boilerplate.
 
 ---
 
@@ -588,24 +588,24 @@ Emerging consensus (2026+):
   - MEASURE deployment independence, not service count
 ```
 
-This consensus aligns directly with PyBend's architecture: a single-process application with model-driven boundaries that can be split into separate deployments when (and only when) organizational or scaling requirements demand it.
+This consensus aligns directly with N3TX's architecture: a single-process application with model-driven boundaries that can be split into separate deployments when (and only when) organizational or scaling requirements demand it.
 
 ---
 
-## 11. Strategic Implications for PyBend
+## 11. Strategic Implications for N3TX
 
 ### 11.1 Market Positioning
 
-Based on the landscape analysis, PyBend occupies a defensible and growing niche:
+Based on the landscape analysis, N3TX occupies a defensible and growing niche:
 
-| Market Trend | PyBend Alignment |
+| Market Trend | N3TX Alignment |
 |-------------|-----------------|
 | FastAPI as the dominant Python API framework | Built on FastAPI; extends rather than replaces |
 | Schema-driven / contract-first development | Schema IS the implementation; structural advantage |
 | Modular monolith as the recommended starting point | `create_app()` runs as monolith; splits naturally |
 | Developer experience as competitive advantage | Model-to-UI in 20 lines; zero frontend code required |
 | OpenAPI 3.1 / JSON Schema convergence | JSON Schema as the universal contract |
-| 30-40% faster releases from API-first | PyBend eliminates entire categories of boilerplate |
+| 30-40% faster releases from API-first | N3TX eliminates entire categories of boilerplate |
 
 ### 11.2 Competitive Gaps to Monitor
 
@@ -619,9 +619,9 @@ Based on the landscape analysis, PyBend occupies a defensible and growing niche:
 
 ### 11.3 The Opportunity
 
-The $9-22B microservices market is spending a disproportionate amount on **plumbing** -- the repetitive infrastructure code that connects models to APIs to frontends. PyBend's thesis is that this plumbing should not exist as hand-written code. The model definition carries enough information to derive it all.
+The $9-22B microservices market is spending a disproportionate amount on **plumbing** -- the repetitive infrastructure code that connects models to APIs to frontends. N3TX's thesis is that this plumbing should not exist as hand-written code. The model definition carries enough information to derive it all.
 
-Every line of code that PyBend eliminates is a line that does not need to be tested, documented, debugged across service boundaries, or maintained through API version changes. In an industry where 3-4x debugging overhead and 3x cloud cost overruns are common failure modes, **reducing the surface area of what can go wrong** is a strategic advantage that compounds over time.
+Every line of code that N3TX eliminates is a line that does not need to be tested, documented, debugged across service boundaries, or maintained through API version changes. In an industry where 3-4x debugging overhead and 3x cloud cost overruns are common failure modes, **reducing the surface area of what can go wrong** is a strategic advantage that compounds over time.
 
 ---
 

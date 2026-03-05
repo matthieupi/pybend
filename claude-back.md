@@ -1,4 +1,4 @@
-# PyBend Backend Reference
+# N3TX Backend Reference
 
 This document contains backend-specific key files, architecture details, and patterns. It supplements the main `CLAUDE.md` which contains cross-cutting architecture, the actor system, custom methods, and all directives.
 
@@ -43,60 +43,60 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 ## Key Files
 
 ### Models & Serialization
-- `src/pybend/core/models/proto_model.py` - Base model, `model_response()`, `generate_join_model()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
-- `src/pybend/core/models/proto_schema.py` - Schema pipeline: 7 composable `dict → dict` stages (`base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`). Extensible via `@schema_extension` decorator.
-- `src/pybend/core/models/proto_dump.py` - Dump pipeline: composable `dict → dict` stages for model serialization (`base`, `response`). Extensible via `@dump_extension` decorator. Powers `model_response()`.
-- `src/pybend/core/models/actor_model.py` - `ActorModel(Actor, ProtoModel)` bridge class. CRUD via `handler_crud()`, lifecycle event publishing, generic Actor handler fallback for custom methods.
-- `src/pybend/core/models/base_user.py` - Abstract base user model with `login()` and `register_user()` endpoints and password hashing
-- `src/pybend/core/models/storable_mixin.py` - CRUD operations (create/get/list/update/delete). `list()` supports `limit`/`offset` pagination.
-- `src/pybend/core/models/ref.py` - `ListRef[T]` type for collection references
-- `src/pybend/core/utils/typer.py` - `Ref` type (`Ref[T]`, `Ref['self']`), `flatten_refs()`
+- `src/n3tx/core/models/proto_model.py` - Base model, `model_response()`, `generate_join_model()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
+- `src/n3tx/core/models/proto_schema.py` - Schema pipeline: 7 composable `dict → dict` stages (`base`, `strip_hidden`, `methods`, `defs`, `access`, `ui`, `metadata`). Extensible via `@schema_extension` decorator.
+- `src/n3tx/core/models/proto_dump.py` - Dump pipeline: composable `dict → dict` stages for model serialization (`base`, `response`). Extensible via `@dump_extension` decorator. Powers `model_response()`.
+- `src/n3tx/core/models/actor_model.py` - `ActorModel(Actor, ProtoModel)` bridge class. CRUD via `handler_crud()`, lifecycle event publishing, generic Actor handler fallback for custom methods.
+- `src/n3tx/core/models/base_user.py` - Abstract base user model with `login()` and `register_user()` endpoints and password hashing
+- `src/n3tx/core/models/storable_mixin.py` - CRUD operations (create/get/list/update/delete). `list()` supports `limit`/`offset` pagination.
+- `src/n3tx/core/models/ref.py` - `ListRef[T]` type for collection references
+- `src/n3tx/core/utils/typer.py` - `Ref` type (`Ref[T]`, `Ref['self']`), `flatten_refs()`
 
 ### Storage
-- `src/pybend/core/storage/sqlite_storage.py` - SQLite backend with FK hydration (converts ListRef fields to href arrays)
-- `src/pybend/core/storage/sqlite_migration.py` - Auto-migration + Rails-style manual migrations
-- `src/pybend/core/storage/sqlite_helpers.py` - `get_parent_fk_columns()` for auto FK column detection
+- `src/n3tx/core/storage/sqlite_storage.py` - SQLite backend with FK hydration (converts ListRef fields to href arrays)
+- `src/n3tx/core/storage/sqlite_migration.py` - Auto-migration + Rails-style manual migrations
+- `src/n3tx/core/storage/sqlite_helpers.py` - `get_parent_fk_columns()` for auto FK column detection
 
 ### Authorization & Authentication
-- `src/pybend/core/authorize/` - Standalone auth package (JWT + ABAC, zero PyBend imports). Configured via `authorize.configure()` in `main.py`
-- `src/pybend/core/authorize/auth.py` - JWT: password hashing, token create/decode, `configure()`
-- `src/pybend/core/authorize/rules.py` - `AccessRule` base class + built-in rules (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`)
-- `src/pybend/core/authorize/context.py` - `AccessContext` dataclass (user, action, model, resource)
-- `src/pybend/core/authorize/resolver.py` - `AuthorizationResolver` Protocol + `DefaultResolver`
-- `src/pybend/core/authorize/errors.py` - `AccessDenied` exception
-- `src/pybend/core/authorize/schema.py` - Serialize access rules to JSON for schema exposure
-- `src/pybend/docs/AUTHORIZATION.md` - Full authorization system documentation
+- `src/n3tx/core/authorize/` - Standalone auth package (JWT + ABAC, zero N3TX imports). Configured via `authorize.configure()` in `main.py`
+- `src/n3tx/core/authorize/auth.py` - JWT: password hashing, token create/decode, `configure()`
+- `src/n3tx/core/authorize/rules.py` - `AccessRule` base class + built-in rules (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`)
+- `src/n3tx/core/authorize/context.py` - `AccessContext` dataclass (user, action, model, resource)
+- `src/n3tx/core/authorize/resolver.py` - `AuthorizationResolver` Protocol + `DefaultResolver`
+- `src/n3tx/core/authorize/errors.py` - `AccessDenied` exception
+- `src/n3tx/core/authorize/schema.py` - Serialize access rules to JSON for schema exposure
+- `src/n3tx/docs/AUTHORIZATION.md` - Full authorization system documentation
 
 ### API / Routes
-- `src/pybend/core/api/routes_fastapi.py` - Level 1/2 route factories with authorization injection, pagination, and user resolution bridge (`_resolve_user`). DO NOT MODIFY — Level 3 is additive.
-- `src/pybend/core/api/network_adapter.py` - `NetworkAdapter(Actor)` base class for protocol adapters. Provides `request()` for request/response correlation via asyncio.Future with interceptor support, `inbox()` override for correlation interception. All external protocol interaction flows through a NetworkAdapter.
-- `src/pybend/core/api/network_api.py` - `NetworkAPI` adapter: HTTP REST bridge for Level 3 actor routing. `create_api_routes()` generates FastAPI routes that translate HTTP to TX. Mirrors route paths from `routes_fastapi.py`.
-- `src/pybend/core/api/auth_interceptor.py` - Tier 1 auth interceptor for NetworkAPI. `async (TX) -> TX` function: AUTHENTICATED gate, sql_filter for list, full create check, identity gate for read/update/delete. Registered via `api.use(auth_interceptor, on='request')`.
-- `src/pybend/core/api/network_mcp.py` - `NetworkMCP` adapter: MCP JSON-RPC 2.0 bridge. `handle_tools_list()`, `handle_tools_call()`, `handle_jsonrpc()`. Converts model schemas to MCP tool specs. `create_mcp_routes()` FastAPI route factory.
-- `src/pybend/core/api/network_ap.py` - `NetworkAP` adapter: ActivityPub federation bridge. LIFECYCLE handler, actor documents, outbox, inbox, WebFinger, follow/unfollow. `create_federation_routes()` FastAPI route factory.
-- `src/pybend/core/api/network_ws.py` - `NetworkWebSocket` adapter: WebSocket bridge for frontend Matrix. Translates frontend TX (full URL targets, UPPERCASE names) to backend TX. Lifecycle event broadcast. `create_ws_routes()` FastAPI route factory.
-- `src/pybend/core/utils/decorators.py` - `@expose_route()` for custom method endpoints (supports `access=` parameter)
-- `src/pybend/core/utils/registrar.py` - `registered_models` dict, `join_models` dict
+- `src/n3tx/core/api/routes_fastapi.py` - Level 1/2 route factories with authorization injection, pagination, and user resolution bridge (`_resolve_user`). DO NOT MODIFY — Level 3 is additive.
+- `src/n3tx/core/api/network_adapter.py` - `NetworkAdapter(Actor)` base class for protocol adapters. Provides `request()` for request/response correlation via asyncio.Future with interceptor support, `inbox()` override for correlation interception. All external protocol interaction flows through a NetworkAdapter.
+- `src/n3tx/core/api/network_api.py` - `NetworkAPI` adapter: HTTP REST bridge for Level 3 actor routing. `create_api_routes()` generates FastAPI routes that translate HTTP to TX. Mirrors route paths from `routes_fastapi.py`.
+- `src/n3tx/core/api/auth_interceptor.py` - Tier 1 auth interceptor for NetworkAPI. `async (TX) -> TX` function: AUTHENTICATED gate, sql_filter for list, full create check, identity gate for read/update/delete. Registered via `api.use(auth_interceptor, on='request')`.
+- `src/n3tx/core/api/network_mcp.py` - `NetworkMCP` adapter: MCP JSON-RPC 2.0 bridge. `handle_tools_list()`, `handle_tools_call()`, `handle_jsonrpc()`. Converts model schemas to MCP tool specs. `create_mcp_routes()` FastAPI route factory.
+- `src/n3tx/core/api/network_ap.py` - `NetworkAP` adapter: ActivityPub federation bridge. LIFECYCLE handler, actor documents, outbox, inbox, WebFinger, follow/unfollow. `create_federation_routes()` FastAPI route factory.
+- `src/n3tx/core/api/network_ws.py` - `NetworkWebSocket` adapter: WebSocket bridge for frontend Matrix. Translates frontend TX (full URL targets, UPPERCASE names) to backend TX. Lifecycle event broadcast. `create_ws_routes()` FastAPI route factory.
+- `src/n3tx/core/utils/decorators.py` - `@expose_route()` for custom method endpoints (supports `access=` parameter)
+- `src/n3tx/core/utils/registrar.py` - `registered_models` dict, `join_models` dict
 
 ### Widgets (Python)
-- `src/pybend/core/widgets/widget.py` - `Widget` base class, `WidgetMeta` metaclass, built-in field types (Url, Email, Date, DateTime, Markdown, Console, Reference, Currency, Textarea), auto-detection registry
-- `src/pybend/core/widgets/schema_ext.py` - Schema pipeline stage (`@schema_extension(before='ui')`) — injects `ui.widget` + `ui.config` from Widget annotations
-- `src/pybend/core/widgets/__init__.py` - Package init, re-exports, triggers schema_ext registration
+- `src/n3tx/core/widgets/widget.py` - `Widget` base class, `WidgetMeta` metaclass, built-in field types (Url, Email, Date, DateTime, Markdown, Console, Reference, Currency, Textarea), auto-detection registry
+- `src/n3tx/core/widgets/schema_ext.py` - Schema pipeline stage (`@schema_extension(before='ui')`) — injects `ui.widget` + `ui.config` from Widget annotations
+- `src/n3tx/core/widgets/__init__.py` - Package init, re-exports, triggers schema_ext registration
 
 ### App Bootstrap
-- `src/pybend/core/app.py` - `PyBendApp` builder class + `create_app()` one-liner factory. Supports `routing='direct'` (Level 1/2) and `routing='actor'` (Level 3 via NetworkAPI).
-- `src/pybend/__init__.py` - Public API: re-exports `create_app`, `PyBendApp`, `ProtoModel`, `BaseUser`, `expose_route`, `Actor`, `Matrix`, `TX`, `NetworkAdapter`, `NetworkAPI`, etc.
+- `src/n3tx/core/app.py` - `N3TXApp` builder class + `create_app()` one-liner factory. Supports `routing='direct'` (Level 1/2) and `routing='actor'` (Level 3 via NetworkAPI).
+- `src/n3tx/__init__.py` - Public API: re-exports `create_app`, `N3TXApp`, `ProtoModel`, `BaseUser`, `expose_route`, `Actor`, `Matrix`, `TX`, `NetworkAdapter`, `NetworkAPI`, etc.
 
 ### Config & Entry
-- `src/pybend/core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE
-- `src/pybend/core/main.py` - Backward-compat shim that delegates to `pybend.example.main`
+- `src/n3tx/core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE
+- `src/n3tx/core/main.py` - Backward-compat shim that delegates to `n3tx.example.main`
 
 ## Backend Patterns
 
 ### BaseUser Pattern
 Application user models extend `BaseUser` to get login, register, and password hashing for free:
 ```python
-from pybend.core.models.base_user import BaseUser
+from n3tx.core.models.base_user import BaseUser
 
 class User(BaseUser):
     __tablename__ = 'users'
@@ -178,7 +178,7 @@ d = proto_dump.response(instance, d) # Inject $schema and $id
 
 External packages extend via `@dump_extension`:
 ```python
-from pybend.core.models.proto_dump import dump_extension
+from n3tx.core.models.proto_dump import dump_extension
 
 @dump_extension(after='response')
 def activity(instance, d: dict) -> dict:
@@ -209,8 +209,8 @@ MCP tool names follow `{tablename}_{action}` (e.g., `products_create`, `products
 
 **Usage:**
 ```python
-from pybend.core.api.network_mcp import NetworkMCP, create_mcp_routes
-from pybend.core.api.network_ap import NetworkAP, create_federation_routes
+from n3tx.core.api.network_mcp import NetworkMCP, create_mcp_routes
+from n3tx.core.api.network_ap import NetworkAP, create_federation_routes
 
 # Register adapters with Matrix
 mcp = NetworkMCP(addr='mcp')
@@ -233,7 +233,7 @@ for model in registered_models.values():
 Widget fields map Python types to specialized frontend renderers. The `Widget` class hierarchy serves as both a type annotation and a metadata carrier:
 
 ```python
-from pybend.core.widgets import MarkdownField, UrlField, CurrencyField
+from n3tx.core.widgets import MarkdownField, UrlField, CurrencyField
 
 class BlogPost(ProtoModel):
     body: MarkdownField                  # bare — validates as str, widget=markdown

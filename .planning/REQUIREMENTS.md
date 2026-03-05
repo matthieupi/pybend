@@ -2,9 +2,9 @@
 
 ## v1 Requirements
 
-### Framework — PyBend Agentic Infrastructure
+### Framework — N3TX Agentic Infrastructure
 
-These requirements improve the PyBend framework to support agentic pipeline applications generically. They are not grant-watch specific.
+These requirements improve the N3TX framework to support agentic pipeline applications generically. They are not grant-watch specific.
 
 - [ ] **FW-01**: SchedulerActor with DB-stored cron expressions, editable via API
 - [ ] **FW-02**: Lifecycle event pub/sub — after_create, after_update, after_delete publish TX to subscriber actors
@@ -48,7 +48,7 @@ These requirements define the data model and actor topology specific to the gran
 
 ### Frontend
 
-- [ ] **UI-01**: All models browsable — ntt-list/ntt-item for Grants, Sources, Agents, Reports, Criteria, GrantCriterion
+- [ ] **UI-01**: All models browsable — ntx-list/ntx-item for Grants, Sources, Agents, Reports, Criteria, GrantCriterion
 - [ ] **UI-02**: Agent Run button — manual trigger on agent detail view (POST /agents/{id}/run)
 - [ ] **UI-03**: Run status + history — status indicator on agent, list of past AgentRun records with results
 - [ ] **UI-04**: Eligibility dashboard — grant list with color-coded eligibility status, expandable criterion breakdown per grant
@@ -77,7 +77,7 @@ These requirements define the data model and actor topology specific to the gran
 - Email notifications — v2 (architecture supports adding NotificationActor)
 - Multi-tenant — v2 (add org_id, tenant-aware queries)
 - PDF parsing — v2 (add PDFTools actor)
-- User roles beyond basic auth — v2 (PyBend RBAC primitives exist)
+- User roles beyond basic auth — v2 (N3TX RBAC primitives exist)
 - Playwright/headless browser — v2 (swap httpx in WebTools)
 - Remote org doc sources — v2 (replace FileReader with remote actors)
 

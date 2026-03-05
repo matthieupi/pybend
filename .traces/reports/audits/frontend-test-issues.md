@@ -1,6 +1,6 @@
 # Frontend Test Suite Issues
 
-Discovered during in-depth review of the NTT test suite (`src/pybend/static/tests/`).
+Discovered during in-depth review of the N3TX test suite (`src/n3tx/static/tests/`).
 703 tests pass across 37 files, but structural problems undermine confidence.
 
 ---
@@ -28,9 +28,9 @@ Every test run produces 33 `AssertionError` unhandled rejections from leaked `fe
 
 | File | LOC | Notes |
 |------|-----|-------|
-| `components/ntt-favorites.js` | 16 | Simple wrapper, low risk |
-| `components/ntt-profile.js` | 113 | Renders user data into innerHTML — XSS risk (see issues.md) |
-| `components/ntt-user.js` | 41 | Constructs external avatar URLs with user input |
+| `components/ntx-favorites.js` | 16 | Simple wrapper, low risk |
+| `components/ntx-profile.js` | 113 | Renders user data into innerHTML — XSS risk (see issues.md) |
+| `components/ntx-user.js` | 41 | Constructs external avatar URLs with user input |
 | `utils/theme.js` | 33 | localStorage persistence + CustomEvent dispatch |
 | `utils/registrar.js` | 65 | Used by Actor system, has logic bug (see issues.md) |
 | `utils/Snippets.js` | 11 | Dead code — attaches all window events to console.log |
@@ -38,10 +38,10 @@ Every test run produces 33 `AssertionError` unhandled rejections from leaked `fe
 
 ---
 
-## 3. ntt-item.js — Most Complex Component, Shallowest Tests
+## 3. ntx-item.js — Most Complex Component, Shallowest Tests
 
 **Severity:** High
-**Location:** `tests/components/ntt-item.test.js` (200 lines) vs source (652 lines)
+**Location:** `tests/components/ntx-item.test.js` (200 lines) vs source (652 lines)
 
 The test file covers: class registration, `xs()` output, `handleInputChange()`, `update()` bail conditions, `render()` no-op. Everything below is **untested**:
 
@@ -55,15 +55,15 @@ The test file covers: class registration, `xs()` output, `handleInputChange()`, 
 | `#bindEvents()` | 491-590 | Edit/delete buttons, input handlers, show-more toggle, reply submission (Enter/Escape keyboard), card click → SELECT. Zero tests. |
 | `#updateListField()` | 386-458 | Surgical reconciliation — removals, promotions from collapsed, additions, show-more updates. Zero tests. |
 | `#smFields()` | 596-617 | Field filtering (id, hidden, array, selfref, permissions). Zero tests. |
-| `#resolveChildTag()` | 623-629 | $defs lookup, NTT registry fallback. Zero tests. |
+| `#resolveChildTag()` | 623-629 | $defs lookup, N3TX registry fallback. Zero tests. |
 | `#standaloneMethodsHtml()` | 632-648 | Method button HTML generation. Zero tests. |
 
 ---
 
-## 4. ntt-list.test.js — 5 Assertions for Entire Collection System
+## 4. ntx-list.test.js — 5 Assertions for Entire Collection System
 
 **Severity:** High
-**Location:** `tests/components/ntt-list.test.js` (45 lines)
+**Location:** `tests/components/ntx-list.test.js` (45 lines)
 
 Only tests: custom element registration, styles getter, method existence. Zero behavioral tests for:
 
@@ -114,10 +114,10 @@ Almost no tests verify that things don't happen when they shouldn't:
 
 ---
 
-## 7. ntt-logs.test.js — Missing Core Behavior
+## 7. ntx-logs.test.js — Missing Core Behavior
 
 **Severity:** Medium
-**Location:** `tests/components/ntt-logs.test.js` (95 lines)
+**Location:** `tests/components/ntx-logs.test.js` (95 lines)
 
 Tests: registration, DOM structure, listener subscription/unsubscription. Missing:
 
@@ -132,10 +132,10 @@ Tests: registration, DOM structure, listener subscription/unsubscription. Missin
 
 ---
 
-## 8. ntt-topbar.test.js — Missing Authenticated State
+## 8. ntx-topbar.test.js — Missing Authenticated State
 
 **Severity:** Medium
-**Location:** `tests/components/ntt-topbar.test.js` (75 lines)
+**Location:** `tests/components/ntx-topbar.test.js` (75 lines)
 
 Tests: registration, shadow DOM, sign-in link (unauthenticated). Missing:
 
@@ -156,7 +156,7 @@ Tests: registration, shadow DOM, sign-in link (unauthenticated). Missing:
 Covered: basic types, field_order, groups, protected fields, validation attrs, formatDisplayValue, getListInput. Missing:
 
 - `resolveAnyOf()` — multiple non-null anyOf entries (should throw), single entry resolution
-- `refInput()` — NTT.get() fallback when reference not found
+- `refInput()` — N3TX.get() fallback when reference not found
 - `getInput()` with `effectiveMode` override — when `canEdit()` returns false
 - `getInput()` with `selfref` type in both edit and display modes
 - `getInput()` with `$ref` type in display mode (`[Reference: ...]` format)
@@ -171,7 +171,7 @@ Covered: basic types, field_order, groups, protected fields, validation attrs, f
 ## 10. Prototype.call() Anti-Pattern
 
 **Severity:** Medium
-**Location:** `ntt-item.test.js`, `ntt-list.test.js`, and others
+**Location:** `ntx-item.test.js`, `ntx-list.test.js`, and others
 
 Many component tests use `NTTItem.prototype.xs.call(ctx)` with a fake context object instead of creating actual custom elements. This:
 
@@ -193,7 +193,7 @@ The pattern is acceptable for pure-function size methods (`xs`, `sm`, etc.) but 
 ### setup.js
 - **Dead code:** `localStorageMock` is defined then immediately overwritten by `localStorageProxy` on line 37
 - **No WebSocket mock reset:** `WebSocketMock` state persists across tests
-- **No `customElements` reset:** jsdom persists registrations — once `ntt-item` is defined, it can't be redefined. Forces global state sharing.
+- **No `customElements` reset:** jsdom persists registrations — once `ntx-item` is defined, it can't be redefined. Forces global state sharing.
 - **No `console.error` spy by default:** Unhandled errors in test code pass silently
 
 ### vitest.config.js
@@ -226,7 +226,7 @@ The pattern is acceptable for pure-function size methods (`xs`, `sm`, etc.) but 
 
 The integration tests are the strongest part of the suite but still miss:
 
-- **Pre-loaded schema/data** via `<script data-ntt-schema>` / `<script data-ntt-data>` — NTT.js supports this but it's never integration-tested
+- **Pre-loaded schema/data** via `<script data-ntx-schema>` / `<script data-ntx-data>` — N3TX.js supports this but it's never integration-tested
 - **Race: multiple ATTACH before SCHEMA resolves** — two lists attaching to the same model simultaneously
 - **Error propagation** — network request fails mid-lifecycle (only happy paths tested)
 - **DELETE lifecycle** — create → delete → verify instance removal and watcher notification
@@ -252,10 +252,10 @@ This should be a failing test with the expected correct behavior (`false`), not 
 
 ---
 
-## 15. ntt-method.test.js — Render Layout Paths Incomplete
+## 15. ntx-method.test.js — Render Layout Paths Incomplete
 
 **Severity:** Low
-**Location:** `tests/components/ntt-method.test.js`
+**Location:** `tests/components/ntx-method.test.js`
 
 Tests verify render dispatch (inline→renderInline, button→renderButton, fieldset→renderFieldset) and basic button/fieldset output. Missing:
 

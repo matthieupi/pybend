@@ -5,16 +5,16 @@ from datetime import datetime
 
 from pydantic import Field
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.models.ref import ListRef, Ref
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.models.ref import ListRef, Ref
 from models.like import Like
 from typing import ClassVar, Optional
 from models.user import User
-from pybend.core.utils.decorators import expose_route
-from pybend.core.utils.registrar import join_models
-from pybend.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
-from pybend.core.utils.erroring import MethodError
-from pybend.core.widgets import TextareaField
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.utils.registrar import join_models
+from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx.core.utils.erroring import MethodError
+from n3tx.core.widgets import TextareaField
 
 
 class Comment(ActorModel):

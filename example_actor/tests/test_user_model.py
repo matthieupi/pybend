@@ -9,8 +9,8 @@ from typing import ClassVar
 from unittest.mock import MagicMock
 
 from models import User, Bot
-from pybend.core.models.proto_model import ProtoModel
-from pybend.core.models.storable_mixin import StorableMixin
+from n3tx.core.models.proto_model import ProtoModel
+from n3tx.core.models.storable_mixin import StorableMixin
 
 pytestmark = pytest.mark.unit
 
@@ -86,7 +86,7 @@ class TestUserHiddenFields:
 class TestUserUIConfig:
 
     def test_renderer_item(self):
-        assert User.__ui__['renderer']['item'] == 'ntt-user'
+        assert User.__ui__['renderer']['item'] == 'ntx-user'
 
 
 class TestUserExposedMethods:

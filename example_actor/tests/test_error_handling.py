@@ -68,7 +68,7 @@ class TestUnauthorized401:
             "exp": datetime.now(timezone.utc) - timedelta(hours=1),
             "iat": datetime.now(timezone.utc) - timedelta(hours=2),
         }
-        expired_token = jwt.encode(expired_payload, "pybend-dev-secret-change-in-production",
+        expired_token = jwt.encode(expired_payload, "ntx-dev-secret-change-in-production",
                                    algorithm="HS256")
         resp = client.get("/auth/me", headers=auth_header(expired_token))
         assert resp.status_code == 401

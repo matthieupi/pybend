@@ -1,12 +1,12 @@
 # TX Sagas & Causal Tracing: Relevance to Our Stack
 
-**How PyBend's TX/Actor/Matrix system compares to saga/workflow patterns, what primitives already exist, and what gaps need filling for multi-step composition and causal history tracking.**
+**How N3TX's TX/Actor/Matrix system compares to saga/workflow patterns, what primitives already exist, and what gaps need filling for multi-step composition and causal history tracking.**
 
 ---
 
 ## Executive Summary
 
-PyBend's actor system already contains **more saga infrastructure than it realizes**. The TX envelope, `reply()`/`error()` chaining, `meta` dict for correlation, interceptors for cross-cutting concerns, and lifecycle events for pub/sub -- these are the raw building blocks that systems like Akka, Orleans, and Temporal use for multi-step workflows. What we lack is not new primitives, but **composition of existing ones**: a way to chain TXs into workflows, trace causal lineage, and record history for replay and audit.
+N3TX's actor system already contains **more saga infrastructure than it realizes**. The TX envelope, `reply()`/`error()` chaining, `meta` dict for correlation, interceptors for cross-cutting concerns, and lifecycle events for pub/sub -- these are the raw building blocks that systems like Akka, Orleans, and Temporal use for multi-step workflows. What we lack is not new primitives, but **composition of existing ones**: a way to chain TXs into workflows, trace causal lineage, and record history for replay and audit.
 
 This document maps every piece of the current stack to the saga/workflow concepts it naturally corresponds to, identifies the specific gaps, and proposes minimal-to-full extensions that preserve the existing architecture.
 
@@ -33,7 +33,7 @@ This document maps every piece of the current stack to the saga/workflow concept
 
 Before looking at what is missing, we need to see what is already in place. The current codebase contains **five distinct building blocks** that map directly to saga/workflow concepts in mature actor frameworks.
 
-### 1. TX Message Envelope (`/workspace/src/pybend/core/actors/tx.py`)
+### 1. TX Message Envelope (`/workspace/src/n3tx/core/actors/tx.py`)
 
 The TX dataclass is the fundamental unit of communication. Here is what it carries today:
 
@@ -69,7 +69,7 @@ TX(uuid="abc123")  --reply()--> TX(uuid="def456", meta={'in_reply_to': 'abc123'}
 
 This is a **one-hop correlation**. `in_reply_to` links a response to its immediate cause. But there is no mechanism for tracing a chain of TXs back to their originating cause -- what the industry calls `correlation_id` (the root cause) vs. `causation_id` (the direct parent).
 
-### 2. Actor Message Routing (`/workspace/src/pybend/core/actors/actor.py`)
+### 2. Actor Message Routing (`/workspace/src/n3tx/core/actors/actor.py`)
 
 The Actor base class provides:
 
@@ -94,7 +94,7 @@ The Actor base class provides:
 - Short-circuit with an error TX
 - Act as a pipeline stage
 
-### 3. NetworkAdapter Request/Response (`/workspace/src/pybend/core/api/network_adapter.py`)
+### 3. NetworkAdapter Request/Response (`/workspace/src/n3tx/core/api/network_adapter.py`)
 
 The `request()` method is the closest thing we have to a **saga step executor**:
 
@@ -120,7 +120,7 @@ This implements the **request-response correlation** pattern:
 
 This is precisely how Temporal's activity invocation works: send a message, await a correlated reply, handle timeout. The difference is that Temporal persists this to durable storage and can replay. We do it in-memory.
 
-### 4. ActorModel Lifecycle Events (`/workspace/src/pybend/core/models/actor_model.py`)
+### 4. ActorModel Lifecycle Events (`/workspace/src/n3tx/core/models/actor_model.py`)
 
 ```python
 @classmethod
@@ -141,7 +141,7 @@ This is **event choreography** -- the decentralized saga pattern. After a CRUD o
 
 Currently used by: `NetworkWebSocket` (broadcast to frontend), `NetworkAP` (federation outbox). The infrastructure exists but the subscriber list is typically empty or minimal.
 
-### 5. Auth Interceptor Pattern (`/workspace/src/pybend/core/api/auth_interceptor.py`)
+### 5. Auth Interceptor Pattern (`/workspace/src/n3tx/core/api/auth_interceptor.py`)
 
 The auth interceptor demonstrates the **two-tier interceptor pattern** that would extend naturally to saga coordination:
 
@@ -162,7 +162,7 @@ This two-tier pattern -- **pre-route inspection + in-handler validation** -- is 
 
 ## :bar_chart: Mapping Our Stack to Saga Concepts
 
-| Saga/Workflow Concept | Industry Term | PyBend Equivalent | Status |
+| Saga/Workflow Concept | Industry Term | N3TX Equivalent | Status |
 |----------------------|---------------|-------------------|--------|
 | Message envelope | Event/Command | `TX` dataclass | **Exists** |
 | Request-response | Activity invocation | `NetworkAdapter.request()` | **Exists** |
@@ -193,7 +193,7 @@ This two-tier pattern -- **pre-route inspection + in-handler validation** -- is 
 | **Orleans** | [Orleans.Sagas](https://github.com/OrleansContrib/Orleans.Sagas) contrib library | Grain identity = natural correlation | [Transactional state](https://www.microsoft.com/en-us/research/project/orleans-virtual-actors/) with ACID across grains | Activity-based with `ICompensable` | Medium -- composition via DI |
 | **Proto.Actor** | Supervision + error kernel pattern | PID-based routing | External (bring your own journal) | Actor hierarchy: parent supervises child saga steps | Medium -- actor tree design |
 | **Temporal** | [Workflow + Activities](https://temporal.io/blog/compensating-actions-part-of-a-complete-breakfast-with-sagas) with durable execution | Workflow ID + Run ID | Deterministic replay from event history | Try/catch with `Saga` helper class | Low -- looks like normal code |
-| **PyBend** | None (individual TX operations) | `meta['in_reply_to']` (one-hop) | None | `TX.error()` (failure only, no rollback) | N/A |
+| **N3TX** | None (individual TX operations) | `meta['in_reply_to']` (one-hop) | None | `TX.error()` (failure only, no rollback) | N/A |
 
 ### Akka's Two Saga Patterns
 
@@ -517,7 +517,7 @@ The Python [`eventsourcing` library](https://eventsourcing.readthedocs.io/) (v9.
 An interceptor that logs every TX to an append-only store:
 
 ```python
-from pybend.core.actors.tx import TX
+from n3tx.core.actors.tx import TX
 import json, time
 
 class TXJournal:
@@ -861,7 +861,7 @@ Our Phase 3 (Saga Actor) provides ~30% of Temporal's value at ~1% of its complex
 
 | File | Change | Lines |
 |------|--------|-------|
-| `/workspace/src/pybend/core/actors/tx.py` | Add `correlation_id`, `causation_id` fields; update `reply()`, `error()`; add `spawn()` | ~20 lines added |
+| `/workspace/src/n3tx/core/actors/tx.py` | Add `correlation_id`, `causation_id` fields; update `reply()`, `error()`; add `spawn()` | ~20 lines added |
 
 **Files created:** 0
 
@@ -879,7 +879,7 @@ Our Phase 3 (Saga Actor) provides ~30% of Temporal's value at ~1% of its complex
 
 | File | Purpose | Lines |
 |------|---------|-------|
-| `/workspace/src/pybend/core/actors/journal.py` | TXJournal class + interceptor factory | ~80 lines |
+| `/workspace/src/n3tx/core/actors/journal.py` | TXJournal class + interceptor factory | ~80 lines |
 
 **Wiring:** Optional. Add to `create_app()` with a config flag:
 ```python
@@ -896,7 +896,7 @@ if config.TX_JOURNAL:
 
 | File | Purpose | Lines |
 |------|---------|-------|
-| `/workspace/src/pybend/core/actors/saga.py` | Saga class with step/execute/compensate | ~100 lines |
+| `/workspace/src/n3tx/core/actors/saga.py` | Saga class with step/execute/compensate | ~100 lines |
 
 **Integration point:** Sagas use `NetworkAdapter.request()` -- the existing correlation mechanism. No new routing or dispatch logic needed.
 

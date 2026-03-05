@@ -74,7 +74,7 @@ tools: grants, sources,               tools: grants,                    tools: g
 
 2. **Agent specialization is data, not code.** The Scanner, Analyzer, and Reporter are all `AgentActor` records in the DB with different `prompt` and `tools` fields. No new Python classes needed for new agent types.
 
-3. **No external multi-agent frameworks.** CrewAI and LangGraph are not used. Coordination flows through PyBend's native `_publish_lifecycle()` -> `_subscribers` -> `TX` -> `Matrix` routing. Agent-to-agent delegation within a single run uses Pydantic AI's native delegation pattern (one agent calls another as a tool).
+3. **No external multi-agent frameworks.** CrewAI and LangGraph are not used. Coordination flows through N3TX's native `_publish_lifecycle()` -> `_subscribers` -> `TX` -> `Matrix` routing. Agent-to-agent delegation within a single run uses Pydantic AI's native delegation pattern (one agent calls another as a tool).
 
 4. **Framework changes are minimal.** Two additions to `mixin.py`: `output_type` passthrough (1 line) and `message_history` support (~4 lines). Everything else is application code in `example_grants/`.
 
@@ -86,9 +86,9 @@ tools: grants, sources,               tools: grants,                    tools: g
 
 **Goal:** Allow agents to return typed Pydantic models instead of raw text.
 
-**Framework change:** 1 line in `/workspace/src/pybend/core/agents/mixin.py`
+**Framework change:** 1 line in `/workspace/src/n3tx/core/agents/mixin.py`
 
-**File:** `/workspace/src/pybend/core/agents/mixin.py`
+**File:** `/workspace/src/n3tx/core/agents/mixin.py`
 
 ```python
 # Line 107-112, current:
@@ -192,7 +192,7 @@ class DigestReport(BaseModel):
 
 **Prereq:** Sprint 1 must have delivered the `AgentRun` model with a `messages` field storing serialized Pydantic AI message history.
 
-**Framework change:** ~4 lines in `/workspace/src/pybend/core/agents/mixin.py`
+**Framework change:** ~4 lines in `/workspace/src/n3tx/core/agents/mixin.py`
 
 ```python
 # After line 128 (usage_limits), before line 129 (result = await ai_agent.run(...)):
@@ -373,9 +373,9 @@ from __future__ import annotations
 import os
 from typing import ClassVar
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import AUTHENTICATED
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import AUTHENTICATED
 
 
 class SamGovAPI(ActorModel):
@@ -402,7 +402,7 @@ class SamGovAPI(ActorModel):
 
         api_key = os.environ.get('SAM_GOV_API_KEY', '')
         if not api_key:
-            from pybend.core.utils.erroring import MethodError
+            from n3tx.core.utils.erroring import MethodError
             raise MethodError("SAM_GOV_API_KEY environment variable not set", 503)
 
         params = {
@@ -423,7 +423,7 @@ class SamGovAPI(ActorModel):
                 params=params,
             )
         if resp.status_code != 200:
-            from pybend.core.utils.erroring import MethodError
+            from n3tx.core.utils.erroring import MethodError
             raise MethodError(f"SAM.gov API error: {resp.status_code}", resp.status_code)
 
         data = resp.json()
@@ -471,9 +471,9 @@ import hashlib
 from datetime import date
 from typing import ClassVar
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import AUTHENTICATED
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import AUTHENTICATED
 
 
 def _normalize(text: str) -> str:
@@ -619,7 +619,7 @@ class GrantAnalyzer(ActorModel):
 
         grant = Grant.get(grant_id)
         if not grant:
-            from pybend.core.utils.erroring import MethodError
+            from n3tx.core.utils.erroring import MethodError
             raise MethodError(f"Grant {grant_id} not found", 404)
 
         grant_data = grant.model_response() if hasattr(grant, 'model_response') else {}
@@ -801,7 +801,7 @@ No storage, no schema, no routes — just event handling.
 
 Wiring (in main.py):
     from actors.analyzer_monitor import AnalyzerMonitor
-    from pybend.core.actors.matrix import matrix
+    from n3tx.core.actors.matrix import matrix
 
     monitor = AnalyzerMonitor(addr='analyzer_monitor')
     matrix.register(monitor)
@@ -810,8 +810,8 @@ Wiring (in main.py):
 import asyncio
 import logging
 
-from pybend.core.actors.actor import Actor
-from pybend.core.actors.tx import TX
+from n3tx.core.actors.actor import Actor
+from n3tx.core.actors.tx import TX
 
 logger = logging.getLogger('grants.monitor')
 
@@ -877,7 +877,7 @@ class AnalyzerMonitor(Actor, auto_register=False):
         )
 
         try:
-            from pybend.core.agents.actor import AgentActor
+            from n3tx.core.agents.actor import AgentActor
 
             analyzer_id = object.__getattribute__(self, '_analyzer_agent_id')
             analyzer = AgentActor.get(analyzer_id)
@@ -955,7 +955,7 @@ class AnalyzerMonitor(Actor, auto_register=False):
 ```python
 # After create_app() and storage setup:
 
-from pybend.core.actors.matrix import matrix
+from n3tx.core.actors.matrix import matrix
 from actors.analyzer_monitor import AnalyzerMonitor
 from models import Grant
 
@@ -1066,7 +1066,7 @@ def create_analyze_grant_tool():
         Loads the Analyzer agent from DB and runs it with a focused task.
         Returns the analysis result as JSON.
         """
-        from pybend.core.agents.actor import AgentActor
+        from n3tx.core.agents.actor import AgentActor
 
         analyzer = AgentActor.get(2)  # Analyzer agent ID
         if not analyzer:
@@ -1157,9 +1157,9 @@ Dependencies: pip install pymupdf (or pdfplumber as fallback)
 from __future__ import annotations
 from typing import ClassVar
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import AUTHENTICATED
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import AUTHENTICATED
 
 
 class DocumentTools(ActorModel):
@@ -1186,12 +1186,12 @@ class DocumentTools(ActorModel):
             resp = await client.get(url)
 
         if resp.status_code != 200:
-            from pybend.core.utils.erroring import MethodError
+            from n3tx.core.utils.erroring import MethodError
             raise MethodError(f"Failed to download PDF: HTTP {resp.status_code}", resp.status_code)
 
         content_type = resp.headers.get('content-type', '')
         if 'pdf' not in content_type and not url.lower().endswith('.pdf'):
-            from pybend.core.utils.erroring import MethodError
+            from n3tx.core.utils.erroring import MethodError
             raise MethodError(f"URL does not appear to be a PDF: {content_type}", 400)
 
         try:
@@ -1312,9 +1312,9 @@ import hashlib
 from typing import ClassVar, Optional
 from pydantic import Field
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import AUTHENTICATED
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import AUTHENTICATED
 
 
 class SeenGrant(ActorModel):
@@ -1602,8 +1602,8 @@ import json
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from pybend.core.actors.tx import TX
-from pybend.core.agents.actor import AgentActor
+from n3tx.core.actors.tx import TX
+from n3tx.core.agents.actor import AgentActor
 from actors.analyzer_monitor import AnalyzerMonitor
 from models import Grant
 
@@ -1689,7 +1689,7 @@ class TestFullPipeline:
                 received_events.append(tx)
 
         # Register test listener
-        from pybend.core.actors.matrix import matrix
+        from n3tx.core.actors.matrix import matrix
         listener = TestListener()
         matrix._children['test_listener'] = listener
         Grant._subscribers.append('test_listener')
@@ -1730,7 +1730,7 @@ class TestFullPipeline:
 import json
 import pytest
 from pydantic_ai.models.test import TestModel
-from pybend.core.agents.actor import AgentActor
+from n3tx.core.agents.actor import AgentActor
 from agents.output_types import ScanResult, AnalysisResult
 
 
@@ -1868,9 +1868,9 @@ example_grants/tests/
 
 ## 7. Framework vs Application Code Boundary
 
-This is critical for maintaining PyBend's architecture. The fork adds **~25 lines to the framework** and everything else is application code.
+This is critical for maintaining N3TX's architecture. The fork adds **~25 lines to the framework** and everything else is application code.
 
-### Framework Changes (src/pybend/core/)
+### Framework Changes (src/n3tx/core/)
 
 | File | Change | Lines | Backward Compatible |
 |------|--------|-------|---------------------|
@@ -1946,16 +1946,16 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import config
-from pybend.core.app import create_app
-from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.core.agents.actor import AgentActor
-from pybend.core.agents.tool_model import AgentTool
+from n3tx.core.app import create_app
+from n3tx.core.storage.sqlite_storage import SQLiteStorage
+from n3tx.core.agents.actor import AgentActor
+from n3tx.core.agents.tool_model import AgentTool
 from models import User, Grant, Source, WebTools, SamGovAPI, GrantAnalyzer, DocumentTools, SeenGrant
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get('PYBEND_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
+DB_PATH = os.environ.get('N3TX_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
 
 storage = SQLiteStorage(DB_PATH)
 app = create_app(
@@ -1976,7 +1976,7 @@ storage._migration.migrations_dir = os.path.join(_HERE, 'migrations')
 storage._migration.run_migrations()
 
 # ── Multi-Agent Pipeline ──
-from pybend.core.actors.matrix import matrix
+from n3tx.core.actors.matrix import matrix
 from actors.analyzer_monitor import AnalyzerMonitor
 
 monitor = AnalyzerMonitor(addr='analyzer_monitor', analyzer_agent_id=2)

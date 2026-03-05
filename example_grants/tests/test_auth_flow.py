@@ -153,7 +153,7 @@ class TestAccessProtectedEndpoints:
 
     def test_access_protected_endpoint_with_expired_token_returns_401(self, client):
         # Create an expired token (exp in the past)
-        from pybend.core import config
+        from n3tx.core import config
         payload = {
             'user_id': 999,
             'email': 'expired@example.com',

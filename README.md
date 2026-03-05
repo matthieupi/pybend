@@ -1,4 +1,4 @@
-# **PyBend Documentation**
+# **N3TX Documentation**
 
 ## **Table of Contents**
 
@@ -16,14 +16,14 @@
 12. [Schema-Driven Development](#schema-driven-development)
 13. [Schema-Driven Architecture](#schema-driven-architecture)
 14. [Extending the Application](#extending-the-application)
-15. [Why PyBend?](#why-pybend)
+15. [Why N3TX?](#why-n3tx)
 16. [Testing](#testing)
 
 ---
 
 ## **Introduction**
 
-PyBend is a modular, extensible backend framework built with Python. It supports both **FastAPI** and **Flask** backends, dynamically switchable at runtime. It enables model-driven CRUD APIs, schema discovery, join model inference, and custom routes via decorators. Storage backends are pluggable with auto-migration support.
+N3TX is a modular, extensible backend framework built with Python. It supports both **FastAPI** and **Flask** backends, dynamically switchable at runtime. It enables model-driven CRUD APIs, schema discovery, join model inference, and custom routes via decorators. Storage backends are pluggable with auto-migration support.
 
 ---
 
@@ -68,13 +68,13 @@ pip install -e ".[dev]"     # editable install with dev dependencies
 ### Install from PyPI (when published)
 
 ```bash
-pip install pybend
+pip install n3tx
 ```
 
 ### Project Structure
 
 ```
-src/pybend/
+src/n3tx/
     core/           Framework (models, storage, API, auth, actors, app builder)
     core/agents/    LLM agent system (AgentMixin, AgentActor, tool discovery)
     example/        Demo application (product catalog with comments/likes)
@@ -88,8 +88,8 @@ src/pybend/
 The fastest way to get a working app:
 
 ```python
-from pybend import create_app, ProtoModel, expose_route
-from pybend.core.models.base_user import BaseUser
+from n3tx import create_app, ProtoModel, expose_route
+from n3tx.core.models.base_user import BaseUser
 from pydantic import Field
 
 class User(BaseUser):
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=5000)
 ```
 
-See `src/pybend/example/` for a full working application with:
+See `src/n3tx/example/` for a full working application with:
 - Product catalog with comments and likes
 - User authentication (login/register)
 - Schema-driven frontend
@@ -126,8 +126,8 @@ STORAGE_BACKEND=sqlite
 You can also configure programmatically:
 
 ```python
-from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.core.storage.json_storage import JSONStorage
+from n3tx.core.storage.sqlite_storage import SQLiteStorage
+from n3tx.core.storage.json_storage import JSONStorage
 
 storage_backend = SQLiteStorage("database.db")
 # or
@@ -137,7 +137,7 @@ storage_backend = JSONStorage(directory="data")
 Register your models with `create_app()` (recommended) or manually:
 
 ```python
-from pybend import create_app
+from n3tx import create_app
 
 # Recommended: one-liner
 app = create_app(
@@ -147,8 +147,8 @@ app = create_app(
 )
 
 # Or manual registration (Level 3):
-from pybend.core.utils.registrar import register_model
-from pybend.core.models.proto_model import generate_join_model
+from n3tx.core.utils.registrar import register_model
+from n3tx.core.models.proto_model import generate_join_model
 
 register_model(Product, storage=storage_backend)
 register_model(User, storage=storage_backend)
@@ -163,13 +163,13 @@ register_model(generate_join_model(Product, Like), storage=storage_backend)
 
 ```bash
 # Run the example app:
-cd src/pybend/example && python3 main.py
+cd src/n3tx/example && python3 main.py
 
 # Or as a module:
-python3 -m pybend.example.main
+python3 -m n3tx.example.main
 
 # Or with uvicorn directly:
-uvicorn pybend.example.main:app --reload
+uvicorn n3tx.example.main:app --reload
 
 # Or with Docker:
 docker-compose up --build
@@ -179,7 +179,7 @@ docker-compose up --build
 
 ## **Switching API Backends**
 
-PyBend uses an adapter pattern. Set in `main.py` or environment:
+N3TX uses an adapter pattern. Set in `main.py` or environment:
 
 ```python
 BACKEND = "fastapi"  # or "flask"
@@ -192,8 +192,8 @@ Routes are automatically registered via `register_routes()`.
 ## **Switching Storage Backends**
 
 ```python
-from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.core.storage.json_storage import JSONStorage
+from n3tx.core.storage.sqlite_storage import SQLiteStorage
+from n3tx.core.storage.json_storage import JSONStorage
 
 storage_backend = SQLiteStorage("db.sqlite")
 register_model(MyModel, storage=storage_backend)
@@ -205,10 +205,10 @@ SQLite includes auto-migration of fields on boot.
 
 ## **Model Relationships**
 
-PyBend provides dynamic join model generation and foreign key resolution between models:
+N3TX provides dynamic join model generation and foreign key resolution between models:
 
 * Use `ForeignKey[Model]` in your fields — injected automatically when `__storable__ = True`.
-* PyBend generates join models via `generate_join_model(Product, Comment)`.
+* N3TX generates join models via `generate_join_model(Product, Comment)`.
 * Related objects are persisted and filtered via join tables.
 * Foreign keys serialize to primitive types in storage but expose full schemas in OpenAPI.
 
@@ -328,7 +328,7 @@ Returns:
 
 ## **Schema-Driven Development**
 
-PyBend's core idea: **write a Python model, get a working full-stack application**. The model definition is the only thing a developer writes. Everything else — API, validation, storage, UI, permissions, navigation — is derived from the JSON Schema that model produces.
+N3TX's core idea: **write a Python model, get a working full-stack application**. The model definition is the only thing a developer writes. Everything else — API, validation, storage, UI, permissions, navigation — is derived from the JSON Schema that model produces.
 
 ### The model is the app
 
@@ -345,7 +345,7 @@ class Product(ProtoModel):
             'comment': {'layout': 'inline', 'attach_to': 'comments', ...},
             'favorite': {'layout': 'button', 'icon': 'star', 'count_field': 'favorites', ...},
         },
-        'renderer': {'item': 'ntt-item', 'list': 'ntt-list'},
+        'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
     }
     __access__ = {
         'read': ANYONE, 'create': AUTHENTICATED,
@@ -387,7 +387,7 @@ From this single definition, `ProtoModel.schema()` generates a JSON Schema that 
 | Form rendering | `properties`, `ui.widget`, `ui.placeholder` | Form generator reads schema |
 | Field ordering + grouping | `ui.field_order`, `ui.groups` | Fieldsets rendered automatically |
 | Edit/delete button visibility | `access.update`, `access.delete` | Permissions checked from schema |
-| Method action buttons | `schema.methods` | `<ntt-method>` renders them (fieldset, inline, or button layout) |
+| Method action buttons | `schema.methods` | `<ntx-method>` renders them (fieldset, inline, or button layout) |
 | Method UI hints | `__ui__.methods` (icon, layout, count_field) | Button-layout methods (like, favorite) render as icon+count pills |
 | Toggle endpoints | `@expose_route` + join table logic | Like/favorite toggle via create/delete on join models |
 | Collection routes | Join model `__tablename__` | `GET /products/comments`, `GET /products/likes` across all parents |
@@ -444,15 +444,15 @@ GET /Product -> JSON Schema
    GET /Product -> JSON response (public, no auth required)
                     |
 4. Frontend Bootstrap
-   NTT.SCHEMA(data) -> prototype() -> DynamicClass
+   N3TX.SCHEMA(data) -> prototype() -> DynamicClass
    |  Creates typed class with getters, setters, callable methods
    |  Registers nested $defs as additional DynamicClasses
                     |
 5. Component Rendering
    |  form.js reads schema.properties -> builds form HTML
    |  Permissions.js reads schema.access -> shows/hides controls
-   |  <ntt-method> reads schema.methods -> renders action buttons
-   |  ntt-router reads schema.ui.renderer -> resolves navigation targets
+   |  <ntx-method> reads schema.methods -> renders action buttons
+   |  ntx-router reads schema.ui.renderer -> resolves navigation targets
                     |
 6. Entity Responses
    model_response() injects $schema + $id per record (via proto_dump pipeline)
@@ -490,14 +490,14 @@ register_model(generate_join_model(OwnerModel, SubModel))
 
 ## **Agents**
 
-PyBend includes an LLM-powered agent system built on [Pydantic AI](https://ai.pydantic.dev/). The core idea: **every Actor with `@expose_route` methods is a tool collection, and an Agent is an Actor that reasons**.
+N3TX includes an LLM-powered agent system built on [Pydantic AI](https://ai.pydantic.dev/). The core idea: **every Actor with `@expose_route` methods is a tool collection, and an Agent is an Actor that reasons**.
 
 ### Dynamic Agents (primary path)
 
 Agents are instances of `AgentActor` — configuration is data, not code:
 
 ```python
-from pybend import AgentActor
+from n3tx import AgentActor
 
 scanner = AgentActor(
     name="Grant Scanner",
@@ -530,11 +530,11 @@ class Product(ActorModel):
         return result['answer']
 ```
 
-Tool calls route through Matrix as TX messages, preserving auth and interceptors. See [`src/pybend/core/agents/README.md`](src/pybend/core/agents/README.md) for full documentation.
+Tool calls route through Matrix as TX messages, preserving auth and interceptors. See [`src/n3tx/core/agents/README.md`](src/n3tx/core/agents/README.md) for full documentation.
 
 ---
 
-## **Why PyBend?**
+## **Why N3TX?**
 
 * 🧠 Self-discoverable data models and APIs
 * 🔗 Schema-driven architecture
@@ -550,21 +550,21 @@ Tool calls route through Matrix as TX messages, preserving auth and interceptors
 ### Framework Unit Tests
 
 ```bash
-cd src/pybend/core
+cd src/n3tx/core
 pytest tests/unit/
 ```
 
 ### Integration Tests (Example App)
 
 ```bash
-cd src/pybend/core
+cd src/n3tx/core
 pytest ../example/tests/
 ```
 
 ### Frontend (Jest)
 
 ```bash
-cd src/pybend/static
+cd src/n3tx/static
 npm test
 ```
 

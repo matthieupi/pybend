@@ -10,7 +10,7 @@
 
 Grant Watcher today is a **discovery engine**: agents scan government sources, create Grant records, and users browse them in a schema-driven UI. That is table stakes. The platform commercial competitors --  [Instrumentl](https://www.instrumentl.com/) at **$299-499/month**, [GrantStation](https://grantstation.com/) at **$699/year**, [Candid](https://candid.org/) at **$219+/month** -- differentiate on **intelligence**: matching grants to user profiles, proactive notifications, saved search alerts, and reporting dashboards. Without these features, Grant Watcher is a prettier RSS feed.
 
-The good news: **PyBend's architecture is almost perfectly suited for every feature on this list.** Lifecycle events (`_publish_lifecycle`) give us the real-time event bus. The Actor/Matrix messaging system gives us the routing backbone. The agent infrastructure (`AgentMixin`, `AgentActor`, tool discovery) gives us LLM-powered scoring. The schema-driven frontend renders new models with zero frontend code. The Widget system lets us add specialized renderers (score bars, notification badges) incrementally. Most features are **2-3 new models + 1-2 new actors**, wired into existing infrastructure.
+The good news: **N3TX's architecture is almost perfectly suited for every feature on this list.** Lifecycle events (`_publish_lifecycle`) give us the real-time event bus. The Actor/Matrix messaging system gives us the routing backbone. The agent infrastructure (`AgentMixin`, `AgentActor`, tool discovery) gives us LLM-powered scoring. The schema-driven frontend renders new models with zero frontend code. The Widget system lets us add specialized renderers (score bars, notification badges) incrementally. Most features are **2-3 new models + 1-2 new actors**, wired into existing infrastructure.
 
 The recommended approach is a **four-phase rollout** over 8-12 weeks: (1) User Profiles + Keyword Matching, (2) Notifications + Saved Searches, (3) Collections + Reporting, (4) Semantic Matching + API Sources. Each phase ships independently. Each phase delivers user value. The total estimated effort is **~400 engineering hours** for the full suite, with Phase 1 deliverable in **2 weeks** by a single developer who knows the codebase.
 
@@ -78,7 +78,7 @@ Agent scans source --> creates Grant --> lifecycle event fires -->
   saves to collection, adds notes --> weekly digest PDF arrives in inbox
 ```
 
-> **Key Insight:** The **lifecycle event chain** is the critical architectural enabler. PyBend's `ActorModel._publish_lifecycle()` already fires `after_create` events. Today `_subscribers` is empty. Populating it with `['matcher', 'ws', 'feeds']` turns Grant Watcher from passive to active with **zero changes to Grant model code**.
+> **Key Insight:** The **lifecycle event chain** is the critical architectural enabler. N3TX's `ActorModel._publish_lifecycle()` already fires `after_create` events. Today `_subscribers` is empty. Populating it with `['matcher', 'ws', 'feeds']` turns Grant Watcher from passive to active with **zero changes to Grant model code**.
 
 ### 3.2 Competitive Differentiation
 
@@ -152,7 +152,7 @@ class UserProfile(ActorModel):
                              json_schema_extra={'access': {'view': 'owner', 'edit': 'none'}})
 ```
 
-**Storage note:** The `list` fields (`research_areas`, `keywords`, `agencies`) need the same JSON TEXT serialization pattern used by `AgentActor.constraints` -- a `_storage_dict()` override and `@model_validator(mode='before')` for deserialization. This is a known pattern in the codebase (see `/workspace/src/pybend/core/agents/actor.py` lines 67-87).
+**Storage note:** The `list` fields (`research_areas`, `keywords`, `agencies`) need the same JSON TEXT serialization pattern used by `AgentActor.constraints` -- a `_storage_dict()` override and `@model_validator(mode='before')` for deserialization. This is a known pattern in the codebase (see `/workspace/src/n3tx/core/agents/actor.py` lines 67-87).
 
 The frontend renders this model automatically via schema-driven forms. No frontend code needed. The `list` fields will render as text inputs initially; a `TagsField` widget can be added later for a better UX (comma-separated tag input).
 
@@ -312,7 +312,7 @@ class MatcherTools(ActorModel):
 
 ```python
 # In main.py setup, after create_app():
-from pybend.core.actors.actor import Actor
+from n3tx.core.actors.actor import Actor
 
 class MatcherSubscriber:
     """Subscribes to Grant lifecycle events. Auto-matches new grants."""
@@ -615,7 +615,7 @@ async def LIFECYCLE(self, data, tx):
                 Notification.create(...)
 ```
 
-**Frontend "Save This Search" button** -- this is where PyBend's schema-driven approach shines. The frontend already knows the current filter state (URL query params). A "Save Search" button:
+**Frontend "Save This Search" button** -- this is where N3TX's schema-driven approach shines. The frontend already knows the current filter state (URL query params). A "Save Search" button:
 
 1. Opens a form with a `name` field (pre-filled from active filters)
 2. POSTs to `/saved_searches` with `{name: "...", filters: {current query params}}`
@@ -933,7 +933,7 @@ The Grant Scanner agent can then be updated to dispatch based on `source_type` -
 
 ### Architectural Fit Assessment
 
-Every proposed feature maps cleanly to existing PyBend patterns:
+Every proposed feature maps cleanly to existing N3TX patterns:
 
 ```
 Feature              Pattern Used                    Existing Example
@@ -954,7 +954,7 @@ RSS feeds            Plain FastAPI route              Static file serving
 API sources          ActorModel + @expose_route      WebTools.scrape()
 ```
 
-> **Key Insight:** **Zero new architectural patterns are needed.** Every feature is a composition of existing patterns: `ActorModel`, `__storable__`, `@expose_route`, `ListRef`, `_publish_lifecycle`, JSON field serialization, and non-storable tool actors. This is exactly the kind of feature expansion PyBend was designed for.
+> **Key Insight:** **Zero new architectural patterns are needed.** Every feature is a composition of existing patterns: `ActorModel`, `__storable__`, `@expose_route`, `ListRef`, `_publish_lifecycle`, JSON field serialization, and non-storable tool actors. This is exactly the kind of feature expansion N3TX was designed for.
 
 ---
 
@@ -1066,7 +1066,7 @@ API sources          ActorModel + @expose_route      WebTools.scrape()
 | Keyword matching function | GO | Pure Python, zero deps |
 | `GrantMatch` model | GO | Stores match results |
 | `MatcherTools` actor | GO | `/score` and `/match_all` endpoints |
-| Manual "Match My Profile" button | GO | `@expose_route`, frontend renders via `ntt-method` |
+| Manual "Match My Profile" button | GO | `@expose_route`, frontend renders via `ntx-method` |
 
 **Success metric:** A user creates a profile, clicks "Match My Profile," sees scored grants in under 3 seconds.
 

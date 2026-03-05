@@ -1,4 +1,4 @@
-# 📋 Decentralized Protocols for PyBend: Executive Summary
+# 📋 Decentralized Protocols for N3TX: Executive Summary
 
 > *Full analysis: [decentralized-protocols-analysis.md](../research/decentralized-protocols/decentralized-protocols-analysis.md)*
 
@@ -12,7 +12,7 @@
 
 ## 🎯 The Question
 
-Should PyBend add support for decentralized social protocols -- ActivityPub (the W3C standard powering Mastodon and the Fediverse), ATProtocol (powering Bluesky), or others -- and if so, which protocols, when, and how?
+Should N3TX add support for decentralized social protocols -- ActivityPub (the W3C standard powering Mastodon and the Fediverse), ATProtocol (powering Bluesky), or others -- and if so, which protocols, when, and how?
 
 **The short answer:** Yes, starting with ActivityPub, using a phased approach that begins with publish-only federation and expands based on demand. The investment is modest (6-10 weeks for ActivityPub), the architectural fit is natural, and the competitive position it creates -- the only framework where a model definition produces federated endpoints -- is genuinely unique.
 
@@ -22,7 +22,7 @@ Should PyBend add support for decentralized social protocols -- ActivityPub (the
 
 | Finding | Detail |
 |---------|--------|
-| **PyBend is 60-70% ready** | Our schema-driven architecture (JSON Schema, self-describing instances, auto-generated routes, ABAC rules) maps directly to what federation protocols need. The gap is protocol-specific plumbing, not architectural rework. |
+| **N3TX is 60-70% ready** | Our schema-driven architecture (JSON Schema, self-describing instances, auto-generated routes, ABAC rules) maps directly to what federation protocols need. The gap is protocol-specific plumbing, not architectural rework. |
 | **No one else does this** | No existing framework offers model-driven federation. Every federated app today is either purpose-built (Mastodon, Lemmy) or assembled from low-level libraries. `__federated__ = True` producing federation endpoints is a first. |
 | **ActivityPub first, ATProtocol second** | AP has W3C backing, regulatory alignment, lower cost. AT has better DX and schema fit. An abstraction layer lets us support both. |
 | **The regulatory window is real** | EU DMA review (May 2026) may mandate social network interoperability. eIDAS 2.0 mandates digital identity wallets by November 2026. Building now means leading, not scrambling. |
@@ -51,9 +51,9 @@ Sources: [FediDB](https://fedidb.org/), [Backlinko](https://backlinko.com/bluesk
 
 ### What We Already Have
 
-PyBend's architecture is not just compatible with federation -- it is **convergent** with it:
+N3TX's architecture is not just compatible with federation -- it is **convergent** with it:
 
-| PyBend Concept | What Federation Needs | Gap |
+| N3TX Concept | What Federation Needs | Gap |
 |---------------|----------------------|-----|
 | `ProtoModel.schema()` produces JSON Schema | ActivityPub needs JSON-LD types; ATProto needs Lexicon schemas | Small -- translation layer, not rewrite |
 | `model_dump(response=True)` injects `$schema` + `$id` | Both protocols require self-describing, self-addressed objects | Already there -- rename `$id` to `id` |
@@ -118,8 +118,8 @@ Phase 0 (Weeks 1-2)     Foundation
                               |
 Phase 1 (Weeks 3-6)     ActivityPub Publish-Only
                          WebFinger + Actor + Outbox
-                         PyBend content appears on Fediverse
-                         Other servers can follow PyBend users
+                         N3TX content appears on Fediverse
+                         Other servers can follow N3TX users
                               |
 Phase 2 (Weeks 7-10)    Full ActivityPub
                          Inbox + delivery queue + followers
@@ -162,7 +162,7 @@ Phase 4 (Ongoing)        Multi-Protocol Configuration
 # Step 5: Build delivery queue manually
 # Step 6: Keep all of this in sync with model changes
 
-# After (PyBend with federation):
+# After (N3TX with federation):
 class Post(ProtoModel):
     __tablename__ = 'posts'
     __storable__ = True
@@ -194,7 +194,7 @@ class Post(ProtoModel):
 
 ### Near-Term (Q2 2026)
 
-4. **Build Phase 0-1**: Federation primitives + ActivityPub publish-only. Target: a PyBend app whose content appears on Mastodon.
+4. **Build Phase 0-1**: Federation primitives + ActivityPub publish-only. Target: a N3TX app whose content appears on Mastodon.
 5. **Test interoperability**: Verify against Mastodon, Pleroma, and Ghost. Use [ActivityPub Fuzzer](https://activitypub.rocks/).
 
 ### Key Dates to Watch
@@ -208,7 +208,7 @@ class Post(ProtoModel):
 
 ---
 
-> **The bottom line**: PyBend's schema-driven architecture gives us a natural path to federation that no other framework has. The investment is modest, the timing is right, and the market position -- "define a model, get a federated app" -- is genuinely differentiated. Start with ActivityPub, phase carefully, and build behind an abstraction that lets us add ATProtocol when the governance risk settles.
+> **The bottom line**: N3TX's schema-driven architecture gives us a natural path to federation that no other framework has. The investment is modest, the timing is right, and the market position -- "define a model, get a federated app" -- is genuinely differentiated. Start with ActivityPub, phase carefully, and build behind an abstraction that lets us add ATProtocol when the governance risk settles.
 
 ---
 

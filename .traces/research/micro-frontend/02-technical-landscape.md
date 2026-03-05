@@ -391,7 +391,7 @@ customElements.define('product-card', ProductCard);
 - Polyglot environments where teams use different frameworks
 - Design system distribution (publish a component library that works everywhere)
 - When long-term framework independence is a priority
-- PyBend-style architectures where the framework owns the component model (PyBend's `NTTElement` extends `HTMLElement` and uses this exact pattern)
+- N3TX-style architectures where the framework owns the component model (N3TX's `NTTElement` extends `HTMLElement` and uses this exact pattern)
 
 ---
 
@@ -1143,7 +1143,7 @@ channel.close();
 
 **Weaknesses:** Same-origin only. No message history/buffering. No guaranteed delivery order across contexts. No acknowledgment mechanism.
 
-### 5.7 Actor Model (Relevant to PyBend's Matrix)
+### 5.7 Actor Model (Relevant to N3TX's Matrix)
 
 The Actor model treats each component as an independent "actor" that:
 - Has private state that cannot be directly accessed
@@ -1151,16 +1151,16 @@ The Actor model treats each component as an independent "actor" that:
 - Processes one message at a time (no concurrency within an actor)
 - Can create other actors and send messages to known addresses
 
-**PyBend's Matrix implementation:**
+**N3TX's Matrix implementation:**
 
-PyBend's `Matrix.js` implements an actor-based message bus for the frontend. Components extend `Actor` and communicate through the Matrix rather than through direct references or shared state. This model maps naturally to micro frontends because:
+N3TX's `Matrix.js` implements an actor-based message bus for the frontend. Components extend `Actor` and communicate through the Matrix rather than through direct references or shared state. This model maps naturally to micro frontends because:
 
 1. **No shared mutable state.** Each actor (micro frontend) owns its state. Other actors cannot reach in and modify it.
 2. **Location transparency.** An actor sends a message to an address, not a specific object. The Matrix routes it. This decouples the sender from the receiver's implementation, framework, or deployment location.
 3. **Inspectable.** All messages flow through the Matrix, creating a natural audit log.
 4. **Fault isolation.** An actor that crashes does not corrupt other actors' state.
 
-**Implementation sketch (simplified from PyBend's Matrix):**
+**Implementation sketch (simplified from N3TX's Matrix):**
 
 ```javascript
 class Matrix {
@@ -1665,7 +1665,7 @@ Access-Control-Max-Age: 86400
 
 1. **`Access-Control-Allow-Origin: *` with credentials.** The CORS specification forbids this combination. If MFEs send cookies or auth headers, the server must echo the specific requesting origin.
 
-2. **Missing preflight for custom headers.** If MFEs use `x-access-token` (as PyBend does), the server must handle `OPTIONS` requests and include the header in `Access-Control-Allow-Headers`.
+2. **Missing preflight for custom headers.** If MFEs use `x-access-token` (as N3TX does), the server must handle `OPTIONS` requests and include the header in `Access-Control-Allow-Headers`.
 
 3. **CDN CORS caching.** If the CDN caches a CORS response for one origin, it may serve it to a different origin with the wrong `Access-Control-Allow-Origin` header. Solution: include `Vary: Origin` in the response.
 
@@ -1728,7 +1728,7 @@ export function authFetch(url, options = {}) {
     ...options,
     headers: {
       ...options.headers,
-      'x-access-token': getAuthToken(),  // PyBend convention
+      'x-access-token': getAuthToken(),  // N3TX convention
     },
   });
 }

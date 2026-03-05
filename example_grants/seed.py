@@ -12,17 +12,17 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import config
-from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.core.utils.registrar import register_model
-from pybend.core.models.proto_model import generate_join_model
-from pybend.core.agents.actor import AgentActor
-from pybend.core.agents.tool_model import AgentTool
+from n3tx.core.storage.sqlite_storage import SQLiteStorage
+from n3tx.core.utils.registrar import register_model
+from n3tx.core.models.proto_model import generate_join_model
+from n3tx.core.agents.actor import AgentActor
+from n3tx.core.agents.tool_model import AgentTool
 from models import User, Grant, Source, WebTools
 
-logger = logging.getLogger('pybend.seed')
+logger = logging.getLogger('n3tx.seed')
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get('PYBEND_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
+DB_PATH = os.environ.get('N3TX_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
 
 
 def seed():

@@ -17,8 +17,8 @@ _tests = os.path.dirname(os.path.abspath(__file__))
 _example = os.path.dirname(_tests)
 _workspace = os.path.dirname(_example)
 _src = os.path.join(_workspace, 'src')
-_pybend = os.path.join(_src, 'pybend')
-_core = os.path.join(_pybend, 'core')
+_n3tx = os.path.join(_src, 'n3tx')
+_core = os.path.join(_n3tx, 'core')
 
 if _tests not in sys.path:
     sys.path.insert(0, _tests)
@@ -28,8 +28,8 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 _namespace_shims = {
-    'pybend': _pybend,
-    'pybend.core': _core,
+    'n3tx': _n3tx,
+    'n3tx.core': _core,
 }
 for name, path in _namespace_shims.items():
     if name not in sys.modules:
@@ -39,18 +39,18 @@ for name, path in _namespace_shims.items():
         sys.modules[name] = m
 
 import config
-from pybend.core import authorize
+from n3tx.core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 os.environ["GENERATE_DOCS"] = "false"
 from main import app  # noqa: triggers model registration
 
-from pybend.core.storage.sqlite_storage import SQLiteStorage
-from pybend.core.utils.registrar import registered_models
+from n3tx.core.storage.sqlite_storage import SQLiteStorage
+from n3tx.core.utils.registrar import registered_models
 from models import User, Grant, Source, WebTools
-from pybend.core.agents.actor import AgentActor
-from pybend.core.agents.tool_model import AgentTool
-from pybend.core.authorize import create_token
+from n3tx.core.agents.actor import AgentActor
+from n3tx.core.agents.tool_model import AgentTool
+from n3tx.core.authorize import create_token
 
 
 def _setup_test_db(db_path):

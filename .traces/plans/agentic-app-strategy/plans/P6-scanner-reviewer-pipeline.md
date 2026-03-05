@@ -47,7 +47,7 @@ class AgentRun(ActorModel):
 
 ## Core Framework Changes
 
-### `src/pybend/core/agents/mixin.py`
+### `src/n3tx/core/agents/mixin.py`
 
 **A. `output_type` parameter** — Passed through to pydantic-ai Agent for structured output.
 
@@ -189,8 +189,8 @@ Day 7: Integration testing + docs
 
 | Change | Location | Rationale |
 |--------|----------|-----------|
-| `output_type` param | `pybend.core.agents.mixin` | Generic framework capability |
-| `_record_run` helper | `pybend.core.agents.mixin` | Optional, uses registered_models lookup |
+| `output_type` param | `n3tx.core.agents.mixin` | Generic framework capability |
+| `_record_run` helper | `n3tx.core.agents.mixin` | Optional, uses registered_models lookup |
 | GrantsGovTools | `example_grants/models/` | Domain-specific |
 | DeduplicationTools | `example_grants/models/` | Domain-specific, imports Grant |
 | AgentRun | `example_grants/models/` | App-level (could promote to core later) |
@@ -209,7 +209,7 @@ Day 7: Integration testing + docs
 - `example_grants/tests/test_pipeline.py`
 
 **Modified files (5):**
-- `src/pybend/core/agents/mixin.py`
+- `src/n3tx/core/agents/mixin.py`
 - `example_grants/models/__init__.py`
 - `example_grants/main.py`
 - `example_grants/seed.py`

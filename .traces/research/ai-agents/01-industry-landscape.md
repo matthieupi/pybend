@@ -10,7 +10,7 @@
 
 The AI agent orchestration market is at a pivotal inflection point. The global market hit **$7.8B in 2025** and is projected to reach **$10.9B in 2026**, on its way to **$183B by 2033** at a 49.6% CAGR. Yet underneath these numbers lies a sobering reality: **over 40% of agentic AI projects will be canceled by 2027** (Gartner), and only **11% of organizations currently have agents in production** (Deloitte). The gap between investment enthusiasm and production readiness is the defining tension of this market.
 
-The framework landscape has consolidated around a handful of serious contenders --- LangChain/LangGraph, CrewAI, Microsoft's unified Agent Framework (AutoGen + Semantic Kernel), and model-provider SDKs from OpenAI and Anthropic --- while a long tail of specialized tools (DSPy, Haystack, Agno) fills niche roles. The most significant architectural trend is the convergence on **schema-driven orchestration**: JSON Schema for tool definitions, structured outputs for reliability, and protocol standards (MCP, A2A) for interoperability. This is the same foundational pattern that PyBend applies to full-stack application development.
+The framework landscape has consolidated around a handful of serious contenders --- LangChain/LangGraph, CrewAI, Microsoft's unified Agent Framework (AutoGen + Semantic Kernel), and model-provider SDKs from OpenAI and Anthropic --- while a long tail of specialized tools (DSPy, Haystack, Agno) fills niche roles. The most significant architectural trend is the convergence on **schema-driven orchestration**: JSON Schema for tool definitions, structured outputs for reliability, and protocol standards (MCP, A2A) for interoperability. This is the same foundational pattern that N3TX applies to full-stack application development.
 
 This document maps the landscape, separates signal from noise, and identifies where a schema-driven approach to agent orchestration creates structural advantages.
 
@@ -387,7 +387,7 @@ The dominant enterprise approach in 2026 is hybrid:
 3. **Define schemas** that capture your domain models, tool interfaces, and access control
 4. **Own the workflow definition** while relying on the framework for execution
 
-This maps directly to PyBend's philosophy: the framework handles the plumbing (storage, state, serialization, routing), while developers own the model definitions that drive everything.
+This maps directly to N3TX's philosophy: the framework handles the plumbing (storage, state, serialization, routing), while developers own the model definitions that drive everything.
 
 ### 8.3 When to Build Your Own Framework
 
@@ -422,9 +422,9 @@ The most important architectural trend in agent orchestration is the universal a
 
 ### 9.2 What Schema-Driven Means for Agent Orchestration
 
-Schema-driven orchestration treats the **tool definition as the single source of truth** for what an agent can do, how it can do it, and what the output looks like. This is analogous to PyBend's model-is-the-app philosophy:
+Schema-driven orchestration treats the **tool definition as the single source of truth** for what an agent can do, how it can do it, and what the output looks like. This is analogous to N3TX's model-is-the-app philosophy:
 
-| PyBend Concept | Agent Orchestration Equivalent |
+| N3TX Concept | Agent Orchestration Equivalent |
 |----------------|-------------------------------|
 | Model definition (Python class) | Tool/agent capability definition |
 | JSON Schema (auto-generated) | Tool schema (parameter types, constraints) |
@@ -436,7 +436,7 @@ Schema-driven orchestration treats the **tool definition as the single source of
 
 ### 9.3 Who Is Doing Schema-Driven Agent Orchestration
 
-**Instructor** (by Jason Liu) is the most explicit schema-driven approach: it uses Pydantic models to define expected outputs and validates LLM responses against them. This is structurally identical to PyBend's approach of using Pydantic models as the single source of truth.
+**Instructor** (by Jason Liu) is the most explicit schema-driven approach: it uses Pydantic models to define expected outputs and validates LLM responses against them. This is structurally identical to N3TX's approach of using Pydantic models as the single source of truth.
 
 **DSPy** takes a different angle: rather than enforcing output schemas directly, it treats the entire LLM pipeline as a program that can be compiled and optimized. Schema enforcement is a byproduct of the programming model.
 
@@ -446,7 +446,7 @@ Schema-driven orchestration treats the **tool definition as the single source of
 
 ### 9.4 The Schema Opportunity
 
-The gap in the current landscape: **no framework treats the schema as the complete contract** the way PyBend does. Individual pieces exist:
+The gap in the current landscape: **no framework treats the schema as the complete contract** the way N3TX does. Individual pieces exist:
 - Tool definitions use JSON Schema (universal)
 - Structured outputs enforce response schemas (OpenAI, Anthropic)
 - MCP standardizes tool discovery (growing adoption)
@@ -460,7 +460,7 @@ But no framework unifies these into a single model definition that automatically
 - Storage and state management
 - Audit trails from schema-defined operations
 
-This is the PyBend thesis applied to agent orchestration: **the model is the agent's capability definition.** Write the model; derive the tool schema, the access rules, the API, the UI, and the audit trail.
+This is the N3TX thesis applied to agent orchestration: **the model is the agent's capability definition.** Write the model; derive the tool schema, the access rules, the API, the UI, and the audit trail.
 
 **Source:** [Composio Tool Calling Guide](https://composio.dev/blog/ai-agent-tool-calling-guide), [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs/), [Agenta Structured Output Guide](https://agenta.ai/blog/the-guide-to-structured-outputs-and-function-calling-with-llms), [Google Gemini Structured Outputs](https://blog.google/technology/developers/gemini-api-structured-outputs/)
 
@@ -515,9 +515,9 @@ Based on framework adoption patterns and community feedback, developers prioriti
 
 ### 11.1 The Structural Advantage
 
-The agent orchestration landscape is converging on a set of principles that schema-driven frameworks like PyBend already embody:
+The agent orchestration landscape is converging on a set of principles that schema-driven frameworks like N3TX already embody:
 
-| Industry Direction | PyBend's Current Approach |
+| Industry Direction | N3TX's Current Approach |
 |-------------------|--------------------------|
 | JSON Schema as universal tool interface | JSON Schema as universal data contract (`ProtoModel.schema()`) |
 | Structured outputs for reliability | Pydantic validation + typed model fields |
@@ -540,7 +540,7 @@ Based on this landscape analysis, the following gap exists:
 5. You separately set up storage and state management
 6. You separately configure audit logging
 
-A schema-driven agent framework would let you define the model once and derive all six automatically --- the same way PyBend derives CRUD APIs, forms, permissions, and storage from a single model definition today.
+A schema-driven agent framework would let you define the model once and derive all six automatically --- the same way N3TX derives CRUD APIs, forms, permissions, and storage from a single model definition today.
 
 ### 11.3 Positioning in the Landscape
 
@@ -548,7 +548,7 @@ The agent framework market is not one market. It is at least three:
 
 1. **Orchestration runtimes** (LangGraph, CrewAI, AutoGen) --- how agents execute workflows
 2. **Model-provider SDKs** (OpenAI Agents SDK, Claude Agent SDK) --- how agents talk to LLMs
-3. **Application frameworks** (Django, FastAPI, Rails, and potentially PyBend) --- how agents integrate with business logic
+3. **Application frameworks** (Django, FastAPI, Rails, and potentially N3TX) --- how agents integrate with business logic
 
 The opportunity for a schema-driven framework is in category 3: not replacing LangGraph or the Claude Agent SDK, but providing the **application layer** that makes agent capabilities a natural extension of your data model. The model definition becomes both the application schema and the agent's tool interface.
 
@@ -566,7 +566,7 @@ The opportunity for a schema-driven framework is in category 3: not replacing La
 
 6. **The boring wins.** The highest-ROI deployments are document processing, data reconciliation, compliance checks, and invoice handling. Not autonomous decision-making. Not swarm intelligence. The work no one wants to do but everyone needs done.
 
-7. **Developer experience matters more than feature count.** The trend is toward fewer abstractions, not more. Frameworks that let developers trace any behavior from definition to execution in under a minute --- PyBend's stated design goal --- align with what the market is demanding.
+7. **Developer experience matters more than feature count.** The trend is toward fewer abstractions, not more. Frameworks that let developers trace any behavior from definition to execution in under a minute --- N3TX's stated design goal --- align with what the market is demanding.
 
 ---
 

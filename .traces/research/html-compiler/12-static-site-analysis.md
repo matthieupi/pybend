@@ -1,4 +1,4 @@
-# Fully Static Website Generation for PyBend: Strategic Analysis
+# Fully Static Website Generation for N3TX: Strategic Analysis
 
 ## For: CEO & Engineering Team
 ## Date: February 2026
@@ -23,22 +23,22 @@ Each section opens with a plain-English summary ("So What?"), then goes deep. Re
 
 ## Executive Summary
 
-**The question:** Should PyBend offer a `pybend export` command that generates a complete, deployable static website -- HTML pages, CSS, pagination, navigation -- directly from schema-driven model definitions, with near-zero JavaScript?
+**The question:** Should N3TX offer a `n3tx export` command that generates a complete, deployable static website -- HTML pages, CSS, pagination, navigation -- directly from schema-driven model definitions, with near-zero JavaScript?
 
-**The short answer:** Yes, but as a phased investment. Start with HTTP caching on the dynamic stack (1-2 weeks, benefits everyone). Build the static exporter as a second step (5-7 engineering days for MVP), targeting the ~30% of web projects that are fully static-appropriate. Position it as PyBend's "zero to deployed" story: define a model, get a website. No server required.
+**The short answer:** Yes, but as a phased investment. Start with HTTP caching on the dynamic stack (1-2 weeks, benefits everyone). Build the static exporter as a second step (5-7 engineering days for MVP), targeting the ~30% of web projects that are fully static-appropriate. Position it as N3TX's "zero to deployed" story: define a model, get a website. No server required.
 
 **Why this matters:**
 
-> _"Define a model, get a working full-stack application"_ is PyBend's current promise. Static export extends it to: _"Define a model, get a deployable website. No server. No JavaScript. No hosting costs."_
+> _"Define a model, get a working full-stack application"_ is N3TX's current promise. Static export extends it to: _"Define a model, get a deployable website. No server. No JavaScript. No hosting costs."_
 
-No existing framework -- not Hugo, not Astro, not Next.js, not any Python SSG -- generates static HTML from data model definitions. Every one requires handwritten templates. PyBend's JSON Schema carries complete rendering instructions (field types, widgets, groups, access rules, methods). The exporter reads the schema, walks the data, and writes HTML files. The schema IS the template. This is a genuine whitespace opportunity.
+No existing framework -- not Hugo, not Astro, not Next.js, not any Python SSG -- generates static HTML from data model definitions. Every one requires handwritten templates. N3TX's JSON Schema carries complete rendering instructions (field types, widgets, groups, access rules, methods). The exporter reads the schema, walks the data, and writes HTML files. The schema IS the template. This is a genuine whitespace opportunity.
 
 ### Key Numbers
 
 | Metric | Value | Source |
 |---|---|---|
 | Static site TTFB from CDN | <50ms | Cloudflare/AWS benchmarks |
-| Current PyBend SPA LCP | 2-4 seconds | Internal measurement |
+| Current N3TX SPA LCP | 2-4 seconds | Internal measurement |
 | Static HTML LCP | 0.3-0.8 seconds | Sparkbox benchmarks |
 | Hosting cost (static on CDN) | $0-5/month | Cloudflare Pages, GitHub Pages |
 | Hosting cost (dynamic server) | $32-270/month | VPS/managed hosting |
@@ -52,8 +52,8 @@ No existing framework -- not Hugo, not Astro, not Next.js, not any Python SSG --
 ### The Recommendation
 
 1. **Now (1-2 weeks):** Add HTTP caching headers to schema and public endpoints. Benefits 100% of users immediately.
-2. **Next (5-7 days):** Build MVP static exporter -- `pybend export` CLI, Jinja2 templates, full rebuild, dark/light theme, output to `dist/`. Skip incremental builds, search, forms.
-3. **Later (if warranted):** Incremental builds, per-role export, hybrid mode with NTT hydration, custom template overrides.
+2. **Next (5-7 days):** Build MVP static exporter -- `n3tx export` CLI, Jinja2 templates, full rebuild, dark/light theme, output to `dist/`. Skip incremental builds, search, forms.
+3. **Later (if warranted):** Incremental builds, per-role export, hybrid mode with N3TX hydration, custom template overrides.
 4. **Do not:** Build a Node.js SSR layer, use headless browser pre-rendering, or make the exporter mandatory.
 
 ---
@@ -87,10 +87,10 @@ STATIC SITE GENERATION PIPELINE
   minutes)
 ```
 
-For PyBend, the pipeline is:
+For N3TX, the pipeline is:
 
 ```
-PyBend Models         ProtoModel.schema()       StaticRenderer        HTML Files
+N3TX Models         ProtoModel.schema()       StaticRenderer        HTML Files
 +-----------+        +-----------+             +-----------+         +-----------+
 | Product   |        | JSON      |             | Walks     |         | products/ |
 | Comment   | -----> | Schema    | ----------> | schema    | ------> | index.html|
@@ -106,7 +106,7 @@ StorableMixin                                  Jinja2 macros
   .get()                                       form.js logic
 ```
 
-The critical insight: **PyBend already has everything a static site generator needs except the template engine.** The schema carries field types, widgets, groups, access rules. `StorableMixin` provides data access. The exporter just connects them with Jinja2 (Python's standard template engine) instead of with JavaScript.
+The critical insight: **N3TX already has everything a static site generator needs except the template engine.** The schema carries field types, widgets, groups, access rules. `StorableMixin` provides data access. The exporter just connects them with Jinja2 (Python's standard template engine) instead of with JavaScript.
 
 ### How SSG Differs from Other Approaches
 
@@ -116,7 +116,7 @@ The critical insight: **PyBend already has everything a static site generator ne
 | ISR | <50ms cached | 0.4-0.8s | Minimal | Edge functions |
 | SSR | 100-500ms | 0.8-2.0s | Moderate | Yes |
 | CSR/SPA | 50-200ms empty | 1.5-4.0s | Heavy | API only |
-| Current PyBend | 50ms empty | 2-4s | ~150-200KB | Yes (FastAPI) |
+| Current N3TX | 50ms empty | 2-4s | ~150-200KB | Yes (FastAPI) |
 
 Source: CONDENSED-01-05.md, Sparkbox benchmarks, Enterspeed SSR benchmarks.
 
@@ -124,7 +124,7 @@ Source: CONDENSED-01-05.md, Sparkbox benchmarks, Enterspeed SSR benchmarks.
 
 SSG has hard limits: real-time data, personalized content, authenticated pages, highly interactive UIs, rapidly changing inventory, and search over large datasets. These are architectural boundaries, not soft limits.
 
-**PyBend's position:** The static exporter targets the **read-only, public-facing** slice of an application. The dynamic FastAPI stack remains for everything else. This is not a replacement; it is an additional deployment option.
+**N3TX's position:** The static exporter targets the **read-only, public-facing** slice of an application. The dynamic FastAPI stack remains for everything else. This is not a replacement; it is an additional deployment option.
 
 ---
 
@@ -132,7 +132,7 @@ SSG has hard limits: real-time data, personalized content, authenticated pages, 
 
 ### So What?
 
-Static site generation is a mature, growing market. The Jamstack ecosystem reached $8.6 billion in 2025 and is projected at ~$12 billion by 2026. 60% of new projects use a static-first approach. Major companies (Smashing Magazine, L'Oreal, Nour Hammour) report 10x speed improvements and 63-128% conversion increases after migrating to static. The Python SSG ecosystem (Pelican, MkDocs, Sphinx) is blog/docs-focused and cannot generate HTML from data models. This is PyBend's opening.
+Static site generation is a mature, growing market. The Jamstack ecosystem reached $8.6 billion in 2025 and is projected at ~$12 billion by 2026. 60% of new projects use a static-first approach. Major companies (Smashing Magazine, L'Oreal, Nour Hammour) report 10x speed improvements and 63-128% conversion increases after migrating to static. The Python SSG ecosystem (Pelican, MkDocs, Sphinx) is blog/docs-focused and cannot generate HTML from data models. This is N3TX's opening.
 
 ### Market Size and Growth
 
@@ -156,11 +156,11 @@ Sources: CONDENSED-01-05.md (Jamstack market data), CONDENSED-06-10.md (prerende
 | Next.js (React) | Framework-first | 10-30s | ~128K | No |
 | Astro (JS) | Framework-first | 3-8s | ~48K+ | No |
 | Gatsby (React) | Framework-first | 30-120s | ~56K | No |
-| **PyBend (proposed)** | **Schema-driven** | **2-5s (est.)** | - | **Yes (unique)** |
+| **N3TX (proposed)** | **Schema-driven** | **2-5s (est.)** | - | **Yes (unique)** |
 
 Source: CONDENSED-06-10.md (SSG ecosystem table), HTTP Archive 2025.
 
-> **The gap:** Every generator requires handwritten templates. Not one generates HTML from a data schema. PyBend would be the first where `Model definition -> Deployable website` requires zero template authoring.
+> **The gap:** Every generator requires handwritten templates. Not one generates HTML from a data schema. N3TX would be the first where `Model definition -> Deployable website` requires zero template authoring.
 
 ### The Python Ecosystem Gap
 
@@ -172,7 +172,7 @@ Existing Python SSGs -- Pelican, MkDocs, Sphinx, Lektor, Nikola -- expect Markdo
 4. Produce paginated collection pages
 5. Apply theme-aware styling from component CSS
 
-Frozen-Flask is the closest analogy (it simulates WSGI requests and writes responses to files), but it assumes Flask routes returning HTML. PyBend routes return JSON. A custom Jinja2 pipeline provides full control.
+Frozen-Flask is the closest analogy (it simulates WSGI requests and writes responses to files), but it assumes Flask routes returning HTML. N3TX routes return JSON. A custom Jinja2 pipeline provides full control.
 
 Source: CONDENSED-06-10.md (Python SSG landscape).
 
@@ -242,11 +242,11 @@ Increase
 
 Sources: CONDENSED-01-05.md (Google/SOASTA research, Deloitte study, Pinterest/Vodafone case studies).
 
-A static PyBend export targeting <1s LCP (achievable with CDN-served HTML) moves pages from the "3-5s danger zone" into the "sub-1s fast lane." For any PyBend user with e-commerce or lead-gen use cases, this is a revenue-impacting capability.
+A static N3TX export targeting <1s LCP (achievable with CDN-served HTML) moves pages from the "3-5s danger zone" into the "sub-1s fast lane." For any N3TX user with e-commerce or lead-gen use cases, this is a revenue-impacting capability.
 
 ### Hosting Economics and Security
 
-Static hosting is effectively free: Cloudflare Pages (unlimited bandwidth), GitHub Pages (100 GB/month), Netlify (100 GB/month). At 10K daily visitors, static costs $0-5/month vs $24-100/month for dynamic. A developer who defines three models, seeds 100 entities, and runs `pybend export` gets a deployable website with zero hosting cost.
+Static hosting is effectively free: Cloudflare Pages (unlimited bandwidth), GitHub Pages (100 GB/month), Netlify (100 GB/month). At 10K daily visitors, static costs $0-5/month vs $24-100/month for dynamic. A developer who defines three models, seeds 100 entities, and runs `n3tx export` gets a deployable website with zero hosting cost.
 
 Static sites also eliminate entire classes of runtime vulnerability: SQL injection (no database), server-side XSS (no server rendering), server misconfiguration (no server), DDoS (CDN-absorbed across 300+ nodes), and dependency exploits (build-time only). The attack surface reduces to CDN infrastructure and DNS.
 
@@ -258,7 +258,7 @@ Source: CONDENSED-06-10.md (hosting economics, security advantages).
 
 ### So What?
 
-The static exporter replaces the bottom four stages of PyBend's current rendering pipeline (NTT.js DynamicClass, form.js, ntt-item.js, Shadow DOM) with a Python-side Jinja2 template pipeline. The schema is the same. The data access is the same. Only the rendering engine changes: JavaScript in the browser becomes Python on the developer's machine. The output is plain HTML files that work anywhere.
+The static exporter replaces the bottom four stages of N3TX's current rendering pipeline (N3TX.js DynamicClass, form.js, ntx-item.js, Shadow DOM) with a Python-side Jinja2 template pipeline. The schema is the same. The data access is the same. Only the rendering engine changes: JavaScript in the browser becomes Python on the developer's machine. The output is plain HTML files that work anywhere.
 
 ### Current vs. Proposed Pipeline
 
@@ -268,7 +268,7 @@ PROPOSED: Model -> schema() -> list()  -> Jinja2     -> HTML files -> User sees 
                    (SAME)      (SAME)     (NEW)        (NEW)         (immediate, 0 JS)
 ```
 
-**Nothing changes upstream of the renderer.** Same models, same schema generation, same storage backend. The exporter is a consumer of existing PyBend infrastructure, not a replacement for any of it.
+**Nothing changes upstream of the renderer.** Same models, same schema generation, same storage backend. The exporter is a consumer of existing N3TX infrastructure, not a replacement for any of it.
 
 ### The Rendering Algorithm
 
@@ -278,11 +278,11 @@ Source: CONDENSED-06-10.md, form.js lines 17-64.
 
 ### Template Structure
 
-Jinja2 macros mirror the JavaScript pipeline 1:1: `field.html.j2` replaces `form.js getInput()`, `header.html.j2` replaces `getHeader()`, `card_sm/md.html.j2` replaces `ntt-item.js sm()/md()`, `list_field.html.j2` replaces `getListInput()`, and `pagination.html.j2` replaces `ntt-list.js` load-more. Base layout, collection page, entity page, and index page templates complete the hierarchy.
+Jinja2 macros mirror the JavaScript pipeline 1:1: `field.html.j2` replaces `form.js getInput()`, `header.html.j2` replaces `getHeader()`, `card_sm/md.html.j2` replaces `ntx-item.js sm()/md()`, `list_field.html.j2` replaces `getListInput()`, and `pagination.html.j2` replaces `ntx-list.js` load-more. Base layout, collection page, entity page, and index page templates complete the hierarchy.
 
 ### Output File Structure
 
-The exporter uses the nested `index.html` convention (e.g., `dist/products/index.html` for `/products/`, `dist/products/1/index.html` for `/products/1/`). This works universally on GitHub Pages, Cloudflare Pages, Netlify, S3, and nginx without URL rewrite rules. The structure maps directly to PyBend's API URL patterns. A combined `styles.css` (~8KB gzipped) and optional self-hosted fonts complete the output.
+The exporter uses the nested `index.html` convention (e.g., `dist/products/index.html` for `/products/`, `dist/products/1/index.html` for `/products/1/`). This works universally on GitHub Pages, Cloudflare Pages, Netlify, S3, and nginx without URL rewrite rules. The structure maps directly to N3TX's API URL patterns. A combined `styles.css` (~8KB gzipped) and optional self-hosted fonts complete the output.
 
 Source: CONDENSED-06-10.md (output structure section).
 
@@ -294,15 +294,15 @@ Component CSS today lives inside Shadow DOM. The static exporter concatenates an
 |---|---|---|
 | `dark-theme.css` | 408 | Full inclusion (design tokens, layout) |
 | `light-theme.css` | 119 | Full inclusion (theme overrides) |
-| `ntt-item.css` | 669 | Transform `:host` to `.ntt-item` class selector |
-| `ntt-list.css` | 81 | Transform `:host` to `.ntt-list` class selector |
-| `ntt-element.css` | 71 | Partial (error/empty states only) |
+| `ntx-item.css` | 669 | Transform `:host` to `.ntx-item` class selector |
+| `ntx-list.css` | 81 | Transform `:host` to `.ntx-list` class selector |
+| `ntx-element.css` | 71 | Partial (error/empty states only) |
 | **Total** | **~1,307** | **~35KB unminified, ~8KB gzipped** |
 
 The `:host` to class-selector transformation is straightforward regex:
-- `:host { ... }` becomes `.ntt-item { ... }`
-- `:host(.editing) { ... }` becomes `.ntt-item.editing { ... }`
-- `:host > .content` becomes `.ntt-item > .content`
+- `:host { ... }` becomes `.ntx-item { ... }`
+- `:host(.editing) { ... }` becomes `.ntx-item.editing { ... }`
+- `:host > .content` becomes `.ntx-item > .content`
 
 External dependency: Google Fonts (Inter, JetBrains Mono). The exporter offers two options: include `<link>` tag (default, requires internet) or self-host fonts (add `--self-host-fonts` flag, downloads to `dist/assets/fonts/`).
 
@@ -325,13 +325,13 @@ Source: CONDENSED-01-05.md, CONDENSED-06-10.md.
 
 ### Authorization Strategy
 
-**Recommended: Public-only export.** Export only what the `ANYONE` access rule permits. Filter models by `__access__.read`, fields by field-level `access.view`. Zero auth complexity. Optional: `pybend export --role=user` for per-role builds (Phase 3). Do not attempt client-side JS auth gates -- that defeats the zero-JS goal.
+**Recommended: Public-only export.** Export only what the `ANYONE` access rule permits. Filter models by `__access__.read`, fields by field-level `access.view`. Zero auth complexity. Optional: `n3tx export --role=user` for per-role builds (Phase 3). Do not attempt client-side JS auth gates -- that defeats the zero-JS goal.
 
 Source: CONDENSED-06-10.md (authorization strategies).
 
-### Hybrid Mode: Static + NTT Hydration
+### Hybrid Mode: Static + N3TX Hydration
 
-`NTT.js` (lines 237-277) already has `consumePreloadedSchema()` and `consumePreloadedData()` infrastructure, reading inline `<script data-ntt-schema>` and `<script data-ntt-data>` tags. The exporter can emit both pre-rendered HTML (instant zero-JS display) and inline data tags (for progressive NTT hydration if JS is included). Pages load instantly as static HTML; adding JS makes them interactive. The static site works either way.
+`N3TX.js` (lines 237-277) already has `consumePreloadedSchema()` and `consumePreloadedData()` infrastructure, reading inline `<script data-ntx-schema>` and `<script data-ntx-data>` tags. The exporter can emit both pre-rendered HTML (instant zero-JS display) and inline data tags (for progressive N3TX hydration if JS is included). Pages load instantly as static HTML; adding JS makes them interactive. The static site works either way.
 
 Source: CONDENSED-06-10.md (hybrid mode discovery).
 
@@ -341,7 +341,7 @@ Source: CONDENSED-06-10.md (hybrid mode discovery).
 
 ### So What?
 
-Modern CSS (2025-2026) provides native mechanisms for 80-90% of interactive patterns users expect from an SPA. Accordions, tabs, modals, filters, carousels, theme switching, tooltips -- all achievable with CSS and HTML alone, zero JavaScript. The irreducible JavaScript for a static PyBend site with form submission is **~600-800 bytes minified** (<400 bytes gzipped). Compare: React 42KB, Alpine.js 6KB, current PyBend SPA ~150-200KB.
+Modern CSS (2025-2026) provides native mechanisms for 80-90% of interactive patterns users expect from an SPA. Accordions, tabs, modals, filters, carousels, theme switching, tooltips -- all achievable with CSS and HTML alone, zero JavaScript. The irreducible JavaScript for a static N3TX site with form submission is **~600-800 bytes minified** (<400 bytes gzipped). Compare: React 42KB, Alpine.js 6KB, current N3TX SPA ~150-200KB.
 
 ### CSS-Only Pattern Inventory
 
@@ -361,9 +361,9 @@ Modern CSS (2025-2026) provides native mechanisms for 80-90% of interactive patt
 
 Source: CONDENSED-06-10.md (CSS-only interactivity section, pattern-by-pattern mapping).
 
-### Mapping to PyBend Components
+### Mapping to N3TX Components
 
-| PyBend Feature | JS Implementation | CSS-Only Replacement |
+| N3TX Feature | JS Implementation | CSS-Only Replacement |
 |---|---|---|
 | Nested entity lists | "Show N more" button | `<details>/<summary>` -- native keyboard, screen reader support |
 | Field groups (ui.groups) | `<fieldset>` with JS | `:target` tabs with `:has()` default-first fallback |
@@ -386,7 +386,7 @@ Each replacement produces accessible HTML with native keyboard navigation and ze
 | Dynamic data fetching | ~150 bytes | `fetch()` on interaction |
 | Custom form validation | ~200 bytes | Beyond HTML5 validation |
 
-**Total for a static PyBend site with form submission: ~600-800 bytes minified, <400 bytes gzipped.**
+**Total for a static N3TX site with form submission: ~600-800 bytes minified, <400 bytes gzipped.**
 
 The form handler is ~200 bytes: `querySelectorAll('form[data-api]')` + `fetch()` + auth header injection. This is the entire JavaScript footprint for a site that submits data.
 
@@ -432,10 +432,10 @@ Source: CONDENSED-06-10.md (progressive enhancement ladder).
 | Static HTML+CSS (target) | 98-100 | 0.4-0.6s | 0.5-0.8s | 0ms | 0 |
 | Static + tiny JS | 96-100 | 0.4-0.6s | 0.5-0.8s | 0-10ms | 0 |
 | SSG (Astro/11ty) | 90-98 | 0.6-1.0s | 0.8-1.5s | 0-50ms | 0-0.05 |
-| Current PyBend SPA | 70-90 | 1.0-2.0s | 1.5-3.0s | 50-200ms | 0.05-0.15 |
+| Current N3TX SPA | 70-90 | 1.0-2.0s | 1.5-3.0s | 50-200ms | 0.05-0.15 |
 | Typical React SPA | 50-85 | 1.5-3.0s | 2.0-4.0s | 200-800ms | 0.1-0.25 |
 
-A static PyBend export should score 96-100 on Lighthouse Performance, compared to 70-90 for the current SPA. The improvement comes entirely from eliminating JavaScript from the critical rendering path.
+A static N3TX export should score 96-100 on Lighthouse Performance, compared to 70-90 for the current SPA. The improvement comes entirely from eliminating JavaScript from the critical rendering path.
 
 Source: CONDENSED-06-10.md (Lighthouse comparison table).
 
@@ -445,7 +445,7 @@ Source: CONDENSED-06-10.md (Lighthouse comparison table).
 
 ### So What?
 
-PyBend is uniquely positioned for static export because the JSON Schema generated by `ProtoModel.schema()` IS the complete rendering specification. No other framework has this. The schema carries field types, widget hints, layout groups, field order, access rules, and method signatures. The exporter reads the same schema the frontend reads -- it just renders it in Python instead of JavaScript. The existing `StorableMixin.list()` and `.get()` provide all data access. The gap is narrow: a Jinja2 template engine (~200 LOC), a CSS transformer (~80 LOC), and an orchestrator (~150 LOC).
+N3TX is uniquely positioned for static export because the JSON Schema generated by `ProtoModel.schema()` IS the complete rendering specification. No other framework has this. The schema carries field types, widget hints, layout groups, field order, access rules, and method signatures. The exporter reads the same schema the frontend reads -- it just renders it in Python instead of JavaScript. The existing `StorableMixin.list()` and `.get()` provide all data access. The gap is narrow: a Jinja2 template engine (~200 LOC), a CSS transformer (~80 LOC), and an orchestrator (~150 LOC).
 
 ### Schema Completeness Inventory
 
@@ -470,11 +470,11 @@ From `proto_model.py` (lines 44-150) and the `schema()` method, the JSON Schema 
 
 **Verdict: 100% of the schema surface needed for static rendering is already available.** No schema extensions required.
 
-### form.js and ntt-item.js Replication
+### form.js and ntx-item.js Replication
 
 `form.js` (368 lines) is the primary target. Its logic is deterministic: given (schema, value, mode), it produces HTML. Of the 368 lines, ~180 are display-mode relevant (field dispatch, grouping, headers, list rendering). The remaining ~188 are edit-mode, validation, and event binding -- inapplicable to static export. **~200 lines of Jinja2 replicate the display-mode subset.**
 
-`ntt-item.js` (660 lines) has five size methods (xs/sm/md/lg/xl), all fully pre-computable from schema + data. The exporter uses `sm` for list pages (card grid) and `md` for detail pages (full entity view), matching the dynamic UI's presentation.
+`ntx-item.js` (660 lines) has five size methods (xs/sm/md/lg/xl), all fully pre-computable from schema + data. The exporter uses `sm` for list pages (card grid) and `md` for detail pages (full entity view), matching the dynamic UI's presentation.
 
 ### Gap Analysis
 
@@ -486,7 +486,7 @@ Source: CONDENSED-06-10.md.
 
 ### What Already Exists
 
-The exporter does not start from zero. These PyBend systems are reused as-is:
+The exporter does not start from zero. These N3TX systems are reused as-is:
 
 1. **`ProtoModel.schema()`** -- Full JSON Schema with all UI hints and access rules. Cached (line 56 of proto_model.py).
 2. **`StorableMixin.list(limit, offset)`** -- Paginated entity retrieval with FK hydration.
@@ -494,7 +494,7 @@ The exporter does not start from zero. These PyBend systems are reused as-is:
 4. **`registered_models`** -- Registry of all models in the application.
 5. **`_apply_field_exclusion()`** -- Auto-hide convention for internal fields (line 25 of proto_model.py).
 6. **`__access__`** rules -- ABAC evaluation for export filtering.
-7. **CSS files** -- Component styles already exist in `src/pybend/static/`.
+7. **CSS files** -- Component styles already exist in `src/n3tx/static/`.
 
 ---
 
@@ -502,7 +502,7 @@ The exporter does not start from zero. These PyBend systems are reused as-is:
 
 ### So What?
 
-The static exporter's value is strategic, not primarily cost-driven. Infrastructure savings ($5-50/month per project) will never recoup the development investment through direct cost reduction alone. The value is in: (a) a unique market position ("schema to website, zero code"), (b) dramatically better Lighthouse scores for PyBend users, (c) opening the ~30% of web projects that are fully-static-appropriate, and (d) the "zero to deployed" story for marketing and developer adoption.
+The static exporter's value is strategic, not primarily cost-driven. Infrastructure savings ($5-50/month per project) will never recoup the development investment through direct cost reduction alone. The value is in: (a) a unique market position ("schema to website, zero code"), (b) dramatically better Lighthouse scores for N3TX users, (c) opening the ~30% of web projects that are fully-static-appropriate, and (d) the "zero to deployed" story for marketing and developer adoption.
 
 ### Investment Breakdown
 
@@ -514,7 +514,7 @@ The static exporter's value is strategic, not primarily cost-driven. Infrastruct
 | `css_compiler.py` -- CSS transformation | ~80 | 0.5 | Single stylesheet from Shadow DOM CSS |
 | `exporter.py` -- orchestrator | ~150 | 1 | Model iteration, file writing, pagination |
 | Jinja2 templates | ~300 | 1 | base, collection, entity, macros |
-| CLI entry point | ~50 | 0.5 | `pybend export` command |
+| CLI entry point | ~50 | 0.5 | `n3tx export` command |
 | Tests | ~200 | 1-2 | Rendering correctness, CSS output |
 | **Total** | **~980** | **5-7** | **Complete MVP** |
 
@@ -526,7 +526,7 @@ The static exporter's value is strategic, not primarily cost-driven. Infrastruct
 | Incremental rebuild (SHA-256 hashing) | 2-3 | <1s rebuild on single entity change |
 | Asset pipeline (images, fonts, sitemap) | 1-2 | Production-ready output |
 | Per-role export | 1-2 | Intranet/authenticated site generation |
-| Hybrid mode (NTT preloading) | 2-3 | Static + progressive enhancement |
+| Hybrid mode (N3TX preloading) | 2-3 | Static + progressive enhancement |
 | Custom template overrides | 1-2 | User-provided Jinja2 templates |
 | Webhook/CI integration | 1-2 | Auto-rebuild on data change |
 | Search (client-side index) | 1-2 | Lunr.js or Pagefind integration |
@@ -575,7 +575,7 @@ Source: CONDENSED-06-10.md.
 
 ### So What?
 
-Not every PyBend application should use static export. The decision depends on three factors: content freshness requirements, audience type (public vs. authenticated), and whether SEO drives revenue. The static exporter is a deployment option, not a mandate. Users who need it will know they need it. Users who do not will continue using the dynamic stack.
+Not every N3TX application should use static export. The decision depends on three factors: content freshness requirements, audience type (public vs. authenticated), and whether SEO drives revenue. The static exporter is a deployment option, not a mandate. Users who need it will know they need it. Users who do not will continue using the dynamic stack.
 
 ### When Static Export Makes Sense
 
@@ -620,13 +620,13 @@ SEO critical           STRONG FIT          GOOD FIT            Streaming SSR
 
 Source: CONDENSED-06-10.md (project type addressability), W3Techs 2025.
 
-> **The ~30% static-appropriate segment is PyBend's expansion opportunity.** Today, these projects use Hugo, Eleventy, or hand-coded HTML. With static export, they could use PyBend -- getting the full schema-driven development workflow plus zero-cost deployment.
+> **The ~30% static-appropriate segment is N3TX's expansion opportunity.** Today, these projects use Hugo, Eleventy, or hand-coded HTML. With static export, they could use N3TX -- getting the full schema-driven development workflow plus zero-cost deployment.
 
 ### Content Freshness Guide
 
 | Content Type | Update Frequency | Rebuild Strategy | Latency |
 |---|---|---|---|
-| Documentation | Hours to days | Manual trigger / `pybend export` | Minutes |
+| Documentation | Hours to days | Manual trigger / `n3tx export` | Minutes |
 | Blog posts | Minutes to hours | Webhook on CMS save | Minutes |
 | Product catalog | Minutes to hours | Scheduled (every 15-60 min) | Up to 1 hour |
 | Pricing | Minutes | Webhook + immediate rebuild | Minutes |
@@ -684,7 +684,7 @@ Does the project need a running server for its core features?
 
 ### So What?
 
-Build the MVP static exporter as a 5-7 day project, but only after implementing HTTP caching on the dynamic stack (1-2 days). The caching work benefits every PyBend user immediately. The exporter benefits the ~30% of projects that are static-appropriate. Together, they cover the full performance spectrum: caching for dynamic, export for static, and the same schema-driven development workflow for both.
+Build the MVP static exporter as a 5-7 day project, but only after implementing HTTP caching on the dynamic stack (1-2 days). The caching work benefits every N3TX user immediately. The exporter benefits the ~30% of projects that are static-appropriate. Together, they cover the full performance spectrum: caching for dynamic, export for static, and the same schema-driven development workflow for both.
 
 ### Phased Plan
 
@@ -695,7 +695,7 @@ Build the MVP static exporter as a 5-7 day project, but only after implementing 
 | Add `Cache-Control: public, max-age=3600` to schema endpoints | 1 hour | Schema served from browser cache |
 | Add `Cache-Control: public, max-age=60, stale-while-revalidate=600` to public list endpoints | 1 hour | CDN-friendly list caching |
 | Add template caching `Map` in `form.js` | 2 hours | Eliminate re-generation for same schema |
-| Document CDN setup (Cloudflare, AWS) for PyBend users | 1 day | Users can front their app with CDN |
+| Document CDN setup (Cloudflare, AWS) for N3TX users | 1 day | Users can front their app with CDN |
 
 **Trigger for Phase 1:** User requests for static export, OR SEO becomes a documented use case.
 
@@ -707,26 +707,26 @@ Build the MVP static exporter as a 5-7 day project, but only after implementing 
 | `css_compiler.py` -- CSS concatenation + `:host` transform | 0.5 day | Single `styles.css` |
 | Jinja2 templates (base, collection, entity, macros) | 1 day | Complete template set |
 | `exporter.py` -- orchestrator (iterate models, paginate, write) | 1 day | File generation pipeline |
-| CLI entry point (`pybend export`) | 0.5 day | User-facing command |
+| CLI entry point (`n3tx export`) | 0.5 day | User-facing command |
 | Tests (rendering correctness, CSS, pagination) | 1-2 days | CI-verifiable quality |
 
 **Integration API (three levels):**
 
 ```python
 # Level 1: One-liner
-from pybend import export_static
+from n3tx import export_static
 export_static(app, output="./dist")
 
 # Level 2: Builder
-pb = PyBendApp(storage="sqlite:///app.db")
+pb = N3TXApp(storage="sqlite:///app.db")
 pb.model(Product).model(User)
 pb.export(output="./dist", theme="dark")
 
 # Level 3: CLI
-pybend export --static --db sqlite:///app.db --output ./dist
+n3tx export --static --db sqlite:///app.db --output ./dist
 ```
 
-**Trigger for Phase 2:** 10+ users actively using `pybend export`, OR a specific customer requirement.
+**Trigger for Phase 2:** 10+ users actively using `n3tx export`, OR a specific customer requirement.
 
 **Phase 2: Polish (2-3 weeks, when warranted)**
 
@@ -744,14 +744,14 @@ pybend export --static --db sqlite:///app.db --output ./dist
 | Feature | Effort | Value |
 |---|---|---|
 | Per-role export (`--role=user`) | 1-2 weeks | Intranet / authenticated sites |
-| Hybrid mode (NTT preloading) | 2-3 weeks | Progressive enhancement |
+| Hybrid mode (N3TX preloading) | 2-3 weeks | Progressive enhancement |
 | Custom Jinja2 template overrides | 1-2 weeks | User customization |
 | Search integration (Pagefind / Lunr.js) | 1-2 weeks | Client-side full-text search |
 
 ### Module Structure
 
 ```
-src/pybend/core/export/
+src/n3tx/core/export/
     __init__.py                 Public API: export_static()
     exporter.py     (~150 LOC) Main orchestrator
     renderer.py     (~200 LOC) Schema-to-HTML (port of form.js)
@@ -798,7 +798,7 @@ src/pybend/core/export/
 | Phase 1 | Total JS shipped (Tier 1 export) | 0 bytes |
 | Phase 1 | Output correctness (field rendering match) | 100% of form.js display output |
 | Phase 2 | Incremental rebuild time (1 entity change) | <1 second |
-| Phase 2 | Active users of `pybend export` | 10+ |
+| Phase 2 | Active users of `n3tx export` | 10+ |
 | Phase 3 | Hybrid page FCP | <500ms |
 
 ---
@@ -876,7 +876,7 @@ Impact
 **R5: Rendered HTML diverges from SPA rendering**
 - **Probability:** Medium
 - **Impact:** Medium
-- **Description:** The Jinja2 renderer produces HTML that looks different from what `form.js` + `ntt-item.js` produce. Users expect visual parity.
+- **Description:** The Jinja2 renderer produces HTML that looks different from what `form.js` + `ntx-item.js` produce. Users expect visual parity.
 - **Mitigation:** Side-by-side snapshot testing. The renderer mirrors form.js logic exactly (same field dispatch, same group handling, same header structure). Discrepancies are bugs to fix, not fundamental issues.
 - **Owner:** QA/Engineering
 
@@ -888,7 +888,7 @@ Impact
 - **Owner:** Engineering
 
 **R7: Large dataset build times**
-- **Probability:** Low (most PyBend apps are <1K entities)
+- **Probability:** Low (most N3TX apps are <1K entities)
 - **Impact:** Low
 - **Description:** At 100K+ entities, full rebuild takes 2-5 minutes. This is acceptable for scheduled rebuilds but frustrating for development.
 - **Mitigation:** Incremental rebuild (Phase 2) reduces to <1s for single entity change. Full rebuild is a production concern, not a development concern.
@@ -947,36 +947,36 @@ Source: CONDENSED-06-10.md (deployment targets table).
 
 ### Appendix C: Implementation Blueprint
 
-**New files (~980 LOC total):** `src/pybend/core/export/` package containing `exporter.py` (orchestrator, ~150 LOC), `renderer.py` (schema-to-HTML port of form.js, ~200 LOC), `css_compiler.py` (CSS aggregation + `:host` transform, ~80 LOC), `cli.py` (CLI entry point, ~50 LOC), Jinja2 templates (base, collection, entity, index + macros for field, header, cards, pagination, ~300 LOC), and tests (~200 LOC).
+**New files (~980 LOC total):** `src/n3tx/core/export/` package containing `exporter.py` (orchestrator, ~150 LOC), `renderer.py` (schema-to-HTML port of form.js, ~200 LOC), `css_compiler.py` (CSS aggregation + `:host` transform, ~80 LOC), `cli.py` (CLI entry point, ~50 LOC), Jinja2 templates (base, collection, entity, index + macros for field, header, cards, pagination, ~300 LOC), and tests (~200 LOC).
 
-**Modified files:** `src/pybend/__init__.py` (export `export_static`), `src/pybend/core/app.py` (add `export()` to `PyBendApp`), `pyproject.toml` (Jinja2 dependency, CLI entry point).
+**Modified files:** `src/n3tx/__init__.py` (export `export_static`), `src/n3tx/core/app.py` (add `export()` to `N3TXApp`), `pyproject.toml` (Jinja2 dependency, CLI entry point).
 
 **Relationship to prior analysis:** html-compiler-analysis.md evaluated template compilation (pre-building templates at server start for faster dynamic serving). This document evaluates full static site export (writing HTML files to disk, eliminating the server). Both share the same schema-to-HTML rendering core.
 
 ### Appendix F: Source References
 
 **Research Documents:**
-- CONDENSED-01-05.md -- HTML compiler research synthesis (industry landscape, technical approaches, decision framework, PyBend architecture fit, static shell + islands)
-- CONDENSED-06-10.md -- Static site research synthesis (SSG industry, technical pipeline, decision framework, PyBend export architecture, CSS-only interactivity)
+- CONDENSED-01-05.md -- HTML compiler research synthesis (industry landscape, technical approaches, decision framework, N3TX architecture fit, static shell + islands)
+- CONDENSED-06-10.md -- Static site research synthesis (SSG industry, technical pipeline, decision framework, N3TX export architecture, CSS-only interactivity)
 - html-compiler-analysis.md -- Prior analysis of template compilation approach
 
 **Underlying Research (10 documents):**
 - 01-industry-landscape.md -- Market data, framework comparison, case studies
 - 02-technical-deep-dive.md -- Compilation strategies, hydration, DSD
 - 03-decision-framework.md -- ROI, TCO, migration strategies
-- 04-our-stack-relevance.md -- PyBend schema surface map, runtime cost analysis
+- 04-our-stack-relevance.md -- N3TX schema surface map, runtime cost analysis
 - 05-static-shell-dynamic-islands.md -- Islands architecture, Web Component mapping
 - 06-static-industry-landscape.md -- SSG market, case studies, hosting economics
 - 07-static-technical-deep-dive.md -- SSG pipeline, CSS generation, build systems
 - 08-static-decision-framework.md -- Static decision criteria, anti-patterns
-- 09-static-pybend-architecture.md -- PyBend export architecture, gap analysis
+- 09-static-ntx-architecture.md -- N3TX export architecture, gap analysis
 - 10-css-only-interactivity.md -- CSS patterns, progressive enhancement, minimal JS
 
 **Codebase Files Analyzed:**
-- `src/pybend/core/models/proto_model.py` -- Schema generation, field exclusion, response metadata
-- `src/pybend/static/generators/form.js` -- Schema-driven form rendering (primary replication target)
-- `src/pybend/static/components/ntt-item.js` -- Size methods, render dispatch
-- `src/pybend/static/core/NTT.js` -- DynamicClass creation, preload infrastructure
+- `src/n3tx/core/models/proto_model.py` -- Schema generation, field exclusion, response metadata
+- `src/n3tx/static/generators/form.js` -- Schema-driven form rendering (primary replication target)
+- `src/n3tx/static/components/ntx-item.js` -- Size methods, render dispatch
+- `src/n3tx/static/core/N3TX.js` -- DynamicClass creation, preload infrastructure
 
 **Key External Sources:**
 - [Sparkbox: UI Rendering Frameworks Comparison](https://sparkbox.com/foundry/ui_rendering_frameworks_next.js_astro_qwik_rendering_strategies_tested_time_to_interactive_total_blocking_time_largest_contentful_paint_measured)
@@ -989,4 +989,4 @@ Source: CONDENSED-06-10.md (deployment targets table).
 
 ---
 
-*Analysis compiled February 2026. Based on 10 research documents covering 70+ external sources, two research syntheses, and direct codebase analysis of PyBend's rendering pipeline. Performance estimates are projections based on industry benchmarks applied to PyBend's architecture; actual results will vary based on implementation, deployment infrastructure, and usage patterns.*
+*Analysis compiled February 2026. Based on 10 research documents covering 70+ external sources, two research syntheses, and direct codebase analysis of N3TX's rendering pipeline. Performance estimates are projections based on industry benchmarks applied to N3TX's architecture; actual results will vary based on implementation, deployment infrastructure, and usage patterns.*

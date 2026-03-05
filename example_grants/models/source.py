@@ -2,8 +2,8 @@ from __future__ import annotations
 from typing import ClassVar
 from pydantic import Field
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.widgets import UrlField
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.widgets import UrlField
 
 
 class Source(ActorModel):

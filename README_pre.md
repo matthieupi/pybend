@@ -1,26 +1,26 @@
-# 🛠️ PyBend: Your Modular API Framework with a Twist
+# 🛠️ N3TX: Your Modular API Framework with a Twist
 
-Welcome to PyBend! This is not just another API framework—it’s a highly modular, storage-flexible, and swagger-drenched ecosystem designed for builders who want to have it all. Whether you’re defining models, crafting endpoints, or swapping storage backends, PyBend has got you covered.
+Welcome to N3TX! This is not just another API framework—it’s a highly modular, storage-flexible, and swagger-drenched ecosystem designed for builders who want to have it all. Whether you’re defining models, crafting endpoints, or swapping storage backends, N3TX has got you covered.
 
 ---
 
 ## 📚 Table of Contents
 
-1. [What is PyBend?](#what-is-pybend)
+1. [What is N3TX?](#what-is-n3tx)
 2. [Features](#features)
 3. [Getting Started](#getting-started)
 4. [How It Works](#how-it-works)
 5. [Storage Backends](#storage-backends)
-6. [Customizing PyBend](#customizing-pybend)
+6. [Customizing N3TX](#customizing-n3tx)
 7. [Testing the System](#testing-the-system)
 8. [Contributing](#contributing)
 9. [License](#license)
 
 ---
 
-## 🌐 What is PyBend?
+## 🌐 What is N3TX?
 
-PyBend is a Flask-based API framework that:
+N3TX is a Flask-based API framework that:
 - Simplifies CRUD operation generation.
 - Supports dynamic model registration.
 - Allows flexible integration with storage backends (SQLite, JSON, or your custom implementation).
@@ -54,8 +54,8 @@ In short: It bends to your will, but stays structured enough to keep everything 
 
 Clone the repository:
 ```bash
-git clone https://github.com/yourusername/pybend.git
-cd pybend
+git clone https://github.com/yourusername/n3tx.git
+cd n3tx
 ```
 
 Install dependencies:
@@ -83,7 +83,7 @@ Visit the Swagger UI at `http://localhost:5000/apidocs/` to explore your API.
 
 ## 💾 Storage Backends
 
-PyBend provides an abstract storage interface, making it easy to use different storage solutions. Supported backends include:
+N3TX provides an abstract storage interface, making it easy to use different storage solutions. Supported backends include:
 
 - **SQLite**: Reliable, fast, and file-based.
 - **JSON**: Lightweight, human-readable, and great for quick setups.
@@ -100,7 +100,7 @@ register_model(User, storage=storage_backend)
 
 ---
 
-## 🛠️ Customizing PyBend
+## 🛠️ Customizing N3TX
 
 ### Adding Models
 
@@ -139,7 +139,7 @@ def get_stats():
 
 ## 🧪 Testing the System
 
-PyBend includes a comprehensive test suite using `pytest` and `pytest-flask`.
+N3TX includes a comprehensive test suite using `pytest` and `pytest-flask`.
 
 ### Run Tests
 

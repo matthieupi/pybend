@@ -1,4 +1,4 @@
-# Polymorphic Systems for PyBend: Strategic Analysis Report
+# Polymorphic Systems for N3TX: Strategic Analysis Report
 
 ## For: CEO & Engineering Team
 ## Date: February 2026
@@ -8,7 +8,7 @@
 
 ### How to Read This Document
 
-This report is structured in layers. The **Executive Summary** (Section 0) gives you the full picture in two pages. **Sections 1-3** build context: what polymorphism is, who uses it, and how it works technically. **Section 4** is the core assessment: where PyBend stands today and what it would take. **Sections 5-7** are the decision layer: costs, framework, and our recommendation. **Section 8** covers risks. **Section 9** has appendices for reference.
+This report is structured in layers. The **Executive Summary** (Section 0) gives you the full picture in two pages. **Sections 1-3** build context: what polymorphism is, who uses it, and how it works technically. **Section 4** is the core assessment: where N3TX stands today and what it would take. **Sections 5-7** are the decision layer: costs, framework, and our recommendation. **Section 8** covers risks. **Section 9** has appendices for reference.
 
 **If you read nothing else**, read the Executive Summary and Section 7 (Recommendation).
 
@@ -16,9 +16,9 @@ This report is structured in layers. The **Executive Summary** (Section 0) gives
 
 ## Executive Summary
 
-**The question:** Should PyBend add first-class polymorphic data model support -- the ability for multiple specialized types (Article, Video, Podcast) to share a common base (Content) with automatic storage discrimination, schema union generation, and type-aware frontend rendering?
+**The question:** Should N3TX add first-class polymorphic data model support -- the ability for multiple specialized types (Article, Video, Podcast) to share a common base (Content) with automatic storage discrimination, schema union generation, and type-aware frontend rendering?
 
-**The answer:** Yes, and we are closer than it appears. PyBend's existing architecture already contains **60-70% of the machinery** needed for polymorphism. The `ProtoModel` inheritance chain, `__init_subclass__()` hook, JSON Schema `$defs`, and the frontend's DynamicClass system provide a foundation that most frameworks lack entirely. The remaining work is estimated at **13-19 engineering days** across four phases.
+**The answer:** Yes, and we are closer than it appears. N3TX's existing architecture already contains **60-70% of the machinery** needed for polymorphism. The `ProtoModel` inheritance chain, `__init_subclass__()` hook, JSON Schema `$defs`, and the frontend's DynamicClass system provide a foundation that most frameworks lack entirely. The remaining work is estimated at **13-19 engineering days** across four phases.
 
 **Why it matters:**
 
@@ -31,7 +31,7 @@ This report is structured in layers. The **Executive Summary** (Section 0) gives
 | Schema contract | One schema per model (works) | `oneOf` + discriminator (industry standard) |
 | Competitive positioning | On par with Django, Rails | **Unique**: schema-propagated polymorphism |
 
-**The strategic opportunity:** No framework in the market today offers schema-propagated polymorphism -- where defining a Python subclass automatically generates a discriminated union schema, adapts the storage layer, creates polymorphic API endpoints, and drives type-aware frontend rendering. Django requires `django-polymorphic` + manual serializer updates + frontend changes. Rails offers STI but no schema output. Strapi has dynamic zones but no type inheritance. PyBend can do what none of them do: **one model definition, full-stack polymorphism**.
+**The strategic opportunity:** No framework in the market today offers schema-propagated polymorphism -- where defining a Python subclass automatically generates a discriminated union schema, adapts the storage layer, creates polymorphic API endpoints, and drives type-aware frontend rendering. Django requires `django-polymorphic` + manual serializer updates + frontend changes. Rails offers STI but no schema output. Strapi has dynamic zones but no type inheritance. N3TX can do what none of them do: **one model definition, full-stack polymorphism**.
 
 **The cost:**
 - **Phase 1** (STI discriminator): 2-3 engineering days
@@ -40,7 +40,7 @@ This report is structured in layers. The **Executive Summary** (Section 0) gives
 - **Phase 4** (polymorphic routes): 3-5 engineering days
 - **Total:** 13-19 engineering days, no external dependencies, no breaking changes
 
-**The recommendation:** Implement Phases 1-2 immediately (5-7 days). This gives PyBend discriminator-based storage and `oneOf` schema output -- the two capabilities that unlock the most value with the least risk. Defer Phases 3-4 until a concrete use case demands mixed-type frontend rendering.
+**The recommendation:** Implement Phases 1-2 immediately (5-7 days). This gives N3TX discriminator-based storage and `oneOf` schema output -- the two capabilities that unlock the most value with the least risk. Defer Phases 3-4 until a concrete use case demands mixed-type frontend rendering.
 
 ---
 
@@ -65,9 +65,9 @@ Polymorphism means "many forms." In data systems, it means a single concept -- P
 
 Every application with more than one "kind of thing" faces this challenge. The question is never _whether_ to handle it, but _how_.
 
-### 1.2 Why It Matters for PyBend Specifically
+### 1.2 Why It Matters for N3TX Specifically
 
-PyBend's core promise is **"define a model, get an app."** The model is the single source of truth for storage, API, schema, and UI. This promise works beautifully for flat, independent models. But the moment an application needs a `Content` base type with `Article` and `Video` subtypes sharing a unified feed, the developer hits a wall:
+N3TX's core promise is **"define a model, get an app."** The model is the single source of truth for storage, API, schema, and UI. This promise works beautifully for flat, independent models. But the moment an application needs a `Content` base type with `Article` and `Video` subtypes sharing a unified feed, the developer hits a wall:
 
 - They can define `Article` and `Video` as separate models (works today), but lose unified queries
 - They can manually aggregate separate endpoints in the frontend (works today), but it is tedious
@@ -90,7 +90,7 @@ Polymorphism touches every layer of the stack:
 |                     STORAGE LAYER                         |
 |  Single table with _type column (STI)                    |
 |  OR base table + child tables (CTI)                      |
-|  OR separate tables (today's PyBend)                     |
+|  OR separate tables (today's N3TX)                     |
 +──────────────────────────────────────────────────────────+
                          |
 +──────────────────────────────────────────────────────────+
@@ -176,7 +176,7 @@ GitLab maintains an explicit **policy against new single-table inheritance** in 
 
 **GitLab's resolution:** No new STI. Migrate existing STI to separate tables or enum-based discrimination. ([GitLab Docs: STI](https://docs.gitlab.com/development/database/single_table_inheritance/))
 
-> **The takeaway for PyBend:** STI works at modest scale (sub-10M rows). PyBend's SQLite-based applications will likely stay well under that threshold. GitLab's pain applies to PostgreSQL databases serving millions of concurrent users -- a different order of magnitude than PyBend's target deployment.
+> **The takeaway for N3TX:** STI works at modest scale (sub-10M rows). N3TX's SQLite-based applications will likely stay well under that threshold. GitLab's pain applies to PostgreSQL databases serving millions of concurrent users -- a different order of magnitude than N3TX's target deployment.
 
 ### 2.4 How Major ORMs Handle Polymorphism
 
@@ -201,7 +201,7 @@ Three converging trends are shaping polymorphic system design in 2026:
 
 **2. GraphQL's native polymorphism.** GraphQL has interfaces and union types as first-class primitives. The `__typename` field is a built-in discriminator. The `@oneOf` directive (RFC stage, 2023-2024) adds discriminated union inputs, closing the input/output asymmetry. Used by Meta, GitHub, Shopify, Stripe, Airbnb, Netflix. ([Apollo Docs](https://www.apollographql.com/docs/apollo-server/schema/unions-interfaces))
 
-**3. Composition over inheritance.** Shopify, Stripe, and the headless CMS ecosystem favor **composition with typed metadata** over classical inheritance hierarchies. This aligns with API-first, schema-driven architectures -- the exact category PyBend occupies.
+**3. Composition over inheritance.** Shopify, Stripe, and the headless CMS ecosystem favor **composition with typed metadata** over classical inheritance hierarchies. This aligns with API-first, schema-driven architectures -- the exact category N3TX occupies.
 
 ---
 
@@ -260,7 +260,7 @@ Based on published benchmarks and PostgreSQL documentation:
 
 ([Replacing EAV with JSONB in PostgreSQL](https://coussej.github.io/2016/01/14/Replacing-EAV-with-JSONB-in-PostgreSQL/))
 
-> **KEY INSIGHT:** For PyBend's SQLite-based target deployments, the performance differences between strategies are negligible at typical scale (sub-100K rows). The choice should be driven by **developer ergonomics and schema evolution flexibility**, not raw query speed. STI is the right default.
+> **KEY INSIGHT:** For N3TX's SQLite-based target deployments, the performance differences between strategies are negligible at typical scale (sub-100K rows). The choice should be driven by **developer ergonomics and schema evolution flexibility**, not raw query speed. STI is the right default.
 
 ### 3.3 JSON Schema Polymorphism Encoding
 
@@ -292,7 +292,7 @@ The OpenAPI `discriminator` object with `mapping` is the industry-standard patte
 }
 ```
 
-> **For PyBend:** Pydantic v2 natively generates this JSON Schema output from discriminated unions. The machinery exists; PyBend's `ProtoModel.schema()` simply does not invoke it yet. ([Pydantic Discriminated Unions](https://docs.pydantic.dev/latest/concepts/unions/))
+> **For N3TX:** Pydantic v2 natively generates this JSON Schema output from discriminated unions. The machinery exists; N3TX's `ProtoModel.schema()` simply does not invoke it yet. ([Pydantic Discriminated Unions](https://docs.pydantic.dev/latest/concepts/unions/))
 
 ### 3.4 Security Considerations
 
@@ -303,9 +303,9 @@ Polymorphic systems introduce a specific vulnerability category: **type confusio
 | Type confusion (wrong discriminator) | Medium | Low | Validate discriminator against explicit allowlist |
 | Deserialization RCE (Java Jackson CVEs) | N/A for Python | N/A | Pydantic uses `Literal` values, not class names |
 | Unauthorized subtype access | High | Medium | Resolve authorization AFTER type discrimination |
-| SQL injection via type column | Low | N/A | Parameterized queries (PyBend already does this) |
+| SQL injection via type column | Low | N/A | Parameterized queries (N3TX already does this) |
 
-**PyBend's position:** Pydantic's discriminated unions use `Literal` values as discriminators, not class names. There is no mechanism for a JSON payload to specify an arbitrary Python class. This is inherently safer than Java's `@JsonTypeInfo(use = Id.CLASS)` pattern that has generated dozens of CVEs. ([Jackson CVE Criteria](https://github.com/FasterXML/jackson/wiki/Jackson-Polymorphic-Deserialization-CVE-Criteria))
+**N3TX's position:** Pydantic's discriminated unions use `Literal` values as discriminators, not class names. There is no mechanism for a JSON payload to specify an arbitrary Python class. This is inherently safer than Java's `@JsonTypeInfo(use = Id.CLASS)` pattern that has generated dozens of CVEs. ([Jackson CVE Criteria](https://github.com/FasterXML/jackson/wiki/Jackson-Polymorphic-Deserialization-CVE-Criteria))
 
 ---
 
@@ -313,7 +313,7 @@ Polymorphic systems introduce a specific vulnerability category: **type confusio
 
 ### 4.1 What We Already Have (60-70% of the Machinery)
 
-PyBend's architecture was not designed for polymorphism, but it contains a surprising number of the required building blocks:
+N3TX's architecture was not designed for polymorphism, but it contains a surprising number of the required building blocks:
 
 | Capability | Status | Where It Lives |
 |-----------|:------:|----------------|
@@ -324,16 +324,16 @@ PyBend's architecture was not designed for polymorphism, but it contains a surpr
 | Per-subclass `__ui__` configuration | **Already works** | Independent UI hints per model (`proto_model.py:284-307`) |
 | Schema generation per model | **Already works** | `ProtoModel.schema()` (`proto_model.py:199-316`) |
 | `$defs` for referenced models | **Already works** | Schema includes nested model schemas (`proto_model.py:222-246`) |
-| Frontend DynamicClass per type | **Already works** | `NTT.SCHEMA()` + `prototype()` (`NTT.js:390-426`) |
+| Frontend DynamicClass per type | **Already works** | `N3TX.SCHEMA()` + `prototype()` (`N3TX.js:390-426`) |
 | `__abstract__` flag on base types | **Already works** | `BaseUser` uses `__abstract__ = True` (`base_user.py:28`) |
-| Per-model component tag resolution | **Already works** | `#resolveChildTag()` in `ntt-item.js` (lines 632-638) |
+| Per-model component tag resolution | **Already works** | `#resolveChildTag()` in `ntx-item.js` (lines 632-638) |
 | Access rule SQL pushdown | **Already works** | `Where.sql_filter()` generates parameterized SQL (`rules.py:265-275`) |
 
 > **The BaseUser pattern is polymorphism in embryonic form.** `BaseUser` declares `__abstract__ = True` and provides shared fields plus `login()`/`register()` endpoints. The concrete `User` subclass inherits everything. This is STI without the discriminator column -- the seed of the pattern we would formalize.
 
 ### 4.2 What Is Missing (The 30-40% Gap)
 
-Six specific gaps exist between PyBend's current capabilities and full polymorphic support:
+Six specific gaps exist between N3TX's current capabilities and full polymorphic support:
 
 **Gap 1: Discriminator Column in Storage**
 
@@ -362,7 +362,7 @@ select_sql = f"SELECT * FROM {table_name}"
 
 **Gap 4: Frontend Rendering Dispatch by Subtype**
 
-`ntt-list` stamps a single `childTag` for every entity. There is no per-item type inspection to stamp `ntt-article` for one entity and `ntt-video` for another.
+`ntx-list` stamps a single `childTag` for every entity. There is no per-item type inspection to stamp `ntx-article` for one entity and `ntx-video` for another.
 
 ```javascript
 // Current: same tag for all items
@@ -398,7 +398,7 @@ CURRENT ARCHITECTURE (Separate Models)
   Article                Video
        |                      |
        v                      v
-  <ntt-list              <ntt-list             (separate lists)
+  <ntx-list              <ntx-list             (separate lists)
    model="Article">       model="Video">
 
 
@@ -429,7 +429,7 @@ PROPOSED ARCHITECTURE (Polymorphic Hierarchy)
     DynamicClass: Video        (from $defs, with type-specific props)
             |
             v
-    <ntt-list model="Content"> (renders mixed types, per-entity tags)
+    <ntx-list model="Content"> (renders mixed types, per-entity tags)
 ```
 
 ### 4.4 What Works TODAY with Zero Framework Changes
@@ -473,8 +473,8 @@ app = create_app(models=[Article, Video], ...)
 | Phase | Scope | Effort | Files Changed | Risk |
 |-------|-------|--------|:------------:|:----:|
 | **Phase 1: Discriminator Column** | Add `__discriminator__` ClassVar, inject `_type` column, filter by type on read/write | 2-3 days | `proto_model.py`, `sqlite_storage.py`, `sqlite_migration.py` | Low |
-| **Phase 2: Schema Union Generation** | Generate `oneOf` + `discriminator` in `schema()`, register subtype DynamicClasses, per-entity type resolution | 3-4 days | `proto_model.py`, `NTT.js` | Medium |
-| **Phase 3: Frontend Type Dispatch** | Per-entity `childTag` resolution, schema swap in forms, type selector in create forms, mixed-type collection rendering | 5-7 days | `ListElement.js`, `form.js`, `ntt-item.js` | Medium-High |
+| **Phase 2: Schema Union Generation** | Generate `oneOf` + `discriminator` in `schema()`, register subtype DynamicClasses, per-entity type resolution | 3-4 days | `proto_model.py`, `N3TX.js` | Medium |
+| **Phase 3: Frontend Type Dispatch** | Per-entity `childTag` resolution, schema swap in forms, type selector in create forms, mixed-type collection rendering | 5-7 days | `ListElement.js`, `form.js`, `ntx-item.js` | Medium-High |
 | **Phase 4: Polymorphic Routes** | `/content` returns all subtypes, per-subtype auth composition, `POST /content` dispatches by `_type` | 3-5 days | `routes_fastapi.py` | Medium |
 | **Total** | | **13-19 days** | **~8 files** | |
 
@@ -496,7 +496,7 @@ The compounding advantage of schema-driven polymorphism is the cost of adding ne
 | Update tests | 2-3 | 30 min |
 | **Total** | **9-14 files** | **~2 hours** |
 
-**With PyBend polymorphism (Phase 4 complete):**
+**With N3TX polymorphism (Phase 4 complete):**
 
 | Task | Files Touched | Time |
 |------|:------------:|:----:|
@@ -564,7 +564,7 @@ Phase 4 (+3-5 days):
 
 ## 6. Decision Framework
 
-### 6.1 When to Use Polymorphism in PyBend
+### 6.1 When to Use Polymorphism in N3TX
 
 Score each criterion +1 (favors polymorphism), 0 (neutral), or -1 (favors separate models):
 
@@ -593,7 +593,7 @@ Score each criterion +1 (favors polymorphism), 0 (neutral), or -1 (favors separa
   Score -3 to -6: Separate models, use mixins for shared code
 ```
 
-### 6.2 Decision Tree for PyBend Developers
+### 6.2 Decision Tree for N3TX Developers
 
 ```
 START: Do types share a common base with meaningful shared behavior?
@@ -641,7 +641,7 @@ START: Do types share a common base with meaningful shared behavior?
 
 **Implement Phases 1 and 2 now. Defer Phases 3 and 4.**
 
-Phases 1-2 (5-7 engineering days) deliver the **core polymorphic capability** -- discriminator-based storage and JSON Schema `oneOf` output -- without the complexity of frontend mixed-type rendering. This gives PyBend a genuine differentiator:
+Phases 1-2 (5-7 engineering days) deliver the **core polymorphic capability** -- discriminator-based storage and JSON Schema `oneOf` output -- without the complexity of frontend mixed-type rendering. This gives N3TX a genuine differentiator:
 
 > **Define a Python subclass. Get a discriminator column, type-filtered queries, and a `oneOf` schema with discriminator mapping. Automatically. No other framework does this.**
 
@@ -654,15 +654,15 @@ Phases 3-4 add frontend polish (mixed-type lists, type-aware forms, polymorphic 
 | SQLite compatibility | Excellent (no complex JOINs) | Requires multi-table transactions | **STI** |
 | Developer ergonomics | Simplest (one table) | More complex (base + child tables) | **STI** |
 | Zero-to-working philosophy | Fastest to implement | More infrastructure | **STI** |
-| Query performance at PyBend scale | Equivalent | Slightly worse (JOINs) | **STI** |
+| Query performance at N3TX scale | Equivalent | Slightly worse (JOINs) | **STI** |
 | Schema evolution | Easy (add nullable columns) | Harder (add tables, FKs) | **STI** |
 | Future migration to CTI | Straightforward (Strangler Fig pattern) | N/A | **STI** |
 
-STI aligns with PyBend's "zero to working, then customize" principle. It works out of the box. If a project outgrows STI (unlikely at PyBend's typical scale), migrating to CTI is a well-understood incremental process.
+STI aligns with N3TX's "zero to working, then customize" principle. It works out of the box. If a project outgrows STI (unlikely at N3TX's typical scale), migrating to CTI is a well-understood incremental process.
 
 ### 7.3 The Model Definition We Are Targeting
 
-After Phase 2, a PyBend developer would write:
+After Phase 2, a N3TX developer would write:
 
 ```python
 class Content(ProtoModel):
@@ -734,7 +734,7 @@ And `GET /Content` would return:
 
 ### 7.4 Competitive Positioning After Implementation
 
-| Feature | Django | Rails | Strapi | Prisma | **PyBend (Phase 2)** |
+| Feature | Django | Rails | Strapi | Prisma | **N3TX (Phase 2)** |
 |---------|:------:|:-----:|:------:|:------:|:--------------------:|
 | STI | Via plugin | Built-in | No | No | **Yes** |
 | Discriminator column | Manual | Automatic | N/A | No | **Automatic** |
@@ -754,11 +754,11 @@ The two "unique" rows are the differentiator. No other framework generates a dis
 
 | | |
 |---|---|
-| **Probability** | Low for PyBend's target deployment |
+| **Probability** | Low for N3TX's target deployment |
 | **Impact** | Medium (query degradation, NULL waste) |
 | **Trigger** | >10M rows in a single STI table |
 | **Mitigation** | Document maximum recommended type count (5-8). Provide migration path to CTI. Monitor table width in docs. |
-| **Context** | GitLab hit this at PostgreSQL scale with 30M+ users. PyBend targets SQLite applications that rarely exceed 100K rows per table. |
+| **Context** | GitLab hit this at PostgreSQL scale with 30M+ users. N3TX targets SQLite applications that rarely exceed 100K rows per table. |
 
 ### Risk 2: Breaking Existing Model Definitions
 
@@ -776,7 +776,7 @@ The two "unique" rows are the differentiator. No other framework generates a dis
 | **Probability** | Medium |
 | **Impact** | Medium (DynamicClass creation fails for edge cases) |
 | **Trigger** | `oneOf` + `discriminator` interaction with existing `$defs` processing |
-| **Mitigation** | Phase 2 extends existing `$defs` handling (already works). Add `oneOf` detection to `NTT.SCHEMA()` with clear fallback: if `oneOf` is not present, behavior is identical to today. |
+| **Mitigation** | Phase 2 extends existing `$defs` handling (already works). Add `oneOf` detection to `N3TX.SCHEMA()` with clear fallback: if `oneOf` is not present, behavior is identical to today. |
 
 ### Risk 4: Pydantic Schema Generation Mismatch
 
@@ -784,7 +784,7 @@ The two "unique" rows are the differentiator. No other framework generates a dis
 |---|---|
 | **Probability** | Medium |
 | **Impact** | Medium (schema output does not match expected format) |
-| **Trigger** | Pydantic's `model_json_schema()` for union types may produce different `$defs` structure than PyBend's manual `$defs` injection expects |
+| **Trigger** | Pydantic's `model_json_schema()` for union types may produce different `$defs` structure than N3TX's manual `$defs` injection expects |
 | **Mitigation** | Prototype the Pydantic `Annotated[Union[...], Discriminator('type')]` → `model_json_schema()` output early. Validate it matches the target schema format before building the full pipeline. |
 
 ### Risk 5: Authorization Gap with Shared Tables
@@ -844,8 +844,8 @@ The two "unique" rows are the differentiator. No other framework generates a dis
 | File | Change | Lines Affected |
 |------|--------|:-------------:|
 | `proto_model.py` `schema()` | When `__discriminator__` is set: generate `oneOf` + `discriminator`, include subtype schemas in `$defs`, merge methods. | ~50 new lines |
-| `NTT.js` `SCHEMA()` | Detect `oneOf` + `discriminator` in schema. Map discriminator values to subtype DynamicClasses from `$defs`. | ~30 new lines |
-| `NTT.js` `DynamicClass.READ` | Route incoming entities to correct subtype DynamicClass based on discriminator field value. | ~20 new lines |
+| `N3TX.js` `SCHEMA()` | Detect `oneOf` + `discriminator` in schema. Map discriminator values to subtype DynamicClasses from `$defs`. | ~30 new lines |
+| `N3TX.js` `DynamicClass.READ` | Route incoming entities to correct subtype DynamicClass based on discriminator field value. | ~20 new lines |
 
 ### Appendix B: Pydantic Discriminated Union Schema Output
 
@@ -958,12 +958,12 @@ This is exactly the format our frontend needs. The `discriminator.mapping` provi
 | **CTI** | Class Table Inheritance. Base table + child tables joined by FK. |
 | **Discriminator** | A field whose value determines which subtype a record belongs to. |
 | **oneOf** | JSON Schema keyword: exactly one subschema must match. Used for discriminated unions. |
-| **DynamicClass** | PyBend frontend's runtime-generated JavaScript class created from a JSON Schema. |
+| **DynamicClass** | N3TX frontend's runtime-generated JavaScript class created from a JSON Schema. |
 | **EAV** | Entity-Attribute-Value. Every attribute is stored as a separate row. Maximum flexibility, worst performance. |
 | **JSONB** | PostgreSQL's binary JSON column type with indexing support. |
 | **Discriminated Union** | A type that is exactly one of several variants, identified by a tag/discriminator field. Also called "tagged union" or "sum type." |
-| **ProtoModel** | PyBend's base model class providing schema generation, serialization, and storage injection. |
-| **$defs** | JSON Schema keyword containing reusable schema definitions. PyBend uses it for referenced/nested model schemas. |
+| **ProtoModel** | N3TX's base model class providing schema generation, serialization, and storage injection. |
+| **$defs** | JSON Schema keyword containing reusable schema definitions. N3TX uses it for referenced/nested model schemas. |
 
 ---
 

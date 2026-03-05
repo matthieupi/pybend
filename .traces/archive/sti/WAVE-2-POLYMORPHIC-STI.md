@@ -2,7 +2,7 @@
 
 ## Context
 
-PyBend's core principle is "the model is the app." Currently, every model maps to its own table. Wave 2 adds **Single Table Inheritance (STI)**: a developer declares `__discriminator__` on a base class, and the entire stack adapts — storage, schema, routes, and frontend.
+N3TX's core principle is "the model is the app." Currently, every model maps to its own table. Wave 2 adds **Single Table Inheritance (STI)**: a developer declares `__discriminator__` on a base class, and the entire stack adapts — storage, schema, routes, and frontend.
 
 This is a competitive differentiator: no other framework generates discriminated union JSON Schema from model definitions. The roadmap estimates 60-70% of the machinery already exists.
 
@@ -56,8 +56,8 @@ The discriminator is a **real Pydantic field** dynamically added by `Discriminat
 
 ### Step 1: DiscriminatorMixin + Auto-Injection
 **Files:**
-- `src/pybend/core/models/discriminator_mixin.py` (NEW)
-- `src/pybend/core/models/proto_model.py` (line 68-89)
+- `src/n3tx/core/models/discriminator_mixin.py` (NEW)
+- `src/n3tx/core/models/proto_model.py` (line 68-89)
 
 **1a. Create `DiscriminatorMixin`** — follows the `StorableMixin` pattern:
 
@@ -97,7 +97,7 @@ if getattr(cls, '__discriminator__', None):
 The `issubclass` guard prevents double injection on subtypes (they already inherit it from root).
 
 ### Step 2: Registrar — STI-Aware Registration
-**File:** `src/pybend/core/utils/registrar.py`
+**File:** `src/n3tx/core/utils/registrar.py`
 
 - Add `sti_models: Dict[str, Type] = {}` dict for STI subtypes (keyed by class name)
 - In `register_model()`: detect STI subtypes via `__sti_root__`
@@ -105,7 +105,7 @@ The `issubclass` guard prevents double injection on subtypes (they already inher
   - Subtype → register in `sti_models[class_name]`, run `migrate_table()` only (adds subtype-specific columns), skip `create_table()`
 
 ### Step 3: SQLite Migration — Orphan Protection
-**File:** `src/pybend/core/storage/sqlite_migration.py`
+**File:** `src/n3tx/core/storage/sqlite_migration.py`
 
 Since the discriminator is a real Pydantic field, `create_table()` creates the column automatically via existing `model_fields` iteration. No special column injection needed.
 
@@ -114,7 +114,7 @@ Since the discriminator is a real Pydantic field, `create_table()` creates the c
 **3b. Index creation:** After existing index logic, if model has `__discriminator__`, add `CREATE INDEX IF NOT EXISTS idx_{table}_{disc_field}` for efficient type-filtered queries.
 
 ### Step 4: Schema Extension — `polymorphic` Stage
-**File:** `src/pybend/core/models/proto_schema_sti.py` (NEW)
+**File:** `src/n3tx/core/models/proto_schema_sti.py` (NEW)
 
 New `@schema_extension(after='defs')` called `polymorphic`:
 - For STI root: generates subtype schemas, builds `oneOf` array + `discriminator.mapping`, puts each subtype in `$defs` with `$id`, `methods`, `access`, `__name__`, `__tablename__`
@@ -125,27 +125,27 @@ Also registers `@dump_extension(after='instance_url')` called `sti_type`: ensure
 
 **Activation:** Import from `proto_model.py` to register stages at module load time.
 
-Reuses existing helpers: `referenced_json_schema()` (proto_model.py:204), `_apply_field_exclusion()` (proto_model.py:27), `access_schema()` (authorize/schema.py), `__pybend_methods_json_signature__()`.
+Reuses existing helpers: `referenced_json_schema()` (proto_model.py:204), `_apply_field_exclusion()` (proto_model.py:27), `access_schema()` (authorize/schema.py), `__n3tx_methods_json_signature__()`.
 
 ### Step 5: App Bootstrap — Registration Order
-**File:** `src/pybend/core/app.py`
+**File:** `src/n3tx/core/app.py`
 
 In `build()`, sort models so STI roots are registered before subtypes (table must exist before subtypes run `migrate_table()`).
 
 ### Step 6: Route Registration — Subtype Schema Routes
-**File:** `src/pybend/core/api/routes_fastapi.py`
+**File:** `src/n3tx/core/api/routes_fastapi.py`
 
 After existing Pass 2 in `register_routes()`, add Pass 3: iterate `sti_models` and register `GET /{SubtypeName}` schema-only routes for each subtype.
 
 ### Step 7: Frontend — Polymorphic READ Dispatch
-**File:** `src/pybend/static/core/NTT.js`
+**File:** `src/n3tx/static/core/N3TX.js`
 
 **7a. `SCHEMA()` handler (line 396-408):** Already works — `$defs` entries with `type: 'object'` and `properties` get DynamicClasses automatically.
 
-**7b. `DynamicClass.READ` handler (line ~922):** When schema has `discriminator`, check each record's discriminator value. Look up subtype DynamicClass via `NTT.get(typeName)`. Instantiate with subtype class. Also store in base class instance map for unified access.
+**7b. `DynamicClass.READ` handler (line ~922):** When schema has `discriminator`, check each record's discriminator value. Look up subtype DynamicClass via `N3TX.get(typeName)`. Instantiate with subtype class. Also store in base class instance map for unified access.
 
 ### Step 8: Tests
-**File:** `src/pybend/core/tests/unit/test_sti.py` (NEW)
+**File:** `src/n3tx/core/tests/unit/test_sti.py` (NEW)
 
 1. `__init_subclass__` — subtypes in `__subtypes__`, shared tablename, `__sti_root__`, discriminator field dynamically added
 2. Storage create — discriminator column value matches class name (no storage changes needed)
@@ -163,17 +163,17 @@ After existing Pass 2 in `register_routes()`, add Pass 3: iterate `sti_models` a
 
 | File | Action | Step |
 |------|--------|------|
-| `src/pybend/core/models/discriminator_mixin.py` | **NEW** — DiscriminatorMixin (STI logic + CRUD overrides) | 1 |
-| `src/pybend/core/models/proto_model.py` | Auto-inject DiscriminatorMixin, import STI schema ext | 1, 4 |
-| `src/pybend/core/utils/registrar.py` | Add `sti_models` dict, STI-aware registration | 2 |
-| `src/pybend/core/storage/sqlite_migration.py` | Orphan protection, discriminator index | 3 |
-| `src/pybend/core/models/proto_schema_sti.py` | **NEW** — schema + dump extensions | 4 |
-| `src/pybend/core/app.py` | Sort models for registration order | 5 |
-| `src/pybend/core/api/routes_fastapi.py` | Subtype schema routes (Pass 3) | 6 |
-| `src/pybend/static/core/NTT.js` | Polymorphic READ dispatch | 7 |
-| `src/pybend/core/tests/unit/test_sti.py` | **NEW** — comprehensive test suite | 8 |
+| `src/n3tx/core/models/discriminator_mixin.py` | **NEW** — DiscriminatorMixin (STI logic + CRUD overrides) | 1 |
+| `src/n3tx/core/models/proto_model.py` | Auto-inject DiscriminatorMixin, import STI schema ext | 1, 4 |
+| `src/n3tx/core/utils/registrar.py` | Add `sti_models` dict, STI-aware registration | 2 |
+| `src/n3tx/core/storage/sqlite_migration.py` | Orphan protection, discriminator index | 3 |
+| `src/n3tx/core/models/proto_schema_sti.py` | **NEW** — schema + dump extensions | 4 |
+| `src/n3tx/core/app.py` | Sort models for registration order | 5 |
+| `src/n3tx/core/api/routes_fastapi.py` | Subtype schema routes (Pass 3) | 6 |
+| `src/n3tx/static/core/N3TX.js` | Polymorphic READ dispatch | 7 |
+| `src/n3tx/core/tests/unit/test_sti.py` | **NEW** — comprehensive test suite | 8 |
 
-**NOT modified:** `src/pybend/core/storage/sqlite_storage.py` — all STI CRUD logic lives in DiscriminatorMixin.
+**NOT modified:** `src/n3tx/core/storage/sqlite_storage.py` — all STI CRUD logic lives in DiscriminatorMixin.
 
 ## Key Design Decisions
 
@@ -194,10 +194,10 @@ After existing Pass 2 in `register_routes()`, add Pass 3: iterate `sti_models` a
 
 ```bash
 # STI-specific tests
-cd /workspace/src/pybend/core && pytest tests/unit/test_sti.py -v
+cd /workspace/src/n3tx/core && pytest tests/unit/test_sti.py -v
 
 # Full regression
-cd /workspace/src/pybend/core && pytest tests/unit/ actors/tests/ ../example/tests/
+cd /workspace/src/n3tx/core && pytest tests/unit/ actors/tests/ ../example/tests/
 ```
 
 ## Commit Messages

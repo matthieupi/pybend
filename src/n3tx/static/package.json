@@ -1,0 +1,19 @@
+{
+  "name": "ntx-frontend-tests",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run tests/integration/",
+    "test:e2e": "npx playwright test --config=tests/e2e/playwright.config.js",
+    "test:all": "vitest run && npx playwright test --config=tests/e2e/playwright.config.js"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "jsdom": "^24.0.0",
+    "@playwright/test": "^1.44.0"
+  }
+}

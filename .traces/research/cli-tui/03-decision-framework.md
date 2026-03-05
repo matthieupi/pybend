@@ -48,13 +48,13 @@ This document provides concrete decision criteria -- not vibes -- for three ques
 
 | CLI Command | Time Saved Per Use | Frequency (per dev) | Annual Savings (5 devs) | Break-Even Build Time |
 |------------|-------------------|---------------------|------------------------|----------------------|
-| `pybend new project` | 30 min | 2x/month | 300 hrs | 60 hrs |
-| `pybend new model` | 15 min | 5x/week | 3,250 hrs | **650 hrs** |
-| `pybend migrate` | 5 min | 3x/week | 650 hrs | 130 hrs |
-| `pybend serve` | 2 min | 10x/day | 2,167 hrs | 433 hrs |
-| `pybend seed` | 10 min | 1x/week | 433 hrs | 87 hrs |
-| `pybend test` | 3 min | 5x/day | 3,250 hrs | 650 hrs |
-| `pybend inspect Model` | 5 min | 2x/day | 2,167 hrs | 433 hrs |
+| `n3tx new project` | 30 min | 2x/month | 300 hrs | 60 hrs |
+| `n3tx new model` | 15 min | 5x/week | 3,250 hrs | **650 hrs** |
+| `n3tx migrate` | 5 min | 3x/week | 650 hrs | 130 hrs |
+| `n3tx serve` | 2 min | 10x/day | 2,167 hrs | 433 hrs |
+| `n3tx seed` | 10 min | 1x/week | 433 hrs | 87 hrs |
+| `n3tx test` | 3 min | 5x/day | 3,250 hrs | 650 hrs |
+| `n3tx inspect Model` | 5 min | 2x/day | 2,167 hrs | 433 hrs |
 
 > **Key Insight:** The highest-ROI commands are the ones used **daily**, not the flashy ones used once. `serve`, `test`, and `migrate` deliver more cumulative value than `new project`. Yet most framework CLIs invest 80% of effort in scaffolding (used once per project) and 20% in daily operations.
 
@@ -141,7 +141,7 @@ A CLI command is worth building when it encodes **at least 3 pieces of knowledge
 
 ## 3. When CLIs Become Burdens
 
-**The CEO read:** The "two codebases" problem is the #1 killer of framework CLIs. Your framework evolves, your CLI doesn't keep up, and suddenly `pybend generate` produces code that contradicts your current best practices. At that point, your CLI is teaching developers the *wrong* way to use your framework. That's worse than no CLI at all.
+**The CEO read:** The "two codebases" problem is the #1 killer of framework CLIs. Your framework evolves, your CLI doesn't keep up, and suddenly `n3tx generate` produces code that contradicts your current best practices. At that point, your CLI is teaching developers the *wrong* way to use your framework. That's worse than no CLI at all.
 
 ### 3.1 The Two Codebases Problem
 
@@ -232,13 +232,13 @@ VALUE               |  *
 | **Scaffolded code is read and understood** | Model files, migration files | Webpack configs, build scripts |
 | **Templates live in the framework repo** | Laravel, Rails, Django | Yeoman (community generators) |
 | **Generated code is minimal** | Django `startapp` (4 files) | Rails `scaffold` (12+ files) |
-| **Schema drives generation** | Prisma, PyBend scaffold.py | Template-only generators |
+| **Schema drives generation** | Prisma, N3TX scaffold.py | Template-only generators |
 
 > **Key Insight:** The safest scaffolding is **schema-driven generation** -- where the generated code is derived from a machine-readable source of truth (like a JSON Schema or Prisma schema) and stays correct as long as the schema is correct. Template-based scaffolding (copy file, fill in blanks) is the trap, because templates drift from the framework's actual behavior.
 
-### 4.4 PyBend's Position
+### 4.4 N3TX's Position
 
-PyBend's existing `scaffold.py` avoids the worst scaffold trap because it generates components **from the live schema**, not from static templates. When the model changes, running scaffold again produces updated code. This is architecturally closer to Prisma's generation model than to CRA's template model. The risk is low -- but only if the scaffold output remains tightly coupled to `ProtoModel.schema()` output.
+N3TX's existing `scaffold.py` avoids the worst scaffold trap because it generates components **from the live schema**, not from static templates. When the model changes, running scaffold again produces updated code. This is architecturally closer to Prisma's generation model than to CRA's template model. The risk is low -- but only if the scaffold output remains tightly coupled to `ProtoModel.schema()` output.
 
 ---
 
@@ -267,19 +267,19 @@ For teams under 5 developers, a `Makefile` or `Justfile` may genuinely be suffic
 ```makefile
 # Justfile -- "the Makefile is enough" approach
 serve:
-    cd src/pybend/example && python main.py
+    cd src/n3tx/example && python main.py
 
 test:
-    cd src/pybend/core && pytest tests/unit/
+    cd src/n3tx/core && pytest tests/unit/
 
 migrate:
-    cd src/pybend/example && python -c "from main import app"
+    cd src/n3tx/example && python -c "from main import app"
 
 seed:
-    cd src/pybend/example && python seed.py
+    cd src/n3tx/example && python seed.py
 
 scaffold model:
-    cd src/pybend/core && python -m utils.scaffold {{model}}
+    cd src/n3tx/core && python -m utils.scaffold {{model}}
 ```
 
 **Pros of the wrap approach:**
@@ -324,7 +324,7 @@ scaffold model:
                     └──────────┬──────────┘
                                │
                     ┌──────────v──────────┐
-                    │  pybend CLI (Typer)  │  <-- Schema-aware commands
+                    │  n3tx CLI (Typer)  │  <-- Schema-aware commands
                     │  - new model         │      (generation, inspection, REPL)
                     │  - inspect           │
                     │  - scaffold          │
@@ -399,11 +399,11 @@ runner?
 
 Prisma demonstrates a practical hybrid: **CLI for operations** (`prisma migrate`, `prisma generate`) and **Prisma Studio (web GUI) for data exploration**. This avoids building a TUI entirely by recognizing that data browsing is better served by a web interface.
 
-For a schema-driven framework like PyBend, the equivalent would be:
-- **CLI**: `pybend serve`, `pybend migrate`, `pybend new model`, `pybend inspect`
+For a schema-driven framework like N3TX, the equivalent would be:
+- **CLI**: `n3tx serve`, `n3tx migrate`, `n3tx new model`, `n3tx inspect`
 - **Web**: The existing `matrix.html` frontend already serves as the data exploration layer
 
-This means **a TUI is the lowest-priority interface for PyBend** -- the CLI handles operations, and the web frontend handles exploration. A TUI dashboard becomes interesting only if SSH-based server administration is a common use case.
+This means **a TUI is the lowest-priority interface for N3TX** -- the CLI handles operations, and the web frontend handles exploration. A TUI dashboard becomes interesting only if SSH-based server administration is a common use case.
 
 ---
 
@@ -530,7 +530,7 @@ The pattern across successful CLIs (Stripe, Heroku, Rails, Laravel):
 | **Time to first win < 5 minutes** | From install to working output | Stripe CLI: `stripe listen` + `stripe trigger` in <3 min |
 | **Zero-config defaults** | Works without any setup | `rails new app && rails s` -- server running |
 | **Helpful error messages** | Errors include fix suggestions | [clig.dev](https://clig.dev/): "Rewrite error messages for humans" |
-| **Progressive disclosure** | Simple by default, complex when needed | `pybend serve` (simple) vs. `pybend serve --host 0.0.0.0 --port 8080 --workers 4` |
+| **Progressive disclosure** | Simple by default, complex when needed | `n3tx serve` (simple) vs. `n3tx serve --host 0.0.0.0 --port 8080 --workers 4` |
 | **Muscle memory consistency** | Same patterns across all commands | `kubectl get <resource>`, `kubectl describe <resource>` |
 
 ### 9.2 The Stripe CLI Success Pattern
@@ -552,15 +552,15 @@ Apply this test to any framework CLI: can a developer go from **zero to working 
 | Django | `pip install django && django-admin startproject app && cd app && python manage.py runserver` | ~2 min |
 | Laravel | `composer create-project laravel/laravel app && cd app && php artisan serve` | ~3 min |
 | Next.js | `npx create-next-app@latest app && cd app && npm run dev` | ~2 min |
-| PyBend (today) | `pip install pybend && ...create main.py manually... && python main.py` | ~8-10 min |
+| N3TX (today) | `pip install n3tx && ...create main.py manually... && python main.py` | ~8-10 min |
 
-> **Key Insight:** PyBend's gap is not in the framework capabilities -- it's in the **ceremony required to start**. A `pybend new myapp` command that generates a working `main.py` with example models would cut onboarding time by **60-70%** and match the experience of Django and Rails.
+> **Key Insight:** N3TX's gap is not in the framework capabilities -- it's in the **ceremony required to start**. A `n3tx new myapp` command that generates a working `main.py` with example models would cut onboarding time by **60-70%** and match the experience of Django and Rails.
 
 ### 9.4 Adoption Killers
 
 Based on patterns from failed CLIs:
 
-- **Requiring configuration before first use**: If `pybend init` must be run before any command works, adoption drops
+- **Requiring configuration before first use**: If `n3tx init` must be run before any command works, adoption drops
 - **Slow startup**: If the CLI takes >500ms to show output, developers switch to direct `python` commands. Click's lazy loading keeps startup at <200ms
 - **Verbose output by default**: If every command dumps a wall of text, developers learn to ignore it
 - **Prompts that can't be skipped**: If scripts can't run the CLI non-interactively, CI/CD breaks and power users leave
@@ -578,10 +578,10 @@ Based on patterns from failed CLIs:
 | 1 | **Kitchen Sink** | Too many commands, no clear hierarchy | Nx CLI (generator, build, cache, graph, lint, serve, test, migrate, deploy...) | Focus on 5-10 core commands; use plugins for the rest |
 | 2 | **Inscrutable Errors** | Error messages from internal stack traces | `TypeError: 'NoneType' object is not subscriptable` | [clig.dev](https://clig.dev/): "Rewrite errors for humans, include fix suggestions" |
 | 3 | **Mirror CLI** | CLI that duplicates the web dashboard | Admin CLI that just wraps REST API calls | If `curl` does the same thing, don't build a command for it |
-| 4 | **Silent Success** | No output on successful operations | `pybend migrate` completes with zero output | [Atlassian](https://www.atlassian.com/blog/it-teams/10-design-principles-for-delightful-clis): "Create a reaction for every action" |
+| 4 | **Silent Success** | No output on successful operations | `n3tx migrate` completes with zero output | [Atlassian](https://www.atlassian.com/blog/it-teams/10-design-principles-for-delightful-clis): "Create a reaction for every action" |
 | 5 | **Prompt Prison** | Required interactive prompts that break scripting | CLI that always asks "Are you sure?" with no `--yes` flag | Support `--no-input` for all interactive commands |
 | 6 | **Ambiguous Siblings** | Similarly-named commands with different behaviors | `update` vs. `upgrade`, `build` vs. `compile` | [clig.dev](https://clig.dev/): "Don't have ambiguous or similarly-named commands" |
-| 7 | **Flag Soup** | Too many positional arguments, not enough named flags | `pybend create Product name:str price:float true false "my product"` | Use `--name`, `--price`, `--public` flags instead |
+| 7 | **Flag Soup** | Too many positional arguments, not enough named flags | `n3tx create Product name:str price:float true false "my product"` | Use `--name`, `--price`, `--public` flags instead |
 
 ### 10.2 Error Message Anti-Pattern Deep Dive
 
@@ -589,21 +589,21 @@ The difference between a CLI developers love and one they hate often comes down 
 
 ```
 BAD (backend error passthrough):
-$ pybend migrate
+$ n3tx migrate
 Error: sqlite3.OperationalError: table products already exists
 
 GOOD (human-readable with fix):
-$ pybend migrate
+$ n3tx migrate
 Error: Migration conflict -- table "products" already exists.
 
 This usually means a migration was applied manually or the 
 migration history is out of sync.
 
 Try:
-  pybend migrate --fake    # Mark migrations as applied without running them
-  pybend migrate --status  # Show migration status
+  n3tx migrate --fake    # Mark migrations as applied without running them
+  n3tx migrate --status  # Show migration status
 
-Docs: https://pybend.dev/docs/migrations#conflicts
+Docs: https://n3tx.dev/docs/migrations#conflicts
 ```
 
 The [Atlassian Forge CLI team's principles](https://www.atlassian.com/blog/it-teams/10-design-principles-for-delightful-clis) emphasize: **limit error accompaniments to 3 sentences or 50-75 characters per paragraph**, and always **suggest the next best step**.
@@ -613,10 +613,10 @@ The [Atlassian Forge CLI team's principles](https://www.atlassian.com/blog/it-te
 From [clig.dev](https://clig.dev/): "Prefer flags over positional arguments." This one rule prevents most usability issues:
 
 ```
-BAD:  pybend create Product name str price float
+BAD:  n3tx create Product name str price float
       (Which is the model? Which is the type? What order?)
 
-GOOD: pybend new model Product --field name:str --field price:float
+GOOD: n3tx new model Product --field name:str --field price:float
       (Self-documenting, order-independent, extendable)
 ```
 
@@ -731,9 +731,9 @@ Is this for automation / CI/CD / scripting?
 | Need cross-platform GUI admin | **Web dashboard** (not CLI/TUI) | 600-1200 hours |
 | Need SSH-accessible monitoring | **Textual TUI** dashboard | 200-400 hours |
 
-### 11.5 The PyBend-Specific Decision
+### 11.5 The N3TX-Specific Decision
 
-Given PyBend's current state (schema-driven framework, small team, pre-1.0, existing `scaffold.py` and `create_app()`):
+Given N3TX's current state (schema-driven framework, small team, pre-1.0, existing `scaffold.py` and `create_app()`):
 
 | Decision Point | Assessment | Recommendation |
 |---------------|------------|----------------|
@@ -747,13 +747,13 @@ Given PyBend's current state (schema-driven framework, small team, pre-1.0, exis
 
 | Priority | Command | ROI Rationale | Build Estimate |
 |----------|---------|---------------|----------------|
-| 1 | `pybend serve` | Used 10x+/day; wraps uvicorn + config | 8 hours |
-| 2 | `pybend new project` | First-contact experience; sets adoption trajectory | 24 hours |
-| 3 | `pybend new model` | Used 5x+/week; generates model file from prompts | 20 hours |
-| 4 | `pybend migrate` | Used 3x+/week; wraps migration with status output | 12 hours |
-| 5 | `pybend inspect <Model>` | Schema visualization; unique to schema-driven frameworks | 16 hours |
-| 6 | `pybend seed` | Used 1x+/week; wraps seed.py with progress | 8 hours |
-| 7 | `pybend shell` | Interactive REPL with models pre-loaded | 16 hours |
+| 1 | `n3tx serve` | Used 10x+/day; wraps uvicorn + config | 8 hours |
+| 2 | `n3tx new project` | First-contact experience; sets adoption trajectory | 24 hours |
+| 3 | `n3tx new model` | Used 5x+/week; generates model file from prompts | 20 hours |
+| 4 | `n3tx migrate` | Used 3x+/week; wraps migration with status output | 12 hours |
+| 5 | `n3tx inspect <Model>` | Schema visualization; unique to schema-driven frameworks | 16 hours |
+| 6 | `n3tx seed` | Used 1x+/week; wraps seed.py with progress | 8 hours |
+| 7 | `n3tx shell` | Interactive REPL with models pre-loaded | 16 hours |
 | **Total** | | | **~104 hours** |
 
 ---
@@ -768,11 +768,11 @@ Given PyBend's current state (schema-driven framework, small team, pre-1.0, exis
 
 3. **The maintenance commitment is forever.** Budget 15-20% of build cost annually. For a 104-hour CLI, that's ~16-20 hours/year -- manageable. For a 50-command CLI, that's 150+ hours/year -- a headcount decision.
 
-4. **Schema-driven generation is your competitive moat.** PyBend's ability to derive CLI behavior from model definitions is something Rails, Django, and Laravel *cannot* do. Lean into it.
+4. **Schema-driven generation is your competitive moat.** N3TX's ability to derive CLI behavior from model definitions is something Rails, Django, and Laravel *cannot* do. Lean into it.
 
 ### For the Engineers
 
-1. **Use Typer.** It's type-hint driven (matches PyBend's philosophy), built on Click (battle-tested), includes Rich output (beautiful terminal), and has 66M monthly PyPI downloads.
+1. **Use Typer.** It's type-hint driven (matches N3TX's philosophy), built on Click (battle-tested), includes Rich output (beautiful terminal), and has 66M monthly PyPI downloads.
 
 2. **Encode knowledge, not keystrokes.** Every command should carry framework intelligence. If a command just wraps a shell command, put it in a Justfile instead.
 
@@ -827,4 +827,4 @@ The document contains:
 - **5 decision tree diagrams** with ASCII art
 - Both advantages AND disadvantages/risks covered extensively
 - Callout boxes for the 5 most important findings
-- PyBend-specific analysis with actionable 7-command recommendation and hour estimates
+- N3TX-specific analysis with actionable 7-command recommendation and hour estimates

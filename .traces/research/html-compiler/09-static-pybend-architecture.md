@@ -1,4 +1,4 @@
-# Static Site Generation: Mapping to PyBend's Architecture
+# Static Site Generation: Mapping to N3TX's Architecture
 
 **Research Document 04** | February 2026
 **Audience:** Technical CEO + Engineering Team
@@ -7,13 +7,13 @@
 
 ## Executive Summary
 
-PyBend's rendering pipeline is a four-stage chain: **Model Definition -> JSON Schema -> JavaScript DynamicClass -> Shadow DOM HTML**. A static site exporter (`pybend export --static`) would short-circuit this chain by replacing stages 3-4 with server-side Python templates that consume the same schema and data. This document maps every rendering decision currently made in JavaScript to its Python-side equivalent, identifies the exact boundaries between "purely presentational" and "requires JavaScript," and proposes a concrete architecture.
+N3TX's rendering pipeline is a four-stage chain: **Model Definition -> JSON Schema -> JavaScript DynamicClass -> Shadow DOM HTML**. A static site exporter (`n3tx export --static`) would short-circuit this chain by replacing stages 3-4 with server-side Python templates that consume the same schema and data. This document maps every rendering decision currently made in JavaScript to its Python-side equivalent, identifies the exact boundaries between "purely presentational" and "requires JavaScript," and proposes a concrete architecture.
 
 **Key finding:** Approximately 75% of the frontend rendering logic is presentational HTML generation that can be replicated server-side with Jinja2 templates. The remaining 25% (Actor messaging, live updates, form submission, auth-gated interactions) can be cleanly omitted for a read-only static export.
 
 ---
 
-## 1. PyBend's Current Rendering Pipeline
+## 1. N3TX's Current Rendering Pipeline
 
 ### 1.1 End-to-End Data Flow
 
@@ -24,7 +24,7 @@ Python Model (Product)
       |
       v  GET /Product ---------- serves schema over HTTP
       |
-      v  NTT.SCHEMA(data) ------ creates DynamicClass via prototype()
+      v  N3TX.SCHEMA(data) ------ creates DynamicClass via prototype()
       |
       v  DynamicClass.READ() --- fetches /products?limit=20&offset=0
       |
@@ -44,7 +44,7 @@ Python Model (Product)
       |
       v  StorableMixin.list() -- direct DB access (no HTTP)
       |
-      v  Jinja2 templates ------ replicate form.js / ntt-item.js logic
+      v  Jinja2 templates ------ replicate form.js / ntx-item.js logic
       |
       v  HTML files ------------ written to disk
 ```
@@ -53,13 +53,13 @@ Python Model (Product)
 
 | Stage | File | Lines | Role |
 |-------|------|-------|------|
-| Schema gen | `src/pybend/core/models/proto_model.py` | ~430 | `schema()`, `model_dump(response=True)` |
-| Data access | `src/pybend/core/storage/sqlite_storage.py` | ~250 | `list()`, `get()` with FK hydration |
-| JS bootstrap | `src/pybend/static/core/NTT.js` | ~1083 | `SCHEMA()`, `prototype()`, DynamicClass |
-| Form rendering | `src/pybend/static/generators/form.js` | ~368 | `getForm()`, `getInput()`, `getListInput()` |
-| Item rendering | `src/pybend/static/components/ntt-item.js` | ~660 | `xs()`, `sm()`, `md()`, `lg()`, `xl()` |
-| List rendering | `src/pybend/static/components/ListElement.js` | ~244 | `render()`, `createChild()` |
-| Permissions | `src/pybend/static/utils/Permissions.js` | ~191 | `canView()`, `canEdit()`, `canAction()` |
+| Schema gen | `src/n3tx/core/models/proto_model.py` | ~430 | `schema()`, `model_dump(response=True)` |
+| Data access | `src/n3tx/core/storage/sqlite_storage.py` | ~250 | `list()`, `get()` with FK hydration |
+| JS bootstrap | `src/n3tx/static/core/N3TX.js` | ~1083 | `SCHEMA()`, `prototype()`, DynamicClass |
+| Form rendering | `src/n3tx/static/generators/form.js` | ~368 | `getForm()`, `getInput()`, `getListInput()` |
+| Item rendering | `src/n3tx/static/components/ntx-item.js` | ~660 | `xs()`, `sm()`, `md()`, `lg()`, `xl()` |
+| List rendering | `src/n3tx/static/components/ListElement.js` | ~244 | `render()`, `createChild()` |
+| Permissions | `src/n3tx/static/utils/Permissions.js` | ~191 | `canView()`, `canEdit()`, `canAction()` |
 
 ---
 
@@ -89,7 +89,7 @@ getForm(ntt, mode="display", attachedMethods={})
   |      Exclude: !permissions.canView(def)
   |
   |--> If schema.ui.groups defined:
-  |      renderGroupedFields() -> <fieldset class="ntt-group">
+  |      renderGroupedFields() -> <fieldset class="ntx-group">
   |                                 <legend>groupName</legend>
   |                                 ...fields...
   |                               </fieldset>
@@ -112,7 +112,7 @@ This is the core field renderer. For static export, we only need the **display**
 | `boolean` | (none) | `<div>value</div>` | `<input type="checkbox">` |
 | `$ref` | (none) | `<div>[Reference: name/id]</div>` | N/A |
 | `selfref` | (none) | `<div>(top-level)</div>` or `[Parent: #N]` | `<input type="number">` |
-| `array` | (none) | `getListInput()` -> nested `<ntt-item>` tags | Same |
+| `array` | (none) | `getListInput()` -> nested `<ntx-item>` tags | Same |
 
 ### 2.3 `getListInput()` -- Nested Collection Rendering
 
@@ -130,24 +130,24 @@ getListInput(ntt, key, mode):
          <span class="list-field-label">COMMENT</span>
          <span class="list-field-count">5</span>
        </div>
-       <ntt-item ref="http://.../1" display="sm">  // first 2 visible
-       <ntt-item ref="http://.../2" display="sm">
+       <ntx-item ref="http://.../1" display="sm">  // first 2 visible
+       <ntx-item ref="http://.../2" display="sm">
        <div class="nested-collapsed">              // rest collapsed
-         <ntt-item ref="http://.../3" display="sm">
+         <ntx-item ref="http://.../3" display="sm">
          ...
        </div>
        <button class="show-more-btn">Show 3 more</button>
      </div>
 ```
 
-**For static export:** Replace `<ntt-item ref="...">` with pre-rendered HTML for each child entity. The "show more" toggle becomes a `<details>/<summary>` element or is fully expanded.
+**For static export:** Replace `<ntx-item ref="...">` with pre-rendered HTML for each child entity. The "show more" toggle becomes a `<details>/<summary>` element or is fully expanded.
 
 ### 2.4 Python Jinja2 Equivalent
 
 The entire `getInput()` dispatch table translates to a single Jinja2 macro:
 
 ```python
-# Proposed: src/pybend/core/export/templates/field.html.j2
+# Proposed: src/n3tx/core/export/templates/field.html.j2
 
 {% macro render_field(key, field_def, value, mode="display") %}
   {% set widget = field_def.get('ui', {}).get('widget') %}
@@ -181,7 +181,7 @@ The entire `getInput()` dispatch table translates to a single Jinja2 macro:
 
 ---
 
-## 3. What `ntt-item.js` Needs Per Size -- Pre-computation Analysis
+## 3. What `ntx-item.js` Needs Per Size -- Pre-computation Analysis
 
 ### 3.1 Size Method Data Requirements
 
@@ -245,27 +245,27 @@ md():
 | `dark-theme.css` | ~408 lines | Design tokens (`:root`), page layout, typography, buttons, inputs | Yes -- core design system |
 | `light-theme.css` | ~119 lines | Light theme overrides (`[data-theme="light"]`) | Yes -- CSS var overrides |
 | `schema.css` | ~442 lines | Kitchen Sink page-specific styles | Partial -- layout classes useful |
-| `ntt-item.css` | ~669 lines | All size variants (xs/sm/md/lg/xl), card styles, nested lists | Yes -- **critical** |
-| `ntt-list.css` | ~81 lines | List header, grid, load-more button | Yes |
-| `ntt-element.css` | ~71 lines | Loading/error/empty states, dirty/committing indicators | Partial -- states are JS |
-| `ntt-router.css` | (exists) | Router component styles | No -- navigation is JS |
+| `ntx-item.css` | ~669 lines | All size variants (xs/sm/md/lg/xl), card styles, nested lists | Yes -- **critical** |
+| `ntx-list.css` | ~81 lines | List header, grid, load-more button | Yes |
+| `ntx-element.css` | ~71 lines | Loading/error/empty states, dirty/committing indicators | Partial -- states are JS |
+| `ntx-router.css` | (exists) | Router component styles | No -- navigation is JS |
 
 ### 4.2 Shadow DOM vs Static CSS
 
-**Problem:** Today, component CSS lives inside Shadow DOM. Each `<ntt-item>` loads `ntt-item.css` into its shadow root. For static export, Shadow DOM does not exist.
+**Problem:** Today, component CSS lives inside Shadow DOM. Each `<ntx-item>` loads `ntx-item.css` into its shadow root. For static export, Shadow DOM does not exist.
 
 **Solution:** Extract all component CSS into a single flattened stylesheet with scoped selectors:
 
 ```css
 /* static-export.css — compiled from component CSS */
 
-/* From ntt-item.css — prefix with .ntt-item to replace :host */
-.ntt-item {
+/* From ntx-item.css — prefix with .ntx-item to replace :host */
+.ntx-item {
     display: block;
     animation: staggerIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-.ntt-item .card[data-display="xs"] {
+.ntx-item .card[data-display="xs"] {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -275,12 +275,12 @@ md():
     /* ... */
 }
 
-/* From ntt-list.css — prefix with .ntt-list */
-.ntt-list {
+/* From ntx-list.css — prefix with .ntx-list */
+.ntx-list {
     display: block;
 }
 
-.ntt-list .list-grid {
+.ntx-list .list-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
     gap: 1.25rem;
@@ -294,7 +294,7 @@ All component CSS uses CSS custom properties (`var(--surface-2)`, etc.) defined 
 **What needs to happen:**
 1. Concatenate `dark-theme.css` + `light-theme.css` as the base stylesheet
 2. Transform component CSS: replace `:host` with class-scoped selectors
-3. Strip JS-only CSS (`.ntt-committing`, `.ntt-dirty`, `.loading-spinner`)
+3. Strip JS-only CSS (`.ntx-committing`, `.ntx-dirty`, `.loading-spinner`)
 4. Output a single `style.css` file
 
 ### 4.4 Estimated Static CSS Bundle
@@ -302,9 +302,9 @@ All component CSS uses CSS custom properties (`var(--surface-2)`, etc.) defined 
 ```
 dark-theme.css        ~408 lines  (include fully)
 light-theme.css       ~119 lines  (include fully)
-ntt-item.css          ~669 lines  (include, transform :host)
-ntt-list.css          ~81 lines   (include, transform :host)
-ntt-element.css       ~30 lines   (partial: error/empty states only)
+ntx-item.css          ~669 lines  (include, transform :host)
+ntx-list.css          ~81 lines   (include, transform :host)
+ntx-element.css       ~30 lines   (partial: error/empty states only)
 ---
 Total:                ~1,307 lines -> ~35KB unminified, ~8KB gzipped
 ```
@@ -319,13 +319,13 @@ The Google Fonts import (`Inter`, `JetBrains Mono`) in `dark-theme.css` is the o
 
 | Feature | JS Component | Why JS is Needed |
 |---------|-------------|------------------|
-| Schema bootstrap | `NTT.SCHEMA()`, `prototype()` | Creates runtime classes from JSON -- static export eliminates this |
+| Schema bootstrap | `N3TX.SCHEMA()`, `prototype()` | Creates runtime classes from JSON -- static export eliminates this |
 | Data fetching | `DynamicClass.READ()`, `NetworkAdapter` | HTTP requests -- static export reads DB directly |
 | Actor messaging | `Matrix`, `TX`, `Actor` | Inter-component communication -- no components in static |
 | Live updates | `Observable`, `signal()`, `notify()` | Reactive UI updates -- static pages don't update |
 | Form submission | `NTTItem.save()`, `toggleMode()` | Writes data to backend -- static is read-only |
 | Delete | `NTTItem.deleteItem()` | Destructive backend operation |
-| Method calls | `<ntt-method>`, `.call()` | Backend RPC (like, comment, favorite) |
+| Method calls | `<ntx-method>`, `.call()` | Backend RPC (like, comment, favorite) |
 | Auth state | `Permissions.init()`, JWT tokens | Reads `/auth/me` -- static export is anonymous or per-role |
 | Navigation | `Router`, hash-based routing | SPA navigation -- static uses `<a>` links |
 | Pagination | `ListElement.loadMore()` | Incremental fetch -- static pre-renders all pages |
@@ -336,7 +336,7 @@ The Google Fonts import (`Inter`, `JetBrains Mono`) in `dark-theme.css` is the o
 
 | Feature | Where Rendered | Static Equivalent |
 |---------|---------------|-------------------|
-| Entity display (all sizes) | `ntt-item.js` xs/sm/md/lg/xl | Jinja2 template with same HTML |
+| Entity display (all sizes) | `ntx-item.js` xs/sm/md/lg/xl | Jinja2 template with same HTML |
 | List grid layout | `ListElement.render()` | Jinja2 loop with CSS grid |
 | Field rendering | `Formidable.getForm()` | Jinja2 macro (see Section 2.4) |
 | Grouped fields | `renderGroupedFields()` | Jinja2 `{% for group %}` |
@@ -447,7 +447,7 @@ Each Jinja2 template receives:
 
 ### 7.1 The Problem
 
-PyBend's authorization system is deeply integrated:
+N3TX's authorization system is deeply integrated:
 - **Backend:** `AccessContext` + `DefaultResolver` enforces rules per request
 - **Frontend:** `Permissions.canAction()` / `canView()` shows/hides UI elements
 - **Schema:** Access rules serialized into JSON Schema for frontend consumption
@@ -478,9 +478,9 @@ This mirrors how the frontend `Permissions` class works for anonymous users -- `
 Generate separate site builds per role:
 
 ```bash
-pybend export --static --role=anonymous   # -> build/public/
-pybend export --static --role=user        # -> build/authenticated/
-pybend export --static --role=admin       # -> build/admin/
+n3tx export --static --role=anonymous   # -> build/public/
+n3tx export --static --role=user        # -> build/authenticated/
+n3tx export --static --role=admin       # -> build/admin/
 ```
 
 This evaluates `canView()` and `canAction()` at build time with a synthetic user context. More complex but enables password-protected static hosting.
@@ -501,10 +501,10 @@ Start with **Strategy A** (public-only). It covers the primary use case (marketi
 
 ```bash
 # Basic usage
-pybend export --static --output ./build
+n3tx export --static --output ./build
 
 # With options
-pybend export --static \
+n3tx export --static \
     --output ./build \
     --theme dark \
     --models Product,Comment \
@@ -515,7 +515,7 @@ pybend export --static \
 ### 8.2 Module Structure
 
 ```
-src/pybend/core/export/
+src/n3tx/core/export/
     __init__.py              # CLI entry point
     exporter.py              # Main orchestrator
     renderer.py              # Schema-to-HTML rendering (replaces form.js)
@@ -539,7 +539,7 @@ src/pybend/core/export/
 class StaticExporter:
     """Orchestrates static site generation."""
 
-    def __init__(self, models, storage, output_dir, theme='dark', title='PyBend'):
+    def __init__(self, models, storage, output_dir, theme='dark', title='N3TX'):
         self.models = models          # Dict[str, Type[ProtoModel]]
         self.storage = storage        # AbstractStorage instance
         self.output_dir = Path(output_dir)
@@ -643,14 +643,14 @@ build/
 {# collection.html.j2 -- mirrors ListElement.render() from ListElement.js:212-243 #}
 {% extends "base.html.j2" %}
 {% block content %}
-<div class="ntt-list">
+<div class="ntx-list">
   <div class="list-header">
     <h1>{{ model_name }}s</h1>
     <span class="list-count">{{ entities|length }}</span>
   </div>
   <div class="list-grid">
     {% for entity in entities %}
-    <a href="{{ entity.value.id }}.html" class="ntt-item"
+    <a href="{{ entity.value.id }}.html" class="ntx-item"
        style="--stagger-delay: {{ loop.index0 * 50 }}ms">
       {# sm-size card for list view #}
       {% include "macros/card_sm.html.j2" %}
@@ -661,7 +661,7 @@ build/
 {% endblock %}
 ```
 
-### 9.2 sm Card (mirrors `NTTItem.sm()` from ntt-item.js:156-282)
+### 9.2 sm Card (mirrors `NTTItem.sm()` from ntx-item.js:156-282)
 
 ```html
 {# macros/card_sm.html.j2 #}
@@ -713,7 +713,7 @@ build/
 </div>
 ```
 
-### 9.3 md Card (mirrors `NTTItem.md()` from ntt-item.js:284-318)
+### 9.3 md Card (mirrors `NTTItem.md()` from ntx-item.js:284-318)
 
 ```html
 {# macros/card_md.html.j2 -- mirrors NTTItem.md() #}
@@ -734,7 +734,7 @@ build/
     {% for group_name, group_fields in ui.groups.items() %}
       {% set renderable = group_fields|select_renderable(props, 'display') %}
       {% if renderable %}
-        <fieldset class="ntt-group ntt-group-{{ group_name }}">
+        <fieldset class="ntx-group ntx-group-{{ group_name }}">
           <legend>{{ group_name }}</legend>
           {% for key in renderable %}
             {{ render_field(key, props[key], value.get(key, ''), 'display') }}
@@ -764,15 +764,15 @@ build/
 | Data access | `StorableMixin.list()`, `.get()` | Same | None |
 | FK hydration | `sqlite_storage.py` batch hydration | Need full-object hydration, not hrefs | Small -- add `as_objects=True` mode |
 | Field rendering | `form.js` `getInput()` | Jinja2 macros | Medium -- 1:1 translation |
-| Size-based layout | `ntt-item.js` xs/sm/md/lg/xl | Jinja2 templates | Medium -- 1:1 translation |
+| Size-based layout | `ntx-item.js` xs/sm/md/lg/xl | Jinja2 templates | Medium -- 1:1 translation |
 | Grouped fields | `form.js` `renderGroupedFields()` | Jinja2 group loop | Small |
 | CSS design system | `dark-theme.css`, `light-theme.css` | Same files concatenated | Small -- strip `:host` |
 | Component CSS | Shadow DOM CSS files | Scoped class selectors | Medium -- automated transform |
 | Access filtering | `Permissions.canView()` | Python equivalent | Small -- mirror logic |
-| CLI command | None | `pybend export` | New -- Click/Typer CLI |
+| CLI command | None | `n3tx export` | New -- Click/Typer CLI |
 | Jinja2 templates | None | Full template set | New -- ~200 lines |
 | CSS compiler | None | Concatenate + transform | New -- ~80 lines |
-| Child entity resolution | `getListInput()` + `<ntt-item ref>` | Pre-fetch children, inline HTML | Medium |
+| Child entity resolution | `getListInput()` + `<ntx-item ref>` | Pre-fetch children, inline HTML | Medium |
 
 ### 10.2 Risk Assessment
 
@@ -804,7 +804,7 @@ build/
 ### 11.1 Where Static Export Plugs In
 
 ```
-PyBendApp / create_app()
+N3TXApp / create_app()
     |
     +-- .build() -> FastAPI app (existing)
     |
@@ -824,33 +824,33 @@ PyBendApp / create_app()
 
 ```python
 # Level 1: One-liner
-from pybend import create_app, export_static
+from n3tx import create_app, export_static
 
 app = create_app(models=[Product, User], storage="sqlite:///app.db")
 export_static(app, output="./build")  # New function
 
 # Level 2: Builder
-pb = PyBendApp(storage="sqlite:///app.db")
+pb = N3TXApp(storage="sqlite:///app.db")
 pb.model(Product).model(User).join(Product, Comment)
 pb.export(output="./build", theme="dark")  # New method
 
 # Level 3: CLI
-# $ pybend export --static --db sqlite:///app.db --output ./build
+# $ n3tx export --static --db sqlite:///app.db --output ./build
 ```
 
-### 11.3 Reuse of `NTT.js` Pre-loading (Already Exists!)
+### 11.3 Reuse of `N3TX.js` Pre-loading (Already Exists!)
 
-A remarkable discovery: `NTT.js` already contains SSR pre-loading infrastructure (lines 237-277):
+A remarkable discovery: `N3TX.js` already contains SSR pre-loading infrastructure (lines 237-277):
 
 ```javascript
-// NTT.js line 243-257
+// N3TX.js line 243-257
 static #consumePreloadedSchema(model) {
-    const el = document.querySelector(`script[data-ntt-schema="${model}"]`);
+    const el = document.querySelector(`script[data-ntx-schema="${model}"]`);
     if (!el) return false;
     try {
         const data = JSON.parse(el.textContent);
         el.remove();
-        NTT.SCHEMA(data);
+        N3TX.SCHEMA(data);
         return true;
     } catch (e) {
         return false;
@@ -858,7 +858,7 @@ static #consumePreloadedSchema(model) {
 }
 
 static #consumePreloadedData(tablename) {
-    const el = document.querySelector(`script[data-ntt-data="${tablename}"]`);
+    const el = document.querySelector(`script[data-ntx-data="${tablename}"]`);
     if (!el) return null;
     try {
         const data = JSON.parse(el.textContent);
@@ -870,11 +870,11 @@ static #consumePreloadedData(tablename) {
 }
 ```
 
-This means PyBend already supports a **hybrid** mode: inject schema + data as inline `<script>` tags, and the frontend skips network fetches. The static exporter could generate pages that include both:
+This means N3TX already supports a **hybrid** mode: inject schema + data as inline `<script>` tags, and the frontend skips network fetches. The static exporter could generate pages that include both:
 1. Pre-rendered HTML for immediate display (zero JS)
-2. Inline `<script data-ntt-schema>` + `<script data-ntt-data>` tags for progressive enhancement
+2. Inline `<script data-ntx-schema>` + `<script data-ntx-data>` tags for progressive enhancement
 
-This enables a graceful upgrade path: pages load instantly with static HTML, then the full NTT system hydrates on top if the JS bundle is included.
+This enables a graceful upgrade path: pages load instantly with static HTML, then the full N3TX system hydrates on top if the JS bundle is included.
 
 ---
 
@@ -890,10 +890,10 @@ To validate that static export matches the dynamic rendering, compare output HTM
 | `<span class="sm-name">Widget Pro</span>` | `sm()` builds from `this.value.name` | Template reads `value.name` | Exact |
 | `<span class="sm-field">$29.99</span>` | `sm()` formats currency | Jinja2 `"%.2f"\|format()` | Exact |
 | `<div class="currency-display">$29.99</div>` | `getInput()` currency branch | Jinja2 macro currency branch | Exact |
-| `<fieldset class="ntt-group ntt-group-main">` | `renderGroupedFields()` | Jinja2 group loop | Exact |
+| `<fieldset class="ntx-group ntx-group-main">` | `renderGroupedFields()` | Jinja2 group loop | Exact |
 | `<div class="list-field"><span class="list-field-count">5</span>` | `getListInput()` | Jinja2 child count | Exact |
 | Edit/delete buttons | `permissions.canAction()` | Omitted (read-only) | By design |
-| `<ntt-method model="Product">` | Custom element | Omitted (requires JS) | By design |
+| `<ntx-method model="Product">` | Custom element | Omitted (requires JS) | By design |
 | Skeleton placeholder | `placeholder()` | Omitted (data pre-rendered) | By design |
 
 ### 12.2 What Won't Match
@@ -917,7 +917,7 @@ To validate that static export matches the dynamic rendering, compare output HTM
 3. **Entity Template** -- md-size detail page with grouped fields
 4. **Collection Template** -- sm-size list page with CSS grid
 5. **Exporter** -- Orchestrator: iterate models, fetch data, render templates, write files
-6. **CLI** -- `pybend export --static --output ./build`
+6. **CLI** -- `n3tx export --static --output ./build`
 
 ### Phase 2: Polish
 
@@ -929,7 +929,7 @@ To validate that static export matches the dynamic rendering, compare output HTM
 ### Phase 3: Advanced
 
 11. **Per-role export** -- Strategy B from Section 7
-12. **Hybrid mode** -- Inject inline `<script data-ntt-schema>` for progressive enhancement
+12. **Hybrid mode** -- Inject inline `<script data-ntx-schema>` for progressive enhancement
 13. **Custom templates** -- Allow apps to provide their own Jinja2 overrides
 14. **Nested entity pages** -- `/products/1/comments/2.html` routes
 
@@ -937,16 +937,16 @@ To validate that static export matches the dynamic rendering, compare output HTM
 
 ## 14. Conclusion
 
-PyBend's architecture is remarkably well-suited for static export because the rendering pipeline is already split into clean, deterministic stages:
+N3TX's architecture is remarkably well-suited for static export because the rendering pipeline is already split into clean, deterministic stages:
 
 1. **Schema generation** (`ProtoModel.schema()`) is already server-side Python
 2. **Data access** (`StorableMixin.list()`) is already server-side Python
 3. **Field rendering** (`form.js`) is a pure function of (schema, value) with no side effects
-4. **Size layouts** (`ntt-item.js` xs/sm/md/lg/xl) are pure functions of (schema, value)
+4. **Size layouts** (`ntx-item.js` xs/sm/md/lg/xl) are pure functions of (schema, value)
 5. **CSS** uses custom properties that resolve without JavaScript
 
 The JS-dependent parts (Actor messaging, live updates, form submission, auth) are cleanly separated from the presentational parts. No rendering logic requires access to browser APIs -- it all operates on schema and data.
 
-The existing `consumePreloadedSchema()` / `consumePreloadedData()` infrastructure in `NTT.js` shows the architecture was already moving toward pre-rendering. Static export is the natural next step: skip the client entirely and generate the HTML that the DynamicClass system would have produced.
+The existing `consumePreloadedSchema()` / `consumePreloadedData()` infrastructure in `N3TX.js` shows the architecture was already moving toward pre-rendering. Static export is the natural next step: skip the client entirely and generate the HTML that the DynamicClass system would have produced.
 
-**Estimated effort:** 5-7 engineering days for the MVP, producing a fully functional `pybend export --static` command that generates a complete, styled, responsive static website from any PyBend application's models and data.
+**Estimated effort:** 5-7 engineering days for the MVP, producing a fully functional `n3tx export --static` command that generates a complete, styled, responsive static website from any N3TX application's models and data.

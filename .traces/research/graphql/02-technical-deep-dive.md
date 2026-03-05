@@ -752,7 +752,7 @@ Track these metrics per-operation and per-field:
 
 ## 10. Python Ecosystem
 
-**The "so what?"**: If your backend is Python (as PyBend is), the choice of GraphQL library directly affects performance, developer experience, and long-term maintainability. **Strawberry** has emerged as the clear leader for async/FastAPI stacks, outperforming Graphene by **46% in query time**. Ariadne remains strong for teams preferring schema-first development.
+**The "so what?"**: If your backend is Python (as N3TX is), the choice of GraphQL library directly affects performance, developer experience, and long-term maintainability. **Strawberry** has emerged as the clear leader for async/FastAPI stacks, outperforming Graphene by **46% in query time**. Ariadne remains strong for teams preferring schema-first development.
 
 ### Library Comparison
 
@@ -852,9 +852,9 @@ schema = make_executable_schema(type_defs, query)
 app = GraphQL(schema)
 ```
 
-### PyBend Relevance
+### N3TX Relevance
 
-For a framework like PyBend that auto-generates APIs from model definitions, GraphQL integration would mean:
+For a framework like N3TX that auto-generates APIs from model definitions, GraphQL integration would mean:
 
 ```
 [ProtoModel definition]
@@ -872,7 +872,7 @@ For a framework like PyBend that auto-generates APIs from model definitions, Gra
 [Strawberry FastAPI router]  ──>  /graphql endpoint alongside REST
 ```
 
-The key architectural question: **should GraphQL replace or complement the existing JSON Schema + REST approach?** Given PyBend's schema-driven philosophy, adding a GraphQL endpoint as an **alternative consumer of the same schema** would be more consistent than replacing the existing system. The JSON Schema already carries the metadata that GraphQL's type system would express.
+The key architectural question: **should GraphQL replace or complement the existing JSON Schema + REST approach?** Given N3TX's schema-driven philosophy, adding a GraphQL endpoint as an **alternative consumer of the same schema** would be more consistent than replacing the existing system. The JSON Schema already carries the metadata that GraphQL's type system would express.
 
 ---
 
@@ -896,7 +896,7 @@ The key architectural question: **should GraphQL replace or complement the exist
 | **File uploads, streaming** | GraphQL has no native support; requires workarounds |
 | **Aggressive HTTP caching needed** | REST's URL-based caching is simpler and more mature |
 | **Small team, single frontend** | Federation/schema governance overkill |
-| **Schema-driven framework (e.g., PyBend)** | JSON Schema already provides similar type contract benefits |
+| **Schema-driven framework (e.g., N3TX)** | JSON Schema already provides similar type contract benefits |
 
 ### Complexity Cost Summary
 

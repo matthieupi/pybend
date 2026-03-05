@@ -1,20 +1,20 @@
-# Polymorphic Data Systems: Relevance to PyBend's Stack
+# Polymorphic Data Systems: Relevance to N3TX's Stack
 
 **Analysis Date:** 2026-02-26
-**Scope:** How PyBend's current architecture handles (or would handle) polymorphic types -- models that share a base type but have different specializations
+**Scope:** How N3TX's current architecture handles (or would handle) polymorphic types -- models that share a base type but have different specializations
 **Audience:** Technical CEO + Engineering Leadership
 
 ---
 
 ## Executive Summary
 
-PyBend's schema-driven architecture already contains **60-70% of the machinery needed for polymorphic data systems**. The `ProtoModel` inheritance chain, `__init_subclass__()` hook, JSON Schema `$defs`, and the frontend's DynamicClass system provide a foundation that most frameworks lack entirely. However, critical gaps exist in **storage discrimination**, **schema union generation**, and **frontend type dispatch** that would need to be addressed before PyBend can offer first-class polymorphism. This document maps every relevant file and function, identifies what works today, what is missing, and provides a phased implementation roadmap.
+N3TX's schema-driven architecture already contains **60-70% of the machinery needed for polymorphic data systems**. The `ProtoModel` inheritance chain, `__init_subclass__()` hook, JSON Schema `$defs`, and the frontend's DynamicClass system provide a foundation that most frameworks lack entirely. However, critical gaps exist in **storage discrimination**, **schema union generation**, and **frontend type dispatch** that would need to be addressed before N3TX can offer first-class polymorphism. This document maps every relevant file and function, identifies what works today, what is missing, and provides a phased implementation roadmap.
 
 ---
 
 ## Table of Contents
 
-1. [What PyBend Already Provides for Polymorphism](#1-what-pybend-already-provides)
+1. [What N3TX Already Provides for Polymorphism](#1-what-ntx-already-provides)
 2. [What Is Missing for Full Polymorphism](#2-what-is-missing)
 3. [Storage Implications](#3-storage-implications)
 4. [Schema Generation Implications](#4-schema-generation-implications)
@@ -26,13 +26,13 @@ PyBend's schema-driven architecture already contains **60-70% of the machinery n
 
 ---
 
-## 1. What PyBend Already Provides
+## 1. What N3TX Already Provides
 
 ### 1.1 ProtoModel as a Polymorphic Base
 
-PyBend already uses inheritance as its primary model definition pattern. Every application model extends `ProtoModel`, which provides schema generation, serialization, and storable injection.
+N3TX already uses inheritance as its primary model definition pattern. Every application model extends `ProtoModel`, which provides schema generation, serialization, and storable injection.
 
-**File:** `/workspace/src/pybend/core/models/proto_model.py`, lines 44-93
+**File:** `/workspace/src/n3tx/core/models/proto_model.py`, lines 44-93
 
 ```python
 class ProtoModel(PydanticBaseModel):
@@ -69,9 +69,9 @@ class ProtoModel(PydanticBaseModel):
 
 ### 1.2 The BaseUser Pattern -- Polymorphism in Practice
 
-The `BaseUser` class demonstrates the closest thing to polymorphic inheritance PyBend has today.
+The `BaseUser` class demonstrates the closest thing to polymorphic inheritance N3TX has today.
 
-**File:** `/workspace/src/pybend/core/models/base_user.py`, lines 26-53
+**File:** `/workspace/src/n3tx/core/models/base_user.py`, lines 26-53
 
 ```python
 class BaseUser(ProtoModel):
@@ -88,7 +88,7 @@ class BaseUser(ProtoModel):
 
 The concrete subclass in `User` inherits all fields, login/register endpoints, and password hashing. This is **single-table inheritance (STI) in embryonic form**: the concrete `User` model adds fields to the same table, and the `__abstract__` flag prevents `BaseUser` from being registered directly.
 
-> **Key Insight:** PyBend already supports the `__abstract__` class variable. This is the seed of a discriminator-based polymorphic system -- abstract base types that are never stored directly, with concrete subtypes that share or extend the base schema.
+> **Key Insight:** N3TX already supports the `__abstract__` class variable. This is the seed of a discriminator-based polymorphic system -- abstract base types that are never stored directly, with concrete subtypes that share or extend the base schema.
 
 ### 1.3 The `__init_subclass__()` Hook
 
@@ -108,7 +108,7 @@ The `__init_subclass__()` hook in `ProtoModel` (lines 72-93) fires every time a 
 
 The schema generation system already handles referenced models via `$defs`.
 
-**File:** `/workspace/src/pybend/core/models/proto_model.py`, lines 222-246
+**File:** `/workspace/src/n3tx/core/models/proto_model.py`, lines 222-246
 
 ```python
 if referenced_models:
@@ -116,7 +116,7 @@ if referenced_models:
         schema['$defs'] = {}
     for model in referenced_models:
         ref_schema = model.referenced_json_schema()
-        ref_methods = model.__pybend_methods_json_signature__()
+        ref_methods = model.__n3tx_methods_json_signature__()
         defs = ref_schema.pop('$defs', {})
         schema['$defs'] = {**defs, **schema['$defs']} if defs else schema['$defs']
         if 'properties' in ref_schema:
@@ -127,9 +127,9 @@ This mechanism already supports a critical polymorphism pattern: **a parent mode
 
 ### 1.5 DynamicClass Creation and the Frontend Type Registry
 
-The frontend's `prototype()` function creates a DynamicClass for each model schema. The `NTT.SCHEMA()` handler processes `$defs` to register nested types.
+The frontend's `prototype()` function creates a DynamicClass for each model schema. The `N3TX.SCHEMA()` handler processes `$defs` to register nested types.
 
-**File:** `/workspace/src/pybend/static/core/NTT.js`, lines 390-426
+**File:** `/workspace/src/n3tx/static/core/N3TX.js`, lines 390-426
 
 ```javascript
 static SCHEMA(data, tx) {
@@ -138,26 +138,26 @@ static SCHEMA(data, tx) {
     if (data.$defs && typeof data.$defs === 'object') {
         for (const [key, value] of Object.entries(data.$defs)) {
             if (key === addr) continue;
-            if (value.type === 'object' && value.properties && !NTT.has(key)) {
+            if (value.type === 'object' && value.properties && !N3TX.has(key)) {
                 const DC = prototype(key, value, defHref);
-                NTT.#prototypes.set(key, DC);
-                NTT.#replayWaiting(key, DC);
+                N3TX.#prototypes.set(key, DC);
+                N3TX.#replayWaiting(key, DC);
             }
         }
     }
     // Create DynamicClass for the main model
     const DC = prototype(addr, data, href);
-    NTT.#prototypes.set(addr, DC);
+    N3TX.#prototypes.set(addr, DC);
 }
 ```
 
 **What this means for polymorphism:**
 
-The frontend already creates separate DynamicClasses for each type it encounters. If a polymorphic base type's schema included all subtypes in `$defs`, **the frontend would automatically register DynamicClasses for every subtype**. The gap is on the dispatch side: once you have a mixed-type collection, how does `ntt-list` know which DynamicClass to use for which entity?
+The frontend already creates separate DynamicClasses for each type it encounters. If a polymorphic base type's schema included all subtypes in `$defs`, **the frontend would automatically register DynamicClasses for every subtype**. The gap is on the dispatch side: once you have a mixed-type collection, how does `ntx-list` know which DynamicClass to use for which entity?
 
-### 1.6 How `ntt-item` Renders -- Uniform, Not Type-Dispatched
+### 1.6 How `ntx-item` Renders -- Uniform, Not Type-Dispatched
 
-**File:** `/workspace/src/pybend/static/components/ntt-item.js`, lines 468-486
+**File:** `/workspace/src/n3tx/static/components/ntx-item.js`, lines 468-486
 
 ```javascript
 render() {
@@ -178,8 +178,8 @@ The `#resolveChildTag()` helper (line 632-638) already resolves component tags b
     const defs = this.schema?.$defs || {};
     const fromDefs = defs[refModel]?.ui?.renderer?.item;
     if (fromDefs) return fromDefs;
-    const DC = NTT.get(refModel);
-    return DC?.schema?.ui?.renderer?.item || 'ntt-item';
+    const DC = N3TX.get(refModel);
+    return DC?.schema?.ui?.renderer?.item || 'ntx-item';
 }
 ```
 
@@ -193,7 +193,7 @@ This means if each polymorphic subtype declared its own `ui.renderer.item`, the 
 
 **Current state:** `sqlite_storage.py` uses one table per `__tablename__`. There is no concept of a discriminator column that marks which subtype a row belongs to.
 
-**File:** `/workspace/src/pybend/core/storage/sqlite_storage.py`, lines 93-118 (create)
+**File:** `/workspace/src/n3tx/core/storage/sqlite_storage.py`, lines 93-118 (create)
 
 ```python
 def create(self, model_class: Type[Any], data: Dict[str, Any]) -> Any:
@@ -238,17 +238,17 @@ class Video(Content):
 ContentUnion = Annotated[Union[Article, Video], Discriminator('type')]
 ```
 
-But `ProtoModel.schema()` never calls `model_json_schema()` on a union type. The machinery exists in Pydantic; PyBend simply does not invoke it.
+But `ProtoModel.schema()` never calls `model_json_schema()` on a union type. The machinery exists in Pydantic; N3TX simply does not invoke it.
 
 ### 2.4 Frontend Rendering Dispatch by Subtype
 
-**Current state:** `ntt-list` stamps `ntt-item` for every entity in the collection (via `createChild()` in `ListElement.js`, line 156):
+**Current state:** `ntx-list` stamps `ntx-item` for every entity in the collection (via `createChild()` in `ListElement.js`, line 156):
 
 ```javascript
 const el = document.createElement(this.childTag);
 ```
 
-`childTag` resolves to a single tag for the entire list. There is no per-item type inspection to stamp `ntt-article` for one entity and `ntt-video` for another.
+`childTag` resolves to a single tag for the entire list. There is no per-item type inspection to stamp `ntx-article` for one entity and `ntx-video` for another.
 
 ### 2.5 Form Generation for Type-Specific Fields
 
@@ -283,7 +283,7 @@ There is no mechanism for a single `/content` endpoint that returns both Article
 
 ### 3.1 Current Architecture: Table-Per-Model
 
-PyBend uses a strict one-table-per-model mapping:
+N3TX uses a strict one-table-per-model mapping:
 
 | Model | Table | Created By |
 |-------|-------|-----------|
@@ -339,7 +339,7 @@ CTI uses a base table for shared fields and child tables for type-specific field
 
 ### 3.4 Recommendation: STI First
 
-STI is simpler, fits SQLite better (no complex JOINs), and aligns with PyBend's "zero to working" philosophy. CTI can be added later for large-scale deployments where NULL column waste becomes a concern.
+STI is simpler, fits SQLite better (no complex JOINs), and aligns with N3TX's "zero to working" philosophy. CTI can be added later for large-scale deployments where NULL column waste becomes a concern.
 
 ---
 
@@ -379,7 +379,7 @@ ContentType = Annotated[Union[Article, Video], Discriminator('type')]
 
 ### 4.2 How `ProtoModel.schema()` Would Need to Change
 
-**File:** `/workspace/src/pybend/core/models/proto_model.py`, lines 199-316
+**File:** `/workspace/src/n3tx/core/models/proto_model.py`, lines 199-316
 
 Currently, `schema()` generates a flat schema for a single model. For polymorphism, it would need a new path:
 
@@ -435,7 +435,7 @@ The JSON Schema output would need to follow the discriminated union format:
 }
 ```
 
-This format is compatible with the existing `$defs` processing in `NTT.SCHEMA()`.
+This format is compatible with the existing `$defs` processing in `N3TX.SCHEMA()`.
 
 ---
 
@@ -443,7 +443,7 @@ This format is compatible with the existing `$defs` processing in `NTT.SCHEMA()`
 
 ### 5.1 How `prototype()` Would Create Type-Aware DynamicClasses
 
-**File:** `/workspace/src/pybend/static/core/NTT.js`, lines 663-1075
+**File:** `/workspace/src/n3tx/static/core/N3TX.js`, lines 663-1075
 
 The `SCHEMA()` handler already processes `$defs` and creates separate DynamicClasses for each:
 
@@ -452,9 +452,9 @@ The `SCHEMA()` handler already processes `$defs` and creates separate DynamicCla
 if (data.$defs && typeof data.$defs === 'object') {
     for (const [key, value] of Object.entries(data.$defs)) {
         if (key === addr) continue;
-        if (value.type === 'object' && value.properties && !NTT.has(key)) {
+        if (value.type === 'object' && value.properties && !N3TX.has(key)) {
             const DC = prototype(key, value, defHref);
-            NTT.#prototypes.set(key, DC);
+            N3TX.#prototypes.set(key, DC);
         }
     }
 }
@@ -467,7 +467,7 @@ if (data.$defs && typeof data.$defs === 'object') {
 DynamicClass.READ = function(data) {
     for (const entity of data) {
         const typeValue = entity[discriminatorField];     // e.g. entity._type = "article"
-        const SubDC = NTT.get(discriminatorMapping[typeValue]);  // e.g. NTT.get("Article")
+        const SubDC = N3TX.get(discriminatorMapping[typeValue]);  // e.g. N3TX.get("Article")
         // Register instance on SubDC, not on the base DynamicClass
         ...
     }
@@ -476,7 +476,7 @@ DynamicClass.READ = function(data) {
 
 ### 5.2 How `form.js` Would Show/Hide Type-Specific Fields
 
-**File:** `/workspace/src/pybend/static/generators/form.js`, lines 17-65
+**File:** `/workspace/src/n3tx/static/generators/form.js`, lines 17-65
 
 The form generator already filters fields based on `ui.display`:
 
@@ -498,11 +498,11 @@ Two approaches:
 | **Schema swap** | When `_type` is known, replace `ntt.schema` with the subtype's schema from `$defs` | Low |
 | **Conditional rendering** | Annotate each property with `"if": {"_type": "article"}` and filter at render time | Medium |
 
-The schema swap approach aligns better with PyBend's "schema is the contract" philosophy.
+The schema swap approach aligns better with N3TX's "schema is the contract" philosophy.
 
-### 5.3 How `ntt-list` Would Handle Mixed-Type Collections
+### 5.3 How `ntx-list` Would Handle Mixed-Type Collections
 
-**File:** `/workspace/src/pybend/static/components/ListElement.js`, lines 146-161
+**File:** `/workspace/src/n3tx/static/components/ListElement.js`, lines 146-161
 
 Currently, `createChild()` stamps a single `childTag` for every entity:
 
@@ -520,7 +520,7 @@ For polymorphic collections, `createChild()` would need to resolve the child tag
 ```
 // Conceptual change:
 createChild(addr) {
-    const instance = NTT.get(addr);
+    const instance = N3TX.get(addr);
     const typeValue = instance?.value?.[discriminatorField];
     const subSchema = this.schema.$defs?.[discriminatorMapping[typeValue]];
     const tag = subSchema?.ui?.renderer?.item || this.childTag;
@@ -529,7 +529,7 @@ createChild(addr) {
 }
 ```
 
-The resolution chain via `#resolveChildTag()` in `ntt-item.js` (lines 632-638) already supports per-model tag resolution. The missing piece is the lookup from entity value to model name.
+The resolution chain via `#resolveChildTag()` in `ntx-item.js` (lines 632-638) already supports per-model tag resolution. The missing piece is the lookup from entity value to model name.
 
 ---
 
@@ -537,9 +537,9 @@ The resolution chain via `#resolveChildTag()` in `ntt-item.js` (lines 632-638) a
 
 ### 6.1 Per-Subtype Access Rules
 
-PyBend's ABAC system already supports per-model access rules:
+N3TX's ABAC system already supports per-model access rules:
 
-**File:** `/workspace/src/pybend/core/authorize/rules.py`
+**File:** `/workspace/src/n3tx/core/authorize/rules.py`
 
 ```python
 class Product(ProtoModel):
@@ -693,8 +693,8 @@ class Video(Content):
 |--------|------|-------------|
 | Generate `oneOf` + `discriminator` | `proto_model.py` `schema()` | When `__discriminator__` is set, output union schema |
 | Include subtype schemas in `$defs` | `proto_model.py` `schema()` | Each subtype gets its own `$defs` entry |
-| Register subtype DynamicClasses | `NTT.js` `SCHEMA()` | Process `oneOf` + `discriminator` mapping |
-| Per-entity type resolution | `NTT.js` `DynamicClass.READ` | Route entities to correct subtype DynamicClass |
+| Register subtype DynamicClasses | `N3TX.js` `SCHEMA()` | Process `oneOf` + `discriminator` mapping |
+| Per-entity type resolution | `N3TX.js` `DynamicClass.READ` | Route entities to correct subtype DynamicClass |
 
 ### Phase 3: Frontend Type Dispatch (Architectural Changes)
 
@@ -736,7 +736,7 @@ Total:    13-19 eng days    for full polymorphism support
 
 ### 8.1 Framework Comparison Table
 
-| Feature | Django | Rails | Strapi | Prisma | PyBend (today) | PyBend (Phase 4) |
+| Feature | Django | Rails | Strapi | Prisma | N3TX (today) | N3TX (Phase 4) |
 |---------|--------|-------|--------|--------|---------------|------------------|
 | STI (single table inheritance) | Via `django-polymorphic` | Built-in | No | No | No | Yes |
 | CTI (class table inheritance) | Via `django-polymorphic` | No | No | No | No | Possible |
@@ -783,13 +783,13 @@ Strapi v4+ uses "Dynamic Zones" and "Components" for polymorphic-like behavior, 
 **Advantage:** Good UI for content management.
 **Disadvantage:** Not true polymorphism. No typed querying. Components are structurally independent.
 
-### 8.5 What PyBend Uniquely Enables
+### 8.5 What N3TX Uniquely Enables
 
-PyBend's schema-driven architecture creates an opportunity that no other framework offers:
+N3TX's schema-driven architecture creates an opportunity that no other framework offers:
 
 > **Schema-Propagated Polymorphism:** Define a polymorphic model in Python, and the discriminator mapping, subtype schemas, per-subtype access rules, and per-subtype UI configuration all propagate to the frontend automatically via JSON Schema. No frontend code changes needed. The frontend reads the `oneOf` + `discriminator` block and adapts its rendering, form generation, and permission checks dynamically.
 
-This is a genuine differentiator. In Django or Rails, adding a new subtype requires: defining the model, creating a migration, updating serializers, updating views/controllers, updating frontend components, updating forms, updating tests. In PyBend (Phase 4), adding a new subtype would require: defining the model class. Everything else propagates through the schema.
+This is a genuine differentiator. In Django or Rails, adding a new subtype requires: defining the model, creating a migration, updating serializers, updating views/controllers, updating frontend components, updating forms, updating tests. In N3TX (Phase 4), adding a new subtype would require: defining the model class. Everything else propagates through the schema.
 
 ---
 
@@ -799,21 +799,21 @@ This is a genuine differentiator. In Django or Rails, adding a new subtype requi
 
 | File | Key Content |
 |------|-------------|
-| `/workspace/src/pybend/core/models/proto_model.py` | ProtoModel base class, `__init_subclass__()`, `schema()`, `model_dump()`, `generate_join_model()` |
-| `/workspace/src/pybend/core/models/base_user.py` | BaseUser abstract model, `__abstract__` flag, login/register endpoints |
-| `/workspace/src/pybend/core/models/storable_mixin.py` | StorableMixin CRUD operations, `set_storage()`, `_storage_dict()` |
-| `/workspace/src/pybend/core/storage/sqlite_storage.py` | SQLite backend, `create()`, `list()`, `get()`, FK hydration, populate |
-| `/workspace/src/pybend/core/storage/sqlite_migration.py` | Table creation, auto-migration, column management |
-| `/workspace/src/pybend/core/api/routes_fastapi.py` | Route generation, CRUD factories, `_resolve_user()`, custom method dispatch |
-| `/workspace/src/pybend/core/app.py` | `create_app()`, `PyBendApp` builder, model registration |
-| `/workspace/src/pybend/core/authorize/rules.py` | ABAC rules: `ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`, composable operators |
-| `/workspace/src/pybend/core/utils/registrar.py` | `registered_models` dict, `join_models` dict, `register_model()` |
-| `/workspace/src/pybend/static/core/NTT.js` | DynamicClass creation, `prototype()`, `SCHEMA()`, type registry, instance management |
-| `/workspace/src/pybend/static/components/ntt-item.js` | Entity rendering, size methods, `#resolveChildTag()`, permission-gated buttons |
-| `/workspace/src/pybend/static/components/ListElement.js` | Collection base class, `createChild()`, `childTag` resolution, pagination |
-| `/workspace/src/pybend/static/generators/form.js` | Schema-driven form generation, field filtering, `resolveAnyOf()` |
-| `/workspace/src/pybend/example/models/product.py` | Concrete model example with `ListRef`, methods, UI config |
-| `/workspace/src/pybend/example/models/comment.py` | Concrete model with `Ref['self']`, per-field access, `__protected_fields__` |
+| `/workspace/src/n3tx/core/models/proto_model.py` | ProtoModel base class, `__init_subclass__()`, `schema()`, `model_dump()`, `generate_join_model()` |
+| `/workspace/src/n3tx/core/models/base_user.py` | BaseUser abstract model, `__abstract__` flag, login/register endpoints |
+| `/workspace/src/n3tx/core/models/storable_mixin.py` | StorableMixin CRUD operations, `set_storage()`, `_storage_dict()` |
+| `/workspace/src/n3tx/core/storage/sqlite_storage.py` | SQLite backend, `create()`, `list()`, `get()`, FK hydration, populate |
+| `/workspace/src/n3tx/core/storage/sqlite_migration.py` | Table creation, auto-migration, column management |
+| `/workspace/src/n3tx/core/api/routes_fastapi.py` | Route generation, CRUD factories, `_resolve_user()`, custom method dispatch |
+| `/workspace/src/n3tx/core/app.py` | `create_app()`, `N3TXApp` builder, model registration |
+| `/workspace/src/n3tx/core/authorize/rules.py` | ABAC rules: `ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`, composable operators |
+| `/workspace/src/n3tx/core/utils/registrar.py` | `registered_models` dict, `join_models` dict, `register_model()` |
+| `/workspace/src/n3tx/static/core/N3TX.js` | DynamicClass creation, `prototype()`, `SCHEMA()`, type registry, instance management |
+| `/workspace/src/n3tx/static/components/ntx-item.js` | Entity rendering, size methods, `#resolveChildTag()`, permission-gated buttons |
+| `/workspace/src/n3tx/static/components/ListElement.js` | Collection base class, `createChild()`, `childTag` resolution, pagination |
+| `/workspace/src/n3tx/static/generators/form.js` | Schema-driven form generation, field filtering, `resolveAnyOf()` |
+| `/workspace/src/n3tx/example/models/product.py` | Concrete model example with `ListRef`, methods, UI config |
+| `/workspace/src/n3tx/example/models/comment.py` | Concrete model with `Ref['self']`, per-field access, `__protected_fields__` |
 
 ### External References
 

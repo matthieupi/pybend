@@ -11,9 +11,9 @@
 
 ## The Question
 
-Should we invest in schema-driven agentic AI capabilities -- and does PyBend's existing architecture give us a structural advantage in a market projected to grow from **$7.8 billion to $52.6 billion by 2030**?
+Should we invest in schema-driven agentic AI capabilities -- and does N3TX's existing architecture give us a structural advantage in a market projected to grow from **$7.8 billion to $52.6 billion by 2030**?
 
-**The answer is yes on both counts.** The AI agent ecosystem has converged on JSON Schema as the universal contract between agents, tools, and other agents. OpenAI, Anthropic, Google, and Microsoft all use it. PyBend already produces rich, typed, access-controlled JSON Schema as its operational backbone -- not as documentation, but as the contract that drives the entire stack. This is not an analogy. It is a direct architectural alignment that covers approximately **65% of agent infrastructure requirements**, with the remaining 35% being additive work estimated at **10-14 weeks**.
+**The answer is yes on both counts.** The AI agent ecosystem has converged on JSON Schema as the universal contract between agents, tools, and other agents. OpenAI, Anthropic, Google, and Microsoft all use it. N3TX already produces rich, typed, access-controlled JSON Schema as its operational backbone -- not as documentation, but as the contract that drives the entire stack. This is not an analogy. It is a direct architectural alignment that covers approximately **65% of agent infrastructure requirements**, with the remaining 35% being additive work estimated at **10-14 weeks**.
 
 ---
 
@@ -21,11 +21,11 @@ Should we invest in schema-driven agentic AI capabilities -- and does PyBend's e
 
 | # | Finding | Implication |
 |---|---|---|
-| 1 | **JSON Schema is the universal agent contract** -- all 4 major AI providers converged independently | PyBend's schema-first architecture is structurally aligned; adapters to any provider are ~20-30 lines of code |
+| 1 | **JSON Schema is the universal agent contract** -- all 4 major AI providers converged independently | N3TX's schema-first architecture is structurally aligned; adapters to any provider are ~20-30 lines of code |
 | 2 | **MCP (Model Context Protocol) hit 97M+ monthly SDK downloads** in 14 months, backed by OpenAI, Google, and Microsoft | Tool access standardization is settled; MCP is the safe bet for tool integration |
 | 3 | **57% of companies have agents in production**, but **40% of projects will be canceled by 2027** | The technology works, but scope discipline is the difference between success and failure |
 | 4 | **Average ROI on agent investments is 171%** (Google Cloud Study); Klarna saved **$60M quarterly** | The financial case is proven for well-scoped deployments |
-| 5 | **PyBend maps 9 architectural primitives** directly to agent system requirements | The Actor/Matrix/TX system, ProtoModel.schema(), ABAC rules, DynamicClass creation -- all transfer directly |
+| 5 | **N3TX maps 9 architectural primitives** directly to agent system requirements | The Actor/Matrix/TX system, ProtoModel.schema(), ABAC rules, DynamicClass creation -- all transfer directly |
 | 6 | **In-house AI project success rate is 22%** vs. **67% for purchased tools** | Constrained scope drives success; schema-driven approaches enforce scope by design |
 | 7 | **Estimated bridge effort: 10-14 weeks** to MCP-compatible single-agent system | This is a quarter of focused engineering, not a year-long initiative |
 
@@ -59,13 +59,13 @@ The agent framework market is actively moving in this direction. The spectrum ru
 
 ## Where We Stand Today
 
-PyBend's architecture is a **remarkably close match** to what the agent ecosystem needs. The framework's core loop -- `ProtoModel.schema()` generates JSON Schema, which drives API routes, frontend rendering, access control, and entity lifecycle -- is structurally identical to the agent loop of schema-driven capability discovery, tool registration, permission enforcement, and runtime behavior derivation.
+N3TX's architecture is a **remarkably close match** to what the agent ecosystem needs. The framework's core loop -- `ProtoModel.schema()` generates JSON Schema, which drives API routes, frontend rendering, access control, and entity lifecycle -- is structurally identical to the agent loop of schema-driven capability discovery, tool registration, permission enforcement, and runtime behavior derivation.
 
 **What we already have:**
 - **Schema generation** (`ProtoModel.schema()`) that produces typed properties, method signatures, access rules, and `$defs` -- structurally identical to MCP tool definitions and A2A Agent Cards
 - **Composable ABAC authorization** (`authorize/rules.py`) with boolean composition (`|`, `&`, `~`), JSON serialization, and SQL pushdown -- more sophisticated than any agent framework's permission system
 - **Actor-based message bus** (`Actor.js`, `Matrix.js`, `TX.js`) with addressable identity, inbox routing, child hierarchies, and remote transport -- the exact pattern agent communication requires
-- **Runtime class generation** (`NTT.js prototype()`) that creates typed, validated, observable classes from JSON Schema at runtime -- the DynamicClass pattern agent proxies need
+- **Runtime class generation** (`N3TX.js prototype()`) that creates typed, validated, observable classes from JSON Schema at runtime -- the DynamicClass pattern agent proxies need
 
 **What we are missing (all additive, not architectural rewrites):**
 
@@ -83,22 +83,22 @@ PyBend's architecture is a **remarkably close match** to what the agent ecosyste
 
 ### The "Model Is the Agent" Vision
 
-With existing frameworks like LangChain, building an agent requires wiring up storage, APIs, permissions, memory, and monitoring as separate concerns. With the proposed PyBend approach, a single model definition generates the entire agent stack -- the same way a `ProtoModel` definition today generates the entire web application stack. No other framework offers this level of integration from a single declaration.
+With existing frameworks like LangChain, building an agent requires wiring up storage, APIs, permissions, memory, and monitoring as separate concerns. With the proposed N3TX approach, a single model definition generates the entire agent stack -- the same way a `ProtoModel` definition today generates the entire web application stack. No other framework offers this level of integration from a single declaration.
 
-The conversion from PyBend schema to any agent protocol format (OpenAI function calling, MCP tools, A2A Agent Cards) is a **20-30 line adapter function** per provider, not an architectural change.
+The conversion from N3TX schema to any agent protocol format (OpenAI function calling, MCP tools, A2A Agent Cards) is a **20-30 line adapter function** per provider, not an architectural change.
 
-### How PyBend Maps to Agent Primitives
+### How N3TX Maps to Agent Primitives
 
 The parallels are specific and code-level, not hand-wavy analogies:
 
 ```
-PyBend Today                              Agent System Needs
+N3TX Today                              Agent System Needs
 ===========                              ==================
 ProtoModel.schema() ----->  JSON Schema  ===  Capability Manifest     HAVE
 @expose_route       ----->  Method defs  ===  Tool definitions        HAVE
 authorize/rules.py  ----->  ABAC rules   ===  Permission scoping      HAVE
 Actor/Matrix/TX     ----->  Message bus  ===  Agent communication     HAVE
-NTT.prototype()     ----->  DynamicClass ===  Runtime agent proxy     HAVE
+N3TX.prototype()     ----->  DynamicClass ===  Runtime agent proxy     HAVE
 StorableMixin       ----->  CRUD ops     ===  State persistence       HAVE
 
                             ?????        ===  LLM integration         MISSING
@@ -144,7 +144,7 @@ For comparison, Klarna's pre-AI cost was $0.32/transaction. Their post-AI cost i
 
 **Pursue a four-phase approach, starting with Phase 0 immediately:**
 
-1. **Phase 0 (Weeks 1-4):** Auto-generate MCP tool definitions from existing PyBend schemas. Publish via MCP server. **Zero LLM cost, near-zero risk.** Any MCP client (Claude, GPT, Cursor) can then interact with our system through typed, validated tools.
+1. **Phase 0 (Weeks 1-4):** Auto-generate MCP tool definitions from existing N3TX schemas. Publish via MCP server. **Zero LLM cost, near-zero risk.** Any MCP client (Claude, GPT, Cursor) can then interact with our system through typed, validated tools.
 
 2. **Phase 1 (Months 2-3):** Build one bounded agent (e.g., natural language data query). Add `AgentMixin` and `LLMClient` to the stack. Validate the "model is the agent" pattern with a real use case.
 
@@ -178,7 +178,7 @@ The full report identifies 10 risks with a complete probability-impact matrix an
 
 1. **Week 1:** Assign 1-2 engineers to build a proof-of-concept MCP server adapter that translates `ProtoModel.schema().methods` to MCP `tools/list` format. Target: working adapter for the Product model.
 
-2. **Week 2:** Test the MCP adapter with Claude Desktop or Cursor as the client. Verify that an AI assistant can query, create, and modify PyBend entities through typed tool calls with schema validation.
+2. **Week 2:** Test the MCP adapter with Claude Desktop or Cursor as the client. Verify that an AI assistant can query, create, and modify N3TX entities through typed tool calls with schema validation.
 
 3. **Week 3:** Generate A2A Agent Card JSON from `ProtoModel.schema()` output. Publish at `/.well-known/agent.json`. Verify discovery from an external client.
 
@@ -190,7 +190,7 @@ The full report identifies 10 risks with a complete probability-impact matrix an
 
 | Phase | Success Metric | Target | Fail Criteria (Stop/Reassess) |
 |---|---|---|---|
-| Phase 0 | MCP clients querying PyBend data | 3+ internal users | Zero adoption after 2 weeks of availability |
+| Phase 0 | MCP clients querying N3TX data | 3+ internal users | Zero adoption after 2 weeks of availability |
 | Phase 1 | Task completion rate | >90% | <70% after 2 iterations of prompt tuning |
 | Phase 1 | Cost per task | <$0.15 | >$0.50 after optimization |
 | Phase 2 | Per-agent value/cost ratio | >1.5x | <1.0x after 30 days |

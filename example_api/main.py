@@ -1,4 +1,4 @@
-"""PyBend Example Application — demonstrates the framework with a simple product catalog."""
+"""N3TX Example Application — demonstrates the framework with a simple product catalog."""
 import logging
 import os
 import sys
@@ -7,8 +7,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import config
-from pybend.core.app import create_app
-from pybend.core.storage.sqlite_storage import SQLiteStorage
+from n3tx.core.app import create_app
+from n3tx.core.storage.sqlite_storage import SQLiteStorage
 from models import User, Bot, Product, Comment, Like
 
 # Configure logging for development
@@ -27,7 +27,7 @@ app = create_app(
     jwt_secret=config.JWT_SECRET,
     static_dir=os.path.join(os.path.dirname(__file__), 'static'),
     ssr="full",
-    name="PyBend Example",
+    name="N3TX Example",
     version="0.8.0",
     description="Example product catalog with comments and likes",
 )

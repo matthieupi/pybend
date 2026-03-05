@@ -1,9 +1,9 @@
 from __future__ import annotations
 from typing import ClassVar
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import AUTHENTICATED
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import AUTHENTICATED
 
 
 class WebTools(ActorModel):

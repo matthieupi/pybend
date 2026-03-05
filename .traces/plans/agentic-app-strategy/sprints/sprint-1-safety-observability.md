@@ -58,7 +58,7 @@ Three independent tasks with no cross-dependencies. Can be done in parallel or i
 
 #### A1.1: Create `example_grants/utils/security.py`
 
-This is **application code**, not framework code. SSRF prevention is specific to apps that do server-side HTTP requests. Other PyBend apps (e.g., a blog) have no scraping and need no SSRF guard.
+This is **application code**, not framework code. SSRF prevention is specific to apps that do server-side HTTP requests. Other N3TX apps (e.g., a blog) have no scraping and need no SSRF guard.
 
 ```python
 # example_grants/utils/security.py
@@ -112,7 +112,7 @@ def validate_url(url: str) -> str:
 ```
 
 **Design decisions:**
-- Lives in `example_grants/utils/`, not in `src/pybend/core/`. SSRF is an application concern, not a framework concern. A different PyBend app might have different blocked ranges or no scraping at all.
+- Lives in `example_grants/utils/`, not in `src/n3tx/core/`. SSRF is an application concern, not a framework concern. A different N3TX app might have different blocked ranges or no scraping at all.
 - DNS resolution happens at validation time, not at request time. This prevents DNS rebinding attacks where a hostname resolves to a safe IP during validation but a blocked IP during the actual request. For full protection, `httpx` would need a custom `AsyncResolver` that re-validates on redirect -- but that is a Phase 2 enhancement, not Sprint 1 scope.
 - The function raises `ValueError`, which the existing `exception_to_tx_error()` in `tx.py` maps to HTTP 400. The agent sees a clear error message and can try a different URL.
 
@@ -152,7 +152,7 @@ async def scrape(self, url: str) -> dict:
 **Problem:** Current pragmas use `busy_timeout=5000` and default `synchronous=FULL`. Agent runs can hold connections longer than 5 seconds, and WAL mode is safe with `synchronous=NORMAL` for a 2-3x write performance improvement.
 
 **Files modified:**
-- `/workspace/src/pybend/core/storage/sqlite_storage.py`
+- `/workspace/src/n3tx/core/storage/sqlite_storage.py`
 
 #### A2.1: Update `__init__()` pragmas
 
@@ -206,12 +206,12 @@ New connections created outside the init path must also get the same pragmas. WA
 **Problem:** `_route_tool_call()` in `tools.py` raises `ModelRetry` with a generic message for all error TXs (line 196). The LLM cannot distinguish between a transient timeout (retry) and a permanent 404 (stop trying). This wastes tokens on futile retries and misses recoverable errors.
 
 **Files created:**
-- `/workspace/src/pybend/core/agents/errors.py`
+- `/workspace/src/n3tx/core/agents/errors.py`
 
 **Files modified:**
-- `/workspace/src/pybend/core/agents/tools.py` (lines 194-196)
+- `/workspace/src/n3tx/core/agents/tools.py` (lines 194-196)
 
-#### A3.1: Create `src/pybend/core/agents/errors.py`
+#### A3.1: Create `src/n3tx/core/agents/errors.py`
 
 ```python
 """Error classification for agent tool calls.
@@ -221,7 +221,7 @@ to inform retry decisions. The LLM receives category-aware error messages
 that help it decide whether to retry, try a different approach, or give up.
 """
 
-from pybend.core.actors.tx import TX
+from n3tx.core.actors.tx import TX
 
 
 class AgentError(Exception):
@@ -292,7 +292,7 @@ With:
 ```python
     if response.is_error:
         from pydantic_ai import ModelRetry
-        from pybend.core.agents.errors import classify_tx_error
+        from n3tx.core.agents.errors import classify_tx_error
         error = classify_tx_error(response)
         if error.retryable:
             raise ModelRetry(
@@ -327,7 +327,7 @@ With:
 #### B1.1: Create `example_grants/models/agent_run.py`
 
 This model follows the **exact same patterns** as:
-- `AgentActor` in `/workspace/src/pybend/core/agents/actor.py` for JSON field serialization (`_JSON_FIELDS`, `_storage_dict`, `@model_validator`)
+- `AgentActor` in `/workspace/src/n3tx/core/agents/actor.py` for JSON field serialization (`_JSON_FIELDS`, `_storage_dict`, `@model_validator`)
 - `Grant` in `/workspace/example_grants/models/grant.py` for field declarations with Widget types
 - `ActorModel` base class for actor capabilities
 
@@ -347,9 +347,9 @@ from typing import ClassVar, Optional
 
 from pydantic import Field, model_validator
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.authorize import AUTHENTICATED, ROLE
-from pybend.core.widgets import DateTimeField, TextareaField, CurrencyField
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.authorize import AUTHENTICATED, ROLE
+from n3tx.core.widgets import DateTimeField, TextareaField, CurrencyField
 
 _JSON_FIELDS = ('tool_calls', 'messages')
 
@@ -503,7 +503,7 @@ This generates:
 - `GET /agent_runs` -- list all runs (paginated)
 - `GET /agent_runs/{id}` -- single run detail
 - `GET /agents/{agent_id}/agent_runs` -- runs for a specific agent (nested route via join)
-- Frontend: `<ntt-list model="AgentRun">` renders browsable run history automatically
+- Frontend: `<ntx-list model="AgentRun">` renders browsable run history automatically
 
 #### B2.2: Update test conftest.py
 
@@ -591,10 +591,10 @@ def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
 **Architectural decision:** Where does the trace interceptor live?
 
 **Options:**
-1. `src/pybend/core/agents/tracing.py` (framework code)
+1. `src/n3tx/core/agents/tracing.py` (framework code)
 2. `example_grants/agents/tracing.py` (application code)
 
-**Recommendation: Option 2 (application code).** Tracing into an AgentRun record is specific to apps that have an AgentRun model. The framework provides the hook (`use()` on NetworkAdapter); the app provides the implementation. If a second app needs tracing, we can extract a generic tracing hook into the framework later. Per PyBend philosophy: "premature abstraction adds indirection without value."
+**Recommendation: Option 2 (application code).** Tracing into an AgentRun record is specific to apps that have an AgentRun model. The framework provides the hook (`use()` on NetworkAdapter); the app provides the implementation. If a second app needs tracing, we can extract a generic tracing hook into the framework later. Per N3TX philosophy: "premature abstraction adds indirection without value."
 
 **Files created:**
 - `/workspace/example_grants/agents/tracing.py`
@@ -617,7 +617,7 @@ Usage:
 """
 
 import time
-from pybend.core.actors.tx import TX
+from n3tx.core.actors.tx import TX
 
 
 def create_trace_interceptor():
@@ -695,8 +695,8 @@ This is the most complex task. It requires:
 2. An application-level wrapper in `AgentActor.run()` to create/update AgentRun records
 
 **Files modified:**
-- `/workspace/src/pybend/core/agents/mixin.py` (framework — minimal change)
-- `/workspace/src/pybend/core/agents/actor.py` (application pattern — override `run()`)
+- `/workspace/src/n3tx/core/agents/mixin.py` (framework — minimal change)
+- `/workspace/src/n3tx/core/agents/actor.py` (application pattern — override `run()`)
 
 **Architectural decision: Where does the instrumentation logic live?**
 
@@ -706,13 +706,13 @@ This is the most complex task. It requires:
 
 **Recommendation: Both, minimally.**
 - `mixin.py` gets a **callback hook** for trace interceptor registration (2 lines) and returns `all_messages()` in the result dict.
-- `AgentActor.run()` in `/workspace/src/pybend/core/agents/actor.py` gets the instrumentation wrapper that creates/updates AgentRun records.
+- `AgentActor.run()` in `/workspace/src/n3tx/core/agents/actor.py` gets the instrumentation wrapper that creates/updates AgentRun records.
 
-Since `AgentActor` is currently framework code (lives in `src/pybend/core/agents/`), and the instrumentation is tightly coupled to the agent execution flow, the recording logic lives in the `run()` method override. If `AgentActor` is eventually moved to example_grants, the instrumentation moves with it.
+Since `AgentActor` is currently framework code (lives in `src/n3tx/core/agents/`), and the instrumentation is tightly coupled to the agent execution flow, the recording logic lives in the `run()` method override. If `AgentActor` is eventually moved to example_grants, the instrumentation moves with it.
 
 #### C3.1: Modify `mixin.py` — Add trace hook and richer return
 
-**Exact changes to `/workspace/src/pybend/core/agents/mixin.py`:**
+**Exact changes to `/workspace/src/n3tx/core/agents/mixin.py`:**
 
 1. Add `on_adapter_created` callback parameter to `agent_run()`:
 
@@ -798,7 +798,7 @@ Since `AgentActor` is currently framework code (lives in `src/pybend/core/agents
 
 #### C3.2: Modify `AgentActor.run()` — Add instrumented recording
 
-**Exact changes to `/workspace/src/pybend/core/agents/actor.py`:**
+**Exact changes to `/workspace/src/n3tx/core/agents/actor.py`:**
 
 The existing `run()` method (lines 138-156) currently calls `agent_run()` and returns the raw JSON result. We wrap it with AgentRun record creation.
 
@@ -851,7 +851,7 @@ async def run(self, task: str, **kwargs) -> str:
     run_record = None
     tool_traces = None
     try:
-        from pybend.core.utils.registrar import registered_models
+        from n3tx.core.utils.registrar import registered_models
         agent_run_cls = registered_models.get('agent_runs')
         if agent_run_cls:
             run_record = agent_run_cls(
@@ -950,7 +950,7 @@ async def run(self, task: str, **kwargs) -> str:
 **Design decisions:**
 - **Graceful degradation.** If `AgentRun` is not registered (model not in `registered_models`), the run proceeds without recording. If the tracing module is not importable, the run proceeds without tracing. If the AgentRun create/update fails, the agent run still completes. Recording is best-effort; it must never break the primary execution path.
 - **Lookup via `registered_models`** instead of direct import. This avoids a hard dependency on the `AgentRun` class existing. Framework code (`actor.py`) should not import application code (`example_grants/models/agent_run.py`). The `registered_models` dict is the standard way to discover models at runtime.
-- **Import `agents.tracing` inside the closure.** This is an application-level module that lives in `example_grants/agents/`. It is importable because `example_grants/` is on `sys.path` when running the Grant Watcher app. Other PyBend apps that don't have an `agents/tracing.py` get a graceful `ImportError` skip.
+- **Import `agents.tracing` inside the closure.** This is an application-level module that lives in `example_grants/agents/`. It is importable because `example_grants/` is on `sys.path` when running the Grant Watcher app. Other N3TX apps that don't have an `agents/tracing.py` get a graceful `ImportError` skip.
 - **`run_id` in response.** The response now includes the AgentRun record ID so the caller can immediately fetch the full record via `GET /agent_runs/{run_id}`.
 - **Truncation.** `task` truncated to 5000 chars, `answer` to 50000, `error` to 5000. Prevents unbounded storage from adversarial inputs.
 
@@ -1130,7 +1130,7 @@ These can be added to an existing test file or a new `test_sqlite_pragmas.py`. T
    - `example_grants/agents/pricing.py` - Cost estimation: static pricing table + estimate_cost()
    - `example_grants/agents/tracing.py` - Tool call trace interceptor factory
    - `example_grants/utils/security.py` - SSRF prevention: URL validation for server-side requests
-   - `src/pybend/core/agents/errors.py` - Error classification: transient/permanent/resource
+   - `src/n3tx/core/agents/errors.py` - Error classification: transient/permanent/resource
    ```
 
 2. Add to "Key Patterns" section:
@@ -1155,7 +1155,7 @@ These can be added to an existing test file or a new `test_sqlite_pragmas.py`. T
 | `example_grants/agents/pricing.py` | App | Cost estimation |
 | `example_grants/agents/tracing.py` | App | Trace interceptor factory |
 | `example_grants/models/agent_run.py` | App | AgentRun model |
-| `src/pybend/core/agents/errors.py` | Framework | Error classification |
+| `src/n3tx/core/agents/errors.py` | Framework | Error classification |
 | `example_grants/tests/test_agent_run_observability.py` | Tests | Integration tests |
 
 ### Modified Files (7)
@@ -1166,14 +1166,14 @@ These can be added to an existing test file or a new `test_sqlite_pragmas.py`. T
 | `example_grants/models/__init__.py` | App | +2 lines (import + export AgentRun) |
 | `example_grants/main.py` | App | +2 lines (import AgentRun, add join model) |
 | `example_grants/tests/conftest.py` | Tests | +1 line (import AgentRun) |
-| `src/pybend/core/storage/sqlite_storage.py` | Framework | +4 lines (pragma changes in 2 locations) |
-| `src/pybend/core/agents/tools.py` | Framework | ~8 lines (error classification in _route_tool_call) |
-| `src/pybend/core/agents/mixin.py` | Framework | ~20 lines (on_adapter_created hook, message_history, _serialize_messages) |
-| `src/pybend/core/agents/actor.py` | Framework | ~60 lines (instrumented run() method) |
+| `src/n3tx/core/storage/sqlite_storage.py` | Framework | +4 lines (pragma changes in 2 locations) |
+| `src/n3tx/core/agents/tools.py` | Framework | ~8 lines (error classification in _route_tool_call) |
+| `src/n3tx/core/agents/mixin.py` | Framework | ~20 lines (on_adapter_created hook, message_history, _serialize_messages) |
+| `src/n3tx/core/agents/actor.py` | Framework | ~60 lines (instrumented run() method) |
 
 ### Framework vs. Application Split
 
-| Area | Framework (src/pybend/core/) | Application (example_grants/) |
+| Area | Framework (src/n3tx/core/) | Application (example_grants/) |
 |------|------------------------------|-------------------------------|
 | SSRF prevention | 0 files | 1 file (security.py) |
 | SQLite pragmas | 1 file (sqlite_storage.py, 4 lines) | 0 files |
@@ -1184,7 +1184,7 @@ These can be added to an existing test file or a new `test_sqlite_pragmas.py`. T
 | Instrumentation | 2 files (mixin.py ~20 LOC, actor.py ~60 LOC) | 0 files |
 | **Total new LOC** | **~140 LOC** | **~350 LOC** |
 
-This split is consistent with PyBend's philosophy: the framework provides primitives (hooks, error types, richer return data), the application provides implementation (what to record, how to trace, what counts as safe).
+This split is consistent with N3TX's philosophy: the framework provides primitives (hooks, error types, richer return data), the application provides implementation (what to record, how to trace, what counts as safe).
 
 ---
 

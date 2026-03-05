@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-25
 **Audience:** Technical CEO + Engineering Team
-**Scope:** Architecture, implementation patterns, and deployment strategies for generating a zero-runtime static site from PyBend model definitions and database content.
+**Scope:** Architecture, implementation patterns, and deployment strategies for generating a zero-runtime static site from N3TX model definitions and database content.
 
 ---
 
@@ -18,7 +18,7 @@
 8. [Output Structure and URL Conventions](#8-output-structure-and-url-conventions)
 9. [Deployment Targets](#9-deployment-targets)
 10. [Performance Baselines](#10-performance-baselines)
-11. [Architecture Recommendation for PyBend](#11-architecture-recommendation-for-pybend)
+11. [Architecture Recommendation for N3TX](#11-architecture-recommendation-for-n3tx)
 12. [Sources](#sources)
 
 ---
@@ -56,7 +56,7 @@ Rendered HTML is written to disk. Assets (CSS, images, fonts) are copied or proc
 
 The output directory is uploaded to a hosting target. Because files are static, any HTTP server works. No runtime, no database, no application server.
 
-**Key insight for PyBend:** Phases 1 and 2 are where the work lies. PyBend already has Phase 1 solved -- `StorableMixin.list()` returns all entities, and `ProtoModel.schema()` returns the complete JSON Schema. The challenge is Phase 2: converting schema + data into HTML without hand-written templates.
+**Key insight for N3TX:** Phases 1 and 2 are where the work lies. N3TX already has Phase 1 solved -- `StorableMixin.list()` returns all entities, and `ProtoModel.schema()` returns the complete JSON Schema. The challenge is Phase 2: converting schema + data into HTML without hand-written templates.
 
 ---
 
@@ -75,7 +75,7 @@ The output directory is uploaded to a hosting target. Because files are static, 
 
 ### Frozen-Flask: The Closest Analogy
 
-Frozen-Flask is architecturally the closest to what PyBend needs. It works by simulating WSGI requests against a running Flask application and writing the responses to files:
+Frozen-Flask is architecturally the closest to what N3TX needs. It works by simulating WSGI requests against a running Flask application and writing the responses to files:
 
 ```python
 from flask_frozen import Freezer
@@ -98,11 +98,11 @@ freezer.freeze()  # -> build/products/1/index.html, build/products/2/index.html,
 3. Makes internal WSGI requests (no network) for each URL
 4. Writes response body to `build/{path}/index.html`
 
-**Limitation for PyBend:** Frozen-Flask assumes you already have Flask routes that return rendered HTML. PyBend's routes return JSON. The generation layer must sit between the data layer and the output -- it must *consume* the schema and data, not *freeze* existing HTML routes.
+**Limitation for N3TX:** Frozen-Flask assumes you already have Flask routes that return rendered HTML. N3TX's routes return JSON. The generation layer must sit between the data layer and the output -- it must *consume* the schema and data, not *freeze* existing HTML routes.
 
 ### Custom Jinja2 Pipeline: The Right Approach
 
-For PyBend, a custom Jinja2 pipeline provides full control over the schema-to-HTML transformation:
+For N3TX, a custom Jinja2 pipeline provides full control over the schema-to-HTML transformation:
 
 ```python
 from jinja2 import Environment, FileSystemLoader
@@ -132,7 +132,7 @@ This is simple, but it still requires hand-written templates. The next section e
 
 ## 3. Schema-to-HTML: Template-Free Rendering from JSON Schema
 
-This is the core technical challenge and the highest-leverage capability. PyBend's JSON Schema carries everything the frontend needs: field types, UI hints, display order, groups, access rules, method signatures. A static generator should consume this schema identically to how `form.js` consumes it at runtime -- but emit static HTML instead of DOM mutations.
+This is the core technical challenge and the highest-leverage capability. N3TX's JSON Schema carries everything the frontend needs: field types, UI hints, display order, groups, access rules, method signatures. A static generator should consume this schema identically to how `form.js` consumes it at runtime -- but emit static HTML instead of DOM mutations.
 
 ### Architecture: Schema-Driven HTML Emitter
 
@@ -219,7 +219,7 @@ def render_entity(schema: dict, data: dict, mode='display') -> str:
 
 ### Grouped Field Rendering
 
-PyBend schemas support `ui.groups` for organizing fields into fieldsets. The static renderer replicates this:
+N3TX schemas support `ui.groups` for organizing fields into fieldsets. The static renderer replicates this:
 
 ```python
 def render_grouped(schema, data, groups, field_order, mode):
@@ -255,7 +255,7 @@ def render_grouped(schema, data, groups, field_order, mode):
 
 ### Handling $defs (Nested Models)
 
-PyBend schemas include `$defs` for related models (e.g., `Comment` inside `Product`). The static renderer recursively applies the same algorithm:
+N3TX schemas include `$defs` for related models (e.g., `Comment` inside `Product`). The static renderer recursively applies the same algorithm:
 
 ```python
 def render_ref_list(field_name, hrefs, parent_schema):
@@ -278,7 +278,7 @@ def render_ref_list(field_name, hrefs, parent_schema):
 
 ### Why This Is Powerful
 
-The static renderer and the runtime frontend (`form.js`, `ntt-item.js`) share the same contract: the JSON Schema. This means:
+The static renderer and the runtime frontend (`form.js`, `ntx-item.js`) share the same contract: the JSON Schema. This means:
 
 1. **Zero template maintenance.** Adding a field to a model updates both the live UI and the static site.
 2. **Pixel-identical output.** The same rendering rules produce the same visual structure.
@@ -290,14 +290,14 @@ The static renderer and the runtime frontend (`form.js`, `ntt-item.js`) share th
 
 ### Strategy 1: Extract Component Styles into Static Sheets
 
-PyBend's frontend components (`ntt-item`, `ntt-list`, etc.) use shadow DOM with inline styles. For static generation, these styles are extracted into a single CSS file:
+N3TX's frontend components (`ntx-item`, `ntx-list`, etc.) use shadow DOM with inline styles. For static generation, these styles are extracted into a single CSS file:
 
 ```css
-/* Generated from ntt-item.js shadow styles */
-.ntt-item { display: block; padding: 1rem; border: 1px solid var(--border); }
-.ntt-item .field { margin-bottom: 0.5rem; }
-.ntt-item .field.currency::before { content: '$'; }
-.ntt-item .header { font-size: 1.25rem; font-weight: 600; }
+/* Generated from ntx-item.js shadow styles */
+.ntx-item { display: block; padding: 1rem; border: 1px solid var(--border); }
+.ntx-item .field { margin-bottom: 0.5rem; }
+.ntx-item .field.currency::before { content: '$'; }
+.ntx-item .header { font-size: 1.25rem; font-weight: 600; }
 
 /* Generated from form.js field type styles */
 .field-group { border: 1px solid var(--group-border); padding: 1rem; margin: 1rem 0; }
@@ -316,8 +316,8 @@ For maximum performance, inline above-the-fold CSS directly into each HTML file'
     :root { --bg: #fff; --text: #111; --border: #e0e0e0; --accent: #2563eb; }
     body { font-family: system-ui, sans-serif; margin: 0; color: var(--text); }
     .page { max-width: 72rem; margin: 0 auto; padding: 1rem; }
-    .ntt-list { display: grid; gap: 1rem; }
-    .ntt-item { padding: 1rem; border: 1px solid var(--border); border-radius: 0.5rem; }
+    .ntx-list { display: grid; gap: 1rem; }
+    .ntx-item { padding: 1rem; border: 1px solid var(--border); border-radius: 0.5rem; }
     /* ... first-screen styles only ... */
   </style>
   <!-- Defer non-critical styles -->
@@ -555,7 +555,7 @@ document.querySelectorAll('[data-copy]').forEach(btn => {
 
 ### Decision Framework
 
-For each feature in a PyBend static site, apply this test:
+For each feature in a N3TX static site, apply this test:
 
 ```
 1. Can it be a link to another pre-generated page?          -> Tier 0 (pure HTML)
@@ -564,18 +564,18 @@ For each feature in a PyBend static site, apply this test:
 4. Does it require persistent client-side state?            -> Tier 3 (full JS)
 ```
 
-### Applying This to PyBend Entity Pages
+### Applying This to N3TX Entity Pages
 
-| Feature | Current (NTT.js) | Static Tier | Approach |
+| Feature | Current (N3TX.js) | Static Tier | Approach |
 |---------|------------------|-------------|----------|
 | Entity list display | JS fetch + DOM render | Tier 0 | Pre-generated HTML list page |
-| Entity detail view | JS fetch + ntt-item render | Tier 0 | Pre-generated HTML detail page |
+| Entity detail view | JS fetch + ntx-item render | Tier 0 | Pre-generated HTML detail page |
 | Field rendering | form.js schema walk | Tier 0 | Build-time schema walk (Python) |
 | Field groups | form.js renderGroupedFields | Tier 1 | `<details>` or `<fieldset>` |
 | Pagination | JS "Load More" button | Tier 0 | Pre-generated page-1.html, page-2.html, ... with `<a>` links |
-| Navigation | ntt-router hash routing | Tier 0 | Standard `<a>` links between pages |
-| Edit form | ntt-item edit toggle | Tier 2 | Progressive: static display, JS for edit |
-| Method buttons (like, comment) | ntt-method POST | Tier 2 | `<form action="..." method="POST">` or JS fetch |
+| Navigation | ntx-router hash routing | Tier 0 | Standard `<a>` links between pages |
+| Edit form | ntx-item edit toggle | Tier 2 | Progressive: static display, JS for edit |
+| Method buttons (like, comment) | ntx-method POST | Tier 2 | `<form action="..." method="POST">` or JS fetch |
 | Search | Not implemented | Tier 2 | Pagefind (pre-indexed at build time) |
 | Dark mode | Theme.js | Tier 1 | `:checked` toggle + CSS custom properties |
 | Access control (hide buttons) | Permissions.js | Tier 0 | Build-time: generate different pages per role, or omit restricted content |
@@ -588,7 +588,7 @@ For each feature in a PyBend static site, apply this test:
 
 ```
                     +------------------+
-                    | PyBend Models    |
+                    | N3TX Models    |
                     | (Python classes) |
                     +--------+---------+
                              |
@@ -648,7 +648,7 @@ from html import escape
 from jinja2 import Environment, DictLoader
 
 class StaticBuilder:
-    """Generates a static site from PyBend model definitions and data.
+    """Generates a static site from N3TX model definitions and data.
 
     Uses JSON Schema as the sole rendering contract -- no hand-written
     templates for entity pages. Base layout uses a single Jinja2 template
@@ -825,9 +825,9 @@ build/
   404.html
 ```
 
-### URL Mapping to PyBend API
+### URL Mapping to N3TX API
 
-| PyBend API Route | Static File | Clean URL |
+| N3TX API Route | Static File | Clean URL |
 |-----------------|-------------|-----------|
 | `GET /Product` (schema) | `products/schema/index.html` | `/products/schema/` |
 | `GET /products` (list) | `products/index.html` | `/products/` |
@@ -881,7 +881,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -e .
-      - run: python -m pybend.static_builder --output build/
+      - run: python -m n3tx.static_builder --output build/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/
@@ -896,7 +896,7 @@ jobs:
 bucket = "./build"
 
 [build]
-command = "python -m pybend.static_builder --output build/"
+command = "python -m n3tx.static_builder --output build/"
 ```
 
 #### S3 + CloudFront
@@ -971,9 +971,9 @@ A properly built static site served from a CDN should hit these targets consiste
 | **Total page weight** | < 50KB (HTML + CSS) | No framework JS bundle. Just content + styles. |
 | **Time to Interactive** | = FCP | No hydration step. Page is interactive on first paint. |
 
-### Comparison: Static vs Dynamic PyBend
+### Comparison: Static vs Dynamic N3TX
 
-| Metric | Dynamic PyBend (current) | Static PyBend (target) | Improvement |
+| Metric | Dynamic N3TX (current) | Static N3TX (target) | Improvement |
 |--------|-------------------------|----------------------|-------------|
 | TTFB | 200-500ms (server compute) | 20-80ms (CDN edge) | 3-10x faster |
 | FCP | 1-2s (fetch schema, render) | 300-500ms (inline CSS, no JS) | 2-4x faster |
@@ -991,19 +991,19 @@ A properly built static site served from a CDN should hit these targets consiste
 
 ---
 
-## 11. Architecture Recommendation for PyBend
+## 11. Architecture Recommendation for N3TX
 
-### Proposed Module: `pybend.static`
+### Proposed Module: `n3tx.static`
 
 ```
-src/pybend/static_gen/
+src/n3tx/static_gen/
     __init__.py              # Public API: StaticBuilder, build_site()
     builder.py               # Core StaticBuilder class
     renderer.py              # Schema-to-HTML rendering (mirrors form.js logic)
     css.py                   # CSS extraction, critical CSS splitting
     assets.py                # Asset copying, fingerprinting, manifest
     sitemap.py               # sitemap.xml generation
-    cli.py                   # CLI entry point: python -m pybend.static_gen
+    cli.py                   # CLI entry point: python -m n3tx.static_gen
     templates/
         base.html            # Single Jinja2 shell (head, nav, footer)
         404.html             # Error page
@@ -1012,10 +1012,10 @@ src/pybend/static_gen/
 ### Integration Point: One Command
 
 ```python
-# In pybend/__init__.py or as a CLI command
-from pybend.static_gen import build_site
+# In n3tx/__init__.py or as a CLI command
+from n3tx.static_gen import build_site
 
-# Build static site from existing PyBend app
+# Build static site from existing N3TX app
 build_site(
     models=[Product, User, Comment],
     storage=storage_backend,
@@ -1033,8 +1033,8 @@ build_site(
 Or from the CLI:
 
 ```bash
-python -m pybend.static_gen \
-    --app pybend.example.main \
+python -m n3tx.static_gen \
+    --app n3tx.example.main \
     --output build/ \
     --base-url https://example.com
 ```
@@ -1049,8 +1049,8 @@ The static generator does not replace the dynamic application. It is a **build-t
             +------------+------------+
             |                         |
       Runtime Consumer          Build-time Consumer
-      (NTT.js, form.js,        (StaticBuilder,
-       ntt-item.js)              renderer.py)
+      (N3TX.js, form.js,        (StaticBuilder,
+       ntx-item.js)              renderer.py)
             |                         |
             v                         v
       Dynamic SPA               Static HTML
@@ -1069,7 +1069,7 @@ The schema is the template. The model is the app. The static generator is just a
 
 ### Build Performance Estimates
 
-For a PyBend application with typical data volumes:
+For a N3TX application with typical data volumes:
 
 | Data Volume | Estimated Build Time | Output Size |
 |------------|---------------------|-------------|

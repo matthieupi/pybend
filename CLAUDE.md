@@ -1,8 +1,8 @@
-# PyBend Project Guide
+# N3TX Project Guide
 
 ## Philosophy
 
-PyBend absorbs the data plumbing — storage, fetching, state, serialization — so developers focus on what makes their app unique. Define a model, get an API, a schema, a working UI.
+N3TX absorbs the data plumbing — storage, fetching, state, serialization — so developers focus on what makes their app unique. Define a model, get an API, a schema, a working UI.
 
 **The model is the app.** A Python model definition is the single source of truth for the entire stack — data structure, validation, API endpoints, JSON Schema, access control, UI rendering. The framework derives everything else; if the schema can carry it, the developer shouldn't repeat it.
 
@@ -14,7 +14,7 @@ PyBend absorbs the data plumbing — storage, fetching, state, serialization —
 
 **Transparent, not magical.** Nothing is hidden behind opaque abstractions. Actor messaging, schema resolution, DynamicClass creation — all inspectable, all overridable. The value is in not making you do it by hand, not in hiding it. A developer should trace any behavior from HTML tag to network request in under a minute.
 
-**Modular where it simplifies, coupled where it must.** Real boundaries get enforced — the `authorize` package has zero PyBend imports, StorableMixin is injected not inherited, the Actor system knows nothing about HTML. But don't split genuinely single concerns for modularity's sake. The test: does this boundary make code easier to read, test, or replace one side? If it just adds a hop, keep it together.
+**Modular where it simplifies, coupled where it must.** Real boundaries get enforced — the `authorize` package has zero N3TX imports, StorableMixin is injected not inherited, the Actor system knows nothing about HTML. But don't split genuinely single concerns for modularity's sake. The test: does this boundary make code easier to read, test, or replace one side? If it just adds a hop, keep it together.
 
 ---
 
@@ -23,7 +23,7 @@ PyBend absorbs the data plumbing — storage, fetching, state, serialization —
 Before starting ANY implementation task, you MUST read the appropriate sub-document(s):
 
 - **Backend work** (Python, models, storage, API, auth): Read `claude-back.md` in this directory
-- **Frontend work** (JS, Web Components, NTT, UI): Read `claude-front.md` in this directory
+- **Frontend work** (JS, Web Components, N3TX, UI): Read `claude-front.md` in this directory
 - **Full-stack work** (changes spanning both): Read BOTH files
 
 This is not optional. Do not begin writing code without first loading the relevant context file(s). These files contain key file locations, patterns, and conventions that you must follow.
@@ -36,7 +36,7 @@ This is not optional. Do not begin writing code without first loading the releva
 
 Before writing any code, review the area you are about to change. Understand the intent behind the existing implementation — why it was built this way, what patterns it follows, and how it fits into the larger system. Changes must be consistent with the architecture already in place. Do not work around the framework; work with it.
 
-**Consistency is paramount.** PyBend's power comes from a small number of patterns applied uniformly across the entire stack. A single inconsistency — a hand-rolled route bypassing `register_routes()`, a frontend component fetching data outside the schema flow, a model that stores data differently from every other model — creates confusion, breaks assumptions, and compounds into real bugs over time. Every change should reinforce the existing architecture, not erode it. When in doubt, look at how the same thing is done elsewhere in the codebase and follow that pattern.
+**Consistency is paramount.** N3TX's power comes from a small number of patterns applied uniformly across the entire stack. A single inconsistency — a hand-rolled route bypassing `register_routes()`, a frontend component fetching data outside the schema flow, a model that stores data differently from every other model — creates confusion, breaks assumptions, and compounds into real bugs over time. Every change should reinforce the existing architecture, not erode it. When in doubt, look at how the same thing is done elsewhere in the codebase and follow that pattern.
 
 ### Bug Fixes
 
@@ -68,7 +68,7 @@ Beyond standard analysis (reproduce, isolate, fix, verify), always ask **why** t
 
 ## Architecture Overview
 
-PyBend is a schema-driven framework where **model definitions are the single source of truth**. Models flow through: Model Definition → JSON Schema → API Routes → Frontend Rendering.
+N3TX is a schema-driven framework where **model definitions are the single source of truth**. Models flow through: Model Definition → JSON Schema → API Routes → Frontend Rendering.
 
 ### Three Levels of Bootstrapping
 
@@ -76,8 +76,8 @@ PyBend is a schema-driven framework where **model definitions are the single sou
 # Level 1 — One-liner via create_app():
 app = create_app(models=[Product, User], storage="sqlite:///app.db")
 
-# Level 2 — Builder via PyBendApp:
-pb = PyBendApp(storage="sqlite:///app.db")
+# Level 2 — Builder via N3TXApp:
+pb = N3TXApp(storage="sqlite:///app.db")
 pb.model(Product).model(User).join(Product, Comment)
 app = pb.build()
 
@@ -94,16 +94,16 @@ Models extend `ProtoModel` (or `ActorModel` for actor capabilities). `ProtoModel
 
 ### Frontend (Vanilla JS Web Components)
 
-The frontend bootstraps by fetching schema from the backend. `NTT.SCHEMA()` creates DynamicClasses via `prototype()`, which are then rendered by Web Components (`ntt-list`, `ntt-item`, `ntt-element`, `ntt-method`) with forms generated by `Formidable`. See `claude-front.md` for the frontend architecture diagram and key files.
+The frontend bootstraps by fetching schema from the backend. `N3TX.SCHEMA()` creates DynamicClasses via `prototype()`, which are then rendered by Web Components (`ntx-list`, `ntx-item`, `ntx-element`, `ntx-method`) with forms generated by `Formidable`. See `claude-front.md` for the frontend architecture diagram and key files.
 
 ### Data Flow: Request Lifecycle
 
-1. Frontend `<ntt-list model="Product">` triggers schema fetch → `GET /Product`
+1. Frontend `<ntx-list model="Product">` triggers schema fetch → `GET /Product`
 2. Backend returns JSON Schema with `$schema`, `$id`, `properties`, `$defs`, `methods`
 3. Frontend creates DynamicClass from schema, registers nested `$defs` models
 4. DynamicClass triggers `READ` → `GET /products?limit=20&offset=0` (paginated)
 5. Backend returns `{data: [...], meta: {total, limit, offset, has_more}}` with `$schema`/`$id` on each item
-6. Frontend creates instances, renders via `ntt-item` components with "Load More" button if `has_more`
+6. Frontend creates instances, renders via `ntx-item` components with "Load More" button if `has_more`
 
 ## Schema-Driven Development
 
@@ -118,7 +118,7 @@ class Product(ProtoModel):
     __ui__ = {
         'field_order': ['name', 'price', 'description', 'comments'],
         'groups': {'main': ['name', 'description', 'price'], 'Social': ['comments']},
-        'renderer': {'item': 'ntt-item', 'list': 'ntt-list'},
+        'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
     }
     __access__ = {
         'read': ANYONE, 'create': AUTHENTICATED,
@@ -150,19 +150,19 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 | DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
 | FK hydration (href arrays) | `ListRef[T]` fields, `__fk_models__` | `sqlite_storage.py` on read |
 | Access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth injection |
-| Frontend entity classes | Schema properties, methods | `NTT.SCHEMA()` → `prototype()` → DynamicClass |
+| Frontend entity classes | Schema properties, methods | `N3TX.SCHEMA()` → `prototype()` → DynamicClass |
 | Form rendering | `properties`, `ui.widget`, `ui.placeholder` | `Formidable.getForm()` reads schema |
 | Field order + grouping | `ui.field_order`, `ui.groups` | `form.js` renders fieldsets |
 | Show/hide fields | `ui.display`, field-level `access` | `form.js` + `Permissions.js` |
 | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update; `form.js` hides in edit mode |
-| Edit button visibility | `access.update` + resource OWNER check | `ntt-item.js` checks `permissions.canAction(access, 'update', value)` |
-| Delete button visibility | `access.delete` + resource OWNER check | `ntt-item.js` checks `permissions.canAction(access, 'delete', value)` |
+| Edit button visibility | `access.update` + resource OWNER check | `ntx-item.js` checks `permissions.canAction(access, 'update', value)` |
+| Delete button visibility | `access.delete` + resource OWNER check | `ntx-item.js` checks `permissions.canAction(access, 'delete', value)` |
 | $defs access rules | Referenced model `__access__` | `proto_schema.access()` injects into `$defs` entries |
 | Pagination (list endpoints) | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
 | Authenticated user injection | `user: User` param on `@expose_route` methods | `_resolve_user()` in `routes_fastapi.py` |
-| Method buttons | `schema.methods` | `<ntt-method>` reads method signatures |
-| Component tag resolution | `ui.renderer.item`, `ui.renderer.detail` | `ntt-router.js` resolves tags for navigation |
-| Adaptive display sizes | Schema properties, field order | `ntt-item.js` size methods (xs/sm/md/lg/xl) |
+| Method buttons | `schema.methods` | `<ntx-method>` reads method signatures |
+| Component tag resolution | `ui.renderer.item`, `ui.renderer.detail` | `ntx-router.js` resolves tags for navigation |
+| Adaptive display sizes | Schema properties, field order | `ntx-item.js` size methods (xs/sm/md/lg/xl) |
 
 ### Development Workflow
 
@@ -182,25 +182,25 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 ## Key Files (Cross-Cutting)
 
 ### Actor System (v0.8)
-- `src/pybend/core/actors/actor.py` - Base actor class with unified class/instance dispatch via `actormethod`/`actorproperty` descriptors and `ActorMeta` metaclass. Addr, children, parent, inbox, handler, send, register, spawn, `use()` interceptors. Auto-registers with Matrix via metaclass.
-- `src/pybend/core/actors/matrix.py` - Root actor and message router. `has()`, self-send guard, adapter delegation, interceptor support. Module-level `matrix` instance created at import.
-- `src/pybend/core/actors/tx.py` - TX message envelope (dataclass): name, source, target, data, meta, timestamp, uuid. `reply()` swaps source/target with new uuid. `error()` creates ERROR TX. `is_error` property.
-- `src/pybend/core/actors/actor_proxy.py` - `ActorProxy` wrapper: gives any class or instance the actor interface (inbox/handler/send/register/spawn) without inheritance. Used when full Actor MI is not desired.
-- `src/pybend/core/actors/__init__.py` - Re-exports `TX`, `Actor`, `Matrix`, `matrix`
+- `src/n3tx/core/actors/actor.py` - Base actor class with unified class/instance dispatch via `actormethod`/`actorproperty` descriptors and `ActorMeta` metaclass. Addr, children, parent, inbox, handler, send, register, spawn, `use()` interceptors. Auto-registers with Matrix via metaclass.
+- `src/n3tx/core/actors/matrix.py` - Root actor and message router. `has()`, self-send guard, adapter delegation, interceptor support. Module-level `matrix` instance created at import.
+- `src/n3tx/core/actors/tx.py` - TX message envelope (dataclass): name, source, target, data, meta, timestamp, uuid. `reply()` swaps source/target with new uuid. `error()` creates ERROR TX. `is_error` property.
+- `src/n3tx/core/actors/actor_proxy.py` - `ActorProxy` wrapper: gives any class or instance the actor interface (inbox/handler/send/register/spawn) without inheritance. Used when full Actor MI is not desired.
+- `src/n3tx/core/actors/__init__.py` - Re-exports `TX`, `Actor`, `Matrix`, `matrix`
 
 ### Example Applications
 - `example_api/` - Level 1/2 example (direct routes, `create_app()`)
 - `example_actor/` - Level 3 example (actor routing, `routing='actor'`)
 - `example_grants/` - Agents example (grants domain, agent CRUD + tool discovery)
-- `src/pybend/example/` - Legacy example app (may delegate to above)
+- `src/n3tx/example/` - Legacy example app (may delegate to above)
 
 ### Documentation
-- `src/pybend/docs/` - Handwritten API docs + auto-generated model docs
-- `src/pybend/static/docs/` - Frontend component/architecture docs
-- `src/pybend/core/utils/generate_docs.py` - Auto-doc generator (runs on startup)
+- `src/n3tx/docs/` - Handwritten API docs + auto-generated model docs
+- `src/n3tx/static/docs/` - Frontend component/architecture docs
+- `src/n3tx/core/utils/generate_docs.py` - Auto-doc generator (runs on startup)
 
 ### Tests
-- `src/pybend/core/tests/unit/` - Framework unit tests (models, storage, auth, routes, etc.)
+- `src/n3tx/core/tests/unit/` - Framework unit tests (models, storage, auth, routes, etc.)
 - `example_api/tests/` - Integration tests: CRUD, auth flow, pagination, FK hydration, etc. (Level 1/2)
 - `example_actor/tests/` - Integration tests: same coverage as example_api but with actor routing (Level 3)
 - `example_grants/tests/` - Integration tests: agents, grants, sources, e2e navigation
@@ -213,7 +213,7 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 def like(self) -> str:
     ...
 ```
-Appears in schema under `methods`, frontend renders via `<ntt-method>`. The `access=` parameter controls authorization (optional, defaults to model's `__access__` or `AUTHENTICATED`).
+Appears in schema under `methods`, frontend renders via `<ntx-method>`. The `access=` parameter controls authorization (optional, defaults to model's `__access__` or `AUTHENTICATED`).
 
 ### Authenticated User Injection
 Custom methods can receive the authenticated user by declaring a `user` parameter:
@@ -223,7 +223,7 @@ def comment(self, comment: Comment, user: User = None) -> str:
     comment.user_owner = user.id if user else 1
     ...
 ```
-The route layer's `_resolve_user()` bridge resolves the type hint: if it's a `StorableMixin` subclass (e.g., `User`), it fetches the full model instance via `.get(user_id)`. Otherwise it passes the raw JWT dict. The `user` param is never read from the request body — it's injected server-side from the JWT token. This maintains the auth/model boundary: the `authorize` package stays standalone (zero PyBend imports).
+The route layer's `_resolve_user()` bridge resolves the type hint: if it's a `StorableMixin` subclass (e.g., `User`), it fetches the full model instance via `.get(user_id)`. Otherwise it passes the raw JWT dict. The `user` param is never read from the request body — it's injected server-side from the JWT token. This maintains the auth/model boundary: the `authorize` package stays standalone (zero N3TX imports).
 
 ### Actor System (v0.8)
 The backend actor system mirrors the frontend's Actor/Matrix/TX pattern. Everything works identically on classes and instances via two custom descriptors.
@@ -265,7 +265,7 @@ The backend actor system mirrors the frontend's Actor/Matrix/TX pattern. Everyth
 Models that need actor capabilities (messaging, lifecycle events) extend `ActorModel` instead of `ProtoModel`:
 
 ```python
-from pybend.core.models.actor_model import ActorModel
+from n3tx.core.models.actor_model import ActorModel
 
 class Product(ActorModel):
     __tablename__ = 'products'
@@ -305,7 +305,7 @@ async def reject_all(tx: TX) -> TX:
 
 Class + instance interceptors combine (class first). `_get_interceptors(target, method_name)` returns the combined chain. `_run_interceptors(interceptors, tx)` runs FIFO, stops on `is_error`.
 
-### Three Levels of PyBend
+### Three Levels of N3TX
 ```python
 # Level 1 — ProtoModel + direct routes (no actors)
 app = create_app(models=[Product], storage="sqlite:///app.db")
@@ -328,26 +328,26 @@ When `routing='actor'`, authorization is split:
 Level 1/2 use `routes_fastapi.py`'s single-pass `_resolver.authorize(ctx)` — unchanged.
 
 ### Widget Pattern (Overview)
-Widget fields map Python types to specialized frontend renderers. The `Widget` class hierarchy serves as both a type annotation and a metadata carrier. The `widget` schema pipeline stage (registered `before='ui'`) injects `ui.widget` + `ui.config` into JSON Schema properties. On the frontend, `form.js` and `ntt-item.js` dispatch to registered JS Widget instances (`getWidgetForField()`) before falling through to type-based rendering. See `claude-back.md` for Python widget details and `claude-front.md` for JS widget details.
+Widget fields map Python types to specialized frontend renderers. The `Widget` class hierarchy serves as both a type annotation and a metadata carrier. The `widget` schema pipeline stage (registered `before='ui'`) injects `ui.widget` + `ui.config` into JSON Schema properties. On the frontend, `form.js` and `ntx-item.js` dispatch to registered JS Widget instances (`getWidgetForField()`) before falling through to type-based rendering. See `claude-back.md` for Python widget details and `claude-front.md` for JS widget details.
 
 ## Directives
 
 ### Documentation Updates
 After completing any set of implementation tasks, ALWAYS update the relevant documentation:
-1. **Auto-generated docs**: Run the server or call `generate_docs()` to refresh `src/pybend/docs/{model}.md`
-2. **Handwritten API docs** (`src/pybend/docs/`): Update response examples, endpoint docs, and architecture descriptions
-3. **Frontend docs** (`src/pybend/static/docs/`): Update component docs if frontend behavior changed
+1. **Auto-generated docs**: Run the server or call `generate_docs()` to refresh `src/n3tx/docs/{model}.md`
+2. **Handwritten API docs** (`src/n3tx/docs/`): Update response examples, endpoint docs, and architecture descriptions
+3. **Frontend docs** (`src/n3tx/static/docs/`): Update component docs if frontend behavior changed
 4. **This file** (`CLAUDE.md`): Update if architectural patterns or key file locations change. Also update `claude-back.md` or `claude-front.md` as appropriate.
 
 ### Working Directory
-For the **example app**, run from `src/pybend/example/` (that's where the example `main.py` lives).
-For **framework code**, `src/pybend/core/` contains `config.py` and the backward-compat `main.py` shim.
+For the **example app**, run from `src/n3tx/example/` (that's where the example `main.py` lives).
+For **framework code**, `src/n3tx/core/` contains `config.py` and the backward-compat `main.py` shim.
 
 ### Testing Changes
-1. Start server: `cd /workspace/src/pybend/example && python3 main.py`
-   - Alternative: `cd /workspace && python3 -m pybend.example.main`
-   - Legacy: `cd /workspace/src/pybend/core && python3 main.py` (delegates to example app)
-2. Run framework unit tests: `cd /workspace/src/pybend/core && python3 -m pytest tests/unit/`
+1. Start server: `cd /workspace/src/n3tx/example && python3 main.py`
+   - Alternative: `cd /workspace && python3 -m n3tx.example.main`
+   - Legacy: `cd /workspace/src/n3tx/core && python3 main.py` (delegates to example app)
+2. Run framework unit tests: `cd /workspace/src/n3tx/core && python3 -m pytest tests/unit/`
 3. Run integration tests:
    - `cd /workspace && python3 -m pytest example_api/tests/` (Level 1/2 direct routes)
    - `cd /workspace && python3 -m pytest example_actor/tests/` (Level 3 actor routing)
@@ -374,7 +374,7 @@ docs: Update documentation for Wave 2 [0.8.2]
 ### Authentication for Testing
 Most endpoints require a JWT token. Schema endpoints (`GET /{ClassName}`) are public.
 
-**Seed users** (created by `cd src/pybend/example && python3 seed.py`):
+**Seed users** (created by `cd src/n3tx/example && python3 seed.py`):
 | Email | Password | Role |
 |---|---|---|
 | `alice@example.com` | `alice123` | `user` |

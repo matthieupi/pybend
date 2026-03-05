@@ -2,7 +2,7 @@
 
 **Research Date:** March 4, 2026
 **Audience:** Technical CEO + Engineering Leadership
-**Application:** Grant Watcher (PyBend v0.10 agentic application)
+**Application:** Grant Watcher (N3TX v0.10 agentic application)
 
 ---
 
@@ -36,21 +36,21 @@ This document analyzes exactly what the current frontend stack can and cannot do
 
 ### 1.1 What the Stack Already Provides
 
-The PyBend frontend is surprisingly capable for a system with zero application-specific JavaScript. Here is a concrete inventory of what each layer delivers.
+The N3TX frontend is surprisingly capable for a system with zero application-specific JavaScript. Here is a concrete inventory of what each layer delivers.
 
 | Layer | Component | What It Does | Grant Watcher Usage |
 |-------|-----------|-------------|-------------------|
-| **Entity System** | `NTT.js` | Creates DynamicClass from JSON Schema, manages instance registry, handles ATTACH/READ/DESCRIBE lifecycle | Bootstraps `Grant`, `Source`, `AgentActor` types at page load |
-| **Base Component** | `Component.js` | Shadow DOM, ResizeObserver, stylesheet adoption, adaptive display (xs-xl), ref resolution | Every `ntt-*` component inherits this |
-| **Entity Component** | `NTTElement.js` | Single-entity data lifecycle (UPDATE, DESCRIBE, READ handlers), save(), error handling, validation | Base for `ntt-item`, extensible for custom components |
-| **Collection Component** | `ListElement.js` | Collection lifecycle, pagination (loadMore), child stamping, surgical DOM updates | Base for `ntt-list`, `ntt-table` |
-| **Item Renderer** | `ntt-item.js` | Adaptive sizes (xs pill -> xl detail), edit/delete, form rendering, method buttons, reply inline | Renders individual Grant/Source/Agent cards |
-| **Table Renderer** | `ntt-table.js` | Column-aligned grid, sort by column, inline create row, field-level validation | Main Grant listing view |
-| **List Renderer** | `ntt-list.js` | Card grid layout, modal create | Sidebar Agent/Source lists |
+| **Entity System** | `N3TX.js` | Creates DynamicClass from JSON Schema, manages instance registry, handles ATTACH/READ/DESCRIBE lifecycle | Bootstraps `Grant`, `Source`, `AgentActor` types at page load |
+| **Base Component** | `Component.js` | Shadow DOM, ResizeObserver, stylesheet adoption, adaptive display (xs-xl), ref resolution | Every `ntx-*` component inherits this |
+| **Entity Component** | `NTTElement.js` | Single-entity data lifecycle (UPDATE, DESCRIBE, READ handlers), save(), error handling, validation | Base for `ntx-item`, extensible for custom components |
+| **Collection Component** | `ListElement.js` | Collection lifecycle, pagination (loadMore), child stamping, surgical DOM updates | Base for `ntx-list`, `ntx-table` |
+| **Item Renderer** | `ntx-item.js` | Adaptive sizes (xs pill -> xl detail), edit/delete, form rendering, method buttons, reply inline | Renders individual Grant/Source/Agent cards |
+| **Table Renderer** | `ntx-table.js` | Column-aligned grid, sort by column, inline create row, field-level validation | Main Grant listing view |
+| **List Renderer** | `ntx-list.js` | Card grid layout, modal create | Sidebar Agent/Source lists |
 | **Form Generator** | `form.js` (Formidable) | Builds forms from schema properties: input types, groups, field order, validation, widget dispatch | Auto-generates edit forms for all models |
 | **Widget System** | `Widget.js` + registry | `display()`, `edit()`, `list()` methods per widget type; registered by name, dispatched from schema `ui.widget` | DateWidget, CurrencyWidget, UrlWidget, TextareaWidget active |
-| **Router** | `Router.js` + `ntt-router.js` | Hash-based navigation, history stack, back button, dynamic component mounting | Hash navigation between Grant list and detail views |
-| **Sidebar** | `ntt-sidebar.js` | Model navigation, accordion expand, lazy-loaded record lists, schema-driven labels, route templates | Left sidebar with Grant/Source/AgentActor sections |
+| **Router** | `Router.js` + `ntx-router.js` | Hash-based navigation, history stack, back button, dynamic component mounting | Hash navigation between Grant list and detail views |
+| **Sidebar** | `ntx-sidebar.js` | Model navigation, accordion expand, lazy-loaded record lists, schema-driven labels, route templates | Left sidebar with Grant/Source/AgentActor sections |
 | **Permissions** | `Permissions.js` | Reads schema `access` rules, `canAction()` / `canView()` / `canEdit()` for UI gating | Shows/hides edit/delete buttons based on ABAC rules |
 
 ### 1.2 The Grant Model Schema Surface
@@ -76,12 +76,12 @@ The schema pipeline converts these into JSON Schema properties with `ui.widget` 
 
 ```
 +------------------------------------------------------+
-| ntt-topbar  [Grant Watcher v0.10]            [user]  |
+| ntx-topbar  [Grant Watcher v0.10]            [user]  |
 +------+-----------------------------------------------+
-| ntt- |                                                |
-| side |   ntt-router (name="main", hash)               |
+| ntx- |                                                |
+| side |   ntx-router (name="main", hash)               |
 | bar  |   +------------------------------------------+ |
-|      |   | ntt-table model="Grant" allow-create      | |
+|      |   | ntx-table model="Grant" allow-create      | |
 | Grant|   |   [title] [agency] [deadline] [status]    | |
 | Source   |   row 1...                                | |
 | Agent|   |   row 2...                                | |
@@ -90,7 +90,7 @@ The schema pipeline converts these into JSON Schema properties with `ui.widget` 
 +------+-----------------------------------------------+
 ```
 
-The sidebar uses **route templates** -- clicking "Grant" navigates the router to mount `<ntt-table model="Grant" allow-create>`, clicking "Source" mounts `<ntt-table model="Source">`, etc.
+The sidebar uses **route templates** -- clicking "Grant" navigates the router to mount `<ntx-table model="Grant" allow-create>`, clicking "Source" mounts `<ntx-table model="Source">`, etc.
 
 ### 1.4 What Works Well Today
 
@@ -136,7 +136,7 @@ TIER 1: "This looks like a generic database browser"     <- WIDGETS
 
 TIER 2: "I can't find what I'm looking for"              <- SEARCH/FILTER
   - Filter bar, full-text search, status quick-filters
-  - Fix: ntt-table enhancement + backend query params
+  - Fix: ntx-table enhancement + backend query params
   - Effort: 3-5 days
   - Impact: makes the app usable for real workflows
 
@@ -153,14 +153,14 @@ TIER 3: "I want workflow visualization"                   <- CUSTOM COMPONENTS
 
 ## 3. The Schema-Driven vs Custom Code Spectrum
 
-This is the most important architectural decision in the document. PyBend's philosophy is "the model is the app" -- the backend schema drives everything. Custom frontend code is a departure from that contract. When is it worth it?
+This is the most important architectural decision in the document. N3TX's philosophy is "the model is the app" -- the backend schema drives everything. Custom frontend code is a departure from that contract. When is it worth it?
 
 ### 3.1 The Spectrum
 
 ```
 SCHEMA-DRIVEN (zero code)          PROGRESSIVE ENHANCEMENT           CUSTOM COMPONENTS
 |                                  |                                  |
-|  [Widget System]                 |  [ntt-table filter bar]          |  [grant-dashboard]
+|  [Widget System]                 |  [ntx-table filter bar]          |  [grant-dashboard]
 |  - StatusWidget                  |  - Schema annotation hints       |  [grant-pipeline]
 |  - DeadlineWidget                |  - Component reads schema        |  [agent-console]
 |  - CurrencyRangeWidget           |  - Falls back gracefully         |
@@ -195,20 +195,20 @@ The `status` field renders as plain text because it has no widget annotation. **
 
 ### 3.4 The `ui.renderer` Override Point (Recommended for Tier 3)
 
-For truly custom views, PyBend already supports renderer overrides in the schema:
+For truly custom views, N3TX already supports renderer overrides in the schema:
 
 ```python
 class Grant(ActorModel):
     __ui__ = {
         'renderer': {
-            'item': 'ntt-item',           # default card component
+            'item': 'ntx-item',           # default card component
             'detail': 'grant-detail',      # custom detail component
-            'list': 'ntt-table',           # default list component
+            'list': 'ntx-table',           # default list component
         },
     }
 ```
 
-The router (`ntt-router.js` line 141) resolves the component tag from `schema.ui.renderer.detail`, so navigating to a Grant would mount `<grant-detail>` instead of `<ntt-item>`. The custom component extends `NTTElement`, gets schema and data via the standard `DESCRIBE` handler, and renders whatever it wants. This is **the intended escape hatch** -- it preserves the data lifecycle while allowing custom rendering.
+The router (`ntx-router.js` line 141) resolves the component tag from `schema.ui.renderer.detail`, so navigating to a Grant would mount `<grant-detail>` instead of `<ntx-item>`. The custom component extends `NTTElement`, gets schema and data via the standard `DESCRIBE` handler, and renders whatever it wants. This is **the intended escape hatch** -- it preserves the data lifecycle while allowing custom rendering.
 
 ### 3.5 Comparison: Approaches Used at Other Companies
 
@@ -218,7 +218,7 @@ The router (`ntt-router.js` line 141) resolves the component tag from `schema.ui
 | **Airbnb** | Server-driven UI for listing pages. Backend controls layout, frontend renders components from a catalog. | Enables A/B testing and iteration without app releases. |
 | **Apollo GraphQL** | [SDUI schema design](https://www.apollographql.com/docs/graphos/schema-design/guides/sdui/schema-design) patterns. Backend sends view models, not raw data. | Centralizes business logic, reduces cross-platform duplication. |
 
-PyBend's approach maps closest to Expedia's pattern: the schema carries rendering intent (`ui.widget`, `ui.renderer`, `ui.groups`), and the frontend interprets it. The lesson from all three: **keep generic rendering as the default, layer custom views on top, never replace the schema contract**.
+N3TX's approach maps closest to Expedia's pattern: the schema carries rendering intent (`ui.widget`, `ui.renderer`, `ui.groups`), and the frontend interprets it. The lesson from all three: **keep generic rendering as the default, layer custom views on top, never replace the schema contract**.
 
 ---
 
@@ -295,12 +295,12 @@ For a grant database under **500 records** (typical for a single organization), 
 
 ```html
 <!-- In index.html sidebar -->
-<ntt-sidebar router="main">
+<ntx-sidebar router="main">
     <grant-dashboard model="Grant"></grant-dashboard>  <!-- NEW -->
-    <ntt-table model="Grant" allow-create></ntt-table>
-    <ntt-table model="Source"></ntt-table>
-    <ntt-list model="AgentActor"></ntt-list>
-</ntt-sidebar>
+    <ntx-table model="Grant" allow-create></ntx-table>
+    <ntx-table model="Source"></ntx-table>
+    <ntx-list model="AgentActor"></ntx-list>
+</ntx-sidebar>
 ```
 
 The sidebar's route template system already handles this -- clicking "Dashboard" in the sidebar navigates the router to mount `<grant-dashboard>`.
@@ -309,7 +309,7 @@ The sidebar's route template system already handles this -- clicking "Dashboard"
 
 ```javascript
 import { NTTElement } from '../components/NTTElement.js';
-import { NTT } from '../core/NTT.js';
+import { N3TX } from '../core/N3TX.js';
 
 export class GrantDashboard extends NTTElement {
 
@@ -325,7 +325,7 @@ export class GrantDashboard extends NTTElement {
                     totalMin: 0, totalMax: 0, deadlines: [] };
 
     for (const addr of addrs) {
-      const entity = NTT.get(addr);
+      const entity = N3TX.get(addr);
       if (!entity?.value) continue;
       const g = entity.value;
       stats.total++;
@@ -359,7 +359,7 @@ customElements.define('grant-dashboard', GrantDashboard);
 | **Dataset > 5000 rows** | 50ms+, memory pressure | Recommended |
 | **Real-time updates** | Recalculates on entity change | Requires cache invalidation |
 | **Backend effort** | Zero | New endpoint + aggregation query |
-| **Schema-driven** | Yes (reads from NTT registry) | No (custom endpoint) |
+| **Schema-driven** | Yes (reads from N3TX registry) | No (custom endpoint) |
 
 > **Recommendation:** Start with client-side aggregation. Monitor performance. Add a backend `/grants/stats` endpoint only if the grant count exceeds 1000 or aggregation latency exceeds 50ms.
 
@@ -374,7 +374,7 @@ customElements.define('grant-dashboard', GrantDashboard);
 | `StatusWidget` | Colored status badges in table/list | **0.5 days** | Nothing |
 | `DeadlineWidget` | Countdown display ("3 days left", color-coded) | **0.5 days** | Nothing |
 | `CurrencyRangeWidget` | Merged "min-max" display | **0.5 days** | Nothing |
-| `<ntt-filter-bar>` | Filter controls for ntt-table | **2-3 days** | Backend query params |
+| `<ntx-filter-bar>` | Filter controls for ntx-table | **2-3 days** | Backend query params |
 | `<grant-dashboard>` | Summary stats + charts | **3-4 days** | Widget changes |
 | `<grant-pipeline>` | Kanban board for status workflow | **3-5 days** | StatusWidget |
 | `<grant-detail>` | Enhanced detail view | **1-2 days** | Dashboard |
@@ -390,7 +390,7 @@ A new widget that renders the `status` field as a colored badge instead of plain
 **Backend (Python) -- 12 lines:**
 
 ```python
-# src/pybend/core/widgets/widget.py (or app-level widgets.py)
+# src/n3tx/core/widgets/widget.py (or app-level widgets.py)
 class StatusField(Widget, name='status', base_type=str):
     """Status enum rendered as colored badge."""
     pass
@@ -398,7 +398,7 @@ class StatusField(Widget, name='status', base_type=str):
 
 Then in the Grant model:
 ```python
-from pybend.core.widgets import StatusField
+from n3tx.core.widgets import StatusField
 
 class Grant(ActorModel):
     status: StatusField = Field(default='discovered',
@@ -539,7 +539,7 @@ export class CompactCurrencyWidget extends CurrencyWidget {
 
 This renders "$50K" instead of "$50,000.00" in table cells -- far more scannable.
 
-### 5.3 Tier 2: Enhanced ntt-table (Filter Bar)
+### 5.3 Tier 2: Enhanced ntx-table (Filter Bar)
 
 See [Section 6](#-6-search-filter-and-sort) for full details. The filter bar is the single most impactful Tier 2 feature.
 
@@ -570,14 +570,14 @@ The HTML5 Drag and Drop API provides native support for this pattern without any
 
 ```javascript
 import { ListElement } from '../components/ListElement.js';
-import { NTT } from '../core/NTT.js';
+import { N3TX } from '../core/N3TX.js';
 import TX from '../core/TX.js';
 
 export class GrantPipeline extends ListElement {
 
     static COLUMNS = ['discovered', 'reviewed', 'applied', 'expired'];
 
-    get childTag() { return 'ntt-item'; }
+    get childTag() { return 'ntx-item'; }
     get childDisplay() { return 'sm'; }
 
     render() {
@@ -588,7 +588,7 @@ export class GrantPipeline extends ListElement {
         for (const col of GrantPipeline.COLUMNS) groups[col] = [];
 
         for (const addr of this.value) {
-            const entity = NTT.get(addr);
+            const entity = N3TX.get(addr);
             if (!entity?.value) continue;
             const status = entity.value.status || 'discovered';
             if (groups[status]) groups[status].push(addr);
@@ -633,7 +633,7 @@ customElements.define('grant-pipeline', GrantPipeline);
 The AgentActor model has a `run()` method (`POST /agents/{id}/run`). An agent console component would:
 
 1. Provide a text input for the task prompt
-2. Send the `run` method call via `ntt-method`
+2. Send the `run` method call via `ntx-method`
 3. Display streaming output (if WebSocket is wired) or poll for results
 4. Show tool call visualization (which tools were invoked, what they returned)
 
@@ -660,7 +660,7 @@ The existing `ConsoleWidget` (renders ANSI terminal output) could be composed in
 
 #### `<grant-detail>` -- Enhanced Detail View
 
-The default `ntt-item` in `md`/`lg`/`xl` mode already renders a full form with all fields. A custom `<grant-detail>` would add:
+The default `ntx-item` in `md`/`lg`/`xl` mode already renders a full form with all fields. A custom `<grant-detail>` would add:
 
 - Deadline countdown prominently at top
 - Amount range visualization
@@ -686,7 +686,7 @@ The router would automatically mount `<grant-detail>` when navigating to a speci
 
 ### 6.1 Current State
 
-**Sorting:** `ntt-table` supports single-column sort (click header to toggle asc/desc). Client-side only, operates on the loaded dataset. Works well for small collections.
+**Sorting:** `ntx-table` supports single-column sort (click header to toggle asc/desc). Client-side only, operates on the loaded dataset. Works well for small collections.
 
 **Filtering:** None. Zero filter capability exists today.
 
@@ -717,13 +717,13 @@ For Grant Watcher, a typical organization tracks **50-500 grants**. **Client-sid
 +----------------------------------------------------------------------+
 ```
 
-### 6.4 Implementation: `<ntt-filter-bar>` Component
+### 6.4 Implementation: `<ntx-filter-bar>` Component
 
 The filter bar should be a **generic component** that reads schema properties to auto-generate filter controls. This keeps it schema-driven while adding filtering capability.
 
 ```javascript
 /**
- * NTTFilterBar -- Schema-driven filter controls for collections.
+ * N3TXFilterBar -- Schema-driven filter controls for collections.
  *
  * Reads schema.properties to generate:
  *   - Text search input (searches all string fields)
@@ -731,9 +731,9 @@ The filter bar should be a **generic component** that reads schema properties to
  *   - Date range for date/deadline fields
  *
  * Emits 'filter-change' custom event with filter criteria.
- * Parent component (ntt-table) applies filters to its value array.
+ * Parent component (ntx-table) applies filters to its value array.
  */
-export class NTTFilterBar extends HTMLElement {
+export class N3TXFilterBar extends HTMLElement {
 
     #schema = null;
     #filters = {};
@@ -773,20 +773,20 @@ export class NTTFilterBar extends HTMLElement {
 }
 ```
 
-### 6.5 Integration with ntt-table
+### 6.5 Integration with ntx-table
 
-The ntt-table component would listen for `filter-change` events and apply client-side filtering:
+The ntx-table component would listen for `filter-change` events and apply client-side filtering:
 
 ```javascript
 // In NTTTable, after render:
-this.shadowRoot.querySelector('ntt-filter-bar')
+this.shadowRoot.querySelector('ntx-filter-bar')
     ?.addEventListener('filter-change', (e) => {
         this.#applyFilters(e.detail);
     });
 
 #applyFilters(criteria) {
     const filtered = this.value.filter(addr => {
-        const entity = NTT.get(addr);
+        const entity = N3TX.get(addr);
         if (!entity?.value) return true;
         const v = entity.value;
 
@@ -815,7 +815,7 @@ this.shadowRoot.querySelector('ntt-filter-bar')
 
 ### 6.6 Server-Side Query Parameters (Backend Enhancement)
 
-For full-text search and large datasets, the backend `list()` endpoint should support query parameters. PyBend's `StorableMixin.list()` already accepts `limit`/`offset`. Adding filter parameters is straightforward:
+For full-text search and large datasets, the backend `list()` endpoint should support query parameters. N3TX's `StorableMixin.list()` already accepts `limit`/`offset`. Adding filter parameters is straightforward:
 
 ```
 GET /grants?status=discovered&agency=NSF&deadline_before=2026-04-01&search=climate
@@ -838,7 +838,7 @@ class Grant(ActorModel):
     }
 ```
 
-The ntt-table would read `schema.ui.default_sort` on initial render and apply the sort before displaying rows. **Effort: 2 hours.**
+The ntx-table would read `schema.ui.default_sort` on initial render and apply the sort before displaying rows. **Effort: 2 hours.**
 
 ---
 
@@ -860,10 +860,10 @@ The backend already has a fully functional `NetworkWebSocket` adapter (`network_
 
 ```
 Current flow (polling):
-  [ntt-table] --ATTACH--> [DynamicClass] --READ--> [HTTP GET /grants] --> response --> render
+  [ntx-table] --ATTACH--> [DynamicClass] --READ--> [HTTP GET /grants] --> response --> render
 
 With WebSocket:
-  [ntt-table] --ATTACH--> [DynamicClass] --READ--> [WS: {name:READ, target:grants}] --> response --> render
+  [ntx-table] --ATTACH--> [DynamicClass] --READ--> [WS: {name:READ, target:grants}] --> response --> render
                                           <--PUSH-- [WS: {name:CREATE, data:{...}}]  --> #auto-update
 ```
 
@@ -930,7 +930,7 @@ The HTML5 Drag and Drop API is [well-supported](https://developer.mozilla.org/en
 
 **Total: ~2.5 days**
 
-**Deliverable:** The exact same `<ntt-table model="Grant">` now renders colored status badges, deadline countdowns with urgency colors, and compact dollar amounts. Zero new HTML. Zero new components. The model annotation change propagates through the schema pipeline automatically.
+**Deliverable:** The exact same `<ntx-table model="Grant">` now renders colored status badges, deadline countdowns with urgency colors, and compact dollar amounts. Zero new HTML. Zero new components. The model annotation change propagates through the schema pipeline automatically.
 
 ### 8.2 Phase 2: Search and Filter (3-5 days, high ROI)
 
@@ -938,8 +938,8 @@ The HTML5 Drag and Drop API is [well-supported](https://developer.mozilla.org/en
 
 | Task | Effort | Impact |
 |------|--------|--------|
-| `<ntt-filter-bar>` component | 1.5 days | High -- enables all filtering |
-| Integration with `ntt-table` (client-side filter) | 1 day | High -- instant filter feedback |
+| `<ntx-filter-bar>` component | 1.5 days | High -- enables all filtering |
+| Integration with `ntx-table` (client-side filter) | 1 day | High -- instant filter feedback |
 | Backend query param support (`?status=`, `?agency=`, `?search=`) | 1.5 days | Medium -- scales to large datasets |
 | Quick-filter status chips (click to filter) | 0.5 days | Medium -- one-click filtering |
 
@@ -1043,4 +1043,4 @@ Things that look tempting but have poor ROI for this application:
 
 ---
 
-*Document generated for the PyBend Grant Watcher project. All code examples reference the existing codebase at `/workspace/src/pybend/static/` and `/workspace/example_grants/`.*
+*Document generated for the N3TX Grant Watcher project. All code examples reference the existing codebase at `/workspace/src/n3tx/static/` and `/workspace/example_grants/`.*

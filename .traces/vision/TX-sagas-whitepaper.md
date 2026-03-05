@@ -1,14 +1,14 @@
 # TX Composition Applied: A Technical Whitepaper
 
 > *How saga patterns, causal tracing, and transaction composition can
-> reshape PyBend's actor architecture -- and where they should not.*
+> reshape N3TX's actor architecture -- and where they should not.*
 > *Companion to the [propositions document](TX-sagas-propositions.md).*
 
 ---
 
 ## Abstract
 
-PyBend's actor system routes individual TX messages through a Matrix to
+N3TX's actor system routes individual TX messages through a Matrix to
 ActorModel handlers. This works well for independent CRUD operations but
 hits a ceiling when workflows span multiple actors -- creating an order,
 reserving inventory, and charging payment must either succeed together or
@@ -34,7 +34,7 @@ across three new files, with zero changes to existing production code.
 
 ## 1. Introduction: Why This Matters Now
 
-PyBend v0.9 ships three routing levels, an agent system, and protocol
+N3TX v0.9 ships three routing levels, an agent system, and protocol
 adapters for HTTP, WebSocket, MCP, and ActivityPub. The framework has
 reached the inflection point where **multi-actor coordination** becomes
 a recurring need rather than an edge case.
@@ -85,7 +85,7 @@ propagation in `reply()` and `error()` would give us both dimensions
 at near-zero cost.
 
 **Where we already partially implement it:** `NetworkAdapter.request()`
-at `/workspace/src/pybend/core/api/network_adapter.py` stores pending
+at `/workspace/src/n3tx/core/api/network_adapter.py` stores pending
 Futures keyed by `tx.uuid` and resolves them when a reply arrives with
 `meta['in_reply_to']` matching. This is one-hop correlation. Extending
 it to multi-hop requires only that child TXs inherit the root's
@@ -119,13 +119,13 @@ operation: `run(:step, &do_thing, &undo_thing)`. This eliminates the
 "forgot to compensate" bug class that Temporal's manual
 `compensations.append()` pattern creates.
 
-**Why it matters for us:** PyBend's philosophy is "make invalid states
+**Why it matters for us:** N3TX's philosophy is "make invalid states
 unrepresentable." Co-located compensation makes it structurally
 difficult to define a step without considering its rollback -- the API
 forces you to think about undo at the moment you define the do.
 
 **Where we can apply it:** Our `@expose_route` decorator at
-`/workspace/src/pybend/core/utils/decorators.py` proves that metadata
+`/workspace/src/n3tx/core/utils/decorators.py` proves that metadata
 decorators are a natural pattern in the codebase. A `@step`/`@compensates`
 pair follows the same principle.
 
@@ -137,7 +137,7 @@ should not be embedded in step logic.
 
 **Why it matters for us:** `Actor.use()` interceptors already solve
 this problem for individual actors. The auth interceptor at
-`/workspace/src/pybend/core/api/auth_interceptor.py` demonstrates the
+`/workspace/src/n3tx/core/api/auth_interceptor.py` demonstrates the
 pattern: inspect the TX, modify or reject it, pass through. Saga
 journaling, timeout enforcement, and retry logic are all interceptors.
 
@@ -145,7 +145,7 @@ journaling, timeout enforcement, and retry logic are all interceptors.
 
 ## 3. Our Architecture Through This Lens
 
-Viewed through the saga lens, PyBend's current architecture reveals
+Viewed through the saga lens, N3TX's current architecture reveals
 both hidden strengths and clear gaps.
 
 ```
@@ -329,7 +329,7 @@ Level 3 capability.
 
 **Deterministic replay should not be attempted.** Temporal's replay
 model requires that workflow code be deterministic -- no random numbers,
-no current time, no non-deterministic operations. PyBend's handlers
+no current time, no non-deterministic operations. N3TX's handlers
 freely mix logic and side effects. Imposing determinism constraints
 would fundamentally conflict with the "transparent, not magical"
 philosophy. The TX journal provides audit and debugging value without
@@ -397,7 +397,7 @@ primitives (causal tracing + journal) still provide standalone value.
 
 ## 7. Conclusion
 
-PyBend's actor system is closer to saga-ready than it appears. The
+N3TX's actor system is closer to saga-ready than it appears. The
 TX envelope, request-response correlation, interceptor chains, and
 lifecycle events are the exact building blocks that Akka, Orleans,
 and Temporal use for multi-step workflows. What separates "collection
@@ -412,7 +412,7 @@ Phase 2 adds audit trails, Phase 3 enables reliable multi-step
 workflows. Each phase is a natural decision gate -- proceed only if
 the previous phase proves its value in practice.
 
-This approach reinforces rather than challenges PyBend's core
+This approach reinforces rather than challenges N3TX's core
 philosophy. Causal tracing makes the system more **transparent**
 ("trace any behavior in under a minute"). The journal makes the
 system more **inspectable** ("nothing is hidden behind abstractions
@@ -425,7 +425,7 @@ The competitive positioning is clear: frameworks like Temporal,
 Prefect, and Dagster prove that workflow composition is a massive
 market (Temporal alone raised $246M). But these are heavyweight
 infrastructure requiring separate servers and new mental models.
-PyBend can offer 30% of Temporal's value at 1% of its complexity --
+N3TX can offer 30% of Temporal's value at 1% of its complexity --
 exactly the leverage ratio that schema-driven frameworks should
 target. The model is still the app. The saga just makes sure that
 when the app spans multiple models, it stays consistent.
@@ -436,18 +436,18 @@ when the app spans multiple models, it stays consistent.
 
 **Research Documents:**
 - `.traces/research/tx-sagas/01-technical-deep-dive.md` -- Industry patterns, production systems, theoretical foundations
-- `.traces/research/tx-sagas/02-our-stack-relevance.md` -- PyBend gap analysis, primitives inventory, extension points
+- `.traces/research/tx-sagas/02-our-stack-relevance.md` -- N3TX gap analysis, primitives inventory, extension points
 - `.traces/research/tx-sagas/03-composition-ergonomics.md` -- API design patterns, DX comparison matrix
 
 **Codebase Files Referenced:**
-- `/workspace/src/pybend/core/actors/tx.py` -- TX message envelope (84 lines)
-- `/workspace/src/pybend/core/actors/actor.py` -- Actor base with interceptors (446 lines)
-- `/workspace/src/pybend/core/actors/matrix.py` -- Matrix root actor and router (95 lines)
-- `/workspace/src/pybend/core/models/actor_model.py` -- ActorModel bridge class (294 lines)
-- `/workspace/src/pybend/core/api/network_adapter.py` -- NetworkAdapter with request/response correlation (107 lines)
-- `/workspace/src/pybend/core/api/auth_interceptor.py` -- Auth interceptor pattern (109 lines)
-- `/workspace/src/pybend/core/utils/decorators.py` -- @expose_route decorator (20 lines)
-- `/workspace/src/pybend/core/app.py` -- Application builder and factory (329 lines)
+- `/workspace/src/n3tx/core/actors/tx.py` -- TX message envelope (84 lines)
+- `/workspace/src/n3tx/core/actors/actor.py` -- Actor base with interceptors (446 lines)
+- `/workspace/src/n3tx/core/actors/matrix.py` -- Matrix root actor and router (95 lines)
+- `/workspace/src/n3tx/core/models/actor_model.py` -- ActorModel bridge class (294 lines)
+- `/workspace/src/n3tx/core/api/network_adapter.py` -- NetworkAdapter with request/response correlation (107 lines)
+- `/workspace/src/n3tx/core/api/auth_interceptor.py` -- Auth interceptor pattern (109 lines)
+- `/workspace/src/n3tx/core/utils/decorators.py` -- @expose_route decorator (20 lines)
+- `/workspace/src/n3tx/core/app.py` -- Application builder and factory (329 lines)
 
 **External Sources:**
 - Garcia-Molina & Salem, "Sagas" (1987) -- Original saga pattern paper

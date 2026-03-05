@@ -10,7 +10,7 @@ The Grant Watcher is an agentic application where LLM agents scrape government w
 
 This is not hypothetical. [Recent research on multi-agent LLM systems](https://galileo.ai/blog/multi-agent-llm-systems-fail) found that **rate limiting causes a 93.75% degradation** in agent task completion, while systems with proper retry logic handled transient timeouts at **98.75% success rates**. The difference between "works in demo" and "works in production" is exactly this category of work: error classification, retry policies, circuit breakers, and operational visibility.
 
-The good news: **PyBend's architecture already has the right primitives**. The interceptor system (`use()` on any Actor), the TX error protocol (`tx.error()` / `tx.is_error`), and the NetworkAdapter request-correlation pattern provide natural extension points. Production hardening is not a rewrite -- it is **layering resilience onto an architecture that was designed to support it**.
+The good news: **N3TX's architecture already has the right primitives**. The interceptor system (`use()` on any Actor), the TX error protocol (`tx.error()` / `tx.is_error`), and the NetworkAdapter request-correlation pattern provide natural extension points. Production hardening is not a rewrite -- it is **layering resilience onto an architecture that was designed to support it**.
 
 ---
 
@@ -115,7 +115,7 @@ The good news: **PyBend's architecture already has the right primitives**. The i
 **The solution: Classify errors at the TX level.**
 
 ```python
-# src/pybend/core/agents/errors.py (new file)
+# src/n3tx/core/agents/errors.py (new file)
 
 class AgentError(Exception):
     """Base for agent-specific errors with retry semantics."""
@@ -166,7 +166,7 @@ async def _route_tool_call(ctx, target_addr, method_name, data):
 
     if response.is_error:
         from pydantic_ai import ModelRetry
-        from pybend.core.agents.errors import classify_tx_error
+        from n3tx.core.agents.errors import classify_tx_error
 
         error = classify_tx_error(response)
         if error.retryable:
@@ -248,7 +248,7 @@ from tenacity import (
 import httpx
 import logging
 
-logger = logging.getLogger('pybend.agents')
+logger = logging.getLogger('n3tx.agents')
 
 class WebTools(ActorModel):
     __tablename__ = 'web_tools'
@@ -314,12 +314,12 @@ Store retry policies in `AgentActor.constraints`, read by `agent_run()`:
 **The pattern:** When grants.gov is down, every scrape attempt fails. Without a circuit breaker, the agent burns through LLM tokens asking the scrape tool to try again and again. A circuit breaker **stops calling a known-failing service** until it recovers.
 
 ```python
-# src/pybend/core/agents/circuit.py (new file)
+# src/n3tx/core/agents/circuit.py (new file)
 import time
 import logging
 from enum import Enum
 
-logger = logging.getLogger('pybend.circuit')
+logger = logging.getLogger('n3tx.circuit')
 
 class CircuitState(Enum):
     CLOSED = 'closed'       # Normal operation
@@ -383,7 +383,7 @@ def get_breaker(name: str, **kwargs) -> CircuitBreaker:
 
 ```python
 # Circuit breaker as an interceptor on WebTools
-from pybend.core.agents.circuit import get_breaker
+from n3tx.core.agents.circuit import get_breaker
 
 async def scrape_circuit_breaker(tx: TX) -> TX:
     """Interceptor: check circuit breaker before scraping."""
@@ -583,7 +583,7 @@ async def ready():
 
     # SQLite check
     try:
-        from pybend.core.storage.sqlite_storage import SQLiteStorage
+        from n3tx.core.storage.sqlite_storage import SQLiteStorage
         # Quick query to verify DB is accessible
         storage = list(registered_models.values())[0].storage
         with storage._connection() as conn:
@@ -593,7 +593,7 @@ async def ready():
         checks['database'] = f'error: {e}'
 
     # Matrix check
-    from pybend.core.actors.actor import Actor
+    from n3tx.core.actors.actor import Actor
     root = Actor.root()
     checks['matrix'] = 'ok' if root else 'error: no root'
     checks['actors'] = len(root._children) if root else 0
@@ -610,7 +610,7 @@ async def ready():
 
 ### 4.7 Structured Logging
 
-**Current state:** The codebase uses Python's standard `logging` module consistently (`logger = logging.getLogger('pybend.xxx')`). There are also raw `print(tx)` calls (e.g., `actor.py` line 311). The logging produces unstructured text output.
+**Current state:** The codebase uses Python's standard `logging` module consistently (`logger = logging.getLogger('n3tx.xxx')`). There are also raw `print(tx)` calls (e.g., `actor.py` line 311). The logging produces unstructured text output.
 
 **Recommendation: [structlog](https://signoz.io/guides/structlog/) for JSON-structured logs** in production, with human-readable output in development.
 
@@ -620,7 +620,7 @@ import structlog
 import logging
 
 def configure_logging(json_output: bool = True):
-    """Configure structlog for PyBend.
+    """Configure structlog for N3TX.
 
     Args:
         json_output: True for production (JSON), False for dev (pretty console).
@@ -664,7 +664,7 @@ def configure_logging(json_output: bool = True):
 # In mixin.py -- structured logging for agent runs
 import structlog
 
-logger = structlog.get_logger('pybend.agents')
+logger = structlog.get_logger('n3tx.agents')
 
 async def agent_run(self, prompt, tools, task, user=None, **kwargs):
     run_id = TX(name='', source='', target='').uuid
@@ -753,7 +753,7 @@ app = FastAPI(lifespan=lifespan, ...)
 The current `WebTools.scrape()` accepts **any URL** and follows redirects. According to the [OWASP SSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html), this is a textbook SSRF vulnerability.
 
 ```python
-# src/pybend/core/agents/security.py (new file)
+# src/n3tx/core/agents/security.py (new file)
 import ipaddress
 import socket
 from urllib.parse import urlparse
@@ -806,7 +806,7 @@ def validate_url(url: str) -> str:
 ```python
 @expose_route('/scrape', methods=['POST'], access=AUTHENTICATED)
 async def scrape(self, url: str) -> dict:
-    from pybend.core.agents.security import validate_url
+    from n3tx.core.agents.security import validate_url
     url = validate_url(url)  # Raises ValueError on blocked URLs
     # ... rest of scrape logic
 ```
@@ -941,9 +941,9 @@ What happened? grep       -->        structlog JSON + correlation IDs
 
 ### 7.2 Framework Alignment
 
-Every proposed pattern uses existing PyBend primitives:
+Every proposed pattern uses existing N3TX primitives:
 
-| Pattern | PyBend primitive used |
+| Pattern | N3TX primitive used |
 |---------|--------------------|
 | Circuit breaker | `actor.use(interceptor, on='inbox')` -- same as auth |
 | Rate limiting | `api.use(interceptor, on='request')` -- same as auth |
@@ -953,7 +953,7 @@ Every proposed pattern uses existing PyBend primitives:
 | Graceful shutdown | FastAPI lifespan -- standard |
 | Structured logging | Replace `logging.getLogger()` calls -- non-breaking |
 
-> :bulb: **Key Insight:** None of these patterns require new PyBend abstractions. The interceptor system was designed for exactly this: layering cross-cutting concerns (auth, rate limiting, circuit breaking) without modifying handler code. This is framework alignment, not framework extension.
+> :bulb: **Key Insight:** None of these patterns require new N3TX abstractions. The interceptor system was designed for exactly this: layering cross-cutting concerns (auth, rate limiting, circuit breaking) without modifying handler code. This is framework alignment, not framework extension.
 
 ### 7.3 What NOT to Build
 

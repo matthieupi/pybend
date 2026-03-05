@@ -1,4 +1,4 @@
-# PyBend as a Microservice Backbone: Strategic Analysis Report
+# N3TX as a Microservice Backbone: Strategic Analysis Report
 
 ## For: CEO & Engineering Team
 ## Date: February 2026
@@ -23,9 +23,9 @@ Every section opens with a callout box summarizing the key finding. If you read 
 
 ## Executive Summary
 
-**The core question:** Should PyBend evolve toward microservices, and if so, when and how?
+**The core question:** Should N3TX evolve toward microservices, and if so, when and how?
 
-**The short answer:** Not yet. But PyBend is already closer to microservice-ready than most frameworks at its stage, and the path from monolith to distributed services is unusually clean. The right move is to harden module boundaries now, extract services later when a concrete business trigger demands it, and avoid the premature decomposition trap that has burned 42% of organizations that adopted microservices too early.
+**The short answer:** Not yet. But N3TX is already closer to microservice-ready than most frameworks at its stage, and the path from monolith to distributed services is unusually clean. The right move is to harden module boundaries now, extract services later when a concrete business trigger demands it, and avoid the premature decomposition trap that has burned 42% of organizations that adopted microservices too early.
 
 ### Key Findings
 
@@ -34,9 +34,9 @@ Every section opens with a callout box summarizing the key finding. If you read 
 | The microservices market is $9.1B and growing at 18-23% CAGR | IMARC, MRFR, Allied Market Research [01-industry-landscape.md] | The ecosystem investment is real and sustained |
 | 85% of enterprises have microservices, but 90% batch-deploy like monoliths | Solo.io, DORA Metrics [01-industry-landscape.md] | Adoption != benefit. Most orgs get complexity without independence |
 | 42% of adopters are consolidating services back | CNCF Survey via ByteIota [03-decision-framework.md] | The pendulum is swinging toward modular monoliths |
-| `create_app()` already functions as a service factory | PyBend source: `app.py` lines 180-227 [04-our-stack-relevance.md] | Decomposition requires zero framework changes |
-| The `authorize` package has zero PyBend imports | Source inspection: `rules.py`, `auth.py`, `context.py` [04-our-stack-relevance.md] | Auth is already a standalone, extractable module |
-| JSON Schema as universal contract eliminates drift | `ProtoModel.schema()`: 55 lines of model -> 120 lines of contract [05-schema-as-service-contract.md] | PyBend's approach is structurally immune to the #1 integration failure |
+| `create_app()` already functions as a service factory | N3TX source: `app.py` lines 180-227 [04-our-stack-relevance.md] | Decomposition requires zero framework changes |
+| The `authorize` package has zero N3TX imports | Source inspection: `rules.py`, `auth.py`, `context.py` [04-our-stack-relevance.md] | Auth is already a standalone, extractable module |
+| JSON Schema as universal contract eliminates drift | `ProtoModel.schema()`: 55 lines of model -> 120 lines of contract [05-schema-as-service-contract.md] | N3TX's approach is structurally immune to the #1 integration failure |
 | Teams under 50 engineers rarely break even on microservices | Cost analysis: 5-48x infrastructure multiplier [03-decision-framework.md] | The operational tax exceeds the benefit for most team sizes |
 
 ### Recommendation
@@ -121,7 +121,7 @@ Microservices do not make code cleaner, APIs better, or developers more producti
 
 ## 2. Industry Landscape
 
-> **Key Finding:** The microservices market is $9.1 billion and growing, but the industry has matured past the hype cycle. The emerging consensus favors modular monoliths as the starting architecture, with selective service extraction when scaling demands it. This aligns precisely with PyBend's architecture.
+> **Key Finding:** The microservices market is $9.1 billion and growing, but the industry has matured past the hype cycle. The emerging consensus favors modular monoliths as the starting architecture, with selective service extraction when scaling demands it. This aligns precisely with N3TX's architecture.
 
 ### 2.1 Market Size and Growth
 
@@ -175,7 +175,7 @@ This does not mean microservices are dying. It means the industry learned that t
 
 ### 2.6 The Python Framework Landscape
 
-PyBend is built on FastAPI. FastAPI's trajectory is directly relevant [01-industry-landscape.md]:
+N3TX is built on FastAPI. FastAPI's trajectory is directly relevant [01-industry-landscape.md]:
 
 | Framework | 2024 Share | 2025 Share | Trend |
 |-----------|-----------|-----------|-------|
@@ -189,33 +189,33 @@ FastAPI's admiration score on Stack Overflow is 74% -- second only to Phoenix (7
 
 ## 3. Technical Architecture Overview
 
-> **Key Finding:** The technical patterns for microservices are well-established. The complexity is not in understanding the patterns but in operating them. Schema-driven development, as PyBend implements it, collapses several layers of microservice complexity into a single source of truth.
+> **Key Finding:** The technical patterns for microservices are well-established. The complexity is not in understanding the patterns but in operating them. Schema-driven development, as N3TX implements it, collapses several layers of microservice complexity into a single source of truth.
 
 ### 3.1 Communication Protocols Compared
 
-| Protocol | Payload | Latency | Best For | PyBend Support |
+| Protocol | Payload | Latency | Best For | N3TX Support |
 |----------|---------|---------|----------|---------------|
 | REST/JSON | Text (JSON) | Moderate (12ms p99 on FastAPI) | Public APIs, CRUD, external clients | Full (auto-generated) |
 | gRPC | Binary (Protobuf) | Low (60% faster than REST) | Internal service-to-service | Not supported |
 | GraphQL | Text (JSON) | Moderate-High | UI-heavy apps, BFF pattern | Not supported |
 | Async events (Kafka, NATS) | Any | N/A (decoupled) | Cross-service state propagation | Not supported |
 
-The 2025-2026 industry consensus: use REST for external APIs, gRPC for high-throughput internal calls, and async events for cross-service state changes [02-technical-deep-dive.md]. PyBend's REST-only position is fine for the monolith and early microservice stages. gRPC and event support become relevant at Phase 3.
+The 2025-2026 industry consensus: use REST for external APIs, gRPC for high-throughput internal calls, and async events for cross-service state changes [02-technical-deep-dive.md]. N3TX's REST-only position is fine for the monolith and early microservice stages. gRPC and event support become relevant at Phase 3.
 
 ### 3.2 Data Management: The Hard Part
 
-The database-per-service pattern is not optional advice -- it is a foundational requirement for microservice independence [02-technical-deep-dive.md]. Sharing a database across services creates a distributed monolith. PyBend already supports per-model storage via the `storage=` parameter on `PyBendApp.model()`:
+The database-per-service pattern is not optional advice -- it is a foundational requirement for microservice independence [02-technical-deep-dive.md]. Sharing a database across services creates a distributed monolith. N3TX already supports per-model storage via the `storage=` parameter on `N3TXApp.model()`:
 
 ```python
-# From /workspace/src/pybend/core/app.py, lines 98-107
-def model(self, model_class: Type, storage=None) -> "PyBendApp":
+# From /workspace/src/n3tx/core/app.py, lines 98-107
+def model(self, model_class: Type, storage=None) -> "N3TXApp":
     """Register a model. Returns self for chaining.
     storage: Optional per-model storage override."""
     self._models.append((model_class, storage))
     return self
 ```
 
-This means PyBend can run with one database today (simplicity) and split to per-model databases tomorrow (independence) with a configuration change, not an architecture change.
+This means N3TX can run with one database today (simplicity) and split to per-model databases tomorrow (independence) with a configuration change, not an architecture change.
 
 ### 3.3 The Saga Pattern: Distributed Transactions
 
@@ -237,7 +237,7 @@ COMMIT                       Payment Service: Charge card
                               compensating transactions required)
 ```
 
-PyBend does not support sagas today. In the monolith, it does not need to -- standard SQLite transactions provide ACID guarantees. Sagas become relevant only when services own separate databases. This is a Phase 3 concern.
+N3TX does not support sagas today. In the monolith, it does not need to -- standard SQLite transactions provide ACID guarantees. Sagas become relevant only when services own separate databases. This is a Phase 3 concern.
 
 ### 3.4 The Service Mesh Question
 
@@ -270,13 +270,13 @@ CIRCUIT BREAKER STATES:
 
 **Retry with Exponential Backoff:** Handles transient failures with increasing delay between attempts. Always add jitter (randomized delay) to prevent the thundering herd problem. Research data: retries enhanced operation success rates by 21%.
 
-PyBend does not implement any of these today. In monolith mode, they are unnecessary -- there are no network calls between components. They become essential at Phase 2 when services communicate over the network.
+N3TX does not implement any of these today. In monolith mode, they are unnecessary -- there are no network calls between components. They become essential at Phase 2 when services communicate over the network.
 
 ### 3.6 Observability: The Three Pillars
 
 You cannot debug what you cannot see [02-technical-deep-dive.md]:
 
-| Pillar | What | Tool | PyBend Status |
+| Pillar | What | Tool | N3TX Status |
 |--------|------|------|--------------|
 | **Logs** | Discrete events with context | Structured JSON, correlation IDs | Partial (logging exists, no correlation IDs) |
 | **Metrics** | Aggregated measurements over time | Prometheus/Grafana | Not implemented |
@@ -290,35 +290,35 @@ For a monolith, structured logging with correlation IDs provides most of the deb
 
 The industry is converging on contract-first, model-driven approaches [01-industry-landscape.md, 05-schema-as-service-contract.md]:
 
-| Approach | Source of Truth | Drift Risk | Maintenance | PyBend |
+| Approach | Source of Truth | Drift Risk | Maintenance | N3TX |
 |----------|----------------|-----------|-------------|--------|
 | Hand-written OpenAPI | YAML file | **High** | Manual, per-endpoint | N/A |
 | Code-first OpenAPI | Code annotations | Medium | Semi-automatic | FastAPI provides this |
 | Protocol Buffers | `.proto` file | Low (compiled) | Per-change | Not supported |
-| **Model-first** | Model definition | **Zero** | **Zero** | **This is PyBend** |
+| **Model-first** | Model definition | **Zero** | **Zero** | **This is N3TX** |
 
-When the model IS the schema, there is no separate spec to maintain. The frontend fetches the schema at runtime, the backend generates it from the same code that handles requests, and drift is structurally impossible. This is PyBend's strongest strategic advantage.
+When the model IS the schema, there is no separate spec to maintain. The frontend fetches the schema at runtime, the backend generates it from the same code that handles requests, and drift is structurally impossible. This is N3TX's strongest strategic advantage.
 
 ---
 
 ## 4. Our Current Architecture Assessment
 
-> **Key Finding:** PyBend is a modular monolith with unusually clean service boundaries. The `create_app()` factory, per-model storage, auto-generated JSON Schema contracts, and standalone `authorize` package give it most of the microservice primitives without the distributed systems tax. The gaps are in infrastructure (service discovery, event bus, circuit breakers, distributed tracing) -- concerns that belong outside the application framework.
+> **Key Finding:** N3TX is a modular monolith with unusually clean service boundaries. The `create_app()` factory, per-model storage, auto-generated JSON Schema contracts, and standalone `authorize` package give it most of the microservice primitives without the distributed systems tax. The gaps are in infrastructure (service discovery, event bus, circuit breakers, distributed tracing) -- concerns that belong outside the application framework.
 
-### 4.1 What PyBend Already Has
+### 4.1 What N3TX Already Has
 
 The assessment below is based on direct source code inspection, not documentation claims.
 
 #### Service Factory: `create_app()`
 
-From `/workspace/src/pybend/core/app.py`, the `create_app()` function takes a list of models and produces a fully operational ASGI application:
+From `/workspace/src/n3tx/core/app.py`, the `create_app()` function takes a list of models and produces a fully operational ASGI application:
 
 ```python
 def create_app(
     models=None, join_models=None, storage=None,
-    jwt_secret=None, name="PyBend", version="1.0.0", ...
+    jwt_secret=None, name="N3TX", version="1.0.0", ...
 ):
-    builder = PyBendApp(storage=storage, jwt_secret=jwt_secret, ...)
+    builder = N3TXApp(storage=storage, jwt_secret=jwt_secret, ...)
     for m in (models or []):
         builder.model(m)
     for parent, child in (join_models or []):
@@ -355,7 +355,7 @@ This is richer than a standard OpenAPI spec. 55 lines of model definition produc
 
 #### Per-Model Storage Isolation
 
-The `PyBendApp.model()` method accepts a per-model `storage` override. During build, each model gets its effective storage backend:
+The `N3TXApp.model()` method accepts a per-model `storage` override. During build, each model gets its effective storage backend:
 
 ```python
 for model_class, per_model_storage in self._models:
@@ -371,9 +371,9 @@ This means database-per-service -- the foundational microservice data pattern --
 
 #### Standalone Authorization
 
-The `authorize` package (`/workspace/src/pybend/core/authorize/`) has zero PyBend imports. It imports only from Python stdlib, typing, `jwt`, and `bcrypt`. The ABAC rules (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`) compose with `|`, `&`, `~` operators and serialize to JSON via `to_dict()`. The `AuthorizationResolver` protocol makes the entire resolution strategy swappable.
+The `authorize` package (`/workspace/src/n3tx/core/authorize/`) has zero N3TX imports. It imports only from Python stdlib, typing, `jwt`, and `bcrypt`. The ABAC rules (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where`) compose with `|`, `&`, `~` operators and serialize to JSON via `to_dict()`. The `AuthorizationResolver` protocol makes the entire resolution strategy swappable.
 
-This is already a standalone library that happens to plug into PyBend. In a microservice architecture, it could be extracted as a shared package or a dedicated auth service with no code changes.
+This is already a standalone library that happens to plug into N3TX. In a microservice architecture, it could be extracted as a shared package or a dedicated auth service with no code changes.
 
 #### Model Registry
 
@@ -393,7 +393,7 @@ for field_name, target_cls in ref_fields:
 
 This means entities already reference each other via URLs, not raw IDs -- the correct pattern for distributed systems (HATEOAS). In a microservice world, `config.API_URL` resolves to the correct remote service. The change is configuration, not architecture.
 
-### 4.2 What PyBend Lacks
+### 4.2 What N3TX Lacks
 
 ```
 +-------------------------------------------------------------------+
@@ -433,9 +433,9 @@ Detailed gap analysis [04-our-stack-relevance.md]:
 
 ### 4.3 The Unique Schema-Driven Advantage
 
-Most microservice frameworks give you CRUD routes. PyBend gives you a **complete application contract** in a single schema document. The comparison [05-schema-as-service-contract.md]:
+Most microservice frameworks give you CRUD routes. N3TX gives you a **complete application contract** in a single schema document. The comparison [05-schema-as-service-contract.md]:
 
-| Feature | OpenAPI (hand-written) | OpenAPI (code-first) | PyBend Schema |
+| Feature | OpenAPI (hand-written) | OpenAPI (code-first) | N3TX Schema |
 |---------|----------------------|---------------------|---------------|
 | Source of truth | YAML file | Code annotations | Model definition |
 | Custom methods | Hand-written | Partial | From `@expose_route` |
@@ -448,15 +448,15 @@ Most microservice frameworks give you CRUD routes. PyBend gives you a **complete
 
 No framework in the comparison table generates a **working UI** from model definitions. In a microservice context, this means each service automatically has an admin interface, schema changes propagate to the UI without frontend deployments, and service teams get a functional dashboard for free [04-our-stack-relevance.md].
 
-### 4.4 Comparison: PyBend vs. Established Microservice Frameworks
+### 4.4 Comparison: N3TX vs. Established Microservice Frameworks
 
-How does PyBend compare to frameworks designed for microservices from day one? [04-our-stack-relevance.md]:
+How does N3TX compare to frameworks designed for microservices from day one? [04-our-stack-relevance.md]:
 
-| Feature | PyBend | Spring Boot | NestJS | FastAPI (raw) |
+| Feature | N3TX | Spring Boot | NestJS | FastAPI (raw) |
 |---------|--------|-------------|--------|--------------|
 | Model-driven CRUD | **Automatic** | Manual/JPA | Manual/TypeORM | Manual |
 | API contract generation | **JSON Schema + OpenAPI** | OpenAPI | OpenAPI (Swagger) | OpenAPI |
-| Schema-driven UI | **Built-in (NTT.js)** | None | None | None |
+| Schema-driven UI | **Built-in (N3TX.js)** | None | None | None |
 | Auth/AuthZ | **Built-in (ABAC)** | Spring Security | Guards/Passport | Manual |
 | Service factory | **`create_app()`** | `@SpringBootApplication` | `NestFactory.create()` | Manual |
 | Service discovery | None | Eureka/Consul | None (manual) | None |
@@ -464,11 +464,11 @@ How does PyBend compare to frameworks designed for microservices from day one? [
 | Circuit breakers | None | Resilience4j | None (manual) | None |
 | Health checks | None | Actuator | Terminus | None |
 
-The pattern is clear: Spring Boot has the most mature microservice infrastructure, but PyBend has the most automated model-to-application pipeline. The missing pieces in PyBend (discovery, events, circuit breakers) are all infrastructure concerns that can be filled with external tools. PyBend's unique advantage -- the schema-driven UI and contract -- cannot be replicated by adding a library to Spring Boot.
+The pattern is clear: Spring Boot has the most mature microservice infrastructure, but N3TX has the most automated model-to-application pipeline. The missing pieces in N3TX (discovery, events, circuit breakers) are all infrastructure concerns that can be filled with external tools. N3TX's unique advantage -- the schema-driven UI and contract -- cannot be replicated by adding a library to Spring Boot.
 
 ### 4.5 The Frontend Actor System as a Microservice Pattern
 
-The NTT frontend already demonstrates a pattern relevant to microservices. The `Matrix` class in `Matrix.js` routes messages: local children get direct delivery, unknown targets go to the network. This is conceptually identical to a service mesh sidecar [04-our-stack-relevance.md]:
+The N3TX frontend already demonstrates a pattern relevant to microservices. The `Matrix` class in `Matrix.js` routes messages: local children get direct delivery, unknown targets go to the network. This is conceptually identical to a service mesh sidecar [04-our-stack-relevance.md]:
 
 ```
 Matrix (Frontend Actor Bus)        Service Mesh Sidecar
@@ -482,7 +482,7 @@ A backend equivalent would route model operations locally when the model is regi
 
 ### 4.6 Code-Level Evidence: The Decomposition Path
 
-PyBend's decomposition is mechanical, not architectural [04-our-stack-relevance.md]:
+N3TX's decomposition is mechanical, not architectural [04-our-stack-relevance.md]:
 
 ```
 Step 1: Identify the model(s) to extract
@@ -500,7 +500,7 @@ The key insight: the JSON Schema contract is identical whether the model lives i
 
 ## 5. Cost-Benefit Analysis
 
-> **Key Finding:** Microservices infrastructure costs 5-48x more than a monolith. People costs (platform team, per-developer overhead) are often larger than infrastructure costs. For teams under 50 engineers, the break-even point rarely arrives. PyBend's schema-driven approach reduces the integration tax that accounts for 40-60% of microservice engineering effort.
+> **Key Finding:** Microservices infrastructure costs 5-48x more than a monolith. People costs (platform team, per-developer overhead) are often larger than infrastructure costs. For teams under 50 engineers, the break-even point rarely arrives. N3TX's schema-driven approach reduces the integration tax that accounts for 40-60% of microservice engineering effort.
 
 ### 5.1 Infrastructure Cost Comparison
 
@@ -536,11 +536,11 @@ From industry research [01-industry-landscape.md]:
 - **3-4x longer debugging time** for distributed failures vs. monolithic failures
 - CI/CD complexity grows **linearly with service count**
 
-### 5.4 PyBend's Structural Cost Advantage
+### 5.4 N3TX's Structural Cost Advantage
 
 The schema-driven approach directly reduces the largest cost categories [05-schema-as-service-contract.md]:
 
-| Cost Category | Conventional Microservices | PyBend Microservices |
+| Cost Category | Conventional Microservices | N3TX Microservices |
 |---------------|--------------------------|---------------------|
 | API contract maintenance | Manual per endpoint | Auto-generated from model |
 | Frontend sync | Separate deploy per change | Frontend reads schema at runtime |
@@ -552,7 +552,7 @@ The schema-driven approach directly reduces the largest cost categories [05-sche
 
 Every microservice boundary introduces an "integration tax" -- the engineering effort required to keep two services communicating correctly. Research estimates this at 40-60% of total engineering effort in microservice architectures [05-schema-as-service-contract.md]. The tax breaks down:
 
-| Tax Component | Conventional | PyBend (Schema-Driven) |
+| Tax Component | Conventional | N3TX (Schema-Driven) |
 |---------------|-------------|----------------------|
 | API client maintenance | 10-15% of effort | Near-zero (schema IS the client spec) |
 | Contract testing | 5-10% of effort | Reduced (schema validation replaces Pact) |
@@ -561,7 +561,7 @@ Every microservice boundary introduces an "integration tax" -- the engineering e
 | Auth rule distribution | 5-10% of effort | Reduced (rules in schema, enforced per-service) |
 | Frontend adaptation | 10-15% of effort | Zero (frontend reads schema at runtime) |
 
-PyBend's schema-driven approach does not eliminate the integration tax entirely -- network calls, distributed debugging, and data consistency still cost engineering time. But it eliminates the **specification maintenance** component, which is the largest single contributor. When the model IS the spec, half the integration tax disappears.
+N3TX's schema-driven approach does not eliminate the integration tax entirely -- network calls, distributed debugging, and data consistency still cost engineering time. But it eliminates the **specification maintenance** component, which is the largest single contributor. When the model IS the spec, half the integration tax disappears.
 
 ### 5.6 The Developer Experience Cost
 
@@ -575,7 +575,7 @@ Microservices have a significant developer experience tax that is rarely quantif
 | Onboarding a new developer | 1-2 weeks | 3-6 weeks (learn infrastructure + domain) |
 | Making a cross-cutting change | One PR | N PRs across N repositories |
 
-PyBend's model-driven approach mitigates several of these. In monolith mode, it is one process with one test suite. In microservice mode, each extracted service is self-documenting through its schema, reducing the onboarding burden. But the debugging and testing overhead remains -- that is an inherent property of distributed systems.
+N3TX's model-driven approach mitigates several of these. In monolith mode, it is one process with one test suite. In microservice mode, each extracted service is self-documenting through its schema, reducing the onboarding burden. But the debugging and testing overhead remains -- that is an inherent property of distributed systems.
 
 ### 5.7 Investment Required by Phase
 
@@ -590,7 +590,7 @@ PyBend's model-driven approach mitigates several of these. In monolith mode, it 
 
 ## 6. Decision Framework
 
-> **Key Finding:** The right architecture depends on team size, domain complexity, scaling needs, and operational maturity. A scoring model based on five dimensions determines whether to stay monolithic, adopt a modular monolith, extract select services, or go full microservices. PyBend applications should remain monolithic until a concrete trigger demands otherwise.
+> **Key Finding:** The right architecture depends on team size, domain complexity, scaling needs, and operational maturity. A scoring model based on five dimensions determines whether to stay monolithic, adopt a modular monolith, extract select services, or go full microservices. N3TX applications should remain monolithic until a concrete trigger demands otherwise.
 
 ### 6.1 The Five-Dimension Assessment
 
@@ -674,12 +674,12 @@ This is the most important subsection in this document [03-decision-framework.md
 
 Before committing to microservices, evaluate these lighter-weight alternatives [03-decision-framework.md]:
 
-**Modular Monolith:** Single deployable artifact with enforced internal module boundaries. PyBend's model-driven architecture already provides natural boundaries. Shopify proves this scales to 32M+ req/min.
+**Modular Monolith:** Single deployable artifact with enforced internal module boundaries. N3TX's model-driven architecture already provides natural boundaries. Shopify proves this scales to 32M+ req/min.
 
 **Queue-Based Workers:** Background job processors consuming from a message queue. Deployed separately but sharing the same codebase. Gives independent scaling of web and worker tiers without service boundary complexity.
 
 ```
-Web tier (PyBend)  --publish-->  Message Queue  --consume-->  Worker Process
+Web tier (N3TX)  --publish-->  Message Queue  --consume-->  Worker Process
                                (Redis, SQS)                  (same codebase,
                                                                different entry)
 ```
@@ -712,7 +712,7 @@ Do not decompose preemptively. Wait for a concrete, measurable trigger:
 
 ## 7. Recommendation
 
-> **Key Finding:** PyBend should remain a monolith while hardening its module boundaries. The investments that matter now -- health checks, correlation IDs, structured logging, PostgreSQL -- pay off regardless of future architecture. Decomposition should be triggered by concrete organizational or scaling needs, not by aspiration.
+> **Key Finding:** N3TX should remain a monolith while hardening its module boundaries. The investments that matter now -- health checks, correlation IDs, structured logging, PostgreSQL -- pay off regardless of future architecture. Decomposition should be triggered by concrete organizational or scaling needs, not by aspiration.
 
 ### 7.1 Phased Approach
 
@@ -795,7 +795,7 @@ CURRENT: Schema-Driven Monolith
 +------------------------------------------------------+
 
 
-DECOMPOSED: Multiple PyBend Instances
+DECOMPOSED: Multiple N3TX Instances
 +------------------+  +--------------------+  +-------------------+
 |  User Service    |  |  Product Service   |  |  Comment Service  |
 |                  |  |                    |  |                   |
@@ -818,7 +818,7 @@ DECOMPOSED: Multiple PyBend Instances
          |
          v
 +--------------------------------------------------------------+
-|                    Frontend (NTT.js)                          |
+|                    Frontend (N3TX.js)                          |
 |  Fetches schemas from gateway, renders dynamically           |
 |  Schema contract identical -- frontend does not know the     |
 |  difference between monolith and microservices               |
@@ -873,7 +873,7 @@ If three or more signals show "Warning" or "Failure" after 4 weeks, consolidate 
 
 ## 8. Risk Register
 
-> **Key Finding:** The risks of premature microservice adoption are more severe than the risks of delayed adoption. PyBend's architecture makes the monolith-to-microservice transition reversible, which is its strongest strategic property.
+> **Key Finding:** The risks of premature microservice adoption are more severe than the risks of delayed adoption. N3TX's architecture makes the monolith-to-microservice transition reversible, which is its strongest strategic property.
 
 ### 8.1 Probability-Impact Matrix
 
@@ -887,7 +887,7 @@ If three or more signals show "Warning" or "Failure" after 4 weeks, consolidate 
 | R6 | **Network failures in distributed mode** | Certain (in time) | Medium | **High** | Circuit breakers, retries with backoff, bulkheads. Design for failure from Phase 2 |
 | R7 | **Skill gap** -- team lacks distributed systems experience | Medium | Medium | **Medium** | Invest in training before Phase 2; consider hiring or consulting |
 | R8 | **Cost overrun** -- microservice infra cost exceeds budget | High (5-48x multiplier) | Medium | **High** | Budget 3-6x monolith cost; track actual vs. projected monthly |
-| R9 | **Vendor lock-in** -- deep dependency on specific cloud services | Low (PyBend is cloud-agnostic) | Medium | **Low** | Use open standards: OCI containers, OpenTelemetry, CloudEvents |
+| R9 | **Vendor lock-in** -- deep dependency on specific cloud services | Low (N3TX is cloud-agnostic) | Medium | **Low** | Use open standards: OCI containers, OpenTelemetry, CloudEvents |
 | R10 | **Debugging difficulty** -- distributed traces across service boundaries | Certain (in distributed mode) | Medium | **Medium** | Invest in OpenTelemetry before Phase 3; correlation IDs from Phase 0 |
 
 ### 8.2 Risk Mitigation Summary
@@ -900,7 +900,7 @@ The strongest mitigation across all risks is **phased adoption with measurable t
 
 ### Appendix A: Schema Evolution and CloudEvents Compatibility
 
-A critical concern in microservice architectures is how schemas evolve without breaking consumers. PyBend's model-first approach has a structural advantage here [05-schema-as-service-contract.md]:
+A critical concern in microservice architectures is how schemas evolve without breaking consumers. N3TX's model-first approach has a structural advantage here [05-schema-as-service-contract.md]:
 
 **Additive-Only Evolution (the default):** When a developer adds a field with a default value, the change is fully compatible. Old producers omit it; new consumers see the default. Old consumers ignore it; new producers include it. This happens naturally with Pydantic's `Field(default=...)` syntax.
 
@@ -925,14 +925,14 @@ The schema automatically includes the new field. The database migrates. The API 
 
 A CI-level schema diff (comparing `old_model.schema()` vs `new_model.schema()`) can enforce FULL compatibility automatically.
 
-**CloudEvents Compatibility:** PyBend entities already carry `$schema` and `$id` in every response via `model_dump(response=True)`. These map directly to CloudEvents' `dataschema` and `subject` attributes. Wrapping a PyBend entity in a CloudEvents envelope requires only metadata:
+**CloudEvents Compatibility:** N3TX entities already carry `$schema` and `$id` in every response via `model_dump(response=True)`. These map directly to CloudEvents' `dataschema` and `subject` attributes. Wrapping a N3TX entity in a CloudEvents envelope requires only metadata:
 
 ```python
 def to_cloud_event(instance):
     data = instance.model_dump(response=True)
     return {
         "specversion": "1.0",
-        "type": f"com.pybend.{instance.__class__.__name__.lower()}.created",
+        "type": f"com.n3tx.{instance.__class__.__name__.lower()}.created",
         "source": f"/{instance.__tablename__}",
         "dataschema": data['$schema'],
         "data": data,
@@ -945,21 +945,21 @@ Every consumer can resolve `dataschema` to get the complete contract. This is fo
 
 | Term | Definition |
 |------|-----------|
-| **ABAC** | Attribute-Based Access Control. Rules compose with `\|`, `&`, `~`. PyBend implements this in the standalone `authorize` package. |
+| **ABAC** | Attribute-Based Access Control. Rules compose with `\|`, `&`, `~`. N3TX implements this in the standalone `authorize` package. |
 | **Bounded Context** | A domain-driven design concept: a linguistic and conceptual boundary within which a domain model is internally consistent. Often maps 1:1 to a microservice. |
 | **CQRS** | Command Query Responsibility Segregation. Separates write models from read models for independent optimization. |
 | **Conway's Law** | "Any organization that designs a system will produce a design whose structure is a copy of the organization's communication structure." |
-| **DynamicClass** | PyBend frontend entity. Created at runtime from backend JSON Schema via `NTT.prototype()`. |
+| **DynamicClass** | N3TX frontend entity. Created at runtime from backend JSON Schema via `N3TX.prototype()`. |
 | **DORA Metrics** | Four metrics for software delivery performance: deploy frequency, lead time, change failure rate, MTTR. |
-| **HATEOAS** | Hypermedia as the Engine of Application State. PyBend's FK hydration produces URLs, not raw IDs. |
+| **HATEOAS** | Hypermedia as the Engine of Application State. N3TX's FK hydration produces URLs, not raw IDs. |
 | **Modular Monolith** | Single deployable artifact with enforced internal module boundaries. Shopify's 2.8M-line Ruby codebase is the canonical example. |
-| **ProtoModel** | PyBend's base model class. Generates JSON Schema, injects StorableMixin, handles serialization. |
-| **RemoteStorage** | Proposed `AbstractStorage` implementation that delegates CRUD to a remote PyBend service's REST API. Key enabler for service extraction. |
+| **ProtoModel** | N3TX's base model class. Generates JSON Schema, injects StorableMixin, handles serialization. |
+| **RemoteStorage** | Proposed `AbstractStorage` implementation that delegates CRUD to a remote N3TX service's REST API. Key enabler for service extraction. |
 | **Saga** | A pattern for managing distributed transactions across multiple services using local transactions and compensating actions. |
-| **Schema Drift** | The divergence between an API specification and actual API behavior. PyBend's model-first approach makes this structurally impossible. |
+| **Schema Drift** | The divergence between an API specification and actual API behavior. N3TX's model-first approach makes this structurally impossible. |
 | **Service Mesh** | Infrastructure layer (Istio, Linkerd) that handles mTLS, load balancing, and traffic management between services. |
 | **Strangler Fig** | Migration pattern that incrementally replaces monolith functionality with new services. Named after the strangler fig tree. |
-| **create_app()** | PyBend's one-liner factory. Takes a list of models, produces a complete ASGI application. Functions as a service factory. |
+| **create_app()** | N3TX's one-liner factory. Takes a list of models, produces a complete ASGI application. Functions as a service factory. |
 
 ### Appendix C: Case Study Details
 
@@ -985,7 +985,7 @@ Segment grew to 150+ microservices and then migrated back to a monolith. Each se
 
 Uber aggressively decomposed from monolith to 1,000+ microservices. The initial benefit was rapid scaling from startup to global platform. But without architectural governance, dependency tangles and cascading failures became the norm. The company spent years recovering -- introducing domain-oriented microservices architecture (DOMA), global service standards, and quantifiable requirements for documentation, reliability, and fault tolerance.
 
-**Lesson:** Going from monolith to 1,000+ services without governance creates a distributed monolith. Recovering after the fact (imposing domain boundaries retroactively) is harder than getting boundaries right from the start. This is exactly the approach PyBend's phased methodology avoids.
+**Lesson:** Going from monolith to 1,000+ services without governance creates a distributed monolith. Recovering after the fact (imposing domain boundaries retroactively) is harder than getting boundaries right from the start. This is exactly the approach N3TX's phased methodology avoids.
 
 #### Kelsey Hightower's Position (2024-2026)
 
@@ -995,7 +995,7 @@ Kelsey Hightower, former Google and Kubernetes evangelist, became one of the mos
 > "Start with a modular monolith, and let it evolve."
 > "A monolithic architecture doesn't mean spaghetti code. You should be writing modular code regardless of the deployment model."
 
-His position is not anti-microservices -- it is anti-premature-decomposition. The argument aligns with PyBend's strategy: build modular code in a monolith, extract only when organizational triggers demand it.
+His position is not anti-microservices -- it is anti-premature-decomposition. The argument aligns with N3TX's strategy: build modular code in a monolith, extract only when organizational triggers demand it.
 
 ### Appendix D: Source References
 
@@ -1006,21 +1006,21 @@ His position is not anti-microservices -- it is anti-premature-decomposition. Th
 | Industry Landscape | `/workspace/.traces/research/microservices/01-industry-landscape.md` | Market sizing, frameworks, adoption data, success/failure stories |
 | Technical Deep Dive | `/workspace/.traces/research/microservices/02-technical-deep-dive.md` | Architecture patterns, communication protocols, resilience, testing |
 | Decision Framework | `/workspace/.traces/research/microservices/03-decision-framework.md` | Five-dimension scoring, Conway's Law, cost analysis, alternatives |
-| Our Stack Relevance | `/workspace/.traces/research/microservices/04-our-stack-relevance.md` | PyBend gap analysis, decomposition path, framework comparison |
-| Schema as Contract | `/workspace/.traces/research/microservices/05-schema-as-service-contract.md` | JSON Schema ecosystem, contract testing, schema evolution, PyBend advantage |
+| Our Stack Relevance | `/workspace/.traces/research/microservices/04-our-stack-relevance.md` | N3TX gap analysis, decomposition path, framework comparison |
+| Schema as Contract | `/workspace/.traces/research/microservices/05-schema-as-service-contract.md` | JSON Schema ecosystem, contract testing, schema evolution, N3TX advantage |
 
 #### Key Source Files
 
 | File | Role |
 |------|------|
-| `/workspace/src/pybend/core/app.py` | Service factory (`create_app`, `PyBendApp`) |
-| `/workspace/src/pybend/core/models/proto_model.py` | Schema generation, model lifecycle, `model_dump(response=True)` |
-| `/workspace/src/pybend/core/api/routes_fastapi.py` | Auto-generated CRUD routes, custom method routing |
-| `/workspace/src/pybend/core/storage/sqlite_storage.py` | SQLite backend with connection pool, FK hydration, batch loading |
-| `/workspace/src/pybend/core/utils/registrar.py` | Model registry (`registered_models`, `join_models`) |
-| `/workspace/src/pybend/core/authorize/rules.py` | ABAC rules: `ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where` |
-| `/workspace/src/pybend/core/authorize/auth.py` | JWT: `create_token`, `decode_token`, `hash_password` |
-| `/workspace/src/pybend/core/config.py` | Configuration with env var overrides, `configure()` |
+| `/workspace/src/n3tx/core/app.py` | Service factory (`create_app`, `N3TXApp`) |
+| `/workspace/src/n3tx/core/models/proto_model.py` | Schema generation, model lifecycle, `model_dump(response=True)` |
+| `/workspace/src/n3tx/core/api/routes_fastapi.py` | Auto-generated CRUD routes, custom method routing |
+| `/workspace/src/n3tx/core/storage/sqlite_storage.py` | SQLite backend with connection pool, FK hydration, batch loading |
+| `/workspace/src/n3tx/core/utils/registrar.py` | Model registry (`registered_models`, `join_models`) |
+| `/workspace/src/n3tx/core/authorize/rules.py` | ABAC rules: `ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`, `Where` |
+| `/workspace/src/n3tx/core/authorize/auth.py` | JWT: `create_token`, `decode_token`, `hash_password` |
+| `/workspace/src/n3tx/core/config.py` | Configuration with env var overrides, `configure()` |
 
 #### External Sources (Selected)
 
@@ -1041,4 +1041,4 @@ Full source lists with URLs are available in each research document in the appen
 
 ---
 
-*This analysis was prepared for engineering leadership as a strategic assessment of PyBend's position relative to the microservices market. The recommendation is to stay monolithic, harden boundaries, and extract services only when measured triggers demand it. Review quarterly.*
+*This analysis was prepared for engineering leadership as a strategic assessment of N3TX's position relative to the microservices market. The recommendation is to stay monolithic, harden boundaries, and extract services only when measured triggers demand it. Review quarterly.*

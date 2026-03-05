@@ -1,14 +1,14 @@
-# PyBend Frontend Performance Audit
+# N3TX Frontend Performance Audit
 
 **Date**: 2026-02-25
-**Scope**: Complete performance analysis of PyBend frontend (Vanilla JS Web Components / NTT)
+**Scope**: Complete performance analysis of N3TX frontend (Vanilla JS Web Components / N3TX)
 **Methodology**: Comprehensive code review of all critical paths
 
 ---
 
 ## Executive Summary
 
-The NTT frontend has **15 performance issues** spanning schema fetching, DOM rendering, memory management, and event handling. The most critical problems are: no schema caching (redundant network requests), full innerHTML replacement on every render (destroying DOM state), no list virtualization (rendering all items synchronously), and event listener accumulation (memory leaks on long sessions).
+The N3TX frontend has **15 performance issues** spanning schema fetching, DOM rendering, memory management, and event handling. The most critical problems are: no schema caching (redundant network requests), full innerHTML replacement on every render (destroying DOM state), no list virtualization (rendering all items synchronously), and event listener accumulation (memory leaks on long sessions).
 
 **Impact Range**: Medium to Critical
 - **Critical Issues**: 3 (DynamicClass memory, list rendering, schema fetching)
@@ -22,14 +22,14 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 ### 1. Schema Fetching — No Caching, No Deduplication
 
 **Files Affected:**
-- `src/pybend/static/core/NTT.js` (lines 333-339, 375-381)
-- `src/pybend/static/core/transport/NetworkAdapter.js` (lines 115-136)
+- `src/n3tx/static/core/N3TX.js` (lines 333-339, 375-381)
+- `src/n3tx/static/core/transport/NetworkAdapter.js` (lines 115-136)
 
 **Issues:**
-- Every `NTT.attach()` call may trigger a fresh `SCHEMA` fetch from the backend, even if the same model schema was already loaded
-- When processing `$defs` (lines 396-407), `if (!NTT.has(key))` doesn't check timestamps — schemas may be re-fetched repeatedly
+- Every `N3TX.attach()` call may trigger a fresh `SCHEMA` fetch from the backend, even if the same model schema was already loaded
+- When processing `$defs` (lines 396-407), `if (!N3TX.has(key))` doesn't check timestamps — schemas may be re-fetched repeatedly
 - `NetworkAdapter.send()` uses plain `fetch()` without `Cache-Control`, `ETag`, or `If-Modified-Since` headers
-- Simultaneous calls to `NTT.attach("Product")` queue multiple identical SCHEMA requests — no request deduplication
+- Simultaneous calls to `N3TX.attach("Product")` queue multiple identical SCHEMA requests — no request deduplication
 
 **Impact: CRITICAL**
 - Every new component requesting a model schema triggers a network round-trip
@@ -41,13 +41,13 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 - Implement schema cache with TTL (1 hour)
 - Use HTTP `Cache-Control: public, max-age=3600` on backend schema endpoints
 - Deduplicate in-flight SCHEMA requests (track pending URLs, return same promise)
-- Pre-load critical schemas via `<script data-ntt-schema>` tags
+- Pre-load critical schemas via `<script data-ntx-schema>` tags
 
 ---
 
 ### 2. DynamicClass Creation — Unbounded Memory Growth
 
-**File:** `src/pybend/static/core/NTT.js` (lines 663-1076)
+**File:** `src/n3tx/static/core/N3TX.js` (lines 663-1076)
 
 **Issues:**
 - `prototype()` creates a new class every schema load (line 663), even for the same model loaded twice
@@ -73,8 +73,8 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 ### 3. List Rendering — No Virtualization, Synchronous DOM Insertion
 
 **Files Affected:**
-- `src/pybend/static/components/ListElement.js` (lines 226-235)
-- `src/pybend/static/components/ntt-item.js` (lines 159+)
+- `src/n3tx/static/components/ListElement.js` (lines 226-235)
+- `src/n3tx/static/components/ntx-item.js` (lines 159+)
 
 **Issues:**
 - All list items created and inserted synchronously (ListElement.js lines 227-231):
@@ -108,11 +108,11 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 ### 4. DOM Rendering — Full innerHTML Replacement on Every Render
 
 **Files Affected:**
-- `src/pybend/static/components/ntt-item.js` (lines 34-35, 477-478)
-- `src/pybend/static/components/ListElement.js` (lines 216-223)
+- `src/n3tx/static/components/ntx-item.js` (lines 34-35, 477-478)
+- `src/n3tx/static/components/ListElement.js` (lines 216-223)
 
 **Issues:**
-- Full `innerHTML` replacement on every render (ntt-item.js line 477):
+- Full `innerHTML` replacement on every render (ntx-item.js line 477):
   ```javascript
   this.shadowRoot.innerHTML = `<div class="card${indentClass}" data-display="${layoutSize}">${html}</div>`;
   ```
@@ -135,7 +135,7 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 
 ### 5. Form Generation — Repeated HTML Building, O(n²) Field Order
 
-**File:** `src/pybend/static/generators/form.js` (lines 17-65, 173-236, 238-296)
+**File:** `src/n3tx/static/generators/form.js` (lines 17-65, 173-236, 238-296)
 
 **Issues:**
 - No form template caching: `Formidable.getForm()` rebuilds entire form HTML on every `render()`
@@ -168,11 +168,11 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 ### 6. Event Listener Accumulation — Memory Leak
 
 **Files Affected:**
-- `src/pybend/static/components/ntt-item.js` (lines 491-590)
-- `src/pybend/static/core/Observable.js` (lines 50-108)
+- `src/n3tx/static/components/ntx-item.js` (lines 491-590)
+- `src/n3tx/static/core/Observable.js` (lines 50-108)
 
 **Issues:**
-- Listeners added on every render, never removed (ntt-item.js `#bindEvents`):
+- Listeners added on every render, never removed (ntx-item.js `#bindEvents`):
   ```javascript
   this.shadowRoot.querySelector('.edit-btn')?.addEventListener('click', () => this.toggleMode());
   ```
@@ -196,14 +196,14 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 ### 7. Observable Subscription Storms — Leak on Component Lifecycle
 
 **Files Affected:**
-- `src/pybend/static/core/NTT.js` (lines 819-826, 868-843)
-- `src/pybend/static/components/NTTElement.js` (lines 88-93)
-- `src/pybend/static/components/ListElement.js` (lines 52-58)
+- `src/n3tx/static/core/N3TX.js` (lines 819-826, 868-843)
+- `src/n3tx/static/components/NTTElement.js` (lines 88-93)
+- `src/n3tx/static/components/ListElement.js` (lines 52-58)
 
 **Issues:**
 - No unsubscription on component detach: ListElement subscribes to `DynamicClass.UPDATE` (line 53), stores in `this._unsubscribe`, but if `disconnectedCallback` doesn't run or is missed, subscription leaks
 - NTTElement subscribes to `entity.signal()` in DESCRIBE (line 90), stores in `this._entityUnsub`, but if re-DESCRIBE is called, creates new subscription without unsubscribing old
-- Watchers accumulate (NTT.js line 889): `DynamicClass._watchers.add(tx.source)` called for every ATTACH, no removal on component detach
+- Watchers accumulate (N3TX.js line 889): `DynamicClass._watchers.add(tx.source)` called for every ATTACH, no removal on component detach
 - Multiple subscriptions to same change: component subscribes to DynamicClass UPDATE, then entity.signal(), then potentially field observers
 
 **Impact: HIGH (compound over long sessions)**
@@ -224,9 +224,9 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 ### 8. Permission Checking — Blocking Init, No Memoization
 
 **Files Affected:**
-- `src/pybend/static/utils/Permissions.js` (lines 36-67, 115-120)
-- `src/pybend/static/components/ntt-item.js` (lines 63, 101, 166-167, 284-285)
-- `src/pybend/static/generators/form.js` (lines 40, 52-58)
+- `src/n3tx/static/utils/Permissions.js` (lines 36-67, 115-120)
+- `src/n3tx/static/components/ntx-item.js` (lines 63, 101, 166-167, 284-285)
+- `src/n3tx/static/generators/form.js` (lines 40, 52-58)
 
 **Issues:**
 - Fetches `/auth/me` on first `init()`, waits for response (line 54) — blocking call if `init()` not awaited
@@ -249,8 +249,8 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 ### 9. Message Bus Routing Inefficiency
 
 **Files Affected:**
-- `src/pybend/static/core/Matrix.js` (lines 26-48)
-- `src/pybend/static/core/Actor.js` (lines 62-128, 223-235)
+- `src/n3tx/static/core/Matrix.js` (lines 26-48)
+- `src/n3tx/static/core/Actor.js` (lines 62-128, 223-235)
 
 **Issues:**
 - String parsing for routing on every message (Matrix.js line 32): `tx.target.split('/')[0]`
@@ -270,7 +270,7 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 
 ### 10. Redundant Schema Processing
 
-**File:** `src/pybend/static/core/NTT.js` (lines 614-651)
+**File:** `src/n3tx/static/core/N3TX.js` (lines 614-651)
 
 **Issue:** `normalizePopulated()` iterates entire `schema.properties` for every entity load, even if entity has no populated fields.
 
@@ -282,7 +282,7 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 
 ### 11. ResizeObserver on Every Component
 
-**File:** `src/pybend/static/core/Component.js` (lines 302-319)
+**File:** `src/n3tx/static/core/Component.js` (lines 302-319)
 
 **Issue:** Each component starts a ResizeObserver, even if display attribute is hardcoded (no resize needed)
 
@@ -294,7 +294,7 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 
 ### 12. Router Hash Sync Inefficiency
 
-**File:** `src/pybend/static/core/Router.js` (lines 66-71)
+**File:** `src/n3tx/static/core/Router.js` (lines 66-71)
 
 **Issue:** Uses `location.hash = ...` which triggers `history.replaceState` even for no-op navigations
 
@@ -307,8 +307,8 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 ### 13. Network Requests — No Batching, No Abort
 
 **Files Affected:**
-- `src/pybend/static/core/transport/HTTP.js` (lines 55-99, 102-145, 147-190, 192-222)
-- `src/pybend/static/core/transport/NetworkAdapter.js` (lines 110-143)
+- `src/n3tx/static/core/transport/HTTP.js` (lines 55-99, 102-145, 147-190, 192-222)
+- `src/n3tx/static/core/transport/NetworkAdapter.js` (lines 110-143)
 
 **Issues:**
 - Individual `fetch()` per request, no batching
@@ -328,7 +328,7 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 
 ### 14. String Escaping Issues in HTML Generation
 
-**File:** `src/pybend/static/generators/form.js` (lines 138, 201, 203, 207, etc.)
+**File:** `src/n3tx/static/generators/form.js` (lines 138, 201, 203, 207, etc.)
 
 **Issue:** Template literals insert `ntt.value[key]` directly without HTML escaping. User-entered `<script>` tags or quotes break HTML.
 
@@ -340,7 +340,7 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 
 ### 15. Logging to Unbounded Array with O(n) Shift
 
-**File:** `src/pybend/static/utils/Logging.js` (lines 30-36)
+**File:** `src/n3tx/static/utils/Logging.js` (lines 30-36)
 
 **Issue:** Entries array has `MAX_ENTRIES=500` cap, but `shift()` is O(n) — every new log entry beyond 500 shifts the entire array.
 
@@ -354,16 +354,16 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 
 | # | Category | File | Severity | Est. Cost |
 |---|----------|------|----------|-----------|
-| 1 | Schema Caching | NTT.js | CRITICAL | 10-25s/session |
-| 2 | DynamicClass Memory | NTT.js | CRITICAL | 20-50MB memory |
+| 1 | Schema Caching | N3TX.js | CRITICAL | 10-25s/session |
+| 2 | DynamicClass Memory | N3TX.js | CRITICAL | 20-50MB memory |
 | 3 | List Rendering | ListElement.js | CRITICAL | 5-10s on large lists |
-| 4 | innerHTML Abuse | ntt-item.js | HIGH | 50-200ms/render |
+| 4 | innerHTML Abuse | ntx-item.js | HIGH | 50-200ms/render |
 | 5 | Form Generation | form.js | HIGH | 200-300ms/form |
-| 6 | Event Listeners | ntt-item.js | HIGH | 1-10MB/session leak |
-| 7 | Observable Leaks | NTT.js, NTTElement.js | HIGH | 100KB+/session |
+| 6 | Event Listeners | ntx-item.js | HIGH | 1-10MB/session leak |
+| 7 | Observable Leaks | N3TX.js, NTTElement.js | HIGH | 100KB+/session |
 | 8 | Permissions Init | Permissions.js | MEDIUM | 200ms first check + 1-2s/form |
 | 9 | Message Bus | Matrix.js | MEDIUM | Cumulative |
-| 10 | Schema Processing | NTT.js | MEDIUM | 5000 checks/list |
+| 10 | Schema Processing | N3TX.js | MEDIUM | 5000 checks/list |
 | 11 | ResizeObserver | Component.js | MEDIUM | 1000 observers/list |
 | 12 | Router Hash | Router.js | LOW | Minor |
 | 13 | Network Requests | HTTP.js | MEDIUM | ~1ms/request overhead |
@@ -376,9 +376,9 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 
 ### Immediate Actions (This Week)
 
-1. **Cache schemas by hash** (NTT.js): ~2KB code, saves 10-25s/session
+1. **Cache schemas by hash** (N3TX.js): ~2KB code, saves 10-25s/session
 2. **Deduplicate in-flight schema requests**: Return same promise for concurrent identical fetches
-3. **Remove event listeners in render** (ntt-item.js): saves 1-10MB memory leak
+3. **Remove event listeners in render** (ntx-item.js): saves 1-10MB memory leak
 4. **Use DocumentFragment for list rendering**: Batch DOM insertions
 
 ### Short-Term (Next Sprint)
@@ -416,4 +416,4 @@ The NTT frontend has **15 performance issues** spanning schema fetching, DOM ren
 
 ## Conclusion
 
-The NTT frontend has a **clean architecture** but suffers from **missing caching layers** and **aggressive DOM rebuilding**. The most impactful fixes are schema caching (eliminates redundant network round-trips), list virtualization (eliminates synchronous rendering of all items), and event listener cleanup (eliminates memory leaks). These three changes alone would make the app feel 5-10× faster to the user.
+The N3TX frontend has a **clean architecture** but suffers from **missing caching layers** and **aggressive DOM rebuilding**. The most impactful fixes are schema caching (eliminates redundant network round-trips), list virtualization (eliminates synchronous rendering of all items), and event listener cleanup (eliminates memory leaks). These three changes alone would make the app feel 5-10× faster to the user.

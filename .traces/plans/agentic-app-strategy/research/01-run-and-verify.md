@@ -1,6 +1,6 @@
 # Run the App & Verify: End-to-End Smoke Testing & Operational Readiness
 
-**Grant Watcher on PyBend v0.10 -- Research Analysis**
+**Grant Watcher on N3TX v0.10 -- Research Analysis**
 **Date:** 2026-03-04
 **Audience:** Technical CEO + Engineering Leadership
 **Status:** Research Complete
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Grant Watcher is a **schema-driven agentic application** -- a grant discovery platform where LLM agents scan government funding sources, scrape pages, extract grant data, and create structured records. It runs on PyBend v0.10 with Level 3 actor routing, ABAC authorization, widget types, and pydantic-ai for agent execution.
+Grant Watcher is a **schema-driven agentic application** -- a grant discovery platform where LLM agents scan government funding sources, scrape pages, extract grant data, and create structured records. It runs on N3TX v0.10 with Level 3 actor routing, ABAC authorization, widget types, and pydantic-ai for agent execution.
 
 **The core question:** Can we prove this application works, and keep proving it as we evolve?
 
@@ -175,7 +175,7 @@ Every request in Grant Watcher follows this path:
 
 ### What Makes Schema-Driven Smoke Testing Different
 
-In a traditional app, smoke tests verify specific routes you manually wired. In a **schema-driven app like PyBend**, the framework generates routes from model definitions. This means:
+In a traditional app, smoke tests verify specific routes you manually wired. In a **schema-driven app like N3TX**, the framework generates routes from model definitions. This means:
 
 1. **The schema IS the contract.** If the schema is correct, the frontend will render correctly. Test the schema, and you've implicitly tested the frontend.
 
@@ -225,7 +225,7 @@ class TestBootVerification:
         assert client is not None
 
     def test_all_models_registered(self, test_db):
-        from pybend.core.utils.registrar import registered_models
+        from n3tx.core.utils.registrar import registered_models
         expected = {'users', 'grants', 'sources', 'web_tools', 'agent_tools', 'agents'}
         actual = set(registered_models.keys())
         assert expected.issubset(actual), f"Missing models: {expected - actual}"
@@ -469,11 +469,11 @@ GET /health/ready    -> 200 or 503 (can serve traffic, for k8s readiness)
 | JWT config | Secret is configured, not default | Auth won't work |
 | Matrix alive | `Actor.root()` is not None | Actor system failed to boot |
 
-**Implementation cost: ~4 hours** for a proper health endpoint with sub-checks. Can be done as a PyBend framework feature (benefits all apps) or app-specific route.
+**Implementation cost: ~4 hours** for a proper health endpoint with sub-checks. Can be done as a N3TX framework feature (benefits all apps) or app-specific route.
 
 ### Startup Verification
 
-The `create_app()` function in `/workspace/src/pybend/core/app.py` does a lot of implicit setup:
+The `create_app()` function in `/workspace/src/n3tx/core/app.py` does a lot of implicit setup:
 
 1. Configures auth (`authorize.configure()`)
 2. Prepares model registrations (pure)
@@ -516,17 +516,17 @@ For operational readiness, structured logging (JSON format) enables:
 The `config.py` in Grant Watcher reads from environment variables with sensible defaults:
 
 ```python
-JWT_SECRET = os.environ.get("PYBEND_JWT_SECRET", "pybend-dev-secret-change-in-production")
+JWT_SECRET = os.environ.get("N3TX_JWT_SECRET", "ntx-dev-secret-change-in-production")
 ```
 
-> :warning: **Warning:** The default JWT secret is a well-known string. If deployed without setting `PYBEND_JWT_SECRET`, any attacker can forge JWT tokens. This is the single highest-risk operational issue.
+> :warning: **Warning:** The default JWT secret is a well-known string. If deployed without setting `N3TX_JWT_SECRET`, any attacker can forge JWT tokens. This is the single highest-risk operational issue.
 
 **Recommended validations at startup:**
 
 ```python
-if JWT_SECRET == "pybend-dev-secret-change-in-production":
+if JWT_SECRET == "ntx-dev-secret-change-in-production":
     if not DEBUG:
-        raise RuntimeError("PYBEND_JWT_SECRET must be set in production")
+        raise RuntimeError("N3TX_JWT_SECRET must be set in production")
     logger.warning("Using default JWT secret -- DEVELOPMENT ONLY")
 ```
 
@@ -902,7 +902,7 @@ The proposed suite brings Grant Watcher to **parity with example_actor** while a
 
 ## :warning: Top 5 Risks If We Skip This
 
-1. **Default JWT secret in production.** The config defaults to `"pybend-dev-secret-change-in-production"`. Without a startup check, this will eventually be deployed unmodified. Any attacker who reads the source code can forge admin tokens.
+1. **Default JWT secret in production.** The config defaults to `"ntx-dev-secret-change-in-production"`. Without a startup check, this will eventually be deployed unmodified. Any attacker who reads the source code can forge admin tokens.
 
 2. **ABAC rules silently fail open.** If the `auth_interceptor` or `handler_crud._authorize()` has a bug, requests that should be denied are allowed. Without ABAC tests, this is discovered when a user deletes data they should not have access to.
 

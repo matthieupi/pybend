@@ -1,4 +1,4 @@
-# Polymorphic Systems for PyBend: Executive Summary
+# Polymorphic Systems for N3TX: Executive Summary
 
 > *Standalone summary. Full analysis: [polymorphic-system-analysis.md](../research/polymorphic-system/polymorphic-system-analysis.md)*
 
@@ -6,15 +6,15 @@
 
 ## The Question
 
-**Should PyBend add first-class support for polymorphic data models -- where multiple specialized types (Article, Video, Podcast) share a common base (Content) with automatic storage discrimination, schema union generation, and type-aware rendering?**
+**Should N3TX add first-class support for polymorphic data models -- where multiple specialized types (Article, Video, Podcast) share a common base (Content) with automatic storage discrimination, schema union generation, and type-aware rendering?**
 
-Today, PyBend delivers on its core promise: define a Python model, get a working API, schema, and UI. But this works for flat, independent models. The moment an application needs a unified `Content` type with specialized subtypes queryable from a single endpoint, the developer must work around the framework rather than with it. They define separate models, query separate endpoints, and manually aggregate results.
+Today, N3TX delivers on its core promise: define a Python model, get a working API, schema, and UI. But this works for flat, independent models. The moment an application needs a unified `Content` type with specialized subtypes queryable from a single endpoint, the developer must work around the framework rather than with it. They define separate models, query separate endpoints, and manually aggregate results.
 
 Polymorphism is the mechanism that would close this gap. One model hierarchy, one table, one endpoint, one schema -- with type-specific fields, access rules, and rendering all derived from the subclass definitions.
 
 **The strategic framing:** This is not a niche database optimization. Polymorphism is the dominant architectural pattern at Stripe (PaymentMethods), WordPress (post types powering 43% of the web), Shopify (product variants), Salesforce (polymorphic relationships), Notion (50+ block types), and GitHub (40+ webhook event types). Every non-trivial application eventually needs it.
 
-> PyBend's unique opportunity: no framework in the market today generates a discriminated union JSON Schema from model definitions and propagates it to automatically adapt frontend rendering. Django, Rails, Strapi, and Prisma all require manual wiring at multiple layers. PyBend can make "define a subclass, get full-stack polymorphism" real.
+> N3TX's unique opportunity: no framework in the market today generates a discriminated union JSON Schema from model definitions and propagates it to automatically adapt frontend rendering. Django, Rails, Strapi, and Prisma all require manual wiring at multiple layers. N3TX can make "define a subclass, get full-stack polymorphism" real.
 
 ---
 
@@ -22,14 +22,14 @@ Polymorphism is the mechanism that would close this gap. One model hierarchy, on
 
 | # | Finding | Evidence |
 |---|---------|---------|
-| 1 | **PyBend already has 60-70% of the machinery** | `ProtoModel` inheritance, `__init_subclass__()`, `$defs`, DynamicClass system, `__abstract__` flag, per-model access rules |
+| 1 | **N3TX already has 60-70% of the machinery** | `ProtoModel` inheritance, `__init_subclass__()`, `$defs`, DynamicClass system, `__abstract__` flag, per-model access rules |
 | 2 | **Remaining work: 13-19 engineering days** across 4 phases | Storage (2-3d) + Schema (3-4d) + Frontend (5-7d) + Routes (3-5d) |
 | 3 | **Phases 1-2 alone (5-7 days) deliver the core differentiator** | STI storage + `oneOf` schema output -- the two capabilities with highest value |
 | 4 | **No competitor offers schema-propagated polymorphism** | Researched Django, Rails, Strapi, Prisma, Contentful, Sanity -- none auto-generate discriminated union schemas from model hierarchies |
-| 5 | **STI is the right default for PyBend** | SQLite-friendly, simplest to implement, aligns with "zero to working" philosophy |
+| 5 | **STI is the right default for N3TX** | SQLite-friendly, simplest to implement, aligns with "zero to working" philosophy |
 | 6 | **Pydantic v2 natively supports discriminated unions** | `Annotated[Union[Article, Video], Discriminator('type')]` generates the exact JSON Schema format we need |
 | 7 | **Adding a new type: 5 minutes vs. 2 hours** | Schema-driven approach requires 1 file change vs. 9-14 files in manual approach |
-| 8 | **GitLab banned new STI at their scale** -- but their scale is irrelevant to ours | GitLab serves 30M+ users on PostgreSQL. PyBend targets SQLite apps with sub-100K rows per table. |
+| 8 | **GitLab banned new STI at their scale** -- but their scale is irrelevant to ours | GitLab serves 30M+ users on PostgreSQL. N3TX targets SQLite apps with sub-100K rows per table. |
 
 ---
 
@@ -46,11 +46,11 @@ Polymorphism is the mechanism that would close this gap. One model hierarchy, on
 | **GitHub** | `X-GitHub-Event` header + `action` field | 40+ event types, multiple actions each |
 | **Salesforce** | Polymorphic relationships + Record Types | 150,000+ customers |
 
-**Three industry trends converge in PyBend's favor:**
+**Three industry trends converge in N3TX's favor:**
 
 1. **Language-level discriminated unions** -- TypeScript, Python, Kotlin, Rust, Java have all added first-class sum types. The industry is moving type boundaries earlier in the stack -- from runtime database queries to compile-time type checks.
 
-2. **Schema-driven everything** -- The CMS industry (Strapi, Contentful, Sanity) converged on "define types, generate APIs and UIs from schema." PyBend already works this way. Polymorphism is the natural extension.
+2. **Schema-driven everything** -- The CMS industry (Strapi, Contentful, Sanity) converged on "define types, generate APIs and UIs from schema." N3TX already works this way. Polymorphism is the natural extension.
 
 3. **Composition over deep inheritance** -- Shopify and Stripe favor flat hierarchies with typed metadata, not deep class trees. STI with a discriminator column is the pragmatic middle ground that balances flexibility with simplicity.
 
@@ -58,16 +58,16 @@ Polymorphism is the mechanism that would close this gap. One model hierarchy, on
 
 - **Stripe's Sources API** (2015-2017): tried to force all payment methods into one polymorphic state machine. Cards finalize immediately; bank transfers take days. Forcing them together created "confusing integration and overloaded abstractions." Deprecated after 2 years. **Lesson:** Do not force fundamentally different lifecycles into a single type hierarchy.
 
-- **GitLab's STI ban:** tables exceeded hundreds of millions of rows, causing lock contention and production incidents. **Lesson:** STI has a ceiling. But GitLab serves 30M+ users on PostgreSQL -- a different universe from PyBend's SQLite target deployments.
+- **GitLab's STI ban:** tables exceeded hundreds of millions of rows, causing lock contention and production incidents. **Lesson:** STI has a ceiling. But GitLab serves 30M+ users on PostgreSQL -- a different universe from N3TX's SQLite target deployments.
 
-- **Magento's EAV:** a product with 50 attributes requires 50+ JOINs. Product pages 3-5x slower than Shopify without aggressive caching and flat table denormalization. **Lesson:** EAV is the anti-pattern PyBend should avoid entirely. JSONB hybrid or STI are the correct approaches for type-specific attributes.
+- **Magento's EAV:** a product with 50 attributes requires 50+ JOINs. Product pages 3-5x slower than Shopify without aggressive caching and flat table denormalization. **Lesson:** EAV is the anti-pattern N3TX should avoid entirely. JSONB hybrid or STI are the correct approaches for type-specific attributes.
 
 ---
 
 ## Where We Stand Today
 
 ```
-WHAT PYBEND ALREADY HAS         WHAT IS MISSING
+WHAT N3TX ALREADY HAS         WHAT IS MISSING
 ============================     ============================
 [x] ProtoModel inheritance       [ ] Discriminator column (_type)
 [x] __init_subclass__() hook     [ ] Type-filtered queries
@@ -85,7 +85,7 @@ WHAT PYBEND ALREADY HAS         WHAT IS MISSING
 **The key codebase extension points are already in place:**
 - `__init_subclass__()` in `proto_model.py` fires for every new model subclass -- the natural hook for subtype registration
 - `$defs` in `ProtoModel.schema()` already creates nested schemas for referenced models -- we would extend this to include subtypes
-- `NTT.SCHEMA()` in `NTT.js` already iterates `$defs` and creates DynamicClasses for each -- polymorphic subtypes would be processed identically
+- `N3TX.SCHEMA()` in `N3TX.js` already iterates `$defs` and creates DynamicClasses for each -- polymorphic subtypes would be processed identically
 - `Where.sql_filter()` in `rules.py` already generates parameterized SQL conditions -- composing type filters with access filters is a natural extension
 
 ---
@@ -106,11 +106,11 @@ WHAT PYBEND ALREADY HAS         WHAT IS MISSING
 | Approach | Files Changed | Time | Over 50 Types |
 |----------|:------------:|:----:|:-------------:|
 | Manual (no polymorphism) | 9-14 | ~2 hours | ~4 weeks |
-| PyBend (Phase 2+) | 1 | ~5 minutes | ~4 hours |
+| N3TX (Phase 2+) | 1 | ~5 minutes | ~4 hours |
 
 ### Competitive Position After Phase 2
 
-| Capability | Django | Rails | Strapi | Prisma | **PyBend** |
+| Capability | Django | Rails | Strapi | Prisma | **N3TX** |
 |-----------|:------:|:-----:|:------:|:------:|:----------:|
 | STI support | Plugin | Built-in | No | No | **Yes** |
 | Auto discriminator | No | Yes | N/A | No | **Yes** |
@@ -157,7 +157,7 @@ class Video(Content):
 
 | # | Risk | Probability | Mitigation |
 |---|------|:-----------:|-----------|
-| 1 | **STI table bloat at scale** -- nullable columns accumulate, queries slow down | Low (PyBend targets sub-100K row tables, not GitLab-scale) | Document max 5-8 subtypes. Provide CTI migration path. |
+| 1 | **STI table bloat at scale** -- nullable columns accumulate, queries slow down | Low (N3TX targets sub-100K row tables, not GitLab-scale) | Document max 5-8 subtypes. Provide CTI migration path. |
 | 2 | **Authorization gap with shared tables** -- stricter subtype rules bypassed by base-type queries | Low (but high impact) | Compose type filter with access filter: `WHERE (_type = 'article' AND 1=1) OR (_type = 'draft' AND user_owner = ?)`. The `Where` rule class already supports this. |
 | 3 | **Developer misuse ("Polymorphism Envy")** -- creating hierarchies for types that should be separate | High probability, low impact | Include decision framework in docs. Detection rule: if the base type name sounds artificial (`BaseEntity`, `GenericItem`), you are forcing inheritance. |
 
@@ -181,8 +181,8 @@ class Video(Content):
 |------|------|-------------|
 | Generate `oneOf` + `discriminator` | `proto_model.py` | When `__discriminator__` is set, wrap subtype schemas in `oneOf` with mapping |
 | Include subtypes in `$defs` | `proto_model.py` | Each subtype gets its own `$defs` entry with `access`, `ui`, `methods` |
-| Detect polymorphic schema | `NTT.js` | `SCHEMA()` recognizes `oneOf` + `discriminator`, creates per-subtype DynamicClasses |
-| Route entities by type | `NTT.js` | `DynamicClass.READ` dispatches entities to correct subtype class via discriminator |
+| Detect polymorphic schema | `N3TX.js` | `SCHEMA()` recognizes `oneOf` + `discriminator`, creates per-subtype DynamicClasses |
+| Route entities by type | `N3TX.js` | `DynamicClass.READ` dispatches entities to correct subtype class via discriminator |
 | Integration tests | New test file | Validate schema output format, frontend DynamicClass creation, type resolution |
 
 ### After Phase 2: Decision Point

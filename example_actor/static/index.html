@@ -8,12 +8,12 @@
     <link rel="stylesheet" href="./light-theme.css">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <!-- Preload component CSS — loaded by Shadow DOM at runtime -->
-    <link rel="preload" href="./components/ntt-item.css" as="style">
-    <link rel="preload" href="./components/ntt-list.css" as="style">
-    <link rel="preload" href="./components/ntt-router.css" as="style">
-    <link rel="preload" href="./components/ntt-topbar.css" as="style">
-    <link rel="preload" href="./components/ntt-user.css" as="style">
-    <link rel="preload" href="./components/ntt-modal.css" as="style">
+    <link rel="preload" href="./components/ntx-item.css" as="style">
+    <link rel="preload" href="./components/ntx-list.css" as="style">
+    <link rel="preload" href="./components/ntx-router.css" as="style">
+    <link rel="preload" href="./components/ntx-topbar.css" as="style">
+    <link rel="preload" href="./components/ntx-user.css" as="style">
+    <link rel="preload" href="./components/ntx-modal.css" as="style">
     <link rel="preload" href="./widgets/widgets.css" as="style">
     <!-- Vendor libraries (optional — widgets degrade gracefully without them) -->
     <script src="./vendor/marked.min.js"></script>
@@ -39,12 +39,12 @@
     <!-- Components -->
     <link rel="modulepreload" href="./components/NTTElement.js">
     <link rel="modulepreload" href="./components/ListElement.js">
-    <link rel="modulepreload" href="./components/ntt-item.js">
-    <link rel="modulepreload" href="./components/ntt-list.js">
-    <link rel="modulepreload" href="./components/ntt-router.js">
-    <link rel="modulepreload" href="./components/ntt-method.js">
-    <link rel="modulepreload" href="./components/ntt-modal.js">
-    <link rel="modulepreload" href="./components/ntt-favorites.js">
+    <link rel="modulepreload" href="./components/ntx-item.js">
+    <link rel="modulepreload" href="./components/ntx-list.js">
+    <link rel="modulepreload" href="./components/ntx-router.js">
+    <link rel="modulepreload" href="./components/ntx-method.js">
+    <link rel="modulepreload" href="./components/ntx-modal.js">
+    <link rel="modulepreload" href="./components/ntx-favorites.js">
     <link rel="modulepreload" href="./generators/form.js">
     <!-- Widgets -->
     <link rel="modulepreload" href="./widgets/Widget.js">
@@ -54,15 +54,15 @@
 </head>
 <body>
 
-    <ntt-topbar></ntt-topbar>
+    <ntx-topbar></ntx-topbar>
 
     <div class="page">
-        <ntt-router name="main" hash>
-            <ntt-list model="Product" id="product-list" allow-create></ntt-list>
-        </ntt-router>
+        <ntx-router name="main" hash>
+            <ntx-list model="Product" id="product-list" allow-create></ntx-list>
+        </ntx-router>
     </div>
 
-    <ntt-logs></ntt-logs>
+    <ntx-logs></ntx-logs>
 
     <script type="module">
         import Logging from './utils/Logging.js';
@@ -72,14 +72,14 @@
         import { NTT } from './core/NTT.js';
         import { config } from './config.js';
         import { permissions } from './utils/Permissions.js';
-        import './components/ntt-item.js';
-        import './components/ntt-user.js';
-        import './components/ntt-list.js';
-        import './components/ntt-router.js';
-        import './components/ntt-topbar.js';
-        import './components/ntt-profile.js';
-        import './components/ntt-logs.js';
-        import './components/ntt-favorites.js';
+        import './components/ntx-item.js';
+        import './components/ntx-user.js';
+        import './components/ntx-list.js';
+        import './components/ntx-router.js';
+        import './components/ntx-topbar.js';
+        import './components/ntx-profile.js';
+        import './components/ntx-logs.js';
+        import './components/ntx-favorites.js';
 
         // Initialize permissions (non-blocking — components degrade gracefully)
         permissions.init();

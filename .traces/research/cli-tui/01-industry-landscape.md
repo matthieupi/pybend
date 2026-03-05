@@ -525,7 +525,7 @@ CLI Evolution Timeline
 
 ### 8.3 What This Means for Schema-Driven Frameworks
 
-For a framework like PyBend -- where the model IS the application -- the CLI implications are profound:
+For a framework like N3TX -- where the model IS the application -- the CLI implications are profound:
 
 ```
 Schema-Driven CLI Opportunity
@@ -542,7 +542,7 @@ Model definition (Python)
     └── TUI: dashboard          (live server status, recent requests, errors)
 ```
 
-The unique advantage of a schema-driven framework is that **the CLI can derive everything from the model**. A `pybend inspect Product` command could show the schema, list all generated routes, display access rules, and preview the UI -- all from the single Python class definition. No other framework can do this because no other framework has a single source of truth this comprehensive.
+The unique advantage of a schema-driven framework is that **the CLI can derive everything from the model**. A `n3tx inspect Product` command could show the schema, list all generated routes, display access rules, and preview the UI -- all from the single Python class definition. No other framework can do this because no other framework has a single source of truth this comprehensive.
 
 ---
 

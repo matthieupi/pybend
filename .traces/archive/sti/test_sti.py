@@ -14,9 +14,9 @@ from unittest.mock import MagicMock
 
 from pydantic import Field
 
-from pybend.core.models.proto_model import ProtoModel
-from pybend.core.models.discriminator_mixin import DiscriminatorMixin
-from pybend.core.storage.sqlite_storage import SQLiteStorage
+from n3tx.core.models.proto_model import ProtoModel
+from n3tx.core.models.discriminator_mixin import DiscriminatorMixin
+from n3tx.core.storage.sqlite_storage import SQLiteStorage
 
 pytestmark = pytest.mark.unit
 

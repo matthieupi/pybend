@@ -8,15 +8,15 @@
 
 ## Executive Summary
 
-**The one-sentence pitch:** PyBend already generates complete web UIs from JSON Schema -- extending this to generate terminal UIs with Textual/Rich would create a genuinely novel "write a model, get a web app AND a terminal admin" capability that no other framework offers today.
+**The one-sentence pitch:** N3TX already generates complete web UIs from JSON Schema -- extending this to generate terminal UIs with Textual/Rich would create a genuinely novel "write a model, get a web app AND a terminal admin" capability that no other framework offers today.
 
 **The state of the art:** In the web world, schema-driven form generation is mature and battle-tested. Libraries like [react-jsonschema-form](https://github.com/rjsf-team/react-jsonschema-form) (14k+ GitHub stars, ~36k weekly npm downloads) have proven the pattern. In the terminal world, only one project -- [SchemaUI](https://github.com/YuniqueUnic/schemaui) (37 stars, Rust) -- has attempted JSON Schema to TUI form mapping. **Nobody has done this in Python. Nobody has done it with Textual. The field is wide open.**
 
-**The technical feasibility:** High. Textual's widget set maps cleanly to JSON Schema types: `Input(type="integer")` for numbers, `Checkbox` for booleans, `Select` for enums, `TextArea` for long text, `DataTable` for arrays. Textual's CSS-like styling, reactive data binding, and `data_bind()` mechanism are architecturally similar to web component patterns. PyBend's `form.js` logic -- ~370 lines that turn schema properties into HTML inputs -- could be ported to a Python `FormWidget` of comparable size.
+**The technical feasibility:** High. Textual's widget set maps cleanly to JSON Schema types: `Input(type="integer")` for numbers, `Checkbox` for booleans, `Select` for enums, `TextArea` for long text, `DataTable` for arrays. Textual's CSS-like styling, reactive data binding, and `data_bind()` mechanism are architecturally similar to web component patterns. N3TX's `form.js` logic -- ~370 lines that turn schema properties into HTML inputs -- could be ported to a Python `FormWidget` of comparable size.
 
 **The risk:** Terminal constraints are real -- no images, no rich media, no drag-and-drop, no color pickers. But for CRUD administration, data browsing, and entity management, the TUI medium is not just adequate -- it is faster and more accessible than a browser for many workflows.
 
-> **Key Insight:** PyBend's architecture already separates schema generation (backend) from schema consumption (frontend). Adding a TUI renderer is a matter of building a second consumer -- the schema contract stays unchanged. This is the architectural payoff of schema-driven design.
+> **Key Insight:** N3TX's architecture already separates schema generation (backend) from schema consumption (frontend). Adding a TUI renderer is a matter of building a second consumer -- the schema contract stays unchanged. This is the architectural payoff of schema-driven design.
 
 ---
 
@@ -26,7 +26,7 @@
 2. [The Terminal Frontier: Who Has Tried This?](#the-terminal-frontier)
 3. [Textual's Widget System: The Building Blocks](#textuals-widget-system)
 4. [Schema-to-Widget Mapping: The Concrete Translation Table](#schema-to-widget-mapping)
-5. [PyBend's form.js vs. Theoretical TUI Formidable](#pybend-formjs-vs-tui)
+5. [N3TX's form.js vs. Theoretical TUI Formidable](#ntx-formjs-vs-tui)
 6. [Reactive Data Binding: Web Components vs. Textual](#reactive-data-binding)
 7. [Read-Only Rendering: Lists and Detail Views](#read-only-rendering)
 8. [The Isomorphic Form Architecture](#isomorphic-form-architecture)
@@ -50,7 +50,7 @@ The pattern of generating forms from JSON Schema is **mature, proven, and widely
 | [FormKit](https://formkit.com/essentials/schema) | Vue | 4k+ | ~50k npm | Schema-first, deeply integrated validation |
 | [Form.io](https://form.io/json-forms/) | Multi-framework | 2k+ | Enterprise | JSON defines form + API in one spec |
 | [ngx-formly](https://github.com/ngx-formly/ngx-formly) | Angular | 2.7k+ | ~30k npm | Dynamic forms from JSON config |
-| **PyBend form.js** | Vanilla JS | -- | -- | Schema carries UI hints inline (`json_schema_extra`) |
+| **N3TX form.js** | Vanilla JS | -- | -- | Schema carries UI hints inline (`json_schema_extra`) |
 
 ### The RJSF Default Widget Mapping (Web Standard)
 
@@ -72,9 +72,9 @@ The pattern of generating forms from JSON Schema is **mature, proven, and widely
 | `array` | -- | Repeated fields |
 | `object` | -- | Nested fieldset |
 
-The critical insight from RJSF: **JSON Schema alone is insufficient for full UI control**. RJSF solved this with a separate `uiSchema` object. PyBend solved it differently -- and better -- by embedding UI hints directly in the schema via `json_schema_extra`. This means PyBend's schema already carries everything a TUI renderer would need.
+The critical insight from RJSF: **JSON Schema alone is insufficient for full UI control**. RJSF solved this with a separate `uiSchema` object. N3TX solved it differently -- and better -- by embedding UI hints directly in the schema via `json_schema_extra`. This means N3TX's schema already carries everything a TUI renderer would need.
 
-> **Key Insight:** PyBend's approach of inlining UI metadata (`ui.widget`, `ui.placeholder`, `ui.groups`, `ui.field_order`) into the JSON Schema itself is architecturally superior for multi-renderer scenarios. A TUI renderer reads the same schema, no separate `uiSchema` needed.
+> **Key Insight:** N3TX's approach of inlining UI metadata (`ui.widget`, `ui.placeholder`, `ui.groups`, `ui.field_order`) into the JSON Schema itself is architecturally superior for multi-renderer scenarios. A TUI renderer reads the same schema, no separate `uiSchema` needed.
 
 ---
 
@@ -128,7 +128,7 @@ The honest answer: **almost nobody**. Schema-driven TUI form generation is a nea
   --> Full CRUD web UI               --> Early prototype (55 stars)
   --> Battle-tested since 2005       --> v0.0.1, 7 commits
 
-  PyBend Schema --> form.js          PyBend Schema --> ???
+  N3TX Schema --> form.js          N3TX Schema --> ???
   --> Full CRUD web UI               --> NOTHING EXISTS YET
   --> Schema carries UI hints        --> Opportunity is wide open
 ```
@@ -241,9 +241,9 @@ This is the core mapping that would drive a TUI form generator. Each row shows h
 
 ---
 
-## 5. PyBend's form.js vs. Theoretical TUI Formidable {#pybend-formjs-vs-tui}
+## 5. N3TX's form.js vs. Theoretical TUI Formidable {#ntx-formjs-vs-tui}
 
-PyBend's [`form.js`](/workspace/src/pybend/static/generators/form.js) is a ~370-line module that reads JSON Schema properties and generates HTML form elements. The TUI equivalent would follow the **exact same logic flow** but output Textual widgets instead of HTML strings.
+N3TX's [`form.js`](/workspace/src/n3tx/static/generators/form.js) is a ~370-line module that reads JSON Schema properties and generates HTML form elements. The TUI equivalent would follow the **exact same logic flow** but output Textual widgets instead of HTML strings.
 
 ### Side-by-Side: form.js Logic vs. TUI Equivalent
 
@@ -415,7 +415,7 @@ def build_validators(definition: dict) -> list:
 ```javascript
 // form.js - renderGroupedFields() lines 87-126
 for (const [groupName, groupFields] of Object.entries(groups)) {
-    html.push(`<fieldset class="ntt-group">`);
+    html.push(`<fieldset class="ntx-group">`);
     html.push(`<legend>${groupName}</legend>`);
     html.push(fieldsInGroup.map(key => getInput(ntt, key, mode)).join(''));
     html.push(`</fieldset>`);
@@ -468,19 +468,19 @@ def build_grouped_form(schema, values, mode="edit"):
 | Groups | `<fieldset>` + `<legend>` | `TabbedContent` + `TabPane` |
 | Display mode | `<div data-value>` static text | `Label()` / `Static()` widgets |
 | Edit mode | `<input>`, `<textarea>`, `<select>` | `Input()`, `TextArea()`, `Select()` |
-| Array fields | Nested `<ntt-item>` components | `DataTable()` or `ListView()` |
-| Method buttons | `<ntt-method>` component | `Button()` with action handlers |
+| Array fields | Nested `<ntx-item>` components | `DataTable()` or `ListView()` |
+| Method buttons | `<ntx-method>` component | `Button()` with action handlers |
 | Code size | ~370 lines JavaScript | Estimated ~400 lines Python |
 
 ---
 
 ## 6. Reactive Data Binding: Web Components vs. Textual {#reactive-data-binding}
 
-One of PyBend's most powerful patterns is the DynamicClass system ([`NTT.js`](/workspace/src/pybend/static/core/NTT.js)) where schema properties become reactive getters/setters on entity instances. Textual has a **remarkably similar** reactivity system.
+One of N3TX's most powerful patterns is the DynamicClass system ([`N3TX.js`](/workspace/src/n3tx/static/core/N3TX.js)) where schema properties become reactive getters/setters on entity instances. Textual has a **remarkably similar** reactivity system.
 
 ### Comparison Table
 
-| Feature | PyBend Web (NTT.js) | Textual (Python) |
+| Feature | N3TX Web (N3TX.js) | Textual (Python) |
 |---------|--------------------|--------------------|
 | Reactive declarations | `Object.defineProperty(proto, field, {get, set})` | `attribute = reactive("default")` |
 | Change detection | Setter fires `this.signal()` | Setter auto-triggers `render()` |
@@ -492,12 +492,12 @@ One of PyBend's most powerful patterns is the DynamicClass system ([`NTT.js`](/w
 
 ### DynamicClass in Textual
 
-PyBend's `prototype()` function creates DynamicClasses at runtime from schema. A Textual equivalent could use Python's `type()` or class decoration:
+N3TX's `prototype()` function creates DynamicClasses at runtime from schema. A Textual equivalent could use Python's `type()` or class decoration:
 
 ```python
 def create_entity_widget(schema: dict):
     """Create a Textual Widget subclass from a JSON Schema -- analogous to
-    NTT.js prototype() creating DynamicClasses."""
+    N3TX.js prototype() creating DynamicClasses."""
     class_name = schema["__name__"]
     fields = schema.get("properties", {})
 
@@ -522,24 +522,24 @@ def create_entity_widget(schema: dict):
     return EntityWidget
 ```
 
-> **Key Insight:** Textual's `reactive()` + `watch_*()` + `data_bind()` is structurally equivalent to PyBend's `Object.defineProperty()` + `signal()` + `watch()`. The DynamicClass pattern ports almost 1:1.
+> **Key Insight:** Textual's `reactive()` + `watch_*()` + `data_bind()` is structurally equivalent to N3TX's `Object.defineProperty()` + `signal()` + `watch()`. The DynamicClass pattern ports almost 1:1.
 
 ---
 
 ## 7. Read-Only Rendering: Lists and Detail Views {#read-only-rendering}
 
-PyBend's [`ntt-list.js`](/workspace/src/pybend/static/components/ntt-list.js) and [`ntt-item.js`](/workspace/src/pybend/static/components/ntt-item.js) handle entity collection and detail rendering. Terminal equivalents using Rich tables and Textual DataTable are straightforward.
+N3TX's [`ntx-list.js`](/workspace/src/n3tx/static/components/ntx-list.js) and [`ntx-item.js`](/workspace/src/n3tx/static/components/ntx-item.js) handle entity collection and detail rendering. Terminal equivalents using Rich tables and Textual DataTable are straightforward.
 
-### Entity List View: ntt-list -> DataTable
+### Entity List View: ntx-list -> DataTable
 
-PyBend's `ListElement` ([source](/workspace/src/pybend/static/components/ListElement.js)) manages pagination, stamping child elements, and surgical DOM updates. The Textual equivalent uses `DataTable`:
+N3TX's `ListElement` ([source](/workspace/src/n3tx/static/components/ListElement.js)) manages pagination, stamping child elements, and surgical DOM updates. The Textual equivalent uses `DataTable`:
 
 ```python
 from textual.widgets import DataTable, Footer, Header, Button
 from textual.app import ComposeResult
 
 class EntityList(Widget):
-    """TUI equivalent of <ntt-list>. Renders entity collection as a DataTable."""
+    """TUI equivalent of <ntx-list>. Renders entity collection as a DataTable."""
 
     def __init__(self, schema: dict, entities: list[dict]):
         super().__init__()
@@ -568,9 +568,9 @@ class EntityList(Widget):
             table.add_row(*row, key=str(entity.get("id")))
 ```
 
-### Entity Detail View: ntt-item sizes -> Textual layouts
+### Entity Detail View: ntx-item sizes -> Textual layouts
 
-PyBend's `NTTItem` renders at 5 sizes (xs/sm/md/lg/xl). The TUI equivalent:
+N3TX's `NTTItem` renders at 5 sizes (xs/sm/md/lg/xl). The TUI equivalent:
 
 | Web Size | Web Layout | TUI Equivalent |
 |----------|-----------|----------------|
@@ -589,7 +589,7 @@ from rich.table import Table
 from rich.console import Console
 
 def render_entity_table(schema: dict, entities: list[dict]):
-    """Render entities as a Rich table -- CLI equivalent of ntt-list."""
+    """Render entities as a Rich table -- CLI equivalent of ntx-list."""
     table = Table(title=f"{schema['__name__']}s")
     props = schema.get("properties", {})
     columns = schema.get("ui", {}).get("field_order", list(props.keys()))
@@ -615,12 +615,12 @@ For large entity lists, Textual's built-in `DataTable` handles **thousands of ro
 
 ## 8. The Isomorphic Form Architecture {#isomorphic-form-architecture}
 
-The ultimate goal: **one schema, two renderers**. PyBend's backend generates JSON Schema once; `form.js` renders it in browsers; a new `tui_form.py` renders it in terminals. The schema contract is the abstraction layer.
+The ultimate goal: **one schema, two renderers**. N3TX's backend generates JSON Schema once; `form.js` renders it in browsers; a new `tui_form.py` renders it in terminals. The schema contract is the abstraction layer.
 
 ### Architecture Diagram
 
 ```
-                    PyBend Backend
+                    N3TX Backend
                     ==============
   Model Definition (Python)
          |
@@ -636,7 +636,7 @@ The ultimate goal: **one schema, two renderers**. PyBend's backend generates JSO
                     |                               |
               Web Frontend                    TUI Frontend
               ============                    ============
-         NTT.SCHEMA(data)               schema_to_form(data)
+         N3TX.SCHEMA(data)               schema_to_form(data)
               |                               |
               v                               v
          prototype()                   create_entity_widget()
@@ -666,23 +666,23 @@ The ultimate goal: **one schema, two renderers**. PyBend's backend generates JSO
 | Widget hints | `ui.widget` in schema | getInput() switch | get_widget() switch |
 | Groups | `ui.groups` in schema | `<fieldset>` | TabbedContent/Collapsible |
 | Access control | `access` in schema | Permissions.js | Python permission checker |
-| Methods | `methods` in schema | `<ntt-method>` component | `Button()` + API call |
+| Methods | `methods` in schema | `<ntx-method>` component | `Button()` + API call |
 
 ### The Abstraction Layer
 
 The key insight is that **no new abstraction layer is needed**. The JSON Schema already IS the abstraction. Both renderers consume the same schema and independently decide how to visualize each property. This is fundamentally different from approaches like RJSF's `uiSchema` which requires a separate rendering description.
 
 ```
-                  PyBend's Advantage
+                  N3TX's Advantage
                   ==================
 
   RJSF:        JSON Schema  +  uiSchema  +  Theme  =  Form
                 (structure)    (rendering)   (style)
 
-  PyBend Web:   JSON Schema (with ui hints baked in)  =  Form
+  N3TX Web:   JSON Schema (with ui hints baked in)  =  Form
                 (structure + rendering in one)
 
-  PyBend TUI:   Same JSON Schema                      =  TUI Form
+  N3TX TUI:   Same JSON Schema                      =  TUI Form
                 (same hints, different consumer)
 ```
 
@@ -748,7 +748,7 @@ $field-gap: 1;
 
 A remarkable capability: [Textual apps can run in web browsers](https://textual.textualize.io/blog/2024/09/08/towards-textual-web-applications/) via `textual serve`. This means a TUI admin could be served to a browser with **zero frontend code changes** -- the terminal rendering is streamed via WebSocket and displayed using xterm.js. This gives you three deployment modes from one codebase:
 
-1. **Browser (native web)** -- PyBend's form.js web frontend
+1. **Browser (native web)** -- N3TX's form.js web frontend
 2. **Terminal (native TUI)** -- Textual TUI frontend
 3. **Browser (served TUI)** -- `textual serve` streams TUI to browser
 
@@ -764,7 +764,7 @@ A full schema-driven TUI admin requires entity listing, detail viewing, form edi
 TUI App (Textual)
 ====================
 +-------------------------------------------+
-|  Header: "PyBend Admin - Products"        |
+|  Header: "N3TX Admin - Products"        |
 +-------------------------------------------+
 |                                           |
 |  [DataTable: Entity List]                 |
@@ -818,7 +818,7 @@ from textual.app import App, ComposeResult
 from textual.screen import Screen
 
 class EntityListScreen(Screen):
-    """Schema-driven entity list -- TUI equivalent of <ntt-list>."""
+    """Schema-driven entity list -- TUI equivalent of <ntx-list>."""
 
     BINDINGS = [
         ("n", "new_entity", "New"),
@@ -838,7 +838,7 @@ class EntityListScreen(Screen):
         yield Footer()
 
     async def on_mount(self):
-        # Fetch entities from PyBend API
+        # Fetch entities from N3TX API
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{self.api_url}/{self.schema['__tablename__']}")
             data = resp.json()
@@ -852,7 +852,7 @@ class EntityListScreen(Screen):
 
 
 class EntityFormScreen(Screen):
-    """Schema-driven form -- TUI equivalent of <ntt-item> in edit mode."""
+    """Schema-driven form -- TUI equivalent of <ntx-item> in edit mode."""
 
     def __init__(self, schema: dict, entity_id=None, mode="create"):
         super().__init__()
@@ -873,11 +873,11 @@ class EntityFormScreen(Screen):
 
 ### Method Buttons
 
-PyBend's `@expose_route` methods appear as buttons in the web UI via `<ntt-method>`. The TUI equivalent:
+N3TX's `@expose_route` methods appear as buttons in the web UI via `<ntx-method>`. The TUI equivalent:
 
 ```python
 def build_method_buttons(schema: dict, entity_id: str) -> list[Button]:
-    """Generate action buttons from schema.methods -- TUI ntt-method."""
+    """Generate action buttons from schema.methods -- TUI ntx-method."""
     buttons = []
     for method_name, method_def in schema.get("methods", {}).items():
         label = method_def.get("title", method_name)
@@ -968,20 +968,20 @@ For **CRUD administration** -- the primary use case -- approximately **85-90% of
 
 ### Phase 3: CLI Integration (1 week)
 
-**Deliverable:** `pybend admin` CLI command
+**Deliverable:** `n3tx admin` CLI command
 
 ```bash
 # Start the TUI admin
-pybend admin --url http://localhost:5000
+n3tx admin --url http://localhost:5000
 
 # Quick entity listing (non-interactive, Rich tables)
-pybend list products --limit 20
-pybend show Product/1
+n3tx list products --limit 20
+n3tx show Product/1
 
 # Quick entity CRUD
-pybend create Product --name "Widget" --price 29.99
-pybend update Product/1 --price 39.99
-pybend delete Product/1
+n3tx create Product --name "Widget" --price 29.99
+n3tx update Product/1 --price 39.99
+n3tx delete Product/1
 ```
 
 ### Phase 4: Polish and Advanced Features (2+ weeks)

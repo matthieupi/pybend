@@ -25,7 +25,7 @@ Each major section begins with a "Key Finding" callout that summarizes the secti
 
 ## Executive Summary
 
-**The core question:** Should we invest engineering resources in adopting micro-frontend (MFE) architecture for our PyBend framework's frontend?
+**The core question:** Should we invest engineering resources in adopting micro-frontend (MFE) architecture for our N3TX framework's frontend?
 
 **The short answer:** Not yet -- but we should prepare the ground now at zero cost, because our existing architecture already contains 70% of what a micro-frontend system requires. When the time is right, we can activate MFE capabilities in weeks rather than months.
 
@@ -36,8 +36,8 @@ Each major section begins with a "Key Finding" callout that summarizes the secti
 | Micro-frontends solve **organizational scaling** problems, not code problems | Our current team size does not yet warrant the operational overhead |
 | Industry adoption has corrected from 75% (2022 hype peak) to 24% (2024 reality) | The market has learned when MFEs actually help vs. when they add unnecessary complexity |
 | 85% of teams implement micro-frontends for the wrong reasons | The pattern works for 15+ developers across 3+ teams -- below that threshold, it destroys value |
-| PyBend's actor-based message bus and schema-driven architecture **already implement** the hardest parts of MFE communication and discovery | We are better positioned than 90% of organizations considering this move |
-| The industry is converging on Import Maps + Web Components -- exactly the standards PyBend is built on | Our technology choices are validated by Mercedes-Benz, Contentsquare, and the broader "going buildless" movement |
+| N3TX's actor-based message bus and schema-driven architecture **already implement** the hardest parts of MFE communication and discovery | We are better positioned than 90% of organizations considering this move |
+| The industry is converging on Import Maps + Web Components -- exactly the standards N3TX is built on | Our technology choices are validated by Mercedes-Benz, Contentsquare, and the broader "going buildless" movement |
 | Full MFE adoption costs $200K-$500K in engineering time for a mid-size organization, with 18-24 month break-even | Premature adoption wastes this investment; well-timed adoption multiplies it |
 
 ### The Recommendation
@@ -230,7 +230,7 @@ The failures are as instructive as the successes.
 
 ## 3. Technical Architecture Overview
 
-> **Key Finding:** Five major approaches exist for micro-frontends, ranging from build-time npm packages to edge-side composition. The industry is converging on Import Maps + Web Components as the standards-based approach with the lowest vendor lock-in -- which is exactly what PyBend already builds on.
+> **Key Finding:** Five major approaches exist for micro-frontends, ranging from build-time npm packages to edge-side composition. The industry is converging on Import Maps + Web Components as the standards-based approach with the lowest vendor lock-in -- which is exactly what N3TX already builds on.
 
 ### 3.1 Major Approaches
 
@@ -260,9 +260,9 @@ For a non-technical audience, here are the five main ways to build micro-fronten
 
 ### 3.3 The Emerging Standard: Import Maps + Web Components
 
-> **Key Finding:** The industry is moving away from build-tool-specific solutions (Module Federation) toward browser-native standards (Import Maps + Web Components). This shift directly validates PyBend's architectural choices and creates a tailwind for our approach.
+> **Key Finding:** The industry is moving away from build-tool-specific solutions (Module Federation) toward browser-native standards (Import Maps + Web Components). This shift directly validates N3TX's architectural choices and creates a tailwind for our approach.
 
-The industry is converging on a combination of two browser-native standards: **Import Maps** for module resolution and **Web Components** for encapsulation. This matters for us because PyBend is already built on both.
+The industry is converging on a combination of two browser-native standards: **Import Maps** for module resolution and **Web Components** for encapsulation. This matters for us because N3TX is already built on both.
 
 **Why the convergence is happening:**
 
@@ -274,7 +274,7 @@ The industry is converging on a combination of two browser-native standards: **I
 
 4. **Web Components provide natural MFE boundaries.** Custom Elements give each MFE a standard lifecycle (mount, unmount, attribute change). Shadow DOM provides CSS isolation. No orchestration framework (single-spa) needed -- the browser manages the lifecycle through standard DOM operations.
 
-**Why this matters for us:** PyBend's frontend is built on vanilla Web Components served as ES Modules with no build step. The industry is converging on exactly this approach. Our architecture is not just viable -- it is aligned with the direction the web platform is moving.
+**Why this matters for us:** N3TX's frontend is built on vanilla Web Components served as ES Modules with no build step. The industry is converging on exactly this approach. Our architecture is not just viable -- it is aligned with the direction the web platform is moving.
 
 ### 3.4 Security Considerations for MFE Architecture
 
@@ -282,7 +282,7 @@ A note for risk-aware executives: micro-frontends expand the attack surface of a
 
 **Key security concerns:**
 
-| Concern | Risk Level | PyBend's Current Exposure | MFE Exposure |
+| Concern | Risk Level | N3TX's Current Exposure | MFE Exposure |
 |---------|-----------|--------------------------|-------------|
 | Supply chain attacks (npm dependencies) | High (industry-wide) | **Zero** (no npm dependencies) | Moderate-High (per MFE) |
 | Cross-MFE data leakage | Medium | N/A (single application) | Medium (shared browser context) |
@@ -290,7 +290,7 @@ A note for risk-aware executives: micro-frontends expand the attack surface of a
 | CSS injection attacks | Low | Low | Medium (without Shadow DOM) |
 | Malicious remote module | High (if loading from CDN) | **Zero** (all modules self-hosted) | Medium-High |
 
-**Our current security advantage:** With zero external dependencies and all modules served from our own server, PyBend has an extremely small attack surface. In 2025, a massive npm supply chain attack compromised hundreds of widely used packages. We were unaffected because we have no npm dependencies. This advantage should be preserved as we grow -- any future MFE architecture should prefer self-hosted modules over CDN-loaded dependencies, and any CDN dependencies should use Subresource Integrity (SRI) checking via import map `integrity` fields.
+**Our current security advantage:** With zero external dependencies and all modules served from our own server, N3TX has an extremely small attack surface. In 2025, a massive npm supply chain attack compromised hundreds of widely used packages. We were unaffected because we have no npm dependencies. This advantage should be preserved as we grow -- any future MFE architecture should prefer self-hosted modules over CDN-loaded dependencies, and any CDN dependencies should use Subresource Integrity (SRI) checking via import map `integrity` fields.
 
 **Mitigation strategies for Phase 2:**
 
@@ -341,7 +341,7 @@ Module Federation 2.0 (released 2024) addressed some concerns by extracting the 
 | Debugging | Webpack DevTools extension | Browser DevTools (standard) |
 | Future trajectory | Mature but plateau | Growing, standards-track |
 
-For PyBend, the choice is clear: Import Maps align with our buildless architecture, our zero-dependency approach, and our preference for browser standards over framework-specific solutions.
+For N3TX, the choice is clear: Import Maps align with our buildless architecture, our zero-dependency approach, and our preference for browser standards over framework-specific solutions.
 
 ### 3.6 Framework/Tool Adoption Landscape (2025-2026)
 
@@ -349,11 +349,11 @@ For context on where the broader frontend ecosystem stands:
 
 | Technology | Status | Relevance to Our Decision |
 |-----------|--------|--------------------------|
-| **Import Maps** | Universal browser support (Chrome 89+, Firefox 108+, Safari 16.4+) | Directly applicable to PyBend; zero-cost addition |
+| **Import Maps** | Universal browser support (Chrome 89+, Firefox 108+, Safari 16.4+) | Directly applicable to N3TX; zero-cost addition |
 | **Web Components** | 98% global browser coverage; 156% enterprise adoption growth 2023-2025 | We are already built on this; industry is catching up |
 | **Lit (Google)** | Leading WC library, 5KB; used by Google, Adobe, Salesforce | Optional future addition if template complexity grows |
 | **Module Federation v2** | Dominant but declining; Rspack support added | Not relevant -- we are buildless |
-| **Native Federation** | Standards-based alternative to Module Federation | Architecture aligned with PyBend's approach |
+| **Native Federation** | Standards-based alternative to Module Federation | Architecture aligned with N3TX's approach |
 | **HTMX** | Surging (16.8K GitHub stars in 2024, beat React in JS Rising Stars) | Orthogonal approach (server-rendered HTML); not competing |
 | **React Server Components** | New React paradigm mixing server/client | Framework-specific; not applicable to our vanilla WC approach |
 | **Astro Server Islands** | Component-level server rendering | Interesting pattern but requires build step |
@@ -363,11 +363,11 @@ For context on where the broader frontend ecosystem stands:
 
 ## 4. Our Current Architecture: An Honest Assessment
 
-> **Key Finding:** PyBend's frontend already implements the hardest 70% of micro-frontend architecture -- actor-based messaging, schema-driven discovery, and buildless Web Components. Our gaps are in CSS isolation, lazy loading, and import maps -- all addressable with low-cost, incremental improvements.
+> **Key Finding:** N3TX's frontend already implements the hardest 70% of micro-frontend architecture -- actor-based messaging, schema-driven discovery, and buildless Web Components. Our gaps are in CSS isolation, lazy loading, and import maps -- all addressable with low-cost, incremental improvements.
 
 ### 4.1 What We Built
 
-PyBend's frontend is a schema-driven Web Component system. In non-technical terms:
+N3TX's frontend is a schema-driven Web Component system. In non-technical terms:
 
 1. **The backend is the boss.** A developer defines a data model in Python (e.g., "a Product has a name, price, and description"). The framework automatically generates everything: the database table, the API endpoints, the JSON Schema, and the frontend components.
 
@@ -387,19 +387,19 @@ PyBend's frontend is a schema-driven Web Component system. In non-technical term
 | External dependencies | Zero (no npm, no node_modules) |
 | Component base class | NTTElement (extends HTMLElement) |
 | Message bus | Matrix (actor model, inspired by Akka) |
-| Schema discovery | NTT.SCHEMA() -> prototype() -> DynamicClass |
+| Schema discovery | N3TX.SCHEMA() -> prototype() -> DynamicClass |
 | CSS approach | Global stylesheets (no Shadow DOM) |
 | Message format | TX (name, source, target, data, meta, timestamp) |
 | Defined message types | 25+ (CRUD, lifecycle, navigation, auth) |
-| Entry point | schema.html -- loads Matrix, NTT, components via ES Module imports |
+| Entry point | schema.html -- loads Matrix, N3TX, components via ES Module imports |
 
 **How data flows through the system (a complete lifecycle):**
 
-1. A developer adds `<ntt-list model="Product">` to an HTML page
-2. The `ntt-list` component (a Custom Element) triggers a schema fetch: `GET /Product`
+1. A developer adds `<ntx-list model="Product">` to an HTML page
+2. The `ntx-list` component (a Custom Element) triggers a schema fetch: `GET /Product`
 3. The backend returns JSON Schema with `$schema`, `$id`, `properties`, `methods`, `access`, `$defs`, and `ui`
-4. `NTT.SCHEMA()` receives the schema and calls `prototype()` -- the runtime class factory
-5. `prototype()` generates a `DynamicClass` that extends `NTT`:
+4. `N3TX.SCHEMA()` receives the schema and calls `prototype()` -- the runtime class factory
+5. `prototype()` generates a `DynamicClass` that extends `N3TX`:
    - Typed getter/setter for each field in `schema.properties`
    - Callable method stub for each entry in `schema.methods`
    - Static schema reference and instance registry
@@ -407,8 +407,8 @@ PyBend's frontend is a schema-driven Web Component system. In non-technical term
 7. The DynamicClass triggers an initial `READ` message: `GET /products?limit=20&offset=0`
 8. The backend returns paginated entity data, each item carrying `$schema` and `$id`
 9. The DynamicClass creates instances for each entity, registering them in the actor system
-10. The `ntt-list` component renders `<ntt-item>` elements for each instance
-11. Each `ntt-item` reads the schema to determine field rendering (type, widget, access control)
+10. The `ntx-list` component renders `<ntx-item>` elements for each instance
+11. Each `ntx-item` reads the schema to determine field rendering (type, widget, access control)
 12. The Formidable generator (`form.js`) builds forms from schema properties
 13. Permissions.js reads schema access rules to show/hide edit and delete buttons
 
@@ -416,9 +416,9 @@ PyBend's frontend is a schema-driven Web Component system. In non-technical term
 
 ### 4.2 How We Compare to MFE Best Practices
 
-This is the critical comparison. For each concern that micro-frontend architecture must address, we show the industry pattern, what PyBend already has, and where gaps exist.
+This is the critical comparison. For each concern that micro-frontend architecture must address, we show the industry pattern, what N3TX already has, and where gaps exist.
 
-| MFE Concern | Industry Best Practice | What PyBend Has | Gap Assessment |
+| MFE Concern | Industry Best Practice | What N3TX Has | Gap Assessment |
 |-------------|----------------------|-----------------|---------------|
 | **Component encapsulation** | Web Components with Shadow DOM | Custom Elements (NTTElement extends HTMLElement) -- no Shadow DOM | **Moderate gap.** Components are encapsulated by convention (Custom Elements) but not by enforcement (no Shadow DOM). CSS can leak across component boundaries. |
 | **Inter-component communication** | Event bus, pub/sub, or actor model | **Actor model with Matrix message bus** -- typed TX messages with source/target addressing | **No gap. We exceed industry standard.** Most MFE systems use simple event buses. Our actor model provides hierarchical addressing, location transparency, and guaranteed message ordering. |
@@ -430,7 +430,7 @@ This is the critical comparison. For each concern that micro-frontend architectu
 | **Lazy loading** | Dynamic import() for non-critical components | All modules loaded eagerly on page load | **Moderate gap.** With 29 files and ~6,000 LOC, this is not yet a performance problem. It will become one as the component library grows. |
 | **Build optimization** | Optional build step (minification, compression) | No build step at all | **Small gap.** Our buildless approach is validated by the open-wc community. An optional esbuild minification pass (30 seconds, no config) would improve production performance. |
 | **Caching** | Service Worker with strategy-per-resource-type | Browser default caching only | **Moderate gap.** A Service Worker with Cache-First for JS modules and Stale-While-Revalidate for schema responses would dramatically improve repeat-visit performance. |
-| **Performance hints** | modulepreload for critical path modules | None | **Easy win.** Adding `<link rel="modulepreload">` for NTT.js, Actor.js, Matrix.js, and TX.js eliminates the module discovery waterfall. Zero cost, measurable improvement. |
+| **Performance hints** | modulepreload for critical path modules | None | **Easy win.** Adding `<link rel="modulepreload">` for N3TX.js, Actor.js, Matrix.js, and TX.js eliminates the module discovery waterfall. Zero cost, measurable improvement. |
 | **State management** | Per-MFE private state (no shared stores) | **Per-actor private state** (actor model enforces isolation) | **No gap.** Our architecture prevents shared mutable state by design. |
 | **Navigation** | Router manages hash/history, MFEs register routes | **Router actor** with hash sync, history stack, Observable | **No gap.** Our Router is a first-class actor with the same capabilities as dedicated MFE routers. |
 | **Authentication** | Shared auth token, MFE-agnostic | JWT via x-access-token header, Permissions.js reads schema access rules | **No gap.** Auth is already decoupled from components. |
@@ -440,27 +440,27 @@ This is the critical comparison. For each concern that micro-frontend architectu
 
 ### 4.3 Our Unique Advantages
 
-> **Key Finding:** PyBend's architecture is not just "compatible" with micro-frontend patterns -- it is architecturally superior in three specific dimensions. The actor model, schema-driven discovery, and buildless approach each represent a deliberate design choice that the broader industry is only now converging toward.
+> **Key Finding:** N3TX's architecture is not just "compatible" with micro-frontend patterns -- it is architecturally superior in three specific dimensions. The actor model, schema-driven discovery, and buildless approach each represent a deliberate design choice that the broader industry is only now converging toward.
 
-Three architectural choices set PyBend apart from the typical micro-frontend starting point. These are not just "good enough" -- they are genuinely superior to common industry patterns.
+Three architectural choices set N3TX apart from the typical micro-frontend starting point. These are not just "good enough" -- they are genuinely superior to common industry patterns.
 
 **1. Actor Model > Flat Event Bus**
 
 Most micro-frontend systems use a flat event bus for communication: components publish events and subscribe to event names. This works but has serious limitations -- no guaranteed delivery, no request/response pattern, no hierarchy, and event name collisions at scale.
 
-PyBend's Matrix implements a true actor model:
+N3TX's Matrix implements a true actor model:
 
 ```
 Industry standard (Event Bus):
   Component A ---> publish("cart-updated") ---> Event Bus ---> all subscribers receive
 
-PyBend (Actor Model):
+N3TX (Actor Model):
   Component A ---> TX{name: UPDATE, source: "Product/42", target: "Cart"} ---> Matrix ---> Cart actor receives
 ```
 
 The differences compound at scale:
 
-| Capability | Flat Event Bus | PyBend Actor Model |
+| Capability | Flat Event Bus | N3TX Actor Model |
 |-----------|---------------|-------------------|
 | Addressing | Event name strings | Hierarchical addresses (Product/42/Comment/7) |
 | Routing | Broadcast to all subscribers | Targeted delivery to specific actor |
@@ -493,7 +493,7 @@ Our Matrix implementation sits in the "Excellent" category because it provides a
 
 **2. Schema-Driven > Static Configuration**
 
-Most micro-frontend systems require static configuration files, manifest files, or build-time setup to describe what components exist and how they behave. PyBend's schema carries the entire contract:
+Most micro-frontend systems require static configuration files, manifest files, or build-time setup to describe what components exist and how they behave. N3TX's schema carries the entire contract:
 
 | What the Schema Carries | How MFE Systems Typically Handle This |
 |------------------------|--------------------------------------|
@@ -509,9 +509,9 @@ The schema is fetched once per model type. It tells the frontend everything: wha
 
 **3. Buildless > Bundled**
 
-Most micro-frontend systems require complex build tooling -- webpack or Vite to create bundles, Module Federation plugins to enable sharing, and CI/CD pipelines to produce deployment artifacts. PyBend serves raw ES Modules directly:
+Most micro-frontend systems require complex build tooling -- webpack or Vite to create bundles, Module Federation plugins to enable sharing, and CI/CD pipelines to produce deployment artifacts. N3TX serves raw ES Modules directly:
 
-| Concern | Bundled MFE | PyBend (Buildless) |
+| Concern | Bundled MFE | N3TX (Buildless) |
 |---------|------------|-------------------|
 | Development workflow | Change code -> build -> refresh (seconds) | Change code -> refresh (instant) |
 | Deployment | Build bundle -> upload to CDN -> update manifest | Change file -> done |
@@ -561,7 +561,7 @@ Repeat visits reload all modules from the server. A Service Worker could cache J
 
 **5. No modulepreload Hints (Low effort, measurable impact)**
 
-Without `<link rel="modulepreload">`, the browser discovers module dependencies one level at a time, creating a waterfall: parse app.js -> discover NTT.js -> discover Actor.js -> discover TX.js. Each level adds a network round-trip.
+Without `<link rel="modulepreload">`, the browser discovers module dependencies one level at a time, creating a waterfall: parse app.js -> discover N3TX.js -> discover Actor.js -> discover TX.js. Each level adds a network round-trip.
 
 **Mitigation path:** Add 5-6 modulepreload hints to the HTML entry point. Estimated effort: 30 minutes. Expected impact: 100-300ms reduction in initial load time.
 
@@ -718,7 +718,7 @@ Beyond the direct engineering and infrastructure costs, the research identifies 
 
 **Consistency maintenance.** Without strong governance, MFEs drift apart over time. Button styles diverge. Error messages differ. Accessibility compliance varies. The "unified product" feeling erodes. Maintaining consistency requires continuous investment in a shared design system and active enforcement. The typical cost is 0.5-1 FTE dedicated to design system maintenance.
 
-**Type safety erosion.** The absence of shared type definitions between micro-frontends hinders developers from quickly integrating with frontend APIs or ensuring consistent data structures, slowing development and increasing the potential for runtime errors. PyBend's schema-driven approach mitigates this -- the schema IS the type definition -- but this advantage only holds if the schema contract is maintained rigorously.
+**Type safety erosion.** The absence of shared type definitions between micro-frontends hinders developers from quickly integrating with frontend APIs or ensuring consistent data structures, slowing development and increasing the potential for runtime errors. N3TX's schema-driven approach mitigates this -- the schema IS the type definition -- but this advantage only holds if the schema contract is maintained rigorously.
 
 **Opportunity cost.** The most important hidden cost is what the team does NOT build while setting up MFE infrastructure. During those 6-12 months of migration, product features are delayed, technical debt in the existing monolith continues to accumulate, and competitors ship while you restructure. The question is not "is MFE architecture better?" but "is MFE architecture better enough to justify 6-12 months of reduced feature velocity?" For most organizations under 30 developers, the answer is no.
 
@@ -823,7 +823,7 @@ A core application with well-defined extension points where plugins inject UI, r
 
 - **Best for:** Products with a stable core and variable features (SaaS with customer customizations, extensible platforms)
 - **Advantage over MFE:** Simpler operational model; the core team maintains infrastructure, plugin teams add features
-- **Relevance to PyBend:** Our schema-driven architecture is naturally extensible. A new model registered with PyBend automatically gets an API, a schema, and UI rendering. This IS a plugin architecture.
+- **Relevance to N3TX:** Our schema-driven architecture is naturally extensible. A new model registered with N3TX automatically gets an API, a schema, and UI rendering. This IS a plugin architecture.
 
 **Alternative 3: Monorepo with Code Splitting**
 
@@ -894,7 +894,7 @@ Do you have 30+ developers on the frontend?
                                         Extract lowest-risk domain first.
 ```
 
-**Where PyBend sits in this tree:** We are at the top-left branch -- a small team without deployment bottlenecks. The correct answer for us today is "use a modular monolith" (which our actor-based architecture already provides) and "revisit in 12 months." The phased approach ensures we are ready when the triggers fire.
+**Where N3TX sits in this tree:** We are at the top-left branch -- a small team without deployment bottlenecks. The correct answer for us today is "use a modular monolith" (which our actor-based architecture already provides) and "revisit in 12 months." The phased approach ensures we are ready when the triggers fire.
 
 **The InfoQ perspective:** The InfoQ sociotechnical analysis offers perhaps the best guiding principle: "Good architecture is not about purity; it's about flow." Our current architecture delivers good flow. The phased approach preserves that flow while preparing for future scale.
 
@@ -918,7 +918,7 @@ Micro-frontends introduce inherent performance costs that must be weighed agains
 - **If users navigate extensively:** The cumulative cost of loading multiple MFE bundles on navigation exceeds what a single bundle would have cost, even accounting for the initial bundle's larger size.
 - **If the application is a single-page experience:** MFE overhead is pure cost with no offsetting benefit.
 
-**Our situation:** PyBend's buildless ES Module approach avoids the worst performance pitfalls by design. There are no duplicate framework instances (vanilla JS Web Components use the platform, not a framework). There are no bundle size explosions (no build step means no bundled duplicates). The remaining performance considerations -- module load time, CSS duplication -- are addressed by Phase 0 optimizations (modulepreload, import maps, Service Worker caching) without requiring any architectural change.
+**Our situation:** N3TX's buildless ES Module approach avoids the worst performance pitfalls by design. There are no duplicate framework instances (vanilla JS Web Components use the platform, not a framework). There are no bundle size explosions (no build step means no bundled duplicates). The remaining performance considerations -- module load time, CSS duplication -- are addressed by Phase 0 optimizations (modulepreload, import maps, Service Worker caching) without requiring any architectural change.
 
 ### 6.6 TCO Comparison Over 3 Years
 
@@ -958,14 +958,14 @@ Phase 0 consists of changes that improve performance today and create MFE readin
 Add `<link rel="modulepreload">` tags for the critical-path modules in `schema.html` (or `matrix.html`):
 
 ```html
-<link rel="modulepreload" href="/static/core/NTT.js">
+<link rel="modulepreload" href="/static/core/N3TX.js">
 <link rel="modulepreload" href="/static/core/Actor.js">
 <link rel="modulepreload" href="/static/core/Matrix.js">
 <link rel="modulepreload" href="/static/core/TX.js">
 <link rel="modulepreload" href="/static/core/Observable.js">
 ```
 
-**Why:** Eliminates the module discovery waterfall. Currently, the browser discovers dependencies one level at a time (parse app.js -> discover NTT.js -> discover Actor.js). With modulepreload, all critical modules are fetched in parallel. Expected improvement: 100-300ms on initial load.
+**Why:** Eliminates the module discovery waterfall. Currently, the browser discovers dependencies one level at a time (parse app.js -> discover N3TX.js -> discover Actor.js). With modulepreload, all critical modules are fetched in parallel. Expected improvement: 100-300ms on initial load.
 
 **Effort:** 30 minutes. **Risk:** None.
 
@@ -1075,11 +1075,11 @@ Use dynamic `import()` to load components only when they are needed:
 
 ```javascript
 // Instead of eagerly loading all components:
-// import './components/ntt-detail.js';
+// import './components/ntx-detail.js';
 
 // Load on demand when the user navigates:
 async function loadDetail() {
-  await import('/static/components/ntt-detail.js');
+  await import('/static/components/ntx-detail.js');
 }
 ```
 
@@ -1088,7 +1088,7 @@ Schema-based prediction can preload likely-next components during idle time:
 ```javascript
 requestIdleCallback(() => {
   if (schema.$defs?.Comment) {
-    import('/static/components/ntt-item.js');
+    import('/static/components/ntx-item.js');
   }
 });
 ```
@@ -1099,7 +1099,7 @@ requestIdleCallback(() => {
 
 **Action 3: Define the component extension contract**
 
-Document and enforce the contract that external components must follow to integrate with PyBend:
+Document and enforce the contract that external components must follow to integrate with N3TX:
 
 1. Extend NTTElement or HTMLElement
 2. Accept schema and data via the DESCRIBE message
@@ -1304,7 +1304,7 @@ The InfoQ sociotechnical analysis concludes: "Good architecture is not about pur
 
 Micro-frontends are a powerful tool for organizations that have outgrown their frontend architecture. They are a costly mistake for organizations that have not. The decision should be driven by evidence of delivery pain, not aspiration toward architectural sophistication.
 
-Our situation is fortunate: PyBend's architecture was built with the right primitives from the start. The actor model, schema-driven discovery, and buildless Web Components give us a foundation that most organizations spend 6-12 months building as part of their MFE migration. We have it already.
+Our situation is fortunate: N3TX's architecture was built with the right primitives from the start. The actor model, schema-driven discovery, and buildless Web Components give us a foundation that most organizations spend 6-12 months building as part of their MFE migration. We have it already.
 
 The phased approach lets us capitalize on this advantage:
 - **Today:** Improve performance and formalize contracts at zero cost
@@ -1438,28 +1438,28 @@ The original application must retain all features until the corresponding MFE is
 | Term | Definition (Business-Friendly) |
 |------|-------------------------------|
 | **Actor Model** | A design pattern where software components communicate by sending messages to each other, rather than calling each other directly. Like sending emails vs. tapping someone on the shoulder. Prevents components from interfering with each other's internal state. |
-| **Build Step** | A process that transforms source code into optimized code before deploying to production. Like a factory assembly line between the designer's sketch and the customer's product. Some frameworks require this; PyBend does not. |
+| **Build Step** | A process that transforms source code into optimized code before deploying to production. Like a factory assembly line between the designer's sketch and the customer's product. Some frameworks require this; N3TX does not. |
 | **CDN** | Content Delivery Network. A global network of servers that serves files (JavaScript, CSS, images) from the location closest to the user, reducing load times. Like having warehouse locations near every major city instead of one central warehouse. |
 | **CI/CD Pipeline** | Continuous Integration / Continuous Deployment. An automated process that tests code changes and deploys them to production. Like a quality assurance conveyor belt -- code goes in one end, tested production deployment comes out the other. |
 | **Conway's Law** | "Organizations design systems that mirror their communication structures." If you have three teams, your software will naturally have three major components. This is not a problem to solve -- it is a force to harness. |
 | **CSS (Cascading Style Sheets)** | The language that controls visual presentation (colors, fonts, spacing, layout). In a micro-frontend context, the "cascading" behavior (styles flow down to all children) creates a risk: one team's styles can accidentally override another team's styles. |
 | **CSS Custom Properties (Variables)** | Named values (e.g., `--brand-color: blue`) that can be referenced throughout a stylesheet. The only CSS mechanism that crosses Shadow DOM boundaries, making them the standard way to share design tokens in micro-frontend architectures. |
 | **Custom Element** | A browser standard for creating new HTML tags (e.g., `<product-card>`). Each Custom Element is a self-contained component with its own behavior, rendering, and lifecycle. The browser manages mounting and unmounting automatically. |
-| **DynamicClass** | In PyBend, a JavaScript class generated at runtime from a JSON Schema. Instead of pre-writing a Product class, the framework reads the Product schema from the backend and creates the class automatically with typed properties and callable methods. |
+| **DynamicClass** | In N3TX, a JavaScript class generated at runtime from a JSON Schema. Instead of pre-writing a Product class, the framework reads the Product schema from the backend and creates the class automatically with typed properties and callable methods. |
 | **ES Modules** | The standard JavaScript module format supported by all modern browsers. Code is organized into files with `import` and `export` statements. The browser loads them natively, without a build step. |
 | **Import Map** | A browser-native JSON configuration that tells the browser where to find JavaScript modules. Like a phone book for code: "when someone asks for 'react', load it from this URL." Eliminates the need for a build tool to resolve module locations. |
-| **JSON Schema** | A standard format for describing the structure of JSON data. In PyBend, the JSON Schema carries not just data types but also UI hints, access control rules, and callable methods -- making it the complete contract between backend and frontend. |
-| **Matrix** | PyBend's actor-based message bus. Named after the mathematical concept of a matrix (a structured container), it routes messages between components based on their addresses. All communication flows through the Matrix, providing a natural audit trail. |
+| **JSON Schema** | A standard format for describing the structure of JSON data. In N3TX, the JSON Schema carries not just data types but also UI hints, access control rules, and callable methods -- making it the complete contract between backend and frontend. |
+| **Matrix** | N3TX's actor-based message bus. Named after the mathematical concept of a matrix (a structured container), it routes messages between components based on their addresses. All communication flows through the Matrix, providing a natural audit trail. |
 | **Module Federation** | A webpack-specific feature that allows separately built JavaScript applications to share code at runtime. The dominant micro-frontend technology from 2020-2024, now being supplemented by browser-native alternatives (Import Maps). |
 | **modulepreload** | An HTML hint (`<link rel="modulepreload" href="module.js">`) that tells the browser to download, parse, and compile a JavaScript module before it is needed. Eliminates the "waterfall" where the browser discovers dependencies one level at a time. |
 | **Monolith** | A single codebase deployed as a single unit. Not inherently bad -- it is the simplest architecture and appropriate for most applications. Becomes problematic only when multiple teams need to deploy independently. |
-| **NTT (Network Transfer Type)** | PyBend's core entity system. Each model (Product, User, Comment) becomes an NTT with typed properties, CRUD operations, and an actor address. The name reflects that entities transfer across the network between backend and frontend. |
-| **Prototype** | In PyBend, the function that creates a DynamicClass from a JSON Schema. It reads the schema's properties, methods, and metadata, and generates a JavaScript class with typed getters/setters and callable methods. |
+| **N3TX (Network Transfer Type)** | N3TX's core entity system. Each model (Product, User, Comment) becomes an N3TX with typed properties, CRUD operations, and an actor address. The name reflects that entities transfer across the network between backend and frontend. |
+| **Prototype** | In N3TX, the function that creates a DynamicClass from a JSON Schema. It reads the schema's properties, methods, and metadata, and generates a JavaScript class with typed getters/setters and callable methods. |
 | **Service Worker** | A JavaScript program that runs in the background, separate from the web page. It can intercept network requests and serve cached responses, enabling offline functionality and faster repeat visits. |
 | **Shadow DOM** | A browser standard that encapsulates a component's internal DOM and CSS. Styles inside a Shadow DOM do not leak out, and external styles do not bleed in. The strongest form of CSS isolation available in the browser. |
 | **Single-SPA** | An open-source JavaScript framework for orchestrating multiple micro-frontends on the same page. Manages mounting, unmounting, and routing. Being supplemented by simpler approaches (Web Components, Import Maps). |
 | **Strangler Fig Pattern** | A migration strategy where new functionality is built alongside the existing system, gradually replacing it piece by piece. Named after the strangler fig tree that grows around a host tree. The safest way to migrate to micro-frontends. |
-| **TX (Transfer/Transaction)** | PyBend's message format. A TX carries a name (what happened), source (who sent it), target (who should receive it), data (the payload), and timestamp. All communication between actors uses TX messages. |
+| **TX (Transfer/Transaction)** | N3TX's message format. A TX carries a name (what happened), source (who sent it), target (who should receive it), data (the payload), and timestamp. All communication between actors uses TX messages. |
 | **Web Components** | A set of browser standards (Custom Elements + Shadow DOM + HTML Templates + ES Modules) for creating reusable, encapsulated components. Framework-agnostic -- they work in React, Vue, Angular, or vanilla JavaScript. |
 
 ### Appendix A.2: Acronyms
@@ -1493,7 +1493,7 @@ The original application must retain all features until the corresponding MFE is
 | TCO | Total Cost of Ownership |
 | TTI | Time to Interactive |
 | TTFB | Time to First Byte |
-| TX | Transfer/Transaction (PyBend message format) |
+| TX | Transfer/Transaction (N3TX message format) |
 | WC | Web Component |
 
 ### Appendix B: Industry Case Study Details
@@ -1516,11 +1516,11 @@ DAZN (global sports streaming) split their SPA into 5 micro-frontends mapped to 
 
 **Mercedes-Benz -- The Import Maps Pioneer**
 
-Mercedes-Benz.io published a detailed architecture in January 2023 demonstrating that "You Might Not Need Module Federation." Their approach uses browser-native Import Maps with dependency inversion: a lightweight Nest.js Import Map Resolver server stores and updates the import map, each MFE produces 3 artifacts (ESM bundle, manifest, static assets), and multiple MFEs co-exist on the same page compiled into Web Components. This architecture directly validates PyBend's buildless, Web Component-based approach.
+Mercedes-Benz.io published a detailed architecture in January 2023 demonstrating that "You Might Not Need Module Federation." Their approach uses browser-native Import Maps with dependency inversion: a lightweight Nest.js Import Map Resolver server stores and updates the import map, each MFE produces 3 artifacts (ESM bundle, manifest, static assets), and multiple MFEs co-exist on the same page compiled into Web Components. This architecture directly validates N3TX's buildless, Web Component-based approach.
 
 **Contentsquare -- Web Components Migration**
 
-With 500,000+ lines of legacy AngularJS/Angular code and 40+ frontend developers, Contentsquare chose Web Components for CSS isolation (Shadow DOM) and lazy loading. They used a monorepo for all micro-frontends to control build processes. Their migration strategy was opportunistic: modules undergoing significant refactoring were migrated to MFEs, allowing teams to extract value incrementally. This is the approach most similar to what PyBend would follow if Phase 2 were triggered.
+With 500,000+ lines of legacy AngularJS/Angular code and 40+ frontend developers, Contentsquare chose Web Components for CSS isolation (Shadow DOM) and lazy loading. They used a monorepo for all micro-frontends to control build processes. Their migration strategy was opportunistic: modules undergoing significant refactoring were migrated to MFEs, allowing teams to extract value incrementally. This is the approach most similar to what N3TX would follow if Phase 2 were triggered.
 
 **Dunelm -- From Mid-Range to #1 Site Speed**
 
@@ -1561,19 +1561,19 @@ Detailed performance data from production micro-frontend deployments:
 | Hot reload time (development) | 3.5 seconds | 0.8 seconds | 77% faster |
 | Build time (CI) | Minutes | Seconds (per MFE) | Order of magnitude |
 
-**Context for PyBend:** Our current frontend is approximately 6,000 lines across 29 files. With no build step and no external dependencies, our initial bundle is dramatically smaller than the industry average. The performance benchmarks above represent organizations with much larger codebases (100K+ LOC) using framework-heavy approaches (React, Angular). Our buildless approach means we already outperform the "optimized post-MFE" numbers in several categories:
+**Context for N3TX:** Our current frontend is approximately 6,000 lines across 29 files. With no build step and no external dependencies, our initial bundle is dramatically smaller than the industry average. The performance benchmarks above represent organizations with much larger codebases (100K+ LOC) using framework-heavy approaches (React, Angular). Our buildless approach means we already outperform the "optimized post-MFE" numbers in several categories:
 
-| Metric | Industry Post-MFE Average | PyBend Current (Estimated) | Notes |
+| Metric | Industry Post-MFE Average | N3TX Current (Estimated) | Notes |
 |--------|--------------------------|---------------------------|-------|
 | Total JS payload | 950 KB | ~200 KB (29 files, no dependencies) | 80% smaller |
 | Build step | Seconds per MFE | None | Instant development |
 | Framework overhead | 30-120 KB (React/Vue/Angular runtime) | 0 KB (vanilla Web Components) | No framework tax |
 | Dependency count | 50-500 npm packages per MFE | 0 | No supply chain risk |
 
-### Appendix C: PyBend Architecture Diagram
+### Appendix C: N3TX Architecture Diagram
 
 ```
-PyBend Full-Stack Architecture
+N3TX Full-Stack Architecture
 ================================
 
 BACKEND (Python / FastAPI)
@@ -1611,11 +1611,11 @@ FRONTEND (Vanilla JS / Web Components / No Build Step)
 |                                                                   |
 |  Schema Bootstrap                                                 |
 |  +-----------------------------------------------------------+   |
-|  | NTT.SCHEMA(data)                                           |   |
+|  | N3TX.SCHEMA(data)                                           |   |
 |  |    |                                                       |   |
 |  |    +-> prototype(addr, schema, href)                       |   |
 |  |         |                                                  |   |
-|  |         +-> DynamicClass extends NTT                       |   |
+|  |         +-> DynamicClass extends N3TX                       |   |
 |  |              - Typed getters/setters from schema.properties|   |
 |  |              - Callable methods from schema.methods        |   |
 |  |              - Validation from schema constraints          |   |
@@ -1646,14 +1646,14 @@ FRONTEND (Vanilla JS / Web Components / No Build Step)
 |  Web Components (UI Layer)                                        |
 |  +-----------------------------------------------------------+   |
 |  |                                                            |   |
-|  |  <ntt-list model="Product">  Schema-driven collection     |   |
-|  |    <ntt-item ref="Product/1"> Adaptive rendering           |   |
-|  |      <ntt-method>             Action buttons from schema   |   |
-|  |    </ntt-item>                                             |   |
-|  |  </ntt-list>                                               |   |
+|  |  <ntx-list model="Product">  Schema-driven collection     |   |
+|  |    <ntx-item ref="Product/1"> Adaptive rendering           |   |
+|  |      <ntx-method>             Action buttons from schema   |   |
+|  |    </ntx-item>                                             |   |
+|  |  </ntx-list>                                               |   |
 |  |                                                            |   |
-|  |  <ntt-router>                 Hash-synced navigation       |   |
-|  |  <ntt-topbar>                 Authentication / nav bar     |   |
+|  |  <ntx-router>                 Hash-synced navigation       |   |
+|  |  <ntx-topbar>                 Authentication / nav bar     |   |
 |  |                                                            |   |
 |  |  Formidable (form.js)         Schema-driven form generator |   |
 |  |  Permissions.js               Schema-driven access control |   |
@@ -1682,7 +1682,7 @@ MFE READINESS MAP (Current State)
   [NEED]  Independent deployment (when teams warrant it)
 ```
 
-### Appendix C.2: PyBend Source File Map
+### Appendix C.2: N3TX Source File Map
 
 For technical reviewers, here is how the frontend source code maps to micro-frontend concerns:
 
@@ -1700,7 +1700,7 @@ For technical reviewers, here is how the frontend source code maps to micro-fron
 
 | File | LOC (est.) | MFE Role | Key Classes/Functions |
 |------|-----------|---------|----------------------|
-| `static/core/NTT.js` | ~800 | Core entity system; schema bootstrap, DynamicClass factory | `NTT`, `SCHEMA()`, `prototype()`, `normalizePopulated()` |
+| `static/core/N3TX.js` | ~800 | Core entity system; schema bootstrap, DynamicClass factory | `N3TX`, `SCHEMA()`, `prototype()`, `normalizePopulated()` |
 | `static/core/transport/NetworkAdapter.js` | ~100 | HTTP transport; fetches schemas and entities | `NetworkAdapter`, `send()` |
 | `static/config.js` | ~70 | Configuration; API URL, message types, logging | `config` object with `E` (event types) |
 
@@ -1709,11 +1709,11 @@ For technical reviewers, here is how the frontend source code maps to micro-fron
 | File | LOC (est.) | MFE Role | Key Classes/Functions |
 |------|-----------|---------|----------------------|
 | `static/components/NTTElement.js` | ~150 | Base component class; extends HTMLElement | `NTTElement`, `connectedCallback()`, `DESCRIBE()` |
-| `static/components/ntt-item.js` | ~400 | Single entity renderer; adaptive sizes (xs-xl) | `NTTItem`, `xs()`, `sm()`, `md()`, `lg()`, `xl()` |
-| `static/components/ntt-list.js` | ~20 | Collection renderer; stamps ntt-item per entity | `NTTList` extends `ListElement` |
+| `static/components/ntx-item.js` | ~400 | Single entity renderer; adaptive sizes (xs-xl) | `NTTItem`, `xs()`, `sm()`, `md()`, `lg()`, `xl()` |
+| `static/components/ntx-list.js` | ~20 | Collection renderer; stamps ntx-item per entity | `NTTList` extends `ListElement` |
 | `static/components/ListElement.js` | ~200 | Base list component; pagination, rendering | `ListElement`, `render()`, `loadMore()` |
-| `static/components/ntt-router.js` | ~150 | View container; loads components via Router | `NTTRouter`, `#resolveTag()` |
-| `static/components/ntt-method.js` | ~100 | Action button renderer; calls schema methods | `NTTMethod`, `invoke()` |
+| `static/components/ntx-router.js` | ~150 | View container; loads components via Router | `NTTRouter`, `#resolveTag()` |
+| `static/components/ntx-method.js` | ~100 | Action button renderer; calls schema methods | `NTTMethod`, `invoke()` |
 
 **Utilities and Generators:**
 
@@ -1812,13 +1812,13 @@ For technical reviewers, here is how the frontend source code maps to micro-fron
 
 ---
 
-*This report synthesizes findings from 4 research documents totaling 80+ pages, 50+ industry sources, and direct analysis of PyBend's source code across 29 JavaScript files. All statistics are sourced from the research documents referenced in the appendices. Where industry benchmarks are applied to our situation, expected ranges are conservatively estimated (lower end of reported improvements).*
+*This report synthesizes findings from 4 research documents totaling 80+ pages, 50+ industry sources, and direct analysis of N3TX's source code across 29 JavaScript files. All statistics are sourced from the research documents referenced in the appendices. Where industry benchmarks are applied to our situation, expected ranges are conservatively estimated (lower end of reported improvements).*
 
 ### Appendix E: The Web Standards Tailwind
 
-PyBend's architectural choices are validated by the direction browser standards are evolving. This table maps each PyBend design decision to the corresponding web standard and its trajectory:
+N3TX's architectural choices are validated by the direction browser standards are evolving. This table maps each N3TX design decision to the corresponding web standard and its trajectory:
 
-| PyBend Design Decision | Web Standard | Standard Status (2026) | Industry Trajectory |
+| N3TX Design Decision | Web Standard | Standard Status (2026) | Industry Trajectory |
 |----------------------|-------------|----------------------|-------------------|
 | Vanilla Custom Elements | Custom Elements v1 | Stable, 98% browser support | Enterprise adoption up 156% (2023-2025) |
 | No Shadow DOM (light DOM) | Shadow DOM v1 | Stable, 98% browser support | Available when needed; Declarative Shadow DOM adds SSR |
@@ -1831,13 +1831,13 @@ PyBend's architectural choices are validated by the direction browser standards 
 
 **Why this matters strategically:** Building on web standards means our architecture improves as browsers improve, without any work from us. When browsers optimize ES Module loading, we benefit. When Import Maps gain new features (integrity checking, Chrome 127+), we benefit. When Declarative Shadow DOM enables SSR, we can adopt it. Standards-based architecture turns platform evolution into a free upgrade path.
 
-The opposite is also true: framework-dependent architectures (React, Angular) must actively keep up with framework releases, maintain compatibility, and risk deprecation. React's shift to Server Components, Angular's Ivy-to-Signals migration, and Vue's Options-to-Composition API transition each required months of migration work from adopting organizations. PyBend faces none of this.
+The opposite is also true: framework-dependent architectures (React, Angular) must actively keep up with framework releases, maintain compatibility, and risk deprecation. React's shift to Server Components, Angular's Ivy-to-Signals migration, and Vue's Options-to-Composition API transition each required months of migration work from adopting organizations. N3TX faces none of this.
 
-### Appendix F: Competitive Positioning -- PyBend vs. Common Starting Points
+### Appendix F: Competitive Positioning -- N3TX vs. Common Starting Points
 
-How does PyBend's starting position compare to a typical organization evaluating micro-frontends?
+How does N3TX's starting position compare to a typical organization evaluating micro-frontends?
 
-| Dimension | Typical Organization Starting MFE Journey | PyBend Current State | Our Advantage |
+| Dimension | Typical Organization Starting MFE Journey | N3TX Current State | Our Advantage |
 |-----------|------------------------------------------|---------------------|---------------|
 | **Frontend framework** | React, Angular, or Vue (require build step, JSX/template compilation) | Vanilla Web Components (no build step, browser-native) | No build tool lock-in; framework-agnostic by default |
 | **Component model** | Framework-specific components (React.FC, Angular @Component) | Standard Custom Elements (HTMLElement subclass) | Browser manages lifecycle; no orchestration framework needed |
@@ -1850,11 +1850,11 @@ How does PyBend's starting position compare to a typical organization evaluating
 | **Module format** | CommonJS or ESM-via-bundler | Native ES Modules | Already aligned with Import Maps standard |
 | **Migration effort to MFE** | 6-12 months (extract from framework, build shell, set up federation) | 2-4 weeks for Phase 1 (already have the hard parts) | 80% less effort due to existing architecture |
 
-**Bottom line:** Most organizations starting a micro-frontend journey must build the communication layer, the discovery mechanism, and the component model from scratch -- or adopt third-party frameworks (single-spa, Module Federation) that bring their own complexity and lock-in. PyBend has all three already, built on browser standards rather than framework-specific abstractions. Our path to MFE is shorter, cheaper, and lower risk than the industry average.
+**Bottom line:** Most organizations starting a micro-frontend journey must build the communication layer, the discovery mechanism, and the component model from scratch -- or adopt third-party frameworks (single-spa, Module Federation) that bring their own complexity and lock-in. N3TX has all three already, built on browser standards rather than framework-specific abstractions. Our path to MFE is shorter, cheaper, and lower risk than the industry average.
 
 **Quantified advantage:**
 
-| Migration Task | Typical Org Effort | PyBend Effort | Savings |
+| Migration Task | Typical Org Effort | N3TX Effort | Savings |
 |---------------|-------------------|---------------|---------|
 | Build communication layer | 2-4 engineer-months | Already done (Matrix/TX) | 100% |
 | Build discovery mechanism | 1-2 engineer-months | Already done (schema endpoints) | 100% |
@@ -1965,7 +1965,7 @@ The phased approach in Section 7 relies on measurable triggers rather than subje
 | Trigger | How to Measure | Tool / Method | Threshold |
 |---------|---------------|---------------|-----------|
 | 30+ frontend developers | Headcount of engineers whose primary responsibility includes frontend code | HR system or engineering manager report | Exact count |
-| Weekly merge conflicts in frontend code | Count merge conflicts (git rerere logs, or PR comments mentioning conflicts) in frontend directories per week | `git log --merges` filtered to `src/pybend/static/`; GitHub PR conflict labels | 5+ per week |
+| Weekly merge conflicts in frontend code | Count merge conflicts (git rerere logs, or PR comments mentioning conflicts) in frontend directories per week | `git log --merges` filtered to `src/n3tx/static/`; GitHub PR conflict labels | 5+ per week |
 | Deployment coordination meetings | Hours per week spent in meetings whose primary purpose is coordinating frontend deployments across teams | Calendar audit: sum duration of recurring deployment sync meetings | 2+ hours/week |
 | Build/reload times | Time from code change to browser reflecting the change in development; time from merge to production in CI | Development: browser console timestamp; CI: pipeline duration metric | Dev: 15+ seconds; CI: 15+ minutes |
 | Feature lead time | Calendar days from "development started" to "available in production" for a typical frontend feature | Issue tracker: time between "In Progress" and "Done" for frontend issues | 5+ business days |
@@ -1997,6 +1997,6 @@ The goal is to make the phase transition decision as mechanical as possible: whe
 
 ---
 
-*This report synthesizes findings from 4 research documents totaling 80+ pages, 50+ industry sources, and direct analysis of PyBend's source code across 29 JavaScript files. All statistics are sourced from the research documents referenced in the appendices. Where industry benchmarks are applied to our situation, expected ranges are conservatively estimated (lower end of reported improvements).*
+*This report synthesizes findings from 4 research documents totaling 80+ pages, 50+ industry sources, and direct analysis of N3TX's source code across 29 JavaScript files. All statistics are sourced from the research documents referenced in the appendices. Where industry benchmarks are applied to our situation, expected ranges are conservatively estimated (lower end of reported improvements).*
 
 *Prepared February 2026.*

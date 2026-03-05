@@ -1,6 +1,6 @@
 # Design Pattern Analysis: Composition vs Inheritance vs Mixin vs Protocol
 
-**Project:** PyBend -- Adding Actor behavior to ProtoModel
+**Project:** N3TX -- Adding Actor behavior to ProtoModel
 **Researched:** 2026-02-26
 **Overall confidence:** HIGH (based on codebase analysis, Pydantic docs, community discussions, real-world precedent)
 
@@ -8,7 +8,7 @@
 
 ## Context
 
-PyBend has two orthogonal concerns to combine:
+N3TX has two orthogonal concerns to combine:
 
 1. **Data modeling** -- fields, validation, serialization, schema generation (ProtoModel extends PydanticBaseModel)
 2. **Actor messaging** -- address, children, inbox, send, message routing (to be ported from JavaScript Actor.js)
@@ -21,7 +21,7 @@ The question: what pattern should combine (1) and (2)?
 
 ### What Actor.js Actually Does
 
-From reading `src/pybend/static/core/Actor.js`, the JS Actor provides:
+From reading `src/n3tx/static/core/Actor.js`, the JS Actor provides:
 
 - **Identity**: `#addr` (private, set at construction)
 - **Hierarchy**: `#parent`, `#children` (Map of child actors)
@@ -35,7 +35,7 @@ The JS `Actor.subclass()` pattern is **Pattern E in Python terms** -- it transfo
 
 ### What StorableMixin Actually Does
 
-From reading `src/pybend/core/models/storable_mixin.py`:
+From reading `src/n3tx/core/models/storable_mixin.py`:
 
 - **Class-level**: `storage` (ClassVar, injected), `__pk__`, `__tablename__`
 - **Instance**: `save()`, `_storage_dict()`
@@ -772,7 +772,7 @@ def actor(cls):
 
     # Add send
     def send(self, event):
-        from pybend.core.actor import ActorSystem
+        from n3tx.core.actor import ActorSystem
         ActorSystem.route(event)
     cls.send = send
 
@@ -927,7 +927,7 @@ Behind the scenes:
 ```python
 from pydantic._internal._model_construction import ModelMetaclass
 
-class PyBendMetaclass(ModelMetaclass):
+class N3TXMetaclass(ModelMetaclass):
     """Unified metaclass that handles Pydantic fields AND actor setup."""
 
     def __new__(mcs, name, bases, namespace, **kwargs):
@@ -952,7 +952,7 @@ class PyBendMetaclass(ModelMetaclass):
         cls.addr = property(_compute_addr)
         ...
 
-class ProtoModel(PydanticBaseModel, metaclass=PyBendMetaclass):
+class ProtoModel(PydanticBaseModel, metaclass=N3TXMetaclass):
     ...
 ```
 
@@ -997,11 +997,11 @@ Same as Patterns B and D.
 ```python
 # When something goes wrong in class creation:
 # Traceback:
-#   File "pybend_metaclass.py", line 15, in __new__
+#   File "ntx_metaclass.py", line 15, in __new__
 #     cls = super().__new__(mcs, name, bases, namespace, **kwargs)
 #   File "pydantic/_internal/_model_construction.py", line 85, in __new__
 #     ...
-# "What is PyBendMetaclass?" -- developer must understand metaclasses.
+# "What is N3TXMetaclass?" -- developer must understand metaclasses.
 # This is the MOST opaque debugging story.
 ```
 
@@ -1075,7 +1075,7 @@ This is an **end** (in the enriched category sense) -- it's the universal constr
 
 **Pattern D (Protocol + Default Implementation) for the INTERFACE, Pattern B (Mixin Injection) for the MECHANISM.**
 
-Here is why this is the right answer for PyBend, and the concrete design:
+Here is why this is the right answer for N3TX, and the concrete design:
 
 ### The Design
 
@@ -1126,7 +1126,7 @@ class ActorMixin:
 
     def send(self, event: dict) -> Any:
         """Send a message through the actor system."""
-        from pybend.core.actor import ActorSystem
+        from n3tx.core.actor import ActorSystem
         return ActorSystem.route(event)
 
 
@@ -1236,7 +1236,7 @@ def notify_all(actors: list[ActorProtocol]):
 ## Sources
 
 ### Primary (HIGH confidence)
-- PyBend codebase: `proto_model.py`, `storable_mixin.py`, `Actor.js`, `Matrix.js`, `TX.js`
+- N3TX codebase: `proto_model.py`, `storable_mixin.py`, `Actor.js`, `Matrix.js`, `TX.js`
 - [Pydantic v2 Models documentation](https://docs.pydantic.dev/latest/concepts/models/)
 - [Pydantic multiple inheritance discussion #5974](https://github.com/pydantic/pydantic/discussions/5974)
 - [Pydantic BaseModel + Protocol metaclass conflict #7808](https://github.com/pydantic/pydantic/issues/7808)

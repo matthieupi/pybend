@@ -2,7 +2,7 @@
 
 > **Who compiles HTML at build time, who renders at runtime, and what measurable results do they see?**
 >
-> Research brief for engineering leadership evaluating an HTML compiler for a schema-driven framework (PyBend).
+> Research brief for engineering leadership evaluating an HTML compiler for a schema-driven framework (N3TX).
 > February 2026
 
 ---
@@ -24,7 +24,7 @@
 13. [Jamstack Evolution & Post-Jamstack](#jamstack-evolution)
 14. [The Static Shell + Dynamic Islands Pattern](#static-shell-pattern)
 15. [Build-Time vs Runtime Rendering: Hard Numbers](#build-vs-runtime)
-16. [Strategic Implications for PyBend](#strategic-implications)
+16. [Strategic Implications for N3TX](#strategic-implications)
 17. [Sources](#sources)
 
 ---
@@ -41,7 +41,7 @@ The web industry has spent 2020-2026 systematically proving one thesis: **the le
 - **Astro (islands architecture) scores 99.2/100 Lighthouse**, the highest of any JS framework benchmarked ([Enterspeed 2025](https://www.enterspeed.com/blog/we-measured-the-ssr-performance-of-6-js-frameworks-heres-what-we-found))
 - **The Jamstack market grew from $1.8B (2020) to $8.6B (2025)**, with 35% of developers identifying as Jamstack-aligned
 - **Netflix cut Time-to-Interactive by 50%** by replacing React SPA with server-rendered HTML + vanilla JS ([Addy Osmani, Chrome team](https://medium.com/dev-channel/a-netflix-web-performance-case-study-c0bcde26a9d9))
-- **No existing framework compiles from a data schema to static HTML** the way PyBend could -- this is a genuine whitespace opportunity
+- **No existing framework compiles from a data schema to static HTML** the way N3TX could -- this is a genuine whitespace opportunity
 
 > 💡 **Bottom line:** The industry has converged on hybrid rendering (static shell + dynamic islands) as the 2025-2026 best practice. A schema-driven framework that can compile models directly to optimized HTML would leapfrog the current generation by eliminating both the template layer and the hydration cost.
 
@@ -82,9 +82,9 @@ The industry has moved from a binary SSR-vs-SPA debate to a **spectrum of render
 | **Fresh (Deno)** | ❌ | ❌ | ✅ | ✅ | ✅ (native) | ❌ | ✅ | ❌ |
 | **Marko (eBay)** | ❌ | ❌ | ✅ | ✅ (native) | ✅ | ❌ | ❌ | ❌ |
 | **Hugo** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **PyBend (proposed)** | 🎯 | 🎯 | ✅ | ❌ | 🎯 | ❌ | ❌ | ✅ (unique) |
+| **N3TX (proposed)** | 🎯 | 🎯 | ✅ | ❌ | 🎯 | ❌ | ❌ | ✅ (unique) |
 
-> 💡 **The gap:** No framework in the table above generates HTML from a data schema definition. Every framework requires developers to write templates, components, or pages. **PyBend's schema-driven approach would be unique in the landscape** -- the model IS the template.
+> 💡 **The gap:** No framework in the table above generates HTML from a data schema definition. Every framework requires developers to write templates, components, or pages. **N3TX's schema-driven approach would be unique in the landscape** -- the model IS the template.
 
 ### Framework-by-Framework Analysis
 
@@ -175,9 +175,9 @@ As of 2025, from [DebugBear's annual review](https://www.debugbear.com/blog/2025
 - **Developer satisfaction:** Astro experienced the **highest positive satisfaction change** from 2022-2023 of any SSG ([Strapi comparison](https://strapi.io/blog/astro-vs-gatsby-performance-comparison))
 - **Lighthouse impact:** Islands sites routinely score 95-100 on Lighthouse, vs 70-85 for traditional SPAs
 
-### Why It Matters for PyBend
+### Why It Matters for N3TX
 
-PyBend's web components (`ntt-item`, `ntt-list`, `ntt-element`) are **already islands**. Each custom element is a self-contained unit that hydrates independently. An HTML compiler for PyBend would naturally produce a **static shell** (the page layout, navigation, static content) with **dynamic islands** (the NTT components that need interactivity). This is architecturally aligned with the industry's direction.
+N3TX's web components (`ntx-item`, `ntx-list`, `ntx-element`) are **already islands**. Each custom element is a self-contained unit that hydrates independently. An HTML compiler for N3TX would naturally produce a **static shell** (the page layout, navigation, static content) with **dynamic islands** (the N3TX components that need interactivity). This is architecturally aligned with the industry's direction.
 
 ---
 
@@ -214,9 +214,9 @@ Traditional SSR frameworks have a dirty secret: **hydration**. The server render
 - **Astro leads** in purely static content with minimal interactivity
 - **Qwik's sweet spot:** Content-heavy sites and e-commerce where fast initial load is critical and the app has significant JS complexity
 
-### Relevance to PyBend
+### Relevance to N3TX
 
-Qwik's insight is profound: **if the server already computed the state, don't recompute it on the client.** PyBend's schema already carries all the state the frontend needs. An HTML compiler could serialize PyBend's schema resolution and entity state directly into the HTML, achieving resumability-like behavior without Qwik's framework -- because the schema IS the state.
+Qwik's insight is profound: **if the server already computed the state, don't recompute it on the client.** N3TX's schema already carries all the state the frontend needs. An HTML compiler could serialize N3TX's schema resolution and entity state directly into the HTML, achieving resumability-like behavior without Qwik's framework -- because the schema IS the state.
 
 ---
 
@@ -358,7 +358,7 @@ Google's research, conducted with a neural network achieving **90% prediction ac
 - **53%** of mobile visits are abandoned if load exceeds **3 seconds**
 - The median mobile page takes **>7 seconds** to fully load
 
-> 💡 **For PyBend:** If a schema-compiled HTML page achieves <1s LCP (which static HTML routinely does), that's a **3-10x improvement** over typical dynamic pages. At Google's measured conversion rates, this translates to **8-10% more conversions per page** in e-commerce scenarios.
+> 💡 **For N3TX:** If a schema-compiled HTML page achieves <1s LCP (which static HTML routinely does), that's a **3-10x improvement** over typical dynamic pages. At Google's measured conversion rates, this translates to **8-10% more conversions per page** in e-commerce scenarios.
 
 ---
 
@@ -392,7 +392,7 @@ The optimal architecture for 2025-2026:
 3. **Request:** Serve static HTML from nearest edge node (~50ms TTFB globally)
 4. **Dynamic parts:** Edge functions handle personalization, auth, real-time data
 
-> 💡 **For PyBend:** Schema-compiled HTML deployed to a CDN achieves near-zero TTFB. Dynamic NTT components can hydrate on the client. This is the exact architecture the industry is converging on, but PyBend would generate it from models instead of handwritten templates.
+> 💡 **For N3TX:** Schema-compiled HTML deployed to a CDN achieves near-zero TTFB. Dynamic N3TX components can hydrate on the client. This is the exact architecture the industry is converging on, but N3TX would generate it from models instead of handwritten templates.
 
 ---
 
@@ -425,7 +425,7 @@ For SPAs that can't migrate to SSG/SSR, prerendering services use headless brows
 
 ### The Whitespace Opportunity
 
-After extensive research, **no existing framework compiles directly from a data schema to static HTML** in the way PyBend could. The closest approaches:
+After extensive research, **no existing framework compiles directly from a data schema to static HTML** in the way N3TX could. The closest approaches:
 
 | Approach | What It Does | How It Differs from Schema-to-HTML |
 |----------|-------------|-------------------------------------|
@@ -435,7 +435,7 @@ After extensive research, **no existing framework compiles directly from a data 
 | **Strapi + Astro** | Headless CMS feeds data to Astro components | Two systems; still requires component code |
 | **JSON Schema Form generators** | Generates forms from JSON Schema at runtime | Runtime, not compile-time; forms only |
 
-### What PyBend Could Do Differently
+### What N3TX Could Do Differently
 
 The unique insight: **if the schema carries rendering hints (`ui.widget`, `ui.field_order`, `ui.groups`, `ui.renderer`), the compiler has everything it needs to produce HTML without templates.**
 
@@ -443,7 +443,7 @@ The unique insight: **if the schema carries rendering hints (`ui.widget`, `ui.fi
 Traditional SSG pipeline:
   Data Source -> Template Engine -> HTML
 
-PyBend compiler pipeline:
+N3TX compiler pipeline:
   Model Definition -> JSON Schema (with UI hints) -> HTML Compiler -> Static HTML + Islands
 ```
 
@@ -456,7 +456,7 @@ PyBend compiler pipeline:
 - **OpenAPI / Swagger Codegen:** API schema generates client SDKs and server stubs
 - **Prisma:** Schema generates database client, migrations, and types
 
-These all prove the pattern: **when you have a rich enough schema, you can generate the implementation.** PyBend's JSON Schema (with `ui`, `access`, `methods` extensions) is rich enough to generate HTML.
+These all prove the pattern: **when you have a rich enough schema, you can generate the implementation.** N3TX's JSON Schema (with `ui`, `access`, `methods` extensions) is rich enough to generate HTML.
 
 ---
 
@@ -546,7 +546,7 @@ The 2025-2026 consensus architecture for web applications (not just blogs) is:
 | CDN-cacheable | Shell only | No | **Entire page** |
 | Personalization | Client-side | Server-side | **Island-level** |
 
-> 💡 **For PyBend:** This is the exact pattern PyBend should target. The HTML compiler generates the **static shell** (layout, navigation, entity display in read-only mode). NTT web components become the **islands** (forms, methods, interactive elements). The schema tells the compiler which parts are static (display) and which are dynamic (interactive).
+> 💡 **For N3TX:** This is the exact pattern N3TX should target. The HTML compiler generates the **static shell** (layout, navigation, entity display in read-only mode). N3TX web components become the **islands** (forms, methods, interactive elements). The schema tells the compiler which parts are static (display) and which are dynamic (interactive).
 
 ---
 
@@ -586,24 +586,24 @@ Schema-driven applications have a **unique advantage** for build-time rendering:
 3. **Forms can be pre-compiled.** Instead of `form.js` building forms at runtime from schema properties, the compiler generates the HTML `<form>` with all inputs, labels, groups, and fieldsets at build time.
 4. **Permissions can be pre-evaluated.** For public-facing pages, access rules are known. The compiler can generate different HTML variants per role.
 
-> 📊 **Estimated impact for PyBend:** If the current frontend (SPA-style, schema-fetched-at-runtime) achieves ~70 Lighthouse score (typical for SPAs), a compiled HTML version should achieve **95-100** -- based on Astro's demonstrated scores for similar static-with-islands architectures.
+> 📊 **Estimated impact for N3TX:** If the current frontend (SPA-style, schema-fetched-at-runtime) achieves ~70 Lighthouse score (typical for SPAs), a compiled HTML version should achieve **95-100** -- based on Astro's demonstrated scores for similar static-with-islands architectures.
 
 ---
 
-## Strategic Implications for PyBend
+## Strategic Implications for N3TX
 
 ### The Opportunity
 
-PyBend sits at a unique intersection:
+N3TX sits at a unique intersection:
 
 ```
-        Schema-Driven ──────────── PyBend is HERE
+        Schema-Driven ──────────── N3TX is HERE
               │                         │
               │    No one else is here   │
               │                         │
               ▼                         ▼
      Static Generation          Runtime Generation
-     (Astro, Next SSG,          (Current PyBend,
+     (Astro, Next SSG,          (Current N3TX,
       Eleventy, Hugo)            React SPAs)
               │                         │
               │                         │
@@ -613,7 +613,7 @@ PyBend sits at a unique intersection:
       components/pages)           components/pages)
 ```
 
-**PyBend's proposed HTML compiler would be the first framework to generate static HTML directly from data model definitions** -- no templates, no component code, no page files. The schema carries the intent; the compiler produces the artifact.
+**N3TX's proposed HTML compiler would be the first framework to generate static HTML directly from data model definitions** -- no templates, no component code, no page files. The schema carries the intent; the compiler produces the artifact.
 
 ### Recommended Architecture
 
@@ -658,7 +658,7 @@ Based on industry evidence:
 | Personalized content | Medium | Server Islands or client-side islands for auth-dependent UI |
 | Build time at scale | Low | Incremental builds; only regenerate changed entities |
 | Developer experience | Low | Schema-driven means less code, not more; DX should improve |
-| Interactivity gaps | Medium | Islands pattern preserves all current NTT interactivity |
+| Interactivity gaps | Medium | Islands pattern preserves all current N3TX interactivity |
 
 ---
 

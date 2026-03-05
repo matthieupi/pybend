@@ -1,6 +1,6 @@
 # Schema as Agent Protocol: The Universal Contract for Agentic Systems
 
-> **The core thesis:** What if the same pattern that lets PyBend derive a full-stack
+> **The core thesis:** What if the same pattern that lets N3TX derive a full-stack
 > application from a model definition could derive a full agent system from a schema?
 
 ---
@@ -8,7 +8,7 @@
 ## 1. Executive Summary
 
 The AI agent ecosystem is converging on a single insight: **declarative schemas
-are the natural protocol for agentic systems**. Just as JSON Schema lets PyBend's
+are the natural protocol for agentic systems**. Just as JSON Schema lets N3TX's
 frontend discover a backend's capabilities, data types, access rules, and UI
 rendering instructions from a single `GET /Product` call -- agent systems need
 an equivalent mechanism for agents to discover each other's capabilities, negotiate
@@ -23,17 +23,17 @@ This is not speculation. The pattern is already emerging across the industry:
   `/.well-known/agent.json` for capability discovery, backed by **150+
   organizations** ([Google Developers Blog](https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/))
 - **OpenAI's Agents SDK** auto-generates tool schemas from Python/Pydantic
-  type annotations -- the exact same pattern PyBend uses for model schemas
+  type annotations -- the exact same pattern N3TX uses for model schemas
   ([OpenAI Agents SDK](https://openai.github.io/openai-agents-python/))
 - **Microsoft's Declarative Agents** define entire agent behavior via JSON
   manifests with capabilities, actions, and instructions
   ([Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/declarative-agent-manifest-1.2))
 
 The question is not whether schemas will be the agent protocol. They already are.
-The question is **how far we can push the pattern** -- and PyBend's architecture
+The question is **how far we can push the pattern** -- and N3TX's architecture
 offers a remarkably complete blueprint.
 
-> **Key Insight:** PyBend already implements 80% of the patterns the agent
+> **Key Insight:** N3TX already implements 80% of the patterns the agent
 > ecosystem is independently converging on. The model-as-schema-as-contract
 > architecture is not a metaphor for agent systems -- it is a direct
 > architectural template.
@@ -147,7 +147,7 @@ composition (`$ref`, `$defs`), no runtime behavior derivation from the card.
 
 ### 2.4 OpenAI Agents SDK: Schema from Code
 
-OpenAI's approach mirrors PyBend's most closely -- **derive the schema from
+OpenAI's approach mirrors N3TX's most closely -- **derive the schema from
 the code**, using Pydantic models and Python type hints:
 
 ```python
@@ -171,7 +171,7 @@ research_agent = Agent(
 ```
 
 **What OpenAI gets right:** Pydantic-powered schema generation (same as
-PyBend's `ProtoModel`), guardrails as first-class concepts, handoffs for
+N3TX's `ProtoModel`), guardrails as first-class concepts, handoffs for
 agent delegation.
 
 **What OpenAI lacks:** No network-level discovery (agents are local objects),
@@ -182,16 +182,16 @@ no persistent identity, no schema publication for external consumption.
 
 ---
 
-## 3. The PyBend Pattern: A Blueprint for Agent Schemas
+## 3. The N3TX Pattern: A Blueprint for Agent Schemas
 
-> **For the CEO:** PyBend already solves for agents what MCP, A2A, and OpenAI
+> **For the CEO:** N3TX already solves for agents what MCP, A2A, and OpenAI
 > each solve partially. The architecture that auto-generates APIs, UIs, and
 > access control from a Python model is structurally identical to what the
 > agent ecosystem needs.
 
 ### 3.1 Architectural Parallel: Model = App, Schema = Agent
 
-PyBend's core loop is:
+N3TX's core loop is:
 
 ```
   [Python Model] --schema()--> [JSON Schema] --GET /Product--> [Frontend]
@@ -213,7 +213,7 @@ The agent equivalent would be:
 
 The structural mapping is remarkably precise:
 
-| PyBend Concept | Agent System Equivalent | Existing Protocol |
+| N3TX Concept | Agent System Equivalent | Existing Protocol |
 |---|---|---|
 | `ProtoModel` base class | `BaseAgent` base class | OpenAI `Agent()` |
 | `model.schema()` | `agent.capability_schema()` | A2A Agent Card |
@@ -223,23 +223,23 @@ The structural mapping is remarkably precise:
 | `$defs` for related models | Sub-agent / tool schemas | (Partial in A2A) |
 | `__ui__` hints | Interaction mode preferences | A2A `inputModes` |
 | `DynamicClass` from `prototype()` | `AgentProxy` from schema | (Novel) |
-| `NTT.SCHEMA()` bootstrap | Agent registry bootstrap | A2A discovery |
+| `N3TX.SCHEMA()` bootstrap | Agent registry bootstrap | A2A discovery |
 | `model_dump(response=True)` | Agent response with self-describing metadata | (Novel) |
 
-### 3.2 What PyBend Has That Agents Need
+### 3.2 What N3TX Has That Agents Need
 
-Reading the actual PyBend source code reveals several patterns that are
+Reading the actual N3TX source code reveals several patterns that are
 **absent from every current agent protocol** but clearly needed:
 
 **1. Composable Access Rules with SQL Pushdown**
 
-PyBend's `authorize/rules.py` defines rules like `OWNER | ROLE('admin')` that
+N3TX's `authorize/rules.py` defines rules like `OWNER | ROLE('admin')` that
 compose with boolean operators (`|`, `&`, `~`) and serialize to JSON for frontend
 consumption AND generate SQL WHERE clauses for efficient filtering. No agent
 protocol has anything this sophisticated for access control.
 
 ```python
-# PyBend access rules -- composable, serializable, enforceable
+# N3TX access rules -- composable, serializable, enforceable
 __access__ = {
     'invoke': AUTHENTICATED,
     'delegate': OWNER | ROLE('admin'),
@@ -252,21 +252,21 @@ __access__ = {
 
 **2. Schema-Carried Method Signatures**
 
-`ProtoModel.__pybend_methods_json_signature__()` introspects Python methods
+`ProtoModel.__n3tx_methods_json_signature__()` introspects Python methods
 decorated with `@expose_route` and serializes their full signatures (parameters,
 types, return types, access rules) into the schema. This is exactly what agent
 skills need -- but with proper type contracts.
 
 **3. Runtime Class Generation from Schema**
 
-`NTT.js`'s `prototype()` function (line 663) creates a complete JavaScript class
+`N3TX.js`'s `prototype()` function (line 663) creates a complete JavaScript class
 at runtime from a JSON Schema -- with typed properties, validated setters,
 method stubs, and an actor-model message bus. This is the **DynamicClass
 pattern** that agent proxies need.
 
 **4. Nested Schema Registration via `$defs`**
 
-When `NTT.SCHEMA()` receives a schema, it automatically registers all `$defs`
+When `N3TX.SCHEMA()` receives a schema, it automatically registers all `$defs`
 entries as their own DynamicClasses. The agent equivalent: registering sub-agents
 and tools as independently addressable entities from a parent agent's schema.
 
@@ -274,9 +274,9 @@ and tools as independently addressable entities from a parent agent's schema.
 
 ## 4. The Agent Schema Specification: A Concrete Proposal
 
-Based on research across all existing protocols and PyBend's proven patterns,
+Based on research across all existing protocols and N3TX's proven patterns,
 here is what a **unified agent schema** would look like -- combining the best
-of MCP, A2A, OpenAI, and PyBend's architecture.
+of MCP, A2A, OpenAI, and N3TX's architecture.
 
 ### 4.1 Complete Agent Schema Example
 
@@ -471,7 +471,7 @@ of MCP, A2A, OpenAI, and PyBend's architecture.
 
 ### 4.2 Schema Section Breakdown
 
-| Section | Purpose | PyBend Parallel | Existing Protocol Equivalent |
+| Section | Purpose | N3TX Parallel | Existing Protocol Equivalent |
 |---|---|---|---|
 | `$schema` / `$id` | Self-describing identity | `ProtoModel.schema()` meta | A2A Agent Card `url` |
 | `identity` | Organization metadata | - | A2A Agent Card `name/version` |
@@ -488,7 +488,7 @@ of MCP, A2A, OpenAI, and PyBend's architecture.
 > **Key Insight:** The **access**, **guardrails**, and **$defs composition**
 > sections have no equivalent in any existing agent protocol. These are the
 > elements that would make a schema-driven agent system genuinely production-ready,
-> and they come directly from PyBend's existing architecture.
+> and they come directly from N3TX's existing architecture.
 
 ---
 
@@ -530,7 +530,7 @@ accepts, what outputs it produces, and what permissions are required.
 ```
 
 The response includes **self-describing metadata** (`$schema` and `$id`),
-following the exact pattern PyBend uses for entity responses. Any consumer
+following the exact pattern N3TX uses for entity responses. Any consumer
 can independently resolve the output type and trace back to the agent
 that produced it.
 
@@ -623,9 +623,9 @@ registration should carry:
 | `rate_limits` | Prevent quota exhaustion in multi-agent systems | Both (stability) |
 | `provenance` | Audit trail; know which version produced what | CEO (governance) |
 
-### 6.2 The PyBend Pattern for Tools
+### 6.2 The N3TX Pattern for Tools
 
-PyBend's `@expose_route` decorator is functionally a tool registration mechanism:
+N3TX's `@expose_route` decorator is functionally a tool registration mechanism:
 
 ```python
 @expose_route('/comment', methods=['POST'], access=AUTHENTICATED)
@@ -678,14 +678,14 @@ WITHOUT SCHEMA DISCOVERY:              WITH SCHEMA DISCOVERY:
   6 integrations for 4 agents            1 query finds the right agent
 ```
 
-### 7.2 How PyBend's Pattern Maps
+### 7.2 How N3TX's Pattern Maps
 
-PyBend already implements a discovery mechanism. When a frontend component
-like `<ntt-list model="Product">` mounts, it triggers:
+N3TX already implements a discovery mechanism. When a frontend component
+like `<ntx-list model="Product">` mounts, it triggers:
 
-1. **`NTT.ATTACH("Product")`** -- registers interest in a model type
+1. **`N3TX.ATTACH("Product")`** -- registers interest in a model type
 2. **Schema fetch** -- `GET /Product` retrieves the full schema
-3. **`NTT.SCHEMA(data)`** -- creates DynamicClass, registers `$defs`
+3. **`N3TX.SCHEMA(data)`** -- creates DynamicClass, registers `$defs`
 4. **`DynamicClass.READ()`** -- fetches actual data
 
 The agent equivalent:
@@ -695,11 +695,11 @@ The agent equivalent:
 3. **Agent proxy creation** -- instantiate typed proxy from schema
 4. **Task dispatch** -- route task to the best-matched agent
 
-The `NTT.SCHEMA()` function (NTT.js, line 390) is already a schema-driven
+The `N3TX.SCHEMA()` function (N3TX.js, line 390) is already a schema-driven
 agent bootstrap:
 
 ```javascript
-// NTT.SCHEMA creates a typed class from a schema -- this IS agent instantiation
+// N3TX.SCHEMA creates a typed class from a schema -- this IS agent instantiation
 static SCHEMA(data, tx) {
     const addr = data.__name__;
     const href = data.__tablename__
@@ -709,17 +709,17 @@ static SCHEMA(data, tx) {
     // Register nested schemas ($defs) -- sub-agents / tools
     if (data.$defs) {
         for (const [key, value] of Object.entries(data.$defs)) {
-            if (value.type === 'object' && value.properties && !NTT.has(key)) {
+            if (value.type === 'object' && value.properties && !N3TX.has(key)) {
                 const DC = prototype(key, value, defHref);
-                NTT.#prototypes.set(key, DC);
+                N3TX.#prototypes.set(key, DC);
             }
         }
     }
 
     // Create main agent proxy
     const DC = prototype(addr, data, href);
-    NTT.#prototypes.set(addr, DC);
-    NTT.#replayWaiting(addr, DC);  // Replay queued tasks
+    N3TX.#prototypes.set(addr, DC);
+    N3TX.#replayWaiting(addr, DC);  // Replay queued tasks
 }
 ```
 
@@ -780,7 +780,7 @@ to make optimal routing decisions:
 | **Latency** | `skills[].reliability.avg_latency_ms` | "Must respond within 30 seconds" |
 | **Protocol** | `capabilities.supported_protocols` | "Must support streaming" |
 
-This is the analog of PyBend's route resolution, where the schema determines
+This is the analog of N3TX's route resolution, where the schema determines
 what HTTP methods are available, what authentication is required, and what
 content types are accepted -- all without hand-coding route logic.
 
@@ -823,7 +823,7 @@ directly applicable to composing agent teams:
 
 ### 9.2 The `$defs` Pattern for Agent Hierarchies
 
-PyBend's `$defs` mechanism -- where a Product schema carries inline definitions
+N3TX's `$defs` mechanism -- where a Product schema carries inline definitions
 for Comment, Like, etc. -- maps directly to agent hierarchies:
 
 ```
@@ -841,7 +841,7 @@ for Comment, Like, etc. -- maps directly to agent hierarchies:
 
 Each `$def` is independently addressable (via its own `$id`), can be
 composed into different teams, and carries its own access rules and
-tool registrations. This is the PyBend pattern of nested models
+tool registrations. This is the N3TX pattern of nested models
 applied to agent composition.
 
 ---
@@ -907,7 +907,7 @@ The guardrails section of the proposed schema carries enforceable contracts:
 
 **Three layers of guardrails:**
 
-| Layer | Enforced By | Schema Field | PyBend Parallel |
+| Layer | Enforced By | Schema Field | N3TX Parallel |
 |---|---|---|---|
 | **Input** | JSON Schema validation | `guardrails.input.input_schema` | Field validators |
 | **Output** | JSON Schema + custom rules | `guardrails.output.format_schema` | `model_dump()` |
@@ -915,7 +915,7 @@ The guardrails section of the proposed schema carries enforceable contracts:
 
 The behavioral guardrails are novel -- constraining not just data shape but
 agent behavior (tool call limits, delegation depth, cost ceilings). These are
-the equivalent of PyBend's `Where(status='draft')` rules applied to agent
+the equivalent of N3TX's `Where(status='draft')` rules applied to agent
 runtime behavior rather than data attributes.
 
 ([Guardrails AI Framework](https://github.com/guardrails-ai/guardrails),
@@ -928,7 +928,7 @@ runtime behavior rather than data attributes.
 
 ### 11.1 The DynamicClass Pattern for Agents
 
-PyBend's `prototype()` function creates fully functional JavaScript classes
+N3TX's `prototype()` function creates fully functional JavaScript classes
 at runtime from JSON Schema. The same pattern applied to agents would mean:
 
 **Instead of:**
@@ -958,7 +958,7 @@ result = AgentProxy.deep_research(topic="WebAssembly trends", depth="deep")
 
 ### 11.2 How `prototype()` Maps to Agent Proxy Creation
 
-The NTT.js `prototype()` function (line 663-1075) performs these steps:
+The N3TX.js `prototype()` function (line 663-1075) performs these steps:
 
 1. **Parse schema fields** -> Create typed getter/setter properties
 2. **Parse schema methods** -> Create callable method stubs with validation
@@ -1053,14 +1053,14 @@ The version field in the schema (`__version__`: "2.1.0") follows **semver**:
 
 The proposed unified schema's unique contributions are:
 
-1. **Composable ABAC access rules** -- borrowed directly from PyBend's `authorize`
+1. **Composable ABAC access rules** -- borrowed directly from N3TX's `authorize`
    package, with boolean composition (`|`, `&`, `~`) and serialization to JSON
 2. **Cost and reliability metadata** -- enabling budget-aware, SLA-aware routing
 3. **Schema-enforced guardrails** -- not just code-level checks but schema-level
    contracts that any consumer can validate
 4. **`$defs` composition** -- build agent teams from schema building blocks,
-   same as PyBend builds entity graphs from `$defs`
-5. **Runtime instantiation** -- the DynamicClass pattern from NTT.js applied to
+   same as N3TX builds entity graphs from `$defs`
+5. **Runtime instantiation** -- the DynamicClass pattern from N3TX.js applied to
    agent proxies, enabling network-level agent discovery and activation
 
 ### 13.3 Historical Context: FIPA to MCP
@@ -1090,11 +1090,11 @@ of everything" to "describe your inputs and outputs."
 
 ### 14.1 From "Model is the App" to "Schema is the Agent"
 
-PyBend's philosophy: **write a model, get a working app.** The agent extension:
+N3TX's philosophy: **write a model, get a working app.** The agent extension:
 **write an agent model, get a working agent system.**
 
 ```python
-# PyBend: Model -> Full Stack App
+# N3TX: Model -> Full Stack App
 class Product(ProtoModel):
     __tablename__ = 'products'
     __storable__ = True
@@ -1157,7 +1157,7 @@ class ResearchAnalyst(BaseAgent):
 
 ### 14.3 The Zero-to-Working Promise
 
-Just as PyBend delivers zero-to-working apps, the agent equivalent delivers
+Just as N3TX delivers zero-to-working apps, the agent equivalent delivers
 zero-to-working agents:
 
 1. **Define** the agent model in Python
@@ -1179,7 +1179,7 @@ derived from the code.**
 |---|---|---|
 | **Schema bloat** | Medium | Pagination, partial schema fetch (`?fields=skills`) |
 | **Over-specification** | Medium | Distinguish required vs. optional sections |
-| **Performance overhead** | Low | Cache schemas aggressively (PyBend pattern) |
+| **Performance overhead** | Low | Cache schemas aggressively (N3TX pattern) |
 | **Schema drift** | High | Schema registry with version validation |
 | **False sense of security** | High | Schema validation is necessary but not sufficient |
 | **Adoption friction** | High | Start with MCP/A2A compatibility, add extensions |
@@ -1198,7 +1198,7 @@ derived from the code.**
 
 1. **How much is too much?** At what point does schema complexity outweigh the
    benefits of dynamic discovery?
-2. **Schema-first or code-first?** PyBend is code-first (schemas derived from
+2. **Schema-first or code-first?** N3TX is code-first (schemas derived from
    models). Should agents be schema-first (schemas authored directly)?
 3. **Who validates?** Should the agent validate its own output against its schema,
    or should the consumer? Or both?
@@ -1215,10 +1215,10 @@ derived from the code.**
 > **For the CEO:** Schema-driven agents are not a future concept -- they are
 > the current trajectory of the industry, with MCP and A2A leading adoption.
 > The strategic question is whether to build on these existing protocols
-> (pragmatic, lower risk) or extend them with PyBend-inspired patterns
+> (pragmatic, lower risk) or extend them with N3TX-inspired patterns
 > (differentiated, higher value).
 
-> **For the engineers:** PyBend's architecture is a remarkably complete
+> **For the engineers:** N3TX's architecture is a remarkably complete
 > blueprint for what the agent ecosystem needs. The `ProtoModel` -> JSON
 > Schema -> `DynamicClass` pipeline, the composable ABAC rules, the
 > `$defs` nesting pattern, and the self-describing response format
@@ -1240,7 +1240,7 @@ The strongest position is **compatibility + extension**:
 
 - Be **compatible** with MCP for tool access (10,000+ servers)
 - Be **compatible** with A2A for agent discovery (150+ organizations)
-- **Extend** both with PyBend's unique contributions:
+- **Extend** both with N3TX's unique contributions:
   - Composable ABAC access rules
   - Schema-enforced guardrails
   - Cost/reliability metadata
@@ -1257,7 +1257,7 @@ standard, then extend it where the standard falls short.
 The thesis holds: **the same pattern that derives a full-stack app from a
 model can derive a full agent system from a schema.**
 
-PyBend's architecture is not just an analogy for agent systems -- it is a
+N3TX's architecture is not just an analogy for agent systems -- it is a
 working implementation of the core patterns the agent ecosystem is
 independently building toward:
 
@@ -1268,7 +1268,7 @@ independently building toward:
 
 The gap in all of them -- composable access control, schema-enforced
 guardrails, `$defs` composition, runtime instantiation, self-describing
-responses -- is exactly what PyBend already provides for web applications.
+responses -- is exactly what N3TX already provides for web applications.
 
 **The model is the app. The schema is the agent.**
 

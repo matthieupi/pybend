@@ -10,7 +10,7 @@ plus in-depth frontend review.
 ## F1. Permissions NOT Rule Always Returns True
 
 **Severity:** High (Security)
-**Location:** `src/pybend/static/utils/Permissions.js:141-164` — `#evaluateCompositeRule()`
+**Location:** `src/n3tx/static/utils/Permissions.js:141-164` — `#evaluateCompositeRule()`
 
 The `{ op: 'not', rule: {...} }` composite structure is evaluated incorrectly. The method checks `rule.rule` first (line 145, which is the sub-rule object — always truthy), entering the simple-rule branch and returning `true` without ever reaching the `op === 'not'` branch (line 162).
 
@@ -26,10 +26,10 @@ permissions.canAction({ delete: { op: 'not', rule: { rule: 'role', roles: ['bann
 
 ---
 
-## F2. XSS Vulnerability — ntt-profile.js Template Literals
+## F2. XSS Vulnerability — ntx-profile.js Template Literals
 
 **Severity:** High (Security)
-**Location:** `src/pybend/static/components/ntt-profile.js:34-108`
+**Location:** `src/n3tx/static/components/ntx-profile.js:34-108`
 
 User data (`user.email`, `user.name`, `user.role`) is interpolated directly into `innerHTML` via template literals with no HTML escaping:
 
@@ -50,12 +50,12 @@ If any user field contains HTML (e.g. `<img onerror="...">` in the name or email
 
 ---
 
-## F3. XSS Vulnerability — ntt-topbar.js User Pill
+## F3. XSS Vulnerability — ntx-topbar.js User Pill
 
 **Severity:** High (Security)
-**Location:** `src/pybend/static/components/ntt-topbar.js:88-128` — `#userPillHtml()`
+**Location:** `src/n3tx/static/components/ntx-topbar.js:88-128` — `#userPillHtml()`
 
-Same pattern as ntt-profile — user data goes directly into `innerHTML`:
+Same pattern as ntx-profile — user data goes directly into `innerHTML`:
 
 ```javascript
 return `
@@ -68,14 +68,14 @@ return `
 
 **Impact:** Every page load renders the topbar, so this XSS vector fires on every page for every user who views a compromised account's data.
 
-**Fix:** Same as ntt-profile — escape user values.
+**Fix:** Same as ntx-profile — escape user values.
 
 ---
 
-## F4. XSS Vulnerability — ntt-item.js Template Literals
+## F4. XSS Vulnerability — ntx-item.js Template Literals
 
 **Severity:** Medium (Security)
-**Location:** `src/pybend/static/components/ntt-item.js` — `xs()`, `sm()`, `md()`
+**Location:** `src/n3tx/static/components/ntx-item.js` — `xs()`, `sm()`, `md()`
 
 Entity field values are interpolated into `innerHTML` without escaping:
 
@@ -102,7 +102,7 @@ html.push(`<img class="card-image" src="${this.value.image}" alt="${this.value.n
 ## F5. XSS Vulnerability — form.js Display Values
 
 **Severity:** Medium (Security)
-**Location:** `src/pybend/static/generators/form.js` — `getInput()`, `getHeader()`
+**Location:** `src/n3tx/static/generators/form.js` — `getInput()`, `getHeader()`
 
 Form display mode renders values directly into HTML:
 
@@ -123,7 +123,7 @@ Edit mode is safer (values go into `value=""` attributes) but display mode has n
 ## F6. NetworkAdapter `emit()` References Undefined `callback`
 
 **Severity:** Medium
-**Location:** `src/pybend/static/core/transport/NetworkAdapter.js` — `emit()`
+**Location:** `src/n3tx/static/core/transport/NetworkAdapter.js` — `emit()`
 
 The `emit()` method references an undefined `callback` variable. The registry lines that would define it are commented out, causing assertion errors on background network error responses.
 
@@ -134,18 +134,18 @@ The `emit()` method references an undefined `callback` variable. The registry li
 ## F7. Observable/TT `notify()` Method Conflict
 
 **Severity:** Medium
-**Location:** `src/pybend/static/core/Observable.js` + `src/pybend/static/core/NTT.js`
+**Location:** `src/n3tx/static/core/Observable.js` + `src/n3tx/static/core/N3TX.js`
 
 TT's `notify(value)` (sends UPDATE TX to watchers) shadows Observable's `notify(property, newValue, oldValue)` (calls registered observers). Observable.apply's guard (`!("notify" in proto)`) prevents overriding TT's version. This means instance-level property observers registered via `observe()` are never triggered by `notify()`.
 
-**Impact:** Property-level observation on NTT entities is silently broken. Components using `entity.observe('name', callback)` will never receive notifications.
+**Impact:** Property-level observation on N3TX entities is silently broken. Components using `entity.observe('name', callback)` will never receive notifications.
 
 ---
 
 ## F8. registrar.js `getRegistrar()` — Inverted Assertion
 
 **Severity:** Medium
-**Location:** `src/pybend/static/utils/registrar.js:41`
+**Location:** `src/n3tx/static/utils/registrar.js:41`
 
 ```javascript
 export function getRegistrar(key) {
@@ -161,10 +161,10 @@ The assertion `!registry.has(key)` throws when the key IS found (the success cas
 
 ---
 
-## F9. ntt-user.js — Unvalidated External URL Construction
+## F9. ntx-user.js — Unvalidated External URL Construction
 
 **Severity:** Low-Medium (Security)
-**Location:** `src/pybend/static/components/ntt-user.js:21-23`
+**Location:** `src/n3tx/static/components/ntx-user.js:21-23`
 
 ```javascript
 #avatarUrl() {
@@ -184,7 +184,7 @@ The `encodeURIComponent` on the fallback path is correct but the primary path (`
 ## F10. Socket.js `disconnect()` — Reference Error
 
 **Severity:** Medium
-**Location:** `src/pybend/static/core/transport/Socket.js:222-224`
+**Location:** `src/n3tx/static/core/transport/Socket.js:222-224`
 
 ```javascript
 disconnect(){
@@ -204,7 +204,7 @@ Two bugs:
 ## F11. Form `description` Field Bypasses Widget System
 
 **Severity:** Low
-**Location:** `src/pybend/static/generators/form.js` — `getForm()` / `getHeader()`
+**Location:** `src/n3tx/static/generators/form.js` — `getForm()` / `getHeader()`
 
 Fields named `description` are included in `headerFields` and rendered as `<h4>` elements in display mode, bypassing the `getInput()` widget system. If a `description` field has `widget: 'textarea'`, the widget hint is ignored — it always renders as a plain `<h4>` header element.
 
@@ -215,7 +215,7 @@ Fields named `description` are included in `headerFields` and rendered as `<h4>`
 ## F12. form.js `getForm()` — Array/String Concatenation Bug
 
 **Severity:** Low
-**Location:** `src/pybend/static/generators/form.js:64`
+**Location:** `src/n3tx/static/generators/form.js:64`
 
 ```javascript
 return $header.concat($fields).join('');
@@ -230,7 +230,7 @@ return $header.concat($fields).join('');
 ## F13. Snippets.js — Debug Code Shipped to Production
 
 **Severity:** Low
-**Location:** `src/pybend/static/utils/Snippets.js`
+**Location:** `src/n3tx/static/utils/Snippets.js`
 
 ```javascript
 Object.keys(window).forEach(key => {
@@ -250,23 +250,23 @@ This attaches a `console.log` listener to every single DOM event type on `window
 
 # Backend Issues
 
-## B1. `pybend/__init__.py` Contains Broken Import
+## B1. `n3tx/__init__.py` Contains Broken Import
 
 **Severity:** Medium
-**Location:** `src/pybend/__init__.py`
+**Location:** `src/n3tx/__init__.py`
 
-Contains `from .api.routes import create_api_blueprint` — the module `api.routes` does not exist (the actual routes are in `api/routes_fastapi.py`). This prevents importing `pybend` as a package.
+Contains `from .api.routes import create_api_blueprint` — the module `api.routes` does not exist (the actual routes are in `api/routes_fastapi.py`). This prevents importing `n3tx` as a package.
 
-**Impact:** Any code that does `import pybend` or `from pybend import ...` will fail with ImportError. Does not affect production since `main.py` imports submodules directly, but breaks test environments and package consumers.
+**Impact:** Any code that does `import n3tx` or `from n3tx import ...` will fail with ImportError. Does not affect production since `main.py` imports submodules directly, but breaks test environments and package consumers.
 
-**Fix:** Remove or update the stale import in `pybend/__init__.py`.
+**Fix:** Remove or update the stale import in `n3tx/__init__.py`.
 
 ---
 
 ## B2. PUT Routes Require Full Model Validation (No True Partial Updates)
 
 **Severity:** Medium
-**Location:** `src/pybend/core/api/routes_fastapi.py` — `make_update_instance()`
+**Location:** `src/n3tx/core/api/routes_fastapi.py` — `make_update_instance()`
 
 The `update_instance` handler takes `data: param_class` (the full Pydantic model), so PUT requires all required fields including `price` for Product. Partial updates without required fields return 422 before the route handler even runs.
 
@@ -279,7 +279,7 @@ The `update_instance` handler takes `data: param_class` (the full Pydantic model
 ## B3. Pre-existing Test Failures (Pydantic V2 Compatibility)
 
 **Severity:** Low
-**Location:** `src/pybend/core/models/product_model.py` — `Product.comment()`
+**Location:** `src/n3tx/core/models/product_model.py` — `Product.comment()`
 
 Pydantic V2 rejects instance-level ClassVar assignment (`comment.__owner__ = product`). The production code does this in `Product.comment()` — it works at runtime but fails strict Pydantic validation in isolated unit tests.
 
@@ -290,7 +290,7 @@ Pydantic V2 rejects instance-level ClassVar assignment (`comment.__owner__ = pro
 ## B4. Auth Module Uses Module-Level Globals (No Isolation)
 
 **Severity:** Low
-**Location:** `src/pybend/core/authorize/auth.py`
+**Location:** `src/n3tx/core/authorize/auth.py`
 
 The `authorize.auth` module uses module-level globals (`_jwt_secret`, `_jwt_expiry_hours`) set by `configure()`. There is no way to scope configuration to a request, test, or context — it's process-wide mutable state.
 
@@ -301,7 +301,7 @@ The `authorize.auth` module uses module-level globals (`_jwt_secret`, `_jwt_expi
 ## B5. Config Test Order Dependency
 
 **Severity:** Low
-**Location:** `src/pybend/core/config.py`
+**Location:** `src/n3tx/core/config.py`
 
 A session-scoped test fixture changes `config.SQLITE_DB_FILE`, and `test_sqlite_db_file`'s expected value depends on execution order. If tests run in a different order, the assertion fails.
 
@@ -312,7 +312,7 @@ A session-scoped test fixture changes `config.SQLITE_DB_FILE`, and `test_sqlite_
 ## B6. No Cascade Delete Behavior Defined
 
 **Severity:** Medium
-**Location:** `src/pybend/core/storage/sqlite_storage.py`, `src/pybend/core/api/routes_fastapi.py`
+**Location:** `src/n3tx/core/storage/sqlite_storage.py`, `src/n3tx/core/api/routes_fastapi.py`
 
 Deleting a parent entity (Product, Comment) does not cascade to child entities (Comments, Likes). The join table entries (ProductComment, CommentLike) become orphaned — the FK references point to non-existent parent IDs.
 
@@ -329,7 +329,7 @@ Deleting a parent entity (Product, Comment) does not cascade to child entities (
 ## B7. `CORS allow_origins=["*"]` With `allow_credentials=True`
 
 **Severity:** Medium (Security)
-**Location:** `src/pybend/core/api/backend.py:59-65`
+**Location:** `src/n3tx/core/api/backend.py:59-65`
 
 ```python
 self.app.add_middleware(
@@ -352,13 +352,13 @@ Per the CORS specification, `allow_origins=["*"]` with `allow_credentials=True` 
 ## B8. JWT Secret Hardcoded in Default Config
 
 **Severity:** Medium (Security)
-**Location:** `src/pybend/core/config.py:14`
+**Location:** `src/n3tx/core/config.py:14`
 
 ```python
-JWT_SECRET = os.getenv("JWT_SECRET", "pybend-dev-secret-change-in-production")
+JWT_SECRET = os.getenv("JWT_SECRET", "ntx-dev-secret-change-in-production")
 ```
 
-The default fallback secret `"pybend-dev-secret-change-in-production"` is predictable. If `JWT_SECRET` env var is not set in production, tokens can be forged by anyone who reads the source code.
+The default fallback secret `"ntx-dev-secret-change-in-production"` is predictable. If `JWT_SECRET` env var is not set in production, tokens can be forged by anyone who reads the source code.
 
 Additionally, `authorize/auth.py` has its own separate default:
 ```python
@@ -376,7 +376,7 @@ Two different defaults creates confusion about which secret is actually in use.
 ## B9. User Registration Has No Email Uniqueness Enforcement
 
 **Severity:** Medium
-**Location:** `src/pybend/core/api/routes_fastapi.py` — register route, `src/pybend/core/storage/sqlite_storage.py`
+**Location:** `src/n3tx/core/api/routes_fastapi.py` — register route, `src/n3tx/core/storage/sqlite_storage.py`
 
 The registration endpoint creates a user without checking if the email is already taken. SQLite has no UNIQUE constraint on the email column. Multiple users can register with the same email, leading to ambiguous login behavior (which user does the password match against?).
 
@@ -389,7 +389,7 @@ The registration endpoint creates a user without checking if the email is alread
 ## B10. Auth Middleware Silently Swallows Token Decode Errors
 
 **Severity:** Low
-**Location:** `src/pybend/core/api/backend.py:90-97`
+**Location:** `src/n3tx/core/api/backend.py:90-97`
 
 ```python
 try:

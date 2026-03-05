@@ -7,7 +7,7 @@
 
 ## The Bridge
 
-PyBend's core promise -- "the model is the app" -- is a categorical claim. It asserts the existence of a structure-preserving transformation (a functor) from the category of Python model definitions to the category of working full-stack applications. Every field, every constraint, every access rule, every method signature must survive the journey from `ProtoModel` subclass through JSON Schema, across the network, into a JavaScript DynamicClass, and finally into rendered HTML -- without losing information, without gaining phantom state, and without contradicting itself at any layer.
+N3TX's core promise -- "the model is the app" -- is a categorical claim. It asserts the existence of a structure-preserving transformation (a functor) from the category of Python model definitions to the category of working full-stack applications. Every field, every constraint, every access rule, every method signature must survive the journey from `ProtoModel` subclass through JSON Schema, across the network, into a JavaScript DynamicClass, and finally into rendered HTML -- without losing information, without gaining phantom state, and without contradicting itself at any layer.
 
 We already think this way. When we say "adding a field to the model should automatically produce a new form input," we are invoking the functor composition law: `F3(F2(F1(add_field(Model))))` must produce `add_input(F3(F2(F1(Model))))`. When we say "OWNER | ROLE('admin') should work the same in Python and SQL," we are invoking a natural transformation: the `sql_filter()` method must commute with `evaluate()`. When we say "create then get should return the same data," we are invoking the unit law of an adjunction.
 
@@ -21,7 +21,7 @@ The opportunity is not to adopt category theory. It is to recognize the categori
 
 > **Proposition:** Split `model_dump(response=True)` into `model_dump()` (pure data extraction) and `model_dump_response()` (data + metadata injection), making each morphism independently composable and testable.
 
-**From the research:** The technical deep dive (02, Section 1.3) identifies `model_dump()` as a natural transformation between two functors: "plain dict" and "API response dict." The PyBend CT mapping (04, Section 8.1) verifies that the transformation is natural (uniform across all model types) but notes that bundling two categorically distinct operations behind a boolean flag violates composability. The improving-purity document (05, Section 1) provides a complete code-level proposal.
+**From the research:** The technical deep dive (02, Section 1.3) identifies `model_dump()` as a natural transformation between two functors: "plain dict" and "API response dict." The N3TX CT mapping (04, Section 8.1) verifies that the transformation is natural (uniform across all model types) but notes that bundling two categorically distinct operations behind a boolean flag violates composability. The improving-purity document (05, Section 1) provides a complete code-level proposal.
 
 **In our system:** In `proto_model.py:117-137`, the `model_dump()` method switches behavior based on a `response` boolean. The forgetful functor (strip class structure, return raw data) and the enriching natural transformation (inject `$schema` and `$id`) are entangled. Every call site in `routes_fastapi.py` (lines 83, 127, 133, 200, 227) must remember the flag. Storage operations in `storable_mixin.py:27` use `model_dump()` without the flag, but there is no type-level distinction -- a developer could accidentally pass `response=True` to storage and corrupt the database with `$schema`/`$id` keys in the data.
 
@@ -122,7 +122,7 @@ The public `schema()` signature is unchanged. The cache remains. Each step is a 
 
 > **Proposition:** Add a test suite that verifies the Boolean algebra laws (idempotence, commutativity, associativity, distributivity, double negation, De Morgan's) for `AccessRule` composition, catching authorization regressions at the algebraic level.
 
-**From the research:** The PyBend CT mapping (04, Section 6) demonstrates that `AccessRule` is a well-formed Boolean algebra with `evaluate()` as a proper homomorphism to `Bool`. The improving-purity document (05, Section 6) identifies that none of the algebraic laws are tested and provides a complete parametric test suite. The decision framework (03, Section 3.3) frames access rules as monoidal composition.
+**From the research:** The N3TX CT mapping (04, Section 6) demonstrates that `AccessRule` is a well-formed Boolean algebra with `evaluate()` as a proper homomorphism to `Bool`. The improving-purity document (05, Section 6) identifies that none of the algebraic laws are tested and provides a complete parametric test suite. The decision framework (03, Section 3.3) frames access rules as monoidal composition.
 
 **In our system:** `rules.py:30-37` defines `__or__`, `__and__`, and `__invert__` on `AccessRule`. `OrRule.evaluate()` (line 51) uses `any()`, `AndRule.evaluate()` (line 74) uses `all()`, and `NotRule.evaluate()` (line 97) uses `not` -- these are the correct Boolean algebra homomorphisms. But there are no tests verifying that `(a | b) | c` evaluates identically to `a | (b | c)`, or that `~(a | b)` evaluates identically to `~a & ~b`, across all possible `AccessContext` values. A future change to `OrRule` or `AndRule` could silently break these invariants, producing authorization bugs that only manifest for specific rule combinations.
 
@@ -143,9 +143,9 @@ The public `schema()` signature is unchanged. The cache remains. Each step is a 
 
 > **Proposition:** Change the `get value()` getter in `prototype()` from mutating `_data` in place to returning a new object with `$schema` and `$id` injected, restoring referential transparency.
 
-**From the research:** The PyBend CT mapping (04, Section 9.7) identifies this as a violation of referential transparency: the getter mutates `this._data` on every call, meaning `instance.value` is not pure -- external code holding a reference to `_data` sees the mutation. The improving-purity document (05, Section 10) provides the fix: `return {...this._data, "$schema": ..., "$id": ...}`.
+**From the research:** The N3TX CT mapping (04, Section 9.7) identifies this as a violation of referential transparency: the getter mutates `this._data` on every call, meaning `instance.value` is not pure -- external code holding a reference to `_data` sees the mutation. The improving-purity document (05, Section 10) provides the fix: `return {...this._data, "$schema": ..., "$id": ...}`.
 
-**In our system:** `NTT.js:691-698` inside the `prototype()` function:
+**In our system:** `N3TX.js:691-698` inside the `prototype()` function:
 
 ```javascript
 get value() {
@@ -188,7 +188,7 @@ The tradeoff is GC pressure from object allocation on every access. For entity-l
 
 > **Proposition:** Add explicit round-trip tests that verify `get(create(m).id).fields == m.fields` for all storable field types, formalizing the storage layer's implicit adjunction contract.
 
-**From the research:** The PyBend CT mapping (04, Section 4) analyzes the storage layer as an adjunction between `PyModel` and `SQLStore`, identifying three specific breakage points: default injection asymmetry, FK hydration asymmetry, and collection field asymmetry. The improving-purity document (05, Section 5) provides a complete test suite verifying round-trip preservation.
+**From the research:** The N3TX CT mapping (04, Section 4) analyzes the storage layer as an adjunction between `PyModel` and `SQLStore`, identifying three specific breakage points: default injection asymmetry, FK hydration asymmetry, and collection field asymmetry. The improving-purity document (05, Section 5) provides a complete test suite verifying round-trip preservation.
 
 **In our system:** `storable_mixin.py:64-89` defines `create()` and `storable_mixin.py:103-108` defines `get()`. The round-trip invariant -- storing then retrieving preserves field data -- is assumed but never tested. Specific violations are possible: if `exclude_unset=True` strips a field with a default value, and the default later changes, the round-trip breaks silently. If `API_URL` changes between store and retrieve, FK href URLs diverge.
 
@@ -213,7 +213,7 @@ The tradeoff is GC pressure from object allocation on every access. For entity-l
 
 **In our system:** `config.py` uses module-level globals (`HOST`, `PORT`, `API_URL`). The `configure()` function mutates `globals()` directly. `API_URL` is computed once as `f"http://localhost:{PORT}"`. If someone calls `configure(port=8080)` after import, `API_URL` still says `http://localhost:5000`. Every file that imports `config.PORT` gets the value at import time, creating snapshot-vs-live inconsistencies. Testing requires monkey-patching module globals.
 
-**The idea:** A frozen `PyBendConfig` dataclass with a `merge()` method. `merge()` is associative: `(a.merge(b)).merge(c) == a.merge(b.merge(c))`. The identity element is `PyBendConfig()` (all defaults). `API_URL` becomes a computed property (`effective_api_url`) that always reflects the current `port`. Backward-compatible module-level accessors (`HOST = _active.host`) maintain existing import patterns during migration.
+**The idea:** A frozen `N3TXConfig` dataclass with a `merge()` method. `merge()` is associative: `(a.merge(b)).merge(c) == a.merge(b.merge(c))`. The identity element is `N3TXConfig()` (all defaults). `API_URL` becomes a computed property (`effective_api_url`) that always reflects the current `port`. Backward-compatible module-level accessors (`HOST = _active.host`) maintain existing import patterns during migration.
 
 **Effort/Impact:**
 
@@ -230,11 +230,11 @@ The tradeoff is GC pressure from object allocation on every access. For entity-l
 
 > **Proposition:** Transform `register_model()` from a global-state-mutating side effect into a pure accumulation step, with all side effects (table creation, migration, storage injection) deferred to a single `materialize()` call.
 
-**From the research:** The PyBend CT mapping (04, Section 9.4) identifies global registration as the most architecturally significant impurity in the codebase. The analysis report (category-theory-analysis.md, Section 4.2) ranks it as Impurity #1 (Severity: HIGH). The `PyBendApp` builder in `app.py` already partially solves this by accumulating models in `self._models` (line 92) before calling `register_model()` in `build()` (line 148-154).
+**From the research:** The N3TX CT mapping (04, Section 9.4) identifies global registration as the most architecturally significant impurity in the codebase. The analysis report (category-theory-analysis.md, Section 4.2) ranks it as Impurity #1 (Severity: HIGH). The `N3TXApp` builder in `app.py` already partially solves this by accumulating models in `self._models` (line 92) before calling `register_model()` in `build()` (line 148-154).
 
 **In our system:** `registrar.py:14-29` performs three side effects in one call: sets storage on the class, creates a database table, runs migrations, and mutates the global `registered_models` dict. These cannot be undone, tested in isolation, or recomposed. Order of registration matters (join models after parents). Two simultaneous `register_model()` calls could race. Tests require clearing global state between cases.
 
-**The idea:** Push the `PyBendApp` builder pattern to completion. The builder accumulates `ModelRegistration` value objects (model class + storage binding). `materialize()` executes all side effects in the correct order. The direct `register_model()` function remains for backward compatibility (Level 3 bootstrap) but is documented as the effectful entry point.
+**The idea:** Push the `N3TXApp` builder pattern to completion. The builder accumulates `ModelRegistration` value objects (model class + storage binding). `materialize()` executes all side effects in the correct order. The direct `register_model()` function remains for backward compatibility (Level 3 bootstrap) but is documented as the effectful entry point.
 
 **Effort/Impact:**
 
@@ -251,9 +251,9 @@ The tradeoff is GC pressure from object allocation on every access. For entity-l
 
 > **Proposition:** Add typed message constructors to `TX` (e.g., `TX.crud()`, `TX.method()`) that validate payload shape against the target's schema at send time, catching malformed messages before they reach the handler.
 
-**From the research:** The PyBend CT mapping (04, Section 5) shows the Actor system forms a semicategory with partial associativity. The improving-purity document (05, Section 4) identifies that `TX.data` is completely untyped (`any`) and proposes schema-validated message factories. The industry landscape (01, Section 7) shows that TypeScript's discriminated unions provide this at compile time; runtime validation is the JS equivalent.
+**From the research:** The N3TX CT mapping (04, Section 5) shows the Actor system forms a semicategory with partial associativity. The improving-purity document (05, Section 4) identifies that `TX.data` is completely untyped (`any`) and proposes schema-validated message factories. The industry landscape (01, Section 7) shows that TypeScript's discriminated unions provide this at compile time; runtime validation is the JS equivalent.
 
-**In our system:** `TX.js` creates messages with a string `name` and untyped `data`. `NTT.js:663-759` generates DynamicClass methods that call `this.call(method, args, {})` with no validation that `args` matches what the target handler expects. A misspelled field name or wrong data shape silently fails at the handler level, producing undefined behavior.
+**In our system:** `TX.js` creates messages with a string `name` and untyped `data`. `N3TX.js:663-759` generates DynamicClass methods that call `this.call(method, args, {})` with no validation that `args` matches what the target handler expects. A misspelled field name or wrong data shape silently fails at the handler level, producing undefined behavior.
 
 **The idea:** Static factory methods on `TX` that validate against schema:
 
@@ -268,7 +268,7 @@ These are runtime checks, not compile-time, but they catch errors at the send si
 
 | Dimension | Assessment |
 |-----------|-----------|
-| Effort | Medium -- 4-5 days. `TX.js` changes plus `NTT.js` prototype method generation updates. |
+| Effort | Medium -- 4-5 days. `TX.js` changes plus `N3TX.js` prototype method generation updates. |
 | Impact | Medium -- Catches malformed messages at send time. Errors are localized to the sender, not scattered across the handler. |
 | Risk | Moderate -- Must not break existing untyped flows. Gradual adoption required. |
 | Timeline | Weeks |

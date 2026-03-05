@@ -1,7 +1,7 @@
-# Microservice Patterns and PyBend: Architecture Relevance Analysis
+# Microservice Patterns and N3TX: Architecture Relevance Analysis
 
 > Research document for technical leadership and engineering teams.
-> Analyzes how PyBend's schema-driven architecture maps to microservice
+> Analyzes how N3TX's schema-driven architecture maps to microservice
 > patterns, where the framework already provides microservice primitives,
 > and what would need to change for a full decomposition.
 
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-PyBend is not a microservice framework. It is a **modular monolith** with
+N3TX is not a microservice framework. It is a **modular monolith** with
 unusually clean boundaries between its constituent parts. The interesting
 finding is that those boundaries align almost exactly with the seams where
 a microservice architecture would split. This document maps the alignment
@@ -19,7 +19,7 @@ from modular monolith to distributed services.
 
 The short version:
 
-- **What PyBend already has:** Self-contained app builder, per-model
+- **What N3TX already has:** Self-contained app builder, per-model
   storage isolation, auto-generated API contracts (JSON Schema), model-
   level access control, pluggable backend adapters, and a model registry
   that tracks every registered entity.
@@ -27,7 +27,7 @@ The short version:
   (event bus, gRPC), distributed tracing, health checks, circuit
   breakers, configuration management per service, and deployment
   orchestration.
-- **The strategic position:** PyBend sits at the "modular monolith"
+- **The strategic position:** N3TX sits at the "modular monolith"
   sweet spot. It can be decomposed into microservices when load or
   organizational boundaries demand it, but the monolith is the correct
   default for most stages of growth.
@@ -39,11 +39,11 @@ The short version:
 ### 1.1 The `create_app()` Primitive Is Already a Service Factory
 
 The single most relevant piece of code is in
-`/workspace/src/pybend/core/app.py`. The `create_app()` function takes a
+`/workspace/src/n3tx/core/app.py`. The `create_app()` function takes a
 list of models and produces a fully operational ASGI application:
 
 ```python
-# From /workspace/src/pybend/core/app.py, lines 180-227
+# From /workspace/src/n3tx/core/app.py, lines 180-227
 def create_app(
     models=None,
     join_models=None,
@@ -53,12 +53,12 @@ def create_app(
     jwt_expiry_hours=24,
     cors_origins=None,
     debug=False,
-    name="PyBend",
+    name="N3TX",
     version="1.0.0",
     description="",
     **kwargs,
 ):
-    builder = PyBendApp(
+    builder = N3TXApp(
         storage=storage,
         jwt_secret=jwt_secret,
         jwt_expiry_hours=jwt_expiry_hours,
@@ -100,11 +100,11 @@ deployed to separate processes, containers, or machines today.
 
 ### 1.2 Per-Model Storage Isolation
 
-The `PyBendApp` builder already supports per-model storage overrides.
-From `/workspace/src/pybend/core/app.py`, lines 98-107:
+The `N3TXApp` builder already supports per-model storage overrides.
+From `/workspace/src/n3tx/core/app.py`, lines 98-107:
 
 ```python
-def model(self, model_class: Type, storage=None) -> "PyBendApp":
+def model(self, model_class: Type, storage=None) -> "N3TXApp":
     """Register a model.  Returns ``self`` for chaining.
 
     Args:
@@ -134,12 +134,12 @@ already supported at the framework level.
 
 ### 1.3 The Mapping Table
 
-| Microservice Concept | PyBend Equivalent | Status |
+| Microservice Concept | N3TX Equivalent | Status |
 |---|---|---|
 | Service boundary | `create_app(models=[...])` | Ready |
 | Database per service | Per-model `storage=` parameter | Ready |
 | API contract | `ProtoModel.schema()` JSON Schema | Ready |
-| Service identity | `name`, `version` in `PyBendApp` | Ready |
+| Service identity | `name`, `version` in `N3TXApp` | Ready |
 | Authentication | JWT middleware, per-app configurable | Ready |
 | Authorization | ABAC rules on model `__access__` | Ready |
 | Service registry | `registered_models` dict | Partial |
@@ -156,7 +156,7 @@ already supported at the framework level.
 ### 2.1 What `ProtoModel.schema()` Produces
 
 Every model generates a complete JSON Schema document. From
-`/workspace/src/pybend/core/models/proto_model.py`, the `schema()`
+`/workspace/src/n3tx/core/models/proto_model.py`, the `schema()`
 classmethod (lines 197-300) produces:
 
 ```
@@ -177,7 +177,7 @@ server/path metadata).
 
 ### 2.2 Comparison: JSON Schema vs. OpenAPI
 
-| Capability | PyBend JSON Schema | OpenAPI 3.x |
+| Capability | N3TX JSON Schema | OpenAPI 3.x |
 |---|---|---|
 | Type definitions | Full (via Pydantic) | Full |
 | Validation rules | Full (min/max, patterns) | Full |
@@ -195,8 +195,8 @@ server/path metadata).
 
 ### 2.3 The Bridge: FastAPI Already Generates OpenAPI
 
-Because PyBend uses FastAPI as its backend, OpenAPI specs are already
-generated automatically. From `/workspace/src/pybend/core/api/backend.py`,
+Because N3TX uses FastAPI as its backend, OpenAPI specs are already
+generated automatically. From `/workspace/src/n3tx/core/api/backend.py`,
 lines 64-67:
 
 ```python
@@ -208,9 +208,9 @@ self.app = FastAPI(
 ```
 
 FastAPI generates OpenAPI at `/openapi.json` and Swagger UI at `/docs`
-for free. This means PyBend actually has **two** contract formats:
+for free. This means N3TX actually has **two** contract formats:
 
-1. **JSON Schema** (PyBend-native) -- consumed by the NTT frontend
+1. **JSON Schema** (N3TX-native) -- consumed by the N3TX frontend
    system for dynamic class creation, form generation, and permission
    checks.
 2. **OpenAPI** (FastAPI-native) -- consumable by any standard API client,
@@ -223,7 +223,7 @@ standard. The JSON Schema is the richer internal contract.
 
 The gap is not in schema generation but in schema **consumption across
 service boundaries**. Today, the JSON Schema is consumed by one client:
-the NTT frontend. For service-to-service communication, services would
+the N3TX frontend. For service-to-service communication, services would
 need to:
 
 1. Fetch another service's schema at `GET /{ModelName}`
@@ -239,7 +239,7 @@ code generators) but is not wired up in the framework today.
 
 ### 3.1 Current Implementation
 
-From `/workspace/src/pybend/core/utils/registrar.py`:
+From `/workspace/src/n3tx/core/utils/registrar.py`:
 
 ```python
 registered_models: Dict[str, Type[Any]] = {}
@@ -307,7 +307,7 @@ Service registry:
 
 ### 3.3 Dependency Graph from Model References
 
-PyBend already tracks model dependencies through `ListRef` and `Ref`
+N3TX already tracks model dependencies through `ListRef` and `Ref`
 fields and the `__fk_models__` class variable. From the example models:
 
 ```
@@ -332,8 +332,8 @@ generation in `proto_model.py`, line 208).
 
 ### 4.1 The Current ABAC System
 
-PyBend's authorization is model-level and already modular. From
-`/workspace/src/pybend/core/authorize/rules.py`, the rule system is
+N3TX's authorization is model-level and already modular. From
+`/workspace/src/n3tx/core/authorize/rules.py`, the rule system is
 purely composable:
 
 ```python
@@ -351,7 +351,7 @@ class AccessRule(ABC):
     def __invert__(self): return NotRule(self)
 ```
 
-From `/workspace/src/pybend/core/authorize/context.py`, the evaluation
+From `/workspace/src/n3tx/core/authorize/context.py`, the evaluation
 context is a simple immutable dataclass:
 
 ```python
@@ -364,7 +364,7 @@ class AccessContext:
     parent_id: Optional[int] = None
 ```
 
-The `authorize` package has **zero PyBend imports** -- it is already a
+The `authorize` package has **zero N3TX imports** -- it is already a
 standalone library. This is noted in CLAUDE.md and verified in the code:
 the rules, context, resolver, and errors modules import only from each
 other and from Python stdlib/typing.
@@ -395,7 +395,7 @@ same JWT is valid across all services.
 **Pattern 2: Centralized Auth Service**
 
 A dedicated auth service issues tokens. Other services validate against
-it. PyBend's `BaseUser` model with `login()` and `register()` endpoints
+it. N3TX's `BaseUser` model with `login()` and `register()` endpoints
 is the natural candidate for this service.
 
 ```python
@@ -420,7 +420,7 @@ product_app = create_app(
 The access rules are already serializable to JSON via `to_dict()`. This
 means they could be stored in a central policy store and fetched by each
 service at startup. The `AuthorizationResolver` protocol (from
-`/workspace/src/pybend/core/authorize/resolver.py`) makes this swappable:
+`/workspace/src/n3tx/core/authorize/resolver.py`) makes this swappable:
 
 ```python
 @runtime_checkable
@@ -468,8 +468,8 @@ JWT, not the full User record.
 
 ### 5.1 What Exists Today: REST Only
 
-PyBend auto-generates REST endpoints. From
-`/workspace/src/pybend/core/api/routes_fastapi.py`, the `register_routes()`
+N3TX auto-generates REST endpoints. From
+`/workspace/src/n3tx/core/api/routes_fastapi.py`, the `register_routes()`
 function (lines 387-497) creates:
 
 ```
@@ -488,8 +488,8 @@ service client.
 
 ### 5.2 The Frontend Actor System as a Pattern
 
-The NTT frontend uses an actor/message-bus pattern. From
-`/workspace/src/pybend/static/core/Matrix.js`:
+The N3TX frontend uses an actor/message-bus pattern. From
+`/workspace/src/n3tx/static/core/Matrix.js`:
 
 ```javascript
 export class Matrix extends Actor {
@@ -542,7 +542,7 @@ Incoming request for Product.comment()
 
 ### 5.4 What an Event System Would Look Like
 
-Given PyBend's existing patterns, the most natural event system would
+Given N3TX's existing patterns, the most natural event system would
 hook into `StorableMixin` lifecycle methods:
 
 ```
@@ -571,7 +571,7 @@ def register_model(model_class, storage=None, event_bus=None):
 
 ### 6.1 The AbstractStorage Interface
 
-From `/workspace/src/pybend/core/storage/abstract_storage.py`:
+From `/workspace/src/n3tx/core/storage/abstract_storage.py`:
 
 ```python
 class AbstractStorage(ABC):
@@ -590,7 +590,7 @@ class AbstractStorage(ABC):
 ```
 
 This interface is the seam where storage technology can change without
-affecting model logic. PyBend ships with two implementations:
+affecting model logic. N3TX ships with two implementations:
 
 1. **SQLiteStorage** (`sqlite_storage.py`) -- connection pool, WAL mode,
    FK hydration, batch collection loading, auto-migration.
@@ -605,7 +605,7 @@ API instead of a local database:
 
 ```python
 class RemoteStorage(AbstractStorage):
-    """Storage backend that delegates to a remote PyBend service."""
+    """Storage backend that delegates to a remote N3TX service."""
 
     def __init__(self, base_url: str):
         self.base_url = base_url  # e.g., "http://product-service:5001"
@@ -667,7 +667,7 @@ for distributed systems (HATEOAS).
 
 ### 7.1 Current Configuration Model
 
-From `/workspace/src/pybend/core/config.py`:
+From `/workspace/src/n3tx/core/config.py`:
 
 ```python
 BACKEND = "fastapi"
@@ -675,13 +675,13 @@ VERSION = "0.7.0"
 HOST = "0.0.0.0"
 PORT = 5000
 API_URL = f"http://localhost:{PORT}"
-SQLITE_DB_FILE = "pybend.db"
-JWT_SECRET = os.getenv("PYBEND_JWT_SECRET", "pybend-dev-secret-change-in-production")
-JWT_EXPIRY_HOURS = int(os.getenv("PYBEND_JWT_EXPIRY_HOURS", "24"))
-DEBUG = os.getenv("PYBEND_DEBUG", "true").lower() in ("1", "true")
+SQLITE_DB_FILE = "n3tx.db"
+JWT_SECRET = os.getenv("N3TX_JWT_SECRET", "ntx-dev-secret-change-in-production")
+JWT_EXPIRY_HOURS = int(os.getenv("N3TX_JWT_EXPIRY_HOURS", "24"))
+DEBUG = os.getenv("N3TX_DEBUG", "true").lower() in ("1", "true")
 ```
 
-Environment variables override defaults (`PYBEND_PORT`, `PYBEND_API_URL`,
+Environment variables override defaults (`N3TX_PORT`, `N3TX_API_URL`,
 etc.), and `config.configure()` allows programmatic overrides.
 
 ### 7.2 Per-Service Configuration Needs
@@ -801,18 +801,18 @@ per process) but problematic for testing (multiple services in one test).
 
 ### 9.1 Why Not Decompose Today
 
-PyBend's current architecture gives most of the benefits of microservices
+N3TX's current architecture gives most of the benefits of microservices
 without the operational cost:
 
 ```
-MONOLITH BENEFITS (PyBend has these):
+MONOLITH BENEFITS (N3TX has these):
   + Single deployment artifact
   + Shared-memory function calls (no network latency)
   + Transactional consistency (single SQLite DB)
   + Simple debugging (single process, single log stream)
   + No service mesh, no container orchestration, no distributed tracing
 
-MICROSERVICE BENEFITS (PyBend partially has these):
+MICROSERVICE BENEFITS (N3TX partially has these):
   + Independent deployment per model        --> YES (create_app per model)
   + Independent scaling per model           --> YES (if deployed separately)
   + Technology diversity per model           --> YES (pluggable storage)
@@ -824,7 +824,7 @@ MICROSERVICE BENEFITS (PyBend partially has these):
 
 The standard triggers for microservice decomposition:
 
-| Trigger | Threshold | PyBend Signal |
+| Trigger | Threshold | N3TX Signal |
 |---|---|---|
 | Team size | > 8-10 engineers on same codebase | Multiple teams modifying `models/` |
 | Deploy frequency | Different models need different deploy cadences | One model changes hourly, others weekly |
@@ -834,7 +834,7 @@ The standard triggers for microservice decomposition:
 
 ### 9.3 The Decomposition Path
 
-Because PyBend's boundaries are already clean, the decomposition path
+Because N3TX's boundaries are already clean, the decomposition path
 is mechanical, not architectural:
 
 ```
@@ -912,7 +912,7 @@ DECOMPOSED: Microservices
          |
          v
 +--------------------------------------------------------------+
-|                    Frontend (NTT.js)                          |
+|                    Frontend (N3TX.js)                          |
 |  Fetches schemas from gateway, renders dynamically           |
 +--------------------------------------------------------------+
 ```
@@ -921,12 +921,12 @@ DECOMPOSED: Microservices
 
 ## 10. Proposed CLI Extension
 
-A natural extension of PyBend's tooling would be a CLI command to
+A natural extension of N3TX's tooling would be a CLI command to
 extract a service:
 
 ```bash
 # Spin up a microservice for specific models
-pybend service Product Comment --port 5001 --db product.db
+n3tx service Product Comment --port 5001 --db product.db
 
 # This would internally do:
 # 1. Import the specified models
@@ -938,14 +938,14 @@ pybend service Product Comment --port 5001 --db product.db
 The implementation would be straightforward given `create_app()`:
 
 ```python
-# Hypothetical pybend/cli.py
+# Hypothetical n3tx/cli.py
 import importlib
 import sys
 
 def service_command(model_names, port, db, jwt_secret):
-    """Run a PyBend microservice for the specified models."""
-    from pybend.core.app import create_app
-    from pybend.core import config
+    """Run a N3TX microservice for the specified models."""
+    from n3tx.core.app import create_app
+    from n3tx.core import config
 
     config.configure(port=port, api_url=f"http://localhost:{port}")
 
@@ -970,13 +970,13 @@ def service_command(model_names, port, db, jwt_secret):
 
 ## 11. Comparison with Established Microservice Frameworks
 
-### 11.1 PyBend vs. Microservice Frameworks
+### 11.1 N3TX vs. Microservice Frameworks
 
-| Feature | PyBend | Spring Boot | NestJS | FastAPI (raw) |
+| Feature | N3TX | Spring Boot | NestJS | FastAPI (raw) |
 |---|---|---|---|---|
 | Model-driven CRUD | Automatic | Manual/JPA | Manual/TypeORM | Manual |
 | API contract generation | JSON Schema + OpenAPI | OpenAPI | OpenAPI (Swagger) | OpenAPI |
-| Schema-driven UI | Built-in (NTT.js) | None | None | None |
+| Schema-driven UI | Built-in (N3TX.js) | None | None | None |
 | Auth/AuthZ | Built-in (ABAC) | Spring Security | Guards/Passport | Manual |
 | Service factory | `create_app()` | `@SpringBootApplication` | `NestFactory.create()` | Manual |
 | Service discovery | None | Eureka/Consul | None (manual) | None |
@@ -984,10 +984,10 @@ def service_command(model_names, port, db, jwt_secret):
 | Circuit breakers | None | Resilience4j | None (manual) | None |
 | Health checks | None | Actuator | Terminus | None |
 
-### 11.2 PyBend's Unique Advantage
+### 11.2 N3TX's Unique Advantage
 
 No framework in the comparison table generates a **working UI** from
-model definitions. This is PyBend's differentiator. In a microservice
+model definitions. This is N3TX's differentiator. In a microservice
 context, this means:
 
 - Each service automatically has an admin interface
@@ -1022,7 +1022,7 @@ interactable through its auto-generated interface.
 ### 12.2 Medium-Term (Prepare for Decomposition)
 
 5. **Build `RemoteStorage`** -- an `AbstractStorage` implementation that
-   delegates to a remote PyBend service's REST API. This is the key
+   delegates to a remote N3TX service's REST API. This is the key
    enabler: it lets one service treat another service's models as if
    they were local.
 
@@ -1042,7 +1042,7 @@ interactable through its auto-generated interface.
    model that has the clearest independent lifecycle (e.g., User/Auth
    is almost always the first extraction).
 
-10. **Use PyBend's existing patterns** for the decomposed services. The
+10. **Use N3TX's existing patterns** for the decomposed services. The
     `create_app()` factory, JSON Schema contracts, and ABAC rules work
     identically whether the service is a module in a monolith or a
     standalone process.
@@ -1051,7 +1051,7 @@ interactable through its auto-generated interface.
 
 ## 13. Conclusion
 
-PyBend is architecturally closer to microservice-ready than most
+N3TX is architecturally closer to microservice-ready than most
 frameworks at its stage. The key primitives -- self-contained app
 factory, pluggable storage, auto-generated contracts, model-level auth,
 and a clean model registry -- map directly to microservice patterns.
@@ -1070,7 +1070,7 @@ distributed systems tax (network latency, partial failures, eventual
 consistency) before the organization needs the benefits (independent
 deployment, independent scaling, fault isolation).
 
-PyBend's architecture makes that choice reversible. And that is its
+N3TX's architecture makes that choice reversible. And that is its
 strongest microservice property.
 
 ---
@@ -1079,23 +1079,23 @@ strongest microservice property.
 
 | File | Relevance |
 |---|---|
-| `/workspace/src/pybend/core/app.py` | Service factory (`create_app`, `PyBendApp`) |
-| `/workspace/src/pybend/core/models/proto_model.py` | Schema generation, model lifecycle |
-| `/workspace/src/pybend/core/api/routes_fastapi.py` | Auto-generated CRUD routes |
-| `/workspace/src/pybend/core/api/backend.py` | FastAPI backend adapter, JWT middleware |
-| `/workspace/src/pybend/core/utils/registrar.py` | Model registry (`registered_models`) |
-| `/workspace/src/pybend/core/utils/decorators.py` | `@expose_route` for custom methods |
-| `/workspace/src/pybend/core/storage/abstract_storage.py` | Storage interface (pluggable) |
-| `/workspace/src/pybend/core/storage/sqlite_storage.py` | SQLite backend with FK hydration |
-| `/workspace/src/pybend/core/authorize/rules.py` | ABAC rules (composable, serializable) |
-| `/workspace/src/pybend/core/authorize/resolver.py` | Authorization resolver protocol |
-| `/workspace/src/pybend/core/authorize/context.py` | Immutable access context |
-| `/workspace/src/pybend/core/config.py` | Configuration (env vars, `configure()`) |
-| `/workspace/src/pybend/core/models/storable_mixin.py` | CRUD operations, lifecycle hooks |
-| `/workspace/src/pybend/static/core/Matrix.js` | Frontend actor/message bus |
-| `/workspace/src/pybend/static/core/NTT.js` | Frontend entity system, schema bootstrap |
-| `/workspace/src/pybend/example/main.py` | Example app using `create_app()` |
-| `/workspace/src/pybend/example/models/product.py` | Example model with relationships |
+| `/workspace/src/n3tx/core/app.py` | Service factory (`create_app`, `N3TXApp`) |
+| `/workspace/src/n3tx/core/models/proto_model.py` | Schema generation, model lifecycle |
+| `/workspace/src/n3tx/core/api/routes_fastapi.py` | Auto-generated CRUD routes |
+| `/workspace/src/n3tx/core/api/backend.py` | FastAPI backend adapter, JWT middleware |
+| `/workspace/src/n3tx/core/utils/registrar.py` | Model registry (`registered_models`) |
+| `/workspace/src/n3tx/core/utils/decorators.py` | `@expose_route` for custom methods |
+| `/workspace/src/n3tx/core/storage/abstract_storage.py` | Storage interface (pluggable) |
+| `/workspace/src/n3tx/core/storage/sqlite_storage.py` | SQLite backend with FK hydration |
+| `/workspace/src/n3tx/core/authorize/rules.py` | ABAC rules (composable, serializable) |
+| `/workspace/src/n3tx/core/authorize/resolver.py` | Authorization resolver protocol |
+| `/workspace/src/n3tx/core/authorize/context.py` | Immutable access context |
+| `/workspace/src/n3tx/core/config.py` | Configuration (env vars, `configure()`) |
+| `/workspace/src/n3tx/core/models/storable_mixin.py` | CRUD operations, lifecycle hooks |
+| `/workspace/src/n3tx/static/core/Matrix.js` | Frontend actor/message bus |
+| `/workspace/src/n3tx/static/core/N3TX.js` | Frontend entity system, schema bootstrap |
+| `/workspace/src/n3tx/example/main.py` | Example app using `create_app()` |
+| `/workspace/src/n3tx/example/models/product.py` | Example model with relationships |
 
 ## Appendix B: Glossary
 
@@ -1107,10 +1107,10 @@ strongest microservice property.
 | **registered_models** | In-process dict mapping tablenames to model classes. |
 | **JSON Schema** | The contract returned by `GET /{ModelName}`. Carries types, validation, UI hints, access rules, methods. |
 | **ABAC** | Attribute-Based Access Control. Rules compose with `|`, `&`, `~`. |
-| **NTT** | Frontend entity system. Creates DynamicClasses from backend schemas. |
+| **N3TX** | Frontend entity system. Creates DynamicClasses from backend schemas. |
 | **Matrix** | Frontend actor/message bus. Routes messages to local children or remote services. |
 | **create_app()** | One-liner factory that produces a complete ASGI application from a list of models. |
 | **@expose_route** | Decorator that turns a model method into an API endpoint. |
 | **ListRef[T]** | Type annotation for collection relationships (parent-child via join model). |
 | **Ref[T]** | Type annotation for foreign key references. |
-| **HATEOAS** | Hypermedia as the Engine of Application State. PyBend's FK hydration produces URLs, not raw IDs. |
+| **HATEOAS** | Hypermedia as the Engine of Application State. N3TX's FK hydration produces URLs, not raw IDs. |

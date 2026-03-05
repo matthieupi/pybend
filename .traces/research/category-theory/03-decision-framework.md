@@ -1,6 +1,6 @@
-# Category Theory and PyBend: A Decision Framework
+# Category Theory and N3TX: A Decision Framework
 
-**When CT-Inspired Abstractions Help, When They Hurt, and Where PyBend Sits on the Spectrum**
+**When CT-Inspired Abstractions Help, When They Hurt, and Where N3TX Sits on the Spectrum**
 
 *Research Document -- February 2026*
 
@@ -10,20 +10,20 @@
 
 Category theory (CT) is a branch of mathematics that studies structure-preserving mappings between abstract objects. Over the past decade it has migrated from academic Haskell circles into mainstream software engineering -- appearing in TypeScript's discriminated unions, Rust's Result/Option types, Python's Pydantic validators, and React/Redux's reducer patterns. The question for engineering leadership is not whether CT concepts are useful, but *when* the overhead of explicit CT vocabulary justifies itself versus implicit, pattern-level adoption.
 
-This document analyzes PyBend's architecture through a CT lens, maps every relevant abstraction to its categorical analogue, and presents a decision framework for teams evaluating CT-inspired patterns. The core finding: **PyBend already operates at Level 2-3 on the abstraction spectrum** -- it uses functorial schema transformations, monoidal access-rule composition, and actor-based message categories without ever naming those concepts. This is the sweet spot. Teams that move to Level 4 (explicit CT vocabulary) typically pay more in onboarding cost than they gain in correctness, unless they operate in domains with formal verification requirements.
+This document analyzes N3TX's architecture through a CT lens, maps every relevant abstraction to its categorical analogue, and presents a decision framework for teams evaluating CT-inspired patterns. The core finding: **N3TX already operates at Level 2-3 on the abstraction spectrum** -- it uses functorial schema transformations, monoidal access-rule composition, and actor-based message categories without ever naming those concepts. This is the sweet spot. Teams that move to Level 4 (explicit CT vocabulary) typically pay more in onboarding cost than they gain in correctness, unless they operate in domains with formal verification requirements.
 
 ---
 
-## 1. PyBend's Implicit Category Theory
+## 1. N3TX's Implicit Category Theory
 
-Before evaluating CT's applicability, it is worth mapping what PyBend already does to categorical concepts. The framework employs CT-inspired patterns throughout its stack without using CT terminology, which is itself an important design lesson.
+Before evaluating CT's applicability, it is worth mapping what N3TX already does to categorical concepts. The framework employs CT-inspired patterns throughout its stack without using CT terminology, which is itself an important design lesson.
 
 ### 1.1 Categorical Structures in the Current Codebase
 
-| PyBend Construct | CT Analogue | File | Evidence |
+| N3TX Construct | CT Analogue | File | Evidence |
 |---|---|---|---|
 | `ProtoModel.schema()` | **Functor** (Python model --> JSON Schema) | `proto_model.py:199-316` | Structure-preserving map: fields become properties, validators become constraints, relationships become `$defs` references. The mapping preserves composition -- nested models produce nested schemas. |
-| `prototype()` in NTT.js | **Functor** (JSON Schema --> DynamicClass) | `NTT.js:663-1075` | Structure-preserving map: schema properties become typed getters/setters, schema methods become callable functions, schema `$defs` produce nested DynamicClasses. |
+| `prototype()` in N3TX.js | **Functor** (JSON Schema --> DynamicClass) | `N3TX.js:663-1075` | Structure-preserving map: schema properties become typed getters/setters, schema methods become callable functions, schema `$defs` produce nested DynamicClasses. |
 | `model_dump(response=True)` | **Natural transformation** (Model --> API Response) | `proto_model.py:117-137` | Transforms one functor's output (plain dict) into another (dict with `$schema`/`$id` metadata) while preserving the underlying data structure. |
 | `AccessRule.__or__`, `__and__`, `__invert__` | **Boolean algebra / lattice** (monoid under OR/AND) | `rules.py:30-37` | Access rules compose via `\|` (OR), `&` (AND), `~` (NOT). `OrRule`, `AndRule`, `NotRule` form a bounded lattice with `ANYONE` as top and `NotRule(ANYONE)` as bottom. |
 | `AccessRule.sql_filter()` | **Functor** (Rule AST --> SQL WHERE clause) | `rules.py:21-23, 53-62` | Each rule translates to SQL while preserving compositional structure: `OrRule.sql_filter()` produces `(clause1) OR (clause2)`, mirroring the logical structure. |
@@ -31,16 +31,16 @@ Before evaluating CT's applicability, it is worth mapping what PyBend already do
 | `Observable.apply(Base)` | **Mixin as endofunctor** | `Observable.js:30-132` | Takes a class, returns an augmented class with signal/observe/notify. Preserves existing structure while adding new capabilities. `Actor.subclass(DynamicClass, Observable)` is functor application. |
 | `generate_join_model()` | **Pullback / product in model category** | `proto_model.py:383-430` | Creates a new model from two existing models (parent + child) with a foreign key connecting them. This is a categorical product with a connecting morphism. |
 | `DefaultResolver` strategy pattern | **Natural transformation between functors** | `resolver.py:30-62` | Swappable resolution strategy. `AuthorizationResolver` Protocol defines the interface (functor shape); `DefaultResolver` is one implementation (specific natural transformation). |
-| `DynamicClass` value getter injecting `$schema`/`$id` | **Yoneda-like self-description** | `NTT.js:691-699` | Every entity carries its own schema URL and instance URL -- a self-referential structure where each object knows its position in the category. |
+| `DynamicClass` value getter injecting `$schema`/`$id` | **Yoneda-like self-description** | `N3TX.js:691-699` | Every entity carries its own schema URL and instance URL -- a self-referential structure where each object knows its position in the category. |
 
 ### 1.2 The Full-Stack Functor Chain
 
-PyBend's core architecture is a chain of functors:
+N3TX's core architecture is a chain of functors:
 
 ```
 Python Model  --F1-->  JSON Schema  --F2-->  DynamicClass  --F3-->  DOM Rendering
      |                      |                     |                      |
- ProtoModel            schema()              prototype()            ntt-item
+ ProtoModel            schema()              prototype()            ntx-item
  (source)           (intermediate)          (runtime type)          (visual)
 ```
 
@@ -48,11 +48,11 @@ Python Model  --F1-->  JSON Schema  --F2-->  DynamicClass  --F3-->  DOM Renderin
 
 **F2: `prototype()`** maps JSON Schema to a JavaScript DynamicClass. Schema properties become Object.defineProperty getters/setters with type validation. Schema methods become prototype functions. `$defs` entries become recursively registered DynamicClasses.
 
-**F3: Rendering** maps DynamicClass instances to DOM. `ntt-item.js` reads the schema to determine field order, visibility, edit permissions. `form.js` reads property types to choose input widgets. `Permissions.js` reads access rules to show/hide buttons.
+**F3: Rendering** maps DynamicClass instances to DOM. `ntx-item.js` reads the schema to determine field order, visibility, edit permissions. `form.js` reads property types to choose input widgets. `Permissions.js` reads access rules to show/hide buttons.
 
 Each functor preserves the compositional structure: if you add a field to the Python model, it flows through F1 to schema, through F2 to DynamicClass, and through F3 to rendering -- automatically, with zero additional code.
 
-> **Key insight**: PyBend's power comes from this functorial pipeline. The "single source of truth" philosophy is the categorical statement that F1, F2, F3 are functors -- they preserve structure across transformations. Breaking this chain (e.g., hardcoding a frontend field that isn't in the schema) breaks the functor laws and introduces the class of bugs described in CLAUDE.md's "200-OK error" case study.
+> **Key insight**: N3TX's power comes from this functorial pipeline. The "single source of truth" philosophy is the categorical statement that F1, F2, F3 are functors -- they preserve structure across transformations. Breaking this chain (e.g., hardcoding a frontend field that isn't in the schema) breaks the functor laws and introduces the class of bugs described in CLAUDE.md's "200-OK error" case study.
 
 ---
 
@@ -66,7 +66,7 @@ CT-inspired patterns exist on a spectrum. Teams should choose their operating le
 |---|---|---|---|---|
 | **0** | Imperative | Procedural scripts, mutation everywhere, no patterns | None | Bash scripts, early PHP |
 | **1** | OOP Patterns | GoF patterns, SOLID principles, interfaces | Implicit | Java enterprise, C# with Repository/Factory patterns |
-| **2** | FP Patterns | map/filter/reduce, pipelines, immutability, composition | Practical | Modern Python, JavaScript with functional style, **PyBend's current level** |
+| **2** | FP Patterns | map/filter/reduce, pipelines, immutability, composition | Practical | Modern Python, JavaScript with functional style, **N3TX's current level** |
 | **3** | Explicit Algebraic Types | Result/Option types, discriminated unions, pattern matching | Typed CT | Rust, TypeScript with strict unions, Python with `dry-python/returns` |
 | **4** | Full CT Vocabulary | Functors, monads, natural transformations, adjunctions | Academic CT | Haskell, Scala with Cats/ZIO, research codebases |
 
@@ -103,12 +103,12 @@ PL/Compiler work -|---------------------------------------|-----------|
 
 **The pattern**: Chain operations where each step's output feeds the next, with failure handling built in.
 
-**PyBend example**: The schema generation pipeline in `proto_model.py` is a composition of transformations:
+**N3TX example**: The schema generation pipeline in `proto_model.py` is a composition of transformations:
 
 ```python
 # Simplified view of schema() composition:
 schema = cls.model_json_schema(...)          # Step 1: Pydantic introspection
-schema['methods'] = cls.__pybend_methods__() # Step 2: Method injection
+schema['methods'] = cls.__n3tx_methods__() # Step 2: Method injection
 schema['$defs'] = collect_referenced(...)    # Step 3: Reference resolution
 schema['access'] = access_schema(cls)        # Step 4: Access rule serialization
 _apply_field_exclusion(schema)               # Step 5: UI hint injection
@@ -125,7 +125,7 @@ Each step transforms the schema dict, preserving existing structure while adding
 
 **The pattern**: Replace exceptions with explicit Result types that force callers to handle both success and failure paths.
 
-**PyBend example**: The `MethodError` pattern described in CLAUDE.md exists precisely because implicit error handling (returning error strings with HTTP 200) caused the "200-OK error" class of bugs:
+**N3TX example**: The `MethodError` pattern described in CLAUDE.md exists precisely because implicit error handling (returning error strings with HTTP 200) caused the "200-OK error" class of bugs:
 
 ```python
 # BEFORE (broken): error encoded inside success channel
@@ -163,10 +163,10 @@ def favorite(self) -> Result[str, MethodError]:
 
 **The pattern**: Configurations are monoids -- they have an identity (empty config) and an associative merge operation.
 
-**PyBend example**: The `PyBendApp` builder in `app.py` uses monoid-like composition:
+**N3TX example**: The `N3TXApp` builder in `app.py` uses monoid-like composition:
 
 ```python
-pb = PyBendApp(storage="sqlite:///app.db")     # identity-like base
+pb = N3TXApp(storage="sqlite:///app.db")     # identity-like base
 pb.model(Product).model(User)                   # associative accumulation
 pb.join(Product, Comment)                        # more accumulation
 app = pb.build()                                 # fold / collapse
@@ -189,7 +189,7 @@ OWNER & Where(status='draft')  # AndRule: monoid under conjunction
 
 **The pattern**: Map between different representations of the same data while preserving structural relationships.
 
-**PyBend example**: The `access_schema()` function in `authorize/schema.py` is a functor from the category of AccessRules to the category of JSON-serializable dicts:
+**N3TX example**: The `access_schema()` function in `authorize/schema.py` is a functor from the category of AccessRules to the category of JSON-serializable dicts:
 
 ```python
 def access_schema(model_class):
@@ -216,7 +216,7 @@ The tree structure of composed rules is preserved in the JSON output. The fronte
 
 **The pattern**: State transitions are pure functions: `(State, Action) --> State`.
 
-**PyBend example**: The `NTT.update()` method in `NTT.js:527-532`:
+**N3TX example**: The `N3TX.update()` method in `N3TX.js:527-532`:
 
 ```javascript
 update(data) {
@@ -261,7 +261,7 @@ This is Redux-style state management: incoming data (action) is merged with exis
 
 **The problem**: CT vocabulary creates a barrier to entry. A developer who has never encountered functors will struggle with code that uses `Functor`, `Applicative`, `Monad` type classes -- even if the underlying logic is straightforward.
 
-**PyBend's approach**: PyBend avoids CT vocabulary entirely. The `prototype()` function is called `prototype()`, not `SchemaToClassFunctor.fmap()`. The access rules use `|` and `&` operators, not `Alternative` and `Applicative` instances. This is deliberate: CLAUDE.md states "Transparent, not magical. Nothing is hidden behind abstractions you can't see through."
+**N3TX's approach**: N3TX avoids CT vocabulary entirely. The `prototype()` function is called `prototype()`, not `SchemaToClassFunctor.fmap()`. The access rules use `|` and `&` operators, not `Alternative` and `Applicative` instances. This is deliberate: CLAUDE.md states "Transparent, not magical. Nothing is hidden behind abstractions you can't see through."
 
 **Cost data**: Industry surveys consistently show that introducing explicit monadic patterns in Python codebases increases onboarding time by 40-80% for developers without prior FP experience. The `dry-python/returns` library, despite being well-designed, sees adoption primarily in teams with existing Haskell/Scala experience.
 
@@ -293,7 +293,7 @@ def create_product(data: dict) -> Result[Product, Error]:
     )
 ```
 
-**Compare with PyBend's approach** (`routes_fastapi.py:57-89`):
+**Compare with N3TX's approach** (`routes_fastapi.py:57-89`):
 
 ```python
 async def create_instance(request, data, parent_id=None):
@@ -311,13 +311,13 @@ async def create_instance(request, data, parent_id=None):
         raise HTTPException(status_code=400, detail=detail)
 ```
 
-The PyBend version is 30% shorter, immediately readable by any Python developer, and achieves the same error handling through idiomatic try/except. The monadic version adds no safety that Python's exception system doesn't already provide -- because Python doesn't enforce Result unwrapping at compile time.
+The N3TX version is 30% shorter, immediately readable by any Python developer, and achieves the same error handling through idiomatic try/except. The monadic version adds no safety that Python's exception system doesn't already provide -- because Python doesn't enforce Result unwrapping at compile time.
 
 ### 4.3 Performance-Critical Paths
 
 **The problem**: Abstraction layers add runtime overhead -- extra function calls, object allocations, and indirection.
 
-**PyBend's response**: The framework uses explicit caching to mitigate the cost of its schema generation pipeline:
+**N3TX's response**: The framework uses explicit caching to mitigate the cost of its schema generation pipeline:
 
 ```python
 # proto_model.py:50-61 -- Performance caches
@@ -358,13 +358,13 @@ print(x + 1)  # Runtime error, not caught at "compile" time
 
 Pydantic compensates partially by providing runtime validation -- a "runtime type system" that catches type errors at data boundaries. But Pydantic operates on data, not on control flow. You cannot use Pydantic to enforce that a function's `Result` return is properly unwrapped.
 
-**PyBend's position**: The framework uses Pydantic for data validation (where runtime checking is valuable) and idiomatic Python exceptions for control flow (where monadic patterns would add overhead without compile-time guarantees). This is the correct tradeoff for a Python framework.
+**N3TX's position**: The framework uses Pydantic for data validation (where runtime checking is valuable) and idiomatic Python exceptions for control flow (where monadic patterns would add overhead without compile-time guarantees). This is the correct tradeoff for a Python framework.
 
 ### 4.5 "Monad Tutorial Syndrome"
 
 **The problem**: Teaching CT concepts before teaching the problem they solve leads to cargo-cult adoption. Teams adopt `Maybe` before understanding why null-checking is error-prone. They adopt `Either` before experiencing the "200-OK error" pattern.
 
-**PyBend's lesson**: CLAUDE.md documents the "200-OK error" case study in detail -- *not* as a motivation for adopting monads, but as a motivation for proper HTTP semantics (`MethodError`). The solution is domain-appropriate: HTTP status codes already encode success/failure. The framework didn't need `Either` -- it needed to use the error channel that HTTP already provides.
+**N3TX's lesson**: CLAUDE.md documents the "200-OK error" case study in detail -- *not* as a motivation for adopting monads, but as a motivation for proper HTTP semantics (`MethodError`). The solution is domain-appropriate: HTTP status codes already encode success/failure. The framework didn't need `Either` -- it needed to use the error channel that HTTP already provides.
 
 > **Anti-pattern**: Introducing `Result[Response, HttpError]` when FastAPI's `HTTPException` already provides the same semantics with better tooling support (automatic OpenAPI documentation, middleware integration, standard error responses).
 
@@ -398,7 +398,7 @@ Correctness
 |---|---|---|---|
 | 0 - Imperative | 1.0x (fast for small) | High defect rate | Scripts, one-offs |
 | 1 - OOP | 0.8x | Moderate | Enterprise CRUD, large teams with OOP training |
-| 2 - FP Patterns | 0.9x | Low-moderate | **Most web applications, including PyBend** |
+| 2 - FP Patterns | 0.9x | Low-moderate | **Most web applications, including N3TX** |
 | 3 - Algebraic Types | 0.7x (Python) / 0.85x (Rust/TS) | Low | Complex domains, multi-team boundaries |
 | 4 - Full CT | 0.5x (most langs) / 0.8x (Haskell) | Very low | Compilers, formal verification, critical infrastructure |
 
@@ -459,7 +459,7 @@ Pydantic validates `name` is a non-empty string, `price` is a positive float, an
 
 The `returns` library (v0.26.0, November 2025) provides the most complete CT-inspired toolkit for Python:
 
-| Container | Purpose | PyBend Equivalent |
+| Container | Purpose | N3TX Equivalent |
 |---|---|---|
 | `Result[T, E]` | Explicit success/failure | `try/except` + `MethodError` |
 | `Maybe[T]` | Null-safe chaining | `Optional[T]` + `Field(default=None)` |
@@ -467,11 +467,11 @@ The `returns` library (v0.26.0, November 2025) provides the most complete CT-ins
 | `RequiresContext[T]` | Dependency injection | `_resolve_user()`, `AccessContext` |
 | `Future[T]` | Async Result | FastAPI's `async def` handlers |
 
-**Verdict for PyBend**: Adopting `returns` would add ceremony without proportional benefit. PyBend's error handling via `MethodError` + `HTTPException` is already explicit and well-documented. The `AccessContext` dataclass already provides typed dependency injection. And Python's `async/await` is more idiomatic than `FutureResult`.
+**Verdict for N3TX**: Adopting `returns` would add ceremony without proportional benefit. N3TX's error handling via `MethodError` + `HTTPException` is already explicit and well-documented. The `AccessContext` dataclass already provides typed dependency injection. And Python's `async/await` is more idiomatic than `FutureResult`.
 
 ### 6.4 Type Hints + mypy as Gradual Typing
 
-PyBend uses type hints extensively:
+N3TX uses type hints extensively:
 
 ```python
 # AccessContext uses typed properties
@@ -500,7 +500,7 @@ The `Protocol` pattern in `resolver.py` is a CT-inspired abstraction: it defines
 
 ### 7.1 TypeScript Discriminated Unions as Sum Types
 
-PyBend's frontend is vanilla JavaScript, not TypeScript. If the frontend were migrated to TypeScript, the TX (transaction) message system would benefit from discriminated unions:
+N3TX's frontend is vanilla JavaScript, not TypeScript. If the frontend were migrated to TypeScript, the TX (transaction) message system would benefit from discriminated unions:
 
 ```typescript
 // Current: TX is a generic object with string name
@@ -528,13 +528,13 @@ This would catch, at compile time, bugs like passing the wrong data shape for a 
 
 ### 7.2 Web Components as Composable Functors
 
-PyBend's Web Components follow a functorial pattern:
+N3TX's Web Components follow a functorial pattern:
 
 ```
 Schema --F--> DynamicClass --G--> NTTElement --H--> DOM
 ```
 
-Each Web Component (`ntt-item`, `ntt-list`, `ntt-element`) receives a `{proto, data}` pair via the `DESCRIBE` message and maps it to DOM output. The mapping preserves structure: schema properties become form fields, schema access rules become button visibility, schema methods become action buttons.
+Each Web Component (`ntx-item`, `ntx-list`, `ntx-element`) receives a `{proto, data}` pair via the `DESCRIBE` message and maps it to DOM output. The mapping preserves structure: schema properties become form fields, schema access rules become button visibility, schema methods become action buttons.
 
 The `Observable` mixin (`Observable.js`) adds reactive capabilities to any Actor subclass. This is a functor from "plain Actor" to "reactive Actor" -- it preserves the existing interface while adding `signal()`, `observe()`, and `notify()`.
 
@@ -542,7 +542,7 @@ The `Observable` mixin (`Observable.js`) adds reactive capabilities to any Actor
 
 The Actor system in `Actor.js` and `Matrix.js` forms a category:
 
-- **Objects**: Actors (Matrix, NTT, DynamicClass instances, Web Components)
+- **Objects**: Actors (Matrix, N3TX, DynamicClass instances, Web Components)
 - **Morphisms**: TX messages
 - **Composition**: Message forwarding. Actor A sends to Matrix, Matrix routes to Actor B. This is composition of morphisms.
 - **Identity**: An actor can send a message to itself (self-referential update).
@@ -583,7 +583,7 @@ def update_product(id: int, data: dict) -> Result[Product, str]:
 ```
 
 ```python
-# DO: Idiomatic Python (PyBend's actual approach)
+# DO: Idiomatic Python (N3TX's actual approach)
 async def update_instance(request, id, data):
     instance = model_class.get(id)
     if not instance:
@@ -612,7 +612,7 @@ class ConcreteAccessRuleFactory:
 ```
 
 ```python
-# DO: Direct construction (PyBend's actual approach)
+# DO: Direct construction (N3TX's actual approach)
 ANYONE = _Anyone()
 AUTHENTICATED = _Authenticated()
 OWNER = _Owner()
@@ -653,13 +653,13 @@ class AppMonad(Generic[T]):
     """Reader[Config] + IO + Result[T, Error] + State[AppState]"""
     ...
 
-# DO: Use direct dependency injection (PyBend's approach)
-class PyBendApp:
+# DO: Use direct dependency injection (N3TX's approach)
+class N3TXApp:
     def __init__(self, storage=None, jwt_secret=None, ...):
         self._storage = _resolve_storage(storage)
 ```
 
-The `PyBendApp` builder class uses straightforward dependency injection. The storage backend is resolved from a string URI or passed directly. No monad transformers, no effect systems, no abstract configuration types.
+The `N3TXApp` builder class uses straightforward dependency injection. The storage backend is resolved from a string URI or passed directly. No monad transformers, no effect systems, no abstract configuration types.
 
 ---
 
@@ -706,11 +706,11 @@ START: Should we adopt CT-inspired abstractions?
 | Composition needs | Deep pipelines, nested transforms | Flat request/response |
 | Team stability | Low turnover, specialized | High turnover, generalist |
 
-### 9.3 PyBend's Position: The Level 2-3 Sweet Spot
+### 9.3 N3TX's Position: The Level 2-3 Sweet Spot
 
-PyBend demonstrates that a framework can derive enormous value from CT-inspired patterns without adopting CT vocabulary:
+N3TX demonstrates that a framework can derive enormous value from CT-inspired patterns without adopting CT vocabulary:
 
-| What PyBend Uses (Level 2-3) | What PyBend Avoids (Level 4) |
+| What N3TX Uses (Level 2-3) | What N3TX Avoids (Level 4) |
 |---|---|
 | Functorial schema transformation chain | Explicit `Functor` type class |
 | Monoidal access rule composition (`\|`, `&`) | Formal `Monoid` instances |
@@ -729,7 +729,7 @@ The framework's philosophy -- "Primitives, not opinions" and "Transparent, not m
 
 ### 10.1 For Teams Evaluating CT Adoption
 
-1. **Start with the problem, not the abstraction.** Document the class of bugs you're trying to prevent (null errors, silent failures, composition breakage) before reaching for CT patterns. PyBend's CLAUDE.md "200-OK error" case study is a model for this approach.
+1. **Start with the problem, not the abstraction.** Document the class of bugs you're trying to prevent (null errors, silent failures, composition breakage) before reaching for CT patterns. N3TX's CLAUDE.md "200-OK error" case study is a model for this approach.
 
 2. **Adopt Level 2 universally.** Every team benefits from `map`/`filter`/`reduce`, pipeline composition, immutable data patterns, and pure functions for business logic. These patterns require no CT vocabulary and have near-zero onboarding cost.
 
@@ -739,15 +739,15 @@ The framework's philosophy -- "Primitives, not opinions" and "Transparent, not m
 
 5. **Measure the right thing.** The goal is not "monadic purity" but defect reduction. Track defect rates by category (null errors, type errors, integration failures) before and after adopting CT-inspired patterns. If a pattern doesn't measurably reduce defects, it's overhead.
 
-### 10.2 For PyBend Specifically
+### 10.2 For N3TX Specifically
 
-PyBend's architecture is well-positioned. The framework already captures 80% of the value of CT patterns through its functorial schema pipeline, monoidal access rules, and actor-based message system -- without any of the vocabulary overhead. Specific opportunities:
+N3TX's architecture is well-positioned. The framework already captures 80% of the value of CT patterns through its functorial schema pipeline, monoidal access rules, and actor-based message system -- without any of the vocabulary overhead. Specific opportunities:
 
 1. **TypeScript migration for the frontend** would provide discriminated unions for the TX message system, catching message-type/data-shape mismatches at compile time. This is the highest-leverage CT-adjacent improvement available.
 
 2. **The `AccessRule` algebra could be formalized** with a test suite that verifies associativity of `|`/`&`, identity properties of `ANYONE`, and distributivity. This would catch regression bugs in the authorization system without changing the API.
 
-3. **Schema validation at the functor boundary** -- verifying that `prototype()` in NTT.js produces a DynamicClass that faithfully represents the JSON Schema -- would prevent bugs where backend schema changes break frontend rendering. This is testing the functor laws in practice.
+3. **Schema validation at the functor boundary** -- verifying that `prototype()` in N3TX.js produces a DynamicClass that faithfully represents the JSON Schema -- would prevent bugs where backend schema changes break frontend rendering. This is testing the functor laws in practice.
 
 4. **Avoid adopting `dry-python/returns`** unless a specific, recurring class of error (tracked in bug reports) demonstrates that exception-based error handling is insufficient. The current `MethodError` + `HTTPException` pattern is working well.
 
@@ -769,4 +769,4 @@ PyBend's architecture is well-positioned. The framework already captures 80% of 
 - [NIST: Category Theory Applications in Systems Engineering](https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=935087)
 - [ArjanCodes, "Python Functors and Monads: A Practical Guide"](https://arjancodes.com/blog/python-functors-and-monads/)
 - [TypeScript Handbook: Unions and Intersections](https://www.typescriptlang.org/docs/handbook/unions-and-intersections.html)
-- PyBend source code: `proto_model.py`, `NTT.js`, `rules.py`, `Actor.js`, `Matrix.js`, `resolver.py`, `app.py`, `routes_fastapi.py`, `Observable.js`
+- N3TX source code: `proto_model.py`, `N3TX.js`, `rules.py`, `Actor.js`, `Matrix.js`, `resolver.py`, `app.py`, `routes_fastapi.py`, `Observable.js`

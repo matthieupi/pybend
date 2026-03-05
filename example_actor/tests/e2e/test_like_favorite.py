@@ -3,7 +3,7 @@
 Validates that:
   1. Clicking like on a comment toggles the count correctly
   2. Clicking favorite on a product toggles the count correctly
-  3. The NTT instance value matches the displayed count
+  3. The N3TX instance value matches the displayed count
   4. Toggle back reverses the count
 """
 import json
@@ -32,7 +32,7 @@ def find_buttons(page, method):
         function findInShadow(root, depth = 0) {
             if (depth > 10) return [];
             const results = [];
-            for (const el of root.querySelectorAll(`ntt-method[method="${method}"]`)) {
+            for (const el of root.querySelectorAll(`ntx-method[method="${method}"]`)) {
                 results.push({
                     model: el.getAttribute('model'),
                     uuid: el.getAttribute('uuid'),
@@ -55,7 +55,7 @@ def click_button(page, method, uuid):
     return page.evaluate("""(args) => {
         function findInShadow(root, depth = 0) {
             if (depth > 10) return null;
-            for (const el of root.querySelectorAll(`ntt-method[method="${args.method}"]`)) {
+            for (const el of root.querySelectorAll(`ntx-method[method="${args.method}"]`)) {
                 if (el.getAttribute('uuid') === args.uuid) {
                     const btn = el.shadowRoot?.querySelector('.method-btn');
                     if (btn) { btn.click(); return 'clicked'; }
@@ -79,7 +79,7 @@ def get_count(page, method, uuid):
     return page.evaluate("""(args) => {
         function findInShadow(root, depth = 0) {
             if (depth > 10) return null;
-            for (const el of root.querySelectorAll(`ntt-method[method="${args.method}"]`)) {
+            for (const el of root.querySelectorAll(`ntx-method[method="${args.method}"]`)) {
                 if (el.getAttribute('uuid') === args.uuid)
                     return el.shadowRoot?.querySelector('.method-btn-count')?.textContent ?? null;
             }
@@ -96,7 +96,7 @@ def get_count(page, method, uuid):
 
 
 def get_ntt_field(page, model, uuid, field):
-    """Get a specific field from the NTT instance's value."""
+    """Get a specific field from the N3TX instance's value."""
     return page.evaluate("""(args) => {
         const ntt = window.NTT?.get(args.model + '/' + args.uuid);
         if (!ntt) return null;
@@ -154,7 +154,7 @@ def test_like_and_favorite():
 
         like_pass_1 = count_after_1 == expected_1 and count_after_1 == ntt_count_1
         results.append(('Like toggle 1', like_pass_1,
-                        f"action={action_1} count: {count_before}→{count_after_1} (expected {expected_1}), NTT={ntt_count_1}"))
+                        f"action={action_1} count: {count_before}→{count_after_1} (expected {expected_1}), N3TX={ntt_count_1}"))
 
         # Click 2: toggle back
         last_action.clear()
@@ -167,7 +167,7 @@ def test_like_and_favorite():
 
         like_pass_2 = count_after_2 == count_before and count_after_2 == ntt_count_2
         results.append(('Like toggle 2 (back)', like_pass_2,
-                        f"action={action_2} count: {count_after_1}→{count_after_2} (expected {count_before}), NTT={ntt_count_2}"))
+                        f"action={action_2} count: {count_after_1}→{count_after_2} (expected {count_before}), N3TX={ntt_count_2}"))
 
         # ─── TEST: FAVORITE TOGGLE ───
         favs = find_buttons(page, 'favorite')
@@ -192,7 +192,7 @@ def test_like_and_favorite():
 
         fav_pass_1 = count_after_1 == expected_1 and count_after_1 == ntt_count_1
         results.append(('Favorite toggle 1', fav_pass_1,
-                        f"action={action_1} count: {count_before}→{count_after_1} (expected {expected_1}), NTT={ntt_count_1}"))
+                        f"action={action_1} count: {count_before}→{count_after_1} (expected {expected_1}), N3TX={ntt_count_1}"))
 
         # Click 2: toggle back
         last_action.clear()
@@ -205,7 +205,7 @@ def test_like_and_favorite():
 
         fav_pass_2 = count_after_2 == count_before and count_after_2 == ntt_count_2
         results.append(('Favorite toggle 2 (back)', fav_pass_2,
-                        f"action={action_2} count: {count_after_1}→{count_after_2} (expected {count_before}), NTT={ntt_count_2}"))
+                        f"action={action_2} count: {count_after_1}→{count_after_2} (expected {count_before}), N3TX={ntt_count_2}"))
 
         browser.close()
 

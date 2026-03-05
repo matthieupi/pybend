@@ -1,7 +1,7 @@
-# TX Sagas x PyBend: Technical Propositions
+# TX Sagas x N3TX: Technical Propositions
 
 > *How transaction composition, causal tracing, and saga patterns can
-> extend PyBend's actor system -- without breaking anything it already does well.*
+> extend N3TX's actor system -- without breaking anything it already does well.*
 > *Based on research in `.traces/research/tx-sagas/` and codebase analysis of
 > `actors/tx.py`, `actors/actor.py`, `actors/matrix.py`, `models/actor_model.py`,
 > and `api/network_adapter.py`.*
@@ -10,14 +10,14 @@
 
 ## The Bridge
 
-PyBend's actor system and the saga pattern share a deep structural
+N3TX's actor system and the saga pattern share a deep structural
 affinity. Both are built on **asynchronous message passing** with
 **fire-and-forget delivery** -- the exact model where sagas, rather
 than two-phase commit, are the theoretically correct composition
 strategy. This is a consequence of the actor model's foundations in
 the asynchronous pi-calculus, not a surface-level analogy.
 
-PyBend already has **seven of fourteen saga building blocks** in
+N3TX already has **seven of fourteen saga building blocks** in
 production code. `TX.reply()` / `TX.error()` implement the two-track
 railway. `NetworkAdapter.request()` implements correlated
 request-response -- the same mechanism Temporal uses for activity
@@ -368,4 +368,4 @@ touches existing production paths.
 4. If the causal chain reconstructs cleanly, proceed to P3
 5. P3 validates saga demand before investing in P4-P7
 
-This follows PyBend's philosophy: **zero to working, then customize**.
+This follows N3TX's philosophy: **zero to working, then customize**.

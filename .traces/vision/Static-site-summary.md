@@ -1,4 +1,4 @@
-# Static Site Generation for PyBend: Executive Summary
+# Static Site Generation for N3TX: Executive Summary
 
 > *Full analysis: [static-site-analysis.md](../research/html-compiler/static-site-analysis.md)*
 
@@ -6,11 +6,11 @@
 
 ## The Question
 
-Should PyBend offer a `pybend export` command that generates a complete, deployable static website -- HTML pages, CSS, pagination, navigation -- directly from schema-driven model definitions, with near-zero JavaScript?
+Should N3TX offer a `n3tx export` command that generates a complete, deployable static website -- HTML pages, CSS, pagination, navigation -- directly from schema-driven model definitions, with near-zero JavaScript?
 
-**Answer: Yes.** Build the MVP in 5-7 engineering days. Position it as PyBend's "zero to deployed" capability: define a model, get a website. No server. No JavaScript. No hosting costs.
+**Answer: Yes.** Build the MVP in 5-7 engineering days. Position it as N3TX's "zero to deployed" capability: define a model, get a website. No server. No JavaScript. No hosting costs.
 
-This extends PyBend's core promise:
+This extends N3TX's core promise:
 
 > **Today:** _"Define a model, get a working full-stack application."_
 > **With static export:** _"Define a model, get a deployable website."_
@@ -23,7 +23,7 @@ This extends PyBend's core promise:
 
 No existing framework -- not Hugo, not Astro, not Next.js, not any Python SSG -- generates static HTML from data model definitions. Every one requires handwritten templates or components.
 
-PyBend's JSON Schema already carries **complete rendering instructions**: field types, widget hints, layout groups, field order, access rules, method signatures. The static exporter reads the schema, walks the data, and writes HTML files. **The schema IS the template.** Zero template authoring required.
+N3TX's JSON Schema already carries **complete rendering instructions**: field types, widget hints, layout groups, field order, access rules, method signatures. The static exporter reads the schema, walks the data, and writes HTML files. **The schema IS the template.** Zero template authoring required.
 
 ### The Numbers That Matter
 
@@ -31,7 +31,7 @@ PyBend's JSON Schema already carries **complete rendering instructions**: field 
 PERFORMANCE: CURRENT SPA vs. STATIC EXPORT
 ================================================================
 
-                 Current PyBend        Static Export        Delta
+                 Current N3TX        Static Export        Delta
                  (SPA)                 (Target)
 TTFB             200-500ms             20-80ms              3-10x faster
 LCP              2-3s                  500ms-1s             2-4x faster
@@ -62,7 +62,7 @@ Static export moves pages from the "3-5 second danger zone" into the "sub-1-seco
 | 10K/day | $0-5/month | $24-100/month | 80-100% |
 | 100K/day | $5-20/month | $48-200/month | 75-90% |
 
-Free CDN tiers: Cloudflare Pages (unlimited bandwidth), GitHub Pages (100 GB/month), Netlify (100 GB/month). A developer who exports a PyBend site has zero hosting costs.
+Free CDN tiers: Cloudflare Pages (unlimited bandwidth), GitHub Pages (100 GB/month), Netlify (100 GB/month). A developer who exports a N3TX site has zero hosting costs.
 
 ---
 
@@ -81,15 +81,15 @@ Free CDN tiers: Cloudflare Pages (unlimited bandwidth), GitHub Pages (100 GB/mon
 - L'Oreal Website Factory (3,000 sites): Load **10s to <3s**
 - GOV.UK: Lighthouse **99/100**, mandates progressive enhancement
 
-**The Python SSG gap:** Existing Python SSGs (Pelican, MkDocs, Sphinx) expect Markdown input and are blog/docs-focused. None generate HTML from data model schemas. PyBend would be the first.
+**The Python SSG gap:** Existing Python SSGs (Pelican, MkDocs, Sphinx) expect Markdown input and are blog/docs-focused. None generate HTML from data model schemas. N3TX would be the first.
 
 ---
 
 ## Where We Stand
 
-### Why PyBend Is Uniquely Positioned
+### Why N3TX Is Uniquely Positioned
 
-No other framework on the market has a schema that carries complete rendering instructions. Every SSG -- Hugo, Astro, Next.js, Eleventy -- requires handwritten templates. PyBend's `ProtoModel.schema()` already encodes field types, widget hints, layout groups, field order, access rules, and method signatures. The exporter reads the same JSON Schema the frontend reads. It just renders in Python instead of JavaScript.
+No other framework on the market has a schema that carries complete rendering instructions. Every SSG -- Hugo, Astro, Next.js, Eleventy -- requires handwritten templates. N3TX's `ProtoModel.schema()` already encodes field types, widget hints, layout groups, field order, access rules, and method signatures. The exporter reads the same JSON Schema the frontend reads. It just renders in Python instead of JavaScript.
 
 The schema IS the template specification:
 
@@ -128,13 +128,13 @@ Irreducible JavaScript for form submission: **~600-800 bytes** (<400 bytes gzipp
 | Scope | Cost | Time | What You Get |
 |---|---|---|---|
 | **Phase 0:** HTTP caching | ~$1K | 1-2 days | 70-80% of speed benefit for dynamic stack |
-| **Phase 1:** MVP exporter | $5-7K | 5-7 days | `pybend export` CLI, full rebuild, dark/light theme |
+| **Phase 1:** MVP exporter | $5-7K | 5-7 days | `n3tx export` CLI, full rebuild, dark/light theme |
 | **Phase 2:** Polish | $20-30K | 2-3 weeks | Incremental builds, images, sitemap, nav |
 | **Phase 3:** Advanced | $50-80K | 4-6 weeks | Per-role export, hybrid mode, custom templates |
 
 ### Addressable Market
 
-~30% of web projects are fully static-appropriate: product catalogs (8%), documentation (6%), blogs (7%), landing pages (5%), portfolios (4%). Today these use Hugo, Eleventy, or hand-coded HTML. With static export, they could use PyBend.
+~30% of web projects are fully static-appropriate: product catalogs (8%), documentation (6%), blogs (7%), landing pages (5%), portfolios (4%). Today these use Hugo, Eleventy, or hand-coded HTML. With static export, they could use N3TX.
 
 ### 3-Year TCO
 
@@ -152,11 +152,11 @@ Irreducible JavaScript for form submission: **~600-800 bytes** (<400 bytes gzipp
 
 ### Do This
 
-1. **Now (1-2 days):** Add HTTP caching headers to schema and public endpoints. Add template caching `Map` to `form.js`. Benefits every PyBend user immediately.
+1. **Now (1-2 days):** Add HTTP caching headers to schema and public endpoints. Add template caching `Map` to `form.js`. Benefits every N3TX user immediately.
 
-2. **Next (5-7 days):** Build MVP static exporter. `pybend export` produces a complete website in `dist/`. Deploy to Cloudflare Pages for free.
+2. **Next (5-7 days):** Build MVP static exporter. `n3tx export` produces a complete website in `dist/`. Deploy to Cloudflare Pages for free.
 
-3. **Measure, then decide:** Track how many users run `pybend export`. If 10+ active users within 3 months, invest in Phase 2 (incremental builds, images, sitemap).
+3. **Measure, then decide:** Track how many users run `n3tx export`. If 10+ active users within 3 months, invest in Phase 2 (incremental builds, images, sitemap).
 
 ### Do Not Do This
 
@@ -193,7 +193,7 @@ Users deploy a static site and data changes. Static content becomes stale. Mitig
 |---|---|---|---|
 | Implement Cache-Control headers on schema + public endpoints | Backend | This week | Measurable TTFB improvement |
 | Add template caching `Map` to `form.js` | Frontend | This week | Eliminate re-generation overhead |
-| Build MVP static exporter | Engineering | Next sprint (5-7 days) | `pybend export` CLI |
+| Build MVP static exporter | Engineering | Next sprint (5-7 days) | `n3tx export` CLI |
 | Write deployment guide (Cloudflare, GitHub Pages, Netlify) | Docs | With MVP | User-facing documentation |
 | Measure adoption (export command usage, user feedback) | Product | Ongoing | Phase 2 decision data |
 | Decide on Phase 2 investment | CEO/Product | 3 months post-MVP | Go/no-go based on data |

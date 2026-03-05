@@ -1,4 +1,4 @@
-# PyBend as a Microservice Backbone: Executive Summary
+# N3TX as a Microservice Backbone: Executive Summary
 
 > *Standalone summary for leadership. Full analysis: [microservices-analysis.md](../research/microservices/microservices-analysis.md)*
 
@@ -6,9 +6,9 @@
 
 ## The Question
 
-Should PyBend evolve toward a microservice architecture? If so, when, and at what cost?
+Should N3TX evolve toward a microservice architecture? If so, when, and at what cost?
 
-**The answer:** Not yet -- but PyBend is architecturally closer to microservice-ready than most frameworks at its stage. The `create_app()` factory already functions as a service factory. The JSON Schema contract already functions as a service advertisement. The `authorize` package already functions as a standalone auth service. The migration path from monolith to distributed services requires zero framework changes -- you split the model list across deployments.
+**The answer:** Not yet -- but N3TX is architecturally closer to microservice-ready than most frameworks at its stage. The `create_app()` factory already functions as a service factory. The JSON Schema contract already functions as a service advertisement. The `authorize` package already functions as a standalone auth service. The migration path from monolith to distributed services requires zero framework changes -- you split the model list across deployments.
 
 The strategic move is to stay monolithic, harden boundaries now, and extract services later when a measurable trigger demands it. This is not conservative timidity -- it is the approach that 42% of organizations wish they had taken before spending years building distributed infrastructure they did not need.
 
@@ -22,16 +22,16 @@ The strategic move is to stay monolithic, harden boundaries now, and extract ser
 | Most adopters get complexity without benefit | 90% still batch-deploy like monoliths | DORA Metrics Research |
 | The industry is consolidating back | 42% of adopters merging services into larger units | CNCF Survey via ByteIota |
 | Small teams lose more than they gain | Teams < 50 engineers rarely break even | Cost analysis: 5-48x infra multiplier |
-| PyBend's service factory is already built | `create_app()` produces independent ASGI apps | Direct source: `app.py` |
+| N3TX's service factory is already built | `create_app()` produces independent ASGI apps | Direct source: `app.py` |
 | Schema-as-contract eliminates the #1 integration failure | Zero drift possible when schema IS the model | `ProtoModel.schema()` analysis |
-| The `authorize` package is already standalone | Zero PyBend imports; composable ABAC rules with SQL pushdown | Direct source: `rules.py` |
+| The `authorize` package is already standalone | Zero N3TX imports; composable ABAC rules with SQL pushdown | Direct source: `rules.py` |
 | FastAPI is the fastest-growing Python framework | +52% year-over-year adoption (25% -> 38%) | JetBrains Developer Survey 2025 |
 
 ---
 
-## How PyBend Compares to Microservice Frameworks
+## How N3TX Compares to Microservice Frameworks
 
-| Feature | PyBend | Spring Boot | NestJS | FastAPI (raw) |
+| Feature | N3TX | Spring Boot | NestJS | FastAPI (raw) |
 |---------|--------|-------------|--------|--------------|
 | Model-driven CRUD | **Automatic** | Manual/JPA | Manual/TypeORM | Manual |
 | API contract generation | **JSON Schema + OpenAPI** | OpenAPI | OpenAPI | OpenAPI |
@@ -42,7 +42,7 @@ The strategic move is to stay monolithic, harden boundaries now, and extract ser
 | Event bus | Not yet | Spring Cloud Stream | CQRS module | None |
 | Circuit breakers | Not yet | Resilience4j | Manual | None |
 
-Spring Boot has the most mature microservice infrastructure. PyBend has the most automated model-to-application pipeline and the only schema-driven UI. The missing microservice primitives in PyBend are infrastructure concerns that can be filled with external tools (Consul, Redis Pub/Sub, `tenacity`). PyBend's unique advantage -- the complete self-describing schema -- cannot be replicated by adding a library to Spring Boot.
+Spring Boot has the most mature microservice infrastructure. N3TX has the most automated model-to-application pipeline and the only schema-driven UI. The missing microservice primitives in N3TX are infrastructure concerns that can be filled with external tools (Consul, Redis Pub/Sub, `tenacity`). N3TX's unique advantage -- the complete self-describing schema -- cannot be replicated by adding a library to Spring Boot.
 
 ---
 
@@ -69,12 +69,12 @@ Shopify -- processing hundreds of billions in commerce annually -- runs a 2.8M-l
 
 ## Where We Stand Today
 
-PyBend is a schema-driven monolith with strong microservice primitives already in place:
+N3TX is a schema-driven monolith with strong microservice primitives already in place:
 
-| Microservice Primitive | PyBend Status | Evidence |
+| Microservice Primitive | N3TX Status | Evidence |
 |-----------------------|---------------|----------|
 | Service factory | **Ready** | `create_app(models=[...])` produces independent FastAPI apps |
-| Database per service | **Ready** | Per-model `storage=` parameter on `PyBendApp.model()` |
+| Database per service | **Ready** | Per-model `storage=` parameter on `N3TXApp.model()` |
 | API contract | **Ready** | `ProtoModel.schema()` auto-generates complete JSON Schema |
 | Authentication | **Ready** | JWT middleware, configurable per-app |
 | Authorization | **Ready** | Standalone ABAC package with composable rules |
@@ -85,7 +85,7 @@ PyBend is a schema-driven monolith with strong microservice primitives already i
 | Service discovery | Missing (large gap) | Integrate Consul/DNS -- 4+ weeks |
 | Distributed tracing | Missing (large gap) | Add OpenTelemetry -- 4+ weeks |
 
-**The unique advantage:** PyBend's JSON Schema carries not just types and validation rules, but UI rendering hints, access control policies, callable methods, field ordering, and relationship metadata. No other framework generates a working UI from model definitions. In a microservice context, each service automatically gets an admin interface and a complete self-describing API contract. Schema drift -- the #1 integration failure mode -- is structurally impossible because the schema is generated from the running code.
+**The unique advantage:** N3TX's JSON Schema carries not just types and validation rules, but UI rendering hints, access control policies, callable methods, field ordering, and relationship metadata. No other framework generates a working UI from model definitions. In a microservice context, each service automatically gets an admin interface and a complete self-describing API contract. Schema drift -- the #1 integration failure mode -- is structurally impossible because the schema is generated from the running code.
 
 **The decomposition path is mechanical:** create a new `create_app()` with the extracted model, migrate data, update the API gateway, and the frontend continues working unchanged because the JSON Schema contract is identical whether the model lives in the monolith or in its own service.
 
@@ -93,9 +93,9 @@ PyBend is a schema-driven monolith with strong microservice primitives already i
 
 ## The Schema Advantage
 
-The integration tax -- the engineering effort required to keep services communicating correctly -- accounts for 40-60% of engineering time in conventional microservice architectures. PyBend's model-first approach eliminates the specification maintenance component, which is the largest contributor:
+The integration tax -- the engineering effort required to keep services communicating correctly -- accounts for 40-60% of engineering time in conventional microservice architectures. N3TX's model-first approach eliminates the specification maintenance component, which is the largest contributor:
 
-| Tax Component | Conventional Microservices | PyBend |
+| Tax Component | Conventional Microservices | N3TX |
 |---------------|--------------------------|--------|
 | API client maintenance | 10-15% of effort | Near-zero (schema IS the spec) |
 | Contract testing | 5-10% | Reduced (schema validation replaces Pact) |
@@ -103,7 +103,7 @@ The integration tax -- the engineering effort required to keep services communic
 | Documentation sync | 5-10% | Zero (auto-generated from model) |
 | Frontend adaptation | 10-15% | Zero (frontend reads schema at runtime) |
 
-When a developer adds a field to a PyBend model:
+When a developer adds a field to a N3TX model:
 1. The database migrates automatically
 2. The API includes the new field
 3. The JSON Schema carries validation rules
@@ -201,13 +201,13 @@ PHASE 2: Selective Extraction (when triggered)
          |
     +---------+
     | Frontend |  <-- fetches schemas from gateway
-    | NTT.js   |  <-- renders identically
+    | N3TX.js   |  <-- renders identically
     +---------+
 
 Frontend code: UNCHANGED. Schema contract: IDENTICAL.
 ```
 
-The key insight: PyBend's `create_app()` produces the same kind of application whether it receives one model or twenty. The JSON Schema served by each instance follows the same structure. The frontend does not know or care whether it is talking to a monolith or a constellation of services.
+The key insight: N3TX's `create_app()` produces the same kind of application whether it receives one model or twenty. The JSON Schema served by each instance follows the same structure. The frontend does not know or care whether it is talking to a monolith or a constellation of services.
 
 ---
 
@@ -241,7 +241,7 @@ The key insight: PyBend's `create_app()` produces the same kind of application w
 | Score distributed monolith warning signs | Tech lead | Monthly | Warning score stays below 3 (see full report Section 6.4) |
 | Decision checkpoint | CEO + CTO | Q3 2026 | Review team size, traffic patterns, and domain complexity against framework |
 
-The strongest property of PyBend's architecture is that the monolith-to-microservice decision is **reversible**. The `create_app()` factory, JSON Schema contracts, and standalone `authorize` package work identically whether the model lives in a monolith or in its own service. That reversibility is the best risk mitigation available -- it means the decision can be deferred until the evidence is clear, without losing the option to act.
+The strongest property of N3TX's architecture is that the monolith-to-microservice decision is **reversible**. The `create_app()` factory, JSON Schema contracts, and standalone `authorize` package work identically whether the model lives in a monolith or in its own service. That reversibility is the best risk mitigation available -- it means the decision can be deferred until the evidence is clear, without losing the option to act.
 
 ---
 

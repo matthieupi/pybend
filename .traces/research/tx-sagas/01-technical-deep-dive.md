@@ -615,9 +615,9 @@ The theoretical insight is that **transaction composition in an asynchronous act
 
 ## :zap: Mapping to Actor-Based TX Systems
 
-**The "so what?":** Given PyBend's existing TX envelope and actor system, here is how these production patterns map onto the current architecture -- what is already supported, what is close, and what would require new primitives.
+**The "so what?":** Given N3TX's existing TX envelope and actor system, here is how these production patterns map onto the current architecture -- what is already supported, what is close, and what would require new primitives.
 
-### Current TX Capabilities (PyBend v0.9)
+### Current TX Capabilities (N3TX v0.9)
 
 The existing `TX` dataclass provides:
 

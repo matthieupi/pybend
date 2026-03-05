@@ -3,18 +3,18 @@
 ## P0: Security Fixes (6 items)
 
 ### Fix 1: Debug Default OFF
-**Files**: `example_grants/config.py`, `src/pybend/core/config.py`
-- `DEBUG = os.getenv("PYBEND_DEBUG", "false").lower() in ("true", "1")`
+**Files**: `example_grants/config.py`, `src/n3tx/core/config.py`
+- `DEBUG = os.getenv("N3TX_DEBUG", "false").lower() in ("true", "1")`
 - Both config files default to `False`
 - Still all the current example apps should have DEBUG = True
 
 ### Fix 2: CORS Wildcard + Credentials
-**File**: `src/pybend/core/api/backend.py`
+**File**: `src/n3tx/core/api/backend.py`
 - When `origins=["*"]`, set `allow_credentials=False`
 - Only allow credentials with explicit origin lists
 
 ### Fix 3: API Docs Disabled in Production
-**File**: `src/pybend/core/api/backend.py`
+**File**: `src/n3tx/core/api/backend.py`
 - `docs_url = "/docs" if DEBUG else None`
 - `redoc_url = "/redoc" if DEBUG else None`
 
@@ -30,7 +30,7 @@
 
 ### Core Framework Tests
 
-#### `src/pybend/core/tests/unit/test_auth_interceptor.py` (~45 tests, ~350 lines)
+#### `src/n3tx/core/tests/unit/test_auth_interceptor.py` (~45 tests, ~350 lines)
 Tier 1 auth gate — currently ZERO test coverage.
 - Schema requests pass through without auth
 - Unauthenticated requests rejected (401)
@@ -43,7 +43,7 @@ Tier 1 auth gate — currently ZERO test coverage.
 - Multiple user roles tested (user, admin, none)
 - Edge cases: missing model_cls in meta, empty token, bearer prefix
 
-#### `src/pybend/core/tests/unit/test_actor_model_authorize.py` (~20 tests, ~180 lines)
+#### `src/n3tx/core/tests/unit/test_actor_model_authorize.py` (~20 tests, ~180 lines)
 Tier 2 ABAC with resource instance.
 - OWNER rule: owner can update, non-owner denied
 - ROLE rule: admin can delete, user cannot
@@ -53,7 +53,7 @@ Tier 2 ABAC with resource instance.
 - No `__access__` defaults to AUTHENTICATED
 - Method-level access via `@expose_route(access=...)`
 
-#### `src/pybend/core/tests/unit/test_auth_edge_cases.py` (~15 tests, ~120 lines)
+#### `src/n3tx/core/tests/unit/test_auth_edge_cases.py` (~15 tests, ~120 lines)
 JWT edge cases.
 - Token with wrong algorithm rejected
 - Token with missing claims rejected
@@ -63,7 +63,7 @@ JWT edge cases.
 - Unicode password handling
 - Token expiration boundary (just expired vs just valid)
 
-#### `src/pybend/core/tests/unit/test_base_user.py` (~12 tests, ~100 lines)
+#### `src/n3tx/core/tests/unit/test_base_user.py` (~12 tests, ~100 lines)
 Login/register logic.
 - `login()` with correct credentials returns token
 - `login()` with wrong password returns error
@@ -172,10 +172,10 @@ Phase 4: Verify all tests pass, fix any regressions
 
 **New files (14):**
 - `example_grants/utils/url_validator.py`
-- `src/pybend/core/tests/unit/test_auth_interceptor.py`
-- `src/pybend/core/tests/unit/test_actor_model_authorize.py`
-- `src/pybend/core/tests/unit/test_auth_edge_cases.py`
-- `src/pybend/core/tests/unit/test_base_user.py`
+- `src/n3tx/core/tests/unit/test_auth_interceptor.py`
+- `src/n3tx/core/tests/unit/test_actor_model_authorize.py`
+- `src/n3tx/core/tests/unit/test_auth_edge_cases.py`
+- `src/n3tx/core/tests/unit/test_base_user.py`
 - `example_grants/tests/test_auth_flow.py`
 - `example_grants/tests/test_authorization.py`
 - `example_grants/tests/test_error_handling.py`
@@ -188,6 +188,6 @@ Phase 4: Verify all tests pass, fix any regressions
 **Modified files (5):**
 - `example_grants/config.py`
 - `example_grants/models/grant.py`
-- `src/pybend/core/config.py`
-- `src/pybend/core/api/backend.py`
-- `src/pybend/core/authorize/auth.py`
+- `src/n3tx/core/config.py`
+- `src/n3tx/core/api/backend.py`
+- `src/n3tx/core/authorize/auth.py`

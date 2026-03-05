@@ -34,10 +34,10 @@ A user creates a research profile, clicks "Match My Profile," and sees scored gr
 
 **Decision:** `keyword_score(profile, grant)` is a standalone function in its own module (`example_grants/matching/keyword_score.py`), not a method on any model.
 
-**Rationale:** PyBend's philosophy: "Primitives, not opinions." The scoring function is a composable building block. Keeping it as a pure function with signature `(profile, grant) -> (float, list[str])` means:
+**Rationale:** N3TX's philosophy: "Primitives, not opinions." The scoring function is a composable building block. Keeping it as a pure function with signature `(profile, grant) -> (float, list[str])` means:
 - It can be unit-tested without any database or actor infrastructure
 - It can be swapped for `tfidf_score()` or `embedding_score()` later by changing one import in `MatcherTools`
-- It has zero dependencies on PyBend framework code
+- It has zero dependencies on N3TX framework code
 
 ### 2.3 Lifecycle Subscriber: Existing Infrastructure
 
@@ -190,7 +190,7 @@ def keyword_score(profile, grant) -> tuple[float, list[str]]:
 **Estimate:** 2 hours
 **Priority:** P0
 
-Test cases using plain dataclass stubs (no PyBend imports):
+Test cases using plain dataclass stubs (no N3TX imports):
 
 ```python
 from dataclasses import dataclass
@@ -244,9 +244,9 @@ import json
 from typing import ClassVar, Optional
 from pydantic import Field, model_validator
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.authorize import AUTHENTICATED, OWNER, ROLE
-from pybend.core.widgets import CurrencyField
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.authorize import AUTHENTICATED, OWNER, ROLE
+from n3tx.core.widgets import CurrencyField
 from models.user import User
 
 
@@ -350,9 +350,9 @@ import json
 from typing import ClassVar, Optional
 from pydantic import Field, model_validator
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.authorize import AUTHENTICATED, OWNER, ROLE
-from pybend.core.widgets import DateTimeField
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.authorize import AUTHENTICATED, OWNER, ROLE
+from n3tx.core.widgets import DateTimeField
 from models.user import User
 
 
@@ -453,10 +453,10 @@ import logging
 from datetime import datetime, timezone
 from typing import ClassVar
 
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.utils.decorators import expose_route
-from pybend.core.authorize import AUTHENTICATED
-from pybend.core.utils.erroring import MethodError
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.utils.decorators import expose_route
+from n3tx.core.authorize import AUTHENTICATED
+from n3tx.core.utils.erroring import MethodError
 
 logger = logging.getLogger('grants.matcher')
 
@@ -1315,11 +1315,11 @@ Reasons: ["Keywords: deep learning, nlp, transformer (3/4 matched)",
 
 | File | Why unchanged |
 |------|---------------|
-| `src/pybend/core/models/actor_model.py` | Existing _publish_lifecycle + _subscribers works as-is |
-| `src/pybend/core/actors/actor.py` | No framework changes needed |
-| `src/pybend/core/actors/matrix.py` | Routing works as-is |
-| `src/pybend/core/models/proto_model.py` | No changes needed |
-| `src/pybend/core/authorize/rules.py` | OWNER, AUTHENTICATED, ROLE all work as-is |
+| `src/n3tx/core/models/actor_model.py` | Existing _publish_lifecycle + _subscribers works as-is |
+| `src/n3tx/core/actors/actor.py` | No framework changes needed |
+| `src/n3tx/core/actors/matrix.py` | Routing works as-is |
+| `src/n3tx/core/models/proto_model.py` | No changes needed |
+| `src/n3tx/core/authorize/rules.py` | OWNER, AUTHENTICATED, ROLE all work as-is |
 | `example_grants/models/grant.py` | Grant model unchanged -- subscriber wiring is external |
 | `example_grants/models/user.py` | User model unchanged -- no ListRef fields added |
 | All frontend files | Schema-driven rendering handles new models automatically |
@@ -1395,7 +1395,7 @@ Reasons: ["Keywords: deep learning, nlp, transformer (3/4 matched)",
 - [ ] All integration tests pass: `python3 -m pytest example_grants/tests/ -v`
 - [ ] Manual verification: UI renders UserProfile and GrantMatch with zero frontend code
 - [ ] CLAUDE.md updated with new model paths and matching module documentation
-- [ ] No framework files (`src/pybend/core/`) were modified
+- [ ] No framework files (`src/n3tx/core/`) were modified
 
 ---
 

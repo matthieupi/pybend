@@ -14,7 +14,7 @@ BOOT VERIFICATION
 """
 
 import pytest
-from pybend.core.utils.registrar import registered_models
+from n3tx.core.utils.registrar import registered_models
 
 
 class TestAppBoot:

@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A production-grade grant-watching application built on PyBend's agentic architecture. Automated agents scan government and institutional websites for open grants, evaluate eligibility against organizational documentation, and surface actionable opportunities — with a learning loop that reduces LLM costs over time as criteria are encountered and classified.
+A production-grade grant-watching application built on N3TX's agentic architecture. Automated agents scan government and institutional websites for open grants, evaluate eligibility against organizational documentation, and surface actionable opportunities — with a learning loop that reduces LLM costs over time as criteria are encountered and classified.
 
 ## Core Value
 
@@ -127,18 +127,18 @@ Eligibility is the terminal state in v1. Users browse grants in the UI and make 
 
 | Phase | Scope |
 |-------|-------|
-| 1 - Minimal | Existing ntt-list/ntt-item for all models. Manual 'Run' button on agents. No streaming. |
+| 1 - Minimal | Existing ntx-list/ntx-item for all models. Manual 'Run' button on agents. No streaming. |
 | 2 - Operational | Agent run status indicator, toast on completion, run history list |
 | 3 - Full | Live tool-call visualization, token usage display, chat-like interaction |
 
 ## Technology
 
-- **Framework:** PyBend (existing) — ActorModel, Matrix, TX routing, schema-driven UI
+- **Framework:** N3TX (existing) — ActorModel, Matrix, TX routing, schema-driven UI
 - **Agent engine:** pydantic-ai (existing dependency)
 - **HTTP client:** httpx (clear integration path for Playwright in v2)
 - **LLM:** Ollama default, configurable per-agent
 - **Storage:** SQLite (existing)
-- **Frontend:** PyBend's vanilla JS Web Components (existing)
+- **Frontend:** N3TX's vanilla JS Web Components (existing)
 
 ## Constraints
 
@@ -147,7 +147,7 @@ Eligibility is the terminal state in v1. Users browse grants in the UI and make 
 - **httpx only** — no headless browser / JS rendering in v1
 - **No notifications** — no email/webhook alerts in v1
 - **No user roles** — basic auth only, all authenticated users see everything
-- **Brownfield** — builds on existing PyBend framework and agent system (63+ tests passing)
+- **Brownfield** — builds on existing N3TX framework and agent system (63+ tests passing)
 
 ## Requirements
 
@@ -190,7 +190,7 @@ Eligibility is the terminal state in v1. Users browse grants in the UI and make 
 - Email/webhook notifications — v2 (architecture supports adding NotificationActor)
 - Multi-tenant support — v2 (add org_id to models, tenant-aware queries)
 - PDF document parsing — v2 (add PDFTools actor alongside WebTools)
-- Role-based access control — v2 (PyBend already has RBAC primitives)
+- Role-based access control — v2 (N3TX already has RBAC primitives)
 - Playwright/headless browser — v2 (swap httpx for Playwright in WebTools)
 - Remote org doc sources — v2 (GoogleDriveActor, TeamsActor, ObsidianActor replace FileReader)
 

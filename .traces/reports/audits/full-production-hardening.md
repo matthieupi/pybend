@@ -1,6 +1,6 @@
-# PyBend Production Hardening Roadmap
+# N3TX Production Hardening Roadmap
 
-> Post-v0.7.0 roadmap for hardening PyBend for production deployments.
+> Post-v0.7.0 roadmap for hardening N3TX for production deployments.
 > Generated from security audit findings and architectural review of the actual codebase.
 
 ---
@@ -9,7 +9,7 @@
 
 ### Current State Assessment
 
-PyBend v0.7.0 is a schema-driven full-stack framework with a working backend (FastAPI + SQLite), authorization system (JWT + ABAC), and vanilla JS frontend (Web Components). The framework is functional for development and demo use but has several gaps that must be addressed before production deployment.
+N3TX v0.7.0 is a schema-driven full-stack framework with a working backend (FastAPI + SQLite), authorization system (JWT + ABAC), and vanilla JS frontend (Web Components). The framework is functional for development and demo use but has several gaps that must be addressed before production deployment.
 
 The security audit (`/workspace/.traces/issues.md`) identified 10 backend issues (B1-B10) and 13 frontend issues (F1-F13). This roadmap expands on those findings and adds operational, performance, and compliance concerns.
 
@@ -37,17 +37,17 @@ The security audit (`/workspace/.traces/issues.md`) identified 10 backend issues
 
 **Problem:** Two separate hardcoded default secrets exist in the codebase, and the application starts without complaint when neither is overridden.
 
-**File:** `/workspace/src/pybend/core/config.py` (line 14)
+**File:** `/workspace/src/n3tx/core/config.py` (line 14)
 ```python
-JWT_SECRET = os.getenv("JWT_SECRET", "pybend-dev-secret-change-in-production")
+JWT_SECRET = os.getenv("JWT_SECRET", "ntx-dev-secret-change-in-production")
 ```
 
-**File:** `/workspace/src/pybend/core/authorize/auth.py` (line 9)
+**File:** `/workspace/src/n3tx/core/authorize/auth.py` (line 9)
 ```python
 _jwt_secret: str = os.getenv("JWT_SECRET", "authorize-dev-secret-change-in-production")
 ```
 
-Two different default values create confusion about which secret is in use. The `authorize` module has its own default (`"authorize-dev-secret-change-in-production"`) which is overridden by `main.py` calling `authorize.configure(jwt_secret=config.JWT_SECRET)` -- so the effective default at runtime is `"pybend-dev-secret-change-in-production"`. But if someone imports `authorize` directly without calling `configure()`, they get the other secret.
+Two different default values create confusion about which secret is in use. The `authorize` module has its own default (`"authorize-dev-secret-change-in-production"`) which is overridden by `main.py` calling `authorize.configure(jwt_secret=config.JWT_SECRET)` -- so the effective default at runtime is `"ntx-dev-secret-change-in-production"`. But if someone imports `authorize` directly without calling `configure()`, they get the other secret.
 
 **Impact:** Any attacker who reads the public source code can forge valid JWT tokens. Total authentication bypass.
 
@@ -59,7 +59,7 @@ Two different default values create confusion about which secret is in use. The 
 import os
 import secrets
 
-_ENV = os.getenv("PYBEND_ENV", "development")
+_ENV = os.getenv("N3TX_ENV", "development")
 _default_secret = os.getenv("JWT_SECRET")
 
 if _ENV != "development" and not _default_secret:
@@ -97,7 +97,7 @@ def _get_secret() -> str:
 
 **Problem:** Table names and column names derived from model class attributes (`__tablename__`, field names) are interpolated directly into SQL strings via f-strings throughout the storage layer. While the *values* use parameterized queries (safe), the *identifiers* are not escaped.
 
-**File:** `/workspace/src/pybend/core/storage/sqlite_storage.py`
+**File:** `/workspace/src/n3tx/core/storage/sqlite_storage.py`
 
 Multiple locations:
 - Line 58: `f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"`
@@ -110,12 +110,12 @@ Multiple locations:
 - Line 496: `f"UPDATE {table_name} SET {set_clause} WHERE id = ?"`
 - Line 517: `f"DELETE FROM {table_name} WHERE id = ?"`
 
-**File:** `/workspace/src/pybend/core/storage/sqlite_migration.py`
+**File:** `/workspace/src/n3tx/core/storage/sqlite_migration.py`
 - Line 166-170: `CREATE TABLE IF NOT EXISTS {table_name}`
 - Line 209: `ALTER TABLE {table_name} ADD COLUMN {field_name}`
 
 **Mitigating factor:** Table names and column names come from Python class attributes (`__tablename__`, `model_fields`), not from user input. An attacker would need to control a model class definition to exploit this. However:
-1. If PyBend ever supports user-defined models (the TODOs mention "DB-based compiled models"), this becomes a direct injection vector.
+1. If N3TX ever supports user-defined models (the TODOs mention "DB-based compiled models"), this becomes a direct injection vector.
 2. The `sql_filter` tuple from `_resolver.sql_filter_for()` inserts WHERE clauses -- if the resolver has a bug, it could inject arbitrary SQL.
 
 **Impact:** Currently low risk (trusted model definitions). Becomes critical if/when user-defined models are supported.
@@ -153,7 +153,7 @@ def register_model(model_class, storage=None):
 
 **Problem:** The FastAPI backend is configured with fully permissive CORS.
 
-**File:** `/workspace/src/pybend/core/api/backend.py` (lines 59-65)
+**File:** `/workspace/src/n3tx/core/api/backend.py` (lines 59-65)
 ```python
 self.app.add_middleware(
     CORSMiddleware,
@@ -166,7 +166,7 @@ self.app.add_middleware(
 
 Per the CORS specification, `allow_origins=["*"]` with `allow_credentials=True` is technically invalid. Starlette works around this by reflecting the request's `Origin` header back as `Access-Control-Allow-Origin`, which effectively means *any origin* can make credentialed requests.
 
-**Impact:** Any malicious website can make authenticated API calls on behalf of a logged-in PyBend user if they have a valid JWT token in localStorage (the frontend uses `x-access-token` header). This enables CSRF-like attacks.
+**Impact:** Any malicious website can make authenticated API calls on behalf of a logged-in N3TX user if they have a valid JWT token in localStorage (the frontend uses `x-access-token` header). This enables CSRF-like attacks.
 
 **Cross-reference:** Issue B7 in `/workspace/.traces/issues.md`.
 
@@ -189,7 +189,7 @@ class FastAPIBackend(BaseBackend):
 
         if not cors_origins:
             # Development fallback
-            env = os.getenv("PYBEND_ENV", "development")
+            env = os.getenv("N3TX_ENV", "development")
             if env == "development":
                 cors_origins = ["http://localhost:5000", "http://127.0.0.1:5000"]
             else:
@@ -215,7 +215,7 @@ class FastAPIBackend(BaseBackend):
 
 **Problem:** The `get_traceback_info()` utility returns full Python traceback frames -- including file paths, line numbers, function names, and source code -- in HTTP 400 error responses to the client.
 
-**File:** `/workspace/src/pybend/core/utils/erroring.py` (lines 4-23)
+**File:** `/workspace/src/n3tx/core/utils/erroring.py` (lines 4-23)
 ```python
 def get_traceback_info(e: Exception):
     tb = traceback.extract_tb(e.__traceback__)
@@ -233,7 +233,7 @@ def get_traceback_info(e: Exception):
     return trace_info
 ```
 
-**Called from:** `/workspace/src/pybend/core/api/routes_fastapi.py` (line 81)
+**Called from:** `/workspace/src/n3tx/core/api/routes_fastapi.py` (line 81)
 ```python
 raise HTTPException(status_code=400, detail=get_traceback_info(e))
 ```
@@ -249,11 +249,11 @@ import os
 import traceback
 import logging
 
-logger = logging.getLogger("pybend")
+logger = logging.getLogger("n3tx")
 
 def get_traceback_info(e: Exception):
     """Format exception for API response. Full trace in dev, safe message in production."""
-    env = os.getenv("PYBEND_ENV", "development")
+    env = os.getenv("N3TX_ENV", "development")
 
     # Always log the full trace server-side
     logger.error("Request error: %s", e, exc_info=True)
@@ -274,7 +274,7 @@ def get_traceback_info(e: Exception):
     return {"error": "Request processing failed", "type": type(e).__name__}
 ```
 
-**Effort estimate:** 1-2 hours (modify erroring.py, replace print statements with logging, add PYBEND_ENV support)
+**Effort estimate:** 1-2 hours (modify erroring.py, replace print statements with logging, add N3TX_ENV support)
 
 ---
 
@@ -285,7 +285,7 @@ def get_traceback_info(e: Exception):
 2. Performs a `User.list()` (full table scan) on every login attempt (line 83 of `user_model.py`)
 3. Uses bcrypt comparison which is intentionally slow -- an attacker can DOS the server with concurrent login requests
 
-**File:** `/workspace/src/pybend/core/models/user_model.py` (lines 57-90)
+**File:** `/workspace/src/n3tx/core/models/user_model.py` (lines 57-90)
 ```python
 @staticmethod
 @expose_route('/login', methods=['POST'], access=ANYONE)
@@ -362,9 +362,9 @@ Additionally, fix the `User.login()` and `User.register()` methods to use indexe
 
 #### 6. Token Refresh Mechanism
 
-**Problem:** JWTs have a fixed 24-hour expiry (`JWT_EXPIRY_HOURS` default in `/workspace/src/pybend/core/config.py` line 15). There is no refresh token mechanism. When a token expires, the user must re-authenticate with credentials.
+**Problem:** JWTs have a fixed 24-hour expiry (`JWT_EXPIRY_HOURS` default in `/workspace/src/n3tx/core/config.py` line 15). There is no refresh token mechanism. When a token expires, the user must re-authenticate with credentials.
 
-**File:** `/workspace/src/pybend/core/authorize/auth.py` (line 30-38)
+**File:** `/workspace/src/n3tx/core/authorize/auth.py` (line 30-38)
 ```python
 def create_token(user_id: int, email: str, role: str = "user") -> str:
     payload = {
@@ -388,7 +388,7 @@ def create_token(user_id: int, email: str, role: str = "user") -> str:
 
 #### 7. Password Complexity Requirements
 
-**Problem:** No password validation exists. The seed data uses passwords like `"alice123"`, `"bob123"`. The registration endpoint (`/workspace/src/pybend/core/models/user_model.py` line 94) accepts any string as a password.
+**Problem:** No password validation exists. The seed data uses passwords like `"alice123"`, `"bob123"`. The registration endpoint (`/workspace/src/n3tx/core/models/user_model.py` line 94) accepts any string as a password.
 
 **Impact:** Users can set single-character or empty passwords, making brute force trivial.
 
@@ -421,7 +421,7 @@ def create_token(user_id: int, email: str, role: str = "user") -> str:
 
 **Problem:** JWTs are stateless -- once issued, a token is valid until expiry. There is no way to invalidate a specific token (e.g., on password change, account compromise, or explicit logout).
 
-**File:** `/workspace/src/pybend/core/authorize/auth.py` -- `decode_token()` (line 41-42) performs no revocation check.
+**File:** `/workspace/src/n3tx/core/authorize/auth.py` -- `decode_token()` (line 41-42) performs no revocation check.
 
 **Impact:** Compromised tokens remain valid for up to 24 hours. No server-side logout capability.
 
@@ -439,7 +439,7 @@ def create_token(user_id: int, email: str, role: str = "user") -> str:
 
 **Problem:** The frontend sends JWT tokens via the `x-access-token` header (not cookies), which provides natural CSRF protection for API calls made from JavaScript. However, if the architecture ever switches to cookie-based tokens (for SSR or third-party integrations), CSRF becomes a critical vulnerability.
 
-**File:** `/workspace/src/pybend/core/api/backend.py` (line 88) -- tokens read from header only.
+**File:** `/workspace/src/n3tx/core/api/backend.py` (line 88) -- tokens read from header only.
 
 **Impact:** Currently low risk due to header-based auth. This is a defensive measure for architecture evolution.
 
@@ -458,7 +458,7 @@ def create_token(user_id: int, email: str, role: str = "user") -> str:
 
 **Problem:** No maximum request body size is configured. An attacker can send arbitrarily large POST/PUT bodies to exhaust server memory.
 
-**File:** `/workspace/src/pybend/core/api/backend.py` -- no body size limit in FastAPI config.
+**File:** `/workspace/src/n3tx/core/api/backend.py` -- no body size limit in FastAPI config.
 
 **Impact:** Denial of service via memory exhaustion.
 
@@ -472,7 +472,7 @@ def create_token(user_id: int, email: str, role: str = "user") -> str:
 
 #### 12. File Upload Validation
 
-**Problem:** No explicit file upload endpoints exist, but the `image` field on `ProtoModel` (line 46 of `/workspace/src/pybend/core/models/proto_model.py`) accepts any string URL. If file uploads are added in the future, validation must be in place.
+**Problem:** No explicit file upload endpoints exist, but the `image` field on `ProtoModel` (line 46 of `/workspace/src/n3tx/core/models/proto_model.py`) accepts any string URL. If file uploads are added in the future, validation must be in place.
 
 **Impact:** Currently N/A (URLs only). Becomes relevant if direct file upload is supported.
 
@@ -488,7 +488,7 @@ def create_token(user_id: int, email: str, role: str = "user") -> str:
 
 **Problem:** Pydantic validates types and constraints (e.g., `min_length`, `max_length`, `gt=0`) but does not sanitize content. String fields can contain HTML, JavaScript, SQL fragments, or control characters.
 
-**File:** `/workspace/src/pybend/core/models/proto_model.py` -- no sanitization layer.
+**File:** `/workspace/src/n3tx/core/models/proto_model.py` -- no sanitization layer.
 
 **Impact:** Stored XSS when values are rendered in the frontend (documented in issues F2-F5). Backend has no defense-in-depth for this.
 
@@ -505,7 +505,7 @@ def create_token(user_id: int, email: str, role: str = "user") -> str:
 
 **Problem:** While most value queries use parameterized binding (`?` placeholders), the `sql_filter` tuple from the authorization resolver inserts WHERE clauses that could contain unsafe content if the resolver has bugs.
 
-**File:** `/workspace/src/pybend/core/storage/sqlite_storage.py` (lines 80-84)
+**File:** `/workspace/src/n3tx/core/storage/sqlite_storage.py` (lines 80-84)
 ```python
 if sql_filter is not None:
     clause, params = sql_filter
@@ -532,15 +532,15 @@ The `clause` string is inserted directly. Its safety depends entirely on the `De
 **Problem:** The frontend renders entity data via `innerHTML` template literals without escaping. This is documented in issues F2-F5 (`/workspace/.traces/issues.md`).
 
 **Key files:**
-- `src/pybend/static/NTT0.6/components/ntt-profile.js` (lines 34-108) -- F2
-- `src/pybend/static/NTT0.6/components/ntt-topbar.js` (lines 88-128) -- F3
-- `src/pybend/static/NTT0.6/components/ntt-item.js` -- xs(), sm(), md() -- F4
-- `src/pybend/static/NTT0.6/generators/form.js` -- getInput(), getHeader() -- F5
+- `src/n3tx/static/N3TX0.6/components/ntx-profile.js` (lines 34-108) -- F2
+- `src/n3tx/static/N3TX0.6/components/ntx-topbar.js` (lines 88-128) -- F3
+- `src/n3tx/static/N3TX0.6/components/ntx-item.js` -- xs(), sm(), md() -- F4
+- `src/n3tx/static/N3TX0.6/generators/form.js` -- getInput(), getHeader() -- F5
 
 **Impact:** Stored XSS on every page load (topbar renders on every page).
 
 **Implementation approach:**
-- Create a shared `escapeHtml()` utility in the NTT frontend
+- Create a shared `escapeHtml()` utility in the N3TX frontend
 - Apply it to all template literal interpolations of user data
 - Consider a lint rule or code review checklist to prevent future regressions
 
@@ -611,7 +611,7 @@ The `clause` string is inserted directly. Its safety depends entirely on the `De
 
 **Problem:** No security headers are set on responses.
 
-**File:** `/workspace/src/pybend/core/api/backend.py` -- no security header middleware.
+**File:** `/workspace/src/n3tx/core/api/backend.py` -- no security header middleware.
 
 Missing headers:
 - `Strict-Transport-Security` (HSTS)
@@ -635,7 +635,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "0"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         # HSTS only in production with HTTPS
-        if os.getenv("PYBEND_ENV") != "development":
+        if os.getenv("N3TX_ENV") != "development":
             response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
 ```
@@ -650,7 +650,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 **Problem:** Every database operation creates a new `sqlite3.connect()` and closes it immediately after. There is no connection pooling or reuse.
 
-**File:** `/workspace/src/pybend/core/storage/sqlite_storage.py` -- every method calls `sqlite3.connect(self.database)` and `conn.close()` individually.
+**File:** `/workspace/src/n3tx/core/storage/sqlite_storage.py` -- every method calls `sqlite3.connect(self.database)` and `conn.close()` individually.
 
 For example, the `list()` method (lines 72-174) opens a connection, opens a second connection for count (lines 90-94), then opens a third for the main query (lines 105-106). The `_populate_fields()` method receives a connection but it was opened by the caller.
 
@@ -680,7 +680,7 @@ For example, the `list()` method (lines 72-174) opens a connection, opens a seco
 
 #### 23. Migration Rollback Support
 
-**Problem:** The auto-migration system (`migrate_table()` in `/workspace/src/pybend/core/storage/sqlite_migration.py` lines 182-295) has no rollback capability. It adds columns and *removes orphaned columns* (line 268-274), which is destructive and irreversible.
+**Problem:** The auto-migration system (`migrate_table()` in `/workspace/src/n3tx/core/storage/sqlite_migration.py` lines 182-295) has no rollback capability. It adds columns and *removes orphaned columns* (line 268-274), which is destructive and irreversible.
 
 The manual migration system (Rails-style) does support rollback via `down()` methods, but the auto-migration has no undo.
 
@@ -698,7 +698,7 @@ The manual migration system (Rails-style) does support rollback via `down()` met
 
 #### 24. Data Backup Strategy
 
-**Problem:** No backup mechanism. The SQLite database file (`pybend.db`) is the single copy of all data. The seed script's `--reset` flag (line 156-159 of `/workspace/src/pybend/core/seed.py`) deletes the database with `os.remove()` with no backup.
+**Problem:** No backup mechanism. The SQLite database file (`n3tx.db`) is the single copy of all data. The seed script's `--reset` flag (line 156-159 of `/workspace/src/n3tx/core/seed.py`) deletes the database with `os.remove()` with no backup.
 
 **Impact:** Data loss from any failure (disk, migration bug, accidental reset).
 
@@ -716,7 +716,7 @@ The manual migration system (Rails-style) does support rollback via `down()` met
 
 **Problem:** Password hashes are stored via bcrypt (good), but all other data is stored as plaintext in SQLite. No field-level encryption exists for sensitive data.
 
-**File:** `/workspace/src/pybend/core/models/user_model.py` -- `password_hash` is properly hashed. But `email` is plaintext.
+**File:** `/workspace/src/n3tx/core/models/user_model.py` -- `password_hash` is properly hashed. But `email` is plaintext.
 
 **Impact:** Database file compromise exposes all user data.
 
@@ -736,15 +736,15 @@ The manual migration system (Rails-style) does support rollback via `down()` met
 **Problem:** All logging uses `print()` statements scattered throughout the codebase. No structured format, no log levels, no correlation IDs.
 
 **Files:**
-- `/workspace/src/pybend/core/api/routes_fastapi.py` -- lines 62, 172, 184, 219, 223, 238
-- `/workspace/src/pybend/core/storage/sqlite_storage.py` -- line 41
-- `/workspace/src/pybend/core/models/storable_mixin.py` -- lines 39, 43, 85
-- `/workspace/src/pybend/core/storage/sqlite_migration.py` -- multiple print statements
+- `/workspace/src/n3tx/core/api/routes_fastapi.py` -- lines 62, 172, 184, 219, 223, 238
+- `/workspace/src/n3tx/core/storage/sqlite_storage.py` -- line 41
+- `/workspace/src/n3tx/core/models/storable_mixin.py` -- lines 39, 43, 85
+- `/workspace/src/n3tx/core/storage/sqlite_migration.py` -- multiple print statements
 
 **Impact:** No ability to filter, search, or alert on log events. No request tracing in production.
 
 **Implementation approach:**
-- Replace all `print()` calls with `logging.getLogger("pybend").{level}()`
+- Replace all `print()` calls with `logging.getLogger("n3tx").{level}()`
 - Configure structured JSON logging for production (e.g., `python-json-logger`)
 - Add request ID middleware for correlation
 - Configure log levels via environment variable
@@ -836,7 +836,7 @@ The manual migration system (Rails-style) does support rollback via `down()` met
 
 **Problem:** No validation of configuration values at startup. Invalid `PORT`, `HOST`, or missing required config silently fails or produces cryptic errors later.
 
-**File:** `/workspace/src/pybend/core/config.py` -- bare variable assignments with no validation.
+**File:** `/workspace/src/n3tx/core/config.py` -- bare variable assignments with no validation.
 
 **Impact:** Runtime errors instead of clear startup failures.
 
@@ -850,12 +850,12 @@ The manual migration system (Rails-style) does support rollback via `down()` met
 
 #### 33. Environment-Specific Defaults
 
-**Problem:** The config module (`/workspace/src/pybend/core/config.py`) has a single set of defaults. `HOST = "0.0.0.0"` is appropriate for containerized deployment but exposes the server on all interfaces in development.
+**Problem:** The config module (`/workspace/src/n3tx/core/config.py`) has a single set of defaults. `HOST = "0.0.0.0"` is appropriate for containerized deployment but exposes the server on all interfaces in development.
 
 **Impact:** Development server unnecessarily exposed on network.
 
 **Implementation approach:**
-- Add `PYBEND_ENV` environment variable (development/staging/production)
+- Add `N3TX_ENV` environment variable (development/staging/production)
 - Different defaults per environment (e.g., HOST=127.0.0.1 in dev, 0.0.0.0 in production)
 - Auto-detect environment from common signals (e.g., `KUBERNETES_SERVICE_HOST`)
 
@@ -934,7 +934,7 @@ The manual migration system (Rails-style) does support rollback via `down()` met
 
 **Problem:** Static files served via `StaticFiles(directory=str(static_dir))` use default headers (no caching).
 
-**File:** `/workspace/src/pybend/core/api/backend.py` (line 130)
+**File:** `/workspace/src/n3tx/core/api/backend.py` (line 130)
 
 **Impact:** Browser re-downloads all JS/CSS on every page load.
 
@@ -1111,7 +1111,7 @@ The manual migration system (Rails-style) does support rollback via `down()` met
 
 #### 50. WebSocket Security
 
-**Problem:** A WebSocket transport exists (`/workspace/src/pybend/static/NTT0.6/core/transport/Socket.js`) but has bugs (issue F10 -- `readystate` typo, missing `this.` prefix). If/when it is activated, it needs authentication and message validation.
+**Problem:** A WebSocket transport exists (`/workspace/src/n3tx/static/N3TX0.6/core/transport/Socket.js`) but has bugs (issue F10 -- `readystate` typo, missing `this.` prefix). If/when it is activated, it needs authentication and message validation.
 
 **Impact:** Currently dead code. Becomes relevant if real-time features are enabled.
 
@@ -1157,13 +1157,13 @@ The manual migration system (Rails-style) does support rollback via `down()` met
 
 #### 53. Dependency License Audit
 
-**Problem:** No audit of dependency licenses. PyBend uses `pydantic`, `fastapi`, `uvicorn`, `bcrypt`, `PyJWT`, `sqlite3` (stdlib). Frontend has no npm dependencies currently but the test infrastructure adds `jest`, `jsdom`, etc.
+**Problem:** No audit of dependency licenses. N3TX uses `pydantic`, `fastapi`, `uvicorn`, `bcrypt`, `PyJWT`, `sqlite3` (stdlib). Frontend has no npm dependencies currently but the test infrastructure adds `jest`, `jsdom`, etc.
 
 **Impact:** License compliance risk for commercial users.
 
 **Implementation approach:**
 - Run `pip-licenses` to generate license report
-- Verify all dependencies are compatible with PyBend's intended license
+- Verify all dependencies are compatible with N3TX's intended license
 - Document in `LICENSE` or `THIRD_PARTY_LICENSES`
 
 **Effort estimate:** 1-2 hours

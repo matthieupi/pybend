@@ -1,6 +1,6 @@
 # Hydration Strategies for Server-Side Rendering
 
-**Research Document -- PyBend SSR Analysis, Part 5**
+**Research Document -- N3TX SSR Analysis, Part 5**
 **Date:** 2026-02-25 | **Audience:** Technical CEO + Engineering Leadership
 
 ---
@@ -16,7 +16,7 @@ calls the **"uncanny valley"** -- a page that *looks* ready but silently ignores
 every click, scroll, and keystroke for hundreds of milliseconds to several
 seconds.
 
-For PyBend specifically, hydration is uniquely challenging because:
+For N3TX specifically, hydration is uniquely challenging because:
 
 1. **DynamicClasses are created at runtime from schema** -- there is no static
    class definition the server can reference ahead of time.
@@ -25,16 +25,16 @@ For PyBend specifically, hydration is uniquely challenging because:
 3. **Web Components with Shadow DOM** require Declarative Shadow DOM (DSD) for
    SSR, a standard that only reached baseline browser support in February 2024.
 
-This document maps every major hydration strategy against PyBend's architecture,
+This document maps every major hydration strategy against N3TX's architecture,
 quantifies the performance costs involved, and identifies the path that best
-fits PyBend's schema-driven, actor-based design.
+fits N3TX's schema-driven, actor-based design.
 
 > **Bottom line for the CEO:** Hydration is where SSR projects either deliver
 > their promised performance gains or silently erase them. The wrong strategy
 > can make your SSR investment produce pages that are *slower* to interact with
 > than a pure client-rendered app. The right strategy -- likely progressive
 > hydration with an islands-inspired approach -- can cut Time to Interactive
-> by 40-60% while preserving PyBend's zero-configuration developer experience.
+> by 40-60% while preserving N3TX's zero-configuration developer experience.
 
 ---
 
@@ -55,8 +55,8 @@ fits PyBend's schema-driven, actor-based design.
 13. [Measuring Hydration Cost](#13-measuring-hydration-cost)
 14. [The Uncanny Valley Problem](#14-the-uncanny-valley-problem)
 15. [Hydration Errors and Mismatches](#15-hydration-errors-and-mismatches)
-16. [PyBend's DynamicClass System and Hydration](#16-pybends-dynamicclass-system-and-hydration)
-17. [Recommendation for PyBend](#17-recommendation-for-pybend)
+16. [N3TX's DynamicClass System and Hydration](#16-n3txs-dynamicclass-system-and-hydration)
+17. [Recommendation for N3TX](#17-recommendation-for-n3tx)
 18. [Sources](#18-sources)
 
 ---
@@ -206,14 +206,14 @@ Timeline:
 | **TTI** | Poor -- entire app must hydrate before anything works |
 | **JS bundle size** | Full bundle required upfront |
 | **Main thread blocking** | Severe -- single long task |
-| **Suitability for PyBend** | Poor -- every DynamicClass would need to hydrate |
+| **Suitability for N3TX** | Poor -- every DynamicClass would need to hydrate |
 
 ### Why It Fails at Scale
 
-On a PyBend product listing page with 20 products, each containing comments
+On a N3TX product listing page with 20 products, each containing comments
 with nested methods (like, favorite), full hydration means:
 
-- Instantiate `NTT` type registry
+- Instantiate `N3TX` type registry
 - Fetch and process schema for `Product`, `Comment`, `Like`
 - Create DynamicClasses for each type
 - Initialize the Matrix message bus + NetworkAdapter
@@ -255,18 +255,18 @@ Next.js 17 reported **up to 50% TTI reduction** for e-commerce applications
 through hydration improvements
 ([Markaicode, "Next.js 17 Hydration Overhaul"](https://markaicode.com/nextjs-17-hydration-performance-ecommerce/)).
 
-### PyBend Applicability
+### N3TX Applicability
 
-**High.** Progressive hydration maps well to PyBend's component hierarchy:
+**High.** Progressive hydration maps well to N3TX's component hierarchy:
 
 | Priority | Component | Trigger |
 |---|---|---|
 | **P0 (immediate)** | Navigation, auth status, search | Page load |
-| **P1 (fast)** | `ntt-list` above fold, primary `ntt-item` cards | Load + idle |
-| **P2 (deferred)** | Below-fold items, `ntt-method` buttons | Viewport or hover |
+| **P1 (fast)** | `ntx-list` above fold, primary `ntx-item` cards | Load + idle |
+| **P2 (deferred)** | Below-fold items, `ntx-method` buttons | Viewport or hover |
 | **P3 (lazy)** | Edit forms, comments, nested entities | User interaction |
 
-The challenge: PyBend's `ntt-item` components currently render via `connectedCallback()`,
+The challenge: N3TX's `ntx-item` components currently render via `connectedCallback()`,
 which fires as soon as the element enters the DOM. Progressive hydration would
 require a mechanism to defer this callback or replace it with a hydration-aware
 lifecycle.
@@ -308,10 +308,10 @@ of the hydration queue.**
 
 ([React Working Group, "New in 18: Selective Hydration"](https://github.com/reactwg/react-18/discussions/130))
 
-### PyBend Applicability
+### N3TX Applicability
 
 **Medium.** The core insight -- prioritize hydration of what the user is
-touching -- is framework-agnostic and can be implemented in PyBend's Actor
+touching -- is framework-agnostic and can be implemented in N3TX's Actor
 system. When the Matrix receives an event targeting an un-hydrated component,
 it could trigger that component's hydration before dispatching the event.
 
@@ -353,10 +353,10 @@ Gatsby's implementation of partial hydration demonstrated **up to 83% reduction
 in client-side JavaScript** for content-heavy pages
 ([Gatsby, "Partial Hydration"](https://www.gatsbyjs.com/docs/conceptual/partial-hydration/)).
 
-### PyBend Applicability
+### N3TX Applicability
 
-**Medium-Low.** PyBend's components are generally all interactive -- even
-display-mode `ntt-item` elements have click handlers for navigation. However,
+**Medium-Low.** N3TX's components are generally all interactive -- even
+display-mode `ntx-item` elements have click handlers for navigation. However,
 the concept applies to specific contexts: product descriptions, static
 metadata fields, and read-only comment text do not need JavaScript.
 
@@ -430,15 +430,15 @@ and compiler. It cannot be directly applied to vanilla Web Components because:
 2. **Qwik's serialization format** encodes Qwik-specific internal structures
    (signal graphs, component boundaries) that do not exist in the Custom
    Elements API.
-3. **DynamicClass creation** in PyBend happens at runtime from schema data --
+3. **DynamicClass creation** in N3TX happens at runtime from schema data --
    there is no compile-time class definition for a compiler to analyze.
 
 However, the **principle** of resumability -- serialize state into HTML and
 lazy-load handlers on interaction -- can be partially adopted:
 
-> **Applicable pattern for PyBend:** Serialize entity data and schema URLs
+> **Applicable pattern for N3TX:** Serialize entity data and schema URLs
 > into `data-*` attributes or `<script type="application/json">` blocks within
-> each `<ntt-item>`. On interaction, load only the specific handler needed.
+> each `<ntx-item>`. On interaction, load only the specific handler needed.
 > This avoids full hydration while preserving the schema-driven model.
 
 ---
@@ -477,9 +477,9 @@ ships zero JavaScript.
 
 ### Why Web Components Are Natural Islands
 
-This is a critical insight for PyBend: **Web Components are already islands.**
+This is a critical insight for N3TX: **Web Components are already islands.**
 
-Every `<ntt-item>`, `<ntt-list>`, `<ntt-method>` is a Custom Element with
+Every `<ntx-item>`, `<ntx-list>`, `<ntx-method>` is a Custom Element with
 Shadow DOM encapsulation. They have:
 
 - **Isolated rendering** -- Shadow DOM prevents style and DOM leakage
@@ -489,10 +489,10 @@ Shadow DOM encapsulation. They have:
 
 The mapping is natural:
 
-| Islands Concept | PyBend Equivalent |
+| Islands Concept | N3TX Equivalent |
 |---|---|
-| Island boundary | Custom Element tag (`<ntt-item>`, `<ntt-list>`) |
-| Island JavaScript | Component module (`ntt-item.js`, `ntt-list.js`) |
+| Island boundary | Custom Element tag (`<ntx-item>`, `<ntx-list>`) |
+| Island JavaScript | Component module (`ntx-item.js`, `ntx-list.js`) |
 | Static HTML sea | Server-rendered entity data between components |
 | `client:load` directive | `connectedCallback()` triggers immediately |
 | `client:visible` directive | IntersectionObserver triggers hydration |
@@ -501,13 +501,13 @@ The mapping is natural:
 ([Enhance, "Island Architecture with Web Components"](https://enhance.dev/blog/posts/2024-07-09-island-architecture-with-web-components);
 [patterns.dev, "Islands Architecture"](https://www.patterns.dev/vanilla/islands-architecture/))
 
-### PyBend Applicability
+### N3TX Applicability
 
-**Very High.** This is the most natural fit for PyBend's existing architecture.
+**Very High.** This is the most natural fit for N3TX's existing architecture.
 The framework already organizes the UI as isolated Web Components. An SSR
 implementation could:
 
-1. Server-render each `<ntt-item>` as static HTML with Declarative Shadow DOM
+1. Server-render each `<ntx-item>` as static HTML with Declarative Shadow DOM
 2. Include entity data in `data-*` attributes or inline `<script>` blocks
 3. Add hydration directives (e.g., `hydrate="visible"`) to control when each
    component's JavaScript activates
@@ -534,7 +534,7 @@ shadow.innerHTML = '<p>Content</p>';
 **With DSD:** Shadow DOM can be declared in HTML:
 ```html
 <!-- This works server-side, no JavaScript needed -->
-<ntt-item>
+<ntx-item>
   <template shadowrootmode="open">
     <style>:host { display: block; }</style>
     <div class="card">
@@ -542,7 +542,7 @@ shadow.innerHTML = '<p>Content</p>';
       <span class="price">$29.99</span>
     </div>
   </template>
-</ntt-item>
+</ntx-item>
 ```
 
 The browser parses the `<template shadowrootmode="open">` and attaches a
@@ -564,30 +564,30 @@ At 94.38% global coverage, DSD is viable for production use. The remaining
 ~6% can be handled with a lightweight polyfill or by falling back to
 client-side rendering for unsupported browsers.
 
-### Implications for PyBend
+### Implications for N3TX
 
-DSD means PyBend can server-render `<ntt-item>` components as complete HTML
+DSD means N3TX can server-render `<ntx-item>` components as complete HTML
 with Shadow DOM attached -- no JavaScript needed for initial paint. The
 server would:
 
 1. Fetch entity data from the database
-2. Run the equivalent of `ntt-item.render()` server-side (likely via a
+2. Run the equivalent of `ntx-item.render()` server-side (likely via a
    Node.js rendering service or Python template)
 3. Emit `<template shadowrootmode="open">` with the rendered HTML
 4. Include entity data as a serialized JSON block for client hydration
 
 ```html
-<!-- Server-rendered ntt-item with Declarative Shadow DOM -->
-<ntt-item data-schema="Product" data-id="42">
+<!-- Server-rendered ntx-item with Declarative Shadow DOM -->
+<ntx-item data-schema="Product" data-id="42">
   <template shadowrootmode="open">
-    <link rel="stylesheet" href="/static/components/ntt-item.css">
+    <link rel="stylesheet" href="/static/components/ntx-item.css">
     <div class="card" data-display="md">
       <h3 data-value="name">Widget Pro</h3>
       <span data-value="price">$29.99</span>
       <p data-value="description">A professional-grade widget.</p>
       <div class="methods">
-        <ntt-method data-method="like">Like</ntt-method>
-        <ntt-method data-method="favorite">Favorite</ntt-method>
+        <ntx-method data-method="like">Like</ntx-method>
+        <ntx-method data-method="favorite">Favorite</ntx-method>
       </div>
     </div>
   </template>
@@ -595,7 +595,7 @@ server would:
     {"name":"Widget Pro","price":29.99,"description":"A professional-grade widget.",
      "$schema":"http://localhost:5000/Product","$id":"http://localhost:5000/products/42"}
   </script>
-</ntt-item>
+</ntx-item>
 ```
 
 ([web.dev, "Declarative Shadow DOM"](https://web.dev/articles/declarative-shadow-dom);
@@ -659,7 +659,7 @@ explicitly needed.
 ([Enhance, "Portable Server Rendered Web Components"](https://enhance.dev/blog/posts/2024-05-03-portable-ssr-components);
 [The Spicy Web, "Enhance vs. Lit vs. WebC"](https://www.spicyweb.dev/web-components-ssr-node/))
 
-### Comparison for PyBend
+### Comparison for N3TX
 
 | Library | Shadow DOM SSR | Hydration Strategy | Compiler Required | Vanilla WC Compatible |
 |---|---|---|---|---|
@@ -667,8 +667,8 @@ explicitly needed.
 | **Stencil** | DSD or scoped | Annotation-based reconnection | Yes (Stencil compiler) | Stencil components only |
 | **Enhance** | Light DOM | No hydration (expansion only) | No | Yes (pure functions) |
 
-**For PyBend:** None of these are directly usable because PyBend's components
-are vanilla Custom Elements (not Lit, not Stencil). However, PyBend can adopt
+**For N3TX:** None of these are directly usable because N3TX's components
+are vanilla Custom Elements (not Lit, not Stencil). However, N3TX can adopt
 concepts from each:
 
 - **From Lit:** The pattern of walking existing DOM to reconnect bindings
@@ -682,7 +682,7 @@ concepts from each:
 
 ### The Unique Challenge
 
-PyBend's frontend is not just a component tree -- it is an **actor system**.
+N3TX's frontend is not just a component tree -- it is an **actor system**.
 Every entity instance is an `Actor` with an address. Components communicate
 via the `Matrix` message bus using `TX` (transaction) messages. Hydration must
 restore not just DOM bindings but the entire messaging infrastructure.
@@ -695,7 +695,7 @@ restore not just DOM bindings but the entire messaging infrastructure.
     |
     +-- NetworkAdapter (remote message routing)
     |
-    +-- NTT (type registry)
+    +-- N3TX (type registry)
     |     +-- Product (DynamicClass)
     |     |     +-- Product/42 (instance actor)
     |     |     +-- Product/43 (instance actor)
@@ -706,30 +706,30 @@ restore not just DOM bindings but the entire messaging infrastructure.
     +-- Router (navigation state)
     |
     +-- Component registry
-          +-- ntt-list/products (list component actor)
-          +-- ntt-item/product-42 (item component actor)
-          +-- ntt-item/product-43 (item component actor)
+          +-- ntx-list/products (list component actor)
+          +-- ntx-item/product-42 (item component actor)
+          +-- ntx-item/product-43 (item component actor)
 ```
 
 ### Hydration Steps for the Actor System
 
-Traditional hydration for PyBend's actor system would require:
+Traditional hydration for N3TX's actor system would require:
 
 1. **Matrix initialization** -- Create the root `Matrix` actor, register it
    via `Actor.registerRoot(this)`, initialize `NetworkAdapter`
-2. **Schema fetching** -- `NTT.SCHEMA()` must fetch schemas from backend to
+2. **Schema fetching** -- `N3TX.SCHEMA()` must fetch schemas from backend to
    create DynamicClasses via `prototype()`
-3. **Type registration** -- Each DynamicClass registers in `NTT.#prototypes`
+3. **Type registration** -- Each DynamicClass registers in `N3TX.#prototypes`
 4. **Instance creation** -- Entity instances are created as Actors with
    addresses in the `children` map
-5. **Component binding** -- Each Web Component (e.g., `ntt-item`) connects to
+5. **Component binding** -- Each Web Component (e.g., `ntx-item`) connects to
    its corresponding entity Actor via `watch()` / `ATTACH()`
 6. **Watcher reconnection** -- The `#watchers` Set on each `TT` instance must
    be rebuilt so that data updates propagate to the correct components
 
 ### Optimized Approach: Deferred Actor Initialization
 
-Instead of fully reconstructing the actor system during hydration, PyBend
+Instead of fully reconstructing the actor system during hydration, N3TX
 could adopt a **lazy actor initialization** pattern:
 
 ```
@@ -741,10 +741,10 @@ Phase 1: Immediate (0ms)
 Phase 2: On Schema Cache Hit (50-100ms)
   - If schemas are cached (Service Worker or localStorage), create
     DynamicClasses without network round-trip
-  - Register types in NTT registry
+  - Register types in N3TX registry
 
 Phase 3: On Component Interaction (lazy, per-component)
-  - When user interacts with an <ntt-item>, create the Actor instance
+  - When user interacts with an <ntx-item>, create the Actor instance
   - Deserialize entity data from embedded JSON
   - Establish watcher connections only for the active component
   - Send initial ATTACH message to connect component to entity
@@ -805,7 +805,7 @@ naturally works during hydration because:
 - That listener can be attached immediately as part of Phase 1 hydration
 - Individual component handlers are resolved lazily on event dispatch
 
-**For PyBend:** The Matrix message bus *already functions as an event delegation
+**For N3TX:** The Matrix message bus *already functions as an event delegation
 system*. The Matrix's `inbox()` method receives all messages and routes them
 to the appropriate Actor. A hydration-aware Matrix could:
 
@@ -935,15 +935,15 @@ Research from the e-commerce sector shows:
 | **CSS-only interactions** | Hover states, focus rings work without JS | Low |
 | **Progressive enhancement** | Basic forms work via HTML `action`; JS enhances | Medium |
 
-### PyBend-Specific Uncanny Valley
+### N3TX-Specific Uncanny Valley
 
-PyBend's uncanny valley is particularly noticeable on entity pages because:
+N3TX's uncanny valley is particularly noticeable on entity pages because:
 
-- `ntt-method` buttons (Like, Favorite) look clickable but do nothing until
+- `ntx-method` buttons (Like, Favorite) look clickable but do nothing until
   the Actor is registered and the Matrix can route the TX message
-- `ntt-item` edit buttons toggle mode but require the full Formidable form
+- `ntx-item` edit buttons toggle mode but require the full Formidable form
   generator to be loaded
-- `ntt-list` pagination ("Load More") requires the NetworkAdapter to be
+- `ntx-list` pagination ("Load More") requires the NetworkAdapter to be
   initialized for API calls
 
 **Recommended mitigation:** Add `disabled` attributes and subtle loading
@@ -979,7 +979,7 @@ the server HTML), or produces corrupted output.
 [LogRocket, "Resolving hydration mismatch errors in Next.js"](https://blog.logrocket.com/resolving-hydration-mismatch-errors-next-js/);
 [PropelAuth, "Understanding Hydration Errors"](https://www.propelauth.com/post/understanding-hydration-errors))
 
-### PyBend-Specific Mismatch Risks
+### N3TX-Specific Mismatch Risks
 
 | Risk Area | Why It Matters |
 |---|---|
@@ -987,7 +987,7 @@ the server HTML), or produces corrupted output.
 | **DynamicClass properties** | DynamicClasses add getters/setters at runtime; server-rendered HTML may not reflect the same property set |
 | **Permission-dependent UI** | `permissions.canAction()` checks may evaluate differently on server vs client if auth tokens differ |
 | **Entity $id and $schema URLs** | These contain the server hostname; if the client accesses via a different hostname (CDN, proxy), URLs mismatch |
-| **Skeleton placeholders** | `ntt-item.connectedCallback()` renders a skeleton if no schema exists; if DSD provides content, the skeleton would conflict |
+| **Skeleton placeholders** | `ntx-item.connectedCallback()` renders a skeleton if no schema exists; if DSD provides content, the skeleton would conflict |
 
 ### Debugging Strategies
 
@@ -1004,7 +1004,7 @@ the server HTML), or produces corrupted output.
 6. **Two-pass rendering** -- First pass matches server exactly; second pass
    (after hydration) adds client-specific content
 
-### Prevention Pattern for PyBend
+### Prevention Pattern for N3TX
 
 ```
   SERVER RENDER                          CLIENT HYDRATE
@@ -1019,20 +1019,20 @@ the server HTML), or produces corrupted output.
                                             (accept mismatch, update)
 ```
 
-The version-hash approach lets PyBend detect mismatches early and choose
+The version-hash approach lets N3TX detect mismatches early and choose
 between preserving server HTML (when safe) or triggering a clean client
 re-render (when necessary) instead of silently producing corrupted output.
 
 ---
 
-## 16. PyBend's DynamicClass System and Hydration
+## 16. N3TX's DynamicClass System and Hydration
 
 ### The Core Challenge
 
-PyBend creates entity classes at runtime from JSON Schema:
+N3TX creates entity classes at runtime from JSON Schema:
 
 ```javascript
-// NTT.js -- prototype() factory
+// N3TX.js -- prototype() factory
 // This creates a DynamicClass with typed properties, methods, and a value
 // getter that injects $schema and $id.
 //
@@ -1040,7 +1040,7 @@ PyBend creates entity classes at runtime from JSON Schema:
 ```
 
 In a traditional SSR hydration flow, the client needs to know the class
-definition *before* it can hydrate instances of that class. But in PyBend,
+definition *before* it can hydrate instances of that class. But in N3TX,
 the class definition comes FROM the server, at runtime, after a network
 request. This creates a circular dependency:
 
@@ -1048,7 +1048,7 @@ request. This creates a circular dependency:
   CIRCULAR DEPENDENCY:
   ====================
 
-  To hydrate <ntt-item> for Product #42:
+  To hydrate <ntx-item> for Product #42:
     -> Need DynamicClass "Product"
       -> Need JSON Schema for Product
         -> Need network request to GET /Product
@@ -1095,7 +1095,7 @@ DynamicClass creation does not require a network round-trip:
   ========================
 
   Phase 0: Server Render (Python/FastAPI)
-    - Render page HTML with DSD for each <ntt-item>
+    - Render page HTML with DSD for each <ntx-item>
     - Embed JSON Schemas as <script type="application/schema+json">
     - Embed entity data as <script type="application/json"> per component
     - No JavaScript executes
@@ -1103,12 +1103,12 @@ DynamicClass creation does not require a network round-trip:
   Phase 1: Critical Path (< 50ms of JS)
     - Load tiny bootstrap script (< 3KB)
     - Parse embedded schemas, create DynamicClasses via prototype()
-    - Register classes in NTT.#prototypes
+    - Register classes in N3TX.#prototypes
     - Initialize Matrix root actor + NetworkAdapter
     - Attach root event delegation listener
 
   Phase 2: Component Reconnection (progressive, per-component)
-    - For each <ntt-item> with DSD content:
+    - For each <ntx-item> with DSD content:
       a. Read entity data from embedded JSON
       b. Create entity Actor with correct address
       c. Reconnect Shadow DOM event listeners (not re-render)
@@ -1117,13 +1117,13 @@ DynamicClass creation does not require a network round-trip:
 
   Phase 3: Background Enhancement (idle time)
     - Verify entity data freshness (optional background fetch)
-    - Pre-load method handlers for visible <ntt-method> buttons
+    - Pre-load method handlers for visible <ntx-method> buttons
     - Establish WebSocket or long-poll for real-time updates
 ```
 
 ### State Serialization Strategy
 
-Each `ntt-item` in PyBend currently maintains state through its `value`
+Each `ntx-item` in N3TX currently maintains state through its `value`
 property (set via `DESCRIBE` messages from the Actor system). For SSR
 hydration, this state must be serialized and restored:
 
@@ -1142,18 +1142,18 @@ hydration, this state must be serialized and restored:
     #href       -> data-href attribute on host element
     #watchers   -> rebuilt during Phase 2 when components connect
 
-  NTT type registry:
+  N3TX type registry:
     #prototypes -> rebuilt in Phase 1 from embedded schemas
     .children   -> rebuilt as entity Actors are created in Phase 2
 ```
 
 ---
 
-## 17. Recommendation for PyBend
+## 17. Recommendation for N3TX
 
 ### Recommended Strategy: Progressive Islands with Embedded Schema
 
-Based on this analysis, the optimal hydration strategy for PyBend combines:
+Based on this analysis, the optimal hydration strategy for N3TX combines:
 
 1. **Islands architecture** (leveraging Web Components' natural encapsulation)
 2. **Progressive hydration** (prioritized by viewport position and user intent)
@@ -1166,7 +1166,7 @@ Based on this analysis, the optimal hydration strategy for PyBend combines:
   PHASE 1: Foundation (DSD + Embedded Data)
   ─────────────────────────────────────────
   - Add DSD rendering capability to the Python backend
-  - Server-render ntt-item/ntt-list components as DSD HTML
+  - Server-render ntx-item/ntx-list components as DSD HTML
   - Embed schemas and entity data inline
   - Result: instant FCP with full content, 0 JS on initial paint
 
@@ -1195,7 +1195,7 @@ Based on this analysis, the optimal hydration strategy for PyBend combines:
 
 ### Decision Matrix
 
-| Strategy | PyBend Fit | Effort | TTI Impact | Risk |
+| Strategy | N3TX Fit | Effort | TTI Impact | Risk |
 |---|---|---|---|---|
 | **Full hydration** | Poor | Low | None | Low |
 | **Progressive hydration** | Excellent | Medium | -40-60% | Low |

@@ -31,9 +31,9 @@
 
 ## 1. Context: The Architectural Asymmetry
 
-### What PyBend Is Today
+### What N3TX Is Today
 
-PyBend is a schema-driven Python/FastAPI framework where **model definitions are the single source of truth** for the entire application stack. A developer writes a Python model; the framework derives storage, API, validation, permissions, forms, and navigation:
+N3TX is a schema-driven Python/FastAPI framework where **model definitions are the single source of truth** for the entire application stack. A developer writes a Python model; the framework derives storage, API, validation, permissions, forms, and navigation:
 
 ```python
 class Product(ProtoModel):
@@ -66,32 +66,32 @@ From this single definition, the framework generates:
 | **Database table + migrations** | `__storable__` triggers `StorableMixin` injection via `__init_subclass__()` |
 | **CRUD API endpoints** | `register_routes()` reads `__tablename__` and field types |
 | **JSON Schema** | `ProtoModel.schema()` via Pydantic, enriched with `methods`, `access`, `ui`, `$defs` |
-| **Frontend entity classes** | `NTT.SCHEMA()` -> `prototype()` -> DynamicClass with typed getters/setters |
+| **Frontend entity classes** | `N3TX.SCHEMA()` -> `prototype()` -> DynamicClass with typed getters/setters |
 | **Form rendering** | `form.js` reads `schema.properties`, `ui.widget`, `ui.field_order`, `ui.groups` |
 | **Access control** | `__access__` rules composed with `|`/`&`/`~`, serialized to schema, enforced at route layer + frontend |
-| **Custom method buttons** | `@expose_route` appears in `schema.methods`, rendered by `<ntt-method>` |
+| **Custom method buttons** | `@expose_route` appears in `schema.methods`, rendered by `<ntx-method>` |
 | **Entity self-description** | `model_dump(response=True)` injects `$schema` (schema URL) and `$id` (instance URL) |
 
 ### The Frontend: Already an Actor System
 
 The frontend is built on a proven Actor/Matrix/TX message-passing architecture:
 
-**Actor** (`src/pybend/static/core/Actor.js`): Base class with private `#addr`, `#parent`, `#children`. Each actor has an `inbox()` method that receives TX messages and a `send()` method that routes through the Matrix. Actors form a hierarchy — child actors register with their parent, and unresolvable messages bubble up to the root.
+**Actor** (`src/n3tx/static/core/Actor.js`): Base class with private `#addr`, `#parent`, `#children`. Each actor has an `inbox()` method that receives TX messages and a `send()` method that routes through the Matrix. Actors form a hierarchy — child actors register with their parent, and unresolvable messages bubble up to the root.
 
-**Matrix** (`src/pybend/static/core/Matrix.js`): The root actor and message bus. Extends Actor. Routes TX messages to registered child actors by address. If a target isn't local, delegates to `NetworkAdapter` for remote delivery (HTTP or WebSocket). Matrix is a singleton — there is exactly one per application.
+**Matrix** (`src/n3tx/static/core/Matrix.js`): The root actor and message bus. Extends Actor. Routes TX messages to registered child actors by address. If a target isn't local, delegates to `NetworkAdapter` for remote delivery (HTTP or WebSocket). Matrix is a singleton — there is exactly one per application.
 
-**TX** (`src/pybend/static/core/TX.js`): The message envelope. Every message in the system is a TX with: `name` (event type: SCHEMA, READ, CREATE, UPDATE, DELETE, CONNECT, DESCRIBE, ERROR), `source` (sender address), `target` (recipient address), `data` (payload), `meta` (routing metadata), `tst` (timestamp), `hash` (content hash).
+**TX** (`src/n3tx/static/core/TX.js`): The message envelope. Every message in the system is a TX with: `name` (event type: SCHEMA, READ, CREATE, UPDATE, DELETE, CONNECT, DESCRIBE, ERROR), `source` (sender address), `target` (recipient address), `data` (payload), `meta` (routing metadata), `tst` (timestamp), `hash` (content hash).
 
-**NetworkAdapter** (`src/pybend/static/core/transport/NetworkAdapter.js`): Bridges the Matrix to the network. Translates TX messages to HTTP requests (or WebSocket frames). When a response arrives, it's wrapped back into a TX and dispatched through the Matrix to the original sender. Error responses produce TX messages with `name: "ERROR"`.
+**NetworkAdapter** (`src/n3tx/static/core/transport/NetworkAdapter.js`): Bridges the Matrix to the network. Translates TX messages to HTTP requests (or WebSocket frames). When a response arrives, it's wrapped back into a TX and dispatched through the Matrix to the original sender. Error responses produce TX messages with `name: "ERROR"`.
 
 **How the frontend works today:**
 ```
-User clicks product → ntt-item sends TX(name='DESCRIBE', target='Product/42')
-  → Matrix routes to NTT actor
-    → NTT actor sends TX(name='READ', target='Product/42')
+User clicks product → ntx-item sends TX(name='DESCRIBE', target='Product/42')
+  → Matrix routes to N3TX actor
+    → N3TX actor sends TX(name='READ', target='Product/42')
       → Matrix can't resolve locally → NetworkAdapter sends GET /products/42
-        → Response arrives → NetworkAdapter wraps in TX → Matrix routes back to NTT
-          → NTT triggers DynamicClass update → ntt-item re-renders
+        → Response arrives → NetworkAdapter wraps in TX → Matrix routes back to N3TX
+          → N3TX triggers DynamicClass update → ntx-item re-renders
 ```
 
 Every interaction is a TX message routed through the Matrix. Components don't call functions — they send messages to addresses. This provides isolation, composability, and location transparency.
@@ -143,7 +143,7 @@ AFTER (one paradigm):
   Frontend Matrix ←──WebSocket──→ Backend Matrix
        │                              │
    Frontend Actors              Backend Actors
-   (NTT, Router,               (ActorModel, StorageActor,
+   (N3TX, Router,               (ActorModel, StorageActor,
     Item, List...)               AuthActor, RouteActor...)
        │                              │
        └──── Same TX envelope ────────┘
@@ -164,7 +164,7 @@ Server A Matrix ←──ActivityPub──→ Server B Matrix
        └──── Same routing (NetworkAdapter speaks AP) ─┘
 ```
 
-**Federation IS location-transparent actor messaging.** An ActivityPub Actor has an inbox and outbox. A PyBend Actor has `inbox()` and `send()`. An ActivityPub Activity is a message describing an action. A PyBend TX is a message with `name` (action), `source`, `target`, `data`. The structural mapping is not an analogy — it's identity.
+**Federation IS location-transparent actor messaging.** An ActivityPub Actor has an inbox and outbox. A N3TX Actor has `inbox()` and `send()`. An ActivityPub Activity is a message describing an action. A N3TX TX is a message with `name` (action), `source`, `target`, `data`. The structural mapping is not an analogy — it's identity.
 
 **Agents ARE actors with LLM brains.** An agent receives a task TX, calls an LLM, sends tool-call TXs to model actors, receives results, and sends a final response TX. The Matrix routes everything. Supervision restarts crashed agents.
 
@@ -174,33 +174,33 @@ Server A Matrix ←──ActivityPub──→ Server B Matrix
 
 ## 3. Research Foundations
 
-This roadmap synthesizes findings from 13 research explorations conducted in `.traces/research/`. Each explored a technology domain through the lens of PyBend's schema-driven architecture.
+This roadmap synthesizes findings from 13 research explorations conducted in `.traces/research/`. Each explored a technology domain through the lens of N3TX's schema-driven architecture.
 
 ### Research Inventory
 
 | # | Theme | Core Finding | Roadmap Impact |
 |---|-------|-------------|----------------|
-| 1 | **Category Theory** | PyBend embodies categorical structures (functors, algebras, adjunctions) with 8 "impurities." Three high-priority ones cause real bugs. | Wave 0: schema pipeline, Result type, model_dump split are CT fixes applied as the backend is built |
-| 2 | **AI Agents** | AI ecosystem converged on JSON Schema as universal tool definition format. PyBend has 65% of agent infrastructure. | Wave 1: MCP tools, A2A Agent Card — both are NetworkAdapter protocols on the actor system |
-| 3 | **Schema-Agentic Systems** | 9 direct architectural parallels between PyBend's frontend actors and agent patterns. `@expose_route` = tool definition. `AccessRule` = agent permission scoping. | Wave 0: backend actors mirror these patterns; Wave 1: MCP is a thin adapter |
+| 1 | **Category Theory** | N3TX embodies categorical structures (functors, algebras, adjunctions) with 8 "impurities." Three high-priority ones cause real bugs. | Wave 0: schema pipeline, Result type, model_dump split are CT fixes applied as the backend is built |
+| 2 | **AI Agents** | AI ecosystem converged on JSON Schema as universal tool definition format. N3TX has 65% of agent infrastructure. | Wave 1: MCP tools, A2A Agent Card — both are NetworkAdapter protocols on the actor system |
+| 3 | **Schema-Agentic Systems** | 9 direct architectural parallels between N3TX's frontend actors and agent patterns. `@expose_route` = tool definition. `AccessRule` = agent permission scoping. | Wave 0: backend actors mirror these patterns; Wave 1: MCP is a thin adapter |
 | 4 | **Schema-Driven Agents** | "Define a model, get an agent" is a genuine market differentiator. No framework offers built-in ABAC + auto-generated API + auto-generated UI from a single agent definition. | Wave 4+: AgentMixin builds on Wave 0 actor infrastructure |
-| 5 | **Decentralized Protocols** | PyBend's self-describing entities (`$schema`/`$id`) are 60-70% convergent with federation protocols. ActivityPub Actor ≡ PyBend Actor (structurally identical). | Wave 0: actors enable federation; Wave 1: AP is a NetworkAdapter |
+| 5 | **Decentralized Protocols** | N3TX's self-describing entities (`$schema`/`$id`) are 60-70% convergent with federation protocols. ActivityPub Actor ≡ N3TX Actor (structurally identical). | Wave 0: actors enable federation; Wave 1: AP is a NetworkAdapter |
 | 6 | **Polymorphic Systems** | `__discriminator__` ClassVar enables STI with automatic `oneOf` + discriminator JSON Schema. Agent types and Activity types are natural polymorphic subtypes. | Wave 3: schema extension on actor pipeline |
-| 7 | **Microservices** | PyBend is already a modular monolith. `create_app()` is a service factory. Schema contract is identical in monolith or service mode. | Wave 0: actors make extraction mechanical (move actor to another Matrix) |
-| 8 | **CLI/TUI** | PyBend is 70% done with CLI, zero code written. The missing piece is `setup()` — bootstrapping models without HTTP. | Wave 4+: CLI is a schema consumer that talks to actors |
-| 9 | **GraphQL** | Decisive "no." PyBend's JSON Schema delivers 70-80% of GraphQL's value. Schema-carries-UI is the moat GraphQL can't replicate. | Sparse fieldsets (`?fields=`) as a minor enhancement |
+| 7 | **Microservices** | N3TX is already a modular monolith. `create_app()` is a service factory. Schema contract is identical in monolith or service mode. | Wave 0: actors make extraction mechanical (move actor to another Matrix) |
+| 8 | **CLI/TUI** | N3TX is 70% done with CLI, zero code written. The missing piece is `setup()` — bootstrapping models without HTTP. | Wave 4+: CLI is a schema consumer that talks to actors |
+| 9 | **GraphQL** | Decisive "no." N3TX's JSON Schema delivers 70-80% of GraphQL's value. Schema-carries-UI is the moat GraphQL can't replicate. | Sparse fieldsets (`?fields=`) as a minor enhancement |
 | 10 | **SSR** | Strategy A (embed schema+data as `<script>` tags) eliminates 400-600ms waterfall with ~50 lines. Already has `#consumePreloadedSchema()`. | Wave 3: quick win (2-4 hours), not architectural |
 | 11 | **HTML Compiler** | Schema-compiled templates yield 3-8x FCP improvement. ~770 LOC pure Python compiler. | Wave 4+: schema consumer actor, triggered by performance need |
-| 12 | **WebAssembly** | PyBend is I/O-bound (84% network, 12% DOM, 3% CPU). Wasm optimizes the wrong bottleneck. | Deferred. Revisit at >1,000 entities/page |
-| 13 | **Micro-Frontends** | 70% of MFE infrastructure exists (Actor model, schema discovery, Web Components). Industry converging on PyBend's stack. | Wave 4+: organizational trigger (15+ frontend devs) |
+| 12 | **WebAssembly** | N3TX is I/O-bound (84% network, 12% DOM, 3% CPU). Wasm optimizes the wrong bottleneck. | Deferred. Revisit at >1,000 entities/page |
+| 13 | **Micro-Frontends** | 70% of MFE infrastructure exists (Actor model, schema discovery, Web Components). Industry converging on N3TX's stack. | Wave 4+: organizational trigger (15+ frontend devs) |
 
 ### Why Three Themes Were Prioritized
 
-**AI/Agentic**: The AI agent market is projected at $52.6B by 2030 (46.3% CAGR). Every major LLM provider converged on JSON Schema for tool definitions. PyBend's schema IS the tool definition. MCP has 97M+ monthly SDK downloads and was donated to the Linux Foundation. This is the fastest-growing ecosystem PyBend can access, and the gap is a thin adapter layer, not an architectural change.
+**AI/Agentic**: The AI agent market is projected at $52.6B by 2030 (46.3% CAGR). Every major LLM provider converged on JSON Schema for tool definitions. N3TX's schema IS the tool definition. MCP has 97M+ monthly SDK downloads and was donated to the Linux Foundation. This is the fastest-growing ecosystem N3TX can access, and the gap is a thin adapter layer, not an architectural change.
 
 **Category Theory**: CT is not a feature — it's the discipline of building everything else correctly. The CT research identified 8 "impurities" that cause real bugs (200-OK errors, schema pipeline inflexibility, storage round-trip inconsistency). Fixing these makes agents and federation work correctly by construction. CT is the "how," not the "what."
 
-**Decentralization**: EU DMA review (May 2026) may mandate interoperability. eIDAS 2.0 (November 2026) mandates digital identity wallets. Bluesky has 40M+ users. The Fediverse has 12M+ registered users. And the structural insight — ActivityPub Actor = PyBend Actor — means federation is not a new feature but a natural extension of the actor architecture.
+**Decentralization**: EU DMA review (May 2026) may mandate interoperability. eIDAS 2.0 (November 2026) mandates digital identity wallets. Bluesky has 40M+ users. The Fediverse has 12M+ registered users. And the structural insight — ActivityPub Actor = N3TX Actor — means federation is not a new feature but a natural extension of the actor architecture.
 
 ---
 
@@ -314,7 +314,7 @@ Without Wave 0, each of Waves 1-3 requires building its own communication, routi
 > **Result**: 871 tests pass (485 unit + 386 integration), zero regression.
 
 Decomposed the 118-line monolithic `ProtoModel.schema()` into 7 composable
-`dict → dict` pure functions in `src/pybend/core/models/proto_schema.py`:
+`dict → dict` pure functions in `src/n3tx/core/models/proto_schema.py`:
 
 ```python
 s = proto_schema.base(cls)           # Pydantic core schema
@@ -385,7 +385,7 @@ StorableMixin                   # Unchanged — CRUD methods (create, get, list,
 ProtoModel is **unchanged**. StorableMixin is **unchanged**. CRUD methods stay in
 StorableMixin. Routes stay unchanged in Wave 0 — RouteActor bridge comes in Wave 2.
 
-**Actor base class** (`src/pybend/core/actors/actor.py`):
+**Actor base class** (`src/n3tx/core/actors/actor.py`):
 ```python
 class Actor:
     """Base actor with address, parent, children, inbox, handler, send.
@@ -508,7 +508,7 @@ per-instance child actors for real-time subscriptions).
 Both use the same `register()` / `children` interface — the difference is
 where state lives (ClassVar vs instance attr).
 
-**Matrix message bus** (`src/pybend/core/actors/matrix.py`):
+**Matrix message bus** (`src/n3tx/core/actors/matrix.py`):
 ```python
 class Matrix(Actor):
     """Root actor and message router. One per application.
@@ -549,7 +549,7 @@ class Matrix(Actor):
 matrix = Matrix()  # Root instance, like JS: export const matrix = new Matrix("matrix://root")
 ```
 
-**TX message envelope** (`src/pybend/core/actors/tx.py`):
+**TX message envelope** (`src/n3tx/core/actors/tx.py`):
 ```python
 @dataclass
 class TX:
@@ -958,8 +958,8 @@ of the foundation everything else depends on.
 **Regression tests** — existing tests must pass unchanged:
 ```python
 # Run ALL existing test suites after Wave 0:
-# - src/pybend/core/tests/unit/        (framework unit tests)
-# - src/pybend/example/tests/           (integration tests: CRUD, auth, pagination, FK hydration)
+# - src/n3tx/core/tests/unit/        (framework unit tests)
+# - src/n3tx/example/tests/           (integration tests: CRUD, auth, pagination, FK hydration)
 #
 # If any existing test fails, the refactor is wrong — not the test.
 # Zero tolerance for regression.
@@ -1075,13 +1075,13 @@ app = create_app(models=[Product, User, Comment], storage=storage, mcp=True)
 # ^^^ registers MCPAdapter on the Matrix alongside HTTPAdapter
 ```
 
-The day this ships, every PyBend app is accessible to Claude Desktop, Cursor, GPT, and 10,000+ MCP clients.
+The day this ships, every N3TX app is accessible to Claude Desktop, Cursor, GPT, and 10,000+ MCP clients.
 
 ### 1b. Federation NetworkAdapter (~4-5 days)
 
 ActivityPub is HTTP-based actor messaging. The structural mapping:
 
-| ActivityPub | PyBend Actor |
+| ActivityPub | N3TX Actor |
 |---|---|
 | Actor with inbox/outbox | Actor with `inbox()` / `send()` |
 | Activity (Create, Update, Delete) | TX with `name` (CREATE, UPDATE, DELETE) |
@@ -1127,7 +1127,7 @@ class ActivityPubAdapter(NetworkAdapter):
 **WebFinger** (actor address resolution):
 ```python
 # GET /.well-known/webfinger?resource=acct:alice@example.com
-# Returns links to the actor's AP Actor document and PyBend schema
+# Returns links to the actor's AP Actor document and N3TX schema
 ```
 
 **What ships:** Models with `__federated__ = True` produce valid ActivityPub Actor documents. WebFinger makes them discoverable. Lifecycle events (CREATE, UPDATE, DELETE via TX messages) are serialized as Activities and delivered to followers. Inbound activities from the Fediverse are validated and routed through the Matrix to ActorModels.
@@ -1203,7 +1203,7 @@ federated, local) across all parametrized rule combinations.
 
 ### Wave 1 Deliverable
 
-- Working MCP server: any AI agent can discover and call PyBend model methods
+- Working MCP server: any AI agent can discover and call N3TX model methods
 - Working ActivityPub: models with `__federated__` produce AP Actors discoverable via WebFinger
 - A2A Agent Card at `/.well-known/agent.json`
 - Algebraically verified access control extended for agents + federation
@@ -1377,7 +1377,7 @@ Auto-generates:
 - `_type TEXT NOT NULL` column in storage
 - `Article.list()` adds `WHERE _type = 'article'`; `Content.list()` returns all
 - Schema output with `oneOf` + `discriminator` + per-subtype `$defs`
-- Frontend `NTT.SCHEMA()` creates per-subtype DynamicClasses
+- Frontend `N3TX.SCHEMA()` creates per-subtype DynamicClasses
 
 **Why here:** Agent types (ResearchAgent, TriageAgent) and federation activity types (Create, Update, Delete) are natural polymorphic hierarchies.
 
@@ -1391,11 +1391,11 @@ CT verification to ensure correctness before scaling:
 
 ### 3d. SSR Data Pre-loading (~2-4 hours)
 
-Quick win: server injects schema + data into HTML. The frontend already has `#consumePreloadedSchema()` and `#consumePreloadedData()` in NTT.js (lines 244-277). This eliminates 400-600ms of waterfall latency.
+Quick win: server injects schema + data into HTML. The frontend already has `#consumePreloadedSchema()` and `#consumePreloadedData()` in N3TX.js (lines 244-277). This eliminates 400-600ms of waterfall latency.
 
 ```html
-<script type="application/json" data-ntt-schema>{"Product": ...}</script>
-<script type="application/json" data-ntt-data>{"products": [...]}</script>
+<script type="application/json" data-ntx-schema>{"Product": ...}</script>
+<script type="application/json" data-ntx-data>{"products": [...]}</script>
 ```
 
 ### Wave 3 Deliverable
@@ -1505,7 +1505,7 @@ This matrix shows which of the 13 research themes benefit from each Wave 0-2 cha
 ### Wave 1 (Capabilities)
 - [x] MCP adapter: `tools/list` returns all registered model tools (1a)
 - [x] MCP adapter: `tools/call` successfully executes CRUD + custom methods (1a)
-- [ ] At least one external MCP client (Claude Desktop or Cursor) calls a PyBend tool
+- [ ] At least one external MCP client (Claude Desktop or Cursor) calls a N3TX tool
 - [x] A2A Agent Card at `/.well-known/agent.json` validates against A2A schema (1d)
 - [x] WebFinger at `/.well-known/webfinger` resolves user to AP Actor URL (1b)
 - [x] Federation adapter: `__federated__` model produces valid AP Actor document (1b)
@@ -1534,49 +1534,49 @@ This matrix shows which of the 13 research themes benefit from each Wave 0-2 cha
 
 | File | Role | Waves |
 |------|------|:-----:|
-| `src/pybend/core/models/proto_model.py` | Base model, schema orchestrator → pipeline decomposed (0a DONE) | W0 |
-| `src/pybend/core/models/base_user.py` | User model → gains DID fields (Wave 4+) | W3+ |
-| `src/pybend/core/models/storable_mixin.py` | CRUD ops — **unchanged**, ActorModel delegates to these methods | W0 |
-| `src/pybend/core/api/routes_fastapi.py` | Route factories → delegate to RouteActor bridge | W2, W1 |
-| `src/pybend/core/authorize/rules.py` | AccessRule hierarchy → gains agent/federation subclasses | W1 |
-| `src/pybend/core/storage/sqlite_storage.py` | SQLite backend → wrapped by StorageActor | W2 |
-| `src/pybend/core/storage/sqlite_migration.py` | Auto-migration → gains `_type` column for polymorphism | W3 |
-| `src/pybend/core/app.py` | PyBendApp builder → spawns actors on Matrix | W0 |
-| `src/pybend/core/utils/decorators.py` | `@expose_route` → methods become actor message handlers | W0 |
-| `src/pybend/core/utils/registrar.py` | `registered_models` → replaced by Matrix actor registry | W0 |
-| `src/pybend/__init__.py` | Public API re-exports | W0, W1 |
-| `src/pybend/static/core/NTT.js` | Entity system → consumes preloaded data (W3d) | W3 |
-| `src/pybend/static/core/Matrix.js` | Frontend message bus → bridges to backend Matrix | W3 |
-| `src/pybend/static/generators/form.js` | Form generator | W3 |
+| `src/n3tx/core/models/proto_model.py` | Base model, schema orchestrator → pipeline decomposed (0a DONE) | W0 |
+| `src/n3tx/core/models/base_user.py` | User model → gains DID fields (Wave 4+) | W3+ |
+| `src/n3tx/core/models/storable_mixin.py` | CRUD ops — **unchanged**, ActorModel delegates to these methods | W0 |
+| `src/n3tx/core/api/routes_fastapi.py` | Route factories → delegate to RouteActor bridge | W2, W1 |
+| `src/n3tx/core/authorize/rules.py` | AccessRule hierarchy → gains agent/federation subclasses | W1 |
+| `src/n3tx/core/storage/sqlite_storage.py` | SQLite backend → wrapped by StorageActor | W2 |
+| `src/n3tx/core/storage/sqlite_migration.py` | Auto-migration → gains `_type` column for polymorphism | W3 |
+| `src/n3tx/core/app.py` | N3TXApp builder → spawns actors on Matrix | W0 |
+| `src/n3tx/core/utils/decorators.py` | `@expose_route` → methods become actor message handlers | W0 |
+| `src/n3tx/core/utils/registrar.py` | `registered_models` → replaced by Matrix actor registry | W0 |
+| `src/n3tx/__init__.py` | Public API re-exports | W0, W1 |
+| `src/n3tx/static/core/N3TX.js` | Entity system → consumes preloaded data (W3d) | W3 |
+| `src/n3tx/static/core/Matrix.js` | Frontend message bus → bridges to backend Matrix | W3 |
+| `src/n3tx/static/generators/form.js` | Form generator | W3 |
 
 ### New Files (Created by This Roadmap)
 
 | File | Wave | Purpose |
 |------|:----:|---------|
-| `src/pybend/core/models/proto_schema.py` | W0 | Schema pipeline — 7 composable `dict → dict` stages (0a DONE) |
-| `src/pybend/core/tests/unit/test_proto_schema.py` | W0 | Schema pipeline stage tests (0a DONE) |
-| `src/pybend/core/actors/__init__.py` | W0 | Actor system package |
-| `src/pybend/core/actors/actor.py` | W0 | Base Actor class |
-| `src/pybend/core/actors/matrix.py` | W0 | Matrix message bus |
-| `src/pybend/core/actors/tx.py` | W0 | TX message envelope |
-| `src/pybend/core/actors/actor_model.py` | W0 | ActorModel(Actor, ProtoModel) — bridge class (CRUD + lifecycle) |
-| `src/pybend/core/actors/storage_actor.py` | W2 | StorageActor (CRUD behind messages) |
-| `src/pybend/core/actors/route_actor.py` | W2 | RouteActor (HTTP ↔ TX bridge) |
-| `src/pybend/core/actors/auth_actor.py` | W2 | AuthActor (ABAC message interceptor) |
-| `src/pybend/core/actors/schema_ext.py` | W0 | `@schema_extension` decorator + ProtoModel pipeline stage registry |
-| `src/pybend/core/actors/adapters/__init__.py` | W1 | NetworkAdapter package |
-| `src/pybend/core/actors/adapters/mcp_adapter.py` | W1 | MCP JSON-RPC ↔ TX |
-| `src/pybend/core/actors/adapters/ap_adapter.py` | W1 | ActivityPub ↔ TX |
-| `src/pybend/core/api/network_ws.py` | W3 | WebSocket bridge — NetworkWebSocket adapter + `create_ws_routes()` (3a DONE) |
-| `src/pybend/core/api/tests/test_network_ws.py` | W3 | WebSocket adapter unit + integration tests (28 tests) (3a DONE) |
-| `src/pybend/core/api/discovery.py` | W1 | `/_meta`, `/.well-known/agent.json`, `/.well-known/webfinger` |
-| `src/pybend/core/tests/unit/test_access_algebra.py` | W1 | Boolean algebra law tests |
-| `src/pybend/core/tests/unit/test_storage_adjunction.py` | W3 | Storage round-trip tests |
-| `src/pybend/core/tests/unit/test_actor_system.py` | W0 | Actor/Matrix/TX unit tests (inbox, handler, send, register, routing) |
-| `src/pybend/core/tests/unit/test_schema_pipeline.py` | W0 | Schema pipeline stage tests — delivered as `test_proto_schema.py` (0a DONE) |
-| `src/pybend/core/tests/unit/test_actor_model.py` | W0 | ActorModel integration tests (CRUD, lifecycle, custom methods, errors) |
-| `src/pybend/core/tests/integration/test_mcp.py` | W1 | MCP adapter integration tests |
-| `src/pybend/core/tests/integration/test_federation.py` | W1 | Federation adapter integration tests |
+| `src/n3tx/core/models/proto_schema.py` | W0 | Schema pipeline — 7 composable `dict → dict` stages (0a DONE) |
+| `src/n3tx/core/tests/unit/test_proto_schema.py` | W0 | Schema pipeline stage tests (0a DONE) |
+| `src/n3tx/core/actors/__init__.py` | W0 | Actor system package |
+| `src/n3tx/core/actors/actor.py` | W0 | Base Actor class |
+| `src/n3tx/core/actors/matrix.py` | W0 | Matrix message bus |
+| `src/n3tx/core/actors/tx.py` | W0 | TX message envelope |
+| `src/n3tx/core/actors/actor_model.py` | W0 | ActorModel(Actor, ProtoModel) — bridge class (CRUD + lifecycle) |
+| `src/n3tx/core/actors/storage_actor.py` | W2 | StorageActor (CRUD behind messages) |
+| `src/n3tx/core/actors/route_actor.py` | W2 | RouteActor (HTTP ↔ TX bridge) |
+| `src/n3tx/core/actors/auth_actor.py` | W2 | AuthActor (ABAC message interceptor) |
+| `src/n3tx/core/actors/schema_ext.py` | W0 | `@schema_extension` decorator + ProtoModel pipeline stage registry |
+| `src/n3tx/core/actors/adapters/__init__.py` | W1 | NetworkAdapter package |
+| `src/n3tx/core/actors/adapters/mcp_adapter.py` | W1 | MCP JSON-RPC ↔ TX |
+| `src/n3tx/core/actors/adapters/ap_adapter.py` | W1 | ActivityPub ↔ TX |
+| `src/n3tx/core/api/network_ws.py` | W3 | WebSocket bridge — NetworkWebSocket adapter + `create_ws_routes()` (3a DONE) |
+| `src/n3tx/core/api/tests/test_network_ws.py` | W3 | WebSocket adapter unit + integration tests (28 tests) (3a DONE) |
+| `src/n3tx/core/api/discovery.py` | W1 | `/_meta`, `/.well-known/agent.json`, `/.well-known/webfinger` |
+| `src/n3tx/core/tests/unit/test_access_algebra.py` | W1 | Boolean algebra law tests |
+| `src/n3tx/core/tests/unit/test_storage_adjunction.py` | W3 | Storage round-trip tests |
+| `src/n3tx/core/tests/unit/test_actor_system.py` | W0 | Actor/Matrix/TX unit tests (inbox, handler, send, register, routing) |
+| `src/n3tx/core/tests/unit/test_schema_pipeline.py` | W0 | Schema pipeline stage tests — delivered as `test_proto_schema.py` (0a DONE) |
+| `src/n3tx/core/tests/unit/test_actor_model.py` | W0 | ActorModel integration tests (CRUD, lifecycle, custom methods, errors) |
+| `src/n3tx/core/tests/integration/test_mcp.py` | W1 | MCP adapter integration tests |
+| `src/n3tx/core/tests/integration/test_federation.py` | W1 | Federation adapter integration tests |
 
 ---
 
@@ -1604,13 +1604,13 @@ Both roadmaps converge on the same capabilities (MCP, federation, polymorphism, 
 
 The Python backend actor system is modeled after the existing proven frontend implementation. Key reference files:
 
-- **Actor.js** (`src/pybend/static/core/Actor.js`): Base class with `#addr`, `#parent`, `#children` private fields. `inbox()` receives TX messages. `send()` routes through parent. `static _send()` provides hierarchical routing — local children first, then bubble to root Matrix.
+- **Actor.js** (`src/n3tx/static/core/Actor.js`): Base class with `#addr`, `#parent`, `#children` private fields. `inbox()` receives TX messages. `send()` routes through parent. `static _send()` provides hierarchical routing — local children first, then bubble to root Matrix.
 
-- **Matrix.js** (`src/pybend/static/core/Matrix.js`): Root actor singleton. `inbox()` routes by target address prefix — local children via `this.children.has(targetAddr)`, otherwise `this.remote.send(tx)` to NetworkAdapter. `connect()` handles actor-to-actor connection setup.
+- **Matrix.js** (`src/n3tx/static/core/Matrix.js`): Root actor singleton. `inbox()` routes by target address prefix — local children via `this.children.has(targetAddr)`, otherwise `this.remote.send(tx)` to NetworkAdapter. `connect()` handles actor-to-actor connection setup.
 
-- **TX.js** (`src/pybend/static/core/TX.js`): Message envelope with `name`, `source`, `target`, `data`, `meta`, `tst` (timestamp), `hash` (content hash). Subclasses: ConnectEvent, ReadEvent, etc. `repr()` serializes to plain object. Event types defined in `config.E`: SCHEMA, READ, CREATE, UPDATE, DELETE, CONNECT, DESCRIBE, ERROR.
+- **TX.js** (`src/n3tx/static/core/TX.js`): Message envelope with `name`, `source`, `target`, `data`, `meta`, `tst` (timestamp), `hash` (content hash). Subclasses: ConnectEvent, ReadEvent, etc. `repr()` serializes to plain object. Event types defined in `config.E`: SCHEMA, READ, CREATE, UPDATE, DELETE, CONNECT, DESCRIBE, ERROR.
 
-- **NetworkAdapter.js** (`src/pybend/static/core/transport/NetworkAdapter.js`): HTTP bridge. `send()` translates TX to HTTP request. `httpCallback()` wraps response in TX and dispatches back through Matrix. `onError()` creates ERROR TX. Supports HTTP and WebSocket modes.
+- **NetworkAdapter.js** (`src/n3tx/static/core/transport/NetworkAdapter.js`): HTTP bridge. `send()` translates TX to HTTP request. `httpCallback()` wraps response in TX and dispatches back through Matrix. `onError()` creates ERROR TX. Supports HTTP and WebSocket modes.
 
 The Python port follows the same patterns but adds:
 - `asyncio` for non-blocking message handling (vs. synchronous JS)

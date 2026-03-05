@@ -7,7 +7,7 @@
 
 ## 🎯 The Bridge
 
-PyBend's fundamental axiom -- **the model is the app** -- maps onto an insight the entire AI agent industry arrived at independently between 2023 and 2026: **the schema is the agent**. OpenAI, Anthropic, Google, and Microsoft all converged on JSON Schema as the universal contract for defining what an agent can do, what inputs it accepts, and what outputs it produces. PyBend already generates rich, typed, access-controlled JSON Schema from Python model definitions. The structural alignment is not a metaphor -- it is architectural isomorphism.
+N3TX's fundamental axiom -- **the model is the app** -- maps onto an insight the entire AI agent industry arrived at independently between 2023 and 2026: **the schema is the agent**. OpenAI, Anthropic, Google, and Microsoft all converged on JSON Schema as the universal contract for defining what an agent can do, what inputs it accepts, and what outputs it produces. N3TX already generates rich, typed, access-controlled JSON Schema from Python model definitions. The structural alignment is not a metaphor -- it is architectural isomorphism.
 
 The research identifies nine direct architectural parallels between our existing primitives and agent system requirements: `ProtoModel.schema()` maps to capability manifests, `@expose_route` maps to `@function_tool`, `Actor/Matrix/TX` maps to the agent communication bus, ABAC rules map to agent permission scoping, `StorableMixin` maps to agent state persistence, and `prototype()`/`DynamicClass` maps to runtime agent instantiation. The estimated coverage of agent infrastructure is 65%, with the missing 35% (LLM integration, planning loops, memory) being additive -- layers on top, not rewrites underneath.
 
@@ -19,11 +19,11 @@ The opportunity is not to become an agent framework. The opportunity is to recog
 
 ### Proposition 1: Expose existing model schemas as MCP tools -- zero LLM cost, immediate ecosystem access
 
-> 🔧 **Proposition:** Auto-generate MCP `tools/list` responses from `ProtoModel.schema()` output, making every PyBend model instantly accessible to Claude, GPT, Cursor, and 300+ MCP clients.
+> 🔧 **Proposition:** Auto-generate MCP `tools/list` responses from `ProtoModel.schema()` output, making every N3TX model instantly accessible to Claude, GPT, Cursor, and 300+ MCP clients.
 
 **From the research:** MCP has 97M+ monthly SDK downloads and 10,000+ public servers. It is the fastest-adopted developer protocol since Docker. Every major AI provider -- including OpenAI, Google, and Microsoft -- has adopted Anthropic's protocol. The tool definition format is JSON Schema with `name`, `description`, and `inputSchema` fields. (01-industry-landscape.md, Section 3)
 
-**In our system:** `ProtoModel.__pybend_methods_json_signature__()` (proto_model.py, line 140) already extracts typed parameter schemas from `@expose_route` methods. The `schema()` method (line 199) produces a JSON Schema document with `methods`, `properties`, `access`, and `$defs`. The conversion from our schema format to MCP's `tools/list` format is a field rename, not a structural transformation.
+**In our system:** `ProtoModel.__n3tx_methods_json_signature__()` (proto_model.py, line 140) already extracts typed parameter schemas from `@expose_route` methods. The `schema()` method (line 199) produces a JSON Schema document with `methods`, `properties`, `access`, and `$defs`. The conversion from our schema format to MCP's `tools/list` format is a field rename, not a structural transformation.
 
 **The idea:** Build a thin adapter layer -- approximately 200 lines of code -- that reads each registered `ProtoModel` subclass, iterates over `schema().methods`, and serves them as MCP tool definitions via JSON-RPC over stdio or HTTP. For a `Product` model with a `comment` method, the adapter would emit:
 
@@ -35,13 +35,13 @@ ProtoModel.schema().methods.comment    -->    MCP tools/list response
   access: {rule: "authenticated"}             annotations: {requiresAuth: true}
 ```
 
-The result: any MCP client -- Claude Desktop, VS Code Copilot, ChatGPT with MCP plugins -- can interact with PyBend data through typed, validated tools. No LLM spend. No agent logic. Just schema publication.
+The result: any MCP client -- Claude Desktop, VS Code Copilot, ChatGPT with MCP plugins -- can interact with N3TX data through typed, validated tools. No LLM spend. No agent logic. Just schema publication.
 
 **Effort/Impact:**
 
 | Dimension | Assessment |
 |-----------|-----------|
-| Effort | **Low** -- ~200 LOC adapter, 2-3 weeks with one engineer. Reuses existing `__pybend_methods_json_signature__()` output. |
+| Effort | **Low** -- ~200 LOC adapter, 2-3 weeks with one engineer. Reuses existing `__n3tx_methods_json_signature__()` output. |
 | Impact | **High** -- Unlocks the entire MCP ecosystem (97M+ downloads/month). Creates permanent optionality for agent features. |
 | Risk | **Very Low** -- Publishing schemas, not running agents. No LLM cost. Reversible in minutes. |
 | Timeline | **2-4 weeks** |
@@ -61,7 +61,7 @@ The result: any MCP client -- Claude Desktop, VS Code Copilot, ChatGPT with MCP 
 ```
 GET /.well-known/agent.json
 {
-  "name": "PyBend Application",
+  "name": "N3TX Application",
   "skills": [
     {
       "id": "product-comment",           <-- from schema.methods.comment
@@ -93,7 +93,7 @@ GET /.well-known/agent.json
 
 **From the research:** Every major agent framework uses a decorator pattern for tool registration: OpenAI's `@function_tool`, LangChain's `@tool`, Microsoft's `@ai_function`, PydanticAI's `@agent.tool`. The description field is the most important -- Anthropic's documentation emphasizes it conveys semantic intent that JSON Schema alone cannot. MCP added `outputSchema` in June 2025, closing the full input/output contract. (02-technical-deep-dive.md, Section 2; 04-our-stack-relevance.md, Section 4)
 
-**In our system:** `@expose_route` in `decorators.py` (line 3) attaches `__endpoint__` metadata to methods. `__pybend_methods_json_signature__()` reads this metadata and serializes it into the schema. The pattern is identical to what agent frameworks do -- the only missing piece is agent-specific fields.
+**In our system:** `@expose_route` in `decorators.py` (line 3) attaches `__endpoint__` metadata to methods. `__n3tx_methods_json_signature__()` reads this metadata and serializes it into the schema. The pattern is identical to what agent frameworks do -- the only missing piece is agent-specific fields.
 
 **The idea:** `@expose_tool` would be a superset of `@expose_route`:
 
@@ -109,7 +109,7 @@ def web_search(self, query: str) -> list[dict]:
     ...
 ```
 
-Internally, it sets both `func.__endpoint__` (for HTTP routes) and `func.__tool__` (for agent tool metadata). The schema generation in `__pybend_methods_json_signature__()` would pick up the `__tool__` attribute and include `cost`, `timeout`, and enhanced `description` in the schema's `methods` section. This is ~30 lines of new code in `decorators.py` and ~20 lines of schema generation changes in `proto_model.py`.
+Internally, it sets both `func.__endpoint__` (for HTTP routes) and `func.__tool__` (for agent tool metadata). The schema generation in `__n3tx_methods_json_signature__()` would pick up the `__tool__` attribute and include `cost`, `timeout`, and enhanced `description` in the schema's `methods` section. This is ~30 lines of new code in `decorators.py` and ~20 lines of schema generation changes in `proto_model.py`.
 
 **Effort/Impact:**
 
@@ -282,7 +282,7 @@ class ResearchAgent(ProtoModel, AgentMixin):
 
 **From the research:** The DynamicClass pattern -- reading a schema and creating a fully functional typed class at runtime -- is what agent proxies need. Instead of hand-coding client integrations per agent, you fetch the schema and get a typed proxy with validated method calls. This is the agent equivalent of how GraphQL clients auto-generate typed queries from schemas. (05-schema-as-agent-protocol.md, Section 11; 04-our-stack-relevance.md, Section 6)
 
-**In our system:** `NTT.js`'s `prototype()` (NTT.js, line 663+) creates JavaScript classes from JSON Schema at runtime with typed getters/setters, method stubs, and actor-model messaging. `generate_join_model()` (proto_model.py, line 383) already creates Python model classes dynamically using `type()`. The backend pattern exists -- it just needs to target remote agent schemas instead of local join models.
+**In our system:** `N3TX.js`'s `prototype()` (N3TX.js, line 663+) creates JavaScript classes from JSON Schema at runtime with typed getters/setters, method stubs, and actor-model messaging. `generate_join_model()` (proto_model.py, line 383) already creates Python model classes dynamically using `type()`. The backend pattern exists -- it just needs to target remote agent schemas instead of local join models.
 
 **The idea:** A function `create_agent_proxy(schema)` that:
 1. Fetches an Agent Card from `/.well-known/agent.json`
@@ -313,7 +313,7 @@ ResearchProxy = create_agent_proxy(schema)
 
 **From the research:** 96% of organizations report AI costs higher than expected at production scale. One documented incident cost $47K in 11 days from a recursive agent loop. No existing agent protocol carries cost or reliability metadata per tool/skill. Adding this to the schema enables orchestrators to make economically rational routing decisions: use the cheapest agent that meets the SLA, route away from unreliable agents, and enforce per-task budgets. (03-decision-framework.md, Section 6; 05-schema-as-agent-protocol.md, Section 6)
 
-**In our system:** Schema method entries in `__pybend_methods_json_signature__()` already carry `route`, `methods`, `parameters`, `returns`, and `access`. Adding `cost` and `reliability` is a dict extension -- no structural change.
+**In our system:** Schema method entries in `__n3tx_methods_json_signature__()` already carry `route`, `methods`, `parameters`, `returns`, and `access`. Adding `cost` and `reliability` is a dict extension -- no structural change.
 
 **The idea:** The `@expose_tool` decorator (Proposition 3) would accept `cost` and `reliability` dicts. The schema generation would include them:
 
@@ -407,17 +407,17 @@ This is the agent equivalent of API versioning -- essential for production multi
 
 ## 🎯 Recommended Starting Point
 
-**Start with Proposition 1 (MCP tool exposure) and Proposition 3 (`@expose_tool` decorator) in parallel.** Together, they take 2-4 weeks and achieve the single most valuable outcome: making every PyBend model accessible to the entire MCP ecosystem at zero LLM cost.
+**Start with Proposition 1 (MCP tool exposure) and Proposition 3 (`@expose_tool` decorator) in parallel.** Together, they take 2-4 weeks and achieve the single most valuable outcome: making every N3TX model accessible to the entire MCP ecosystem at zero LLM cost.
 
 **Why these two first:**
-- Proposition 1 creates immediate, tangible value -- any Claude, GPT, or Cursor session can interact with PyBend data
+- Proposition 1 creates immediate, tangible value -- any Claude, GPT, or Cursor session can interact with N3TX data
 - Proposition 3 enriches tool definitions with descriptions that LLMs can read effectively, multiplying the value of Proposition 1
 - Both are low-risk and fully reversible
 - They validate the core hypothesis (our schemas are agent-ready) before committing to heavier investments
 
 **Validation approach:**
 1. Deploy MCP server adapter for the example app (Product, Comment, User, Like)
-2. Connect Claude Desktop and attempt 10 natural language queries against PyBend data
+2. Connect Claude Desktop and attempt 10 natural language queries against N3TX data
 3. Measure: tool call accuracy (target >90%), schema validation pass rate (target 100%), zero unintended side effects
 4. If successful: proceed to Proposition 4 (agent ABAC rules) and Proposition 7 (guardrails) to harden the foundation before adding LLM-powered agents in Proposition 5
 

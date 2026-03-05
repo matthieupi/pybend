@@ -1,4 +1,4 @@
-# Backend Integration Test Plan — PyBend Framework
+# Backend Integration Test Plan — N3TX Framework
 
 > **Scope**: Every API endpoint, cross-module workflow, and authorization scenario.
 > **Framework**: pytest + httpx (async) or requests (sync), FastAPI TestClient

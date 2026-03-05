@@ -7,7 +7,7 @@
 
 ## Abstract
 
-PyBend's architecture -- where a Python model definition generates an API, schema, storage, access control, and a runtime frontend -- is a composition of functors in disguise. This paper argues that recognizing and formalizing these implicit categorical structures is the highest-leverage improvement available to the framework, not because category theory is fashionable, but because it provides the exact vocabulary and laws needed to detect, prevent, and diagnose the hardest class of bugs in a schema-driven system: silent failures at layer boundaries. We trace the full-stack pipeline from `ProtoModel` through JSON Schema to `DynamicClass` to rendered HTML, mapping each transformation to its categorical structure. We identify eight specific points where the pipeline's algebraic laws break, correlate three of those with documented bug classes (including the "200-OK error" case study), and propose a phased remediation that costs 12-19 engineering days and eliminates an entire category of silent-failure bugs. We also draw clear boundaries: where categorical formalism helps (composable pipelines, algebraic rule systems, round-trip contracts) and where it hurts (dynamic typing, actor state, simple CRUD). The conclusion is pragmatic: use the structure, not the vocabulary. Fix the laws, not the names.
+N3TX's architecture -- where a Python model definition generates an API, schema, storage, access control, and a runtime frontend -- is a composition of functors in disguise. This paper argues that recognizing and formalizing these implicit categorical structures is the highest-leverage improvement available to the framework, not because category theory is fashionable, but because it provides the exact vocabulary and laws needed to detect, prevent, and diagnose the hardest class of bugs in a schema-driven system: silent failures at layer boundaries. We trace the full-stack pipeline from `ProtoModel` through JSON Schema to `DynamicClass` to rendered HTML, mapping each transformation to its categorical structure. We identify eight specific points where the pipeline's algebraic laws break, correlate three of those with documented bug classes (including the "200-OK error" case study), and propose a phased remediation that costs 12-19 engineering days and eliminates an entire category of silent-failure bugs. We also draw clear boundaries: where categorical formalism helps (composable pipelines, algebraic rule systems, round-trip contracts) and where it hurts (dynamic typing, actor state, simple CRUD). The conclusion is pragmatic: use the structure, not the vocabulary. Fix the laws, not the names.
 
 ---
 
@@ -17,7 +17,7 @@ Schema-driven frameworks live and die by a single property: **consistency across
 
 This consistency requirement is precisely what category theory formalizes. A **functor** is a mapping between two systems that preserves their compositional structure. If our model-to-schema mapping is a functor, then it is mathematically guaranteed that composing two model changes (add field, then add constraint) produces the same schema as applying the composed changes in one step. If it is not a functor -- if the composition law breaks -- then the order in which we make changes affects the output, and we have a source of bugs that no amount of unit testing will catch, because the bug exists not in any single function but in the *relationship between* functions.
 
-PyBend occupies an unusual position in this landscape. The framework was not designed with category theory in mind, yet its architecture naturally embodies several categorical patterns with remarkable fidelity. The `AccessRule` algebra is a textbook Boolean algebra. The `schema()` pipeline is a faithful functor. The `model_dump(response=True)` transformation is a legitimate natural transformation. These structures emerged from sound engineering intuition -- the same intuition that led Elm to implement a coalgebraic architecture without ever mentioning coalgebras.
+N3TX occupies an unusual position in this landscape. The framework was not designed with category theory in mind, yet its architecture naturally embodies several categorical patterns with remarkable fidelity. The `AccessRule` algebra is a textbook Boolean algebra. The `schema()` pipeline is a faithful functor. The `model_dump(response=True)` transformation is a legitimate natural transformation. These structures emerged from sound engineering intuition -- the same intuition that led Elm to implement a coalgebraic architecture without ever mentioning coalgebras.
 
 The question is not whether to "adopt" category theory. The question is whether to **recognize** the categorical structures we already have, **test** their laws, and **fix** the places where they break. The research surveyed in the companion documents -- covering Meta's Haxl, Jane Street's OCaml systems, Standard Chartered's 6-million-line Haskell codebase, and the Effect-TS movement -- converges on one lesson: the companies that formalize these patterns internally (while hiding them externally) report measurably better outcomes. The companies that expose the formalism to users report higher onboarding costs without proportional correctness gains.
 
@@ -33,7 +33,7 @@ A functor maps objects to objects and arrows to arrows, preserving composition a
 
 **What it is (accessible):** A functor is a translator between two systems that does not lose or invent information. If the original system has a "field named price of type float," the translated system has an equivalent representation. If the original has "adding price then adding description," the translation has "adding the price-translation then adding the description-translation" -- and the result is the same as translating "price and description added together."
 
-**Why it matters for us:** PyBend's core pipeline is a chain of three functors:
+**Why it matters for us:** N3TX's core pipeline is a chain of three functors:
 
 ```
          F1: schema()          F2: prototype()         F3: Formidable
@@ -47,7 +47,7 @@ Model ==================> Schema ==================> DynamicClass ============> 
 
 Each arrow preserves the structure it receives. Adding a field to the model produces a new schema property (F1), a new getter/setter on DynamicClass (F2), and a new form input (F3). This composability is the mathematical basis for the "zero to working" promise.
 
-**Where we already implement it:** `ProtoModel.schema()` at `proto_model.py:199-316` is F1. The `prototype()` function at `NTT.js:663` is F2. `Formidable.getForm()` in `form.js` is F3. All three preserve structure faithfully, with specific, documented deviations (metadata injection, `$defs` flattening, validation-constraint loss) that we enumerate in Section 3.
+**Where we already implement it:** `ProtoModel.schema()` at `proto_model.py:199-316` is F1. The `prototype()` function at `N3TX.js:663` is F2. `Formidable.getForm()` in `form.js` is F3. All three preserve structure faithfully, with specific, documented deviations (metadata injection, `$defs` flattening, validation-constraint loss) that we enumerate in Section 3.
 
 ---
 
@@ -57,7 +57,7 @@ A natural transformation is a systematic way to convert one functor's output int
 
 **What it is (accessible):** A natural transformation is an adapter that works uniformly. It does not care which specific model it is converting -- it applies the same structural change to all of them. The test: if you apply the adapter before or after some other transformation, you get the same result.
 
-**Why it matters for us:** PyBend has six natural transformations connecting its functors:
+**Why it matters for us:** N3TX has six natural transformations connecting its functors:
 
 | Transformation | What it converts | Uniform? | Location |
 |---------------|-----------------|----------|----------|
@@ -66,7 +66,7 @@ A natural transformation is a systematic way to convert one functor's output int
 | `sql_filter()` | Access rules -> SQL WHERE | Partial -- `None` absorbs when rules cannot be pushed down | `rules.py:53-62` |
 | `@expose_route` -> handler | Python methods -> HTTP endpoints | Yes -- same factory for all models | `routes_fastapi.py:278-371` |
 | `Formidable.getForm()` | Schema properties -> HTML form | Yes -- each type maps to an input widget | `form.js` |
-| `normalizePopulated()` | Eager-loaded data -> href arrays | Yes -- recursive, preserves entity identity | `NTT.js:614-651` |
+| `normalizePopulated()` | Eager-loaded data -> href arrays | Yes -- recursive, preserves entity identity | `N3TX.js:614-651` |
 
 The `sql_filter()` transformation deserves attention because its partiality has real consequences. In `rules.py:53-62`, `OrRule.sql_filter()` returns `None` if any child rule returns `None`. This means `OWNER | CustomRule()` cannot be pushed to SQL even though `OWNER` alone could be. The `None` acts as an absorbing element that breaks the homomorphism. This is a deliberate design choice (avoiding incorrect partial pushdown), but it silently degrades query performance when custom rules are composed with standard rules.
 
@@ -96,9 +96,9 @@ An adjunction is a pair of transformations that are "optimal inverses" -- storin
 
 ### 2.5 Monoids: Composable Accumulation
 
-A monoid is a set with an associative binary operation and an identity element. Configuration merge, schema `$defs` accumulation, and the `PyBendApp` builder pattern are all monoids.
+A monoid is a set with an associative binary operation and an identity element. Configuration merge, schema `$defs` accumulation, and the `N3TXApp` builder pattern are all monoids.
 
-**What it is (accessible):** Three things that can be combined, where the grouping does not matter: `(a + b) + c == a + (b + c)`. And a "zero" element that does not change anything: `a + zero == a`. String concatenation is a monoid (identity: empty string). Dict merge is a monoid (identity: empty dict). PyBendApp builder calls are a monoid (identity: empty builder).
+**What it is (accessible):** Three things that can be combined, where the grouping does not matter: `(a + b) + c == a + (b + c)`. And a "zero" element that does not change anything: `a + zero == a`. String concatenation is a monoid (identity: empty string). Dict merge is a monoid (identity: empty dict). N3TXApp builder calls are a monoid (identity: empty builder).
 
 **Why it matters for us:** `config.py` uses mutable globals with an imperative `configure()` function. `API_URL` is computed from `PORT` at import time and never recomputed. This is not a monoid -- it violates associativity (calling `configure(port=8080)` then `configure(host="127.0.0.1")` produces different results depending on whether `API_URL` was already read). A monoidal config (frozen dataclass with `merge()`) eliminates this class of bugs.
 
@@ -151,9 +151,9 @@ A monoid is a set with an associative binary operation and an identity element. 
     +-----------------------------v-------------------------------+
     |                      FRONTEND (JavaScript)                  |
     |                                                             |
-    |  NTT.SCHEMA() -> prototype()                                |
+    |  N3TX.SCHEMA() -> prototype()                                |
     |  [F3: Schema -> DynamicClass functor]                       |
-    |  NTT.js:390-407 (SCHEMA), NTT.js:663-759 (prototype)       |
+    |  N3TX.js:390-407 (SCHEMA), N3TX.js:663-759 (prototype)       |
     |    schema.properties -> typed getters/setters               |
     |    schema.methods    -> callable prototype functions         |
     |    schema.$defs      -> nested DynamicClasses               |
@@ -211,7 +211,7 @@ Impurity                        Location                    CT Law Violated
    (partial morphism: undefined                             (morphism undefined for
    when access denied)                                      some inputs)
 
-3. Value getter mutation        NTT.js:691-698              Referential transparency
+3. Value getter mutation        N3TX.js:691-698              Referential transparency
    (mutates _data on every                                  (same call, different
    access)                                                  results first vs later)
 
@@ -231,7 +231,7 @@ Impurity                        Location                    CT Law Violated
    (indicates downstream                                    (schema mutated after
    mutation)                                                generation)
 
-8. Mutable actor state          Actor.js:25, NTT.js:528     Referential transparency
+8. Mutable actor state          Actor.js:25, N3TX.js:528     Referential transparency
    (inherent to Actor model)                                (accepted as paradigm)
 ```
 
@@ -284,7 +284,7 @@ def schema(cls):
     if hidden and 'properties' in schema:
         for name in hidden:
             schema['properties'].pop(name, None)  # ...still step 2
-    schema['methods'] = cls.__pybend_methods_json_signature__()  # Step 3
+    schema['methods'] = cls.__n3tx_methods_json_signature__()  # Step 3
     # ... 80 more lines mixing steps 4-7 ...
     return copy.deepcopy(schema)
 ```
@@ -364,7 +364,7 @@ Category theory is a lens, not a silver bullet. Three areas where categorical fo
 
 **5.2 Python's Type System Cannot Enforce Functor Laws.** In Haskell or Rust, a `Result<T, E>` type *must* be handled -- the compiler refuses to compile code that ignores it. In Python, a `Result` return can be silently ignored. This means our proposed `Ok`/`Err` types provide documentation and convention-level safety, not compiler-level enforcement. This is still valuable (it prevents the 200-OK class of bugs for developers who use the types), but it is not the airtight guarantee that a static type system provides. We should not pretend otherwise, and we should not adopt heavier machinery (like `dry-python/returns`) whose complexity is only justified when the type system can enforce it.
 
-**5.3 Simple CRUD Does Not Need Monadic Composition.** The route handlers in `routes_fastapi.py` follow a straightforward pattern: authorize, validate, execute, serialize. This is a sequential pipeline, not a monadic chain. Wrapping each step in a `Result` monad and composing with `flat_map` would add 4 wrapper objects per request, produce worse stack traces, and add 3x overhead per step -- for zero additional safety, because Python's `try`/`except` already handles the error propagation. The decision framework document (03, Section 4.2) demonstrates this with a side-by-side comparison: the PyBend version is 30% shorter and immediately readable by any Python developer.
+**5.3 Simple CRUD Does Not Need Monadic Composition.** The route handlers in `routes_fastapi.py` follow a straightforward pattern: authorize, validate, execute, serialize. This is a sequential pipeline, not a monadic chain. Wrapping each step in a `Result` monad and composing with `flat_map` would add 4 wrapper objects per request, produce worse stack traces, and add 3x overhead per step -- for zero additional safety, because Python's `try`/`except` already handles the error propagation. The decision framework document (03, Section 4.2) demonstrates this with a side-by-side comparison: the N3TX version is 30% shorter and immediately readable by any Python developer.
 
 The general principle: categorical formalism pays for itself when the composition is deep (many steps), the errors are silent (success/failure channels can be confused), and the laws have consequences (breaking associativity changes behavior). For shallow, well-typed, exception-based flows, idiomatic Python is both simpler and more correct.
 
@@ -377,7 +377,7 @@ The general principle: categorical formalism pays for itself when the compositio
 | Action | Effort | Gate |
 |--------|--------|------|
 | Add AccessRule algebraic law tests | 1-2 days | All parametric tests pass for existing rules |
-| Fix value getter mutation in NTT.js | 1 day | Frontend renders identically; no reference-identity breakage |
+| Fix value getter mutation in N3TX.js | 1 day | Frontend renders identically; no reference-identity breakage |
 | Decompose `model_dump()` into two named methods | 2-3 days | Snapshot tests confirm byte-identical output for all models |
 
 **Success criteria:** All existing tests pass. Three new test categories exist (algebraic laws, round-trip integrity, snapshot equivalence). No API changes visible to framework users.
@@ -401,7 +401,7 @@ The general principle: categorical formalism pays for itself when the compositio
 | Action | Effort | Trigger |
 |--------|--------|---------|
 | Configuration monoid | 4-6 days | When config-mutation bugs appear or `API_URL`/`PORT` inconsistency is reported |
-| Pure registration (complete PyBendApp pattern) | 3-4 days | When test isolation becomes painful due to global `registered_models` state |
+| Pure registration (complete N3TXApp pattern) | 3-4 days | When test isolation becomes painful due to global `registered_models` state |
 | Typed actor messages | 4-5 days | When message-type/data-shape mismatches appear in bug reports |
 
 **Success criteria:** Config is immutable and mergeable. Registration is side-effect-free until `build()`. Actor messages carry schema information at send time.
@@ -422,7 +422,7 @@ These items were evaluated and explicitly rejected:
 
 ## 7. Conclusion
 
-PyBend's architecture is categorically sound at its core. The model-to-schema-to-class-to-DOM pipeline is a genuine functor composition that preserves structure across four layers of abstraction. The AccessRule algebra is a well-formed Boolean algebra with three natural transformations connecting it to Bool, JSON, and SQL. The storage layer approximates an adjunction with documented, testable asymmetries.
+N3TX's architecture is categorically sound at its core. The model-to-schema-to-class-to-DOM pipeline is a genuine functor composition that preserves structure across four layers of abstraction. The AccessRule algebra is a well-formed Boolean algebra with three natural transformations connecting it to Bool, JSON, and SQL. The storage layer approximates an adjunction with documented, testable asymmetries.
 
 The eight impurities identified in this paper are not architectural failures -- they are engineering debts that accumulated because the categorical structure was implicit rather than explicit. The 200-OK error is the most vivid example: a functor law violation that produced a three-layer debugging goose chase, fixable by making the error/success distinction structural rather than conventional.
 

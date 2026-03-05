@@ -1,16 +1,16 @@
 # HTML Compiler for Schema-Driven Frameworks: Decision Framework
 
 > **Audience:** Technical CEOs, Engineering Leadership, Architecture Teams
-> **Context:** Evaluating whether to build an HTML compiler for a schema-driven framework (PyBend) that currently renders entirely client-side via Web Components
+> **Context:** Evaluating whether to build an HTML compiler for a schema-driven framework (N3TX) that currently renders entirely client-side via Web Components
 > **Last Updated:** February 2026
 
 ---
 
 ## Executive Summary
 
-Static HTML compilation promises sub-100ms page loads by pre-rendering content at build time rather than constructing it in the browser. For a schema-driven framework like PyBend --- where models define the entire stack --- the compiler would walk the schema graph, fetch entity data, and emit ready-to-serve `.html` files.
+Static HTML compilation promises sub-100ms page loads by pre-rendering content at build time rather than constructing it in the browser. For a schema-driven framework like N3TX --- where models define the entire stack --- the compiler would walk the schema graph, fetch entity data, and emit ready-to-serve `.html` files.
 
-**The core tension:** PyBend's architecture derives everything from the schema at runtime. An HTML compiler inverts that model, requiring the framework to also derive things at *build* time. This is a fundamental architectural decision, not a performance tweak.
+**The core tension:** N3TX's architecture derives everything from the schema at runtime. An HTML compiler inverts that model, requiring the framework to also derive things at *build* time. This is a fundamental architectural decision, not a performance tweak.
 
 This document provides the decision criteria, cost analysis, risk assessment, and migration strategies to determine **when, whether, and how** to pursue static HTML compilation.
 
@@ -33,7 +33,7 @@ This document provides the decision criteria, cost analysis, risk assessment, an
 13. [Organizational Readiness Checklist](#13-organizational-readiness-checklist)
 14. [WebGPU/WebGL Content Considerations](#14-webgpuwebgl-content-considerations)
 15. [Decision Tree](#15-decision-tree)
-16. [PyBend-Specific Analysis](#16-pybend-specific-analysis)
+16. [N3TX-Specific Analysis](#16-ntx-specific-analysis)
 17. [Recommendations](#17-recommendations)
 18. [Sources](#18-sources)
 
@@ -267,7 +267,7 @@ Before investing in a build-time compiler, evaluate whether cheaper alternatives
 >
 > *Source: [SmartSMS Solutions](https://smartsmssolutions.com/resources/blog/business/cdn-vs-edge-caching-explained)*
 
-For a framework like PyBend that serves JSON schemas and entity data, adding proper `Cache-Control` headers on schema endpoints (`GET /Product`) and list endpoints achieves 80% of the static HTML benefit with 10% of the effort:
+For a framework like N3TX that serves JSON schemas and entity data, adding proper `Cache-Control` headers on schema endpoints (`GET /Product`) and list endpoints achieves 80% of the static HTML benefit with 10% of the effort:
 
 ```python
 # Schema endpoints - cache aggressively (schemas rarely change)
@@ -420,7 +420,7 @@ Every week spent on an HTML compiler is a week not spent on:
 
 ## 7. The Static Shell + Dynamic Islands Pattern
 
-This is the **most promising pattern** for a schema-driven framework like PyBend. It captures the best of both worlds: fast initial paint from static HTML, and full interactivity from client-side hydration.
+This is the **most promising pattern** for a schema-driven framework like N3TX. It captures the best of both worlds: fast initial paint from static HTML, and full interactivity from client-side hydration.
 
 ### Architecture
 
@@ -453,13 +453,13 @@ This is the **most promising pattern** for a schema-driven framework like PyBend
 └───────────────────────────────────────────────────────────┘
 ```
 
-### How It Maps to PyBend
+### How It Maps to N3TX
 
-In PyBend's current architecture, `<ntt-list>` and `<ntt-item>` Web Components fetch schema at runtime, create DynamicClasses via `prototype()`, and render entirely client-side. The islands pattern would:
+In N3TX's current architecture, `<ntx-list>` and `<ntx-item>` Web Components fetch schema at runtime, create DynamicClasses via `prototype()`, and render entirely client-side. The islands pattern would:
 
 1. **At build time:** Fetch schemas, fetch entity data, render HTML for static portions (product name, price, description, images)
 2. **At load time:** Serve pre-built HTML (instant paint). Browser loads Web Component JS.
-3. **At hydration:** Interactive islands (`<ntt-method>` buttons, edit toggles, like buttons) hydrate and become functional
+3. **At hydration:** Interactive islands (`<ntx-method>` buttons, edit toggles, like buttons) hydrate and become functional
 
 ### Astro's Server Islands --- The State of the Art
 
@@ -479,10 +479,10 @@ In PyBend's current architecture, `<ntt-list>` and `<ntt-item>` Web Components f
 >
 > *Source: [Lit SSR Documentation](https://lit.dev/docs/ssr/overview/)*
 
-This is directly relevant to PyBend's Web Component architecture. A compiler could:
-1. Use Lit-style SSR techniques to pre-render `ntt-item` components
+This is directly relevant to N3TX's Web Component architecture. A compiler could:
+1. Use Lit-style SSR techniques to pre-render `ntx-item` components
 2. Emit Declarative Shadow DOM for the static shell
-3. Let `ntt-method`, `ntt-list` (pagination), and form components hydrate client-side
+3. Let `ntx-method`, `ntx-list` (pagination), and form components hydrate client-side
 
 ### What to Pre-Compile vs. What to Leave Dynamic
 
@@ -491,7 +491,7 @@ This is directly relevant to PyBend's Web Component architecture. A compiler cou
 | Page layout / chrome | **Yes** | Rarely changes, same for all users |
 | Navigation (model list) | **Yes** | Derived from schema, stable |
 | Entity data (read-only fields) | **Yes** | Name, price, description, images |
-| `<ntt-method>` buttons | **No** | Require auth, trigger server calls |
+| `<ntx-method>` buttons | **No** | Require auth, trigger server calls |
 | Edit/delete controls | **No** | Permission-dependent, user-specific |
 | Pagination ("Load More") | **No** | Dynamic, depends on scroll position |
 | Form rendering | **No** | Interactive, validation state |
@@ -526,9 +526,9 @@ An HTML compiler changes how the team develops, tests, and deploys.
 | **Mental model complexity** | High | Clear documentation on what's static vs. dynamic |
 | **Debugging compiled output** | Medium | Source maps or debug annotations in HTML |
 
-### Impact on PyBend's "Zero Config" Promise
+### Impact on N3TX's "Zero Config" Promise
 
-PyBend's philosophy is: **define a model, get an API, a schema, a working UI**. An HTML compiler adds a new step between "working UI" and "production-optimized UI." This must be framed as an **additive optimization** --- the runtime-rendered UI remains the default, and the compiler is an opt-in production enhancement.
+N3TX's philosophy is: **define a model, get an API, a schema, a working UI**. An HTML compiler adds a new step between "working UI" and "production-optimized UI." This must be framed as an **additive optimization** --- the runtime-rendered UI remains the default, and the compiler is an opt-in production enhancement.
 
 ---
 
@@ -725,9 +725,9 @@ Phase 4: Full Hybrid
 | **A/B deployment** | Run static and dynamic in parallel, compare metrics | Low |
 | **Fallback chain** | Serve static if available, fall back to dynamic render | Low |
 
-### PyBend-Specific Migration Path
+### N3TX-Specific Migration Path
 
-Given PyBend's architecture, the cleanest migration would be:
+Given N3TX's architecture, the cleanest migration would be:
 
 1. **Phase 1 (Week 1--2):** Add `Cache-Control` headers to schema and public list endpoints
 2. **Phase 2 (Week 3--4):** Implement a Service Worker for schema caching and stale-while-revalidate on entity lists
@@ -914,33 +914,33 @@ Use this tree to determine the right rendering strategy for each page type in yo
 | Social feed / real-time content | CSR + WebSocket |
 | Mixed public + auth content | Static shell + dynamic islands |
 | Internal tool | CSR / SPA (no SSG benefit) |
-| Schema-driven framework (like PyBend) | CDN caching + Service Worker first; then static shell + islands if needed |
+| Schema-driven framework (like N3TX) | CDN caching + Service Worker first; then static shell + islands if needed |
 
 ---
 
-## 16. PyBend-Specific Analysis
+## 16. N3TX-Specific Analysis
 
 ### Current Architecture: Pure CSR
 
-PyBend currently operates as a pure client-side rendered application:
+N3TX currently operates as a pure client-side rendered application:
 
 ```
 Browser loads matrix.html
     │
     v
-<ntt-list model="Product"> mounts
+<ntx-list model="Product"> mounts
     │
     v
 Fetch schema: GET /Product ──> JSON Schema
     │
     v
-NTT.SCHEMA() ──> prototype() ──> DynamicClass
+N3TX.SCHEMA() ──> prototype() ──> DynamicClass
     │
     v
 DynamicClass.READ ──> GET /products?limit=20 ──> JSON
     │
     v
-Create instances, render via ntt-item components
+Create instances, render via ntx-item components
     │
     v
 User sees content (after all JS + network round-trips)
@@ -950,7 +950,7 @@ User sees content (after all JS + network round-trips)
 - TTFB: ~5ms (just serving static HTML shell)
 - FCP: ~200--400ms (JS parse + load)
 - LCP: ~800--1500ms (schema fetch + data fetch + render)
-- Total JS transferred: Full NTT.js stack
+- Total JS transferred: Full N3TX.js stack
 
 ### What an HTML Compiler Would Change
 
@@ -962,7 +962,7 @@ Build time:
     For each model with __access__.read == ANYONE:
         For each entity:
             Render static HTML (name, price, description, etc.)
-            Emit <ntt-method> placeholders for interactive parts
+            Emit <ntx-method> placeholders for interactive parts
             Write .html file to /compiled/{tablename}/{id}.html
         Render list page: /compiled/{tablename}/index.html
 
@@ -973,15 +973,15 @@ Runtime:
     FCP: ~50ms (static HTML, no JS needed for initial paint)
         │
         v
-    JS loads, hydrates interactive islands (ntt-method, edit, etc.)
+    JS loads, hydrates interactive islands (ntx-method, edit, etc.)
         │
         v
     LCP: ~100-200ms (content was already in HTML)
 ```
 
-### Where PyBend Is Different from Typical SSG Targets
+### Where N3TX Is Different from Typical SSG Targets
 
-| Factor | Typical SSG Target | PyBend |
+| Factor | Typical SSG Target | N3TX |
 |--------|-------------------|--------|
 | **Content source** | Markdown files, CMS API | Python model instances via SQL |
 | **Schema** | Implicit (component props) | Explicit JSON Schema (single source of truth) |
@@ -992,20 +992,20 @@ Runtime:
 
 ### The Schema Advantage
 
-PyBend's JSON Schema is **uniquely well-suited** for static generation because:
+N3TX's JSON Schema is **uniquely well-suited** for static generation because:
 
 1. **The schema carries rendering instructions.** `ui.widget`, `ui.field_order`, `ui.groups` --- the compiler has everything it needs to generate HTML.
 2. **Access rules are declarative.** The compiler can determine `__access__.read == ANYONE` at build time and only compile public pages.
 3. **`$defs` provide the full graph.** Nested models (Product -> Comment) are self-describing; the compiler can recursively generate pages.
 4. **`model_dump(response=True)` provides `$schema` and `$id`.** Each entity self-describes its type and location --- perfect for generating linked static pages.
 
-### Recommended PyBend Strategy
+### Recommended N3TX Strategy
 
-Given the analysis across all dimensions, the recommended path for PyBend is:
+Given the analysis across all dimensions, the recommended path for N3TX is:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              PyBend Rendering Optimization Path              │
+│              N3TX Rendering Optimization Path              │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  NOW (Week 1-2):                                           │
@@ -1026,7 +1026,7 @@ Given the analysis across all dimensions, the recommended path for PyBend is:
 │                                                             │
 │  FUTURE (Month 4+): Only if adoption demands it             │
 │  ├─ Incremental rebuild via storage write hooks              │
-│  ├─ Lit-style Declarative Shadow DOM for ntt-item            │
+│  ├─ Lit-style Declarative Shadow DOM for ntx-item            │
 │  └─ Full build pipeline with CI/CD integration              │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -1040,11 +1040,11 @@ Given the analysis across all dimensions, the recommended path for PyBend is:
 
 1. **Do not build an HTML compiler first.** Start with CDN caching and Service Workers. These deliver 80% of the performance gain at 5% of the cost and risk.
 
-2. **Measure before building.** Instrument current TTFB, FCP, and LCP. If TTFB is already < 100ms (likely, since PyBend serves a lightweight HTML shell), the compiler's marginal gain may not justify its cost.
+2. **Measure before building.** Instrument current TTFB, FCP, and LCP. If TTFB is already < 100ms (likely, since N3TX serves a lightweight HTML shell), the compiler's marginal gain may not justify its cost.
 
 3. **If you proceed, use the islands pattern.** Do not attempt full SSR of Web Components. Pre-render the static shell and entity data; let interactive components hydrate client-side.
 
-4. **Leverage the schema.** PyBend's architecture is uniquely suited for compilation because the schema carries rendering instructions. The compiler should walk the schema graph, not duplicate rendering logic.
+4. **Leverage the schema.** N3TX's architecture is uniquely suited for compilation because the schema carries rendering instructions. The compiler should walk the schema graph, not duplicate rendering logic.
 
 5. **Set a compilation budget.** For a schema-driven framework, target < 5 minutes for a full rebuild. If entity count pushes past this, implement incremental builds immediately.
 

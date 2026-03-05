@@ -10,7 +10,7 @@
 
 The static site generation market is experiencing a structural shift. What began as a niche tool for developer blogs has become a viable architecture for documentation portals, marketing sites, e-commerce storefronts, and government services. The core proposition is simple: **pre-build HTML at deploy time, serve it from a CDN, eliminate the server at runtime.** The result is sub-second page loads, near-zero hosting costs, a drastically reduced attack surface, and SEO advantages that dynamic sites struggle to match.
 
-This document maps the landscape as it exists in early 2026 -- the major tools, who is using them, what the numbers say, and where the boundaries are. The goal is to inform a build-vs-buy decision for PyBend's static export capability: generating fully static HTML + CSS sites from schema-driven Python models, deployable anywhere without a running server.
+This document maps the landscape as it exists in early 2026 -- the major tools, who is using them, what the numbers say, and where the boundaries are. The goal is to inform a build-vs-buy decision for N3TX's static export capability: generating fully static HTML + CSS sites from schema-driven Python models, deployable anywhere without a running server.
 
 ---
 
@@ -33,7 +33,7 @@ The SSG market is fragmented across languages and philosophies. The table below 
 | **Sphinx** | Python | ~6K | 5-20s | Technical docs; multi-format output (HTML, PDF, ePub) |
 | **Zola** | Rust | ~14K | <1 second | Single binary; Rust speed; no dependencies |
 
-> **Key insight:** The market has bifurcated. On one side are **content-first generators** (Hugo, Eleventy, Jekyll, Pelican) that produce pure HTML with minimal or zero JavaScript. On the other are **framework-first generators** (Next.js, Gatsby, Astro) that can produce static output but carry JavaScript runtimes of varying size. PyBend's static export aligns with the content-first camp -- pure HTML + CSS, no JS runtime required.
+> **Key insight:** The market has bifurcated. On one side are **content-first generators** (Hugo, Eleventy, Jekyll, Pelican) that produce pure HTML with minimal or zero JavaScript. On the other are **framework-first generators** (Next.js, Gatsby, Astro) that can produce static output but carry JavaScript runtimes of varying size. N3TX's static export aligns with the content-first camp -- pure HTML + CSS, no JS runtime required.
 
 ### 1.2 Market Share Data (2024-2025)
 
@@ -155,7 +155,7 @@ Within the prerendered category, framework choice matters enormously:
 | **Hugo** | 1,174 KB | 210 KB |
 | **Next.js** | 1,659 KB | 583 KB |
 
-> **Key takeaway:** "Static" does not automatically mean "lightweight." Next.js static export ships **3.5x more JavaScript** than Astro. A truly zero-JS static export (pure HTML + CSS) would ship **0 KB of JS**, placing it in a category that the HTTP Archive does not even measure separately because so few sites achieve it. This is the category PyBend's static export would target.
+> **Key takeaway:** "Static" does not automatically mean "lightweight." Next.js static export ships **3.5x more JavaScript** than Astro. A truly zero-JS static export (pure HTML + CSS) would ship **0 KB of JS**, placing it in a category that the HTTP Archive does not even measure separately because so few sites achieve it. This is the category N3TX's static export would target.
 
 ### 3.2 Core Web Vitals Performance
 
@@ -223,7 +223,7 @@ This is the dominant pattern for data-driven static sites:
 |  Data Backend     | -----------------------> |  Static Site     |
 |  (CMS / API /     |    Fetch data at build   |  Generator       |
 |   Database /      |    time, render HTML      |  (Hugo/Astro/    |
-|   PyBend model)   |                          |   custom)        |
+|   N3TX model)   |                          |   custom)        |
 |                   |                          |                  |
 +-------------------+                          +--------+---------+
                                                         |
@@ -246,7 +246,7 @@ This is the dominant pattern for data-driven static sites:
 
 The headless CMS market is projected to reach **$2.5 billion by 2026** (Gartner), and **73% of enterprises** have adopted headless CMS architectures (up 14% since 2021). Key players include Contentful, Strapi, Sanity, Hygraph, Contentstack, and Builder.io.
 
-**What PyBend adds to this picture:** Most headless CMS + SSG architectures require choosing and integrating separate tools (a CMS for content management, an SSG for rendering, a hosting platform for deployment). PyBend already owns the data model, the schema, and the API. A static export feature would collapse the CMS + SSG into a single tool: define a model, generate HTML. No middleware, no build pipeline to stitch together.
+**What N3TX adds to this picture:** Most headless CMS + SSG architectures require choosing and integrating separate tools (a CMS for content management, an SSG for rendering, a hosting platform for deployment). N3TX already owns the data model, the schema, and the API. A static export feature would collapse the CMS + SSG into a single tool: define a model, generate HTML. No middleware, no build pipeline to stitch together.
 
 ---
 
@@ -441,14 +441,14 @@ The islands pattern explains Astro's strong performance numbers:
 | Median transfer size | 889 KB | 1,659 KB | **<100 KB** |
 | Time to interactive | ~1-2s | ~3-5s | **Instant** (no JS) |
 
-### 9.4 Relevance to PyBend
+### 9.4 Relevance to N3TX
 
-For PyBend's static export, the islands pattern offers a graduated approach:
+For N3TX's static export, the islands pattern offers a graduated approach:
 
 - **Phase 1:** Generate fully static HTML + CSS. Zero JavaScript. Every page is a pre-built file. This covers catalogs, documentation, read-only data views.
 - **Phase 2 (optional):** For pages that need light interactivity (search, filtering, forms), inject small, self-contained JS widgets as islands. The surrounding page remains static HTML.
 
-This lets PyBend start with the simplest, most performant output (pure HTML) and add interactivity surgically only where needed -- rather than shipping a full framework runtime for every page.
+This lets N3TX start with the simplest, most performant output (pure HTML) and add interactivity surgically only where needed -- rather than shipping a full framework runtime for every page.
 
 ---
 
@@ -468,7 +468,7 @@ The Python ecosystem has SSGs, but they lag behind the JavaScript and Go ecosyst
 
 A widely cited observation: *"The world of static site generators has made amazing progress over the past few years and the Python ecosystem hasn't caught up with it."*
 
-### 10.2 The Gap PyBend Can Fill
+### 10.2 The Gap N3TX Can Fill
 
 None of the existing Python SSGs generate HTML from schema-driven data models. They all expect content in Markdown, RST, or similar flat-file formats. The workflow is:
 
@@ -476,10 +476,10 @@ None of the existing Python SSGs generate HTML from schema-driven data models. T
 Existing Python SSGs:  Markdown/RST files --> Template engine --> HTML
 ```
 
-What PyBend could offer:
+What N3TX could offer:
 
 ```
-PyBend Static Export:  Python model + data --> Schema-driven renderer --> HTML + CSS
+N3TX Static Export:  Python model + data --> Schema-driven renderer --> HTML + CSS
 ```
 
 This is structurally different. The content source is a database or API, not files. The schema carries layout hints, field ordering, grouping, and access rules. The output is not a "blog" or "documentation site" -- it is a **data-driven web application rendered as static files**.
@@ -490,7 +490,7 @@ No tool in the Python ecosystem does this today. The closest equivalents are in 
 
 ## 11. Build vs. Buy Decision Framework
 
-For a technical CEO evaluating whether to build static export into PyBend, the key questions are:
+For a technical CEO evaluating whether to build static export into N3TX, the key questions are:
 
 | Question | If Yes | If No |
 |----------|--------|-------|
@@ -500,7 +500,7 @@ For a technical CEO evaluating whether to build static export into PyBend, the k
 | Is hosting cost a concern? | Static is 10-50x cheaper | Less relevant for funded startups |
 | Do users need to log in? | Hybrid needed (static + auth layer) | Pure static works |
 | Is the audience on low-end devices / slow networks? | Static is dramatically better | Less urgent for desktop-first audiences |
-| Does the team already use Python? | PyBend static avoids JS toolchain | JS SSGs are more mature |
+| Does the team already use Python? | N3TX static avoids JS toolchain | JS SSGs are more mature |
 
 ---
 
@@ -516,7 +516,7 @@ For a technical CEO evaluating whether to build static export into PyBend, the k
 
 5. **SEO and Core Web Vitals are forcing the conversation.** With 53% of sites failing Core Web Vitals and page experience now 28% of Google's ranking algorithm, the performance advantages of static sites translate directly into business outcomes.
 
-6. **Python is underserved.** The Python SSG ecosystem is blog-and-docs-focused. There is no Python tool that generates static HTML from schema-driven data models. This is the gap PyBend can fill.
+6. **Python is underserved.** The Python SSG ecosystem is blog-and-docs-focused. There is no Python tool that generates static HTML from schema-driven data models. This is the gap N3TX can fill.
 
 7. **The islands pattern provides a graceful upgrade path.** Starting with zero-JS static output and adding interactivity as islands -- rather than starting with a full framework and trying to slim down -- is architecturally sound and aligned with market direction.
 

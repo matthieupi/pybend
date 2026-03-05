@@ -34,7 +34,7 @@ Reactive Extensions (Rx) replace that single-shot Future with an **Observable st
 
 ## :mag: The Current Baseline
 
-Before diving into reactive patterns, it is worth being precise about what the current system does. The existing `NetworkAdapter.request()` method in PyBend implements a **Future-based correlation** pattern that bridges synchronous HTTP to fire-and-forget actor messaging.
+Before diving into reactive patterns, it is worth being precise about what the current system does. The existing `NetworkAdapter.request()` method in N3TX implements a **Future-based correlation** pattern that bridges synchronous HTTP to fire-and-forget actor messaging.
 
 ### How it works today
 
@@ -183,7 +183,7 @@ Four major frameworks have solved the reactive-response-in-actor-systems problem
 
 ### Akka Typed: The Gold Standard
 
-Akka provides **seven distinct interaction patterns**, each designed for a different response topology. This is the most mature model and the closest parallel to PyBend's actor system.
+Akka provides **seven distinct interaction patterns**, each designed for a different response topology. This is the most mature model and the closest parallel to N3TX's actor system.
 
 ```
 Pattern                         Response Type           Use Case
@@ -263,7 +263,7 @@ For **streaming responses**, Vert.x developers use a workaround pattern:
 
 ([NotesSensei, "Streaming Pattern for Vert.x EventBus"](https://www.wissel.net/blog/2019/12/a-streaming-pattern-for-the-vert.x-eventbus.html))
 
-This is strikingly similar to what you would build on PyBend's current TX system -- a temporary inbox address for multi-response flows. The difference between this ad-hoc approach and a proper reactive implementation is that Rx gives you **operators** (timeout, retry, merge, buffer) for free, while the Vert.x pattern requires manual implementation of each.
+This is strikingly similar to what you would build on N3TX's current TX system -- a temporary inbox address for multi-response flows. The difference between this ad-hoc approach and a proper reactive implementation is that Rx gives you **operators** (timeout, retry, merge, buffer) for free, while the Vert.x pattern requires manual implementation of each.
 
 ---
 
@@ -304,13 +304,13 @@ In actor systems, the mailbox is the **unbounded buffer** problem. Akka's docume
 
 | Strategy | Mechanism | When to Use | Risk |
 |:---|:---|:---|:---|
-| **Unbounded buffer** (current PyBend) | Mailbox grows without limit | Low-traffic systems | OOM under load |
+| **Unbounded buffer** (current N3TX) | Mailbox grows without limit | Low-traffic systems | OOM under load |
 | **Bounded buffer + drop** | Drop oldest/newest when full | Telemetry, metrics | Data loss acceptable |
 | **Bounded buffer + error** | Signal error when full | Strict ordering required | Consumer sees errors |
 | **Request-based** (Reactive Streams) | Consumer signals demand | Production streaming | Implementation complexity |
 | **Rate limiting** | Fixed-rate admission | API gateways | Artificial throughput cap |
 
-For PyBend's current architecture, the `_pending` dict in `NetworkAdapter` acts as an **unbounded buffer** of in-flight requests. Each entry is an asyncio.Future consuming minimal memory (~200 bytes), but under extreme load (thousands of concurrent requests), this could become significant. More critically, there is no mechanism to **reject new requests** when the system is overloaded -- the timeout (30s default) is the only safety valve.
+For N3TX's current architecture, the `_pending` dict in `NetworkAdapter` acts as an **unbounded buffer** of in-flight requests. Each entry is an asyncio.Future consuming minimal memory (~200 bytes), but under extreme load (thousands of concurrent requests), this could become significant. More critically, there is no mechanism to **reject new requests** when the system is overloaded -- the timeout (30s default) is the only safety valve.
 
 A reactive approach would replace this with a bounded observable that can signal backpressure:
 
@@ -325,7 +325,7 @@ class ReactiveAdapter(Actor):
         # ... proceed with request
 ```
 
-> **Key Insight:** Backpressure matters most when the system scales beyond simple CRUD. If PyBend actors ever serve streaming responses (real-time updates, AI token streaming, large dataset pagination), the absence of backpressure will become the first bottleneck. Adding it retroactively is significantly harder than designing it in.
+> **Key Insight:** Backpressure matters most when the system scales beyond simple CRUD. If N3TX actors ever serve streaming responses (real-time updates, AI token streaming, large dataset pagination), the absence of backpressure will become the first bottleneck. Adding it retroactively is significantly harder than designing it in.
 
 ---
 
@@ -717,7 +717,7 @@ Published benchmarks from production systems:
 
 ([Akka Streaming blog](https://akka.io/blog/akka-streaming-high-performance-stream-processing-for-real-time-ai); [Reactive Programming Paradigms in High-Throughput Systems](https://eajournals.org/wp-content/uploads/sites/21/2025/05/Reactive-Programming.pdf))
 
-> **Key Insight:** The per-element overhead of Rx (~2-5 microseconds) is noise compared to I/O latency. The **throughput advantage** of reactive patterns comes from better resource utilization: non-blocking backpressure prevents thread pool exhaustion, and composable operators eliminate blocking waits. For a system like PyBend where responses traverse actor mailboxes, network I/O, and database queries, the Rx overhead is invisible.
+> **Key Insight:** The per-element overhead of Rx (~2-5 microseconds) is noise compared to I/O latency. The **throughput advantage** of reactive patterns comes from better resource utilization: non-blocking backpressure prevents thread pool exhaustion, and composable operators eliminate blocking waits. For a system like N3TX where responses traverse actor mailboxes, network I/O, and database queries, the Rx overhead is invisible.
 
 ### Memory and GC Considerations
 
@@ -828,9 +828,9 @@ Key differences from RxPY:
 - Built on the **Expression** functional library (F#-inspired)
 - Smaller community and ecosystem than RxPY
 
-### Recommendation for PyBend
+### Recommendation for N3TX
 
-Given that PyBend:
+Given that N3TX:
 - Already uses `asyncio` throughout
 - Targets Python 3.10+ (based on modern type hints in the codebase)
 - Has a small, composable actor system (not a massive enterprise Rx codebase)
@@ -908,7 +908,7 @@ Phase 3: Reactive mailbox (high risk, optional)
 | **Dependency risk** | None (stdlib) | 1 library (aioreactive or RxPY) | Deep coupling to Rx paradigm |
 | **Team hiring** | Standard Python devs | Need some Rx knowledge | Need Rx expertise |
 
-> **Key Insight:** For PyBend's current architecture -- a schema-driven CRUD framework with actor-based routing -- **Phase 0 (no change) is the right choice today**. The Future-based correlation in `NetworkAdapter.request()` is well-implemented and sufficient. The time to invest in reactive patterns is when the product roadmap includes **streaming responses** (AI integration, real-time collaboration, large dataset pagination) or **complex multi-actor orchestration** (agent workflows, saga transactions). At that point, start with **Phase 1** (thin abstraction) and graduate to **Phase 2** (observable correlation) as patterns emerge. Skip Phase 3 unless you are building an event processing platform.
+> **Key Insight:** For N3TX's current architecture -- a schema-driven CRUD framework with actor-based routing -- **Phase 0 (no change) is the right choice today**. The Future-based correlation in `NetworkAdapter.request()` is well-implemented and sufficient. The time to invest in reactive patterns is when the product roadmap includes **streaming responses** (AI integration, real-time collaboration, large dataset pagination) or **complex multi-actor orchestration** (agent workflows, saga transactions). At that point, start with **Phase 1** (thin abstraction) and graduate to **Phase 2** (observable correlation) as patterns emerge. Skip Phase 3 unless you are building an event processing platform.
 
 ---
 

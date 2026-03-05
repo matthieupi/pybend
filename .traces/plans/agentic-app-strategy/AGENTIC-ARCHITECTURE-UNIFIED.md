@@ -1,4 +1,4 @@
-# PyBend Agentic System — Unified Architecture Plan
+# N3TX Agentic System — Unified Architecture Plan
 
 > **Status:** Draft
 > **Date:** 2026-03-03
@@ -67,7 +67,7 @@ We don't build an LLM client, agent loop, or context manager. Pydantic AI provid
 | Dependencies | `deps_type=` + `RunContext[Deps]` in tools | ~~context injection~~ |
 | Safety limits | `UsageLimits(request_limit=, token_limit=)` | ~~budget guards~~ (for now) |
 
-PyBend's job is purely the **binding layer**:
+N3TX's job is purely the **binding layer**:
 1. Discover `@expose_route` methods from target actors → register as Pydantic AI tools
 2. Route tool calls through Matrix as TX messages (preserving auth + interceptors)
 3. Persist agent state via StorableMixin
@@ -186,7 +186,7 @@ ActorModel + injected by AgentMixin.
 ### AgentMixin — The Binding Layer
 
 Injected into any ActorModel with `__agent__ = True`. Provides the bridge
-between PyBend's actor system and Pydantic AI.
+between N3TX's actor system and Pydantic AI.
 
 ```python
 class AgentMixin:
@@ -539,7 +539,7 @@ app = create_app(
 ## Package Structure
 
 ```
-src/pybend/core/agents/
+src/n3tx/core/agents/
 ├── __init__.py            # Re-exports: AgentMixin, AgentActor, AgentDeps
 ├── mixin.py               # AgentMixin: agent_run(), _discover_tools(), _make_tool_wrapper()
 ├── actor.py               # AgentActor(ActorModel): the dynamic agent class
@@ -557,21 +557,21 @@ UsageLimits for now), no trace model (Phase 2). Just the binding layer.
 
 | File | Change |
 |------|--------|
-| `src/pybend/core/models/proto_model.py` | `__init_subclass__()`: detect `__agent__ = True`, inject AgentMixin |
-| `src/pybend/core/app.py` | Register AgentActor in `create_app()` if agents are used |
-| `src/pybend/__init__.py` | Export AgentActor, AgentMixin |
+| `src/n3tx/core/models/proto_model.py` | `__init_subclass__()`: detect `__agent__ = True`, inject AgentMixin |
+| `src/n3tx/core/app.py` | Register AgentActor in `create_app()` if agents are used |
+| `src/n3tx/__init__.py` | Export AgentActor, AgentMixin |
 | `pyproject.toml` | Add `pydantic-ai` dependency |
 
 ## Files Created
 
 | File | Purpose |
 |------|---------|
-| `src/pybend/core/agents/__init__.py` | Package exports |
-| `src/pybend/core/agents/mixin.py` | AgentMixin: `agent_run()`, tool discovery, tool wrappers |
-| `src/pybend/core/agents/actor.py` | AgentActor: dynamic agent class (prompt, tools, llm as fields) |
-| `src/pybend/core/agents/deps.py` | AgentDeps dataclass |
-| `src/pybend/core/agents/tools.py` | ToolSpec, `discover_tools()`, `make_tool_wrapper()`, schema→tool utilities |
-| `src/pybend/core/agents/schema_ext.py` | `@schema_extension(after='methods')` for agent metadata |
+| `src/n3tx/core/agents/__init__.py` | Package exports |
+| `src/n3tx/core/agents/mixin.py` | AgentMixin: `agent_run()`, tool discovery, tool wrappers |
+| `src/n3tx/core/agents/actor.py` | AgentActor: dynamic agent class (prompt, tools, llm as fields) |
+| `src/n3tx/core/agents/deps.py` | AgentDeps dataclass |
+| `src/n3tx/core/agents/tools.py` | ToolSpec, `discover_tools()`, `make_tool_wrapper()`, schema→tool utilities |
+| `src/n3tx/core/agents/schema_ext.py` | `@schema_extension(after='methods')` for agent metadata |
 
 ---
 
@@ -643,7 +643,7 @@ UsageLimits for now), no trace model (Phase 2). Just the binding layer.
 
 ---
 
-## How This Follows PyBend's Philosophy
+## How This Follows N3TX's Philosophy
 
 | Principle | How the agentic system embodies it |
 |-----------|-----------------------------------|

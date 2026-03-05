@@ -20,28 +20,28 @@ use Phase 0 (abstract base + separate tables) instead — it already works.
 
 | File | Original Location |
 |------|------------------|
-| `discriminator_mixin.py` | `src/pybend/core/models/discriminator_mixin.py` |
-| `proto_schema_sti.py` | `src/pybend/core/models/proto_schema_sti.py` |
-| `test_sti.py` | `src/pybend/core/tests/unit/test_sti.py` |
+| `discriminator_mixin.py` | `src/n3tx/core/models/discriminator_mixin.py` |
+| `proto_schema_sti.py` | `src/n3tx/core/models/proto_schema_sti.py` |
+| `test_sti.py` | `src/n3tx/core/tests/unit/test_sti.py` |
 
 ## Step-By-Step Re-Application
 
 ### Step 1: Copy archived files back
 
 ```bash
-cp .traces/archive/sti/discriminator_mixin.py src/pybend/core/models/
-cp .traces/archive/sti/proto_schema_sti.py src/pybend/core/models/
-cp .traces/archive/sti/test_sti.py src/pybend/core/tests/unit/
+cp .traces/archive/sti/discriminator_mixin.py src/n3tx/core/models/
+cp .traces/archive/sti/proto_schema_sti.py src/n3tx/core/models/
+cp .traces/archive/sti/test_sti.py src/n3tx/core/tests/unit/
 ```
 
 ### Step 2: Add STI import to `proto_model.py`
 
-In `src/pybend/core/models/proto_model.py`, add the side-effect import that
+In `src/n3tx/core/models/proto_model.py`, add the side-effect import that
 registers the `polymorphic` and `sti_type` pipeline stages:
 
 ```python
 # After the proto_dump import, add:
-import pybend.core.models.proto_schema_sti  # noqa: F401 — registers polymorphic stages
+import n3tx.core.models.proto_schema_sti  # noqa: F401 — registers polymorphic stages
 ```
 
 ### Step 3: Add STI injection block to `proto_model.py`
@@ -63,7 +63,7 @@ StorableMixin injection and **before** the Agent mixin injection:
 
 ### Step 4: Add `sti_models` dict to `registrar.py`
 
-In `src/pybend/core/utils/registrar.py`, add after `join_models`:
+In `src/n3tx/core/utils/registrar.py`, add after `join_models`:
 
 ```python
 sti_models: Dict[str, Type[Any]] = {}
@@ -148,7 +148,7 @@ And add the discriminator index at the end of `migrate_table()`:
 
 ### Step 6: Add STI sort key to `app.py`
 
-In `PyBendApp.build()`, before the `for result in preparations:` loop, add:
+In `N3TXApp.build()`, before the `for result in preparations:` loop, add:
 
 ```python
         # Sort so STI roots are registered before subtypes (table must exist first)
@@ -168,7 +168,7 @@ In `PyBendApp.build()`, before the `for result in preparations:` loop, add:
 Import `sti_models` in the imports:
 
 ```python
-from pybend.core.utils.registrar import registered_models, join_models, sti_models
+from n3tx.core.utils.registrar import registered_models, join_models, sti_models
 ```
 
 Add Pass 3 at the end of `register_routes()`:
@@ -203,10 +203,10 @@ DEFAULT_STAGES = ['base', 'schema_url', 'instance_url', 'sti_type']
 ### Step 9: Run tests
 
 ```bash
-cd /workspace/src/pybend/core && pytest tests/unit/test_sti.py -v
-cd /workspace/src/pybend/core && pytest tests/unit/test_schema_ext.py -v
-cd /workspace/src/pybend/core && pytest tests/unit/test_proto_dump.py -v
-cd /workspace/src/pybend/core && pytest tests/unit/ -v
+cd /workspace/src/n3tx/core && pytest tests/unit/test_sti.py -v
+cd /workspace/src/n3tx/core && pytest tests/unit/test_schema_ext.py -v
+cd /workspace/src/n3tx/core && pytest tests/unit/test_proto_dump.py -v
+cd /workspace/src/n3tx/core && pytest tests/unit/ -v
 ```
 
 ## Design Decisions (for context)

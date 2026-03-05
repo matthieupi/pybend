@@ -1,6 +1,6 @@
 from __future__ import annotations
-from pybend.core.models.actor_model import ActorModel
-from pybend.core.models.base_user import BaseUser
+from n3tx.core.models.actor_model import ActorModel
+from n3tx.core.models.base_user import BaseUser
 from typing import ClassVar, Optional
 from pydantic import Field
 
@@ -9,7 +9,7 @@ class User(BaseUser, ActorModel):
     __tablename__: ClassVar[str] = 'users'
     __abstract__: ClassVar[bool] = False
     __ui__: ClassVar[dict] = {
-        'renderer': {'item': 'ntt-user'},
+        'renderer': {'item': 'ntx-user'},
     }
 
     image: str = Field(

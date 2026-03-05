@@ -7,7 +7,7 @@
 
 ## Abstract
 
-Between 2023 and 2026, the AI agent industry converged on a single architectural insight: JSON Schema is the universal contract for defining what agents can do, what data they accept, and how they communicate. OpenAI's function calling, Anthropic's Model Context Protocol (97M+ monthly SDK downloads), Google's Agent-to-Agent protocol (150+ organizations), and Microsoft's declarative agent manifests all use JSON Schema as their interface layer. PyBend's architecture -- where a Python model definition generates the entire application stack via JSON Schema -- is structurally isomorphic to what the agent ecosystem is independently building. This whitepaper examines that alignment in detail, identifies where our existing primitives (`ProtoModel.schema()`, `@expose_route`, `Actor/Matrix/TX`, ABAC authorization, `DynamicClass` via `prototype()`) directly map onto agent system requirements, and proposes a phased integration path. The core argument: we should not become an agent framework. We should recognize that our schema pipeline -- the most expensive piece of infrastructure in the agent ecosystem -- already exists, and make it accessible to the agents that need it. The estimated gap is 35% additive infrastructure (LLM integration, planning loops, memory management), achievable in 10-14 weeks, layered on top of an architecture that does not need to change.
+Between 2023 and 2026, the AI agent industry converged on a single architectural insight: JSON Schema is the universal contract for defining what agents can do, what data they accept, and how they communicate. OpenAI's function calling, Anthropic's Model Context Protocol (97M+ monthly SDK downloads), Google's Agent-to-Agent protocol (150+ organizations), and Microsoft's declarative agent manifests all use JSON Schema as their interface layer. N3TX's architecture -- where a Python model definition generates the entire application stack via JSON Schema -- is structurally isomorphic to what the agent ecosystem is independently building. This whitepaper examines that alignment in detail, identifies where our existing primitives (`ProtoModel.schema()`, `@expose_route`, `Actor/Matrix/TX`, ABAC authorization, `DynamicClass` via `prototype()`) directly map onto agent system requirements, and proposes a phased integration path. The core argument: we should not become an agent framework. We should recognize that our schema pipeline -- the most expensive piece of infrastructure in the agent ecosystem -- already exists, and make it accessible to the agents that need it. The estimated gap is 35% additive infrastructure (LLM integration, planning loops, memory management), achievable in 10-14 weeks, layered on top of an architecture that does not need to change.
 
 ---
 
@@ -33,7 +33,7 @@ Five principles from the schema-driven agent literature stand out as directly ap
 
 **Why it matters for us:** `ProtoModel.schema()` already produces documents that carry this information. The `methods` section describes callable endpoints with typed parameters and return types. The `access` section describes authorization requirements. The `$defs` section describes related types. The `$id` provides a unique identity URL. The gap is not structural -- it is format. Our schema carries a superset of what MCP and A2A require; we just need thin adapters to emit their specific envelope formats.
 
-**Where we already partially implement it:** Every `GET /{ClassName}` endpoint serves a capability declaration. The frontend's `NTT.SCHEMA()` handler consumes it and creates a fully functional typed class at runtime. This is the pattern -- schema in, capability out -- that the agent ecosystem is standardizing. We have had it since before MCP existed.
+**Where we already partially implement it:** Every `GET /{ClassName}` endpoint serves a capability declaration. The frontend's `N3TX.SCHEMA()` handler consumes it and creates a fully functional typed class at runtime. This is the pattern -- schema in, capability out -- that the agent ecosystem is standardizing. We have had it since before MCP existed.
 
 ### 2.2 Composable Access Control at the Schema Level
 
@@ -47,9 +47,9 @@ Five principles from the schema-driven agent literature stand out as directly ap
 
 **What it is:** The most powerful property of schema-driven systems: behavior is derived from the schema at runtime, not hardcoded. Adding a tool to the schema automatically makes it available. Removing a permission immediately restricts behavior. The schema is not documentation -- it is the executable specification. Thoughtworks' 2025 Technology Radar highlighted this as "spec-driven development": the schema IS the spec.
 
-**Why it matters for us:** This is our core architecture. `ProtoModel.schema()` generates the spec, `register_routes()` derives API endpoints from it, `NTT.SCHEMA()` derives frontend classes from it, `form.js` derives form fields from it, `Permissions.js` derives access controls from it. Adding agent behavior derivation -- "read the schema, know what tools are available, know what permissions apply" -- is the same pattern applied to a new consumer.
+**Why it matters for us:** This is our core architecture. `ProtoModel.schema()` generates the spec, `register_routes()` derives API endpoints from it, `N3TX.SCHEMA()` derives frontend classes from it, `form.js` derives form fields from it, `Permissions.js` derives access controls from it. Adding agent behavior derivation -- "read the schema, know what tools are available, know what permissions apply" -- is the same pattern applied to a new consumer.
 
-**Where we already partially implement it:** The entire frontend is runtime-derived from the schema. `prototype()` in `NTT.js` creates JavaScript classes from schema properties and methods. The `DynamicClass` pattern is exactly what agent proxies need. The backend has `generate_join_model()` which creates Python classes dynamically from `type()`. Both halves of the runtime derivation pipeline exist.
+**Where we already partially implement it:** The entire frontend is runtime-derived from the schema. `prototype()` in `N3TX.js` creates JavaScript classes from schema properties and methods. The `DynamicClass` pattern is exactly what agent proxies need. The backend has `generate_join_model()` which creates Python classes dynamically from `type()`. Both halves of the runtime derivation pipeline exist.
 
 ### 2.4 Actor-Based Message Routing for Agent Communication
 
@@ -63,9 +63,9 @@ Five principles from the schema-driven agent literature stand out as directly ap
 
 **What it is:** JSON Schema's composition primitives (`$ref`, `$defs`, `allOf`, `oneOf`) enable building complex agent capabilities from reusable building blocks. A research team schema can reference a researcher agent, a fact-checker agent, and an editor agent -- each defined as a `$def` with its own identity, skills, and access rules. This is how MCP is addressing token bloat: deduplicate shared schemas via `$ref` instead of inlining them repeatedly.
 
-**Why it matters for us:** We already use `$defs` extensively. When a `Product` model references `Comment` and `Like`, those appear as `$defs` entries in the schema, each with their own `$id`, properties, methods, and access rules. `NTT.SCHEMA()` registers each `$def` as an independent `DynamicClass`. The agent equivalent -- registering sub-agents from a parent agent's `$defs` -- follows the same pattern exactly.
+**Why it matters for us:** We already use `$defs` extensively. When a `Product` model references `Comment` and `Like`, those appear as `$defs` entries in the schema, each with their own `$id`, properties, methods, and access rules. `N3TX.SCHEMA()` registers each `$def` as an independent `DynamicClass`. The agent equivalent -- registering sub-agents from a parent agent's `$defs` -- follows the same pattern exactly.
 
-**Where we already partially implement it:** `schema()` in `proto_model.py` (lines 222-247) collects referenced models, generates their schemas, bubbles up `$defs`, and assigns each a `$id`. The frontend processes these in `NTT.SCHEMA()` (NTT.js, line 390+) by iterating `data.$defs` and calling `prototype()` for each. This is agent composition via schema -- we just call the composed entities "models" instead of "agents."
+**Where we already partially implement it:** `schema()` in `proto_model.py` (lines 222-247) collects referenced models, generates their schemas, bubbles up `$defs`, and assigns each a `$id`. The frontend processes these in `N3TX.SCHEMA()` (N3TX.js, line 390+) by iterating `data.$defs` and calling `prototype()` for each. This is agent composition via schema -- we just call the composed entities "models" instead of "agents."
 
 ---
 
@@ -80,7 +80,7 @@ Our current data flow:
 ```
 [Python Model]                [JSON Schema]               [Frontend]
       |                            |                           |
-  ProtoModel                   schema()                   NTT.SCHEMA()
+  ProtoModel                   schema()                   N3TX.SCHEMA()
   defines fields,             carries types,              creates DynamicClass,
   methods, access,            methods, access,            renders forms,
   relationships               UI hints, $defs             enforces permissions
@@ -109,7 +109,7 @@ The structural mapping is one-to-one:
 | `schema.$defs` | Sub-agent schemas | Yes -- referenced model schemas with own `$id` |
 | `schema.__ui__` | Interaction hints | Yes -- rendering preferences |
 | `prototype()` -> DynamicClass | Agent proxy creation | Yes -- typed class from schema at runtime |
-| `NTT.SCHEMA()` bootstrap | Agent discovery | Yes -- fetch schema, create class, replay queue |
+| `N3TX.SCHEMA()` bootstrap | Agent discovery | Yes -- fetch schema, create class, replay queue |
 | `model_dump(response=True)` | Self-describing response | Yes -- `$schema` + `$id` on every entity |
 
 ### 3.2 What Our Schema Carries That Agent Protocols Miss
@@ -166,7 +166,7 @@ Three integration points stand the highest chance of creating value with the lea
 **Before:**
 
 ```
-PyBend Model                    MCP Ecosystem
+N3TX Model                    MCP Ecosystem
 ===========                     =============
 Product.schema()                Claude Desktop, GPT, Cursor, VS Code
   |-- methods.comment             (300+ MCP clients)
@@ -180,7 +180,7 @@ Product.schema()                Claude Desktop, GPT, Cursor, VS Code
 **After:**
 
 ```
-PyBend Model                    MCP Ecosystem
+N3TX Model                    MCP Ecosystem
 ===========                     =============
 Product.schema()  --adapter-->  MCP tools/list response
   |-- methods.comment              |-- tool: product_comment
@@ -193,7 +193,7 @@ Product.schema()  --adapter-->  MCP tools/list response
 
 **Migration path:** The adapter is a ~200 LOC module that reads `schema().methods` for each registered model and emits MCP-compatible `tools/list` responses. It serves these via JSON-RPC over stdio (for local agents like Claude Desktop) or HTTP (for remote agents). No changes to `ProtoModel`, no changes to existing routes, no changes to the frontend.
 
-**Expected outcome:** Any MCP-compatible AI assistant can interact with PyBend data through typed, validated tool calls. A user in Claude Desktop could say "show me all products over $50" and Claude would call the MCP tool backed by our `Product.list()` with appropriate filters. The schema carries the type information; the LLM handles natural language understanding.
+**Expected outcome:** Any MCP-compatible AI assistant can interact with N3TX data through typed, validated tool calls. A user in Claude Desktop could say "show me all products over $50" and Claude would call the MCP tool backed by our `Product.list()` with appropriate filters. The schema carries the type information; the LLM handles natural language understanding.
 
 ### 4.2 Integration Point: ABAC Rules as Agent Security Layer
 
@@ -224,7 +224,7 @@ ABAC rule evaluation            schema.access.invoke = AUTHENTICATED & Budget(>0
   +-- GRANTED --> tool executes -> response returned
 ```
 
-**Migration path:** The `authorize` package has zero PyBend imports -- it is already a standalone ABAC library. Adding agent-specific rule subclasses (`Budget`, `RateLimit`, `DelegationDepth`) requires no changes to the engine. They plug into `__access__` dicts exactly like `OWNER` and `ROLE()`. The route layer in `routes_fastapi.py` already enforces access rules before executing methods; the same enforcement applies to agent tool invocations.
+**Migration path:** The `authorize` package has zero N3TX imports -- it is already a standalone ABAC library. Adding agent-specific rule subclasses (`Budget`, `RateLimit`, `DelegationDepth`) requires no changes to the engine. They plug into `__access__` dicts exactly like `OWNER` and `ROLE()`. The route layer in `routes_fastapi.py` already enforces access rules before executing methods; the same enforcement applies to agent tool invocations.
 
 **Expected outcome:** Every tool invocation -- whether from a frontend user, an API client, or an AI agent -- goes through the same authorization pipeline. An agent that exhausts its budget is denied at the authorization layer, not at the LLM layer where prompt injection could bypass it. The access rules are in the schema, so any consumer (frontend, agent runtime, audit system) can read and respect them.
 
@@ -314,7 +314,7 @@ The propositions document identifies 10 specific proposals. Here they are organi
 - Add cost/reliability metadata to schema method entries (Proposition 9)
 
 **Success criteria:**
-- 3+ internal users successfully query PyBend data through MCP clients
+- 3+ internal users successfully query N3TX data through MCP clients
 - Schema-to-MCP conversion achieves 100% fidelity (every method correctly exposed)
 - Zero changes to existing `ProtoModel`, `routes_fastapi.py`, or frontend code
 

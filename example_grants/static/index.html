@@ -8,14 +8,14 @@
     <link rel="stylesheet" href="./light-theme.css">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <!-- Preload component CSS — loaded by Shadow DOM at runtime -->
-    <link rel="preload" href="./components/ntt-item.css" as="style">
-    <link rel="preload" href="./components/ntt-list.css" as="style">
-    <link rel="preload" href="./components/ntt-router.css" as="style">
-    <link rel="preload" href="./components/ntt-topbar.css" as="style">
-    <link rel="preload" href="./components/ntt-sidebar.css" as="style">
-    <link rel="preload" href="./components/ntt-table.css" as="style">
-    <link rel="preload" href="./components/ntt-row.css" as="style">
-    <link rel="preload" href="./components/ntt-user.css" as="style">
+    <link rel="preload" href="./components/ntx-item.css" as="style">
+    <link rel="preload" href="./components/ntx-list.css" as="style">
+    <link rel="preload" href="./components/ntx-router.css" as="style">
+    <link rel="preload" href="./components/ntx-topbar.css" as="style">
+    <link rel="preload" href="./components/ntx-sidebar.css" as="style">
+    <link rel="preload" href="./components/ntx-table.css" as="style">
+    <link rel="preload" href="./components/ntx-row.css" as="style">
+    <link rel="preload" href="./components/ntx-user.css" as="style">
     <link rel="preload" href="./widgets/widgets.css" as="style">
     <!-- Vendor libraries (optional — widgets degrade gracefully without them) -->
     <script src="./vendor/marked.min.js"></script>
@@ -42,16 +42,16 @@
     <!-- Components -->
     <link rel="modulepreload" href="./components/NTTElement.js">
     <link rel="modulepreload" href="./components/ListElement.js">
-    <link rel="modulepreload" href="./components/ntt-item.js">
-    <link rel="modulepreload" href="./components/ntt-list.js">
-    <link rel="modulepreload" href="./components/ntt-router.js">
-    <link rel="modulepreload" href="./components/ntt-method.js">
-    <link rel="modulepreload" href="./components/ntt-topbar.js">
-    <link rel="modulepreload" href="./components/ntt-sidebar.js">
-    <link rel="modulepreload" href="./components/ntt-profile.js">
-    <link rel="modulepreload" href="./components/ntt-row.js">
-    <link rel="modulepreload" href="./components/ntt-user.js">
-    <link rel="modulepreload" href="./components/ntt-table.js">
+    <link rel="modulepreload" href="./components/ntx-item.js">
+    <link rel="modulepreload" href="./components/ntx-list.js">
+    <link rel="modulepreload" href="./components/ntx-router.js">
+    <link rel="modulepreload" href="./components/ntx-method.js">
+    <link rel="modulepreload" href="./components/ntx-topbar.js">
+    <link rel="modulepreload" href="./components/ntx-sidebar.js">
+    <link rel="modulepreload" href="./components/ntx-profile.js">
+    <link rel="modulepreload" href="./components/ntx-row.js">
+    <link rel="modulepreload" href="./components/ntx-user.js">
+    <link rel="modulepreload" href="./components/ntx-table.js">
     <link rel="modulepreload" href="./generators/form.js">
     <!-- Widgets -->
     <link rel="modulepreload" href="./widgets/Widget.js">
@@ -61,17 +61,17 @@
 </head>
 <body>
 
-    <ntt-topbar brand="Grant Watcher" version="0.10.0" logo="GW"></ntt-topbar>
-    <ntt-sidebar router="main">
-        <ntt-list model="Grant" allow-create></ntt-list>
-        <ntt-table model="Source"></ntt-table>
-        <ntt-list model="AgentActor"></ntt-list>
-    </ntt-sidebar>
+    <ntx-topbar brand="Grant Watcher" version="0.10.0" logo="GW"></ntx-topbar>
+    <ntx-sidebar router="main">
+        <ntx-list model="Grant" allow-create></ntx-list>
+        <ntx-table model="Source"></ntx-table>
+        <ntx-list model="AgentActor"></ntx-list>
+    </ntx-sidebar>
 
     <div class="page">
-        <ntt-router name="main" hash>
-            <ntt-table model="Grant" id="grant-table" allow-create></ntt-table>
-        </ntt-router>
+        <ntx-router name="main" hash>
+            <ntx-table model="Grant" id="grant-table" allow-create></ntx-table>
+        </ntx-router>
     </div>
 
     <script type="module">
@@ -82,16 +82,16 @@
         import { NTT } from './core/NTT.js';
         import { config } from './config.js';
         import { permissions } from './utils/Permissions.js';
-        import './components/ntt-item.js';
-        import './components/ntt-list.js';
-        import './components/ntt-router.js';
-        import './components/ntt-method.js';
-        import './components/ntt-topbar.js';
-        import './components/ntt-sidebar.js';
-        import './components/ntt-profile.js';
-        import './components/ntt-user.js';
-        import './components/ntt-row.js';
-        import './components/ntt-table.js';
+        import './components/ntx-item.js';
+        import './components/ntx-list.js';
+        import './components/ntx-router.js';
+        import './components/ntx-method.js';
+        import './components/ntx-topbar.js';
+        import './components/ntx-sidebar.js';
+        import './components/ntx-profile.js';
+        import './components/ntx-user.js';
+        import './components/ntx-row.js';
+        import './components/ntx-table.js';
 
         // Initialize permissions (non-blocking — components degrade gracefully)
         permissions.init();

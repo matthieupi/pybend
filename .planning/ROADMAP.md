@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build a production-grade grant-watching application on PyBend's agentic architecture. The work proceeds in strict layers: first harden the PyBend framework for agentic pipelines (framework-generic), then define the grant-watch data model and actor topology (app-specific architecture), then build the scanning and eligibility features, wire the frontend, and validate the full pipeline with tests.
+Build a production-grade grant-watching application on N3TX's agentic architecture. The work proceeds in strict layers: first harden the N3TX framework for agentic pipelines (framework-generic), then define the grant-watch data model and actor topology (app-specific architecture), then build the scanning and eligibility features, wire the frontend, and validate the full pipeline with tests.
 
 **Phases:** 6
 **Depth:** Standard
@@ -12,7 +12,7 @@ Build a production-grade grant-watching application on PyBend's agentic architec
 
 ## Phase 1: Framework Agentic Infrastructure
 
-**Goal:** PyBend's agentic infrastructure is production-grade -- any agentic pipeline application can be built on it without hitting framework gaps.
+**Goal:** N3TX's agentic infrastructure is production-grade -- any agentic pipeline application can be built on it without hitting framework gaps.
 
 **Dependencies:** None (builds on existing 63+ passing tests)
 
@@ -106,12 +106,12 @@ Build a production-grade grant-watching application on PyBend's agentic architec
 
 ## Phase 5: Frontend
 
-**Goal:** Users can browse all grant-watch data, trigger agent runs, view run history, and see eligibility results through the PyBend UI.
+**Goal:** Users can browse all grant-watch data, trigger agent runs, view run history, and see eligibility results through the N3TX UI.
 
 **Dependencies:** Phase 2 (all models exist), Phase 3 + 4 (data to display)
 
 **Requirements:**
-- UI-01: All models browsable -- ntt-list/ntt-item for Grants, Sources, Agents, Reports, Criteria, GrantCriterion
+- UI-01: All models browsable -- ntx-list/ntx-item for Grants, Sources, Agents, Reports, Criteria, GrantCriterion
 - UI-02: Agent Run button -- manual trigger on agent detail view (POST /agents/{id}/run)
 - UI-03: Run status + history -- status indicator on agent, list of past AgentRun records with results
 - UI-04: Eligibility dashboard -- grant list with color-coded eligibility status, expandable criterion breakdown per grant

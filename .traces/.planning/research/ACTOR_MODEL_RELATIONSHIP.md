@@ -1,4 +1,4 @@
-# Research: Actor-Model Relationship in PyBend
+# Research: Actor-Model Relationship in N3TX
 
 **Domain:** Schema-driven framework: Actor messaging system + Pydantic data model integration
 **Researched:** 2026-02-26
@@ -29,7 +29,7 @@
 
 ## 1. Executive Summary
 
-After analyzing the existing PyBend codebase (both the JS frontend Actor/Matrix/TX system and the Python backend ProtoModel/StorableMixin system), researching Pydantic's metaclass constraints, and studying external actor frameworks (Akka, Erlang/OTP, Orleans, Dapr, Proto.Actor, Ray, Thespian), I recommend **Approach 5: Class Decorator (the Python equivalent of `Actor.subclass()`)** as the primary architecture, with **Approach 2 (Mixin Injection)** as a complementary mechanism for opt-in enrichment.
+After analyzing the existing N3TX codebase (both the JS frontend Actor/Matrix/TX system and the Python backend ProtoModel/StorableMixin system), researching Pydantic's metaclass constraints, and studying external actor frameworks (Akka, Erlang/OTP, Orleans, Dapr, Proto.Actor, Ray, Thespian), I recommend **Approach 5: Class Decorator (the Python equivalent of `Actor.subclass()`)** as the primary architecture, with **Approach 2 (Mixin Injection)** as a complementary mechanism for opt-in enrichment.
 
 The core insight: **Actor and Model are orthogonal concerns that should be composable, not fused.** A model describes data shape and validation. An actor describes messaging behavior and lifecycle. The JS codebase already solved this correctly with `Actor.subclass(DynamicClass, Observable)` -- it does not make DynamicClass inherit from Actor. It hot-patches actor capabilities onto an existing class. The Python port should follow the same pattern, adapted for Python's stronger type system.
 
@@ -37,8 +37,8 @@ The critical constraint is Pydantic's `ModelMetaclass`. It controls `__init__` g
 
 **Key findings:**
 - Direct multiple inheritance (Approach 1) will break due to Pydantic's `ModelMetaclass` `__slots__` conflicts and MRO issues. **Do not attempt.**
-- Mixin injection (Approach 2) already works in PyBend for StorableMixin. It can work for ActorMixin too, but has the same `__init_subclass__` timing limitations already navigated.
-- Composition (Approach 3) is the cleanest from a category theory perspective but creates indirection that violates PyBend's "transparent, not magical" principle.
+- Mixin injection (Approach 2) already works in N3TX for StorableMixin. It can work for ActorMixin too, but has the same `__init_subclass__` timing limitations already navigated.
+- Composition (Approach 3) is the cleanest from a category theory perspective but creates indirection that violates N3TX's "transparent, not magical" principle.
 - Protocol typing (Approach 4) is elegant but provides no implementation -- just a contract.
 - **Class decorator / `Actor.subclass()` equivalent (Approach 5) is the clear winner.** It mirrors the existing JS pattern, avoids metaclass conflicts, works with `__pydantic_init_subclass__`, and preserves the "model is the app" philosophy.
 - Descriptor-based proxy (Approach 6) is a novel approach worth noting but over-engineered for this use case.
@@ -68,7 +68,7 @@ The JS codebase implements a sophisticated dual-level actor system:
 3. Applies mixins via `Mixin.apply(Type)` (e.g., Observable)
 4. Marks the class with `__TypeActor = true`
 
-This is **not** inheritance. It is behavior injection via monkey-patching. The `DynamicClass` created by `prototype()` extends `NTT` (which extends `TT` which extends `Actor`), but this inheritance is for the *entity instances*. The class-level actor behavior is separately injected via `Actor.subclass()`.
+This is **not** inheritance. It is behavior injection via monkey-patching. The `DynamicClass` created by `prototype()` extends `N3TX` (which extends `TT` which extends `Actor`), but this inheritance is for the *entity instances*. The class-level actor behavior is separately injected via `Actor.subclass()`.
 
 ### Backend Model System (Python)
 
@@ -214,7 +214,7 @@ class Product(ProtoModel):
 
 #### Pydantic Compatibility: WORKS (with caveats)
 
-**Confidence: HIGH** (this is exactly how StorableMixin already works in PyBend)
+**Confidence: HIGH** (this is exactly how StorableMixin already works in N3TX)
 
 The `cls.__bases__` injection happens during `__init_subclass__`, which runs *after* the metaclass creates the class but *before* the class is fully available. Pydantic's `ModelMetaclass` has already processed fields by this point.
 
@@ -256,7 +256,7 @@ Clean. One extra ClassVar to enable actor behavior. Consistent with the existing
 
 #### Mental Model Complexity
 - "Set `__actor__ = True` and your model becomes an actor" -- simple.
-- But understanding *how* it works requires knowing about bases injection, which is a PyBend-specific pattern.
+- But understanding *how* it works requires knowing about bases injection, which is a N3TX-specific pattern.
 
 #### Extensibility
 - New actor behaviors = new methods on ActorMixin. Simple.
@@ -327,9 +327,9 @@ No inheritance relationship between Actor and ProtoModel at all. They are separa
 
 #### Unforeseen Advantages
 - **Clean testability**: Test the model without any actor system. Test the actor without any real model (mock it).
-- **Symmetric with JS**: The JS `DynamicClass` is essentially a composition wrapper around schema data + NTT actor behavior.
+- **Symmetric with JS**: The JS `DynamicClass` is essentially a composition wrapper around schema data + N3TX actor behavior.
 - **Pluggable actors**: Different model types could have different actor behaviors. A `CachedModelActor` vs `StreamingModelActor` etc.
-- **Future-proof**: If PyBend ever needs to support non-Pydantic models (e.g., SQLAlchemy), the actor layer doesn't change.
+- **Future-proof**: If N3TX ever needs to support non-Pydantic models (e.g., SQLAlchemy), the actor layer doesn't change.
 
 #### Unforeseen Disadvantages
 - **Registration bloat**: Every model needs `register_model()` AND `register_actor()`. The "zero config" promise erodes.
@@ -367,7 +367,7 @@ More explicit but more verbose. Two concepts to learn. Two registrations to reme
 - Schema generation needs to include actor capabilities (methods become messages).
 - The `@expose_route` decorator needs to bridge to actor `inbox()`.
 
-#### Verdict: **VIABLE but creates semantic gap. Best for systems where Actor and Model are genuinely independent concerns. Not ideal for PyBend where "model is the app."**
+#### Verdict: **VIABLE but creates semantic gap. Best for systems where Actor and Model are genuinely independent concerns. Not ideal for N3TX where "model is the app."**
 
 ---
 
@@ -656,7 +656,7 @@ class RawDataModel(ProtoModel):
     # Pure data model, no actor behavior
 ```
 
-**Option B is more consistent with PyBend's philosophy** ("works out of the box, customize additively"). The model IS the app, and being an actor is part of being an app entity.
+**Option B is more consistent with N3TX's philosophy** ("works out of the box, customize additively"). The model IS the app, and being an actor is part of being an app entity.
 
 #### Mental Model Complexity
 - "Every model is an actor by default. It can receive messages and handle them via methods."
@@ -678,7 +678,7 @@ class RawDataModel(ProtoModel):
 - Must integrate with `register_routes()`: when a model is actorized, should `@expose_route` methods automatically become actor message handlers?
 - The Matrix/routing system needs a Python implementation.
 
-#### Verdict: **RECOMMENDED. Best balance of consistency with JS, Pydantic compatibility, and PyBend philosophy.**
+#### Verdict: **RECOMMENDED. Best balance of consistency with JS, Pydantic compatibility, and N3TX philosophy.**
 
 ---
 
@@ -794,7 +794,7 @@ Descriptors on Pydantic models work if they don't conflict with field names. Sin
 
 **Akka Persistence Typed**: Defines Commands, Events, and State as separate types. The actor processes Commands, emits Events, and derives State. This is a composition pattern -- the actor wraps the state model.
 
-**Lesson for PyBend**: Akka's separation of message types (Commands) from state (State) from behavior (EventHandler) is clean but verbose. PyBend's philosophy ("zero to working") suggests collapsing these into the model itself. An Akka-style separation would be Approach 3. **Confidence: HIGH** (well-documented in Akka docs).
+**Lesson for N3TX**: Akka's separation of message types (Commands) from state (State) from behavior (EventHandler) is clean but verbose. N3TX's philosophy ("zero to working") suggests collapsing these into the model itself. An Akka-style separation would be Approach 3. **Confidence: HIGH** (well-documented in Akka docs).
 
 ### Erlang/OTP (GenServer) -- Behavior Callback Pattern
 
@@ -802,7 +802,7 @@ Descriptors on Pydantic models work if they don't conflict with field names. Sin
 
 **Relationship to data models**: GenServer state is an arbitrary Erlang term (often a record or map). The state is passed to every callback as an argument and returned (potentially modified) from every callback. There is no ORM or data model system -- the state IS the model, implicitly.
 
-**Lesson for PyBend**: The GenServer pattern is essentially "a process that manages state via callbacks." The model IS the state, and the process IS the actor. This maps closest to Approach 5, where the model class IS the actor and message handlers ARE methods on the model. **Confidence: HIGH** (fundamental Erlang/OTP pattern).
+**Lesson for N3TX**: The GenServer pattern is essentially "a process that manages state via callbacks." The model IS the state, and the process IS the actor. This maps closest to Approach 5, where the model class IS the actor and message handlers ARE methods on the model. **Confidence: HIGH** (fundamental Erlang/OTP pattern).
 
 ### Microsoft Orleans (Virtual Actors / Grains)
 
@@ -812,9 +812,9 @@ Descriptors on Pydantic models work if they don't conflict with field names. Sin
 
 **Relationship to data models**: Grain state is typically a POCO (Plain Old CLR Object) -- a simple data class. The grain holds a reference to its state object. State persistence is handled by the runtime via `GrainStorage`. This is a composition pattern (grain wraps state), but with the crucial detail that **the grain identity maps to the entity identity**.
 
-**The "virtual" insight**: Grains always exist. You never "create" or "destroy" them -- you just send messages to them. If the grain isn't in memory, Orleans activates it. This is extremely relevant to PyBend where entities "always exist" in the database.
+**The "virtual" insight**: Grains always exist. You never "create" or "destroy" them -- you just send messages to them. If the grain isn't in memory, Orleans activates it. This is extremely relevant to N3TX where entities "always exist" in the database.
 
-**Lesson for PyBend**: Orleans validates the idea that "entity identity = actor identity." `Product/42` is both a database entity and an actor address. This is exactly what PyBend's JS system does (`NTT` instances have `addr` = entity ID and `href` = API URL). The Python port should maintain this identity fusion. **Confidence: HIGH** (Orleans is well-documented by Microsoft).
+**Lesson for N3TX**: Orleans validates the idea that "entity identity = actor identity." `Product/42` is both a database entity and an actor address. This is exactly what N3TX's JS system does (`N3TX` instances have `addr` = entity ID and `href` = API URL). The Python port should maintain this identity fusion. **Confidence: HIGH** (Orleans is well-documented by Microsoft).
 
 ### Dapr (Sidecar Actor Pattern)
 
@@ -822,7 +822,7 @@ Descriptors on Pydantic models work if they don't conflict with field names. Sin
 
 **Relationship to data models**: The actor and the data model are separate classes. The actor holds the state manager, the state manager holds the data. This is classic composition (Approach 3).
 
-**Lesson for PyBend**: Dapr's separation makes sense for distributed systems where actor state must be explicitly persisted to a state store. PyBend already has `StorableMixin` for persistence, so the actor doesn't need its own state management -- it delegates to the model's existing CRUD methods. **Confidence: MEDIUM** (Dapr Python SDK documentation is limited).
+**Lesson for N3TX**: Dapr's separation makes sense for distributed systems where actor state must be explicitly persisted to a state store. N3TX already has `StorableMixin` for persistence, so the actor doesn't need its own state management -- it delegates to the model's existing CRUD methods. **Confidence: MEDIUM** (Dapr Python SDK documentation is limited).
 
 ### Ray (Decorator Actor Pattern)
 
@@ -832,7 +832,7 @@ Descriptors on Pydantic models work if they don't conflict with field names. Sin
 
 **This is Approach 5.** Ray uses a decorator to inject actor capabilities onto any class. The class itself doesn't change. It just gains new capabilities.
 
-**Lesson for PyBend**: Ray validates the decorator approach. `@ray.remote` is essentially `@actorize`. The key difference: Ray actors are distributed across processes; PyBend actors are local (for now) with potential for distribution via WebSocket/Matrix. **Confidence: HIGH** (Ray is production-proven at massive scale).
+**Lesson for N3TX**: Ray validates the decorator approach. `@ray.remote` is essentially `@actorize`. The key difference: Ray actors are distributed across processes; N3TX actors are local (for now) with potential for distribution via WebSocket/Matrix. **Confidence: HIGH** (Ray is production-proven at massive scale).
 
 ### Proto.Actor (Unified Actor Framework)
 
@@ -840,15 +840,15 @@ Descriptors on Pydantic models work if they don't conflict with field names. Sin
 
 **Python support**: Proto.Actor's Python SDK (`protoactor-python`) exists but is limited and not well-maintained. It uses a message-handling approach similar to Thespian.
 
-**Lesson for PyBend**: Proto.Actor's unification of classical and virtual actors is conceptually relevant. PyBend models are like virtual actors (always exist as database entities), while WebSocket connections are like classical actors (created/destroyed dynamically). The Python port should support both patterns. **Confidence: MEDIUM** (Python SDK is limited).
+**Lesson for N3TX**: Proto.Actor's unification of classical and virtual actors is conceptually relevant. N3TX models are like virtual actors (always exist as database entities), while WebSocket connections are like classical actors (created/destroyed dynamically). The Python port should support both patterns. **Confidence: MEDIUM** (Python SDK is limited).
 
 ### Entity Component System (ECS) Pattern
 
 **Pattern**: Entities are IDs. Components are data. Systems process entities with matching components. Pure composition -- no inheritance.
 
-**Relationship to this problem**: ECS separates identity (entity), data (component), and behavior (system) into three independent concepts. In PyBend terms: the entity ID is the actor address, the model fields are the components, and the actor message handlers are the systems.
+**Relationship to this problem**: ECS separates identity (entity), data (component), and behavior (system) into three independent concepts. In N3TX terms: the entity ID is the actor address, the model fields are the components, and the actor message handlers are the systems.
 
-**Lesson for PyBend**: ECS validates extreme composition. But ECS is designed for game engines with millions of entities and tight performance loops. PyBend has hundreds-to-thousands of entities with rich behavior. ECS would be over-decomposed for this use case. However, the ECS insight -- that behavior and data should be independently composable -- supports Approach 5 (behavior injected, data defined by model). **Confidence: MEDIUM** (conceptual parallel, not direct precedent).
+**Lesson for N3TX**: ECS validates extreme composition. But ECS is designed for game engines with millions of entities and tight performance loops. N3TX has hundreds-to-thousands of entities with rich behavior. ECS would be over-decomposed for this use case. However, the ECS insight -- that behavior and data should be independently composable -- supports Approach 5 (behavior injected, data defined by model). **Confidence: MEDIUM** (conceptual parallel, not direct precedent).
 
 ---
 
@@ -1066,7 +1066,7 @@ This gives us the full spectrum:
 ### Phase 1: Core Actor Infrastructure
 
 ```python
-# src/pybend/core/actor/tx.py
+# src/n3tx/core/actor/tx.py
 class TX(BaseModel):
     """Message envelope -- Python equivalent of JS TX."""
     name: str
@@ -1077,7 +1077,7 @@ class TX(BaseModel):
     tst: float = Field(default_factory=time.time)
     hash: Optional[str] = None
 
-# src/pybend/core/actor/actor.py
+# src/n3tx/core/actor/actor.py
 class Actor:
     """Base class for non-model actors (Matrix, Router, etc.)."""
     _actor_addr: str
@@ -1097,7 +1097,7 @@ class Actor:
     def register(self, child): ...
     def spawn(self, addr, cls, *args): ...
 
-# src/pybend/core/actor/matrix.py
+# src/n3tx/core/actor/matrix.py
 class Matrix(Actor):
     """Root actor -- routes messages between actors."""
     _instance = None
@@ -1118,7 +1118,7 @@ class Matrix(Actor):
             cls._instance = Matrix()
         return cls._instance
 
-# src/pybend/core/actor/actorize.py
+# src/n3tx/core/actor/actorize.py
 def actorize(cls=None, *, addr=None, mixins=None):
     """Inject actor behavior onto any class. Python equivalent of Actor.subclass()."""
     def decorator(cls):
@@ -1201,7 +1201,7 @@ class ProtoModel(PydanticBaseModel):
         super().__pydantic_init_subclass__(**kwargs)
         # Auto-actorize unless opted out
         if getattr(cls, '__actor__', None) is not False:
-            from pybend.core.actor.actorize import actorize
+            from n3tx.core.actor.actorize import actorize
             actorize(cls)
 ```
 
