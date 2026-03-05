@@ -7,7 +7,6 @@ from n3tx.core.authorize.rules import AUTHENTICATED, ANYONE, OWNER
 pytestmark = pytest.mark.unit
 
 
-
 class TestExposeRoute:
 
     def test_adds_endpoint_dict(self):
