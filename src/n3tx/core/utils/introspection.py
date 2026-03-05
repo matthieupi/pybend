@@ -211,6 +211,37 @@ def get_ref_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
     return results
 
 
+@functools.lru_cache(maxsize=None)
+def get_json_fields(model_class: Type[Any]) -> List[str]:
+    """Return field names that should be stored as JSON TEXT in SQLite.
+
+    Matches dict (any variant) and list (bare or typed like List[str], List[int])
+    but NOT ListRef[T] or List[BaseModel] which use FK join tables.
+    """
+    results = []
+    for field_name, field_info in model_class.model_fields.items():
+        field_type = field_info.annotation
+        origin = get_origin(field_type)
+        # Unwrap Optional[T]
+        if origin is Union and type(None) in get_args(field_type):
+            field_type = get_args(field_type)[0]
+            origin = get_origin(field_type)
+        # dict (any variant)
+        if field_type is dict or origin is dict:
+            results.append(field_name)
+            continue
+        # list — only if NOT ListRef and NOT List[BaseModel]
+        if field_type is list or origin is list:
+            ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
+            if ref_model is not None:
+                continue
+            args = get_args(field_type)
+            if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
+                continue
+            results.append(field_name)
+    return results
+
+
 def _is_self_ref(field_type) -> bool:
     """Check if a field type is Ref['self'] (Annotated[int, _SelfRefMarker]).
     Unwraps Optional transparently."""

@@ -11,7 +11,7 @@ from typing import Any, List, Type, Union, get_args, get_origin
 from pydantic import BaseModel
 
 from .sqlite_helpers import get_parent_fk_columns
-from n3tx.core.utils.introspection import _is_self_ref
+from n3tx.core.utils.introspection import _is_self_ref, _unwrap_listref
 
 logger = logging.getLogger('n3tx.storage')
 
@@ -134,8 +134,21 @@ class SQLiteMigration:
                 field_type = get_args(field_type)[0]
                 origin_type = getattr(field_type, '__origin__', None)
 
-            # Skip List[BaseModel] fields — stored via FK on the child table
+            # List fields: skip ListRef[T] and List[BaseModel] (FK join table),
+            # but create TEXT column for bare list/dict (JSON serialized)
             if origin_type is list:
+                ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
+                if ref_model is not None:
+                    continue  # ListRef[T] — FK join table
+                args = get_args(field_type)
+                if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
+                    continue  # List[BaseModel] — FK join table
+                columns.append(f"{field_name} TEXT")
+                continue
+
+            # dict fields → TEXT column (JSON serialized)
+            if field_type is dict or origin_type is dict:
+                columns.append(f"{field_name} TEXT")
                 continue
 
             # Handle nested Pydantic model
@@ -234,9 +247,28 @@ class SQLiteMigration:
                 field_type = get_args(field_type)[0]
                 origin_type = getattr(field_type, '__origin__', None)
 
-            # Skip List[BaseModel] fields — stored via FK on the child table
+            # List fields: skip ListRef[T] and List[BaseModel] (FK join table),
+            # but add TEXT column for bare list (JSON serialized)
             if origin_type is list:
-                model_columns.pop(field_name, None)
+                ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
+                if ref_model is not None:
+                    model_columns.pop(field_name, None)
+                    continue  # ListRef[T] — FK join table
+                args = get_args(field_type)
+                if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
+                    model_columns.pop(field_name, None)
+                    continue  # List[BaseModel] — FK join table
+                # Bare list (e.g. list, List[str]) — falls through to add TEXT column
+
+            # dict fields → TEXT column (JSON serialized)
+            if field_type is dict or origin_type is dict:
+                if field_name != 'id' and field_name not in existing_columns:
+                    try:
+                        alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} TEXT DEFAULT '{{}}'"
+                        cursor.execute(alter_sql)
+                        logger.info("Added JSON dict column '%s' to '%s' as TEXT", field_name, table_name)
+                    except sqlite3.OperationalError as e:
+                        logger.warning("Failed to add dict column %s to %s: %s", field_name, table_name, e)
                 continue
 
             if isinstance(field_type, type) and issubclass(field_type, BaseModel):

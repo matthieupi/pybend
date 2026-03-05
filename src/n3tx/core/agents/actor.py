@@ -27,7 +27,7 @@ import logging
 
 from typing import Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from n3tx.core.models.actor_model import ActorModel
 from n3tx.core.models.ref import ListRef
@@ -35,9 +35,6 @@ from n3tx.core.utils.decorators import expose_route
 from n3tx.core.agents.tool_model import AgentTool
 
 logger = logging.getLogger('n3tx.agents')
-
-# Fields stored as JSON TEXT in SQLite (dict → str roundtrip)
-_JSON_FIELDS = ('constraints',)
 
 
 class AgentActor(ActorModel):
@@ -63,43 +60,6 @@ class AgentActor(ActorModel):
     tools: Optional[ListRef[AgentTool]] = Field(default=[])
     llm: str = Field(default='ollama:llama3.1')
     constraints: dict = Field(default={})
-
-    @model_validator(mode='before')
-    @classmethod
-    def _deserialize_json_fields(cls, data):
-        """Deserialize JSON TEXT strings from SQLite back to Python objects."""
-        if isinstance(data, dict):
-            for field in _JSON_FIELDS:
-                val = data.get(field)
-                if isinstance(val, str):
-                    try:
-                        data[field] = json.loads(val)
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-        return data
-
-    def _storage_dict(self, exclude_unset: bool = True) -> dict:
-        """Serialize dict fields to JSON strings for SQLite storage."""
-        d = super()._storage_dict(exclude_unset=exclude_unset)
-        for field in _JSON_FIELDS:
-            if field in d and not isinstance(d[field], str):
-                d[field] = json.dumps(d[field], default=str)
-        return d
-
-    @classmethod
-    def update(cls, id, data):
-        """Serialize JSON fields before storage update."""
-        from pydantic import BaseModel
-        if isinstance(data, BaseModel):
-            data_dict = data.model_dump(exclude_unset=True)
-        elif isinstance(data, dict):
-            data_dict = dict(data)
-        else:
-            data_dict = data
-        for field in _JSON_FIELDS:
-            if field in data_dict and not isinstance(data_dict[field], str):
-                data_dict[field] = json.dumps(data_dict[field], default=str)
-        return super().update(id, data_dict)
 
     def _resolve_tool_addrs(self) -> list:
         """Resolve tool addresses from ListRef hrefs or AgentTool instances.

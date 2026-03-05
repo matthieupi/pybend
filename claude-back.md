@@ -53,9 +53,10 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 - `src/n3tx/core/utils/typer.py` - `Ref` type (`Ref[T]`, `Ref['self']`), `flatten_refs()`
 
 ### Storage
-- `src/n3tx/core/storage/sqlite_storage.py` - SQLite backend with FK hydration (converts ListRef fields to href arrays)
-- `src/n3tx/core/storage/sqlite_migration.py` - Auto-migration + Rails-style manual migrations
+- `src/n3tx/core/storage/sqlite_storage.py` - SQLite backend with FK hydration (converts ListRef fields to href arrays), JSON field serialization (`_coerce_value()` + `_deserialize_json_fields()`)
+- `src/n3tx/core/storage/sqlite_migration.py` - Auto-migration + Rails-style manual migrations. Distinguishes ListRef/List[BaseModel] (FK join table) from bare list/dict (TEXT column).
 - `src/n3tx/core/storage/sqlite_helpers.py` - `get_parent_fk_columns()` for auto FK column detection
+- `src/n3tx/core/utils/introspection.py` - `get_json_fields()`, `get_list_fields()`, `get_ref_fields()`, `_unwrap_listref()` — type introspection for storage layer decisions
 
 ### Authorization & Authentication
 - `src/n3tx/core/authorize/` - Standalone auth package (JWT + ABAC, zero N3TX imports). Configured via `authorize.configure()` in `main.py`
@@ -157,6 +158,25 @@ class Comment(ProtoModel):
     parent_id: Optional[Ref['self']] = Field(default=None, description="Parent comment for nesting")
 ```
 `Ref['self']` emits `{"type": "selfref"}` in JSON Schema. Stored as nullable `INTEGER` column. No join model needed.
+
+### JSON Fields (dict/list in SQLite)
+The storage layer transparently handles `dict` and `list` fields as JSON TEXT columns:
+
+```python
+class Agent(ActorModel):
+    constraints: dict = Field(default={})       # → TEXT column, auto json.dumps/loads
+    tags: list = Field(default=[])              # → TEXT column, auto json.dumps/loads
+    scores: List[int] = Field(default=[])       # → TEXT column, auto json.dumps/loads
+    tools: ListRef[AgentTool] = Field(default=[])  # → FK join table (NOT JSON)
+```
+
+Detection: `get_json_fields(model_class)` in `introspection.py` returns field names for JSON storage. It matches `dict`, `Dict[str, Any]`, `Optional[dict]`, `list`, `List[str]`, `List[int]` — but excludes `ListRef[T]` and `List[BaseModel]` (those use FK join tables).
+
+Write path: `_coerce_value()` calls `json.dumps(v, default=str)` for `dict`/`list` values.
+Read path: `_deserialize_json_fields(model_class, record)` calls `json.loads()` on string values before model instantiation.
+Migration: `create_table()` and `migrate_table()` emit `TEXT` columns for bare list/dict fields.
+
+No model-level boilerplate (`_storage_dict()`, `@model_validator`, `update()` override) is needed.
 
 ### FK Column Naming Convention
 Parent FK columns: `{parent_class_name_lowercase}_id` (e.g., `product_id`).

@@ -1,7 +1,7 @@
 """Tests for utils/introspection.py — Schema and type introspection utilities."""
 
 import pytest
-from typing import Optional, List
+from typing import Dict, Optional, List, Any
 from unittest.mock import MagicMock
 
 from pydantic import BaseModel, Field
@@ -10,6 +10,7 @@ from n3tx.core.utils.introspection import (
     pydantic_schema_for_type,
     record_model_type,
     _is_self_ref,
+    get_json_fields,
     get_list_fields,
     get_ref_fields,
     _unwrap_listref,
@@ -308,3 +309,80 @@ class TestIsSelfRefEdgeCases:
         class M(BaseModel):
             pass
         assert _is_self_ref(M) is False
+
+
+class TestGetJsonFields:
+    """Tests for get_json_fields() — detects dict/list fields for JSON TEXT storage."""
+
+    def test_dict_detected(self):
+        class M(BaseModel):
+            metadata: dict = Field(default={})
+        result = get_json_fields(M)
+        assert 'metadata' in result
+
+    def test_dict_str_any_detected(self):
+        class M(BaseModel):
+            metadata: Dict[str, Any] = Field(default={})
+        result = get_json_fields(M)
+        assert 'metadata' in result
+
+    def test_optional_dict_detected(self):
+        class M(BaseModel):
+            metadata: Optional[dict] = Field(default=None)
+        result = get_json_fields(M)
+        assert 'metadata' in result
+
+    def test_bare_list_detected(self):
+        class M(BaseModel):
+            tags: list = Field(default=[])
+        result = get_json_fields(M)
+        assert 'tags' in result
+
+    def test_list_str_detected(self):
+        class M(BaseModel):
+            tags: List[str] = Field(default=[])
+        result = get_json_fields(M)
+        assert 'tags' in result
+
+    def test_list_int_detected(self):
+        class M(BaseModel):
+            scores: List[int] = Field(default=[])
+        result = get_json_fields(M)
+        assert 'scores' in result
+
+    def test_listref_not_detected(self):
+        class Child(BaseModel):
+            name: str = ''
+        class M(BaseModel):
+            children: ListRef[Child] = Field(default=[])
+        result = get_json_fields(M)
+        assert 'children' not in result
+
+    def test_list_basemodel_not_detected(self):
+        class Child(BaseModel):
+            name: str = ''
+        class M(BaseModel):
+            items: List[Child] = Field(default=[])
+        result = get_json_fields(M)
+        assert 'items' not in result
+
+    def test_no_json_fields(self):
+        class M(BaseModel):
+            name: str = ''
+            value: int = 0
+        result = get_json_fields(M)
+        assert result == []
+
+    def test_mixed_fields(self):
+        class Child(BaseModel):
+            name: str = ''
+        class M(BaseModel):
+            name: str = ''
+            tags: list = Field(default=[])
+            metadata: dict = Field(default={})
+            children: ListRef[Child] = Field(default=[])
+        result = get_json_fields(M)
+        assert 'tags' in result
+        assert 'metadata' in result
+        assert 'children' not in result
+        assert 'name' not in result

@@ -1,6 +1,7 @@
 # app/storage/sqlite_storage.py
 
 import contextlib
+import json
 import logging
 import queue
 import re
@@ -11,7 +12,7 @@ from pydantic import BaseModel
 
 from n3tx.core import config
 from n3tx.core.utils.registrar import registered_models
-from n3tx.core.utils.introspection import get_list_fields, get_ref_fields
+from n3tx.core.utils.introspection import get_json_fields, get_list_fields, get_ref_fields
 from n3tx.core.utils.populate import PopulateSpec
 from .abstract_storage import AbstractStorage
 from .sqlite_migration import SQLiteMigration
@@ -43,7 +44,21 @@ def _coerce_value(v):
     import datetime
     if isinstance(v, (datetime.date, datetime.datetime)):
         return v
+    # dict/list → JSON TEXT
+    if isinstance(v, (dict, list)):
+        return json.dumps(v, default=str)
     return str(v)
+
+
+def _deserialize_json_fields(model_class, record):
+    """Deserialize JSON TEXT strings back to Python dicts/lists for JSON fields."""
+    for field_name in get_json_fields(model_class):
+        val = record.get(field_name)
+        if isinstance(val, str):
+            try:
+                record[field_name] = json.loads(val)
+            except (json.JSONDecodeError, TypeError):
+                pass
 
 
 class SQLiteStorage(AbstractStorage):
@@ -193,6 +208,9 @@ class SQLiteStorage(AbstractStorage):
                         if field.default is not None:
                             record[key] = field.default
 
+                # Deserialize JSON TEXT fields (dict/list) before model instantiation
+                _deserialize_json_fields(model_class, record)
+
                 # Hydrate Ref[T] fields as href URLs
                 for field_name, target_cls in ref_fields:
                     val = record.get(field_name)
@@ -325,6 +343,9 @@ class SQLiteStorage(AbstractStorage):
                 except sqlite3.OperationalError:
                     # Child table or FK column may not exist yet
                     data[field_name] = []
+
+            # Deserialize JSON TEXT fields (dict/list) before model instantiation
+            _deserialize_json_fields(model_class, data)
 
             instance = model_class(**data) if not as_dict else None
 
@@ -461,6 +482,10 @@ class SQLiteStorage(AbstractStorage):
                                 for sid in sub_ids
                             ]
 
+                # Deserialize JSON TEXT fields on child records
+                for rec in capped:
+                    _deserialize_json_fields(effective_cls, rec)
+
                 # Build child model instances and serialize
                 child_dicts = []
                 child_instances = []
@@ -539,6 +564,7 @@ class SQLiteStorage(AbstractStorage):
             lookup = {}
             for row in rows:
                 record = dict(zip(columns, row))
+                _deserialize_json_fields(target_cls, record)
                 try:
                     ref_inst = target_cls(**record)
                     dumped = ref_inst.model_response()

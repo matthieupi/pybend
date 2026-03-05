@@ -148,6 +148,7 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 | JSON Schema | Field types, validators, `json_schema_extra` | `ProtoModel.schema()` via `proto_schema` pipeline |
 | Enriched JSON responses | `model_response()`, dump pipeline stages | `proto_dump` pipeline (`base` → `response` → extensions) |
 | DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
+| JSON field storage | `dict`, `list`, `List[str]` etc. fields | `sqlite_storage.py` auto-serializes to/from JSON TEXT |
 | FK hydration (href arrays) | `ListRef[T]` fields, `__fk_models__` | `sqlite_storage.py` on read |
 | Access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth injection |
 | Frontend entity classes | Schema properties, methods | `N3TX.SCHEMA()` → `prototype()` → DynamicClass |
@@ -173,7 +174,7 @@ From this definition, `ProtoModel.schema()` generates a JSON Schema document tha
 
 To customize, override at any level: swap a widget via `json_schema_extra`, control layout via `__ui__`, change permissions via `__access__`, or write a custom component that extends `NTTElement`.
 
-**Adding a field** to a model automatically: adds a DB column, includes it in API responses, generates a form input, validates on both sides. **Changing `__access__`** propagates to the frontend: the edit button appears or disappears, list queries filter differently. **Adding `@expose_route`** creates an API endpoint and a clickable button in the UI. The schema carries intent, not just structure — the frontend doesn't interpret types, it follows instructions.
+**Adding a field** to a model automatically: adds a DB column, includes it in API responses, generates a form input, validates on both sides. **Adding a `dict` or `list` field** automatically: creates a TEXT column, serializes to JSON on write, deserializes back on read — no boilerplate needed. **Changing `__access__`** propagates to the frontend: the edit button appears or disappears, list queries filter differently. **Adding `@expose_route`** creates an API endpoint and a clickable button in the UI. The schema carries intent, not just structure — the frontend doesn't interpret types, it follows instructions.
 
 ### Schema as Universal Contract
 
@@ -326,6 +327,24 @@ When `routing='actor'`, authorization is split:
 - **Tier 2**: `ActorModel._authorize()` in `handler_crud()` — full ABAC with resource instance. Evaluates OWNER rules after fetching the entity.
 
 Level 1/2 use `routes_fastapi.py`'s single-pass `_resolver.authorize(ctx)` — unchanged.
+
+### JSON Fields (dict/list Storage)
+`dict` and `list` fields are transparently serialized to JSON TEXT in SQLite — no per-model boilerplate needed:
+
+```python
+class Product(ProtoModel):
+    __tablename__ = 'products'
+    __storable__ = True
+    tags: list = Field(default=[])           # Just works — stored as JSON TEXT
+    metadata: dict = Field(default={})       # Just works — stored as JSON TEXT
+    scores: List[int] = Field(default=[])    # Just works — stored as JSON TEXT
+```
+
+The storage layer handles everything:
+- **Write path:** `_coerce_value()` in `sqlite_storage.py` calls `json.dumps()` for `dict`/`list` values
+- **Read path:** `_deserialize_json_fields()` calls `json.loads()` before model instantiation (in `get()`, `list()`, `_populate_fields()`)
+- **Migration:** `sqlite_migration.py` creates TEXT columns for bare `list`/`dict` fields (but still skips `ListRef[T]` and `List[BaseModel]` which use FK join tables)
+- **Detection:** `get_json_fields()` in `introspection.py` distinguishes JSON-serializable fields from FK reference fields
 
 ### Widget Pattern (Overview)
 Widget fields map Python types to specialized frontend renderers. The `Widget` class hierarchy serves as both a type annotation and a metadata carrier. The `widget` schema pipeline stage (registered `before='ui'`) injects `ui.widget` + `ui.config` into JSON Schema properties. On the frontend, `form.js` and `ntx-item.js` dispatch to registered JS Widget instances (`getWidgetForField()`) before falling through to type-based rendering. See `claude-back.md` for Python widget details and `claude-front.md` for JS widget details.
