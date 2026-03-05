@@ -83,6 +83,9 @@ class FastAPIBackend(BaseBackend):
             from n3tx.core.tests.profiling.middleware import ProfilingMiddleware
             self.app.add_middleware(ProfilingMiddleware)
 
+        if DEBUG:
+            self._add_debug_logging_middleware()
+
     def _add_auth_middleware(self):
         from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.responses import JSONResponse
@@ -119,6 +122,36 @@ class FastAPIBackend(BaseBackend):
                 return await call_next(request)
 
         self.app.add_middleware(JWTAuthMiddleware)
+
+    def _add_debug_logging_middleware(self):
+        import time
+        from starlette.middleware.base import BaseHTTPMiddleware
+
+        exempt_extensions = self.AUTH_EXEMPT_EXTENSIONS
+
+        class DebugLoggingMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                start = time.monotonic()
+                response = await call_next(request)
+                elapsed = (time.monotonic() - start) * 1000
+
+                path = request.url.path
+
+                # Skip static files to reduce noise
+                if any(path.endswith(ext) for ext in exempt_extensions):
+                    return response
+
+                user = getattr(getattr(request, 'state', None), 'user', None) or {}
+                user_id = user.get('user_id', '-')
+
+                logger.info(
+                    "[DEBUG] %s %s -> %s (%.1fms) user=%s",
+                    request.method, path, response.status_code,
+                    elapsed, user_id,
+                )
+                return response
+
+        self.app.add_middleware(DebugLoggingMiddleware)
 
     def register_routes(self, registered_models: dict[str, type]):
         from n3tx.core.api.routes_fastapi import register_routes, register_route

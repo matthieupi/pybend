@@ -14,6 +14,20 @@ import pytest
 from unittest.mock import MagicMock
 from typing import ClassVar
 
+from n3tx.core import config
+
+
+# ---------------------------------------------------------------------------
+# Ensure DEBUG=False for all unit tests (example_api conftest sets it True)
+# Individual tests can opt-in to DEBUG=True via their own fixtures.
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _ensure_debug_off():
+    original = config.DEBUG
+    config.DEBUG = False
+    yield
+    config.DEBUG = original
+
 
 # ---------------------------------------------------------------------------
 # Auth fixtures

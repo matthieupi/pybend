@@ -23,6 +23,8 @@ from typing import Optional
 
 logger = logging.getLogger('n3tx.api.discovery')
 
+from n3tx.core import config
+
 
 def _build_meta(registered_models: dict, name: str, version: str,
                 base_url: str, capabilities: Optional[dict] = None) -> dict:
@@ -73,6 +75,7 @@ def _build_meta(registered_models: dict, name: str, version: str,
         'base_url': base_url,
         'models': models,
         'capabilities': caps,
+        'debug': config.DEBUG,
     }
 
 

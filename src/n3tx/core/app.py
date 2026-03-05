@@ -24,7 +24,7 @@ _SSR_MODES = ('off', 'schema', 'bundle', 'full')
 
 from n3tx.core.storage.sqlite_storage import SQLiteStorage
 from n3tx.core.storage.abstract_storage import AbstractStorage
-from n3tx.core.utils.registrar import register_model, registered_models, prepare_model, apply_registration
+from n3tx.core.utils.registrar import register_model, registered_models, join_models, prepare_model, apply_registration
 from n3tx.core.models.proto_model import generate_join_model
 from n3tx.core.api.backend import FastAPIBackend
 from n3tx.core import config
@@ -134,6 +134,8 @@ class N3TXApp:
         self._jwt_expiry_hours = jwt_expiry_hours
         self._cors_origins = cors_origins
         self._debug = debug
+        if debug:
+            config.configure(debug=True)
         self._ssr_mode = _resolve_ssr(ssr)
 
         self._models: List[Tuple[Type, Optional[AbstractStorage]]] = []
@@ -207,6 +209,11 @@ class N3TXApp:
             preparations.append(prepare_model(join_model, storage=self._storage))
 
         # 4. Apply all registrations (side effects: storage, tables, global dicts)
+        #    Clear first so reloads (e.g. uvicorn --reload) start from a clean
+        #    slate.  Using .clear() preserves dict identity — existing references
+        #    (e.g. FastAPIBackend.registered_models) see the updated contents.
+        registered_models.clear()
+        join_models.clear()
         for result in preparations:
             apply_registration(result)
 

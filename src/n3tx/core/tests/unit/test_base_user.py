@@ -28,6 +28,7 @@ from fastapi import HTTPException
 from n3tx.core.models.base_user import BaseUser
 from n3tx.core.storage.sqlite_storage import SQLiteStorage
 from n3tx.core.authorize import configure, verify_password, decode_token
+from n3tx.core import config
 
 pytestmark = pytest.mark.unit
 
