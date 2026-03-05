@@ -148,4 +148,33 @@ export class NetworkAdapter {
     }
   }
 
+  /**
+   * Send a streaming request. Works over both WS and HTTP (SSE).
+   *
+   * When WebSocket is connected, sends a TX with stream metadata and
+   * registers a stream handler on Socket for correlated chunk routing.
+   * Falls back to HTTP SSE (via HTTP.stream()) when WS is unavailable.
+   *
+   * @param {TX|Object} event - The TX to send
+   * @param {Function} onChunk - Called for each streamed chunk
+   * @param {Function} onDone - Called when stream completes
+   * @param {Function} onError - Called on error
+   * @returns {{ cancel: Function }} - Call cancel() to abort the stream
+   */
+  sendStream(event, onChunk, onDone, onError) {
+    if (this.socket && this.socket.ready) {
+      const tx = event instanceof TX ? event : new TX(event);
+      tx.meta = { ...(tx.meta || {}), stream: true };
+      const reqId = tx._hash || tx.meta._reqId || Date.now().toString(36);
+      tx.meta._reqId = reqId;
+      const cancel = this.socket.registerStream(reqId, onChunk, onDone, onError);
+      this.socket.send(tx);
+      return { cancel };
+    }
+    // HTTP SSE fallback
+    const { name, data, target } = event;
+    const url = `${target}/${name.toLowerCase()}`;
+    return HTTP.stream(url, data, onChunk, onDone, onError);
+  }
+
 }

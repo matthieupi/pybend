@@ -322,6 +322,71 @@ export default class HTTP {
         }
         return true
     }
+
+    /**
+     * Stream an SSE response from a POST endpoint.
+     *
+     * Sends a POST request and reads the response body as a stream of
+     * Server-Sent Events (SSE). Each SSE frame is parsed and dispatched
+     * to the appropriate callback based on the event type:
+     *   - "chunk" (default) → onChunk(parsed)
+     *   - "done"            → onDone(parsed)
+     *   - "error"           → onError(parsed)
+     *
+     * @param {string} url - The endpoint URL
+     * @param {Object} data - The POST body (JSON-serialized)
+     * @param {Function} onChunk - Called for each streamed chunk
+     * @param {Function} onDone - Called when the stream completes
+     * @param {Function} onError - Called on error (HTTP or stream)
+     * @returns {{ cancel: Function }} - Call cancel() to abort the stream
+     */
+    static stream(url, data, onChunk, onDone, onError) {
+        const token = window.localStorage?.getItem('jwtToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['x-access-token'] = token;
+
+        const controller = new AbortController();
+
+        fetch(url, {
+            method: 'POST', headers,
+            body: JSON.stringify(data),
+            signal: controller.signal,
+        }).then(response => {
+            if (!response.ok) return response.json().then(onError);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            function pump() {
+                reader.read().then(({ done, value }) => {
+                    if (done) { onDone({}); return; }
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    let eventType = 'chunk';
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+                        else if (line.startsWith('data: ')) {
+                            try {
+                                const parsed = JSON.parse(line.slice(6));
+                                if (eventType === 'error') onError(parsed);
+                                else if (eventType === 'done') onDone(parsed);
+                                else onChunk(parsed);
+                            } catch (e) { /* partial JSON, wait for more data */ }
+                        }
+                    }
+                    pump();
+                }).catch(e => {
+                    if (e.name !== 'AbortError') onError(e);
+                });
+            }
+            pump();
+        }).catch(e => {
+            if (e.name !== 'AbortError') onError(e);
+        });
+
+        return { cancel: () => controller.abort() };
+    }
 }
 
 window.Http = HTTP

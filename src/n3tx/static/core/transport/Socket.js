@@ -26,6 +26,7 @@ export default class Socket {
     this.ready = false;
     this.onmessage = null;
     this._queue = [];
+    this._streams = new Map();  // req uuid → {onChunk, onDone, onError}
     this._reconnectDelay = RECONNECT_BASE;
     this._reconnectTimer = null;
     this._heartbeatTimer = null;
@@ -70,6 +71,24 @@ export default class Socket {
       }
       // Heartbeat response — ignore
       if (data.heartbeat) return;
+
+      // Stream correlation: route to registered stream handler
+      if (data.meta?.stream && data.meta?.req) {
+        const handler = this._streams.get(data.meta.req);
+        if (handler) {
+          if (data.meta.error) {
+            handler.onError(data.data);
+            this._streams.delete(data.meta.req);
+          } else if (data.meta.stream_end) {
+            handler.onDone(data.data);
+            this._streams.delete(data.meta.req);
+          } else {
+            handler.onChunk(data.data);
+          }
+          return;
+        }
+      }
+
       // Dispatch to callback
       if (this.onmessage) this.onmessage(data);
     };
@@ -99,6 +118,19 @@ export default class Socket {
       this._queue.push(payload);
       Logging.dev('[Socket] Queued message (disconnected)');
     }
+  }
+
+  /**
+   * Register a stream handler for correlated WS messages.
+   * @param {string} reqId - The TX uuid that identifies the stream
+   * @param {Function} onChunk - Called for each chunk
+   * @param {Function} onDone - Called on stream_end
+   * @param {Function} onError - Called on error
+   * @returns {Function} cancel - Call to unregister the stream
+   */
+  registerStream(reqId, onChunk, onDone, onError) {
+    this._streams.set(reqId, { onChunk, onDone, onError });
+    return () => this._streams.delete(reqId);
   }
 
   /**
