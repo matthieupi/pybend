@@ -275,40 +275,29 @@ class TestRegisterDebugEnvelope:
 # Code bug regression: str-returning instance methods with DEBUG=True
 # ===================================================================
 
-class TestStrReturningMethodCodeBug:
-    """Document the known incompatibility between DEBUG envelope and str-annotated methods.
+class TestStrReturningMethod:
+    """Test that str-annotated @expose_route methods work with debug envelope.
 
-    CODE BUG: When @expose_route wraps a method annotated -> str, the route
-    layer registers response_model=str. With DEBUG=True the wrapper returns a
-    dict envelope instead of a str, causing FastAPI's response validation to
-    raise a 500 Internal Server Error.
-
-    This test documents (and guards against removal of) this known limitation.
-    It should be fixed by making register_routes() use response_model=None when
-    DEBUG mode is active, or by having the wrapper set a flag on the result so
-    the route can detect and skip response_model validation.
+    register_routes() uses response_model=None when DEBUG=True so the dict
+    envelope passes through FastAPI's response validation without error.
     """
 
-    def test_str_returning_method_debug_true_returns_500(
+    def test_str_returning_method_debug_true_returns_envelope(
         self, client, alice_token, seed_data, debug_on
     ):
         """Product.comment() is annotated -> str. With DEBUG=True the envelope
-        (a dict) fails FastAPI's response_model=str check, producing a 500.
-
-        This is a known code bug: the route layer does not account for debug
-        envelope when selecting the response_model for the route.
+        passes through because response_model is disabled in debug mode.
         """
         product = seed_data["products"][0]
         resp = client.post(
             f"/products/{product.id}/comment",
-            json={"comment": {"name": "Bug doc", "description": "Triggers 500"}},
+            json={"comment": {"name": "Debug test", "description": "Works now"}},
             headers=auth_header(alice_token),
         )
-        # 500 is the expected (buggy) behavior; if this becomes 200 the bug is fixed
-        assert resp.status_code == 500, (
-            "Expected 500 due to response_model=str incompatibility with debug envelope. "
-            "If this is now 200, the bug has been fixed — update this test accordingly."
-        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert '_debug' in data
+        assert 'result' in data
 
     def test_str_returning_method_debug_false_returns_200(
         self, client, alice_token, seed_data

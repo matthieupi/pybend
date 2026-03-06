@@ -1,4 +1,5 @@
 # app/utils/decorators.py
+import inspect
 import time
 import json
 import logging
@@ -17,6 +18,8 @@ def expose_route(route, methods=["POST"], access=None, stream=False):
         methods (list): The HTTP methods allowed for this route.
         access (AccessRule, optional): Authorization rule for this endpoint.
             If None, falls back to model's __access__ dict or AUTHENTICATED default.
+        stream (bool): If True, marks this method as a streaming endpoint.
+            Streaming methods must be async generators (use yield, not return).
     """
     def decorator(func):
         @wraps(func)
@@ -24,8 +27,13 @@ def expose_route(route, methods=["POST"], access=None, stream=False):
             if not config.DEBUG:
                 return func(*args, **kwargs)
 
-            start = time.monotonic()
             result = func(*args, **kwargs)
+
+            # Async generators must pass through — debug envelope would break streaming
+            if inspect.isasyncgen(result):
+                return result
+
+            start = time.monotonic()
             elapsed = round((time.monotonic() - start) * 1000, 2)
 
             # Extract instance_id from self (first arg for instance methods)

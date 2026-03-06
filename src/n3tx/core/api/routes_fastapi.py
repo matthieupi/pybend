@@ -517,9 +517,12 @@ def register_routes():
                         custom_method = custom_post
 
                 handler = make_custom_post(attr, model_class, full_route)
+                # In DEBUG mode, @expose_route wraps results in a dict envelope,
+                # so response_model validation would reject non-dict return types.
+                resp_model = None if config.DEBUG else (return_type if return_type else None)
                 router.add_api_route(full_route, handler,
                                      methods=methods, tags=[model_title], name=attr.__name__,
-                                     response_model=return_type if return_type else None,
+                                     response_model=resp_model,
                                      )
 
 
