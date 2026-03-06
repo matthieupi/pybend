@@ -36,6 +36,11 @@ Every message is a TX object (or plain object with the same fields):
 |-------|------|-------------|
 | `remote` | `bool` | If true, NetworkAdapter originated this or should send it remotely. |
 | `inbox` | `string` | Override: when the response comes back, use this as the event name instead of the original. |
+| `req` | `string` | Correlation ID linking replies (and stream chunks) to the original request TX uuid. |
+| `stream` | `bool` | If true, this message is part of a streaming sequence (chunk or end). |
+| `stream_end` | `bool` | If true, this is the final message in a streaming sequence. |
+| `seq` | `number` | Sequence number for ordering stream chunks. |
+| `error` | `bool` | If true, this message is an error (terminates streams). |
 
 ---
 

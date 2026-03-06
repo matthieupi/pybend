@@ -10,10 +10,11 @@ Documentation for the web component layer that renders N3TX data in the browser.
 4. [NTTItem (built-in default item)](#nttitem)
 5. [NTTList (built-in default list)](#nttlist)
 6. [NTTMethod](#nttmethod)
-7. [Router (navigation actor)](#router)
-8. [NTTRouter (view container)](#nttrouter)
-9. [Formidable (form generator)](#formidable)
-10. [Scaffolding](#scaffolding)
+7. [NTTStream](#nttstream)
+8. [Router (navigation actor)](#router)
+9. [NTTRouter (view container)](#nttrouter)
+10. [Formidable (form generator)](#formidable)
+11. [Scaffolding](#scaffolding)
 
 ---
 
@@ -579,6 +580,41 @@ Button layout uses an SVG icon library (heart, star, reply, default) with hover/
 2. `render()`: Dispatches to `renderFieldset()`, `renderInline()`, or `renderButton()` based on layout attribute.
 3. `callMethod()`: Calls `target.call(method, payload)` on the N3TX instance or DynamicClass.
 4. `#postCall()`: Shared post-invoke logic across all layouts — displays response, triggers entity re-fetch via `_response_` handler.
+
+---
+
+## NTTStream
+
+**File:** `components/ntx-stream.js`
+**Tag:** `<ntx-stream>`
+
+Extends NTTMethod for streaming methods. Overrides `callMethod()` to use `HTTP.stream()` for SSE consumption, rendering progressive output with a blinking cursor.
+
+### Usage
+
+```html
+<ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
+```
+
+### Attributes
+
+Inherits all attributes from NTTMethod (`model`, `method`, `uuid`, `mode`, `label`, `forward`).
+
+### Behavior
+
+1. `callMethod()`: Cancels any in-progress stream, then calls `HTTP.stream()` with the method URL.
+2. `_onChunk(data)`: Appends chunk to internal buffer, re-renders output.
+3. `_onDone(data)`: Stops streaming state, removes cursor, triggers entity re-fetch via `pull()`.
+4. `_onError(data)`: Stops streaming, displays error message.
+5. `disconnectedCallback()`: Cancels in-flight stream via `AbortController` (prevents orphaned connections).
+
+### Output Rendering
+
+Progressive output is rendered in a `.stream-output` container appended to the shadow root. Text is extracted from chunks using `chunk.chunk || chunk.text || chunk.content || JSON.stringify(chunk)`. A blinking cursor (`|`) indicates active streaming.
+
+### When to Use
+
+Use `<ntx-stream>` instead of `<ntx-method>` when the backend method is marked with `@expose_route(stream=True)`. The schema entry will have `"stream": true` in the method definition.
 
 ---
 

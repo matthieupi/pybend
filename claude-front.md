@@ -16,6 +16,7 @@ ntx-list.js          <ntx-list model="Product"> - fetches and renders entity lis
 ntx-item.js          <ntx-item> - adaptive entity rendering (xs pill → xl page)
 ntx-element.js       Base web component class for all N3TX elements
 ntx-method.js        Renders callable methods as buttons
+ntx-stream.js        Extends ntx-method for streaming methods (SSE + progressive output)
 form.js              Formidable generator - builds forms from schema properties
 ```
 
@@ -32,6 +33,9 @@ form.js              Formidable generator - builds forms from schema properties
 - `src/n3tx/static/components/ntx-list.js` - List component
 - `src/n3tx/static/components/ntx-router.js` - Generic view container (loads any component via Router)
 - `src/n3tx/static/components/ntx-element.js` - Base component class
+
+### Streaming
+- `src/n3tx/static/components/ntx-stream.js` - `<ntx-stream>` component extending NTTMethod for streaming methods. Progressive output rendering with blinking cursor, AbortController cancellation on disconnect.
 
 ### Generators & Utils
 - `src/n3tx/static/generators/form.js` - Formidable: schema-driven form generator
@@ -99,7 +103,7 @@ GET /Product → JSON Schema
 | `ui.groups` | `form.js` → `renderGroupedFields()` | Wraps fields in `<fieldset>` groups |
 | `ui.renderer.*` | `ntx-router.js` → `#resolveTag()` | Chooses component tag for navigation views |
 | `access` | `Permissions.js` → `canAction(access, action, resource)` | Shows/hides edit/delete buttons with resource-aware OWNER evaluation |
-| `methods` | `prototype()` + `<ntx-method>` | Creates callable methods + renders action buttons |
+| `methods` | `prototype()` + `<ntx-method>` / `<ntx-stream>` | Creates callable methods + renders action buttons (streaming methods use `<ntx-stream>`) |
 | `$defs` | `N3TX.SCHEMA()` | Registers nested DynamicClasses (Comment, etc.) |
 | `$id` / `$schema` | DynamicClass value getter | Injected into every entity instance for self-description |
 
@@ -143,4 +147,38 @@ App developers extend with a single class:
 ```javascript
 class ColorWidget extends Widget { display(v) { ... } }
 registerWidget('color', new ColorWidget());
+```
+
+### Streaming Transport
+
+The frontend transport layer supports streaming for long-running operations (agent runs, data exports, multi-step workflows). Streaming works over both HTTP (SSE) and WebSocket.
+
+#### HTTP.stream()
+
+`HTTP.stream(url, data, onChunk, onDone, onError)` — SSE client using the Fetch API with `ReadableStream`. Parses `event: chunk|done|error` and `data: {json}` lines. Returns `{ cancel: Function }` for `AbortController` cancellation.
+
+```javascript
+const handle = HTTP.stream('/products/1/generate', { prompt: 'hello' },
+    (chunk) => console.log('Chunk:', chunk),
+    (data)  => console.log('Done:', data),
+    (err)   => console.error('Error:', err),
+);
+// Cancel mid-stream:
+handle.cancel();
+```
+
+#### Socket.registerStream()
+
+`socket.registerStream(reqId, onChunk, onDone, onError)` — registers stream handlers for correlated WS messages. Messages with `meta.stream` and matching `meta.req` are dispatched to the registered handler instead of the generic `onmessage`. Returns a cancel function.
+
+#### NetworkAdapter.sendStream()
+
+`adapter.sendStream(event, onChunk, onDone, onError)` — unified streaming API. Uses WebSocket if connected (`socket.registerStream`), falls back to HTTP SSE (`HTTP.stream`). Returns `{ cancel: Function }`.
+
+#### `<ntx-stream>` Component
+
+Extends `NTTMethod`. For methods with `schema.methods[m].stream === true`, use `<ntx-stream>` instead of `<ntx-method>`. Overrides `callMethod()` to use `HTTP.stream()`, renders progressive output with a blinking cursor, and cancels in-flight streams on disconnect.
+
+```html
+<ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
 ```

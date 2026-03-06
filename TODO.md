@@ -54,6 +54,13 @@ _JS · Web Components · UI · Forms · Rendering_
 - [ ] Add system so that if given render method is not defined (md, sm) we 
   drop down to the next available one
 - [ ] Add support for custom ntt-method components
+- [ ] Make <ntx-table> row use the same widget (edit/display) as ntx-item
+  - Currently it uses it's own widget, meaning we have to do everything in 
+    double, and having 2 system to render leads to various bugs. 
+  - E.g In Grant watcher, User is shown as User #1,2,3 Instead of showing 
+    avatar. Url is not clickable. We had some validation bugs as well.
+  - Might require a deeper redesign of the primitives to make the 
+    integration more seamless
 - [ ] ...
-
+- 
 ---

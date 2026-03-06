@@ -96,6 +96,27 @@ Creates an ERROR event with the original event as data and dispatches it back to
 
 Convenience method to send a READ event to a target URL.
 
+### sendStream(event, onChunk, onDone, onError)
+
+Unified streaming API. Sends a streaming request and routes progressive results to callbacks. Automatically selects the transport:
+
+- **WebSocket mode** (if `socket.ready`): Uses `socket.registerStream()` for chunk correlation
+- **HTTP mode** (fallback): Uses `HTTP.stream()` for SSE
+
+```javascript
+const handle = adapter.sendStream(
+    { name: 'generate', target: 'http://localhost:5000/products/1', data: { prompt: 'hello' } },
+    (chunk) => console.log('Chunk:', chunk),
+    (data)  => console.log('Done:', data),
+    (err)   => console.error('Error:', err),
+);
+
+// Cancel mid-stream:
+handle.cancel();
+```
+
+Returns `{ cancel: Function }` for both transports.
+
 ---
 
 ## HTTP
@@ -112,6 +133,7 @@ Static utility class wrapping the Fetch API. All methods use `window.localStorag
 | `HTTP.post(url, data, onSuccess, onError)` | | POST |
 | `HTTP.put(url, data, onSuccess, onError)` | | PUT |
 | `HTTP.remove(url, onSuccess, onError)` | | DELETE |
+| `HTTP.stream(url, data, onChunk, onDone, onError)` | | POST (SSE) |
 
 ### Common Behavior
 
@@ -128,6 +150,34 @@ Static utility class wrapping the Fetch API. All methods use `window.localStorag
 | `HTTP.rpc(method, args, kwargs, onSuccess)` | RPC-style POST to `/api/rpc`. |
 | `HTTP.checkIfUnauthorized(res)` | Returns true if status is 401. |
 | `HTTP.checkValidCode(res)` | Returns true for 2xx status codes. |
+
+### stream(url, data, onChunk, onDone, onError)
+
+SSE client for streaming endpoints. Sends a POST request and reads the response as a `ReadableStream`, parsing SSE `event:`/`data:` lines.
+
+```javascript
+const handle = HTTP.stream(
+    'http://localhost:5000/products/1/generate',
+    { prompt: 'hello' },
+    (chunk) => console.log('Chunk:', chunk),    // event: chunk
+    (data)  => console.log('Done:', data),      // event: done
+    (err)   => console.error('Error:', err),    // event: error
+);
+
+// Cancel mid-stream:
+handle.cancel();
+```
+
+**SSE format** expected from server:
+```
+event: chunk
+data: {"chunk": "Part 0"}
+
+event: done
+data: {}
+```
+
+**Returns** `{ cancel: Function }` — calls `AbortController.abort()` to terminate the stream. Auth token from `localStorage['jwtToken']` is included automatically.
 
 ---
 
@@ -187,6 +237,26 @@ socket.removeTarget(targetAddr);
 ```
 
 Targets receive events dispatched by the socket's `onMessage` handler.
+
+### Stream Correlation
+
+`registerStream(reqId, onChunk, onDone, onError)` registers stream handlers for correlated WS messages. When an incoming message has `meta.stream` and `meta.req` matching a registered stream, it is dispatched to the stream handler instead of the generic `onmessage`.
+
+```javascript
+const cancel = socket.registerStream(txUuid,
+    (chunk) => console.log('Chunk:', chunk),
+    (data)  => console.log('Done:', data),
+    (err)   => console.error('Error:', err),
+);
+
+// Unregister the stream handler:
+cancel();
+```
+
+Messages are routed based on `meta` fields:
+- `meta.error` -> `onError`, then unregister
+- `meta.stream_end` -> `onDone`, then unregister
+- otherwise -> `onChunk`
 
 ---
 

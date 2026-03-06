@@ -414,6 +414,73 @@ FastAPI: Visit `http://localhost:8000/docs` to see all endpoints including custo
 
 ---
 
+## Streaming Endpoints
+
+Custom methods can stream progressive results to the client via Server-Sent Events (SSE). Mark the route with `stream=True` and use an async generator:
+
+### Backend
+
+```python
+@expose_route('/generate', methods=['POST'], stream=True, access=AUTHENTICATED)
+async def generate(self, prompt: str = ''):
+    for i in range(10):
+        await asyncio.sleep(0.1)
+        yield {'chunk': f'Processing step {i}'}
+```
+
+### Frontend (SSE)
+
+```javascript
+const handle = HTTP.stream('/products/1/generate', { prompt: 'hello' },
+    (chunk) => document.body.append(chunk.chunk),  // progressive output
+    (data)  => console.log('Stream complete'),
+    (err)   => console.error('Stream error:', err),
+);
+
+// Cancel mid-stream:
+handle.cancel();
+```
+
+### SSE Wire Format
+
+```
+event: chunk
+data: {"chunk": "Processing step 0"}
+
+event: chunk
+data: {"chunk": "Processing step 1"}
+
+event: done
+data: {}
+```
+
+### Component
+
+Use `<ntx-stream>` instead of `<ntx-method>` for streaming methods:
+
+```html
+<ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
+```
+
+### Schema Discovery
+
+Streaming methods are discoverable via the schema. The method entry includes `"stream": true`:
+
+```json
+{
+  "methods": {
+    "generate": {
+      "route": "/generate",
+      "methods": ["POST"],
+      "stream": true,
+      "parameters": { "prompt": { "type": "string" } }
+    }
+  }
+}
+```
+
+---
+
 ## Common Custom Endpoint Patterns
 
 ### 1. Authentication

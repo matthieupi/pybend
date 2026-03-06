@@ -70,13 +70,13 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 
 ### API / Routes
 - `src/n3tx/core/api/routes_fastapi.py` - Level 1/2 route factories with authorization injection, pagination, and user resolution bridge (`_resolve_user`). DO NOT MODIFY — Level 3 is additive.
-- `src/n3tx/core/api/network_adapter.py` - `NetworkAdapter(Actor)` base class for protocol adapters. Provides `request()` for request/response correlation via asyncio.Future with interceptor support, `inbox()` override for correlation interception. All external protocol interaction flows through a NetworkAdapter.
+- `src/n3tx/core/api/network_adapter.py` - `NetworkAdapter(Actor)` base class for protocol adapters. Provides `request()` for request/response correlation via asyncio.Future, `stream()` for multi-reply streaming via asyncio.Queue, `inbox()` override for correlation interception (handles both Future and Queue). All external protocol interaction flows through a NetworkAdapter.
 - `src/n3tx/core/api/network_api.py` - `NetworkAPI` adapter: HTTP REST bridge for Level 3 actor routing. `create_api_routes()` generates FastAPI routes that translate HTTP to TX. Mirrors route paths from `routes_fastapi.py`.
 - `src/n3tx/core/api/auth_interceptor.py` - Tier 1 auth interceptor for NetworkAPI. `async (TX) -> TX` function: AUTHENTICATED gate, sql_filter for list, full create check, identity gate for read/update/delete. Registered via `api.use(auth_interceptor, on='request')`.
 - `src/n3tx/core/api/network_mcp.py` - `NetworkMCP` adapter: MCP JSON-RPC 2.0 bridge. `handle_tools_list()`, `handle_tools_call()`, `handle_jsonrpc()`. Converts model schemas to MCP tool specs. `create_mcp_routes()` FastAPI route factory.
 - `src/n3tx/core/api/network_ap.py` - `NetworkAP` adapter: ActivityPub federation bridge. LIFECYCLE handler, actor documents, outbox, inbox, WebFinger, follow/unfollow. `create_federation_routes()` FastAPI route factory.
 - `src/n3tx/core/api/network_ws.py` - `NetworkWebSocket` adapter: WebSocket bridge for frontend Matrix. Translates frontend TX (full URL targets, UPPERCASE names) to backend TX. Lifecycle event broadcast. `create_ws_routes()` FastAPI route factory.
-- `src/n3tx/core/utils/decorators.py` - `@expose_route()` for custom method endpoints (supports `access=` parameter)
+- `src/n3tx/core/utils/decorators.py` - `@expose_route()` for custom method endpoints (supports `access=` and `stream=` parameters)
 - `src/n3tx/core/utils/registrar.py` - `registered_models` dict, `join_models` dict
 
 ### Widgets (Python)
@@ -222,8 +222,10 @@ The adapter family:
 |---------|----------|--------|
 | `NetworkMCP` | MCP JSON-RPC 2.0 (AI agents) | v0.8.1 |
 | `NetworkAP` | ActivityPub (Fediverse federation) | v0.8.1 |
-| `NetworkAPI` | HTTP REST (FastAPI/Flask/Django) | Planned |
+| `NetworkAPI` | HTTP REST (FastAPI/Flask/Django) | v0.9 |
 | `NetworkWebSocket` | WebSocket (frontend Matrix bridge) | v0.8.5 |
+
+All adapters support streaming via `adapter.stream(tx)` — an async generator that yields correlated TX chunks (see [Streaming](#streaming-infrastructure) below).
 
 MCP tool names follow `{tablename}_{action}` (e.g., `products_create`, `products_favorite`). See Key Files for per-adapter API details.
 
@@ -271,3 +273,64 @@ App developers extend with a single class:
 ```python
 class ColorField(Widget, name='color', base_type=str): pass
 ```
+
+### Streaming Infrastructure
+
+Streaming lets any `@expose_route` method send progressive results to the client. The developer writes an async generator; the framework handles SSE formatting, WebSocket routing, and stream lifecycle.
+
+#### Defining a Streaming Method
+
+```python
+@expose_route('/generate', methods=['POST'], stream=True, access=AUTHENTICATED)
+async def generate(self, prompt: str = ''):
+    for i in range(10):
+        await asyncio.sleep(0.1)
+        yield {'chunk': f'Processing step {i}'}
+```
+
+The `stream=True` flag adds `"stream": true` to the method's schema entry. The method must be an async generator (use `yield`, not `return`).
+
+#### TX Stream Protocol
+
+TX uses `meta` fields for stream correlation (no TX dataclass changes):
+
+| Message | `meta` fields |
+|---------|--------------|
+| Chunk | `req: uuid`, `stream: True`, `seq: N` |
+| End | `req: uuid`, `stream: True`, `stream_end: True`, `seq: N` |
+| Error | Existing `tx.error()` — `is_error` terminates the stream |
+
+Helper methods on TX:
+- `tx.stream_chunk(data, seq)` — creates a chunk reply correlated to the original request
+- `tx.stream_end(data, seq)` — creates a stream-end reply
+
+#### How It Works at Each Level
+
+**Level 1/2** (`routes_fastapi.py`): After calling the method, `inspect.isasyncgen(result)` detects the async generator. The route returns a `StreamingResponse` that iterates the generator and emits SSE lines:
+```
+event: chunk
+data: {"chunk": "Processing step 0"}
+
+event: chunk
+data: {"chunk": "Processing step 1"}
+
+event: done
+data: {}
+```
+
+**Level 3** (`network_api.py`): `_add_streaming_handler()` creates a dedicated route that sends the TX through `NetworkAdapter.stream()` and converts the yielded TX chunks to SSE via `_sse_from_stream()`.
+
+**ActorModel handler** (`actor_model.py`): When the handler detects `inspect.isasyncgen(result)`, it iterates the generator and sends `tx.stream_chunk()` for each yielded value, followed by `tx.stream_end()`.
+
+**NetworkAdapter.stream()** (`network_adapter.py`): Sends the TX and yields correlated chunks from an `asyncio.Queue`. `inbox()` routes stream replies to the Queue (vs. Future for `request()`). Terminates on `stream_end` or error TX, with configurable timeout.
+
+**WebSocket** (`network_ws.py`): `handle_message()` detects `meta.stream` in the incoming message and runs `_stream_to_ws()` as a background task. Chunks are sent directly to the WS client without blocking the message loop.
+
+#### SSE Wire Format
+
+```
+event: chunk|done|error
+data: {json}\n\n
+```
+
+Response headers: `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `X-Accel-Buffering: no`.

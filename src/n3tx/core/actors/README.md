@@ -131,11 +131,12 @@ A dataclass with six fields:
 ### Reply and Error
 
 ```python
-# Reply swaps source/target, generates new uuid, stores original in meta
+# Reply swaps source/target, generates new uuid, stores original in meta['req']
 reply = tx.reply(data={'count': 42})
 reply.name     # 'SCHEMA_RESPONSE'
 reply.source   # original target
 reply.target   # original source
+reply.meta['req']  # original tx.uuid
 
 # Error creates an ERROR message
 err = tx.error("Not found", code=404)
@@ -143,6 +144,37 @@ err.name       # 'ERROR'
 err.is_error   # True
 err.data       # {'message': 'Not found', 'code': 404}
 ```
+
+### Stream Replies
+
+TX supports multi-reply streaming for long-running operations. Stream
+chunks are correlated to the original request via `meta['req']`:
+
+```python
+# Stream chunk — correlated reply with sequence number
+chunk = tx.stream_chunk({'text': 'Hello'}, seq=0)
+chunk.meta['req']         # original tx.uuid
+chunk.meta['stream']      # True
+chunk.meta['seq']         # 0
+
+# Stream end — signals completion
+end = tx.stream_end(data={'summary': 'Done'}, seq=5)
+end.meta['stream_end']    # True
+
+# Error terminates the stream
+err = tx.error("Timeout", code=504)
+err.is_error              # True — consumer stops iterating
+```
+
+Stream protocol meta fields:
+
+| Field | Chunk | End | Error |
+|-------|-------|-----|-------|
+| `req` | original uuid | original uuid | original uuid |
+| `stream` | `True` | `True` | - |
+| `seq` | sequence number | final seq | - |
+| `stream_end` | - | `True` | - |
+| `error` | - | - | `True` |
 
 TX is intentionally a plain dataclass — no Pydantic, no validation
 overhead. It's a wire format, not a domain object.
@@ -530,14 +562,21 @@ Key methods:
 
 | Method | Purpose |
 |--------|---------|
-| `request(tx, timeout)` | Send TX, await correlated response via asyncio.Future |
-| `inbox(tx)` | Intercepts correlated replies before normal handler dispatch |
+| `request(tx, timeout)` | Send TX, await single correlated response via asyncio.Future |
+| `stream(tx, timeout)` | Send TX, yield multiple correlated chunks via asyncio.Queue |
+| `inbox(tx)` | Intercepts correlated replies (Future for request, Queue for stream) |
 
 `request()` bridges synchronous protocols (HTTP, JSON-RPC) to the
 fire-and-forget actor model. It creates a Future keyed by `tx.uuid`,
 sends the TX, and awaits the reply. When the reply arrives at
-`inbox()`, its `meta['in_reply_to']` matches the original uuid,
-resolving the Future.
+`inbox()`, its `meta['req']` matches the original uuid, resolving
+the Future.
+
+`stream()` works like `request()` but for multi-reply interactions.
+It creates an `asyncio.Queue` keyed by `tx.uuid`, sends the TX, and
+yields chunks as they arrive. The stream terminates when a
+`stream_end` or error TX is received. `inbox()` detects whether the
+pending entry is a Future or Queue and dispatches accordingly.
 
 ### Concrete Adapters
 
@@ -545,8 +584,8 @@ resolving the Future.
 |---------|------|----------|--------|
 | `NetworkMCP` | `mcp` | MCP JSON-RPC 2.0 | `api/network_mcp.py` |
 | `NetworkAP` | `ap` | ActivityPub | `api/network_ap.py` |
-| `NetworkAPI` | `api` | HTTP REST | Planned |
-| `NetworkWebSocket` | `ws` | WebSocket | Planned |
+| `NetworkAPI` | `api` | HTTP REST | v0.9 |
+| `NetworkWebSocket` | `ws` | WebSocket | v0.8.5 |
 
 ### MCP Adapter
 
@@ -605,7 +644,7 @@ Matrix.inbox(tx)  →  Product.inbox(tx)  →  Product.handler_crud(tx)
     |  Returns model_response() as tx.reply()
     v
 Matrix.inbox(reply_tx)  →  NetworkMCP.inbox(reply_tx)
-    |  meta['in_reply_to'] matches pending uuid
+    |  meta['req'] matches pending uuid
     |  Resolves Future with reply_tx
     v
 NetworkMCP.handle_tools_call() returns MCP result
