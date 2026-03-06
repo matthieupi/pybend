@@ -20,6 +20,7 @@ import {getWidgetForField} from '../widgets/index.js';
 import TX from '../core/TX.js';
 import Logging from '../utils/Logging.js';
 import './ntx-method.js';
+import './ntx-stream.js';
 
 
 export class NTTItem extends NTTElement {
@@ -333,7 +334,8 @@ export class NTTItem extends NTTElement {
     let methodsHtml = '';
     for (const [name, def] of Object.entries(methods)) {
       if (def.ui?.layout === 'button') {
-        methodsHtml += `<ntx-method
+        const tag = def.stream ? 'ntx-stream' : 'ntx-method';
+        methodsHtml += `<${tag}
           model="${schema.__name__}"
           uuid="${this.value?.id || ''}"
           method="${name}"
@@ -341,7 +343,7 @@ export class NTTItem extends NTTElement {
           icon="${def.ui.icon || ''}"
           count-field="${def.ui.count_field || ''}"
           label="${def.title || name}">
-        </ntx-method>`;
+        </${tag}>`;
       }
     }
 
@@ -745,7 +747,7 @@ export class NTTItem extends NTTElement {
     // Card click → SELECT (skip interactive elements and edit mode)
     if (this.mode !== 'edit') {
       this.shadowRoot.querySelector('.card')?.addEventListener('click', (e) => {
-        if (e.target.closest('button, input, textarea, select, a, ntx-method, .reply-input-box, ntx-ref-picker')) return;
+        if (e.target.closest('button, input, textarea, select, a, ntx-method, ntx-stream, .reply-input-box, ntx-ref-picker')) return;
         const target = this.getAttribute('select-target');
         if (target) {
           this.send(new TX({
@@ -815,8 +817,9 @@ export class NTTItem extends NTTElement {
     return Object.entries(methods).map(([name, def]) => {
       const label = def.title || name;
       const ui = def.ui || {};
+      const tag = def.stream ? 'ntx-stream' : 'ntx-method';
       return `
-        <ntx-method
+        <${tag}
           model="${this.schema?.__name__ || ''}"
           uuid="${this.value?.id || ''}"
           method="${name}"
@@ -824,7 +827,7 @@ export class NTTItem extends NTTElement {
           icon="${ui.icon || ''}"
           count-field="${ui.count_field || ''}"
           label="${label}">
-        </ntx-method>
+        </${tag}>
       `;
     }).join('');
   }

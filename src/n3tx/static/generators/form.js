@@ -89,7 +89,8 @@ import '../components/ntx-ref-picker.js';
    */
   function renderAttachedMethod(ntt, methodName, methodDef) {
       const ui = methodDef.ui || {};
-      return `<ntx-method
+      const tag = methodDef.stream ? 'ntx-stream' : 'ntx-method';
+      return `<${tag}
           model="${ntt.schema.__name__}"
           uuid="${ntt.value?.id || ''}"
           method="${methodName}"
@@ -100,7 +101,7 @@ import '../components/ntx-ref-picker.js';
           icon="${ui.icon || ''}"
           count-field="${ui.count_field || ''}"
           label="${methodDef.title || methodName}">
-      </ntx-method>`;
+      </${tag}>`;
   }
 
   function renderGroupedFields(ntt, renderableFields, groups, mode, attachedMethods = {}) {
