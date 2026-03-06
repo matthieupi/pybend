@@ -138,7 +138,14 @@ class NetworkAdapter(Actor, auto_register=False):
 
         queue = asyncio.Queue()
         self._pending[tx.uuid] = queue
-        await self.send(tx)
+
+        # Launch send() concurrently — DO NOT await it inline.
+        # Actor.send() → child.inbox() → handler() runs the full async
+        # generator synchronously (from the event loop's perspective).
+        # If we await it here, all stream chunks get queued before we
+        # start reading, defeating progressive delivery.
+        send_task = asyncio.create_task(self.send(tx))
+
         try:
             while True:
                 try:
@@ -151,3 +158,5 @@ class NetworkAdapter(Actor, auto_register=False):
                     return
         finally:
             self._pending.pop(tx.uuid, None)
+            if not send_task.done():
+                send_task.cancel()

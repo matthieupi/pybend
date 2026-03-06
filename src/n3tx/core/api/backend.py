@@ -87,69 +87,104 @@ class FastAPIBackend(BaseBackend):
             self._add_debug_logging_middleware()
 
     def _add_auth_middleware(self):
-        from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.responses import JSONResponse
+        from starlette.types import ASGIApp, Receive, Scope, Send
         from n3tx.core.authorize import decode_token
 
-        exempt_paths = self.AUTH_EXEMPT_PATHS
         exempt_extensions = self.AUTH_EXEMPT_EXTENSIONS
-        models = self.registered_models
 
-        class JWTAuthMiddleware(BaseHTTPMiddleware):
-            async def dispatch(self, request, call_next):
-                path = request.url.path
+        class JWTAuthMiddleware:
+            """Pure ASGI middleware — no BaseHTTPMiddleware buffering.
+
+            BaseHTTPMiddleware buffers response bodies through an intermediate
+            channel, which breaks SSE / StreamingResponse.  This raw ASGI
+            implementation passes responses straight through.
+            """
+
+            def __init__(self, app: ASGIApp):
+                self.app = app
+
+            async def __call__(self, scope: Scope, receive: Receive, send: Send):
+                if scope["type"] != "http":
+                    await self.app(scope, receive, send)
+                    return
+
+                path = scope.get("path", "")
 
                 # Skip token processing for static files
                 if any(path.endswith(ext) for ext in exempt_extensions):
-                    return await call_next(request)
+                    await self.app(scope, receive, send)
+                    return
 
                 # Extract and validate token if present.
-                # Route handlers enforce authorization via ABAC rules;
-                # the middleware only decodes identity.
-                token = request.headers.get("x-access-token")
+                headers = dict(
+                    (k.decode(), v.decode())
+                    for k, v in scope.get("headers", [])
+                )
+                token = headers.get("x-access-token")
+                state = scope.setdefault("state", {})
+
                 if token:
                     try:
                         payload = decode_token(token)
-                        request.state.user = payload
+                        state["user"] = payload
                     except Exception:
-                        return JSONResponse(
+                        response = JSONResponse(
                             status_code=401,
                             content={"detail": "Invalid or expired token"},
                         )
+                        await response(scope, receive, send)
+                        return
                 else:
-                    request.state.user = {}
+                    state["user"] = {}
 
-                return await call_next(request)
+                await self.app(scope, receive, send)
 
         self.app.add_middleware(JWTAuthMiddleware)
 
     def _add_debug_logging_middleware(self):
         import time
-        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.types import ASGIApp, Receive, Scope, Send
 
         exempt_extensions = self.AUTH_EXEMPT_EXTENSIONS
 
-        class DebugLoggingMiddleware(BaseHTTPMiddleware):
-            async def dispatch(self, request, call_next):
-                start = time.monotonic()
-                response = await call_next(request)
-                elapsed = (time.monotonic() - start) * 1000
+        class DebugLoggingMiddleware:
+            """Pure ASGI debug logger — no BaseHTTPMiddleware buffering."""
 
-                path = request.url.path
+            def __init__(self, app: ASGIApp):
+                self.app = app
 
-                # Skip static files to reduce noise
+            async def __call__(self, scope: Scope, receive: Receive, send: Send):
+                if scope["type"] != "http":
+                    await self.app(scope, receive, send)
+                    return
+
+                path = scope.get("path", "")
                 if any(path.endswith(ext) for ext in exempt_extensions):
-                    return response
+                    await self.app(scope, receive, send)
+                    return
 
-                user = getattr(getattr(request, 'state', None), 'user', None) or {}
+                start = time.monotonic()
+                status_code = None
+
+                async def send_wrapper(message):
+                    nonlocal status_code
+                    if message["type"] == "http.response.start":
+                        status_code = message.get("status", 0)
+                    await send(message)
+
+                await self.app(scope, receive, send_wrapper)
+
+                elapsed = (time.monotonic() - start) * 1000
+                state = scope.get("state", {})
+                user = state.get("user", {}) if isinstance(state, dict) else {}
                 user_id = user.get('user_id', '-')
+                method = scope.get("method", "?")
 
                 logger.info(
                     "[DEBUG] %s %s -> %s (%.1fms) user=%s",
-                    request.method, path, response.status_code,
-                    elapsed, user_id,
+                    method, path, status_code, elapsed, user_id,
                 )
-                return response
 
         self.app.add_middleware(DebugLoggingMiddleware)
 
