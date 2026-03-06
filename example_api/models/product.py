@@ -1,6 +1,7 @@
 # example/models/product.py
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 
 from pydantic import Field, field_validator
@@ -14,7 +15,7 @@ from n3tx.core.models.ref import ListRef
 from typing import ClassVar
 from n3tx.core.utils.decorators import expose_route
 from n3tx.core.utils.registrar import join_models
-from n3tx.core.authorize import AUTHENTICATED
+from n3tx.core.authorize import ANYONE, AUTHENTICATED
 from n3tx.core.utils.erroring import MethodError
 from n3tx.core.widgets import CurrencyField, TextareaField
 
@@ -69,6 +70,14 @@ class Product(ProtoModel):
         comment.__owner__ = self
         comment.save()
         return comment.model_dump_json()
+
+    @expose_route('/countdown', methods=['POST'], stream=True, access=ANYONE)
+    async def countdown(self, n: int = 5):
+        """Stream a countdown from n to 0 with delays."""
+        for i in range(n, 0, -1):
+            await asyncio.sleep(0.3)
+            yield {'count': i, 'message': f'Counting down: {i}'}
+        yield {'count': 0, 'message': 'Done!'}
 
     @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
     def favorite(self, user: User = None) -> str:
