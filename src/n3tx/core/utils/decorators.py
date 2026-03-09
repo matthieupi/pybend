@@ -33,6 +33,10 @@ def expose_route(route, methods=["POST"], access=None, stream=False):
             if inspect.isasyncgen(result):
                 return result
 
+            # Async coroutines must pass through — caller needs to await them
+            if inspect.iscoroutine(result):
+                return result
+
             start = time.monotonic()
             elapsed = round((time.monotonic() - start) * 1000, 2)
 

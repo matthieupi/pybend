@@ -23,6 +23,9 @@ DEBUG = os.getenv("N3TX_DEBUG", "false").lower() in ("1", "true")
 # SSR configuration
 SSR = os.getenv("N3TX_SSR", "off").lower()  # "off" | "schema" | "bundle" | "full"
 
+# Ollama configuration
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
 # Agent configuration (global defaults, overridable per-model via __agent__)
 AGENT_DEFAULTS = {
     'self_tools': True,       # auto-discover own CRUD + methods
@@ -49,6 +52,8 @@ if os.getenv("N3TX_SQLITE_DB"):
     SQLITE_DB_FILE = os.environ["N3TX_SQLITE_DB"]
 if os.getenv("N3TX_SSR"):
     SSR = os.environ["N3TX_SSR"].lower()
+if os.getenv("OLLAMA_BASE_URL"):
+    OLLAMA_BASE_URL = os.environ["OLLAMA_BASE_URL"]
 
 
 def configure(**kwargs):

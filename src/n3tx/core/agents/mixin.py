@@ -45,6 +45,33 @@ from n3tx.core.utils.descriptors import fullmethod
 logger = logging.getLogger('n3tx.agents')
 
 
+# ── LLM resolution (module-level) ────────────────────────────────
+
+def _resolve_llm(llm):
+    """Resolve an LLM string to a pydantic-ai model instance.
+
+    Handles 'ollama:model' strings by creating an OpenAIChatModel with
+    OllamaProvider(base_url=config.OLLAMA_BASE_URL) so we don't rely on
+    environment variables being set.
+
+    Passes through non-ollama strings and existing model instances as-is.
+    """
+    if not isinstance(llm, str) or not llm.startswith('ollama:'):
+        return llm
+
+    from n3tx.core import config
+    model_name = llm.split(':', 1)[1]
+    base_url = config.OLLAMA_BASE_URL.rstrip('/')
+    if not base_url.endswith('/v1'):
+        base_url += '/v1'
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.ollama import OllamaProvider
+    return OpenAIChatModel(
+        model_name,
+        provider=OllamaProvider(base_url=base_url),
+    )
+
+
 # ── Context helpers (module-level, used by ctx()) ─────────────────
 
 def _build_schema_text(cls, schema: dict) -> str:
@@ -292,8 +319,8 @@ class AgentMixin:
         # Prompt: kwargs > auto-generated ctx
         prompt = kwargs.get('prompt') or target.ctx()
 
-        # Tools: kwargs > auto-discovered
-        tools = kwargs.get('tools') or target.tools()
+        # Tools: kwargs > auto-discovered (use 'in' check — [] is valid)
+        tools = kwargs['tools'] if 'tools' in kwargs else target.tools()
 
         # LLM: kwargs > __agent__['llm'] > instance attr > defaults
         llm = (kwargs.get('llm')
@@ -379,7 +406,7 @@ class AgentMixin:
         from n3tx.core.agents.tools import discover_tools, make_tool
 
         # ── Defaults ──
-        llm = llm or 'ollama:llama3.1'
+        llm = _resolve_llm(llm or 'ollama:llama3.1')
         constraints = constraints or {}
 
         # ── Agent address ──
@@ -475,6 +502,7 @@ class AgentMixin:
         product.run_stream(task='...')  → async gen with instance context
         """
         from n3tx.core import config
+        print("RUNNING TASK: ", task)
 
         cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(cls, '__agent__', False)
@@ -483,7 +511,8 @@ class AgentMixin:
         # 3-tier cascade (same as run())
         defaults = config.AGENT_DEFAULTS
         prompt = kwargs.get('prompt') or target.ctx()
-        tools = kwargs.get('tools') or target.tools()
+        # Tools: kwargs > auto-discovered (use 'in' check — [] is valid)
+        tools = kwargs['tools'] if 'tools' in kwargs else target.tools()
         llm = (kwargs.get('llm')
                or model_conf.get('llm')
                or getattr(target, 'llm', None)
@@ -527,6 +556,7 @@ class AgentMixin:
                 message_history=message_history,
                 result_type=result_type,
             ):
+                # TODO Returns should be wrapped in proper TX, even for stream chunks
                 yield chunk
         finally:
             root._children.pop(adapter_addr, None)
@@ -549,7 +579,9 @@ class AgentMixin:
         from n3tx.core.agents.deps import AgentDeps
         from n3tx.core.agents.tools import discover_tools, make_tool
 
-        llm = llm or 'ollama:llama3.1'
+        # TODO Should not resolve to default LLM, should throw instead to send an error into the actor system to have \
+        #  visibility on missing var
+        llm = _resolve_llm(llm or 'ollama:llama3.1')
         constraints = constraints or {}
 
         agent_addr = (
@@ -609,9 +641,12 @@ class AgentMixin:
                 run_kwargs['message_history'] = message_history
 
             # Use Agent.run_stream() for token-level streaming
+            streamed_text = ''
             async with ai_agent.run_stream(task, **run_kwargs) as result:
                 async for text in result.stream_text(delta=True):
+                    streamed_text += text
                     yield {
+                        # TODO Add type (tool call, thinking, response etc)
                         'name': 'text',
                         'data': {'text': text},
                         'meta': {'stream': True, 'seq': seq},
@@ -624,6 +659,11 @@ class AgentMixin:
                     output = await result.get_output()
                 except Exception:
                     output = ''
+                if not output and streamed_text:
+                    output = streamed_text
+                # TODO
+                #  Replace by returning full output (text, thinking, tool calls, any other relevant info
+                #  We can probably remove streamed_text and use output.
                 yield {
                     'name': 'done',
                     'data': {
@@ -642,6 +682,7 @@ class AgentMixin:
                 }
 
         except Exception as e:
+
             yield {
                 'name': 'error',
                 'data': {'message': str(e), 'code': 500},
