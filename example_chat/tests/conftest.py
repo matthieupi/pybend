@@ -43,6 +43,12 @@ from n3tx.core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 os.environ["GENERATE_DOCS"] = "false"
+
+# Configure agent system to use pydantic-ai TestModel (avoids real LLM calls)
+from pydantic_ai.models.test import TestModel
+from n3tx.core import config as _fw_config
+_fw_config.AGENT_DEFAULTS['llm'] = TestModel()
+
 from main import app  # noqa: triggers model registration
 
 from n3tx.core.storage.sqlite_storage import SQLiteStorage
