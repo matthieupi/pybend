@@ -48,6 +48,7 @@
     <link rel="modulepreload" href="./components/ntx-sidebar.js">
     <link rel="modulepreload" href="./components/ntx-favorites.js">
     <link rel="modulepreload" href="./components/ntx-stream.js">
+    <link rel="modulepreload" href="./components/ntx-chat.js">
     <link rel="modulepreload" href="./generators/form.js">
     <!-- Widgets -->
     <link rel="modulepreload" href="./widgets/Widget.js">
@@ -67,6 +68,8 @@
             <ntx-list model="Product" id="product-list" allow-create></ntx-list>
         </ntx-router>
     </div>
+
+    <ntx-chat model="Product" method="ask"></ntx-chat>
 
     <ntx-logs></ntx-logs>
 
@@ -88,6 +91,7 @@
         import './components/ntx-logs.js';
         import './components/ntx-favorites.js';
         import './components/ntx-stream.js';
+        import './components/ntx-chat.js';
 
         // Initialize permissions (non-blocking — components degrade gracefully)
         permissions.init();

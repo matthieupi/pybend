@@ -52,6 +52,7 @@
     <link rel="modulepreload" href="./components/ntx-row.js">
     <link rel="modulepreload" href="./components/ntx-user.js">
     <link rel="modulepreload" href="./components/ntx-table.js">
+    <link rel="modulepreload" href="./components/ntx-chat.js">
     <link rel="modulepreload" href="./generators/form.js">
     <!-- Widgets -->
     <link rel="modulepreload" href="./widgets/Widget.js">
@@ -74,6 +75,8 @@
         </ntx-router>
     </div>
 
+    <ntx-chat model="AgentActor" method="run"></ntx-chat>
+
     <script type="module">
         import Logging from './utils/Logging.js';
         Logging.init("Loading Grant Watcher...");
@@ -92,6 +95,7 @@
         import './components/ntx-user.js';
         import './components/ntx-row.js';
         import './components/ntx-table.js';
+        import './components/ntx-chat.js';
 
         // Initialize permissions (non-blocking — components degrade gracefully)
         permissions.init();

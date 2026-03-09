@@ -6,13 +6,14 @@ from datetime import datetime
 
 from pydantic import Field, field_validator
 
+from n3tx import TX
 from n3tx.core.models.viewable_mixin import ViewableMixin
 from models.comment import Comment
 from models.like import Like
 from n3tx.core.models.actor_model import ActorModel
 from models.user import User
 from n3tx.core.models.ref import ListRef
-from typing import ClassVar
+from typing import ClassVar, Any, AsyncGenerator
 from n3tx.core.utils.decorators import expose_route
 from n3tx.core.utils.registrar import join_models
 from n3tx.core.authorize import ANYONE, AUTHENTICATED
@@ -26,6 +27,7 @@ class Product(ActorModel):
     """
     __tablename__: ClassVar[str] = 'products'
     __storable__: ClassVar[bool] = True
+    __agent__: ClassVar[dict] = True
     __ui__: ClassVar[dict] = {
         'field_order': ['name', 'price', 'description', 'comments', 'favorites'],
         'groups': {
@@ -45,6 +47,10 @@ class Product(ActorModel):
                 'icon': 'star',
                 'count_field': 'favorites',
                 'attach_to': 'favorites',
+            },
+            'ask': {
+                'layout': 'inline',
+                'button_label': 'Ask AI',
             },
         },
         'populate': {'depth': 2},
@@ -96,6 +102,16 @@ class Product(ActorModel):
         new_like.__owner__ = self
         new_like.save()
         return '{"action": "favorited"}'
+
+    # TODO We just added the return type, we have to make sure this plays well within the framework
+    #  (fastapi, automatic docs, type checking in N3TX etc) as this is the first we use a AsyncGen return type.
+    #  we should also add tests for this case (return type)
+    @expose_route('/ask', methods=['POST'], stream=True, access=AUTHENTICATED)
+    async def ask(self, task: str, user: User = None) -> AsyncGenerator[TX, Any]:
+        """Ask the agent about this product."""
+        async for tx in self.run_stream(task=task, user=user):
+            yield tx
+        # TODO When finished we should save the results somewhere. Should be in N3tx models/ not example app
 
 
 Product.update_forward_refs()
