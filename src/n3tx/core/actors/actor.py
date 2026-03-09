@@ -51,90 +51,21 @@ Usage:
 
 import asyncio
 import logging
-from types import MethodType
-from typing import Any, ClassVar, Optional, TYPE_CHECKING
+from typing import Any, ClassVar, Optional
 
 from pydantic import BaseModel as PydanticBaseModel, ConfigDict, PrivateAttr
 
 from n3tx.core.actors.tx import TX
+from n3tx.core.utils.descriptors import fullmethod, fullproperty
 
 logger = logging.getLogger('n3tx.actors')
 
 # Pydantic's metaclass — extend it to stay compatible
 _PydanticMeta = type(PydanticBaseModel)
 
-# ── Descriptors ───────────────────────────────────────────────────
-
-if TYPE_CHECKING:
-    # Static analysis: transparent passthrough — IDE sees original signatures
-    from typing import TypeVar
-
-    _F = TypeVar('_F')
-
-
-    def actormethod(fn: _F) -> _F:
-        ...  # noqa: E704
-
-
-    def actorproperty(fn: _F) -> _F:
-        ...  # noqa: E704
-else:
-    class actormethod:
-        """A method that works on both classes and instances.
-
-        The first parameter receives the class (when called as cls.method())
-        or the instance (when called as self.method()). One function, one
-        implementation — no dual paths.
-
-            @actormethod
-            async def inbox(target, tx):  # target is cls or self
-                await target.handler(tx)
-
-        Python mechanics:
-            Product.inbox  → __get__(None, Product) → MethodType(fn, Product)
-            product.inbox  → __get__(product, type) → MethodType(fn, product)
-        """
-
-        def __init__(self, fn):
-            self.fn = fn
-            self.__doc__ = fn.__doc__
-            self.__name__ = fn.__name__
-
-        def __set_name__(self, owner, name):
-            self.__name__ = name
-
-        def __get__(self, obj, cls=None):
-            target = obj if obj is not None else cls
-            return MethodType(self.fn, target)
-
-
-    class actorproperty:
-        """A property that works on both classes and instances.
-
-        The function receives the class or instance and returns a value.
-        Unlike actormethod, this returns the value directly — not a callable.
-
-            @actorproperty
-            def children(target):          # target is cls or self
-                if isinstance(target, type):
-                    return target.__children__
-                return target._children
-
-        Python mechanics:
-            Product.children  → __get__(None, Product) → fn(Product) → dict
-            product.children  → __get__(product, type)  → fn(product) → dict
-        """
-
-        def __init__(self, fn):
-            self.fn = fn
-            self.__doc__ = fn.__doc__
-
-        def __set_name__(self, owner, name):
-            self.__name__ = name
-
-        def __get__(self, obj, cls=None):
-            target = obj if obj is not None else cls
-            return self.fn(target)
+# ── Descriptors (backward-compat aliases) ─────────────────────────
+actormethod = fullmethod
+actorproperty = fullproperty
 
 
 # ── ActorMeta metaclass ────────────────────────────────────────────
