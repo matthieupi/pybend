@@ -60,10 +60,6 @@ Beyond standard analysis (reproduce, isolate, fix, verify), always ask **why** t
 
 3. **Violated expectations.** The code "works" (no crash) but produces silently wrong behavior — invisible at origin, visible only downstream where it looks like something else.
 
-   **Case study: the 200-OK error.** Model methods returned error strings with HTTP 200. Everything downstream treated it as success — the bug was invisible across three layers (UI → network → database). Root cause: the framework had no mechanism for methods to signal errors with proper HTTP semantics. Fix: (a) `MethodError` exception that the route layer converts to proper HTTP errors, (b) frontend toast notifications with defensive `{"error": ...}` detection in 200 bodies.
-
-   **Watch for:** failure encoded inside success channels — error dicts from data-returning functions, swallowed exceptions returning defaults, logged errors with continued execution. Test: if a consumer only checks status/type, would they know something failed?
-
 **Response framework:** Identify root cause → decide if the fix is a code correction, documentation improvement, or architectural enhancement. Never silence symptoms. For recurring bugs in the same area, the fix must also address the documentation or API surface — not just patch the instance.
 
 ## Architecture Overview
@@ -185,11 +181,20 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 ## Key Files (Cross-Cutting)
 
 ### Actor System (v0.8)
-- `src/n3tx/core/actors/actor.py` - Base actor class with unified class/instance dispatch via `actormethod`/`actorproperty` descriptors and `ActorMeta` metaclass. Addr, children, parent, inbox, handler, send, register, spawn, `use()` interceptors. Auto-registers with Matrix via metaclass.
+- `src/n3tx/core/utils/descriptors.py` - `fullmethod`/`fullproperty` descriptors for unified class/instance dispatch. Work on any class, not just Actors.
+- `src/n3tx/core/actors/actor.py` - Base actor class. Imports `fullmethod`/`fullproperty` from `descriptors.py`, aliases as `actormethod`/`actorproperty` for backward compat. `ActorMeta` metaclass, addr, children, parent, inbox, handler, send, register, spawn, `use()` interceptors.
 - `src/n3tx/core/actors/matrix.py` - Root actor and message router. `has()`, self-send guard, adapter delegation, interceptor support. Module-level `matrix` instance created at import.
 - `src/n3tx/core/actors/tx.py` - TX message envelope (dataclass): name, source, target, data, meta, timestamp, uuid. `reply()` swaps source/target with new uuid. `error()` creates ERROR TX. `is_error` property.
 - `src/n3tx/core/actors/actor_proxy.py` - `ActorProxy` wrapper: gives any class or instance the actor interface (inbox/handler/send/register/spawn) without inheritance. Used when full Actor MI is not desired.
 - `src/n3tx/core/actors/__init__.py` - Re-exports `TX`, `Actor`, `Matrix`, `matrix`
+
+### Agent System (v0.10)
+- `src/n3tx/core/agents/mixin.py` - **AgentMixin**: self-aware models via `__agent__ = True`. Provides `ctx()`, `tools()`, `run()`, `agentic()`, `run_stream()`, `agentic_stream()`. Uses `@fullmethod` for unified class/instance dispatch.
+- `src/n3tx/core/agents/actor.py` - **AgentActor**: concrete model whose instances ARE agents. Config in DB fields. `run()` overrides mixin's cascade, calls `agentic()` directly.
+- `src/n3tx/core/agents/deps.py` - `AgentDeps` dataclass: adapter, user, agent_addr. Injected into Pydantic AI tools via `RunContext[AgentDeps]`.
+- `src/n3tx/core/agents/tools.py` - Tool discovery (`discover_tools()`) and tool function generation (`create_tool_function()`). Reads schemas, generates CRUD + method ToolSpecs.
+- `src/n3tx/core/agents/schema_ext.py` - Schema pipeline extension: adds `agent` section to JSON Schema for `__agent__ = True` models.
+- `src/n3tx/core/config.py` - `AGENT_DEFAULTS` dict: global defaults for agent config (self_tools, neighbors, neighbor_depth, llm). Overridable via `N3TX_AGENT_DEFAULTS` env var.
 
 ### Streaming
 - `src/n3tx/static/components/ntx-stream.js` - `<ntx-stream>` component extending NTTMethod for streaming UI with progressive output rendering and cancellation support
@@ -198,9 +203,11 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 - `example_api/` - Level 1/2 example (direct routes, `create_app()`)
 - `example_actor/` - Level 3 example (actor routing, `routing='actor'`)
 - `example_grants/` - Agents example (grants domain, agent CRUD + tool discovery)
-- `src/n3tx/example/` - Legacy example app (may delegate to above)
 
 ### Documentation
+- `.traces/` - Prohect development documentation and artefacts. This is 
+  wirtten by the agents (LLM) for the agents. All the research, plans, 
+  vision docs goes in there
 - `src/n3tx/docs/` - Handwritten API docs + auto-generated model docs
 - `src/n3tx/static/docs/` - Frontend component/architecture docs
 - `src/n3tx/core/utils/generate_docs.py` - Auto-doc generator (runs on startup)
@@ -251,11 +258,17 @@ def comment(self, comment: Comment, user: User = None) -> str:
 The route layer's `_resolve_user()` bridge resolves the type hint: if it's a `StorableMixin` subclass (e.g., `User`), it fetches the full model instance via `.get(user_id)`. Otherwise it passes the raw JWT dict. The `user` param is never read from the request body — it's injected server-side from the JWT token. This maintains the auth/model boundary: the `authorize` package stays standalone (zero N3TX imports).
 
 ### Actor System (v0.8)
-The backend actor system mirrors the frontend's Actor/Matrix/TX pattern. Everything works identically on classes and instances via two custom descriptors.
+The backend actor system mirrors the frontend's Actor/Matrix/TX pattern. Everything works identically on classes and instances via two custom descriptors defined in `src/n3tx/core/utils/descriptors.py`:
+
+**`fullmethod`/`fullproperty` descriptors** (in `utils/descriptors.py`):
+- Generic descriptors for unified class/instance dispatch. Work on any class, not just Actors.
+- `fullmethod`: binds target = cls or self. `fullproperty`: resolves class or instance state.
+- Actor aliases: `actormethod = fullmethod`, `actorproperty = fullproperty` (backward compat in `actor.py`)
+- Also used by `AgentMixin` for `ctx()`, `tools()`, `run()`, `run_stream()`.
 
 **Actor base class** extends PydanticBaseModel via `ActorMeta` metaclass:
-- `actormethod` descriptor: binds target = cls or self (one function, one implementation). Used for `inbox`, `handler`, `send`, `register`, `spawn`, `has`.
-- `actorproperty` descriptor: resolves class or instance state. Used for `addr`, `children`, `parent`.
+- `actormethod` (alias for `fullmethod`): Used for `inbox`, `handler`, `send`, `register`, `spawn`, `has`.
+- `actorproperty` (alias for `fullproperty`): Used for `addr`, `children`, `parent`.
 - Class-level state: `__addr__`, `__children__`, `__matrix__` (managed by `ActorMeta.__new__`)
 - Instance-level state: `_addr`, `_children`, `_parent` as PrivateAttr (compatible with Pydantic V2 MI)
 - `_parent` defaults to `self.__class__` (mirrors JS `this.#parent = this.constructor`)
@@ -311,6 +324,60 @@ One import change, zero other changes. `ActorModel(Actor, ProtoModel)` is the br
 - Lifecycle events (`after_create`, `after_update`, `after_delete`) are published as TX messages to subscribers
 
 Models that do not need actor capabilities continue to extend `ProtoModel` directly. Join models generated by `generate_join_model()` inherit from their parent class.
+
+### AgentMixin — Self-Aware Models (v0.10)
+`__agent__ = True` gives a model LLM-powered reasoning about itself — zero config required. One flag, the model reasons about its own schema, relationships, and data.
+
+**`__agent__` is dual-purpose** — both the injection flag and the config dict:
+```python
+# Boolean — all defaults from config.AGENT_DEFAULTS
+class Product(ActorModel):
+    __agent__ = True
+
+# Dict — merged over defaults
+class Product(ActorModel):
+    __agent__ = {
+        'self_tools': True,
+        'neighbors': True,
+        'llm': 'anthropic:claude-sonnet-4-5-20250929',
+        'prompt': 'You are a product expert.',
+    }
+```
+
+**API surface** (all use `@fullmethod` for class/instance dispatch):
+
+| Method | Type | Role |
+|--------|------|------|
+| `ctx()` | `@fullmethod` | Build LLM context (schema on class, schema+data on instance) |
+| `tools()` | `@fullmethod` | Discover tool addresses (self + neighbors + extras) |
+| `run()` | `@fullmethod` | Policy: 3-tier config cascade → `agentic()` |
+| `agentic()` | instance | Engine: raw LLM loop, explicit params, no config magic |
+| `run_stream()` | `@fullmethod` | Streaming policy → `agentic_stream()` |
+| `agentic_stream()` | instance | Streaming engine: yields TX-aligned chunks |
+
+**Config cascade** (3-tier): `config.AGENT_DEFAULTS` < `__agent__` dict < `run()` kwargs
+
+**The split**: `run()` is the boundary where you enforce constraints and resolve config. `agentic()` is the engine that just works. Expose `run()` via HTTP, never `agentic()` directly.
+
+```python
+# Zero-config usage
+result = await product.run(task='Analyze this product')
+
+# Streaming
+async for chunk in product.run_stream(task='Describe yourself'):
+    yield chunk  # TX-aligned: {name, data, meta}
+
+# Direct engine (bypass config cascade)
+result = await product.agentic(task=..., prompt=..., tools=..., llm=...)
+
+# Multi-turn conversation
+result1 = await product.run(task='What fields?')
+result2 = await product.run(task='More detail', message_history=result1['messages'])
+```
+
+**AgentMixin vs AgentActor**:
+- **AgentMixin** (`__agent__ = True`): auto-generates prompt from schema, discovers tools from relationships. Config is derived from the model definition.
+- **AgentActor** (subclass): instances ARE agents. Config lives in DB fields (name, prompt, tools, llm). `run()` overrides the mixin's cascade, reads config from DB, calls `agentic()` directly.
 
 ### Interceptor Pattern (`use()`)
 Universal TX interceptors on any Actor method. Registered via `use()`, run before the method body.
