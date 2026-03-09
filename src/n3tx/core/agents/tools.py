@@ -40,7 +40,7 @@ class ToolSpec:
 
 # ── Discovery ─────────────────────────────────────────────────────
 
-def discover_tools(actor_addrs: list, root) -> list[ToolSpec]:
+def discover_tools(actor_addrs: list, root, caller_addr: str = None) -> list[ToolSpec]:
     """Discover all tools from a list of actor addresses.
 
     Reads schemas from Matrix children. Includes CRUD operations for
@@ -49,16 +49,23 @@ def discover_tools(actor_addrs: list, root) -> list[ToolSpec]:
     Args:
         actor_addrs: List of actor addresses (e.g., ['grants', 'web_tools'])
         root: Matrix root instance
+        caller_addr: Address of the calling agent (excluded to prevent self-loops)
 
     Returns:
         List of ToolSpec objects for all discovered tools.
     """
     from n3tx.core.models.storable_mixin import StorableMixin
+    from n3tx.core.agents.actor import AgentActor
 
     specs = []
     children = root._children if not isinstance(root, type) else root.__children__
 
     for addr in actor_addrs:
+        # Self-exclusion: an agent never needs itself as a tool
+        if caller_addr and addr == caller_addr:
+            logger.debug("Tool discovery: skipping self '%s'", addr)
+            continue
+
         child = children.get(addr)
         if child is None:
             logger.warning("Tool discovery: actor '%s' not found in Matrix", addr)
@@ -82,8 +89,14 @@ def discover_tools(actor_addrs: list, root) -> list[ToolSpec]:
         if is_storable:
             specs.extend(_crud_tool_specs(addr, tablename, model_name, schema))
 
+        # Auto-exclude run/stream_run from AgentActor subclasses
+        # (these are meta-operations that trigger reasoning loops)
+        agent_methods = set()
+        if isinstance(cls, type) and issubclass(cls, AgentActor):
+            agent_methods = {'run', 'stream_run'}
+
         # Custom method tools from @expose_route
-        specs.extend(_method_tool_specs(addr, tablename, model_name, schema))
+        specs.extend(_method_tool_specs(addr, tablename, model_name, schema, exclude=agent_methods))
 
     return specs
 
@@ -145,14 +158,24 @@ def _crud_tool_specs(addr, tablename, model_name, schema):
     ]
 
 
-def _method_tool_specs(addr, tablename, model_name, schema):
+def _method_tool_specs(addr, tablename, model_name, schema, exclude=None):
     """Generate ToolSpecs for @expose_route custom methods."""
+    exclude = exclude or set()
     specs = []
     for method_name, method_info in schema.get('methods', {}).items():
+        if method_name in exclude:
+            continue
         params = dict(method_info.get('parameters', {}))
         # Filter out 'user' (injected server-side, not a tool parameter)
         filtered = {k: v for k, v in params.items() if k != 'user'}
-        required = list(filtered.keys())
+
+        # Use schema-provided required list; fall back to all-required for
+        # backward compatibility with schemas that don't have it yet.
+        schema_required = set(method_info.get('required', []))
+        if schema_required:
+            required = [k for k in filtered if k in schema_required]
+        else:
+            required = list(filtered.keys())
 
         # Instance methods need 'id' to resolve the entity
         if method_info.get('scope') == 'instancemethod':
@@ -237,10 +260,13 @@ def create_tool_function(spec: ToolSpec):
     all_params = ['ctx'] + required_params + optional_params
     params_str = ', '.join(all_params)
 
-    # Build dict from local variables (filter out None for optional params)
+    # Build dict from local variables (strip None only for optional params)
     if param_names:
         kvs = ', '.join(f'"{n}": {n}' for n in param_names)
-        collect = f'_d = {{{kvs}}}\n    _d = {{k: v for k, v in _d.items() if v is not None}}'
+        collect = (
+            f'_d = {{{kvs}}}\n'
+            f'    _d = {{k: v for k, v in _d.items() if not (v is None and k not in _required)}}'
+        )
     else:
         collect = '_d = {}'
 
@@ -259,6 +285,7 @@ def create_tool_function(spec: ToolSpec):
         '_route': _route_tool_call,
         '_target': spec.actor_addr,
         '_method': spec.method_name,
+        '_required': set(spec.parameters.get('required', [])),
     }
 
     exec(code, ns)  # noqa: S102

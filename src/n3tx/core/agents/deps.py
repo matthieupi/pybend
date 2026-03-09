@@ -9,14 +9,19 @@ Usage in tool functions:
         user = ctx.deps.user
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from n3tx.core.api.network_adapter import NetworkAdapter
 
 
 @dataclass
 class AgentDeps:
     """Context passed to Pydantic AI tool functions via RunContext."""
 
-    adapter: Any                # NetworkAdapter for request/response correlation
+    adapter: NetworkAdapter     # NetworkAdapter for request/response correlation
     user: Optional[dict]        # JWT user dict for auth context
     agent_addr: str             # Agent's actor address (for TX.source)

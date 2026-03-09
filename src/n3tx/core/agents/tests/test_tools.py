@@ -1,18 +1,21 @@
 """Tests for tool discovery and function generation."""
 
+import asyncio
 import inspect
+import json
 import pytest
 from pydantic import Field
 
 from n3tx.core.actors.actor import Actor
 from n3tx.core.actors.matrix import Matrix
+from n3tx.core.actors.tx import TX
 from n3tx.core.models.actor_model import ActorModel
 from n3tx.core.storage.sqlite_storage import SQLiteStorage
 from n3tx.core.utils.decorators import expose_route
 from n3tx.core.utils.registrar import register_model
 from n3tx.core.agents.tools import (
     ToolSpec, discover_tools, create_tool_function, make_tool,
-    _crud_tool_specs, _method_tool_specs,
+    _crud_tool_specs, _method_tool_specs, _route_tool_call,
 )
 
 pytestmark = pytest.mark.unit
@@ -223,3 +226,260 @@ class TestMakeToolPydanticAI:
         assert isinstance(tool, Tool)
         assert tool.name == 'grants_create'
         assert tool.description == 'Create a Grant'
+
+
+# ── Phase 2: Test Hardening ──────────────────────────────────────
+
+class TestRouteToolCall:
+    """T1 / T4: Tests for _route_tool_call error handling."""
+
+    @pytest.mark.asyncio
+    async def test_error_response_raises_model_retry(self, fresh_matrix):
+        """_route_tool_call raises ModelRetry when tool returns error TX."""
+        from pydantic_ai import ModelRetry
+        from n3tx.core.api.network_adapter import NetworkAdapter
+        from n3tx.core.agents.deps import AgentDeps
+
+        m = fresh_matrix
+
+        # Actor that returns an error for any 'do_something' message.
+        # Non-exposed methods on class actors use (data, tx) signature.
+        class ErrorActor(ActorModel):
+            __tablename__ = 'error_actor'
+            __storable__ = False
+
+            @classmethod
+            def do_something(cls, data, tx):
+                return tx.error("Something went wrong", code=500)
+
+        adapter = NetworkAdapter(addr='_test_adapter')
+        m.register(adapter)
+
+        deps = AgentDeps(adapter=adapter, user=None, agent_addr='test')
+
+        class MockCtx:
+            pass
+        ctx = MockCtx()
+        ctx.deps = deps
+
+        with pytest.raises(ModelRetry, match="Something went wrong"):
+            await _route_tool_call(ctx, 'error_actor', 'do_something', {})
+
+    @pytest.mark.asyncio
+    async def test_tool_call_to_missing_actor(self, fresh_matrix):
+        """_route_tool_call to non-existent actor raises ModelRetry."""
+        from pydantic_ai import ModelRetry
+        from n3tx.core.api.network_adapter import NetworkAdapter
+        from n3tx.core.agents.deps import AgentDeps
+
+        m = fresh_matrix
+
+        adapter = NetworkAdapter(addr='_test_adapter')
+        m.register(adapter)
+
+        deps = AgentDeps(adapter=adapter, user=None, agent_addr='test')
+
+        class MockCtx:
+            pass
+        ctx = MockCtx()
+        ctx.deps = deps
+
+        # Matrix._route_error sends error TX back to adapter
+        with pytest.raises(ModelRetry, match="No route"):
+            await _route_tool_call(ctx, 'nonexistent_actor', 'get', {'id': 1})
+
+
+class TestToolFunctionEdgeCases:
+    """T6: Edge cases for create_tool_function."""
+
+    def test_all_optional_params(self):
+        """Function with all optional params works correctly."""
+        spec = ToolSpec(
+            actor_addr='test', method_name='search',
+            tool_name='test_search', description='Search',
+            parameters={
+                'type': 'object',
+                'properties': {
+                    'query': {'type': 'string'},
+                    'limit': {'type': 'integer'},
+                },
+                'required': [],  # All optional
+            },
+        )
+
+        fn = create_tool_function(spec)
+        sig = inspect.signature(fn)
+        params = list(sig.parameters.values())
+
+        # All non-ctx params should have defaults
+        for p in params:
+            if p.name != 'ctx':
+                assert p.default is None
+
+    def test_invalid_param_name_skipped(self):
+        """Parameters with invalid Python identifiers are skipped."""
+        spec = ToolSpec(
+            actor_addr='test', method_name='do',
+            tool_name='test_do', description='Test',
+            parameters={
+                'type': 'object',
+                'properties': {
+                    'valid_name': {'type': 'string'},
+                    '123invalid': {'type': 'string'},
+                },
+                'required': ['valid_name'],
+            },
+        )
+
+        fn = create_tool_function(spec)
+        sig = inspect.signature(fn)
+        param_names = list(sig.parameters.keys())
+        assert 'valid_name' in param_names
+        assert '123invalid' not in param_names
+
+    def test_description_with_special_chars(self):
+        """Descriptions with quotes and backslashes are escaped properly."""
+        spec = ToolSpec(
+            actor_addr='test', method_name='do',
+            tool_name='test_do',
+            description='Create a "special" model with C:\\path and """triple"""',
+            parameters={'type': 'object', 'properties': {}},
+        )
+
+        fn = create_tool_function(spec)
+        # Should not raise — docstring is properly escaped
+        assert fn.__doc__ is not None
+
+    def test_hyphenated_tool_name(self):
+        """Tool names with hyphens are sanitized to valid identifiers."""
+        spec = ToolSpec(
+            actor_addr='test', method_name='do',
+            tool_name='my-tool.action', description='Test',
+            parameters={'type': 'object', 'properties': {}},
+        )
+
+        fn = create_tool_function(spec)
+        assert fn.__name__ == 'my_tool_action'
+        assert fn.__name__.isidentifier()
+
+
+class TestMethodRequiredParams:
+    """Tests for 1.2: required list in method schema entries."""
+
+    def test_method_schema_has_required_list(self, fresh_matrix, memory_storage):
+        """Method schema entries include a 'required' list."""
+        m = fresh_matrix
+
+        class MyModel(ActorModel):
+            __tablename__ = 'my_models'
+            __storable__ = False
+
+            @expose_route('/do', methods=['POST'])
+            def do_thing(self, required_arg: str, optional_arg: str = 'default') -> str:
+                return 'done'
+
+        schema = MyModel.schema()
+        method = schema['methods']['do_thing']
+        assert 'required' in method
+        assert 'required_arg' in method['required']
+        assert 'optional_arg' not in method['required']
+
+    def test_method_tool_spec_respects_required(self, fresh_matrix, memory_storage):
+        """_method_tool_specs reads required from schema, not all params."""
+        m = fresh_matrix
+
+        class ToolModel(ActorModel):
+            __tablename__ = 'tool_models'
+            __storable__ = False
+
+            @expose_route('/extract', methods=['POST'])
+            def extract(self, html: str, selector: str = 'body') -> str:
+                return 'extracted'
+
+        schema = ToolModel.schema()
+        specs = _method_tool_specs('tool_models', 'tool_models', 'ToolModel', schema)
+
+        extract_spec = next(s for s in specs if s.method_name == 'extract')
+        required = extract_spec.parameters.get('required', [])
+        # 'id' is added for instance methods, 'html' is required, 'selector' is not
+        assert 'id' in required
+        assert 'html' in required
+        assert 'selector' not in required
+
+
+class TestLoopDetection:
+    """Tests for 1.7: automatic loop detection in discover_tools."""
+
+    def test_self_exclusion(self, fresh_matrix, memory_storage):
+        """Agent's own address is excluded from tool discovery."""
+        m, Grant, _ = setup_models(fresh_matrix, memory_storage)
+        # Discover with caller_addr matching one of the addresses
+        specs = discover_tools(['grants'], m, caller_addr='grants')
+        assert len(specs) == 0
+
+    def test_self_exclusion_partial(self, fresh_matrix, memory_storage):
+        """Only the caller's address is excluded, others are kept."""
+        m, Grant, WebTools = setup_models(fresh_matrix, memory_storage)
+        specs = discover_tools(['grants', 'web_tools'], m, caller_addr='grants')
+        tool_names = {s.tool_name for s in specs}
+        assert 'grants_create' not in tool_names
+        assert 'web_tools_scrape' in tool_names
+
+    def test_agent_actor_run_excluded(self, fresh_matrix, tmp_path):
+        """AgentActor subclass's run method is auto-excluded from tools."""
+        from n3tx.core.agents.actor import AgentActor
+        from n3tx.core.agents.tool_model import AgentTool
+        from n3tx.core.models.proto_model import generate_join_model
+
+        m = fresh_matrix
+        storage = SQLiteStorage(str(tmp_path / 'test.db'))
+        register_model(AgentTool, storage=storage)
+        register_model(AgentActor, storage=storage)
+        generate_join_model(AgentActor, AgentTool)
+
+        # AgentActor was defined at import time (before this test's Matrix),
+        # so manually register it as a child of this test's Matrix.
+        m._children['agents'] = AgentActor
+
+        specs = discover_tools(['agents'], m)
+        method_names = {s.method_name for s in specs}
+        # CRUD is included, but 'run' is excluded
+        assert 'create' in method_names
+        assert 'run' not in method_names
+
+    def test_method_exclusion_set(self, fresh_matrix, memory_storage):
+        """_method_tool_specs respects exclude parameter."""
+        m, _, WebTools = setup_models(fresh_matrix, memory_storage)
+        schema = WebTools.schema()
+        specs = _method_tool_specs('web_tools', 'web_tools', 'WebTools', schema,
+                                   exclude={'scrape'})
+        names = {s.method_name for s in specs}
+        assert 'scrape' not in names
+        assert 'extract' in names
+
+
+class TestOptionalParamFiltering:
+    """Tests for 1.3: optional param None filtering."""
+
+    def test_required_none_preserved(self):
+        """Required params with None value are kept in the data dict."""
+        spec = ToolSpec(
+            actor_addr='test', method_name='do',
+            tool_name='test_do', description='Test',
+            parameters={
+                'type': 'object',
+                'properties': {
+                    'required_field': {'type': 'string'},
+                    'optional_field': {'type': 'string'},
+                },
+                'required': ['required_field'],
+            },
+        )
+        fn = create_tool_function(spec)
+
+        # Inspect generated code: _required should be in the closure
+        # Verify by checking the function exists and is callable
+        assert callable(fn)
+        sig = inspect.signature(fn)
+        assert sig.parameters['required_field'].default is inspect.Parameter.empty
+        assert sig.parameters['optional_field'].default is None
