@@ -4,130 +4,51 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>N3TX Chat</title>
-<link rel="stylesheet" href="/dark-theme.css">
+<link rel="stylesheet" href="./dark-theme.css">
+<!-- Preload component CSS for Shadow DOM -->
+<link rel="preload" href="./components/ntx-item.css" as="style">
+<link rel="preload" href="./components/ntx-chat-sidebar.css" as="style">
+<link rel="preload" href="./components/ntx-chat-conv.css" as="style">
+<link rel="preload" href="./components/ntx-chat-view.css" as="style">
+<link rel="preload" href="./components/ntx-chat-message.css" as="style">
+<link rel="preload" href="./components/ntx-chat-input.css" as="style">
+<!-- Vendor libraries -->
+<script src="./vendor/marked.min.js"></script>
+<!-- Modulepreload dependency tree -->
+<link rel="modulepreload" href="./config.js">
+<link rel="modulepreload" href="./utils/Assert.js">
+<link rel="modulepreload" href="./utils/Logging.js">
+<link rel="modulepreload" href="./utils/Permissions.js">
+<link rel="modulepreload" href="./core/Utils.js">
+<link rel="modulepreload" href="./core/TX.js">
+<link rel="modulepreload" href="./core/Observable.js">
+<link rel="modulepreload" href="./core/Actor.js">
+<link rel="modulepreload" href="./core/Matrix.js">
+<link rel="modulepreload" href="./core/Component.js">
+<link rel="modulepreload" href="./core/NTT.js">
+<link rel="modulepreload" href="./core/transport/HTTP.js">
+<link rel="modulepreload" href="./core/transport/NetworkAdapter.js">
+<link rel="modulepreload" href="./components/NTTElement.js">
+<link rel="modulepreload" href="./components/ListElement.js">
+<link rel="modulepreload" href="./components/ntx-item.js">
+<link rel="modulepreload" href="./components/ntx-method.js">
+<link rel="modulepreload" href="./components/ntx-stream.js">
+<link rel="modulepreload" href="./generators/form.js">
 <style>
-  html, body { height: 100%; overflow: hidden; }
-  body { display: flex; font-family: 'Inter', system-ui, sans-serif; background: var(--surface-0); color: var(--text-0); }
-
-  /* ── Sidebar ── */
-  .sidebar {
-    width: 280px; min-width: 280px;
-    background: var(--surface-1); border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; height: 100vh;
-  }
-  .sidebar-header {
-    padding: 16px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .sidebar-header h2 { font-size: 16px; font-weight: 600; color: var(--accent-text); }
-  .btn-new {
-    background: var(--accent-dim); color: var(--accent-text); border: 1px solid var(--border-accent);
-    border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 500;
-    transition: background 0.15s;
-  }
-  .btn-new:hover { background: var(--accent-glow); }
-  .conv-list { flex: 1; overflow-y: auto; padding: 8px; }
-  .conv-item {
-    padding: 10px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 2px;
-    font-size: 14px; color: var(--text-1); transition: background 0.12s;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .conv-item:hover { background: var(--surface-3); }
-  .conv-item.active { background: var(--accent-dim); color: var(--accent-text); }
-  .sidebar-footer {
-    padding: 12px 16px; border-top: 1px solid var(--border);
-    font-size: 12px; color: var(--text-3);
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  .sidebar-footer .user-row {
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .llm-status {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 11px; color: var(--text-3);
-  }
-  .llm-status .dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .llm-status .dot.connecting { background: var(--warning); animation: pulse 1.2s infinite; }
-  .llm-status .dot.ready { background: var(--success); }
-  .llm-status .dot.offline { background: var(--error); }
-  .llm-status .label { opacity: 0.8; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-  .btn-logout {
-    background: none; border: none; color: var(--text-2); cursor: pointer;
-    font-size: 12px; text-decoration: underline;
-  }
-  .btn-logout:hover { color: var(--error); }
-
-  /* ── Chat area ── */
-  .chat-area { flex: 1; display: flex; flex-direction: column; height: 100vh; }
-  .chat-header {
-    padding: 14px 20px; border-bottom: 1px solid var(--border);
-    background: var(--surface-1); font-weight: 600; font-size: 15px;
-    display: flex; align-items: center; gap: 10px;
-  }
-  .chat-header .model-badge {
-    font-size: 11px; font-weight: 400; color: var(--text-3);
-    background: var(--surface-3); padding: 2px 8px; border-radius: 4px;
-  }
-  .messages {
-    flex: 1; overflow-y: auto; padding: 20px;
-    display: flex; flex-direction: column; gap: 12px;
-  }
-  .message {
-    max-width: 75%; padding: 10px 14px; border-radius: 10px;
-    font-size: 14px; line-height: 1.55; word-wrap: break-word;
-    white-space: pre-wrap;
-  }
-  .message.user {
-    align-self: flex-end; background: var(--accent-dim);
-    color: var(--accent-text); border-bottom-right-radius: 2px;
-  }
-  .message.assistant {
-    align-self: flex-start; background: var(--surface-2);
-    color: var(--text-0); border-bottom-left-radius: 2px;
-  }
-  .message.system {
-    align-self: center; background: var(--surface-3);
-    color: var(--text-2); font-size: 12px; font-style: italic;
-    max-width: 90%;
-  }
-  .message .meta {
-    font-size: 11px; color: var(--text-3); margin-top: 4px;
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    display: flex;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--surface-0);
+    color: var(--text-0);
   }
 
-  /* ── Input ── */
-  .input-area {
-    padding: 14px 20px; border-top: 1px solid var(--border);
-    background: var(--surface-1); display: flex; gap: 10px; align-items: flex-end;
-  }
-  .input-area textarea {
-    flex: 1; resize: none; background: var(--surface-2); color: var(--text-0);
-    border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;
-    font-family: inherit; font-size: 14px; line-height: 1.4;
-    min-height: 44px; max-height: 160px;
-    transition: border-color 0.15s;
-  }
-  .input-area textarea:focus { outline: none; border-color: var(--border-accent); }
-  .input-area textarea::placeholder { color: var(--text-3); }
-  .btn-send {
-    background: var(--accent); color: var(--surface-0); border: none;
-    border-radius: 8px; padding: 10px 18px; cursor: pointer;
-    font-weight: 600; font-size: 14px; white-space: nowrap;
-    transition: opacity 0.15s;
-  }
-  .btn-send:hover { opacity: 0.85; }
-  .btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Hide NTX components until authenticated */
+  ntx-chat-sidebar, ntx-chat-view { display: none; }
+  body.authenticated ntx-chat-sidebar { display: flex; }
+  body.authenticated ntx-chat-view { display: flex; }
 
-  /* ── Empty state ── */
-  .empty-state {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    color: var(--text-3); font-size: 15px;
-  }
-
-  /* ── Login overlay ── */
+  /* Login overlay */
   .login-overlay {
     position: fixed; inset: 0; background: var(--surface-0);
     display: flex; align-items: center; justify-content: center;
@@ -142,7 +63,7 @@
     width: 100%; padding: 10px 12px; margin-bottom: 12px;
     background: var(--surface-2); color: var(--text-0);
     border: 1px solid var(--border); border-radius: 6px;
-    font-size: 14px; font-family: inherit;
+    font-size: 14px; font-family: inherit; box-sizing: border-box;
   }
   .login-box input:focus { outline: none; border-color: var(--border-accent); }
   .login-box button {
@@ -153,20 +74,20 @@
   .login-box .error { color: var(--error); font-size: 13px; margin-bottom: 8px; }
   .login-box .toggle { margin-top: 12px; text-align: center; font-size: 13px; color: var(--text-2); }
   .login-box .toggle a { color: var(--accent-text); cursor: pointer; text-decoration: underline; }
-  .hidden { display: none; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
-<!-- Login/Register overlay (hidden when authenticated) -->
+<!-- Auth overlay (vanilla JS — auth must work before NTX components load) -->
 <div class="login-overlay" id="loginOverlay" style="display:none">
   <div class="login-box" id="loginForm">
     <h2>N3TX Chat</h2>
     <div class="error" id="loginError"></div>
     <input type="email" id="loginEmail" placeholder="Email" value="alice@example.com">
     <input type="password" id="loginPassword" placeholder="Password" value="alice123">
-    <button onclick="doLogin()">Sign In</button>
-    <div class="toggle">No account? <a onclick="showRegister()">Register</a></div>
+    <button id="btnLogin">Sign In</button>
+    <div class="toggle">No account? <a id="showRegister">Register</a></div>
   </div>
   <div class="login-box hidden" id="registerForm">
     <h2>Register</h2>
@@ -174,417 +95,122 @@
     <input type="text" id="registerName" placeholder="Name">
     <input type="email" id="registerEmail" placeholder="Email">
     <input type="password" id="registerPassword" placeholder="Password">
-    <button onclick="doRegister()">Create Account</button>
-    <div class="toggle">Have an account? <a onclick="showLogin()">Sign in</a></div>
+    <button id="btnRegister">Create Account</button>
+    <div class="toggle">Have an account? <a id="showLogin">Sign in</a></div>
   </div>
 </div>
 
-<!-- Main layout -->
-<aside class="sidebar" id="sidebar" style="display:none">
-  <div class="sidebar-header">
-    <h2>Chats</h2>
-    <button class="btn-new" onclick="newConversation()">+ New</button>
-  </div>
-  <div class="conv-list" id="convList"></div>
-  <div class="sidebar-footer">
-    <div class="llm-status" id="llmStatus">
-      <span class="dot connecting"></span>
-      <span class="label">Connecting...</span>
-    </div>
-    <div class="user-row">
-      <span id="userName"></span>
-      <button class="btn-logout" onclick="doLogout()">Sign out</button>
-    </div>
-  </div>
-</aside>
+<!-- Main layout (NTX components) -->
+<ntx-chat-sidebar model="Conversation" id="sidebar"></ntx-chat-sidebar>
+<ntx-chat-view id="chatView"></ntx-chat-view>
 
-<main class="chat-area" id="chatArea" style="display:none">
-  <div class="chat-header" id="chatHeader">
-    <span id="chatTitle">Select a conversation</span>
-    <span class="model-badge" id="chatModel"></span>
-  </div>
-  <div class="messages" id="messages">
-    <div class="empty-state">Select or create a conversation to start chatting.</div>
-  </div>
-  <div class="input-area">
-    <textarea id="chatInput" placeholder="Type a message..." rows="1"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"></textarea>
-    <button class="btn-send" id="btnSend" onclick="sendMessage()">Send</button>
-  </div>
-</main>
+<script type="module">
+  import { permissions } from './utils/Permissions.js';
+  import './components/ntx-item.js';
+  import './components/ntx-chat-sidebar.js';
+  import './components/ntx-chat-conv.js';
+  import './components/ntx-chat-view.js';
+  import './components/ntx-chat-message.js';
+  import './components/ntx-chat-input.js';
 
-<script>
-const API = window.location.origin;
-let token = localStorage.getItem('jwtToken');
-let ws = null;
-let currentConvId = null;
-let pendingResolve = null;
+  const API = window.location.origin;
 
-// ── Auth ──
+  // ── Auth ──
 
-function checkAuth() {
-  if (!token) {
-    document.getElementById('loginOverlay').style.display = 'flex';
-    document.getElementById('sidebar').style.display = 'none';
-    document.getElementById('chatArea').style.display = 'none';
-    return false;
-  }
-  document.getElementById('loginOverlay').style.display = 'none';
-  document.getElementById('sidebar').style.display = 'flex';
-  document.getElementById('chatArea').style.display = 'flex';
-  // Decode JWT for user info
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    document.getElementById('userName').textContent = payload.email || 'User';
-  } catch {}
-  return true;
-}
-
-async function doLogin() {
-  const email = document.getElementById('loginEmail').value;
-  const password = document.getElementById('loginPassword').value;
-  const errEl = document.getElementById('loginError');
-  errEl.textContent = '';
-  try {
-    const resp = await fetch(`${API}/users/login`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email, password}),
-    });
-    const data = await resp.json();
-    if (data.token) {
-      token = data.token;
-      localStorage.setItem('jwtToken', token);
-      checkAuth();
-      connectWS();
-      loadConversations();
-      startLLMStatusPoll();
-    } else {
-      errEl.textContent = data.detail || data.error || 'Login failed';
+  function checkAuth() {
+    const token = localStorage.getItem('jwtToken');
+    if (!token) {
+      document.getElementById('loginOverlay').style.display = 'flex';
+      document.body.classList.remove('authenticated');
+      return false;
     }
-  } catch (e) {
-    errEl.textContent = 'Connection error';
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.body.classList.add('authenticated');
+    permissions.init();
+    return true;
   }
-}
 
-function showRegister() {
-  document.getElementById('loginForm').classList.add('hidden');
-  document.getElementById('registerForm').classList.remove('hidden');
-  document.getElementById('registerError').textContent = '';
-}
-
-function showLogin() {
-  document.getElementById('registerForm').classList.add('hidden');
-  document.getElementById('loginForm').classList.remove('hidden');
-  document.getElementById('loginError').textContent = '';
-}
-
-async function doRegister() {
-  const name = document.getElementById('registerName').value.trim();
-  const email = document.getElementById('registerEmail').value.trim();
-  const password = document.getElementById('registerPassword').value;
-  const errEl = document.getElementById('registerError');
-  errEl.textContent = '';
-  if (!name || !email || !password) { errEl.textContent = 'All fields required'; return; }
-  try {
-    const resp = await fetch(`${API}/users/register`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name, email, password}),
-    });
-    const data = await resp.json();
-    if (data.token) {
-      token = data.token;
-      localStorage.setItem('jwtToken', token);
-      checkAuth();
-      connectWS();
-      loadConversations();
-      startLLMStatusPoll();
-    } else {
-      errEl.textContent = data.detail || data.error || 'Registration failed';
+  async function doLogin() {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    try {
+      const resp = await fetch(`${API}/users/login`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password}),
+      });
+      const data = await resp.json();
+      // Actor routing wraps responses in {result: ...}
+      const payload = data.result || data;
+      if (payload.token) {
+        localStorage.setItem('jwtToken', payload.token);
+        // Reload so NTX components bootstrap with JWT available
+        window.location.reload();
+      } else {
+        errEl.textContent = payload.detail || payload.error || data.detail || 'Login failed';
+      }
+    } catch (e) {
+      errEl.textContent = 'Connection error';
     }
-  } catch (e) {
-    errEl.textContent = 'Connection error';
   }
-}
 
-function doLogout() {
-  token = null;
-  localStorage.removeItem('jwtToken');
-  if (ws) ws.close();
+  async function doRegister() {
+    const name = document.getElementById('registerName').value.trim();
+    const email = document.getElementById('registerEmail').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    const errEl = document.getElementById('registerError');
+    errEl.textContent = '';
+    if (!name || !email || !password) { errEl.textContent = 'All fields required'; return; }
+    try {
+      const resp = await fetch(`${API}/users/register`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, email, password}),
+      });
+      const data = await resp.json();
+      const payload = data.result || data;
+      if (payload.token) {
+        localStorage.setItem('jwtToken', payload.token);
+        window.location.reload();
+      } else {
+        errEl.textContent = payload.detail || payload.error || data.detail || 'Registration failed';
+      }
+    } catch (e) {
+      errEl.textContent = 'Connection error';
+    }
+  }
+
+  // ── Event bindings ──
+
+  document.getElementById('btnLogin').addEventListener('click', doLogin);
+  document.getElementById('btnRegister').addEventListener('click', doRegister);
+
+  document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  document.getElementById('showRegister').addEventListener('click', () => {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('registerForm').classList.remove('hidden');
+    document.getElementById('registerError').textContent = '';
+  });
+
+  document.getElementById('showLogin').addEventListener('click', () => {
+    document.getElementById('registerForm').classList.add('hidden');
+    document.getElementById('loginForm').classList.remove('hidden');
+    document.getElementById('loginError').textContent = '';
+  });
+
+  // ── Cross-component wiring ──
+
+  document.addEventListener('select-conversation', (e) => {
+    document.getElementById('chatView').loadConversation(e.detail);
+  });
+
+  // ── Init ──
   checkAuth();
-}
-
-// ── WebSocket ──
-
-function connectWS() {
-  if (!token) return;
-  const wsUrl = API.replace(/^http/, 'ws') + '/ws?token=' + encodeURIComponent(token);
-  ws = new WebSocket(wsUrl);
-
-  ws.onopen = () => console.log('WS connected');
-  ws.onclose = () => {
-    console.log('WS disconnected, reconnecting in 3s...');
-    setTimeout(connectWS, 3000);
-  };
-  ws.onerror = (e) => console.error('WS error', e);
-
-  ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    if (msg.heartbeat) return;
-
-    // Handle send_message response
-    if (pendingResolve && msg.data && (msg.data.response !== undefined || msg.data.error)) {
-      pendingResolve(msg);
-      pendingResolve = null;
-      return;
-    }
-
-    // Handle lifecycle events (new messages from other tabs, etc.)
-    if (msg.meta && msg.meta.lifecycle) {
-      // Could refresh conversation list on create/delete
-      if (msg.name === 'CREATE' && msg.source && msg.source.includes('conversations')) {
-        loadConversations();
-      }
-    }
-  };
-}
-
-function wsSend(msg) {
-  return new Promise((resolve) => {
-    pendingResolve = resolve;
-    ws.send(JSON.stringify(msg));
-    // Timeout safety
-    setTimeout(() => {
-      if (pendingResolve === resolve) {
-        pendingResolve = null;
-        resolve({data: {error: 'Request timed out'}});
-      }
-    }, 60000);
-  });
-}
-
-// ── Conversations ──
-
-async function loadConversations() {
-  try {
-    const resp = await fetch(`${API}/conversations`, {
-      headers: {'x-access-token': token},
-    });
-    const data = await resp.json();
-    const items = data.data || data;
-    renderConversationList(items);
-  } catch (e) {
-    console.error('Failed to load conversations', e);
-  }
-}
-
-function renderConversationList(items) {
-  const el = document.getElementById('convList');
-  el.innerHTML = items.map(c =>
-    `<div class="conv-item ${c.id === currentConvId ? 'active' : ''}"
-          onclick="selectConversation(${c.id})">${esc(c.name || 'Untitled')}</div>`
-  ).join('');
-}
-
-async function newConversation() {
-  try {
-    const resp = await fetch(`${API}/conversations`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'x-access-token': token},
-      body: JSON.stringify({name: 'New Chat'}),
-    });
-    const data = await resp.json();
-    await loadConversations();
-    selectConversation(data.id);
-  } catch (e) {
-    console.error('Failed to create conversation', e);
-  }
-}
-
-async function selectConversation(id) {
-  currentConvId = id;
-  // Update sidebar
-  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
-  const items = document.querySelectorAll('.conv-item');
-  items.forEach(el => {
-    if (el.onclick.toString().includes(id)) el.classList.add('active');
-  });
-
-  // Load conversation detail
-  try {
-    const resp = await fetch(`${API}/conversations/${id}`, {
-      headers: {'x-access-token': token},
-    });
-    const conv = await resp.json();
-    document.getElementById('chatTitle').textContent = conv.name || 'Chat';
-    document.getElementById('chatModel').textContent = conv.llm || 'default';
-
-    // Load messages via join route
-    await loadMessages(id);
-  } catch (e) {
-    console.error('Failed to load conversation', e);
-  }
-}
-
-async function loadMessages(convId) {
-  const container = document.getElementById('messages');
-  try {
-    const resp = await fetch(`${API}/conversations/${convId}/messages`, {
-      headers: {'x-access-token': token},
-    });
-    const data = await resp.json();
-    const items = data.data || data;
-
-    if (!items.length) {
-      container.innerHTML = '<div class="empty-state">No messages yet. Say hello!</div>';
-      return;
-    }
-
-    container.innerHTML = items.map(m => renderMessage(m)).join('');
-    container.scrollTop = container.scrollHeight;
-  } catch (e) {
-    container.innerHTML = '<div class="empty-state">Failed to load messages.</div>';
-  }
-}
-
-function renderMessage(m) {
-  const role = m.role || 'user';
-  const content = m.content || '';
-  if (!content && role !== 'system') return '';
-  // Skip system-prompt-only messages for cleaner UI
-  if (role === 'system') return '';
-  return `<div class="message ${role}">${esc(content)}</div>`;
-}
-
-// ── Send message ──
-
-async function sendMessage() {
-  const input = document.getElementById('chatInput');
-  const content = input.value.trim();
-  if (!content || !currentConvId) return;
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    alert('WebSocket not connected. Please wait...');
-    return;
-  }
-
-  // Show user message immediately
-  const container = document.getElementById('messages');
-  const emptyState = container.querySelector('.empty-state');
-  if (emptyState) emptyState.remove();
-  appendMessage('user', content);
-  input.value = '';
-  autoResize(input);
-
-  // Disable while waiting
-  const btn = document.getElementById('btnSend');
-  btn.disabled = true;
-  input.disabled = true;
-
-  // Show typing indicator
-  const typingEl = document.createElement('div');
-  typingEl.className = 'message assistant';
-  typingEl.textContent = '...';
-  typingEl.id = 'typing';
-  container.appendChild(typingEl);
-  container.scrollTop = container.scrollHeight;
-
-  try {
-    const resp = await wsSend({
-      name: 'send_message',
-      target: `conversations/${currentConvId}`,
-      data: {id: currentConvId, content},
-    });
-
-    // Remove typing indicator
-    const ti = document.getElementById('typing');
-    if (ti) ti.remove();
-
-    if (resp.data && resp.data.response) {
-      appendMessage('assistant', resp.data.response);
-      // Refresh conversation list (title may have changed)
-      loadConversations();
-    } else if (resp.data && resp.data.message) {
-      appendMessage('system', 'Error: ' + resp.data.message);
-    } else {
-      appendMessage('system', 'No response received.');
-    }
-  } catch (e) {
-    const ti = document.getElementById('typing');
-    if (ti) ti.remove();
-    appendMessage('system', 'Error: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    input.disabled = false;
-    input.focus();
-  }
-}
-
-function appendMessage(role, content) {
-  const container = document.getElementById('messages');
-  const div = document.createElement('div');
-  div.className = `message ${role}`;
-  div.textContent = content;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-// ── Utils ──
-
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
-}
-
-document.getElementById('chatInput').addEventListener('input', function() {
-  autoResize(this);
-});
-
-// ── LLM status ──
-
-let llmStatusInterval = null;
-
-async function checkLLMStatus() {
-  const el = document.getElementById('llmStatus');
-  if (!el) return;
-  try {
-    const resp = await fetch(`${API}/api/llm-status`);
-    const data = await resp.json();
-    const dot = el.querySelector('.dot');
-    const label = el.querySelector('.label');
-    dot.className = 'dot ' + data.status;
-    const model = (data.model || '').replace(/^ollama:/, '');
-    if (data.status === 'ready') {
-      label.textContent = model || 'LLM ready';
-    } else {
-      label.textContent = model ? `${model} (offline)` : 'LLM offline';
-    }
-  } catch {
-    const dot = el.querySelector('.dot');
-    const label = el.querySelector('.label');
-    dot.className = 'dot offline';
-    label.textContent = 'LLM offline';
-  }
-}
-
-function startLLMStatusPoll() {
-  checkLLMStatus();
-  if (llmStatusInterval) clearInterval(llmStatusInterval);
-  llmStatusInterval = setInterval(checkLLMStatus, 15000);
-}
-
-// ── Init ──
-if (checkAuth()) {
-  connectWS();
-  loadConversations();
-  startLLMStatusPoll();
-}
 </script>
 </body>
 </html>

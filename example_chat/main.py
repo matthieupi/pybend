@@ -1,4 +1,4 @@
-"""N3TX Chat Example — multi-turn LLM chat with pydantic-ai history.
+"""N3TX Chat Example — multi-turn LLM chat with SSE streaming.
 
 Usage:
     cd /workspace/example_chat && python main.py
@@ -8,9 +8,13 @@ Models:
     Conversation — chat agent (__agent__=True), manages message history
     Message      — mirrors pydantic-ai ModelMessage format
 
-Chat is WebSocket-only:
-    Connect to ws://localhost:5000/ws?token=JWT
-    Send: {name: 'send_message', target: 'conversations/1', data: {content: '...'}}
+Chat uses SSE streaming via @expose_route:
+    POST /conversations/{id}/chat  {"content": "hello"}
+    → SSE: event: chunk, data: {"text": "token"} ...
+    → SSE: event: done,  data: {}
+
+WebSocket is still enabled for real-time sidebar updates (conversation
+create/delete lifecycle events).
 """
 import logging
 import os
@@ -19,6 +23,14 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import config
+
+# Test mode: use pydantic-ai TestModel instead of real LLM
+# Set N3TX_TEST_MODE=1 to enable (used by e2e test conftest)
+if os.environ.get('N3TX_TEST_MODE'):
+    from pydantic_ai.models.test import TestModel
+    from n3tx.core import config as _fw_config
+    _fw_config.AGENT_DEFAULTS['llm'] = TestModel()
+
 from n3tx.core.app import create_app
 from n3tx.core.storage.sqlite_storage import SQLiteStorage
 from n3tx.core.agents.tool_model import AgentTool

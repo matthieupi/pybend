@@ -1,0 +1,61 @@
+:host {
+  display: block;
+}
+
+.chat-bubble {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+  word-wrap: break-word;
+}
+
+.chat-bubble.user {
+  align-self: flex-end;
+  margin-left: auto;
+  background: var(--accent-dim, #1a3a4a);
+  color: var(--accent-text, #e0f0f0);
+  border-bottom-right-radius: 2px;
+  white-space: pre-wrap;
+}
+
+.chat-bubble.assistant {
+  align-self: flex-start;
+  margin-right: auto;
+  background: var(--surface-2, #2a2a2a);
+  color: var(--text-0, #e0e0e0);
+  border-bottom-left-radius: 2px;
+}
+
+/* Markdown content in assistant bubbles */
+.chat-bubble.assistant p { margin: 0 0 0.5em 0; }
+.chat-bubble.assistant p:last-child { margin-bottom: 0; }
+.chat-bubble.assistant code {
+  background: var(--surface-3, #333);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+.chat-bubble.assistant pre {
+  background: var(--surface-3, #333);
+  padding: 8px 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.chat-bubble.assistant pre code {
+  background: none;
+  padding: 0;
+}
+.chat-bubble.assistant ul, .chat-bubble.assistant ol {
+  margin: 0.3em 0;
+  padding-left: 1.5em;
+}
+
+/* Streaming bubble — blinking cursor */
+.chat-bubble .stream-cursor {
+  animation: blink 1s step-end infinite;
+  color: var(--accent, #1a9e94);
+}
+@keyframes blink { 50% { opacity: 0; } }

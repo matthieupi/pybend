@@ -1,0 +1,24 @@
+:host {
+  display: block;
+  cursor: pointer;
+}
+
+.conv-name {
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-1, #ccc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.12s;
+}
+
+.conv-name:hover {
+  background: var(--surface-3, #333);
+}
+
+.conv-name.active {
+  background: var(--accent-dim, #1a3a4a);
+  color: var(--accent-text, #e0f0f0);
+}
