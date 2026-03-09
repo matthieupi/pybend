@@ -28,8 +28,10 @@ def e2e_server(request):
     # Seed the temp DB
     run_seed(_APP_DIR, db_path)
 
-    # Start the server
-    proc = start_server(_APP_DIR, port, db_path)
+    # Start the server — use 'test' LLM for agent endpoints (pydantic-ai TestModel)
+    proc = start_server(_APP_DIR, port, db_path, extra_env={
+        "N3TX_AGENT_DEFAULTS": '{"llm": "test"}',
+    })
     try:
         wait_for_server(f"{base_url}/Grant", timeout=30)
     except Exception:

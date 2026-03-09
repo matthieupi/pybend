@@ -36,7 +36,7 @@ def wait_for_server(url, timeout=30):
     raise RuntimeError(f"Server at {url} did not become ready within {timeout}s")
 
 
-def start_server(app_dir, port, db_path):
+def start_server(app_dir, port, db_path, extra_env=None):
     """Start ``python main.py`` in *app_dir* as a subprocess.
 
     Environment variables control the port and database path so the server
@@ -50,6 +50,8 @@ def start_server(app_dir, port, db_path):
         "GENERATE_DOCS": "false",
         "PYTHONPATH": os.path.join(_WORKSPACE, "src"),
     }
+    if extra_env:
+        env.update(extra_env)
     proc = subprocess.Popen(
         [sys.executable, "main.py"],
         cwd=app_dir,
