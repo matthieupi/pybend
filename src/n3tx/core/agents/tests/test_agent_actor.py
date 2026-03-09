@@ -116,9 +116,9 @@ class TestAgentActorInstance:
         assert hasattr(agent, 'run')
         assert hasattr(agent.run, '__endpoint__')  # @expose_route
 
-    def test_has_agent_run_method(self, fresh_matrix):
+    def test_has_agentic_method(self, fresh_matrix):
         agent = AgentActor(name='Test', prompt='test', addr='agents/5')
-        assert hasattr(agent, 'agent_run')
+        assert hasattr(agent, 'agentic')
 
 
 class TestResolveToolAddrs:
@@ -304,6 +304,59 @@ class TestAgentActorRun:
         result = json.loads(result_str)
         assert 'answer' in result
         assert result['usage']['requests'] >= 1
+
+    @pytest.mark.asyncio
+    async def test_run_passes_user_to_agent_run(self, fresh_matrix, tmp_path):
+        """T5: run(task=..., user={...}) passes user to agent_run."""
+        from pydantic_ai.models.test import TestModel
+
+        storage = SQLiteStorage(str(tmp_path / 'agents.db'))
+        register_model(AgentTool, storage=storage)
+        register_model(AgentActor, storage=storage)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
+
+        agent = AgentActor.create(AgentActor(
+            name='User Agent',
+            prompt='Test user propagation.',
+        ))
+        agent = AgentActor.get(agent.id)
+
+        user = {'id': 99, 'role': 'admin'}
+        result_str = await agent.run(
+            task='Test',
+            llm=TestModel(call_tools=[]),
+            user=user,
+        )
+        result = json.loads(result_str)
+        assert 'answer' in result
+
+    @pytest.mark.asyncio
+    async def test_run_passes_constraints_override(self, fresh_matrix, tmp_path):
+        """T5: run(task=..., constraints={...}) overrides instance constraints."""
+        from pydantic_ai.models.test import TestModel
+
+        storage = SQLiteStorage(str(tmp_path / 'agents.db'))
+        register_model(AgentTool, storage=storage)
+        register_model(AgentActor, storage=storage)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
+
+        agent = AgentActor.create(AgentActor(
+            name='Constrained Agent',
+            prompt='Test constraints.',
+            constraints={'max_iterations': 100},
+        ))
+        agent = AgentActor.get(agent.id)
+
+        # Override constraints at call time
+        result_str = await agent.run(
+            task='Test',
+            llm=TestModel(call_tools=[]),
+            constraints={'max_iterations': 2},
+        )
+        result = json.loads(result_str)
+        assert 'answer' in result
 
 
 class TestAgentActorSchema:

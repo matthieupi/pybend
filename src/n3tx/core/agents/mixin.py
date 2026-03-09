@@ -1,8 +1,19 @@
 """AgentMixin — injected into models with __agent__ = True.
 
-Provides agent_run() for LLM-powered reasoning. Tool calls route through
-Matrix as TX messages, preserving auth and interceptors. Uses Pydantic AI
-as the LLM engine — N3TX only provides the binding layer.
+Self-aware models: one flag gives a model LLM-powered reasoning about itself.
+``__agent__ = True`` is as powerful as ``__storable__ = True`` — zero config,
+full capability.
+
+API Surface:
+    ctx()            @fullmethod  — Build LLM context from schema (class or instance)
+    tools()          @fullmethod  — Discover tool addresses (self + neighbors + extras)
+    run()            @fullmethod  — Policy layer: config cascade, prompt/tool assembly
+    agentic()        instance     — Engine: raw LLM loop, explicit params, no magic
+    run_stream()     @fullmethod  — Streaming policy (delegates to agentic_stream)
+    agentic_stream() instance     — Streaming engine: yields TX-aligned chunks
+
+The split: run() is the boundary where you enforce constraints and resolve config.
+agentic() is the engine that just works. Expose run() via HTTP, never agentic().
 
 Injection follows the same pattern as StorableMixin:
     __storable__ = True  →  injects StorableMixin
@@ -12,78 +23,299 @@ Usage:
     class Product(ActorModel):
         __agent__ = True
 
-        @expose_route('/create_from_text', methods=['POST'])
-        async def create_from_text(self, text: str, tools: list = []) -> str:
-            result = await self.agent_run(
-                prompt="Parse freeform text into a Product.",
-                tools=["products"] + tools,
-                task=text,
-            )
+        @expose_route('/analyze', methods=['POST'])
+        async def analyze(self, query: str) -> str:
+            result = await self.run(task=query)
             return result['answer']
+
+    # Streaming variant
+    class Product(ActorModel):
+        __agent__ = True
+
+        @expose_route('/analyze', methods=['POST'], stream=True)
+        async def analyze(self, query: str):
+            async for chunk in self.run_stream(task=query):
+                yield chunk
 """
 
 import logging
 
+from n3tx.core.utils.descriptors import fullmethod
+
 logger = logging.getLogger('n3tx.agents')
 
 
+# ── Context helpers (module-level, used by ctx()) ─────────────────
+
+def _build_schema_text(cls, schema: dict) -> str:
+    """Generate LLM context text from model schema."""
+    tablename = schema.get('__tablename__', cls.__name__)
+    lines = [f'You operate on {cls.__name__} entities (table: {tablename}).']
+
+    # Fields
+    properties = schema.get('properties', {})
+    required = set(schema.get('required', []))
+    protected = set()
+    field_lines = []
+    for name, prop in properties.items():
+        if name == 'id':
+            continue
+        ui = prop.get('ui', {})
+        if ui.get('display') is False:
+            continue
+        if ui.get('protected'):
+            protected.add(name)
+            continue
+
+        parts = [name]
+        # Type
+        ptype = prop.get('type', '')
+        if ptype:
+            parts.append(f'({ptype}')
+        else:
+            parts.append('(')
+        # Required
+        if name in required:
+            parts[-1] += ', required'
+        else:
+            parts[-1] += ', optional'
+        # Constraints
+        constraints = []
+        if 'minLength' in prop:
+            constraints.append(f'{prop["minLength"]}')
+        if 'maxLength' in prop:
+            if constraints:
+                constraints[-1] += f'-{prop["maxLength"]} chars'
+            else:
+                constraints.append(f'max {prop["maxLength"]} chars')
+        if 'exclusiveMinimum' in prop:
+            constraints.append(f'> {prop["exclusiveMinimum"]}')
+        if 'minimum' in prop:
+            constraints.append(f'>= {prop["minimum"]}')
+        if 'maximum' in prop:
+            constraints.append(f'<= {prop["maximum"]}')
+        if constraints:
+            parts[-1] += ', ' + ', '.join(constraints)
+        # Widget
+        widget = ui.get('widget')
+        if widget:
+            parts[-1] += f', {widget}'
+        parts[-1] += ')'
+        # Description
+        desc = prop.get('description', '') or prop.get('title', '')
+        if desc and desc.lower() != name.lower():
+            parts.append(f': {desc}')
+
+        field_lines.append(f'  - {" ".join(parts)}')
+
+    if field_lines:
+        lines.append('')
+        lines.append('Fields:')
+        lines.extend(field_lines)
+
+    # Relationships
+    from n3tx.core.utils.introspection import get_list_fields
+    list_fields = get_list_fields(cls)
+    if list_fields:
+        lines.append('')
+        lines.append('Relationships:')
+        for field_name, model_cls in list_fields:
+            lines.append(f'  - {field_name} → {model_cls.__name__} (list)')
+
+    # Access rules
+    access = schema.get('access')
+    if access and isinstance(access, dict):
+        lines.append('')
+        lines.append('Access rules:')
+        for action, rule in access.items():
+            if isinstance(rule, str):
+                lines.append(f'  - {action}: {rule}')
+            elif isinstance(rule, dict):
+                lines.append(f'  - {action}: {rule}')
+
+    # Methods
+    methods = schema.get('methods', {})
+    if methods:
+        lines.append('')
+        lines.append('Available methods:')
+        for mname, minfo in methods.items():
+            params = minfo.get('parameters', {})
+            # Filter user param
+            params = {k: v for k, v in params.items() if k != 'user'}
+            param_strs = []
+            for pname, pinfo in params.items():
+                ptype = pinfo.get('type', 'any')
+                param_strs.append(f'{pname}: {ptype}')
+            param_str = ', '.join(param_strs)
+            ret = minfo.get('returns', {}).get('type', 'any')
+            scope = minfo.get('scope', 'instancemethod')
+            extras = [scope]
+            if minfo.get('stream'):
+                extras.append('stream')
+            extra_str = ', '.join(extras)
+            lines.append(f'  - {mname}({param_str}) → {ret} [{extra_str}]')
+
+    return '\n'.join(lines)
+
+
+def _build_instance_text(target) -> str:
+    """Append current instance state to context."""
+    try:
+        data = target.model_dump()
+    except Exception:
+        return ''
+
+    # Truncate long values
+    truncated = {}
+    for k, v in data.items():
+        s = str(v)
+        if len(s) > 200:
+            s = s[:200] + '...'
+        truncated[k] = v if len(str(v)) <= 200 else s
+
+    import json
+    try:
+        data_str = json.dumps(truncated, indent=2, default=str)
+    except Exception:
+        data_str = str(truncated)
+
+    instance_id = getattr(target, 'id', '?')
+    return f'\n\nCurrent instance (id={instance_id}):\n{data_str}'
+
+
+# ── AgentMixin ────────────────────────────────────────────────────
+
 class AgentMixin:
-    """Provides agent_run() for LLM-powered method execution.
+    """Provides self-aware agent capabilities for models with __agent__ = True.
 
     Injected into any model with __agent__ = True via __init_subclass__.
-    Creates a transient NetworkAdapter per run for request/response
-    correlation, discovers tools from actor addresses, and delegates
-    the LLM loop to Pydantic AI.
+    Zero config required — ctx(), tools(), and run() auto-discover everything
+    from the model's schema, relationships, and config.
+
+    API Surface:
+        ctx()            — LLM context from schema (class) or schema+data (instance)
+        tools()          — Tool addresses: self + neighbors + extras
+        run(task=...)    — Policy: config cascade → agentic()
+        agentic(...)     — Engine: raw LLM loop with explicit params
+        run_stream(...)  — Streaming policy → agentic_stream()
+        agentic_stream() — Streaming engine: TX-aligned chunks
     """
 
-    async def agent_run(self, prompt: str, tools: list, task: str,
-                        user: dict = None, **kwargs) -> dict:
-        """Execute an LLM reasoning loop with Matrix-routed tools.
+    @fullmethod
+    def ctx(target) -> str:
+        """Build LLM context from model schema.
 
-        Creates a Pydantic AI Agent internally, discovers tools from the
-        specified actor addresses, routes tool calls through Matrix as TX,
-        and returns structured results.
+        Class:    Product.ctx()  → schema context (fields, types, methods)
+        Instance: product.ctx() → schema context + current instance data
 
-        Args:
-            prompt: System prompt for the LLM.
-            tools: List of actor addresses whose @expose_route methods
-                   become available tools for the LLM.
-            task: The user task / query to execute.
-            user: Auth context (JWT user dict). Passed to tool TXs.
-            **kwargs:
-                llm: Override LLM model (string or pydantic_ai.Model instance).
-                constraints: Override constraints dict.
-
-        Returns:
-            dict with keys:
-                answer: The LLM's final output (str).
-                usage: {input_tokens, output_tokens, requests}
-                messages: Total message count in the conversation.
+        If __agent__['prompt'] is set, it is prepended to the auto-generated context.
         """
-        from pydantic_ai import Agent, UsageLimits
+        cls = target if isinstance(target, type) else target.__class__
+        agent_flag = getattr(cls, '__agent__', False)
+        conf = agent_flag if isinstance(agent_flag, dict) else {}
+        schema = cls.schema()
+
+        context = _build_schema_text(cls, schema)
+
+        # Prepend __agent__['prompt'] if configured
+        prompt_prefix = conf.get('prompt', '')
+        if prompt_prefix:
+            context = prompt_prefix + '\n\n' + context
+
+        # Instance context: append current state
+        if not isinstance(target, type):
+            context += _build_instance_text(target)
+
+        return context
+
+    @fullmethod
+    def tools(target) -> list:
+        """Discover tool actor addresses for this model.
+
+        Returns list[str] of actor addresses. Tool resolution (addr → ToolSpec)
+        is deferred to agentic() where discover_tools() is called.
+
+        Product.tools()  → ['products', 'comments']
+        product.tools()  → same (tools come from schema, not instance)
+        """
+        cls = target if isinstance(target, type) else target.__class__
+        agent_flag = getattr(cls, '__agent__', False)
+        conf = agent_flag if isinstance(agent_flag, dict) else {}
+
+        addrs = []
+
+        # Self tools (own CRUD + methods)
+        if conf.get('self_tools', True):
+            tablename = getattr(cls, '__tablename__', cls.__name__)
+            addrs.append(tablename)
+
+        # Neighbor tools (ListRef relationships)
+        if conf.get('neighbors', True):
+            from n3tx.core.utils.introspection import get_list_fields
+            for field_name, model_cls in get_list_fields(cls):
+                if hasattr(model_cls, '__tablename__'):
+                    addrs.append(model_cls.__tablename__)
+
+        # Extra tools from __agent__ config
+        extra = conf.get('tools', [])
+        if extra:
+            addrs.extend(extra)
+
+        # Deduplicate, preserve order
+        return list(dict.fromkeys(addrs))
+
+    @fullmethod
+    async def run(target, task: str, **kwargs) -> dict:
+        """Public entry point for agent reasoning.
+
+        Resolves config via 3-tier cascade, builds prompt, discovers tools,
+        manages adapter lifecycle, delegates to agentic().
+
+        Config resolution (3-tier cascade):
+            config.AGENT_DEFAULTS < __agent__ dict < run() kwargs
+
+        Product.run(task='...')   → class-level (schema context)
+        product.run(task='...')   → instance-level (schema + instance data)
+
+        Override this to add guardrails, audit logging, or rate limiting.
+        Call agentic() directly to bypass this layer entirely.
+        """
+        from n3tx.core import config
+
+        cls = target if isinstance(target, type) else target.__class__
+        agent_flag = getattr(cls, '__agent__', False)
+        model_conf = agent_flag if isinstance(agent_flag, dict) else {}
+
+        # 3-tier cascade: config.AGENT_DEFAULTS < __agent__ dict < kwargs
+        defaults = config.AGENT_DEFAULTS
+
+        # Prompt: kwargs > auto-generated ctx
+        prompt = kwargs.get('prompt') or target.ctx()
+
+        # Tools: kwargs > auto-discovered
+        tools = kwargs.get('tools') or target.tools()
+
+        # LLM: kwargs > __agent__['llm'] > instance attr > defaults
+        llm = (kwargs.get('llm')
+               or model_conf.get('llm')
+               or getattr(target, 'llm', None)
+               or defaults.get('llm', 'ollama:llama3.1'))
+
+        # Constraints: merge all tiers
+        constraints = dict(defaults.get('constraints', {}))
+        constraints.update(model_conf.get('constraints', {}))
+        constraints.update(kwargs.get('constraints', {}))
+
+        # Pass-through params
+        user = kwargs.get('user')
+        message_history = kwargs.get('message_history')
+        result_type = kwargs.get('result_type') or model_conf.get('result_type')
+
+        # Adapter lifecycle: create transient adapter for this run
         from n3tx.core.api.network_adapter import NetworkAdapter
         from n3tx.core.actors.actor import Actor
         from n3tx.core.actors.tx import TX
-        from n3tx.core.agents.deps import AgentDeps
-        from n3tx.core.agents.tools import discover_tools, make_tool
 
-        # ── Resolve config ──
-        llm = kwargs.get('llm') or getattr(self, 'llm', 'ollama:llama3.1')
-        constraints = dict(getattr(self, 'constraints', None) or {})
-        constraints.update(kwargs.get('constraints', {}))
-
-        # ── Agent address ──
-        if isinstance(self, type):
-            agent_addr = getattr(self, '__addr__', self.__name__)
-        else:
-            agent_addr = (
-                getattr(self, '_addr', '')
-                or getattr(self.__class__, '__addr__', '')
-            )
-
-        # ── Transient adapter for this run ──
-        # Each agent_run() gets its own NetworkAdapter with its own
-        # _pending dict for Future-based request/response correlation.
         run_id = TX(name='', source='', target='').uuid
         adapter_addr = f'_agent_{run_id}'
         adapter = NetworkAdapter(addr=adapter_addr)
@@ -95,8 +327,89 @@ class AgentMixin:
         root.register(adapter)
 
         try:
+            # Resolve target for agentic() — need an instance
+            if isinstance(target, type):
+                instance = target()
+            else:
+                instance = target
+
+            return await instance.agentic(
+                task=task,
+                prompt=prompt,
+                tools=tools,
+                user=user,
+                llm=llm,
+                constraints=constraints,
+                adapter=adapter,
+                message_history=message_history,
+                result_type=result_type,
+            )
+        finally:
+            root._children.pop(adapter_addr, None)
+
+    async def agentic(self, task: str, prompt: str, tools: list,
+                      user: dict = None, llm=None, constraints: dict = None,
+                      adapter=None, message_history=None,
+                      result_type=None, **kwargs) -> dict:
+        """Execute the LLM agent loop. Pure execution — no config resolution.
+
+        Receives fully resolved params from run(). Can also be called directly
+        for advanced use cases (testing, pipelines, custom workflows).
+
+        Args:
+            task: The user task / query to execute.
+            prompt: System prompt for the LLM.
+            tools: List of actor addresses whose methods become tools.
+            user: Auth context (JWT user dict).
+            llm: LLM model string or pydantic_ai Model instance.
+            constraints: Budget/safety limits dict.
+            adapter: NetworkAdapter for TX routing (created if None).
+            message_history: Previous messages for multi-turn.
+            result_type: Pydantic model for structured output.
+
+        Returns:
+            dict with keys:
+                answer: The LLM's final output (str or structured type).
+                usage: {input_tokens, output_tokens, requests}
+                messages: All conversation messages (list).
+                message_count: Number of messages (backward compat).
+        """
+        from pydantic_ai import Agent, UsageLimits
+        from n3tx.core.agents.deps import AgentDeps
+        from n3tx.core.agents.tools import discover_tools, make_tool
+
+        # ── Defaults ──
+        llm = llm or 'ollama:llama3.1'
+        constraints = constraints or {}
+
+        # ── Agent address ──
+        agent_addr = (
+            getattr(self, '_addr', '')
+            or getattr(self.__class__, '__addr__', '')
+        )
+
+        # ── Adapter lifecycle ──
+        owns_adapter = adapter is None
+        if owns_adapter:
+            from n3tx.core.api.network_adapter import NetworkAdapter
+            from n3tx.core.actors.actor import Actor
+            from n3tx.core.actors.tx import TX
+
+            run_id = TX(name='', source='', target='').uuid
+            adapter_addr = f'_agent_{run_id}'
+            adapter = NetworkAdapter(addr=adapter_addr)
+            root = Actor.root()
+            if not root:
+                raise RuntimeError(
+                    "No Matrix root. Initialize a Matrix before running agents."
+                )
+            root.register(adapter)
+
+        try:
             # ── Discover tools from actor addresses ──
-            tool_specs = discover_tools(tools, root)
+            from n3tx.core.actors.actor import Actor
+            root = Actor.root()
+            tool_specs = discover_tools(tools, root, caller_addr=agent_addr)
             if not tool_specs:
                 logger.warning(
                     "[%s] No tools discovered from addresses: %s", agent_addr, tools
@@ -104,12 +417,15 @@ class AgentMixin:
             ai_tools = [make_tool(spec) for spec in tool_specs]
 
             # ── Build Pydantic AI agent ──
-            ai_agent = Agent(
-                llm,
-                system_prompt=prompt,
-                deps_type=AgentDeps,
-                tools=ai_tools,
-            )
+            agent_kwargs = {
+                'system_prompt': prompt,
+                'deps_type': AgentDeps,
+                'tools': ai_tools,
+            }
+            if result_type:
+                agent_kwargs['output_type'] = result_type
+
+            ai_agent = Agent(llm, **agent_kwargs)
 
             # ── Deps ──
             deps = AgentDeps(
@@ -126,9 +442,16 @@ class AgentMixin:
                 )
 
             # ── Run ──
-            result = await ai_agent.run(task, deps=deps, usage_limits=usage_limits)
+            run_kwargs = {'deps': deps}
+            if usage_limits:
+                run_kwargs['usage_limits'] = usage_limits
+            if message_history:
+                run_kwargs['message_history'] = message_history
+
+            result = await ai_agent.run(task, **run_kwargs)
 
             usage = result.usage()
+            all_messages = result.all_messages()
             return {
                 'answer': result.output,
                 'usage': {
@@ -136,9 +459,194 @@ class AgentMixin:
                     'output_tokens': usage.output_tokens,
                     'requests': usage.requests,
                 },
-                'messages': len(result.all_messages()),
+                'messages': all_messages,
+                'message_count': len(all_messages),
             }
 
         finally:
-            # Cleanup: remove transient adapter from Matrix
+            if owns_adapter:
+                root._children.pop(adapter._addr, None)
+
+    @fullmethod
+    async def run_stream(target, task: str, **kwargs):
+        """Streaming orchestration — same config cascade as run(), yields chunks.
+
+        Product.run_stream(task='...')  → async gen of TX-aligned chunks
+        product.run_stream(task='...')  → async gen with instance context
+        """
+        from n3tx.core import config
+
+        cls = target if isinstance(target, type) else target.__class__
+        agent_flag = getattr(cls, '__agent__', False)
+        model_conf = agent_flag if isinstance(agent_flag, dict) else {}
+
+        # 3-tier cascade (same as run())
+        defaults = config.AGENT_DEFAULTS
+        prompt = kwargs.get('prompt') or target.ctx()
+        tools = kwargs.get('tools') or target.tools()
+        llm = (kwargs.get('llm')
+               or model_conf.get('llm')
+               or getattr(target, 'llm', None)
+               or defaults.get('llm', 'ollama:llama3.1'))
+        constraints = dict(defaults.get('constraints', {}))
+        constraints.update(model_conf.get('constraints', {}))
+        constraints.update(kwargs.get('constraints', {}))
+        user = kwargs.get('user')
+        message_history = kwargs.get('message_history')
+        result_type = kwargs.get('result_type') or model_conf.get('result_type')
+
+        # Adapter lifecycle
+        from n3tx.core.api.network_adapter import NetworkAdapter
+        from n3tx.core.actors.actor import Actor
+        from n3tx.core.actors.tx import TX
+
+        run_id = TX(name='', source='', target='').uuid
+        adapter_addr = f'_agent_{run_id}'
+        adapter = NetworkAdapter(addr=adapter_addr)
+        root = Actor.root()
+        if not root:
+            raise RuntimeError(
+                "No Matrix root. Initialize a Matrix before running agents."
+            )
+        root.register(adapter)
+
+        try:
+            if isinstance(target, type):
+                instance = target()
+            else:
+                instance = target
+
+            async for chunk in instance.agentic_stream(
+                task=task,
+                prompt=prompt,
+                tools=tools,
+                user=user,
+                llm=llm,
+                constraints=constraints,
+                adapter=adapter,
+                message_history=message_history,
+                result_type=result_type,
+            ):
+                yield chunk
+        finally:
             root._children.pop(adapter_addr, None)
+
+    async def agentic_stream(self, task: str, prompt: str, tools: list,
+                             user: dict = None, llm=None, constraints: dict = None,
+                             adapter=None, message_history=None,
+                             result_type=None, **kwargs):
+        """Streaming agent loop — yields TX-aligned chunks.
+
+        Pure execution — no config resolution. Same params as agentic()
+        but returns an async generator instead of a dict.
+
+        TX-Aligned Chunk Format:
+            {'name': 'text',        'data': {'text': '...'}, 'meta': {'stream': True, 'seq': N}}
+            {'name': 'done',        'data': {'answer': '...', 'usage': {...}}, 'meta': {'stream_end': True}}
+            {'name': 'error',       'data': {'message': '...'}, 'meta': {'error': True}}
+        """
+        from pydantic_ai import Agent, UsageLimits
+        from n3tx.core.agents.deps import AgentDeps
+        from n3tx.core.agents.tools import discover_tools, make_tool
+
+        llm = llm or 'ollama:llama3.1'
+        constraints = constraints or {}
+
+        agent_addr = (
+            getattr(self, '_addr', '')
+            or getattr(self.__class__, '__addr__', '')
+        )
+
+        owns_adapter = adapter is None
+        if owns_adapter:
+            from n3tx.core.api.network_adapter import NetworkAdapter
+            from n3tx.core.actors.actor import Actor
+            from n3tx.core.actors.tx import TX
+
+            run_id = TX(name='', source='', target='').uuid
+            adapter_addr = f'_agent_{run_id}'
+            adapter = NetworkAdapter(addr=adapter_addr)
+            root = Actor.root()
+            if not root:
+                raise RuntimeError(
+                    "No Matrix root. Initialize a Matrix before running agents."
+                )
+            root.register(adapter)
+
+        seq = 0
+        try:
+            from n3tx.core.actors.actor import Actor
+            root = Actor.root()
+            tool_specs = discover_tools(tools, root, caller_addr=agent_addr)
+            ai_tools = [make_tool(spec) for spec in tool_specs]
+
+            agent_kwargs = {
+                'system_prompt': prompt,
+                'deps_type': AgentDeps,
+                'tools': ai_tools,
+            }
+            if result_type:
+                agent_kwargs['output_type'] = result_type
+
+            ai_agent = Agent(llm, **agent_kwargs)
+
+            deps = AgentDeps(
+                adapter=adapter,
+                user=user,
+                agent_addr=agent_addr,
+            )
+
+            usage_limits = None
+            if constraints.get('max_iterations'):
+                usage_limits = UsageLimits(
+                    request_limit=constraints['max_iterations'],
+                )
+
+            run_kwargs = {'deps': deps}
+            if usage_limits:
+                run_kwargs['usage_limits'] = usage_limits
+            if message_history:
+                run_kwargs['message_history'] = message_history
+
+            # Use Agent.run_stream() for token-level streaming
+            async with ai_agent.run_stream(task, **run_kwargs) as result:
+                async for text in result.stream_text(delta=True):
+                    yield {
+                        'name': 'text',
+                        'data': {'text': text},
+                        'meta': {'stream': True, 'seq': seq},
+                    }
+                    seq += 1
+
+                # Stream complete — emit final done chunk
+                usage = result.usage()
+                try:
+                    output = await result.get_output()
+                except Exception:
+                    output = ''
+                yield {
+                    'name': 'done',
+                    'data': {
+                        'answer': str(output),
+                        'usage': {
+                            'input_tokens': usage.input_tokens,
+                            'output_tokens': usage.output_tokens,
+                            'requests': usage.requests,
+                        },
+                    },
+                    'meta': {
+                        'stream': True,
+                        'stream_end': True,
+                        'seq': seq,
+                    },
+                }
+
+        except Exception as e:
+            yield {
+                'name': 'error',
+                'data': {'message': str(e), 'code': 500},
+                'meta': {'stream': True, 'error': True, 'seq': seq},
+            }
+        finally:
+            if owns_adapter:
+                root._children.pop(adapter._addr, None)

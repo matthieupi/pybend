@@ -8,6 +8,8 @@ Output in schema:
     {
         "agent": {
             "enabled": true,
+            "config": {"self_tools": true, "neighbors": true},  # safe keys only
+            "methods": ["run", "run_stream", "ctx", "tools"],
             "run_endpoint": "/agents/{id}/run"   # if AgentActor
         }
     }
@@ -22,7 +24,13 @@ def agent(cls, schema: dict) -> dict:
     if not getattr(cls, '__agent__', False):
         return schema
 
+    agent_flag = getattr(cls, '__agent__', False)
     agent_meta = {'enabled': True}
+
+    # Expose safe config keys (no LLM credentials)
+    if isinstance(agent_flag, dict):
+        safe_keys = {'self_tools', 'neighbors', 'neighbor_depth'}
+        agent_meta['config'] = {k: v for k, v in agent_flag.items() if k in safe_keys}
 
     # AgentActor instances have a /run endpoint — add the pattern
     from n3tx.core.agents.actor import AgentActor
@@ -30,5 +38,6 @@ def agent(cls, schema: dict) -> dict:
         tablename = schema.get('__tablename__', cls.__tablename__)
         agent_meta['run_endpoint'] = f'/{tablename}/{{id}}/run'
 
+    agent_meta['methods'] = ['run', 'run_stream', 'ctx', 'tools']
     schema['agent'] = agent_meta
     return schema

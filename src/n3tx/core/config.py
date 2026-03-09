@@ -23,6 +23,18 @@ DEBUG = os.getenv("N3TX_DEBUG", "false").lower() in ("1", "true")
 # SSR configuration
 SSR = os.getenv("N3TX_SSR", "off").lower()  # "off" | "schema" | "bundle" | "full"
 
+# Agent configuration (global defaults, overridable per-model via __agent__)
+AGENT_DEFAULTS = {
+    'self_tools': True,       # auto-discover own CRUD + methods
+    'neighbors': True,        # auto-discover ListRef neighbor tools
+    'neighbor_depth': 1,      # levels of ListRef relationships to follow
+    'llm': 'ollama:llama3.1', # default LLM provider:model string
+}
+
+if os.getenv("N3TX_AGENT_DEFAULTS"):
+    import json as _json
+    AGENT_DEFAULTS.update(_json.loads(os.environ["N3TX_AGENT_DEFAULTS"]))
+
 # Apply N3TX_* environment variable overrides (if set)
 if os.getenv("N3TX_BACKEND"):
     BACKEND = os.environ["N3TX_BACKEND"]

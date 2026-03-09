@@ -25,8 +25,6 @@ Configuration lives in fields (DB-storable). Agents are data, not code.
 import json
 import logging
 
-from typing import Optional
-
 from pydantic import Field
 
 from n3tx.core.models.actor_model import ActorModel
@@ -57,7 +55,7 @@ class AgentActor(ActorModel):
 
     name: str = Field(min_length=1, max_length=200)
     prompt: str = Field(default='')
-    tools: Optional[ListRef[AgentTool]] = Field(default=[])
+    tools: ListRef[AgentTool] = Field(default=[])
     llm: str = Field(default='ollama:llama3.1')
     constraints: dict = Field(default={})
 
@@ -78,39 +76,54 @@ class AgentActor(ActorModel):
         # live in the join table, not the base agent_tools table.
         fk_models = getattr(self.__class__, '__fk_models__', {})
         tool_cls = fk_models.get('tools', AgentTool)
+
+        # Collect href IDs for batch fetch instead of N+1 individual gets
+        href_ids = []
         for item in self.tools:
             if isinstance(item, AgentTool):
                 tool_addrs.append(item.target)
             elif isinstance(item, str) and '/' in item:
-                # href — extract ID, fetch via join model
                 try:
-                    tool_id = int(item.rstrip('/').split('/')[-1])
-                    tool = tool_cls.get(tool_id)
-                    if tool:
-                        tool_addrs.append(tool.target)
+                    href_ids.append(int(item.rstrip('/').split('/')[-1]))
                 except (ValueError, TypeError):
                     logger.warning("Could not resolve tool href: %s", item)
             elif isinstance(item, str):
                 # plain addr string (e.g., from in-memory construction)
                 tool_addrs.append(item)
+
+        # Batch fetch all href-referenced tools in one query
+        if href_ids:
+            tools = tool_cls.list(ids=href_ids)
+            records = tools['data'] if isinstance(tools, dict) else tools
+            for tool in records:
+                tool_addrs.append(tool.target)
+
         return tool_addrs
 
     @expose_route('/run', methods=['POST'])
     async def run(self, task: str, **kwargs) -> str:
         """Execute the agent's reasoning loop.
 
+        Override — resolves tools from DB instead of __agent__ config.
+        Calls self.agentic() directly (pure engine), bypassing the mixin's
+        config cascade since AgentActor has its own config (DB fields).
+
         Args:
             task: The user task / query to execute.
-            **kwargs: Passed to agent_run() (e.g., llm, constraints overrides).
+            **kwargs: Override llm, constraints, user, message_history, result_type.
 
         Returns:
-            JSON string with {answer, usage, messages}.
+            JSON string with {answer, usage, messages, message_count}.
         """
         tool_addrs = self._resolve_tool_addrs()
-        result = await self.agent_run(
+        result = await self.agentic(
+            task=task,
             prompt=self.prompt,
             tools=tool_addrs,
-            task=task,
-            **kwargs,
+            llm=kwargs.get('llm', self.llm),
+            constraints={**self.constraints, **kwargs.get('constraints', {})},
+            user=kwargs.get('user'),
+            message_history=kwargs.get('message_history'),
+            result_type=kwargs.get('result_type'),
         )
         return json.dumps(result, default=str)
