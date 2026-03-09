@@ -308,6 +308,7 @@ export class NTTMethod extends HTMLElement {
     label { display: block; margin-top: 1rem; color: var(--text-2); font-size: 0.9rem; }
     input {
       width: 100%; padding: 0.5rem 0.8rem;
+      box-sizing: border-box;
       background: var(--surface-3);
       color: var(--text-0);
       border: 1px solid var(--border);

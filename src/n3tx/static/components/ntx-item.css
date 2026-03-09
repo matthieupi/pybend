@@ -2,6 +2,7 @@
 
 :host {
     display: block;
+    min-width: 0;
     animation: staggerIn 0.4s var(--ease, cubic-bezier(0.4, 0, 0.2, 1)) both;
     animation-delay: var(--stagger-delay, 0ms);
 }
@@ -228,6 +229,7 @@
 
 .card[data-display="md"] {
     position: relative;
+    overflow: hidden;
     background: var(--glass-bg, rgba(14, 16, 24, 0.55));
     background-image: var(--glass-gradient, none);
     backdrop-filter: blur(var(--glass-blur, 18px));
@@ -255,6 +257,7 @@
 
 .card[data-display="lg"] {
     position: relative;
+    overflow: hidden;
     background: var(--glass-bg, rgba(14, 16, 24, 0.55));
     background-image: var(--glass-gradient, none);
     backdrop-filter: blur(var(--glass-blur, 18px));
@@ -281,6 +284,7 @@
 
 .card[data-display="xl"] {
     position: relative;
+    overflow: hidden;
     background: var(--glass-bg, rgba(14, 16, 24, 0.55));
     background-image: var(--glass-gradient, none);
     backdrop-filter: blur(var(--glass-blur-lg, 28px));
@@ -460,6 +464,7 @@ label + div {
 /* ── Inputs (edit mode) ── */
 input, textarea {
     width: 100%;
+    box-sizing: border-box;
     padding: 0.55rem 0.75rem;
     font-size: 0.875rem;
     font-family: inherit;
