@@ -25,7 +25,11 @@
       "Bash(grep:*)",
       "Bash(kill:*)",
       "Bash(xargs:*)",
-      "Bash(fuser:*)"
+      "Bash(fuser:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh repo view matthieupi/pyrofunc --json description,name,url 2>/dev/null; echo \"---\"; gh api repos/matthieupi/pyrofunc/contents 2>/dev/null | python3 -c \"import sys,json; [print\\(f['name'], f['type']\\) for f in json.load\\(sys.stdin\\)]\" 2>/dev/null || echo \"Trying web...\")",
+      "WebFetch(domain:magentic.dev)",
+      "WebFetch(domain:deepwiki.com)"
     ]
   },
   "enableAllProjectMcpServers": true,

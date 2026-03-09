@@ -15,6 +15,8 @@ _End-to-end features spanning backend and frontend_
     TX from the network data, like 'ws' or 'api'. We would need to change 
     this to have full stack addressing. A scheme could be to use IP but then 
     2 different client on the same network would share the same ref. 
+- [ ] Storable Mixin search method
+- [ ] Storable Mixin update to get many (checks if param is item or list)
 
 - [x] Add debug mode:
   - Server starts in debug, auto-reloads
@@ -44,7 +46,10 @@ _Python · Models · Storage · API · Auth · Actors · Agents_
   - The docstring as the prompt?
   - Magentic
 - [ ] Make TX meta a buildable dict, mirroring dump_ext and schema_ext
-
+- [ ] Pyrofunc <=> Actor natural integration
+- [ ] Review Pyrofunc and see if some implementations details/features could 
+  enhance our current Actor
+- [ ] 
 ---
 
 ## 🖥️ Frontend

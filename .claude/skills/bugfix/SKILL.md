@@ -14,7 +14,33 @@ guess-and-check — you prove the root cause before touching production code.
 
 ---
 
+## CRITICAL: Execution Order
+
+**You MUST follow these phases in strict sequential order. No skipping ahead.**
+
+> **START by writing failing tests. Do NOT read source code to "understand
+> the bug first". Do NOT analyze root causes. Do NOT touch production code.
+> Your FIRST action is to create test files and write failing tests.
+> Everything else comes after.**
+
+| # | Phase | Gate (must be true before moving on) |
+|---|---|---|
+| 1 | **Write failing tests** | 3+ test files written |
+| 2 | **Confirm red** | All tests fail for the right reason |
+| 3 | **Diagnose & fix loop** | All tests pass (or 4-iteration limit hit) |
+| 4 | **Root cause analysis** | Root cause categorized, assessment presented |
+| 5 | **Optimal fix** | Better fix implemented if one exists |
+| 6 | **Full suite validation** | No regressions in full test suite |
+| 7 | **Summary** | Summary presented, no auto-commit |
+
+---
+
 ## Phase 1: Reproduce — Write Failing Tests
+
+> **This is your FIRST action. Before you read a single line of source code,
+> before you form any theory, before you investigate anything — write the
+> tests. The tests ARE the investigation. They tell you what's broken and
+> where.**
 
 Write **at least three** failing tests that reproduce the reported bug from
 different angles. Mix and match freely from these test types — any
@@ -203,3 +229,17 @@ or `/git-smart`).
 - **NEVER** skip Phase 4 — understanding "why" prevents the next bug
 - **ALWAYS** undo failed fix attempts before trying a new theory
 - **ALWAYS** use the exact same test command throughout the session
+
+---
+
+## Quick Reference — Execution Checklist
+
+Re-read this before each action to stay on track:
+
+1. **WRITE TESTS FIRST** — 3+ failing tests, no source code analysis yet
+2. **RUN TESTS** — confirm they all fail for the right reason
+3. **ANALYZE → VALIDATE → FIX → VERIFY** — loop until green, revert on failure
+4. **ROOT CAUSE** — categorize why the bug existed
+5. **OPTIMAL FIX** — undo and redo if a better solution exists
+6. **FULL SUITE** — run all tests to catch regressions
+7. **SUMMARY** — report results, do not commit
