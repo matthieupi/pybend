@@ -32,6 +32,11 @@ _End-to-end features spanning backend and frontend_
   comment is contextually tied to the item it was created on). But for tools,
   we would need a many-to-many relationship. We need to implement a way to 
   elegantly execute this from within the framework.
+
+- [ ] Method button label defaults to method name instead of "run"
+- [ ] When we have a method button that needs params, when we click on it we 
+  should open a small form yo enter the required fields
+
 ---
 
 ## ⚙️ Backend
@@ -49,7 +54,8 @@ _Python · Models · Storage · API · Auth · Actors · Agents_
 - [ ] Pyrofunc <=> Actor natural integration
 - [ ] Review Pyrofunc and see if some implementations details/features could 
   enhance our current Actor
-- [ ] 
+- [ ] Change relative to absolute paths for imports (SSR stuff)
+- [ ] Add param to expose route to receive actual TX instead of parsed items
 ---
 
 ## 🖥️ Frontend
