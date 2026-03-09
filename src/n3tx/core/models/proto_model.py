@@ -144,12 +144,15 @@ class ProtoModel(PydanticBaseModel):
 
             # Extract parameter schemas and record model types
             parameters = {}
+            required_params = []
             for name, param in sig.parameters.items():
                 if name in ('cls', 'self', 'user'):
                     continue
                 ptype = type_hints.get(name, param.annotation)
                 parameters[name] = pydantic_schema_for_type(ptype)
                 record_model_type(cls, ptype)
+                if param.default is inspect.Parameter.empty:
+                    required_params.append(name)
 
             # Return type schema
             rtype = type_hints.get('return', None)
@@ -168,6 +171,7 @@ class ProtoModel(PydanticBaseModel):
                 'methods': endpoint_info['methods'],
                 'scope': method_type,
                 'parameters': parameters,
+                'required': required_params,
                 'returns': return_type_schema,
             }
             if endpoint_info.get('stream'):
