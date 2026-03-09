@@ -159,13 +159,26 @@ class SQLiteStorage(AbstractStorage):
     # ──────────────────────────────────────────────
 
     def list(self, model_class: Type[Any], sql_filter: tuple = None,
-             limit: int = None, offset: int = None, populate: PopulateSpec = None) -> List[Any]:
+             limit: int = None, offset: int = None, populate: PopulateSpec = None,
+             ids: list = None) -> List[Any]:
         table_name = _validate_identifier(model_class.__tablename__)
         list_fields = get_list_fields(model_class)
         ref_fields = get_ref_fields(model_class)
 
         select_sql = f"SELECT * FROM {table_name}"
         filter_params = []
+
+        # Optional ids filter: WHERE id IN (?, ?, ...)
+        if ids is not None and ids:
+            placeholders = ','.join('?' * len(ids))
+            id_clause = f"id IN ({placeholders})"
+            if sql_filter and sql_filter[0]:
+                clause = f"({sql_filter[0]}) AND {id_clause}"
+                filter_params = list(sql_filter[1] or []) + list(ids)
+                sql_filter = (clause, filter_params)
+            else:
+                sql_filter = (id_clause, list(ids))
+
         if sql_filter is not None:
             clause, params = sql_filter
             if clause:

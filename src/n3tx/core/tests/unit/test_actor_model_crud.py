@@ -205,7 +205,7 @@ class TestHandlerCrudList:
         tx = make_tx('list', {'limit': 10, 'offset': 0})
         _CrudModel.handler_crud(tx)
         mock_storage.list.assert_called_once_with(
-            _CrudModel, sql_filter=None, limit=10, offset=0, populate=None,
+            _CrudModel, sql_filter=None, limit=10, offset=0, populate=None, ids=None,
         )
 
     def test_list_empty_data_passes_none(self, mock_storage, make_tx):
@@ -214,7 +214,7 @@ class TestHandlerCrudList:
         tx = make_tx('list', {})
         _CrudModel.handler_crud(tx)
         mock_storage.list.assert_called_once_with(
-            _CrudModel, sql_filter=None, limit=None, offset=None, populate=None,
+            _CrudModel, sql_filter=None, limit=None, offset=None, populate=None, ids=None,
         )
 
     def test_list_returns_storage_result(self, mock_storage, make_tx):
@@ -240,7 +240,7 @@ class TestHandlerCrudList:
         tx = make_tx('list', {'limit': 5})
         _CrudModel.handler_crud(tx)
         mock_storage.list.assert_called_once_with(
-            _CrudModel, sql_filter=None, limit=5, offset=None, populate=None,
+            _CrudModel, sql_filter=None, limit=5, offset=None, populate=None, ids=None,
         )
 
 

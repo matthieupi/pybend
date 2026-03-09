@@ -89,15 +89,18 @@ class StorableMixin:
         return cls.storage.create(cls, data_dict)
 
     @classmethod
-    def list(cls, sql_filter: tuple = None, limit: int = None, offset: int = None, populate=None) -> List[Any]:
+    def list(cls, sql_filter: tuple = None, limit: int = None, offset: int = None,
+             populate=None, ids: list = None) -> List[Any]:
         """
         Retrieves all records using the storage backend.
         Optional sql_filter: (where_clause, params) for authorization pushdown.
         Optional limit/offset for pagination — when provided, returns
         {data: [...], meta: {total, limit, offset, has_more}} instead of a plain list.
         Optional populate: PopulateSpec for eager loading of related entities.
+        Optional ids: list of IDs to filter by (WHERE id IN (...)).
         """
-        return cls.storage.list(cls, sql_filter=sql_filter, limit=limit, offset=offset, populate=populate)
+        return cls.storage.list(cls, sql_filter=sql_filter, limit=limit, offset=offset,
+                                populate=populate, ids=ids)
 
     @classmethod
     def get(cls, id: int, as_dict: bool = False, populate=None) -> Any:

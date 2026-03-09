@@ -19,7 +19,8 @@ class AbstractStorage(ABC):
 
     @abstractmethod
     def list(self, model_class: Type[Any], sql_filter: tuple = None,
-             limit: int = None, offset: int = None, populate=None) -> List[Any]:
+             limit: int = None, offset: int = None, populate=None,
+             ids: list = None) -> List[Any]:
         pass
 
     @abstractmethod

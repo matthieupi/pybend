@@ -109,7 +109,7 @@ class TestList:
         M.storage = MagicMock()
         M.storage.list.return_value = []
         M.list()
-        M.storage.list.assert_called_once_with(M, sql_filter=None, limit=None, offset=None, populate=None)
+        M.storage.list.assert_called_once_with(M, sql_filter=None, limit=None, offset=None, populate=None, ids=None)
 
     def test_with_filter(self):
         class M(ProtoModel):
@@ -186,7 +186,7 @@ class TestListPagination:
         M.storage = MagicMock()
         M.storage.list.return_value = {'data': [], 'meta': {'total': 0}}
         M.list(limit=10, offset=5)
-        M.storage.list.assert_called_once_with(M, sql_filter=None, limit=10, offset=5, populate=None)
+        M.storage.list.assert_called_once_with(M, sql_filter=None, limit=10, offset=5, populate=None, ids=None)
 
     def test_list_with_sql_filter_and_pagination(self):
         class M(ProtoModel):
@@ -197,7 +197,7 @@ class TestListPagination:
         M.storage.list.return_value = []
         filt = ("name = ?", ["test"])
         M.list(sql_filter=filt, limit=5)
-        M.storage.list.assert_called_once_with(M, sql_filter=filt, limit=5, offset=None, populate=None)
+        M.storage.list.assert_called_once_with(M, sql_filter=filt, limit=5, offset=None, populate=None, ids=None)
 
     def test_list_with_populate(self):
         class M(ProtoModel):
@@ -207,7 +207,7 @@ class TestListPagination:
         M.storage = MagicMock()
         M.storage.list.return_value = []
         M.list(populate='comments')
-        M.storage.list.assert_called_once_with(M, sql_filter=None, limit=None, offset=None, populate='comments')
+        M.storage.list.assert_called_once_with(M, sql_filter=None, limit=None, offset=None, populate='comments', ids=None)
 
 
 class TestGetWithPopulate:

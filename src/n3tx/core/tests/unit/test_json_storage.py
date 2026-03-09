@@ -31,7 +31,7 @@ class _TestableJSONStorage(JSONStorage):
     def get(self, model_class, id_=None, as_dict=False, populate=None, **kwargs):
         return self.get_by_id(model_class, id_)
 
-    def list(self, model_class, sql_filter=None, limit=None, offset=None, populate=None):
+    def list(self, model_class, sql_filter=None, limit=None, offset=None, populate=None, ids=None):
         return self.get_all(model_class)
 
 

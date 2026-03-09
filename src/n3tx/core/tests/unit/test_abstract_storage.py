@@ -28,7 +28,7 @@ class TestAbstractStorage:
                 pass
             def create(self, model_class, data):
                 return None
-            def list(self, model_class, sql_filter=None, limit=None, offset=None, populate=None):
+            def list(self, model_class, sql_filter=None, limit=None, offset=None, populate=None, ids=None):
                 return []
             def get(self, model_class, id_=None, as_dict=False, populate=None, **kwargs):
                 return None
