@@ -20,7 +20,7 @@ import inspect
 import logging
 from typing import ClassVar
 
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 from n3tx.core.actors.actor import Actor, actormethod, actorproperty
 from n3tx.core.actors.tx import TX
@@ -69,8 +69,10 @@ class ActorModel(Actor, ProtoModel):
                     await target.send(result)
                 elif isinstance(result, (dict, list)):
                     await target.send(tx.reply(data=result))
+                elif isinstance(result, BaseModel):
+                    await target.send(tx.reply(data=result.model_dump()))
                 elif result is not None:
-                    await target.send(tx.reply(data={'result': result}))
+                    await target.send(tx.reply(data=result))
                 else:
                     await target.send(tx.reply())
             except Exception as e:
@@ -138,9 +140,9 @@ class ActorModel(Actor, ProtoModel):
                     try:
                         async for chunk in result:
                             chunk_data = chunk if isinstance(chunk, dict) else {'chunk': chunk}
-                            await target.send(tx.stream_chunk(chunk_data, seq))
+                            await target.send(tx.chunk(chunk_data, seq))
                             seq += 1
-                        await target.send(tx.stream_end(seq=seq))
+                        await target.send(tx.end(seq=seq))
                     except Exception as e:
                         logger.error(f"[{target.addr}] Stream error in {tx.name}: {e}")
                         await target.send(tx.exception(e))
@@ -150,16 +152,17 @@ class ActorModel(Actor, ProtoModel):
                     await target.send(result)
                 elif isinstance(result, (dict, list)):
                     await target.send(tx.reply(data=result))
+                elif isinstance(result, BaseModel):
+                    await target.send(tx.reply(data=result.model_dump()))
                 elif isinstance(result, str):
-                    # Try to parse JSON strings (custom methods return JSON strings)
                     import json
                     try:
                         parsed = json.loads(result)
                         await target.send(tx.reply(data=parsed))
                     except (json.JSONDecodeError, TypeError):
-                        await target.send(tx.reply(data={'result': result}))
+                        await target.send(tx.reply(data=result))
                 elif result is not None:
-                    await target.send(tx.reply(data={'result': result}))
+                    await target.send(tx.reply(data=result))
                 else:
                     await target.send(tx.reply())
             else:

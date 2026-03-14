@@ -45,103 +45,117 @@ def mock_method(instance, name, replacement):
 # TestTXStreamChunk
 # ===================================================================
 
-class TestTXStreamChunk:
-    """TX.stream_chunk() — create a stream chunk reply."""
+class TestTXChunk:
+    """TX.chunk() — create a STREAM chunk reply."""
 
-    def test_stream_chunk_swaps_source_target(self):
+    def test_chunk_swaps_source_target(self):
         tx = TX(name='run', source='api', target='agent')
-        chunk = tx.stream_chunk({'text': 'hi'}, seq=0)
+        chunk = tx.chunk({'text': 'hi'}, seq=0)
         assert chunk.source == 'agent'
         assert chunk.target == 'api'
 
-    def test_stream_chunk_preserves_name(self):
+    def test_chunk_name_is_stream(self):
         tx = TX(name='run', source='a', target='b')
-        assert tx.stream_chunk({}, seq=0).name == 'run'
+        assert tx.chunk({}, seq=0).name == 'STREAM'
 
-    def test_stream_chunk_meta_has_req(self):
+    def test_chunk_meta_has_req(self):
         tx = TX(name='run', source='a', target='b')
-        chunk = tx.stream_chunk({}, seq=0)
+        chunk = tx.chunk({}, seq=0)
         assert chunk.meta['req'] == tx.uuid
 
-    def test_stream_chunk_meta_has_stream_true(self):
+    def test_chunk_meta_has_stream_true(self):
         tx = TX(name='run', source='a', target='b')
-        assert tx.stream_chunk({}, seq=0).meta['stream'] is True
+        assert tx.chunk({}, seq=0).meta['stream'] is True
 
-    def test_stream_chunk_meta_has_seq(self):
+    def test_chunk_meta_has_seq(self):
         tx = TX(name='run', source='a', target='b')
-        assert tx.stream_chunk({}, seq=5).meta['seq'] == 5
+        assert tx.chunk({}, seq=5).meta['seq'] == 5
 
-    def test_stream_chunk_wraps_non_dict_in_chunk_key(self):
+    def test_chunk_wraps_non_dict_in_chunk_key(self):
         tx = TX(name='run', source='a', target='b')
-        chunk = tx.stream_chunk('hello', seq=0)
+        chunk = tx.chunk('hello', seq=0)
         assert chunk.data == {'chunk': 'hello'}
 
-    def test_stream_chunk_passes_dict_through(self):
+    def test_chunk_passes_dict_through(self):
         tx = TX(name='run', source='a', target='b')
-        chunk = tx.stream_chunk({'text': 'hi', 'done': False}, seq=0)
+        chunk = tx.chunk({'text': 'hi', 'done': False}, seq=0)
         assert chunk.data == {'text': 'hi', 'done': False}
 
-    def test_stream_chunk_new_uuid(self):
+    def test_chunk_new_uuid(self):
         tx = TX(name='run', source='a', target='b')
-        chunk = tx.stream_chunk({}, seq=0)
+        chunk = tx.chunk({}, seq=0)
         assert chunk.uuid != tx.uuid
 
-    def test_stream_chunk_preserves_original_meta(self):
+    def test_chunk_preserves_original_meta(self):
         tx = TX(name='run', source='a', target='b', meta={'trace': '123'})
-        chunk = tx.stream_chunk({}, seq=0)
+        chunk = tx.chunk({}, seq=0)
         assert chunk.meta['trace'] == '123'
+
+    def test_backward_compat_stream_chunk_alias(self):
+        """stream_chunk() still works as alias for chunk()."""
+        tx = TX(name='run', source='a', target='b')
+        chunk = tx.chunk({'text': 'hi'}, seq=0)
+        assert chunk.name == 'STREAM'
+        assert chunk.data == {'text': 'hi'}
 
 
 # ===================================================================
 # TestTXStreamEnd
 # ===================================================================
 
-class TestTXStreamEnd:
-    """TX.stream_end() — create a stream-end reply."""
+class TestTXEnd:
+    """TX.end() — create a STREAM end reply."""
 
-    def test_stream_end_meta_has_stream_end(self):
+    def test_end_meta_has_stream_end(self):
         tx = TX(name='run', source='a', target='b')
-        end = tx.stream_end(seq=3)
+        end = tx.end(seq=3)
         assert end.meta['stream_end'] is True
 
-    def test_stream_end_meta_has_stream_true(self):
+    def test_end_meta_has_stream_true(self):
         tx = TX(name='run', source='a', target='b')
-        assert tx.stream_end(seq=0).meta['stream'] is True
+        assert tx.end(seq=0).meta['stream'] is True
 
-    def test_stream_end_meta_has_req(self):
+    def test_end_meta_has_req(self):
         tx = TX(name='run', source='a', target='b')
-        end = tx.stream_end(seq=0)
+        end = tx.end(seq=0)
         assert end.meta['req'] == tx.uuid
 
-    def test_stream_end_default_data_empty_dict(self):
+    def test_end_default_data_empty_dict(self):
         tx = TX(name='run', source='a', target='b')
-        assert tx.stream_end(seq=0).data == {}
+        assert tx.end(seq=0).data == {}
 
-    def test_stream_end_with_data(self):
+    def test_end_with_data(self):
         tx = TX(name='run', source='a', target='b')
-        end = tx.stream_end(data={'summary': 'done'}, seq=5)
+        end = tx.end(data={'summary': 'done'}, seq=5)
         assert end.data == {'summary': 'done'}
 
-    def test_stream_end_swaps_source_target(self):
+    def test_end_swaps_source_target(self):
         tx = TX(name='run', source='api', target='agent')
-        end = tx.stream_end(seq=0)
+        end = tx.end(seq=0)
         assert end.source == 'agent'
         assert end.target == 'api'
 
-    def test_stream_end_new_uuid(self):
+    def test_end_new_uuid(self):
         tx = TX(name='run', source='a', target='b')
-        end = tx.stream_end(seq=0)
+        end = tx.end(seq=0)
         assert end.uuid != tx.uuid
 
-    def test_stream_end_preserves_original_meta(self):
+    def test_end_preserves_original_meta(self):
         tx = TX(name='run', source='a', target='b', meta={'trace': '456'})
-        end = tx.stream_end(seq=0)
+        end = tx.end(seq=0)
         assert end.meta['trace'] == '456'
 
-    def test_stream_end_preserves_name(self):
+    def test_end_name_is_stream(self):
         tx = TX(name='generate', source='a', target='b')
-        end = tx.stream_end(seq=0)
-        assert end.name == 'generate'
+        end = tx.end(seq=0)
+        assert end.name == 'STREAM'
+
+    def test_backward_compat_stream_end_alias(self):
+        """stream_end() still works as alias for end()."""
+        tx = TX(name='run', source='a', target='b')
+        end = tx.end(seq=0)
+        assert end.name == 'STREAM'
+        assert end.meta['stream_end'] is True
 
 
 # ===================================================================
@@ -263,9 +277,9 @@ class TestNetworkAdapterStream:
         async def fake_send(tx):
             # Simulate backend sending 3 chunks + end
             for i in range(3):
-                chunk = tx.stream_chunk({'text': f'chunk{i}'}, seq=i)
+                chunk = tx.chunk({'text': f'chunk{i}'}, seq=i)
                 await adapter.inbox(chunk)
-            end = tx.stream_end(seq=3)
+            end = tx.end(seq=3)
             await adapter.inbox(end)
 
         with mock_method(adapter, 'send', fake_send):
@@ -289,7 +303,7 @@ class TestNetworkAdapterStream:
         m.register(adapter)
 
         async def fake_send(tx):
-            chunk = tx.stream_chunk({'text': 'hi'}, seq=0)
+            chunk = tx.chunk({'text': 'hi'}, seq=0)
             await adapter.inbox(chunk)
             error = tx.error('something broke', code=500)
             await adapter.inbox(error)
@@ -332,7 +346,7 @@ class TestNetworkAdapterStream:
         m.register(adapter)
 
         async def fake_send(tx):
-            await adapter.inbox(tx.stream_end(seq=0))
+            await adapter.inbox(tx.end(seq=0))
 
         with mock_method(adapter, 'send', fake_send):
             tx = TX(name='run', source='adapter', target='agent')
@@ -387,8 +401,8 @@ class TestNetworkAdapterStream:
 
         async def fake_send(tx):
             for i in range(5):
-                await adapter.inbox(tx.stream_chunk({'n': i}, seq=i))
-            await adapter.inbox(tx.stream_end(seq=5))
+                await adapter.inbox(tx.chunk({'n': i}, seq=i))
+            await adapter.inbox(tx.end(seq=5))
 
         with mock_method(adapter, 'send', fake_send):
             tx = TX(name='run', source='adapter', target='agent')
@@ -433,11 +447,14 @@ class TestActorModelStreamHandler:
 
         # Should have 3 messages: 2 chunks + 1 end
         assert len(sent) == 3
+        assert sent[0].name == 'STREAM'
         assert sent[0].data == {'text': 'hello'}
         assert sent[0].meta.get('stream') is True
         assert sent[0].meta.get('seq') == 0
+        assert sent[1].name == 'STREAM'
         assert sent[1].data == {'text': 'world'}
         assert sent[1].meta.get('seq') == 1
+        assert sent[2].name == 'STREAM'
         assert sent[2].meta.get('stream_end') is True
         assert sent[2].meta.get('seq') == 2
 

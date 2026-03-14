@@ -1,7 +1,8 @@
 import logging
 import os
 
-logger = logging.getLogger('n3tx.config')
+# Configure root 'n3tx' logger so all child loggers emit to console.
+# Default level: WARNING. Set N3TX_LOG_LEVEL=DEBUG (or INFO, ERROR, etc.) to change.
 
 #
 BACKEND = "fastapi"  # or "flask"
@@ -55,6 +56,16 @@ if os.getenv("N3TX_SSR"):
 if os.getenv("OLLAMA_BASE_URL"):
     OLLAMA_BASE_URL = os.environ["OLLAMA_BASE_URL"]
 
+LOG_LEVEL = "DEBUG" if DEBUG else "WARNING"
+LOG_LEVEL = os.getenv("N3TX_LOG_LEVEL", LOG_LEVEL).upper()
+_n3tx_logger = logging.getLogger('n3tx')
+if not _n3tx_logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter('%(levelname)s %(name)s: %(message)s'))
+    _n3tx_logger.addHandler(_handler)
+_n3tx_logger.setLevel(getattr(logging, LOG_LEVEL, logging.WARNING))
+
+logger = logging.getLogger('n3tx.config')
 
 def configure(**kwargs):
     """Override config values programmatically.

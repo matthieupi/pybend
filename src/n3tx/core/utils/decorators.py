@@ -51,16 +51,18 @@ def expose_route(route, methods=["POST"], access=None, stream=False):
                 obj = args[0]
                 model_name = obj.__name__ if isinstance(obj, type) else type(obj).__name__
 
-            # Parse JSON string results so envelope is uniform
+            # Normalize result so envelope is uniform (serializable)
             parsed_result = result
-            if isinstance(result, str):
+            if hasattr(result, 'model_dump'):
+                parsed_result = result.model_dump()
+            elif isinstance(result, str):
                 try:
                     parsed_result = json.loads(result)
                 except (json.JSONDecodeError, TypeError):
                     pass
 
             return {
-                'result': parsed_result,
+                'data': parsed_result,
                 '_debug': {
                     'method': func.__name__,
                     'model': model_name,

@@ -448,15 +448,22 @@ def _add_custom_handler(
 
 
 async def _sse_from_stream(adapter, tx):
-    """Convert NetworkAdapter.stream() into SSE text lines."""
+    """Convert NetworkAdapter.stream() into SSE text lines.
+
+    Serializes the full TX envelope so the frontend receives complete
+    transactions (routing, meta, inner data) — not just chunk.data.
+    """
+    from dataclasses import asdict
+
     async for chunk in adapter.stream(tx, timeout=120.0):
+        tx_dict = asdict(chunk)
         if chunk.is_error:
-            yield f"event: error\ndata: {json.dumps(chunk.data)}\n\n"
+            yield f"event: error\ndata: {json.dumps(tx_dict, default=str)}\n\n"
             return
         if chunk.meta.get('stream_end'):
-            yield f"event: done\ndata: {json.dumps(chunk.data)}\n\n"
+            yield f"event: done\ndata: {json.dumps(tx_dict, default=str)}\n\n"
             return
-        yield f"event: chunk\ndata: {json.dumps(chunk.data, default=str)}\n\n"
+        yield f"event: chunk\ndata: {json.dumps(tx_dict, default=str)}\n\n"
 
 
 def _add_streaming_handler(

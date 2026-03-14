@@ -105,7 +105,7 @@ class TestAutoAdminRegistration:
             password='pass123',
         )
         # Debug envelope wraps the result
-        inner = result['result']
+        inner = result['data']
         assert inner['user']['role'] == 'admin'
 
     def test_register_user_normal_when_debug_false(self, user_model, configure_test_auth):
@@ -127,7 +127,7 @@ class TestAutoAdminRegistration:
             email='debugcharlie@example.com',
             password='pass123',
         )
-        inner = result['result']
+        inner = result['data']
         decoded = decode_token(inner['token'])
         assert decoded['role'] == 'admin'
 

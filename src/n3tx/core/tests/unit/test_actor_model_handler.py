@@ -4,7 +4,7 @@ first, then falls back to generic Actor dispatch.
 
 ActorModel.handler() override flow:
     1. Call handler_crud(tx) — returns result or _NOT_HANDLED sentinel
-    2. If CRUD handled it: wrap result (TX pass-through, dict → reply, scalar → {'result': ...}, None → empty reply)
+    2. If CRUD handled it: wrap result (TX pass-through, dict → reply, BaseModel → model_dump(), scalar → pass-through, None → empty reply)
     3. If _NOT_HANDLED: fall back to generic Actor dispatch (getattr → call → wrap result)
     4. Errors in either path are caught and sent as tx.error()
 """
@@ -181,15 +181,15 @@ class TestHandlerGenericFallback:
         assert reply.data == {}
 
     @pytest.mark.asyncio
-    async def test_returns_string_wraps_in_result(self, capture_send):
-        """TX(name='RETURNS_STRING') — scalar return wraps in {'result': value}."""
+    async def test_returns_string_passes_through(self, capture_send):
+        """TX(name='RETURNS_STRING') — string return passed through without wrapping."""
         tx = TX(name='RETURNS_STRING', source='client', target='handler_test', data={})
         await _HandlerModel.handler(tx)
 
         assert len(capture_send) == 1
         reply = capture_send[0]
         assert reply.name == 'RETURNS_STRING_RESPONSE'
-        assert reply.data == {'result': 'hello'}
+        assert reply.data == 'hello'
 
 
 # ===================================================================

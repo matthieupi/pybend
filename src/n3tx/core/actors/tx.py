@@ -44,23 +44,27 @@ class TX:
             meta={**self.meta, 'req': self.uuid, 'error': True},
         )
 
-    def stream_chunk(self, data, seq: int) -> 'TX':
+    def chunk(self, data, seq: int) -> 'TX':
         """Create a stream chunk reply."""
         return TX(
-            name=self.name,
+            name='STREAM',
             source=self.target, target=self.source,
             data=data if isinstance(data, dict) else {'chunk': data},
             meta={**self.meta, 'req': self.uuid, 'stream': True, 'seq': seq},
         )
 
-    def stream_end(self, data=None, seq: int = 0) -> 'TX':
+    def end(self, data=None, seq: int = 0) -> 'TX':
         """Create a stream-end reply."""
         return TX(
-            name=self.name,
+            name='STREAM',
             source=self.target, target=self.source,
             data=data if data is not None else {},
             meta={**self.meta, 'req': self.uuid, 'stream': True, 'stream_end': True, 'seq': seq},
         )
+
+    # Backward-compat aliases (deprecated — use chunk/end)
+    stream_chunk = chunk
+    stream_end = end
 
     def exception(self, e: Exception) -> 'TX':
         """Map an exception to an error TX with semantic HTTP code."""

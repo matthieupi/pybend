@@ -7,8 +7,8 @@ UNIT TESTS — behavior validation
   - test_debug_false_returns_raw_dict_result
   - test_debug_false_returns_raw_none_result
   - test_debug_false_returns_raw_int_result
-  - test_debug_true_returns_envelope_with_result_and_debug_keys
-  - test_debug_true_result_field_contains_original_value
+  - test_debug_true_returns_envelope_with_data_and_debug_keys
+  - test_debug_true_data_field_contains_original_value
   - test_debug_true_debug_field_contains_method_name
   - test_debug_true_debug_field_contains_model_name_from_instance
   - test_debug_true_debug_field_contains_instance_id_from_self
@@ -145,7 +145,7 @@ class TestDebugTrueEnvelopeShape:
             return 'ok'
 
         result = handler(FakeInstance())
-        assert 'result' in result
+        assert 'data' in result
         assert '_debug' in result
 
     def test_debug_true_result_field_contains_original_value(self, debug_on):
@@ -154,7 +154,7 @@ class TestDebugTrueEnvelopeShape:
             return {'status': 'done'}
 
         result = handler(FakeInstance())
-        assert result['result'] == {'status': 'done'}
+        assert result['data'] == {'status': 'done'}
 
     def test_debug_true_envelope_has_no_extra_top_level_keys(self, debug_on):
         @expose_route('/action')
@@ -162,7 +162,7 @@ class TestDebugTrueEnvelopeShape:
             return 'x'
 
         result = handler(FakeInstance())
-        assert set(result.keys()) == {'result', '_debug'}
+        assert set(result.keys()) == {'data', '_debug'}
 
     def test_debug_true_debug_section_has_required_keys(self, debug_on):
         @expose_route('/action')
@@ -300,8 +300,8 @@ class TestJsonStringParsing:
             return '{"action": "favorited"}'
 
         result = action(FakeInstance())
-        assert result['result'] == {'action': 'favorited'}
-        assert isinstance(result['result'], dict)
+        assert result['data'] == {'action': 'favorited'}
+        assert isinstance(result['data'], dict)
 
     def test_json_array_string_is_parsed_to_list(self, debug_on):
         @expose_route('/items')
@@ -309,7 +309,7 @@ class TestJsonStringParsing:
             return '[1, 2, 3]'
 
         result = items(FakeInstance())
-        assert result['result'] == [1, 2, 3]
+        assert result['data'] == [1, 2, 3]
 
     def test_non_json_string_is_preserved_as_string(self, debug_on):
         @expose_route('/msg')
@@ -317,8 +317,8 @@ class TestJsonStringParsing:
             return 'plain text, not JSON'
 
         result = msg(FakeInstance())
-        assert result['result'] == 'plain text, not JSON'
-        assert isinstance(result['result'], str)
+        assert result['data'] == 'plain text, not JSON'
+        assert isinstance(result['data'], str)
 
     def test_empty_string_is_preserved_as_string(self, debug_on):
         @expose_route('/empty')
@@ -326,7 +326,7 @@ class TestJsonStringParsing:
             return ''
 
         result = empty(FakeInstance())
-        assert result['result'] == ''
+        assert result['data'] == ''
 
     def test_json_number_string_is_parsed_to_int(self, debug_on):
         """A JSON string that is just a number should be parsed to an int."""
@@ -335,7 +335,7 @@ class TestJsonStringParsing:
             return '42'
 
         result = num(FakeInstance())
-        assert result['result'] == 42
+        assert result['data'] == 42
 
     def test_non_json_does_not_raise(self, debug_on):
         """Invalid JSON strings should not raise — they fall through to string."""
@@ -344,7 +344,7 @@ class TestJsonStringParsing:
             return '{not valid json}'
 
         result = bad(FakeInstance())
-        assert result['result'] == '{not valid json}'
+        assert result['data'] == '{not valid json}'
 
     def test_json_string_not_parsed_when_debug_false(self):
         """When DEBUG=False, JSON strings pass through unmodified."""
@@ -370,7 +370,7 @@ class TestDictAndNoneResults:
             return {'token': 'abc', 'user': {'id': 1}}
 
         result = info(FakeInstance())
-        assert result['result'] == {'token': 'abc', 'user': {'id': 1}}
+        assert result['data'] == {'token': 'abc', 'user': {'id': 1}}
 
     def test_none_result_wrapped_in_envelope(self, debug_on):
         @expose_route('/noop')
@@ -378,8 +378,8 @@ class TestDictAndNoneResults:
             return None
 
         result = noop(FakeInstance())
-        assert 'result' in result
-        assert result['result'] is None
+        assert 'data' in result
+        assert result['data'] is None
 
     def test_list_result_preserved_in_envelope(self, debug_on):
         @expose_route('/list')
@@ -387,7 +387,7 @@ class TestDictAndNoneResults:
             return [1, 2, 3]
 
         result = lst(FakeInstance())
-        assert result['result'] == [1, 2, 3]
+        assert result['data'] == [1, 2, 3]
 
 
 # ===================================================================
@@ -573,7 +573,7 @@ class TestDebugFlagToggle:
 
         assert result_off == 'raw'
         assert isinstance(result_on, dict)
-        assert 'result' in result_on
+        assert 'data' in result_on
         assert '_debug' in result_on
 
     def test_debug_flag_read_at_call_time_not_decoration_time(self):
@@ -590,4 +590,4 @@ class TestDebugFlagToggle:
         config.DEBUG = False
 
         assert isinstance(result, dict)
-        assert result['result'] == 'val'
+        assert result['data'] == 'val'
