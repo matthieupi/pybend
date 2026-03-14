@@ -14,6 +14,7 @@
  */
 import HTTP from '../core/transport/HTTP.js';
 import { config } from '../config.js';
+import { NTT } from '../core/NTT.js';
 
 const ICON_CHAT = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 const ICON_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
@@ -82,14 +83,14 @@ class NTTChat extends HTMLElement {
     }
 
     _loadSchema() {
-        const url = `${config.API_URL}/${this._model}`;
-        HTTP.get(url, (schema) => {
+        // Use NTT.attach() to leverage SSR-preloaded schemas and caching
+        // instead of making a raw HTTP.get() that bypasses the cache.
+        NTT.attach(this._model, (DC) => {
+            const schema = DC._schema;
             this._schema = schema;
             this._tablename = schema.__tablename__ || this._model.toLowerCase() + 's';
             this._isStream = !!(schema.methods?.[this._method]?.stream);
             this._loadInstances();
-        }, (err) => {
-            this._appendMsg('system', `Failed to load schema: ${err?.detail || err}`);
         });
     }
 
