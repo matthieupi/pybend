@@ -5,6 +5,7 @@ Each function is a pure dict → dict transformation:
     d = proto_dump.base(instance)
     d = proto_dump.schema_url(instance, d)
     d = proto_dump.instance_url(instance, d)
+    d = proto_dump.populate(instance, d)
 
 Stages are registered in a pipeline so that external packages (federation,
 agents, MCP) can insert new stages via @dump_extension without modifying
@@ -204,9 +205,25 @@ def instance_url(instance, d: dict) -> dict:
     return d
 
 
+def populate(instance, d: dict) -> dict:
+    """Overlay eager-loaded related data from the storage layer.
+
+    When storage.get() or storage.list() is called with a PopulateSpec,
+    _populate_fields() attaches resolved child data to
+    instance.__dict__['_populated'].  This stage merges that data into
+    the serialized dict so model_response() produces the full output
+    without callers needing a manual overlay.
+    """
+    populated = instance.__dict__.get('_populated')
+    if populated:
+        d.update(populated)
+    return d
+
+
 # ── Register default pipeline stages ──
 # Order matters: base seeds, the rest transform sequentially.
 # Extensions insert relative to these names via @dump_extension.
 register_stage('base', base)
 register_stage('schema_url', schema_url)
 register_stage('instance_url', instance_url)
+register_stage('populate', populate)

@@ -36,12 +36,13 @@ def _build_context(request, model_class, action, resource=None, parent_id=None):
     )
 
 def _serialize(instance):
-    """Serialize a model instance, overlaying any populated (eager-loaded) data."""
-    data = instance.model_response()
-    populated = instance.__dict__.get('_populated')
-    if populated:
-        data.update(populated)
-    return data
+    """Serialize a model instance for API response.
+
+    model_response() runs the dump pipeline which includes the 'populate'
+    stage — any eager-loaded data from _populate_fields() is overlaid
+    automatically.
+    """
+    return instance.model_response()
 
 
 def register_route(path, fn, method='GET'):

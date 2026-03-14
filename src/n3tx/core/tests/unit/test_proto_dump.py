@@ -22,7 +22,7 @@ from n3tx.core.models.proto_dump import (
 pytestmark = pytest.mark.unit
 
 # Default pipeline stage names registered at import time
-DEFAULT_STAGES = ['base', 'schema_url', 'instance_url']
+DEFAULT_STAGES = ['base', 'schema_url', 'instance_url', 'populate']
 
 
 @pytest.fixture(autouse=True)
@@ -88,8 +88,8 @@ class TestRegisterStage:
         assert pipeline.index('base') < pipeline.index('before_instance_url')
 
     def test_after_last_stage(self):
-        register_stage('post_instance_url', lambda inst, d: d, after='instance_url')
-        assert get_pipeline()[-1] == 'post_instance_url'
+        register_stage('post_populate', lambda inst, d: d, after='populate')
+        assert get_pipeline()[-1] == 'post_populate'
 
     def test_before_first_stage(self):
         register_stage('pre_base', lambda inst: {}, before='base')
@@ -287,7 +287,7 @@ class TestGetPipeline:
 
     def test_reflects_insertions(self):
         register_stage('mid', lambda inst, d: d, after='base')
-        assert get_pipeline() == ['base', 'mid', 'schema_url', 'instance_url']
+        assert get_pipeline() == ['base', 'mid', 'schema_url', 'instance_url', 'populate']
 
     def test_empty_after_clear(self):
         clear_pipeline()
@@ -350,4 +350,4 @@ class TestRemoveStage:
 
     def test_remove_default_stage(self):
         remove_stage('instance_url')
-        assert get_pipeline() == ['base', 'schema_url']
+        assert get_pipeline() == ['base', 'schema_url', 'populate']
