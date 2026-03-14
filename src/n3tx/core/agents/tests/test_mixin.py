@@ -332,7 +332,7 @@ class TestRunEngine:
         scanner = Scanner(addr='scanners/1')
 
         # First turn
-        result1 = await scanner.agentic(
+        result1 = await scanner.run(
             task='What fields do I have?',
             prompt='You are a scanner.',
             tools=[],
@@ -341,7 +341,7 @@ class TestRunEngine:
         history = result1['messages']
 
         # Second turn with history
-        result2 = await scanner.agentic(
+        result2 = await scanner.run(
             task='Tell me more',
             prompt='You are a scanner.',
             tools=[],
@@ -408,25 +408,25 @@ class TestRunEngine:
 
 # ── agentic() Tests ──────────────────────────────────────────────
 
-class TestRun:
-    """Tests for run() fullmethod — config cascade + auto-discovery."""
+class TestAgentic:
+    """Tests for agentic() fullmethod — config cascade + auto-discovery."""
 
     @pytest.mark.asyncio
-    async def test_zero_config_run(self, fresh_matrix):
-        """run(task='...') auto-discovers prompt and tools."""
+    async def test_zero_config_agentic(self, fresh_matrix):
+        """agentic(task='...') auto-discovers prompt and tools."""
         from pydantic_ai.models.test import TestModel
 
-        result = await AgenticProduct.run(task='Describe yourself', llm=TestModel(call_tools=[]))
+        result = await AgenticProduct.agentic(task='Describe yourself', llm=TestModel(call_tools=[]))
 
         assert 'answer' in result
         assert 'usage' in result
 
     @pytest.mark.asyncio
     async def test_explicit_prompt_overrides(self, fresh_matrix):
-        """run(task='...', prompt='custom') uses custom prompt."""
+        """agentic(task='...', prompt='custom') uses custom prompt."""
         from pydantic_ai.models.test import TestModel
 
-        result = await AgenticProduct.run(
+        result = await AgenticProduct.agentic(
             task='Test',
             prompt='Custom prompt only',
             llm=TestModel(call_tools=[]),
@@ -435,10 +435,10 @@ class TestRun:
 
     @pytest.mark.asyncio
     async def test_explicit_tools_overrides(self, fresh_matrix):
-        """run(task='...', tools=['specific']) uses explicit tools."""
+        """agentic(task='...', tools=['specific']) uses explicit tools."""
         from pydantic_ai.models.test import TestModel
 
-        result = await AgenticProduct.run(
+        result = await AgenticProduct.agentic(
             task='Test',
             tools=[],  # no tools
             llm=TestModel(call_tools=[]),
@@ -453,7 +453,7 @@ class TestRun:
         m = fresh_matrix
         children_before = set(m._children.keys())
 
-        await AgenticProduct.run(task='Test', llm=TestModel(call_tools=[]))
+        await AgenticProduct.agentic(task='Test', llm=TestModel(call_tools=[]))
 
         children_after = set(m._children.keys())
         agent_adapters = {k for k in children_after if k.startswith('_agent_')}
@@ -461,11 +461,11 @@ class TestRun:
 
     @pytest.mark.asyncio
     async def test_adapter_cleaned_up_on_error(self, fresh_matrix):
-        """Transient adapter is cleaned up even if run() fails."""
+        """Transient adapter is cleaned up even if agentic() fails."""
         m = fresh_matrix
 
         try:
-            await AgenticProduct.run(task='Test', llm='nonexistent:model')
+            await AgenticProduct.agentic(task='Test', llm='nonexistent:model')
         except Exception:
             pass
 
@@ -474,27 +474,27 @@ class TestRun:
         assert len(agent_adapters) == 0
 
     @pytest.mark.asyncio
-    async def test_class_vs_instance_run(self, fresh_matrix):
+    async def test_class_vs_instance_agentic(self, fresh_matrix):
         """Class uses schema context, instance uses instance context."""
         from pydantic_ai.models.test import TestModel
 
-        # Class-level run
-        class_result = await AgenticProduct.run(
+        # Class-level agentic
+        class_result = await AgenticProduct.agentic(
             task='Test', llm=TestModel(call_tools=[]),
         )
         assert 'answer' in class_result
 
-        # Instance-level run
+        # Instance-level agentic
         product = AgenticProduct(name='Widget', price=29.99, addr='agentic_products/1')
-        inst_result = await product.run(task='Test', llm=TestModel(call_tools=[]))
+        inst_result = await product.agentic(task='Test', llm=TestModel(call_tools=[]))
         assert 'answer' in inst_result
 
     @pytest.mark.asyncio
-    async def test_run_kwargs_override(self, fresh_matrix):
-        """run() accepts llm and constraints via kwargs."""
+    async def test_agentic_kwargs_override(self, fresh_matrix):
+        """agentic() accepts llm and constraints via kwargs."""
         from pydantic_ai.models.test import TestModel
 
-        result = await AgenticProduct.run(
+        result = await AgenticProduct.agentic(
             task='Test',
             llm=TestModel(call_tools=[]),
             constraints={'max_iterations': 5},
@@ -509,13 +509,13 @@ class TestConcurrentRuns:
 
     @pytest.mark.asyncio
     async def test_concurrent_runs_isolated(self, fresh_matrix):
-        """Multiple concurrent run() calls don't cross-contaminate."""
+        """Multiple concurrent agentic() calls don't cross-contaminate."""
         from pydantic_ai.models.test import TestModel
 
         m = fresh_matrix
 
         tasks = [
-            AgenticProduct.run(
+            AgenticProduct.agentic(
                 task=f'Task {i}',
                 llm=TestModel(call_tools=[]),
             )
@@ -568,7 +568,7 @@ class TestUserAuthPropagation:
 
         user_ctx = {'id': 42, 'role': 'admin', 'email': 'admin@test.com'}
 
-        await AuthAgent.agentic(
+        await AuthAgent.run(
             task='List all',
             prompt='List instrumented records.',
             tools=['instrumented'],
@@ -581,16 +581,16 @@ class TestUserAuthPropagation:
 
 # ── Streaming Tests ──────────────────────────────────────────────
 
-class TestRunStreamPolicy:
-    """Tests for run_stream() fullmethod — streaming policy."""
+class TestAgenticStreamPolicy:
+    """Tests for agentic_stream() fullmethod — streaming policy."""
 
     @pytest.mark.asyncio
     async def test_yields_chunks(self, fresh_matrix):
-        """run_stream() yields dicts with 'name' field."""
+        """agentic_stream() yields dicts with 'name' field."""
         from pydantic_ai.models.test import TestModel
 
         chunks = []
-        async for chunk in AgenticProduct.run_stream(
+        async for chunk in AgenticProduct.agentic_stream(
             task='Describe yourself',
             llm=TestModel(call_tools=[]),
         ):
@@ -608,7 +608,7 @@ class TestRunStreamPolicy:
         m = fresh_matrix
 
         # Properly close the generator after one chunk
-        gen = AgenticProduct.run_stream(
+        gen = AgenticProduct.agentic_stream(
             task='Test',
             llm=TestModel(call_tools=[]),
         )
@@ -623,11 +623,11 @@ class TestRunStreamPolicy:
 
     @pytest.mark.asyncio
     async def test_auto_discovery(self, fresh_matrix):
-        """run_stream() auto-discovers from ctx() and tools()."""
+        """agentic_stream() auto-discovers from ctx() and tools()."""
         from pydantic_ai.models.test import TestModel
 
         chunks = []
-        async for chunk in AgenticProduct.run_stream(
+        async for chunk in AgenticProduct.agentic_stream(
             task='Test',
             llm=TestModel(call_tools=[]),
         ):

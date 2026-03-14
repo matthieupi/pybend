@@ -105,8 +105,8 @@ class AgentActor(ActorModel):
         """Execute the agent's reasoning loop.
 
         Override — resolves tools from DB instead of __agent__ config.
-        Calls AgentMixin.agentic() directly (pure engine), bypassing the
-        mixin's run() config cascade since AgentActor has its own config
+        Calls AgentMixin.run() directly (pure engine), bypassing the
+        mixin's agentic() config cascade since AgentActor has its own config
         (DB fields).
 
         Args:
@@ -118,10 +118,10 @@ class AgentActor(ActorModel):
         """
         from n3tx.core.agents.mixin import AgentMixin
         tool_addrs = self._resolve_tool_addrs()
-        # Call the mixin's agentic engine directly via the descriptor's
+        # Call the mixin's run engine directly via the descriptor's
         # underlying function, bypassing the MRO override on self.
-        agentic_fn = AgentMixin.__dict__['agentic'].fn
-        result = await agentic_fn(
+        run_fn = AgentMixin.__dict__['run'].fn
+        result = await run_fn(
             self,
             task=task,
             prompt=self.prompt,

@@ -7,13 +7,13 @@ full capability.
 API Surface (all @fullmethod — unified class/instance dispatch):
     ctx()            @fullmethod  — Build LLM context from schema (class or instance)
     tools()          @fullmethod  — Discover tool addresses (self + neighbors + extras)
-    run()            @fullmethod  — Policy layer: config cascade, prompt/tool assembly
-    agentic()        @fullmethod  — Engine: raw LLM loop, explicit params, no magic
-    run_stream()     @fullmethod  — Streaming policy (delegates to agentic_stream)
-    agentic_stream() @fullmethod  — Streaming engine: yields TX-aligned chunks
+    agentic()        @fullmethod  — Policy layer: config cascade, prompt/tool assembly
+    run()            @fullmethod  — Engine: raw LLM loop, explicit params, no magic
+    agentic_stream() @fullmethod  — Streaming policy (delegates to run_stream)
+    run_stream()     @fullmethod  — Streaming engine: yields TX-aligned chunks
 
-The split: run() is the boundary where you enforce constraints and resolve config.
-agentic() is the engine that just works. Expose run() via HTTP, never agentic().
+The split: agentic() is the boundary where you enforce constraints and resolve config.
+run() is the engine that just works. Expose agentic() via HTTP, never run().
 
 Injection follows the same pattern as StorableMixin:
     __storable__ = True  →  injects StorableMixin
@@ -25,7 +25,7 @@ Usage:
 
         @expose_route('/analyze', methods=['POST'])
         async def analyze(self, query: str) -> str:
-            result = await self.run(task=query)
+            result = await self.agentic(task=query)
             return result['answer']
 
     # Streaming variant
@@ -34,7 +34,7 @@ Usage:
 
         @expose_route('/analyze', methods=['POST'], stream=True)
         async def analyze(self, query: str):
-            async for chunk in self.run_stream(task=query):
+            async for chunk in self.agentic_stream(task=query):
                 yield chunk
 """
 
@@ -122,16 +122,16 @@ class AgentMixin:
     """Provides self-aware agent capabilities for models with __agent__ = True.
 
     Injected into any model with __agent__ = True via __init_subclass__.
-    Zero config required — ctx(), tools(), and run() auto-discover everything
+    Zero config required — ctx(), tools(), and agentic() auto-discover everything
     from the model's schema, relationships, and config.
 
     API Surface (all @fullmethod — unified class/instance dispatch):
-        ctx()            — LLM context from schema (class) or schema+data (instance)
-        tools()          — Tool addresses: self + neighbors + extras
-        run(task=...)    — Policy: config cascade → agentic()
-        agentic(...)     — Engine: raw LLM loop with explicit params
-        run_stream(...)  — Streaming policy → agentic_stream()
-        agentic_stream() — Streaming engine: TX-aligned chunks
+        ctx()              — LLM context from schema (class) or schema+data (instance)
+        tools()            — Tool addresses: self + neighbors + extras
+        agentic(task=...)  — Policy: config cascade → run()
+        run(...)           — Engine: raw LLM loop with explicit params
+        agentic_stream()   — Streaming policy → run_stream()
+        run_stream()       — Streaming engine: TX-aligned chunks
     """
 
     @fullmethod
@@ -196,20 +196,20 @@ class AgentMixin:
         return list(dict.fromkeys(addrs))
 
     @fullmethod
-    async def run(target, task: str, **kwargs) -> dict:
+    async def agentic(target, task: str, **kwargs) -> dict:
         """Public entry point for agent reasoning.
 
         Resolves config via 3-tier cascade, builds prompt, discovers tools,
-        manages adapter lifecycle, delegates to agentic().
+        manages adapter lifecycle, delegates to run().
 
         Config resolution (3-tier cascade):
-            config.AGENT_DEFAULTS < __agent__ dict < run() kwargs
+            config.AGENT_DEFAULTS < __agent__ dict < agentic() kwargs
 
-        Product.run(task='...')   → class-level (schema context)
-        product.run(task='...')   → instance-level (schema + instance data)
+        Product.agentic(task='...')   → class-level (schema context)
+        product.agentic(task='...')   → instance-level (schema + instance data)
 
         Override this to add guardrails, audit logging, or rate limiting.
-        Call agentic() directly to bypass this layer entirely.
+        Call run() directly to bypass this layer entirely.
         """
         cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(cls, '__agent__', False)
@@ -252,13 +252,13 @@ class AgentMixin:
         root.register(adapter)
 
         try:
-            # Resolve target for agentic() — need an instance
+            # Resolve target for run() — need an instance
             if isinstance(target, type):
                 instance = target()
             else:
                 instance = target
 
-            return await instance.agentic(
+            return await instance.run(
                 task=task,
                 prompt=prompt,
                 tools=tools,
@@ -273,17 +273,17 @@ class AgentMixin:
             root._children.pop(adapter_addr, None)
 
     @fullmethod
-    async def agentic(target, task: str, prompt: str, tools: list,
-                      user: dict = None, llm=None, constraints: dict = None,
-                      adapter=None, message_history=None,
-                      result_type=None, **kwargs) -> dict:
+    async def run(target, task: str, prompt: str, tools: list,
+                  user: dict = None, llm=None, constraints: dict = None,
+                  adapter=None, message_history=None,
+                  result_type=None, **kwargs) -> dict:
         """Execute the LLM agent loop. Pure execution — no config resolution.
 
-        Receives fully resolved params from run(). Can also be called directly
-        for advanced use cases (testing, pipelines, custom workflows).
+        Receives fully resolved params from agentic(). Can also be called
+        directly for advanced use cases (testing, pipelines, custom workflows).
 
-        Product.agentic(task=..., prompt=..., tools=...) → class-level
-        product.agentic(task=..., prompt=..., tools=...) → instance-level
+        Product.run(task=..., prompt=..., tools=...) → class-level
+        product.run(task=..., prompt=..., tools=...) → instance-level
 
         Args:
             task: The user task / query to execute.
@@ -391,11 +391,11 @@ class AgentMixin:
                 root._children.pop(adapter._addr, None)
 
     @fullmethod
-    async def run_stream(target, task: str, **kwargs):
-        """Streaming orchestration — same config cascade as run(), yields chunks.
+    async def agentic_stream(target, task: str, **kwargs):
+        """Streaming orchestration — same config cascade as agentic(), yields chunks.
 
-        Product.run_stream(task='...')  → async gen of TX-aligned chunks
-        product.run_stream(task='...')  → async gen with instance context
+        Product.agentic_stream(task='...')  → async gen of TX-aligned chunks
+        product.agentic_stream(task='...')  → async gen with instance context
         """
         cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(cls, '__agent__', False)
@@ -434,7 +434,7 @@ class AgentMixin:
             else:
                 instance = target
 
-            async for chunk in instance.agentic_stream(
+            async for chunk in instance.run_stream(
                 task=task,
                 prompt=prompt,
                 tools=tools,
@@ -451,17 +451,17 @@ class AgentMixin:
             root._children.pop(adapter_addr, None)
 
     @fullmethod
-    async def agentic_stream(target, task: str, prompt: str, tools: list,
-                             user: dict = None, llm=None, constraints: dict = None,
-                             adapter=None, message_history=None,
-                             result_type=None, **kwargs):
+    async def run_stream(target, task: str, prompt: str, tools: list,
+                         user: dict = None, llm=None, constraints: dict = None,
+                         adapter=None, message_history=None,
+                         result_type=None, **kwargs):
         """Streaming agent loop — yields TX-aligned chunks.
 
-        Pure execution — no config resolution. Same params as agentic()
+        Pure execution — no config resolution. Same params as run()
         but returns an async generator instead of a dict.
 
-        Product.agentic_stream(task=..., prompt=..., tools=...) → class-level
-        product.agentic_stream(task=..., prompt=..., tools=...) → instance-level
+        Product.run_stream(task=..., prompt=..., tools=...) → class-level
+        product.run_stream(task=..., prompt=..., tools=...) → instance-level
 
         TX-Aligned Chunk Format:
             {'name': 'text',        'data': {'text': '...'}, 'meta': {'stream': True, 'seq': N}}
