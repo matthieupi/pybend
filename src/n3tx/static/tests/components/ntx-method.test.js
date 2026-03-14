@@ -28,6 +28,13 @@ import { NTTMethod } from '../../components/ntx-method.js';
 
 describe('ntx-method.js (NTTMethod)', () => {
 
+  beforeEach(() => {
+    // Component.proto is a getter-only — make it writable for test mocking
+    Object.defineProperty(NTTMethod.prototype, 'proto', {
+      value: null, writable: true, configurable: true,
+    });
+  });
+
   describe('static observedAttributes', () => {
     it('should return attribute list', () => {
       const attrs = NTTMethod.observedAttributes;
@@ -156,8 +163,8 @@ describe('ntx-method.js (NTTMethod)', () => {
     it('should call instance method via ntt.call when scope=instancemethod', () => {
       const method = new NTTMethod();
       const callMock = vi.fn();
-      method.ntt = { call: callMock };
-      method.proto = { call: vi.fn() };
+      method.ntt = { call: callMock, href: '/products/1' };
+      method.proto = { call: vi.fn(), href: '/products' };
       method.schema = { scope: 'instancemethod', parameters: {} };
       method.method = 'like';
       method.value = {};
@@ -171,7 +178,7 @@ describe('ntx-method.js (NTTMethod)', () => {
       const method = new NTTMethod();
       const callMock = vi.fn();
       method.ntt = null;
-      method.proto = { call: callMock };
+      method.proto = { call: callMock, href: '/products' };
       method.schema = { scope: 'classmethod', parameters: {} };
       method.method = 'search';
       method.value = { q: 'test' };

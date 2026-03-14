@@ -143,35 +143,34 @@ export class NetworkAdapter {
     else if (name.toUpperCase() === 'UPDATE') HTTP.put(target, data, callback, onError);
     else if (name.toUpperCase() === 'DELETE') HTTP.remove(target, callback, onError);
     else if (name.toUpperCase() === 'TEST') HTTP.get(target, data, callback, onError);
+    else if (meta?.stream) {
+      // SSE data is a full TX envelope from the server. Unwrap it and
+      // re-route to the frontend component that initiated the request.
+      /*
+      const onStreamData = (response) => {
+        this.matrix.dispatch({
+          name: response.name,
+          source: event.target,
+          target: event.source,
+          data: response.data,
+          meta: response.meta || {},
+          timestamp: response.timestamp || Date.now(),
+          uuid: response.uuid,
+        });
+      };
+       */
+      HTTP.stream(`${target}/${name.toLowerCase()}`, data, callback, callback, onError);
+    }
     else {
       HTTP.post(`${target}/${name.toLowerCase()}`, data, callback, onError);
     }
   }
 
   /**
-   * Send a streaming request. Works over both WS and HTTP (SSE).
-   *
-   * When WebSocket is connected, sends a TX with stream metadata and
-   * registers a stream handler on Socket for correlated chunk routing.
-   * Falls back to HTTP SSE (via HTTP.stream()) when WS is unavailable.
-   *
-   * @param {TX|Object} event - The TX to send
-   * @param {Function} onChunk - Called for each streamed chunk
-   * @param {Function} onDone - Called when stream completes
-   * @param {Function} onError - Called on error
-   * @returns {{ cancel: Function }} - Call cancel() to abort the stream
+   * @deprecated Use send() with meta.stream instead — stream chunks are
+   * routed through the actor system as STREAM TXs.
    */
   sendStream(event, onChunk, onDone, onError) {
-    if (this.socket && this.socket.ready) {
-      const tx = event instanceof TX ? event : new TX(event);
-      tx.meta = { ...(tx.meta || {}), stream: true };
-      const reqId = tx._hash || tx.meta._reqId || Date.now().toString(36);
-      tx.meta._reqId = reqId;
-      const cancel = this.socket.registerStream(reqId, onChunk, onDone, onError);
-      this.socket.send(tx);
-      return { cancel };
-    }
-    // HTTP SSE fallback
     const { name, data, target } = event;
     const url = `${target}/${name.toLowerCase()}`;
     return HTTP.stream(url, data, onChunk, onDone, onError);

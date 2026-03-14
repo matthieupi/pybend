@@ -1,4 +1,5 @@
 // components/ntx-method.js
+import { Component } from '../core/Component.js';
 import { NTT } from '../core/NTT.js';
 import Logging from '../utils/Logging.js';
 
@@ -10,14 +11,12 @@ const ICONS = {
   default: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`,
 };
 
-export class NTTMethod extends HTMLElement {
+export class NTTMethod extends Component {
   constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
+    super();  // Component handles shadow DOM, addr, Matrix registration
     this.value = {};
-    this.schema = null;
-    this.proto = null;
     this.ntt = null;
+    this.methodSchema = null;
     this.response = null;
   }
 
@@ -28,11 +27,12 @@ export class NTTMethod extends HTMLElement {
   }
 
   connectedCallback() {
+    super.connectedCallback();
     this.load();
   }
 
   disconnectedCallback() {
-    // Unsubscribe from NTT entity signals when removed from DOM
+    super.disconnectedCallback();
     if (this._unsub) { this._unsub(); this._unsub = null; }
   }
 
@@ -41,7 +41,7 @@ export class NTTMethod extends HTMLElement {
   }
 
   async load() {
-    this.model = this.getAttribute('model');
+    const modelName = this.getAttribute('model');
     this.method = this.getAttribute('method');
     this.uuid = this.getAttribute('uuid');
     this.mode = this.getAttribute('mode') || 'manual';
@@ -53,8 +53,13 @@ export class NTTMethod extends HTMLElement {
     this.widgetOverride = this.getAttribute('widget') || '';
     this.iconName = this.getAttribute('icon') || '';
     this.countField = this.getAttribute('count-field') || '';
-    this.proto = NTT.get(this.model);
-    if (!this.proto) return Logging.error(`[ntx-method] Model not found`, this.model);
+
+    if (modelName) this.model = modelName;
+
+    const proto = NTT.get(this.model);
+    if (!proto) return Logging.error(`[ntx-method] Model not found`, this.model);
+    // Set proto through Component's define()
+    if (proto !== this.proto) this.define(proto);
 
     // Unsubscribe from previous entity if switching
     if (this._unsub) { this._unsub(); this._unsub = null; }
@@ -70,9 +75,9 @@ export class NTTMethod extends HTMLElement {
       }
     }
 
-    const methodSchema = this.proto.schema?.methods?.[this.method];
+    const methodSchema = this.proto?.schema?.methods?.[this.method];
     if (!methodSchema) return Logging.error(`[ntx-method] Method schema not found`, this.method);
-    this.schema = methodSchema;
+    this.methodSchema = methodSchema;
 
     this.render();
   }
@@ -91,24 +96,25 @@ export class NTTMethod extends HTMLElement {
   }
 
   callMethod() {
-    const payload = { ...this.value };
+    const caller = this.ntt || this.proto;
+    if (!caller?.call) return;
 
-    // Instance methods: route through the NTT Actor (href is authoritative
-    // after the $id fix — works for both top-level and nested entities).
-    if (this.ntt?.call && this.schema.scope === 'instancemethod') {
-      this.ntt.call(this.method, payload, { inbox: '_response_' });
-      this.response = { status: 'sent' };
-      this.#postCall();
-      return;
-    }
+    // Use entity/prototype call() which sets meta.inbox='_response_'
+    // so the reply routes back to _response_() → pull() → UI refresh.
+    caller.call(this.method, { ...this.value }, { inbox: '_response_' });
+    this.response = { status: 'sent' };
+    this.#postCall();
+  }
 
-    // Class/static methods
-    const target = this.proto;
-    if (target?.call) {
-      target.call(this.method, payload, { inbox: '_response_' });
-      this.response = { status: 'sent' };
-      this.#postCall();
-    }
+  /**
+   * Handle method response — reply TX arrives at this component's inbox.
+   * Replaces the _response_ on DynamicClass prototype for method components.
+   */
+  _response_(data, tx) {
+    this.response = data;
+    // Trigger entity refresh so list/item components update
+    if (this.ntt?.pull) this.ntt.pull();
+    else if (this.proto?.pull) this.proto.pull();
   }
 
   #postCall() {
@@ -122,6 +128,7 @@ export class NTTMethod extends HTMLElement {
   }
 
   render() {
+    if (!this.methodSchema) return;  // Not loaded yet
     if (this.layout === 'inline') return this.renderInline();
     if (this.layout === 'button') return this.renderButton();
     return this.renderFieldset();
@@ -160,7 +167,7 @@ export class NTTMethod extends HTMLElement {
 
   /** Default fieldset layout (existing behavior). */
   renderFieldset() {
-    const fields = Object.entries(this.schema.parameters || {});
+    const fields = Object.entries(this.methodSchema.parameters || {});
     const defs = this.proto?.schema?.$defs || {};
     const formInputs = fields.map(([key, def]) => {
       if (def.type === 'selfref') {
@@ -208,7 +215,7 @@ export class NTTMethod extends HTMLElement {
 
   /** Inline layout: no fieldset, no legend, no labels. Compact textarea/input + button. */
   renderInline() {
-    const fields = Object.entries(this.schema.parameters || {});
+    const fields = Object.entries(this.methodSchema.parameters || {});
     const defs = this.proto?.schema?.$defs || {};
     const placeholder = this.placeholderText;
     const useTextarea = this.widgetOverride === 'textarea';

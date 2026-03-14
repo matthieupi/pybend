@@ -1,80 +1,111 @@
 import { NTTMethod } from './ntx-method.js';
-import HTTP from '../core/transport/HTTP.js';
+import TX from '../core/TX.js';
+import Logging from '../utils/Logging.js';
+import { showToast } from '../utils/Toast.js';
 
 export class NTTStream extends NTTMethod {
+    
+    #chunks;
+    #streaming;
+    #boundHandler;
+    
     constructor() {
+        console.log("Init NtxStream")
         super();
-        this._chunks = [];
-        this._streaming = false;
-        this._streamHandle = null;
+        this.#chunks = [];
+        this.#streaming = false;
     }
 
-    callMethod() {
-        // Cancel any in-progress stream
-        if (this._streamHandle) {
-            this._streamHandle.cancel();
-            this._streamHandle = null;
+    /**
+     * Bind a dynamic handler for this.method (uppercase) so that reply TXs
+     * dispatched by the Actor inbox (e.g. GENERATE, CHAT) route here.
+     * Idempotent — unbinds the previous handler if the method name changed.
+     */
+    #bindStreamHandler() {
+        const name = this.method;
+        if (!name) return;
+        // Unbind previous handler if method changed
+        if (this.#boundHandler && this.#boundHandler !== name) {
+            delete this[this.#boundHandler];
         }
+        if (this.#boundHandler === name) return;
+        this[name] = (data, tx) => {
+            if (tx?.meta?.error)       return this.#onError(data);
+            if (tx?.meta?.stream_end)  return this.#onDone(data);
+            this.#onChunk(data);
+        };
+        this.#boundHandler = name;
+    }
 
-        const payload = { ...this.value };
-        this._chunks = [];
-        this._streaming = true;
-        this._renderOutput();
+    /**
+     * Send through actor system with meta.stream — component IS the source.
+     * Reply TXs named this.method (uppercase) arrive at the dynamic handler.
+     */
+    callMethod() {
+        const target = this.ntt?.href || this.proto?.href;
+        if (!target) return;
 
-        const href = this.ntt ? `${this.ntt.href}` : this.proto?.href;
-        if (!href) return;
-        const url = `${href}/${this.method}`;
+        this.#chunks = [];
+        this.response = null;
+        this.#streaming = true;
+        this.#renderOutput();
+        this.#bindStreamHandler();
 
-        this._streamHandle = HTTP.stream(url, payload,
-            (chunk) => this._onChunk(chunk),
-            (data)  => this._onDone(data),
-            (err)   => this._onError(err),
-        );
+        this.send(new TX({
+            name: this.method,
+            source: this.addr,
+            target: target,
+            data: { ...this.value },
+            meta: { stream: true },
+        }));
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
-        if (this._streamHandle) {
-            this._streamHandle.cancel();
-            this._streamHandle = null;
-        }
     }
 
-    _onChunk(data) {
-        this._chunks.push(data);
-        this._renderOutput();
+    #onChunk(data) {
+        console.warn("ONCHUNK", data)
+        this.#chunks.push(data);
+        this.#renderOutput();
     }
 
-    _onDone(data) {
-        this._streaming = false;
-        this._streamHandle = null;
-        if (data && Object.keys(data).length) this._chunks.push(data);
-        this._renderOutput();
+    #onDone(data) {
+        this.#streaming = false;
+        if (data && Object.keys(data).length) this.#chunks.push(data);
+        this.#renderOutput();
         if (this.ntt?.pull) this.ntt.pull();
     }
 
-    _onError(data) {
-        this._streaming = false;
-        this._streamHandle = null;
-        this.response = { error: data?.message || 'Stream error' };
-        this._renderOutput();
+    #onError(data) {
+        this.#streaming = false;
+        const msg = (typeof data === 'string') ? data
+            : data?.message || data?.detail || data?.error || 'Stream error';
+        this.response = { error: msg };
+        showToast(msg, 'error');
+        Logging.error(`[ntx-stream] ${this.model}.${this.method} error`, msg);
+        this.#renderOutput();
     }
 
-    _renderOutput() {
+    #renderOutput() {
         let el = this.shadowRoot.querySelector('.stream-output');
         if (!el) {
             el = document.createElement('div');
             el.className = 'stream-output';
             this.shadowRoot.appendChild(el);
         }
-        const text = this._chunks
-            .map(c => c.chunk || c.text || c.content || JSON.stringify(c))
+        if (this.response?.error) {
+            el.innerHTML = `<div class="stream-error">${this.#esc(this.response.error)}</div>`;
+            return;
+        }
+        const text = this.#chunks
+            .map(c => c.data?.text || c.text || c.chunk || c.content || '')
             .join('');
-        el.innerHTML = `<div class="stream-text">${this._esc(text)}</div>`
-            + (this._streaming ? '<span class="stream-cursor">|</span>' : '');
+        el.innerHTML = `<div class="stream-text">${this.#esc(text)}</div>`
+            + (this.#streaming ? '<span class="stream-cursor">|</span>' : '');
     }
 
-    _esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    #esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
     render() {
         super.render();
@@ -91,6 +122,7 @@ export class NTTStream extends NTTMethod {
         .stream-cursor { animation: blink 1s step-end infinite; color: var(--accent); }
         @keyframes blink { 50% { opacity: 0; } }
         .stream-text { line-height: 1.5; }
+        .stream-error { color: var(--error, #f87171); font-style: italic; line-height: 1.5; }
     `;
 }
 
