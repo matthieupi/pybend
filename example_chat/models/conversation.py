@@ -10,7 +10,7 @@ Chat uses SSE streaming via @expose_route('/chat', stream=True):
     → SSE: event: chunk, data: {"text": "token"} ...
     → SSE: event: done,  data: {}
 
-The AgentMixin.run_stream() handles LLM resolution, adapter lifecycle,
+The AgentMixin.agentic_stream() handles LLM resolution, adapter lifecycle,
 and pydantic-ai internally — zero pydantic-ai imports in app code.
 """
 
@@ -115,7 +115,7 @@ class Conversation(AgentActor):
         history = conv._load_history()
         streamed_text = ''
 
-        async for chunk in conv.run_stream(
+        async for chunk in conv.agentic_stream(
             task=content,
             prompt=conv.prompt,
             tools=[],

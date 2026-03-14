@@ -1,4 +1,4 @@
-"""Tests for AgentActor.run() — the LLM execution endpoint.
+"""Tests for AgentActor.agentic() — the LLM execution endpoint.
 
 Uses Pydantic AI's TestModel to mock the LLM. The agent discovers
 tools from real registered actors and routes calls through Matrix.
@@ -9,14 +9,14 @@ from helpers import auth_header
 from n3tx.core.agents.actor import AgentActor
 
 
-class TestAgentRun:
+class TestAgentAgentic:
     @pytest.mark.asyncio
-    async def test_agent_run_no_tools(self, test_db, seed_data):
+    async def test_agent_agentic_no_tools(self, test_db, seed_data):
         """Agent with no tools returns a simple answer."""
         from pydantic_ai.models.test import TestModel
 
         agent = AgentActor.get(seed_data["agent"].id)
-        result_str = await agent.run(
+        result_str = await agent.agentic(
             task="Hello, what can you do?",
             llm=TestModel(call_tools=[]),
         )
@@ -26,12 +26,12 @@ class TestAgentRun:
         assert result["usage"]["requests"] >= 1
 
     @pytest.mark.asyncio
-    async def test_agent_run_with_tool_call(self, test_db, seed_data):
+    async def test_agent_agentic_with_tool_call(self, test_db, seed_data):
         """Agent discovers tools and the LLM calls one."""
         from pydantic_ai.models.test import TestModel
 
         agent = AgentActor.get(seed_data["agent"].id)
-        result_str = await agent.run(
+        result_str = await agent.agentic(
             task="List all grants",
             llm=TestModel(call_tools=['grants_list']),
         )
@@ -40,12 +40,12 @@ class TestAgentRun:
         assert result["usage"]["requests"] >= 1
 
     @pytest.mark.asyncio
-    async def test_agent_run_sources_list(self, test_db, seed_data):
+    async def test_agent_agentic_sources_list(self, test_db, seed_data):
         """Agent can call sources_list to discover grant sources."""
         from pydantic_ai.models.test import TestModel
 
         agent = AgentActor.get(seed_data["agent"].id)
-        result_str = await agent.run(
+        result_str = await agent.agentic(
             task="What sources do we monitor?",
             llm=TestModel(call_tools=['sources_list']),
         )

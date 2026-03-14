@@ -66,14 +66,14 @@ export class NTTChatInput extends NTTStream {
     const btn = this.shadowRoot.getElementById('btnSend');
     const textarea = this.shadowRoot.getElementById('chatInput');
     if (btn) {
-      btn.disabled = this._streaming || !this.#conversationRef || !textarea?.value?.trim();
+      btn.disabled = this.#streaming || !this.#conversationRef || !textarea?.value?.trim();
     }
   }
 
   #send() {
     const textarea = this.shadowRoot.getElementById('chatInput');
     const content = textarea?.value?.trim();
-    if (!content || !this.#conversationRef || this._streaming) return;
+    if (!content || !this.#conversationRef || this.#streaming) return;
 
     // Dispatch user-message for immediate display
     this.dispatchEvent(new CustomEvent('user-message', {
@@ -87,8 +87,8 @@ export class NTTChatInput extends NTTStream {
     this.#autoResize(textarea);
 
     // Start streaming
-    this._chunks = [];
-    this._streaming = true;
+    this.#chunks = [];
+    this.#streaming = true;
     this.#setInputDisabled(true);
 
     const url = `${this.#conversationRef}/chat`;
@@ -100,7 +100,7 @@ export class NTTChatInput extends NTTStream {
   }
 
   #onChunk(data) {
-    this._chunks.push(data);
+    this.#chunks.push(data);
     this.dispatchEvent(new CustomEvent('stream-chunk', {
       detail: data,
       bubbles: true,
@@ -109,7 +109,7 @@ export class NTTChatInput extends NTTStream {
   }
 
   #onDone(data) {
-    this._streaming = false;
+    this.#streaming = false;
     this._streamHandle = null;
     this.#setInputDisabled(false);
     this.dispatchEvent(new CustomEvent('stream-done', {
@@ -120,7 +120,7 @@ export class NTTChatInput extends NTTStream {
   }
 
   #onError(data) {
-    this._streaming = false;
+    this.#streaming = false;
     this._streamHandle = null;
     this.#setInputDisabled(false);
     this.dispatchEvent(new CustomEvent('stream-done', {

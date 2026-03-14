@@ -49,7 +49,7 @@ class TestLLMConfigBridge:
         The chat app configures DEFAULT_LLM='ollama:qwen3.5:9b' but the
         agent system falls through to AGENT_DEFAULTS['llm']='ollama:llama3.1'.
         The Conversation.chat() method should pass the configured LLM to
-        run_stream() so the right model is used.
+        agentic_stream() so the right model is used.
         """
         import config
         expected_llm = config.DEFAULT_LLM  # 'ollama:qwen3.5:9b'
@@ -64,12 +64,12 @@ class TestLLMConfigBridge:
         # Conversation model resolution path
         conv = seed_data["conversations"][0]
 
-        # The Conversation's run_stream should use either:
+        # The Conversation's agentic_stream should use either:
         # - the conversation's llm field (if set), or
         # - the app-configured default (DEFAULT_LLM), or
         # - the framework AGENT_DEFAULTS
         #
-        # Currently, conv.llm is '' (empty), so run_stream falls through to
+        # Currently, conv.llm is '' (empty), so agentic_stream falls through to
         # AGENT_DEFAULTS. The app's DEFAULT_LLM is never consulted.
         # This test verifies that the configured LLM is actually used.
         assert conv.llm == '' or conv.llm == expected_llm, (
@@ -85,7 +85,7 @@ class TestChatErrorHandling:
         """When the LLM is unavailable, the SSE stream should contain an
         error event — not a regular chunk with error data.
 
-        Currently, the error from run_stream() flows through chat() as
+        Currently, the error from agentic_stream() flows through chat() as
         yield {'error': '...'}, which the handler wraps as a regular
         stream_chunk. The SSE emits: event: chunk, data: {"error": "..."}.
         The frontend's onChunk handler ignores it (no 'text' field).
@@ -94,15 +94,15 @@ class TestChatErrorHandling:
         """
         conv = seed_data["conversations"][0]
 
-        # Mock run_stream to simulate LLM failure
-        async def failing_run_stream(task, **kwargs):
+        # Mock agentic_stream to simulate LLM failure
+        async def failing_agentic_stream(task, **kwargs):
             yield {
                 'name': 'error',
                 'data': {'message': 'LLM connection refused', 'code': 500},
                 'meta': {'stream': True, 'error': True, 'seq': 0},
             }
 
-        with patch.object(Conversation, 'run_stream', side_effect=failing_run_stream):
+        with patch.object(Conversation, 'agentic_stream', side_effect=failing_agentic_stream):
             resp = client.post(
                 f"/conversations/{conv.id}/chat",
                 json={"content": "Hello!"},
@@ -130,7 +130,7 @@ class TestChatErrorHandling:
         """Even when the LLM fails, the user's message should be persisted.
 
         Currently, messages are only stored in the 'done' branch of chat().
-        When run_stream() yields an error chunk instead of a done chunk,
+        When agentic_stream() yields an error chunk instead of a done chunk,
         the done branch never executes, and NO messages are stored.
 
         The user's message should always be persisted — they typed it,
@@ -140,15 +140,15 @@ class TestChatErrorHandling:
         before = conv._load_messages()
         before_count = len(before)
 
-        # Mock run_stream to simulate LLM failure
-        async def failing_run_stream(task, **kwargs):
+        # Mock agentic_stream to simulate LLM failure
+        async def failing_agentic_stream(task, **kwargs):
             yield {
                 'name': 'error',
                 'data': {'message': 'Model not found: llama3.1', 'code': 500},
                 'meta': {'stream': True, 'error': True, 'seq': 0},
             }
 
-        with patch.object(Conversation, 'run_stream', side_effect=failing_run_stream):
+        with patch.object(Conversation, 'agentic_stream', side_effect=failing_agentic_stream):
             resp = client.post(
                 f"/conversations/{conv.id}/chat",
                 json={"content": "This message should persist even on LLM error"},
@@ -179,14 +179,14 @@ class TestChatErrorHandling:
         """
         conv = seed_data["conversations"][0]
 
-        async def failing_run_stream(task, **kwargs):
+        async def failing_agentic_stream(task, **kwargs):
             yield {
                 'name': 'error',
                 'data': {'message': 'Connection refused', 'code': 500},
                 'meta': {'stream': True, 'error': True, 'seq': 0},
             }
 
-        with patch.object(Conversation, 'run_stream', side_effect=failing_run_stream):
+        with patch.object(Conversation, 'agentic_stream', side_effect=failing_agentic_stream):
             resp = client.post(
                 f"/conversations/{conv.id}/chat",
                 json={"content": "Test error visibility"},

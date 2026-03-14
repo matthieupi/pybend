@@ -1,6 +1,6 @@
-"""Tests for AgentActor /run endpoint via HTTP.
+"""Tests for AgentActor /agentic endpoint via HTTP.
 
-Verifies the full pipeline: HTTP POST -> actor routing -> agent.run() -> LLM -> response.
+Verifies the full pipeline: HTTP POST -> actor routing -> agent.agentic() -> LLM -> response.
 Uses pydantic-ai's built-in 'test' model string which maps to TestModel.
 """
 import json
@@ -22,26 +22,26 @@ def simple_agent(test_db, seed_data):
     return AgentActor.create(agent)
 
 
-class TestAgentRunHTTP:
-    """POST /agents/{id}/run — non-streaming agent endpoint via HTTP."""
+class TestAgentAgenticHTTP:
+    """POST /agents/{id}/agentic — non-streaming agent endpoint via HTTP."""
 
-    def test_run_requires_auth(self, client, simple_agent):
+    def test_agentic_requires_auth(self, client, simple_agent):
         resp = client.post(
-            f"/agents/{simple_agent.id}/run",
+            f"/agents/{simple_agent.id}/agentic",
             json={"task": "Hello"},
         )
         assert resp.status_code in (401, 403)
 
-    def test_run_returns_json_with_answer(self, client, simple_agent, alice_token):
-        """POST /agents/{id}/run should return JSON with answer field."""
+    def test_agentic_returns_json_with_answer(self, client, simple_agent, alice_token):
+        """POST /agents/{id}/agentic should return JSON with answer field."""
         resp = client.post(
-            f"/agents/{simple_agent.id}/run",
+            f"/agents/{simple_agent.id}/agentic",
             json={"task": "List grants"},
             headers=auth_header(alice_token),
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text[:300]}"
         data = resp.json()
-        # AgentActor.run() returns JSON string, response may be nested
+        # AgentActor.agentic() returns JSON string, response may be nested
         if isinstance(data, str):
             data = json.loads(data)
         # In debug mode, result may be wrapped in a debug envelope
@@ -49,10 +49,10 @@ class TestAgentRunHTTP:
             data = data['result']
         assert 'answer' in data, f"No 'answer' key in response: {list(data.keys())}"
 
-    def test_run_returns_usage(self, client, simple_agent, alice_token):
+    def test_agentic_returns_usage(self, client, simple_agent, alice_token):
         """Response should include usage stats."""
         resp = client.post(
-            f"/agents/{simple_agent.id}/run",
+            f"/agents/{simple_agent.id}/agentic",
             json={"task": "What sources exist?"},
             headers=auth_header(alice_token),
         )
@@ -76,8 +76,8 @@ class TestAgentSchema:
         assert 'agent' in schema
         assert schema['agent']['enabled'] is True
 
-    def test_schema_has_run_method(self, client):
+    def test_schema_has_agentic_method(self, client):
         resp = client.get("/AgentActor")
         schema = resp.json()
         methods = schema.get('methods', {})
-        assert 'run' in methods, f"run not in methods: {list(methods.keys())}"
+        assert 'agentic' in methods, f"agentic not in methods: {list(methods.keys())}"
