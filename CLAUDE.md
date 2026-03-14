@@ -189,8 +189,8 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 - `src/n3tx/core/actors/__init__.py` - Re-exports `TX`, `Actor`, `Matrix`, `matrix`
 
 ### Agent System (v0.10)
-- `src/n3tx/core/agents/mixin.py` - **AgentMixin**: self-aware models via `__agent__ = True`. Provides `ctx()`, `tools()`, `run()`, `agentic()`, `run_stream()`, `agentic_stream()`. Uses `@fullmethod` for unified class/instance dispatch.
-- `src/n3tx/core/agents/actor.py` - **AgentActor**: concrete model whose instances ARE agents. Config in DB fields. `run()` overrides mixin's cascade, calls `agentic()` directly.
+- `src/n3tx/core/agents/mixin.py` - **AgentMixin**: self-aware models via `__agent__ = True`. Provides `ctx()`, `tools()`, `agentic()`, `run()`, `agentic_stream()`, `run_stream()`. Uses `@fullmethod` for unified class/instance dispatch.
+- `src/n3tx/core/agents/actor.py` - **AgentActor**: concrete model whose instances ARE agents. Config in DB fields. `agentic()` overrides mixin's cascade, calls `run()` directly.
 - `src/n3tx/core/agents/deps.py` - `AgentDeps` dataclass: adapter, user, agent_addr. Injected into Pydantic AI tools via `RunContext[AgentDeps]`.
 - `src/n3tx/core/agents/tools.py` - Tool discovery (`discover_tools()`) and tool function generation (`create_tool_function()`). Reads schemas, generates CRUD + method ToolSpecs.
 - `src/n3tx/core/agents/schema_ext.py` - Schema pipeline extension: adds `agent` section to JSON Schema for `__agent__ = True` models.
@@ -264,7 +264,7 @@ The backend actor system mirrors the frontend's Actor/Matrix/TX pattern. Everyth
 - Generic descriptors for unified class/instance dispatch. Work on any class, not just Actors.
 - `fullmethod`: binds target = cls or self. `fullproperty`: resolves class or instance state.
 - Actor aliases: `actormethod = fullmethod`, `actorproperty = fullproperty` (backward compat in `actor.py`)
-- Also used by `AgentMixin` for `ctx()`, `tools()`, `run()`, `run_stream()`.
+- Also used by `AgentMixin` for `ctx()`, `tools()`, `agentic()`, `agentic_stream()`.
 
 **Actor base class** extends PydanticBaseModel via `ActorMeta` metaclass:
 - `actormethod` (alias for `fullmethod`): Used for `inbox`, `handler`, `send`, `register`, `spawn`, `has`.
@@ -350,34 +350,34 @@ class Product(ActorModel):
 |--------|------|------|
 | `ctx()` | `@fullmethod` | Build LLM context (schema on class, schema+data on instance) |
 | `tools()` | `@fullmethod` | Discover tool addresses (self + neighbors + extras) |
-| `run()` | `@fullmethod` | Policy: 3-tier config cascade → `agentic()` |
-| `agentic()` | instance | Engine: raw LLM loop, explicit params, no config magic |
-| `run_stream()` | `@fullmethod` | Streaming policy → `agentic_stream()` |
-| `agentic_stream()` | instance | Streaming engine: yields TX-aligned chunks |
+| `agentic()` | `@fullmethod` | Policy: 3-tier config cascade → `run()` |
+| `run()` | instance | Engine: raw LLM loop, explicit params, no config magic |
+| `agentic_stream()` | `@fullmethod` | Streaming policy → `run_stream()` |
+| `run_stream()` | instance | Streaming engine: yields TX-aligned chunks |
 
-**Config cascade** (3-tier): `config.AGENT_DEFAULTS` < `__agent__` dict < `run()` kwargs
+**Config cascade** (3-tier): `config.AGENT_DEFAULTS` < `__agent__` dict < `agentic()` kwargs
 
-**The split**: `run()` is the boundary where you enforce constraints and resolve config. `agentic()` is the engine that just works. Expose `run()` via HTTP, never `agentic()` directly.
+**The split**: `agentic()` is the boundary where you enforce constraints and resolve config. `run()` is the engine that just works. Expose `agentic()` via HTTP, never `run()` directly.
 
 ```python
 # Zero-config usage
-result = await product.run(task='Analyze this product')
+result = await product.agentic(task='Analyze this product')
 
 # Streaming
-async for chunk in product.run_stream(task='Describe yourself'):
+async for chunk in product.agentic_stream(task='Describe yourself'):
     yield chunk  # TX-aligned: {name, data, meta}
 
 # Direct engine (bypass config cascade)
-result = await product.agentic(task=..., prompt=..., tools=..., llm=...)
+result = await product.run(task=..., prompt=..., tools=..., llm=...)
 
 # Multi-turn conversation
-result1 = await product.run(task='What fields?')
-result2 = await product.run(task='More detail', message_history=result1['messages'])
+result1 = await product.agentic(task='What fields?')
+result2 = await product.agentic(task='More detail', message_history=result1['messages'])
 ```
 
 **AgentMixin vs AgentActor**:
 - **AgentMixin** (`__agent__ = True`): auto-generates prompt from schema, discovers tools from relationships. Config is derived from the model definition.
-- **AgentActor** (subclass): instances ARE agents. Config lives in DB fields (name, prompt, tools, llm). `run()` overrides the mixin's cascade, reads config from DB, calls `agentic()` directly.
+- **AgentActor** (subclass): instances ARE agents. Config lives in DB fields (name, prompt, tools, llm). `agentic()` overrides the mixin's cascade, reads config from DB, calls `run()` directly.
 
 ### Interceptor Pattern (`use()`)
 Universal TX interceptors on any Actor method. Registered via `use()`, run before the method body.

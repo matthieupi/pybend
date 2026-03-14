@@ -43,8 +43,10 @@ _End-to-end features spanning backend and frontend_
 
 _Python · Models · Storage · API · Auth · Actors · Agents_
 
-- [ ] Change agent_run for run() or exec()
+- [x] Change agent_run for run() or exec()
+- [x] Swap agentic() and run()
 - [ ] TX Collection
+- 
 - [ ] TX/RX
 - [x] Add dict and list types (saved as JSON) based on AgentActor idea
 - [ ] AgentMixin improvements
