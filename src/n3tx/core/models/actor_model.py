@@ -35,6 +35,16 @@ _NOT_HANDLED = object()
 _CRUD_OPS = frozenset({'schema', 'create', 'get', 'list', 'update', 'delete'})
 
 
+def _parse_populate_from_data(data: dict):
+    """Parse populate/depth from TX.data into a PopulateSpec (or None)."""
+    populate_str = data.get('populate')
+    depth_int = data.get('depth')
+    if populate_str is None and depth_int is None:
+        return None
+    from n3tx.core.utils.populate import parse_populate
+    return parse_populate(populate_str, depth_int)
+
+
 class ActorModel(Actor, ProtoModel):
     """A model that IS an actor. The bridge class.
 
@@ -237,7 +247,8 @@ class ActorModel(Actor, ProtoModel):
                 entity_id = data.get('id')
                 if not entity_id:
                     return tx.error("'id' required", code=400)
-                result = cls.get(entity_id)
+                populate = _parse_populate_from_data(data)
+                result = cls.get(entity_id, populate=populate)
                 if not result:
                     return tx.error(f"{cls.__name__} {entity_id} not found", code=404)
                 denied = cls._authorize('read', tx, resource=result)
@@ -247,10 +258,12 @@ class ActorModel(Actor, ProtoModel):
 
             elif name == 'list':
                 # sql_filter computed by Tier 1 interceptor, passed via meta
+                populate = _parse_populate_from_data(data)
                 result = cls.list(
                     sql_filter=tx.meta.get('sql_filter'),
                     limit=data.get('limit'),
                     offset=data.get('offset'),
+                    populate=populate,
                 )
                 # Serialize model instances with $schema/$id (matches Level 1/2)
                 _ser = lambda r: r.model_response() if hasattr(r, 'model_response') else r

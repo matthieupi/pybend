@@ -168,6 +168,8 @@ def _register_collection_route(router, api_adapter, model_class, path, tag):
         request: Request,
         limit: int = Query(default=None, ge=1, le=100),
         offset: int = Query(default=None, ge=0),
+        populate: str = Query(default=None),
+        depth: int = Query(default=None, ge=0, le=3),
         _addr=addr, _cls=model_class,
     ):
         user = _get_user(request)
@@ -176,6 +178,10 @@ def _register_collection_route(router, api_adapter, model_class, path, tag):
             data['limit'] = limit
         if offset is not None:
             data['offset'] = offset
+        if populate is not None:
+            data['populate'] = populate
+        if depth is not None:
+            data['depth'] = depth
 
         response = await api_adapter.request(
             TX(
@@ -243,6 +249,8 @@ def _register_crud_routes(
         parent_id: int = None,
         limit: int = Query(default=None, ge=1, le=100),
         offset: int = Query(default=None, ge=0),
+        populate: str = Query(default=None),
+        depth: int = Query(default=None, ge=0, le=3),
         _addr=addr, _cls=model_class, _has_parent=has_parent,
     ):
         user = _get_user(request)
@@ -253,6 +261,10 @@ def _register_crud_routes(
             data['offset'] = offset
         if parent_id and _has_parent:
             data['parent_id'] = parent_id
+        if populate is not None:
+            data['populate'] = populate
+        if depth is not None:
+            data['depth'] = depth
 
         response = await api_adapter.request(
             TX(
@@ -281,13 +293,20 @@ def _register_crud_routes(
     async def get_instance(
         request: Request,
         id: int,
+        populate: str = Query(default=None),
+        depth: int = Query(default=None, ge=0, le=3),
         _addr=addr, _cls=model_class,
     ):
         user = _get_user(request)
+        data = {'id': id}
+        if populate is not None:
+            data['populate'] = populate
+        if depth is not None:
+            data['depth'] = depth
         response = await api_adapter.request(
             TX(
                 name='get', source=api_adapter.addr, target=_addr,
-                data={'id': id},
+                data=data,
                 meta={'user': user, 'model_cls': _cls},
             ),
             timeout=30.0,
