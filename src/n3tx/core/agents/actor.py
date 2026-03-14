@@ -18,8 +18,8 @@ Configuration lives in fields (DB-storable). Agents are data, not code.
     scanner = AgentActor.get(1)
 
     # Trigger
-    result = await scanner.run(task="Scan all sources for new grants")
-    # or POST /agents/1/run {"task": "Scan all sources"}
+    result = await scanner.agentic(task="Scan all sources for new grants")
+    # or POST /agents/1/agentic {"task": "Scan all sources"}
 """
 
 import json
@@ -51,7 +51,7 @@ class AgentActor(ActorModel):
 
     __tablename__ = 'agents'
     __storable__ = True
-    __agent__ = True  # injects AgentMixin → provides agent_run()
+    __agent__ = True  # injects AgentMixin → provides agentic()
 
     name: str = Field(min_length=1, max_length=200)
     prompt: str = Field(default='')
@@ -100,13 +100,14 @@ class AgentActor(ActorModel):
 
         return tool_addrs
 
-    @expose_route('/run', methods=['POST'])
-    async def run(self, task: str, **kwargs) -> str:
+    @expose_route('/agentic', methods=['POST'])
+    async def agentic(self, task: str, **kwargs) -> str:
         """Execute the agent's reasoning loop.
 
         Override — resolves tools from DB instead of __agent__ config.
-        Calls self.agentic() directly (pure engine), bypassing the mixin's
-        config cascade since AgentActor has its own config (DB fields).
+        Calls AgentMixin.agentic() directly (pure engine), bypassing the
+        mixin's run() config cascade since AgentActor has its own config
+        (DB fields).
 
         Args:
             task: The user task / query to execute.
@@ -115,8 +116,13 @@ class AgentActor(ActorModel):
         Returns:
             JSON string with {answer, usage, messages, message_count}.
         """
+        from n3tx.core.agents.mixin import AgentMixin
         tool_addrs = self._resolve_tool_addrs()
-        result = await self.agentic(
+        # Call the mixin's agentic engine directly via the descriptor's
+        # underlying function, bypassing the MRO override on self.
+        agentic_fn = AgentMixin.__dict__['agentic'].fn
+        result = await agentic_fn(
+            self,
             task=task,
             prompt=self.prompt,
             tools=tool_addrs,

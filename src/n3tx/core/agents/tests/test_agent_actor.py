@@ -111,14 +111,14 @@ class TestAgentActorInstance:
         )
         assert agent.constraints == {'max_iterations': 10}
 
-    def test_has_run_method(self, fresh_matrix):
-        agent = AgentActor(name='Test', prompt='test', addr='agents/4')
-        assert hasattr(agent, 'run')
-        assert hasattr(agent.run, '__endpoint__')  # @expose_route
-
     def test_has_agentic_method(self, fresh_matrix):
-        agent = AgentActor(name='Test', prompt='test', addr='agents/5')
+        agent = AgentActor(name='Test', prompt='test', addr='agents/4')
         assert hasattr(agent, 'agentic')
+        assert hasattr(agent.agentic, '__endpoint__')  # @expose_route
+
+    def test_has_run_method(self, fresh_matrix):
+        agent = AgentActor(name='Test', prompt='test', addr='agents/5')
+        assert hasattr(agent, 'run')
 
 
 class TestResolveToolAddrs:
@@ -239,12 +239,12 @@ class TestAgentActorCRUD:
         assert AgentActor.get(agent.id) is None
 
 
-class TestAgentActorRun:
-    """Tests for AgentActor.run() — the LLM execution endpoint."""
+class TestAgentActorAgentic:
+    """Tests for AgentActor.agentic() — the LLM execution endpoint."""
 
     @pytest.mark.asyncio
-    async def test_run_basic(self, fresh_matrix, tmp_path):
-        """run() calls agent_run() with instance fields."""
+    async def test_agentic_basic(self, fresh_matrix, tmp_path):
+        """agentic() resolves tools from DB and calls run() engine."""
         from pydantic_ai.models.test import TestModel
 
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
@@ -261,7 +261,7 @@ class TestAgentActorRun:
         # Fetch from DB to get a proper instance
         agent = AgentActor.get(agent.id)
 
-        result_str = await agent.run(
+        result_str = await agent.agentic(
             task='Hello, world!',
             llm=TestModel(call_tools=[]),
         )
@@ -271,8 +271,8 @@ class TestAgentActorRun:
         assert 'messages' in result
 
     @pytest.mark.asyncio
-    async def test_run_with_tools(self, fresh_matrix, tmp_path):
-        """run() discovers tools from actor addresses via join table."""
+    async def test_agentic_with_tools(self, fresh_matrix, tmp_path):
+        """agentic() discovers tools from actor addresses via join table."""
         from pydantic_ai.models.test import TestModel
 
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
@@ -297,7 +297,7 @@ class TestAgentActorRun:
 
         agent = AgentActor.get(agent.id)
 
-        result_str = await agent.run(
+        result_str = await agent.agentic(
             task='Find grants',
             llm=TestModel(call_tools=['grants_list']),
         )
@@ -306,8 +306,8 @@ class TestAgentActorRun:
         assert result['usage']['requests'] >= 1
 
     @pytest.mark.asyncio
-    async def test_run_passes_user_to_agent_run(self, fresh_matrix, tmp_path):
-        """T5: run(task=..., user={...}) passes user to agent_run."""
+    async def test_agentic_passes_user(self, fresh_matrix, tmp_path):
+        """agentic(task=..., user={...}) passes user to run() engine."""
         from pydantic_ai.models.test import TestModel
 
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
@@ -323,7 +323,7 @@ class TestAgentActorRun:
         agent = AgentActor.get(agent.id)
 
         user = {'id': 99, 'role': 'admin'}
-        result_str = await agent.run(
+        result_str = await agent.agentic(
             task='Test',
             llm=TestModel(call_tools=[]),
             user=user,
@@ -332,8 +332,8 @@ class TestAgentActorRun:
         assert 'answer' in result
 
     @pytest.mark.asyncio
-    async def test_run_passes_constraints_override(self, fresh_matrix, tmp_path):
-        """T5: run(task=..., constraints={...}) overrides instance constraints."""
+    async def test_agentic_passes_constraints_override(self, fresh_matrix, tmp_path):
+        """agentic(task=..., constraints={...}) overrides instance constraints."""
         from pydantic_ai.models.test import TestModel
 
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
@@ -350,7 +350,7 @@ class TestAgentActorRun:
         agent = AgentActor.get(agent.id)
 
         # Override constraints at call time
-        result_str = await agent.run(
+        result_str = await agent.agentic(
             task='Test',
             llm=TestModel(call_tools=[]),
             constraints={'max_iterations': 2},
@@ -370,16 +370,16 @@ class TestAgentActorSchema:
         schema = AgentActor.schema()
         assert 'agent' in schema
         assert schema['agent']['enabled'] is True
-        assert 'run_endpoint' in schema['agent']
-        assert '/agents/{id}/run' == schema['agent']['run_endpoint']
+        assert 'agentic_endpoint' in schema['agent']
+        assert '/agents/{id}/agentic' == schema['agent']['agentic_endpoint']
 
-    def test_schema_has_run_method(self, fresh_matrix, tmp_path):
+    def test_schema_has_agentic_method(self, fresh_matrix, tmp_path):
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
 
         schema = AgentActor.schema()
-        assert 'run' in schema.get('methods', {})
+        assert 'agentic' in schema.get('methods', {})
 
     def test_non_agent_model_no_agent_section(self, fresh_matrix, tmp_path):
         storage = SQLiteStorage(str(tmp_path / 'test.db'))

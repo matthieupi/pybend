@@ -1,4 +1,4 @@
-"""Tests for AgentMixin — ctx(), tools(), run(), agentic(), streaming."""
+"""Tests for AgentMixin — ctx(), tools(), agentic(), run(), streaming."""
 
 import asyncio
 import pytest
@@ -97,7 +97,7 @@ class TestMixinInjection:
             __agent__ = True
 
         assert issubclass(MyModel, AgentMixin)
-        assert hasattr(MyModel, 'agentic')
+        assert hasattr(MyModel, 'run')
 
     def test_no_agent_mixin_without_flag(self, fresh_matrix):
         class RegularModel(ActorModel):
@@ -120,7 +120,7 @@ class TestMixinInjection:
 
         assert issubclass(DualModel, AgentMixin)
         assert issubclass(DualModel, StorableMixin)
-        assert hasattr(DualModel, 'agentic')
+        assert hasattr(DualModel, 'run')
         assert hasattr(DualModel, 'create')  # from StorableMixin
 
     def test_mro_order(self, fresh_matrix):
@@ -139,7 +139,7 @@ class TestMixinInjection:
             __storable__ = False
             __agent__ = True
 
-        for method in ['ctx', 'tools', 'run', 'agentic', 'run_stream', 'agentic_stream']:
+        for method in ['ctx', 'tools', 'agentic', 'run', 'agentic_stream', 'run_stream']:
             assert hasattr(MyAgent, method), f"Missing method: {method}"
 
 
@@ -257,14 +257,14 @@ class TestTools:
         assert addrs.count('dup_agents') == 1
 
 
-# ── agentic() Tests (renamed from TestAgentRun) ─────────────────
+# ── run() Tests (engine — direct call) ───────────────────────────
 
-class TestAgentic:
-    """Tests for agentic() — direct engine call."""
+class TestRunEngine:
+    """Tests for run() — direct engine call."""
 
     @pytest.mark.asyncio
     async def test_direct_call(self, fresh_matrix):
-        """agentic() executes with explicit params, no config cascade."""
+        """run() executes with explicit params, no config cascade."""
         from pydantic_ai.models.test import TestModel
 
         class Scanner(ActorModel):
@@ -273,7 +273,7 @@ class TestAgentic:
             __agent__ = True
 
         scanner = Scanner(addr='scanners/1')
-        result = await scanner.agentic(
+        result = await scanner.run(
             task='Find something',
             prompt='You find things.',
             tools=[],
@@ -289,7 +289,7 @@ class TestAgentic:
 
     @pytest.mark.asyncio
     async def test_accepts_adapter(self, fresh_matrix):
-        """agentic() uses provided adapter, no transient creation."""
+        """run() uses provided adapter, no transient creation."""
         from pydantic_ai.models.test import TestModel
         from n3tx.core.api.network_adapter import NetworkAdapter
 
@@ -305,7 +305,7 @@ class TestAgentic:
         scanner = Scanner(addr='scanners/1')
 
         children_before = set(root._children.keys())
-        result = await scanner.agentic(
+        result = await scanner.run(
             task='Test',
             prompt='Test',
             tools=[],
@@ -321,7 +321,7 @@ class TestAgentic:
 
     @pytest.mark.asyncio
     async def test_message_history(self, fresh_matrix):
-        """agentic() supports multi-turn via message_history."""
+        """run() supports multi-turn via message_history."""
         from pydantic_ai.models.test import TestModel
 
         class Scanner(ActorModel):
@@ -354,7 +354,9 @@ class TestAgentic:
 
     @pytest.mark.asyncio
     async def test_no_matrix_raises(self):
-        """agentic() without Matrix raises RuntimeError."""
+        """run() without Matrix raises RuntimeError."""
+        from pydantic_ai.models.test import TestModel
+
         class Orphan(ActorModel, auto_register=False):
             __tablename__ = 'orphan'
             __storable__ = False
@@ -364,15 +366,16 @@ class TestAgentic:
         orphan = Orphan(addr='orphan/1')
 
         with pytest.raises(RuntimeError, match="No Matrix root"):
-            await orphan.agentic(
+            await orphan.run(
                 task='test',
                 prompt='test',
                 tools=[],
+                llm=TestModel(call_tools=[]),
             )
 
     @pytest.mark.asyncio
     async def test_with_tool_calling(self, fresh_matrix, tmp_path):
-        """agentic() where the LLM calls a tool through Matrix TX routing."""
+        """run() where the LLM calls a tool through Matrix TX routing."""
         from pydantic_ai.models.test import TestModel
 
         file_storage = SQLiteStorage(str(tmp_path / 'test.db'))
@@ -391,18 +394,19 @@ class TestAgentic:
             __agent__ = True
 
         scanner = Scanner(addr='scanners/1')
-        result = await scanner.agentic(
+        result = await scanner.run(
             task='List all grants',
             prompt='List available grants.',
             tools=['grants'],
             llm=TestModel(call_tools=['grants_list']),
         )
 
+
         assert 'answer' in result
         assert result['usage']['requests'] >= 1
 
 
-# ── run() Tests ──────────────────────────────────────────────────
+# ── agentic() Tests ──────────────────────────────────────────────
 
 class TestRun:
     """Tests for run() fullmethod — config cascade + auto-discovery."""
@@ -535,7 +539,7 @@ class TestUserAuthPropagation:
 
     @pytest.mark.asyncio
     async def test_user_context_in_tool_calls(self, fresh_matrix, tmp_path):
-        """Tool TX messages carry meta.user from run(user=...)."""
+        """Tool TX messages carry meta.user from agentic(user=...)."""
         from pydantic_ai.models.test import TestModel
         from n3tx.core.actors.tx import TX
 
@@ -564,7 +568,7 @@ class TestUserAuthPropagation:
 
         user_ctx = {'id': 42, 'role': 'admin', 'email': 'admin@test.com'}
 
-        await AuthAgent.run(
+        await AuthAgent.agentic(
             task='List all',
             prompt='List instrumented records.',
             tools=['instrumented'],
@@ -577,8 +581,8 @@ class TestUserAuthPropagation:
 
 # ── Streaming Tests ──────────────────────────────────────────────
 
-class TestRunStream:
-    """Tests for run_stream() fullmethod."""
+class TestRunStreamPolicy:
+    """Tests for run_stream() fullmethod — streaming policy."""
 
     @pytest.mark.asyncio
     async def test_yields_chunks(self, fresh_matrix):
@@ -633,12 +637,12 @@ class TestRunStream:
         assert any(c['name'] in ('done', 'error') for c in chunks)
 
 
-class TestAgenticStream:
-    """Tests for agentic_stream() — direct streaming engine."""
+class TestRunStreamEngine:
+    """Tests for run_stream() — direct streaming with explicit params."""
 
     @pytest.mark.asyncio
     async def test_yields_text_chunks(self, fresh_matrix):
-        """agentic_stream() yields text chunks with name='text'."""
+        """run_stream() yields text chunks with name='text'."""
         from pydantic_ai.models.test import TestModel
 
         class Scanner(ActorModel):
@@ -648,7 +652,7 @@ class TestAgenticStream:
 
         scanner = Scanner(addr='scanners/1')
         chunks = []
-        async for chunk in scanner.agentic_stream(
+        async for chunk in scanner.run_stream(
             task='Test',
             prompt='Test prompt',
             tools=[],
@@ -673,7 +677,7 @@ class TestAgenticStream:
 
         scanner = Scanner(addr='scanners/1')
         chunks = []
-        async for chunk in scanner.agentic_stream(
+        async for chunk in scanner.run_stream(
             task='Test',
             prompt='Test prompt',
             tools=[],
@@ -689,7 +693,7 @@ class TestAgenticStream:
 
     @pytest.mark.asyncio
     async def test_error_chunk_on_failure(self, fresh_matrix):
-        """agentic_stream() yields error chunk on failure."""
+        """run_stream() yields error chunk on failure."""
         class Scanner(ActorModel):
             __tablename__ = 'scanners'
             __storable__ = False
@@ -697,7 +701,7 @@ class TestAgenticStream:
 
         scanner = Scanner(addr='scanners/1')
         chunks = []
-        async for chunk in scanner.agentic_stream(
+        async for chunk in scanner.run_stream(
             task='Test',
             prompt='Test prompt',
             tools=[],

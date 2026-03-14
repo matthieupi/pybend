@@ -4,13 +4,13 @@ Self-aware models: one flag gives a model LLM-powered reasoning about itself.
 ``__agent__ = True`` is as powerful as ``__storable__ = True`` — zero config,
 full capability.
 
-API Surface:
+API Surface (all @fullmethod — unified class/instance dispatch):
     ctx()            @fullmethod  — Build LLM context from schema (class or instance)
     tools()          @fullmethod  — Discover tool addresses (self + neighbors + extras)
     run()            @fullmethod  — Policy layer: config cascade, prompt/tool assembly
-    agentic()        instance     — Engine: raw LLM loop, explicit params, no magic
+    agentic()        @fullmethod  — Engine: raw LLM loop, explicit params, no magic
     run_stream()     @fullmethod  — Streaming policy (delegates to agentic_stream)
-    agentic_stream() instance     — Streaming engine: yields TX-aligned chunks
+    agentic_stream() @fullmethod  — Streaming engine: yields TX-aligned chunks
 
 The split: run() is the boundary where you enforce constraints and resolve config.
 agentic() is the engine that just works. Expose run() via HTTP, never agentic().
@@ -38,9 +38,21 @@ Usage:
                 yield chunk
 """
 
+import json
 import logging
 
+from pydantic_ai import Agent, UsageLimits
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.ollama import OllamaProvider
+
+from n3tx.core import config
+from n3tx.core.actors.actor import Actor
+from n3tx.core.actors.tx import TX
+from n3tx.core.agents.deps import AgentDeps
+from n3tx.core.agents.tools import discover_tools, make_tool
+from n3tx.core.api.network_adapter import NetworkAdapter
 from n3tx.core.utils.descriptors import fullmethod
+from n3tx.core.utils.introspection import get_list_fields
 
 logger = logging.getLogger('n3tx.agents')
 
@@ -59,13 +71,10 @@ def _resolve_llm(llm):
     if not isinstance(llm, str) or not llm.startswith('ollama:'):
         return llm
 
-    from n3tx.core import config
     model_name = llm.split(':', 1)[1]
     base_url = config.OLLAMA_BASE_URL.rstrip('/')
     if not base_url.endswith('/v1'):
         base_url += '/v1'
-    from pydantic_ai.models.openai import OpenAIChatModel
-    from pydantic_ai.providers.ollama import OllamaProvider
     return OpenAIChatModel(
         model_name,
         provider=OllamaProvider(base_url=base_url),
@@ -74,115 +83,13 @@ def _resolve_llm(llm):
 
 # ── Context helpers (module-level, used by ctx()) ─────────────────
 
-def _build_schema_text(cls, schema: dict) -> str:
-    """Generate LLM context text from model schema."""
-    tablename = schema.get('__tablename__', cls.__name__)
-    lines = [f'You operate on {cls.__name__} entities (table: {tablename}).']
-
-    # Fields
-    properties = schema.get('properties', {})
-    required = set(schema.get('required', []))
-    protected = set()
-    field_lines = []
-    for name, prop in properties.items():
-        if name == 'id':
-            continue
-        ui = prop.get('ui', {})
-        if ui.get('display') is False:
-            continue
-        if ui.get('protected'):
-            protected.add(name)
-            continue
-
-        parts = [name]
-        # Type
-        ptype = prop.get('type', '')
-        if ptype:
-            parts.append(f'({ptype}')
-        else:
-            parts.append('(')
-        # Required
-        if name in required:
-            parts[-1] += ', required'
-        else:
-            parts[-1] += ', optional'
-        # Constraints
-        constraints = []
-        if 'minLength' in prop:
-            constraints.append(f'{prop["minLength"]}')
-        if 'maxLength' in prop:
-            if constraints:
-                constraints[-1] += f'-{prop["maxLength"]} chars'
-            else:
-                constraints.append(f'max {prop["maxLength"]} chars')
-        if 'exclusiveMinimum' in prop:
-            constraints.append(f'> {prop["exclusiveMinimum"]}')
-        if 'minimum' in prop:
-            constraints.append(f'>= {prop["minimum"]}')
-        if 'maximum' in prop:
-            constraints.append(f'<= {prop["maximum"]}')
-        if constraints:
-            parts[-1] += ', ' + ', '.join(constraints)
-        # Widget
-        widget = ui.get('widget')
-        if widget:
-            parts[-1] += f', {widget}'
-        parts[-1] += ')'
-        # Description
-        desc = prop.get('description', '') or prop.get('title', '')
-        if desc and desc.lower() != name.lower():
-            parts.append(f': {desc}')
-
-        field_lines.append(f'  - {" ".join(parts)}')
-
-    if field_lines:
-        lines.append('')
-        lines.append('Fields:')
-        lines.extend(field_lines)
-
-    # Relationships
-    from n3tx.core.utils.introspection import get_list_fields
-    list_fields = get_list_fields(cls)
-    if list_fields:
-        lines.append('')
-        lines.append('Relationships:')
-        for field_name, model_cls in list_fields:
-            lines.append(f'  - {field_name} → {model_cls.__name__} (list)')
-
-    # Access rules
-    access = schema.get('access')
-    if access and isinstance(access, dict):
-        lines.append('')
-        lines.append('Access rules:')
-        for action, rule in access.items():
-            if isinstance(rule, str):
-                lines.append(f'  - {action}: {rule}')
-            elif isinstance(rule, dict):
-                lines.append(f'  - {action}: {rule}')
-
-    # Methods
-    methods = schema.get('methods', {})
-    if methods:
-        lines.append('')
-        lines.append('Available methods:')
-        for mname, minfo in methods.items():
-            params = minfo.get('parameters', {})
-            # Filter user param
-            params = {k: v for k, v in params.items() if k != 'user'}
-            param_strs = []
-            for pname, pinfo in params.items():
-                ptype = pinfo.get('type', 'any')
-                param_strs.append(f'{pname}: {ptype}')
-            param_str = ', '.join(param_strs)
-            ret = minfo.get('returns', {}).get('type', 'any')
-            scope = minfo.get('scope', 'instancemethod')
-            extras = [scope]
-            if minfo.get('stream'):
-                extras.append('stream')
-            extra_str = ', '.join(extras)
-            lines.append(f'  - {mname}({param_str}) → {ret} [{extra_str}]')
-
-    return '\n'.join(lines)
+def _build_schema_text(cls) -> str:
+    """Generate LLM context from model schema as cleaned JSON."""
+    from n3tx.core.models.proto_schema import run_pipeline
+    cleaned = run_pipeline(cls, pipeline='llm')
+    tablename = getattr(cls, '__tablename__', cls.__name__)
+    return (f'You operate on {cls.__name__} entities (table: {tablename}).\n\n'
+            f'Schema:\n{json.dumps(cleaned, indent=2)}')
 
 
 def _build_instance_text(target) -> str:
@@ -200,7 +107,6 @@ def _build_instance_text(target) -> str:
             s = s[:200] + '...'
         truncated[k] = v if len(str(v)) <= 200 else s
 
-    import json
     try:
         data_str = json.dumps(truncated, indent=2, default=str)
     except Exception:
@@ -219,7 +125,7 @@ class AgentMixin:
     Zero config required — ctx(), tools(), and run() auto-discover everything
     from the model's schema, relationships, and config.
 
-    API Surface:
+    API Surface (all @fullmethod — unified class/instance dispatch):
         ctx()            — LLM context from schema (class) or schema+data (instance)
         tools()          — Tool addresses: self + neighbors + extras
         run(task=...)    — Policy: config cascade → agentic()
@@ -240,9 +146,8 @@ class AgentMixin:
         cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(cls, '__agent__', False)
         conf = agent_flag if isinstance(agent_flag, dict) else {}
-        schema = cls.schema()
 
-        context = _build_schema_text(cls, schema)
+        context = _build_schema_text(cls)
 
         # Prepend __agent__['prompt'] if configured
         prompt_prefix = conf.get('prompt', '')
@@ -278,7 +183,6 @@ class AgentMixin:
 
         # Neighbor tools (ListRef relationships)
         if conf.get('neighbors', True):
-            from n3tx.core.utils.introspection import get_list_fields
             for field_name, model_cls in get_list_fields(cls):
                 if hasattr(model_cls, '__tablename__'):
                     addrs.append(model_cls.__tablename__)
@@ -307,8 +211,6 @@ class AgentMixin:
         Override this to add guardrails, audit logging, or rate limiting.
         Call agentic() directly to bypass this layer entirely.
         """
-        from n3tx.core import config
-
         cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(cls, '__agent__', False)
         model_conf = agent_flag if isinstance(agent_flag, dict) else {}
@@ -339,10 +241,6 @@ class AgentMixin:
         result_type = kwargs.get('result_type') or model_conf.get('result_type')
 
         # Adapter lifecycle: create transient adapter for this run
-        from n3tx.core.api.network_adapter import NetworkAdapter
-        from n3tx.core.actors.actor import Actor
-        from n3tx.core.actors.tx import TX
-
         run_id = TX(name='', source='', target='').uuid
         adapter_addr = f'_agent_{run_id}'
         adapter = NetworkAdapter(addr=adapter_addr)
@@ -374,7 +272,8 @@ class AgentMixin:
         finally:
             root._children.pop(adapter_addr, None)
 
-    async def agentic(self, task: str, prompt: str, tools: list,
+    @fullmethod
+    async def agentic(target, task: str, prompt: str, tools: list,
                       user: dict = None, llm=None, constraints: dict = None,
                       adapter=None, message_history=None,
                       result_type=None, **kwargs) -> dict:
@@ -382,6 +281,9 @@ class AgentMixin:
 
         Receives fully resolved params from run(). Can also be called directly
         for advanced use cases (testing, pipelines, custom workflows).
+
+        Product.agentic(task=..., prompt=..., tools=...) → class-level
+        product.agentic(task=..., prompt=..., tools=...) → instance-level
 
         Args:
             task: The user task / query to execute.
@@ -401,9 +303,8 @@ class AgentMixin:
                 messages: All conversation messages (list).
                 message_count: Number of messages (backward compat).
         """
-        from pydantic_ai import Agent, UsageLimits
-        from n3tx.core.agents.deps import AgentDeps
-        from n3tx.core.agents.tools import discover_tools, make_tool
+        cls = target if isinstance(target, type) else target.__class__
+        instance = target if not isinstance(target, type) else target()
 
         # ── Defaults ──
         llm = _resolve_llm(llm or 'ollama:llama3.1')
@@ -411,17 +312,13 @@ class AgentMixin:
 
         # ── Agent address ──
         agent_addr = (
-            getattr(self, '_addr', '')
-            or getattr(self.__class__, '__addr__', '')
+            getattr(instance, '_addr', '')
+            or getattr(cls, '__addr__', '')
         )
 
         # ── Adapter lifecycle ──
         owns_adapter = adapter is None
         if owns_adapter:
-            from n3tx.core.api.network_adapter import NetworkAdapter
-            from n3tx.core.actors.actor import Actor
-            from n3tx.core.actors.tx import TX
-
             run_id = TX(name='', source='', target='').uuid
             adapter_addr = f'_agent_{run_id}'
             adapter = NetworkAdapter(addr=adapter_addr)
@@ -434,7 +331,6 @@ class AgentMixin:
 
         try:
             # ── Discover tools from actor addresses ──
-            from n3tx.core.actors.actor import Actor
             root = Actor.root()
             tool_specs = discover_tools(tools, root, caller_addr=agent_addr)
             if not tool_specs:
@@ -501,9 +397,6 @@ class AgentMixin:
         Product.run_stream(task='...')  → async gen of TX-aligned chunks
         product.run_stream(task='...')  → async gen with instance context
         """
-        from n3tx.core import config
-        print("RUNNING TASK: ", task)
-
         cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(cls, '__agent__', False)
         model_conf = agent_flag if isinstance(agent_flag, dict) else {}
@@ -525,10 +418,6 @@ class AgentMixin:
         result_type = kwargs.get('result_type') or model_conf.get('result_type')
 
         # Adapter lifecycle
-        from n3tx.core.api.network_adapter import NetworkAdapter
-        from n3tx.core.actors.actor import Actor
-        from n3tx.core.actors.tx import TX
-
         run_id = TX(name='', source='', target='').uuid
         adapter_addr = f'_agent_{run_id}'
         adapter = NetworkAdapter(addr=adapter_addr)
@@ -561,7 +450,8 @@ class AgentMixin:
         finally:
             root._children.pop(adapter_addr, None)
 
-    async def agentic_stream(self, task: str, prompt: str, tools: list,
+    @fullmethod
+    async def agentic_stream(target, task: str, prompt: str, tools: list,
                              user: dict = None, llm=None, constraints: dict = None,
                              adapter=None, message_history=None,
                              result_type=None, **kwargs):
@@ -570,14 +460,16 @@ class AgentMixin:
         Pure execution — no config resolution. Same params as agentic()
         but returns an async generator instead of a dict.
 
+        Product.agentic_stream(task=..., prompt=..., tools=...) → class-level
+        product.agentic_stream(task=..., prompt=..., tools=...) → instance-level
+
         TX-Aligned Chunk Format:
             {'name': 'text',        'data': {'text': '...'}, 'meta': {'stream': True, 'seq': N}}
             {'name': 'done',        'data': {'answer': '...', 'usage': {...}}, 'meta': {'stream_end': True}}
             {'name': 'error',       'data': {'message': '...'}, 'meta': {'error': True}}
         """
-        from pydantic_ai import Agent, UsageLimits
-        from n3tx.core.agents.deps import AgentDeps
-        from n3tx.core.agents.tools import discover_tools, make_tool
+        cls = target if isinstance(target, type) else target.__class__
+        instance = target if not isinstance(target, type) else target()
 
         # TODO Should not resolve to default LLM, should throw instead to send an error into the actor system to have \
         #  visibility on missing var
@@ -585,16 +477,12 @@ class AgentMixin:
         constraints = constraints or {}
 
         agent_addr = (
-            getattr(self, '_addr', '')
-            or getattr(self.__class__, '__addr__', '')
+            getattr(instance, '_addr', '')
+            or getattr(cls, '__addr__', '')
         )
 
         owns_adapter = adapter is None
         if owns_adapter:
-            from n3tx.core.api.network_adapter import NetworkAdapter
-            from n3tx.core.actors.actor import Actor
-            from n3tx.core.actors.tx import TX
-
             run_id = TX(name='', source='', target='').uuid
             adapter_addr = f'_agent_{run_id}'
             adapter = NetworkAdapter(addr=adapter_addr)
@@ -607,7 +495,6 @@ class AgentMixin:
 
         seq = 0
         try:
-            from n3tx.core.actors.actor import Actor
             root = Actor.root()
             tool_specs = discover_tools(tools, root, caller_addr=agent_addr)
             ai_tools = [make_tool(spec) for spec in tool_specs]
