@@ -6,7 +6,6 @@ Likes are used as CommentLike and ProductLike (favorites) join models.
 IT-4: Expanded from 3 tests to comprehensive like CRUD coverage.
 """
 
-import json
 import pytest
 from helpers import auth_header
 
@@ -41,8 +40,6 @@ class TestCommentLikes:
                            json={}, headers=auth_header(charlie_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         action = data["action"]
 
         after = client.get(f"/products/{product.id}/comments/{comment.id}")
@@ -59,13 +56,9 @@ class TestCommentLikes:
         resp1 = client.post(f"/products/{product.id}/comments/{comment.id}/like",
                             json={}, headers=auth_header(alice_token))
         data1 = resp1.json()
-        if isinstance(data1, str):
-            data1 = json.loads(data1)
         resp2 = client.post(f"/products/{product.id}/comments/{comment.id}/like",
                             json={}, headers=auth_header(alice_token))
         data2 = resp2.json()
-        if isinstance(data2, str):
-            data2 = json.loads(data2)
         assert data1["action"] != data2["action"]
 
     def test_like_unauthenticated_returns_403(self, client, seed_data):
@@ -113,8 +106,6 @@ class TestProductFavorites:
                            json={}, headers=auth_header(charlie_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         action = data["action"]
 
         after = client.get(f"/products/{product.id}", headers=auth_header(alice_token))

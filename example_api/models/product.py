@@ -62,14 +62,14 @@ class Product(ProtoModel):
 
 
     @expose_route('/comment', methods=['POST'])
-    def comment(self, comment: Comment, user: User = None) -> str:
+    def comment(self, comment: Comment, user: User = None) -> Comment:
         """
         Add a comment to the product.
         """
         comment.user_owner = user.id if user else 1
         comment.__owner__ = self
         comment.save()
-        return comment.model_dump_json()
+        return comment
 
     @expose_route('/countdown', methods=['POST'], stream=True, access=ANYONE)
     async def countdown(self, n: int = 5):
@@ -80,7 +80,7 @@ class Product(ProtoModel):
         yield {'count': 0, 'message': 'Done!'}
 
     @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
-    def favorite(self, user: User = None) -> str:
+    def favorite(self, user: User = None) -> dict:
         """Toggle favorite — add if not favorited, remove if already favorited."""
         if not user:
             raise MethodError("authentication required", 401)
@@ -91,11 +91,11 @@ class Product(ProtoModel):
         items = existing if isinstance(existing, list) else existing.get('data', [])
         if items:
             join_cls.delete(items[0].id)
-            return '{"action": "unfavorited"}'
+            return {'action': 'unfavorited'}
         new_like = Like(user=user.id, created_at=datetime.now().isoformat())
         new_like.__owner__ = self
         new_like.save()
-        return '{"action": "favorited"}'
+        return {'action': 'favorited'}
 
 
 Product.update_forward_refs()

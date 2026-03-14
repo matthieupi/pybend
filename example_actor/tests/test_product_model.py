@@ -1,6 +1,5 @@
 """Tests for models/product_model.py — Product model fields and methods."""
 
-import json
 import pytest
 from unittest.mock import MagicMock, patch
 from typing import ClassVar
@@ -72,12 +71,8 @@ class TestProductComment:
         p = Product(id=1, name='Test', price=10.0)
         c = Comment(name='Hello', description='world')
 
-        # Mock the save to avoid storage calls
-        with patch.object(Comment, 'save', return_value=c) as mock_save:
-            c_mock = Comment(name='Hello', description='world')
-            c_mock.model_dump_json = MagicMock(return_value='{}')
-            with patch.object(Comment, 'save', return_value=c_mock):
-                result = p.comment(c_mock, user=None)
+        with patch.object(Comment, 'save', return_value=c):
+            result = p.comment(c, user=None)
 
     def test_comment_user_owner_set_with_user(self):
         p = Product(id=1, name='Test', price=10.0)
@@ -86,7 +81,6 @@ class TestProductComment:
         mock_user.id = 42
 
         with patch.object(Comment, 'save', return_value=c):
-            c.model_dump_json = MagicMock(return_value='{}')
             p.comment(c, user=mock_user)
             assert c.user_owner == 42
 
@@ -95,7 +89,6 @@ class TestProductComment:
         c = Comment(name='Hello')
 
         with patch.object(Comment, 'save', return_value=c):
-            c.model_dump_json = MagicMock(return_value='{}')
             p.comment(c, user=None)
             assert c.user_owner == 1
 
@@ -127,8 +120,7 @@ class TestProductFavorite:
         with patch('models.product.join_models', {('Product', 'Like'): mock_join}):
             with patch.object(Like, 'save', return_value=Like(user=1)):
                 result = p.favorite(user=mock_user)
-                parsed = json.loads(result)
-                assert parsed['action'] == 'favorited'
+                assert result == {'action': 'favorited'}
 
     def test_unfavorite_existing(self):
         p = Product(id=1, name='Test', price=10.0)
@@ -142,6 +134,5 @@ class TestProductFavorite:
 
         with patch('models.product.join_models', {('Product', 'Like'): mock_join}):
             result = p.favorite(user=mock_user)
-            parsed = json.loads(result)
-            assert parsed['action'] == 'unfavorited'
+            assert result == {'action': 'unfavorited'}
             mock_join.delete.assert_called_once_with(10)

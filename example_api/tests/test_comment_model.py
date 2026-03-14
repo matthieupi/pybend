@@ -1,6 +1,5 @@
 """Tests for models/comment_model.py — Comment model fields and methods."""
 
-import json
 import pytest
 from unittest.mock import MagicMock, patch
 from typing import ClassVar
@@ -87,8 +86,7 @@ class TestCommentLike:
         with patch('models.comment.join_models', {('Comment', 'Like'): mock_join}):
             with patch.object(Like, 'save', return_value=Like(user=1)):
                 result = c.like(user=mock_user)
-                parsed = json.loads(result)
-                assert parsed['action'] == 'liked'
+                assert result == {'action': 'liked'}
 
     def test_unlike_existing(self):
         c = Comment(id=1, name='test')
@@ -102,8 +100,7 @@ class TestCommentLike:
 
         with patch('models.comment.join_models', {('Comment', 'Like'): mock_join}):
             result = c.like(user=mock_user)
-            parsed = json.loads(result)
-            assert parsed['action'] == 'unliked'
+            assert result == {'action': 'unliked'}
             mock_join.delete.assert_called_once_with(5)
 
 
@@ -117,12 +114,11 @@ class TestCommentReply:
         reply_comment = Comment(id=11, name='reply text', parent_id=10)
         with patch.object(Comment, 'save', return_value=reply_comment):
             result = c.reply(text='reply text', user=mock_user)
-            # result is model_dump_json of the created comment
-            assert isinstance(result, str)
+            assert isinstance(result, Comment)
 
     def test_reply_no_user(self):
         c = Comment(id=10, name='parent')
         reply_comment = Comment(id=11, name='reply text', parent_id=10)
         with patch.object(Comment, 'save', return_value=reply_comment):
             result = c.reply(text='reply text', user=None)
-            assert isinstance(result, str)
+            assert isinstance(result, Comment)

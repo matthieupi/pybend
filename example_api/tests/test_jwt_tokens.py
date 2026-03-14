@@ -99,14 +99,11 @@ class TestUserParameterResolution:
     def test_user_resolved_in_custom_method(self, client, alice_token, seed_data):
         """Comment method receives user: User which should be resolved from JWT."""
         product = seed_data["products"][0]
-        import json
         resp = client.post(f"/products/{product.id}/comment", json={
             "comment": {"name": "User resolve", "description": "test"},
         }, headers=auth_header(alice_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         # user_owner should be alice's ID (resolved from User model)
         alice = seed_data["users"]["alice"]
         user_owner = data.get("user_owner")
@@ -117,13 +114,10 @@ class TestUserParameterResolution:
     def test_user_resolved_in_favorite(self, client, alice_token, seed_data):
         """Favorite method receives user: User to check existing likes."""
         product = seed_data["products"][3]
-        import json
         resp = client.post(f"/products/{product.id}/favorite",
                            json={}, headers=auth_header(alice_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         assert "action" in data
 
 

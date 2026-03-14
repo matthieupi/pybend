@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import Field, field_validator
 
-from n3tx import TX
+from n3tx.core.actors.tx import TX
 from n3tx.core.models.viewable_mixin import ViewableMixin
 from models.comment import Comment
 from models.like import Like
@@ -68,14 +68,14 @@ class Product(ActorModel):
 
 
     @expose_route('/comment', methods=['POST'])
-    def comment(self, comment: Comment, user: User = None) -> str:
+    def comment(self, comment: Comment, user: User = None) -> Comment:
         """
         Add a comment to the product.
         """
         comment.user_owner = user.id if user else 1
         comment.__owner__ = self
         comment.save()
-        return comment.model_dump_json()
+        return comment
 
     @expose_route('/countdown', methods=['POST'], stream=True, access=ANYONE)
     async def countdown(self, n: int = 5):
@@ -86,7 +86,7 @@ class Product(ActorModel):
         yield {'count': 0, 'message': 'Done!'}
 
     @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
-    def favorite(self, user: User = None) -> str:
+    def favorite(self, user: User = None) -> dict:
         """Toggle favorite — add if not favorited, remove if already favorited."""
         if not user:
             raise MethodError("authentication required", 401)
@@ -97,11 +97,11 @@ class Product(ActorModel):
         items = existing if isinstance(existing, list) else existing.get('data', [])
         if items:
             join_cls.delete(items[0].id)
-            return '{"action": "unfavorited"}'
+            return {'action': 'unfavorited'}
         new_like = Like(user=user.id, created_at=datetime.now().isoformat())
         new_like.__owner__ = self
         new_like.save()
-        return '{"action": "favorited"}'
+        return {'action': 'favorited'}
 
     # TODO We just added the return type, we have to make sure this plays well within the framework
     #  (fastapi, automatic docs, type checking in N3TX etc) as this is the first we use a AsyncGen return type.
@@ -109,7 +109,7 @@ class Product(ActorModel):
     @expose_route('/ask', methods=['POST'], stream=True, access=AUTHENTICATED)
     async def ask(self, task: str, user: User = None) -> AsyncGenerator[TX, Any]:
         """Ask the agent about this product."""
-        async for tx in self.run_stream(task=task, user=user):
+        async for tx in self.agentic_stream(task=task, user=user):
             yield tx
         # TODO When finished we should save the results somewhere. Should be in N3tx models/ not example app
 

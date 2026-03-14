@@ -48,12 +48,17 @@ for name, path in _namespace_shims.items():
         sys.modules[name] = m
 
 import config
+from n3tx.core import config as n3tx_config
 from n3tx.core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 # Import app to trigger model registration and route setup
 os.environ["GENERATE_DOCS"] = "false"  # Skip doc generation during tests
 from main import app  # noqa: triggers model registration
+
+# Ensure integration tests run with DEBUG=False (test business behavior, not debug envelopes).
+# Set AFTER app import so the app builds with its configured DEBUG (for /docs, etc.).
+n3tx_config.DEBUG = False
 
 from n3tx.core.storage.sqlite_storage import SQLiteStorage
 from n3tx.core.utils.registrar import registered_models, join_models

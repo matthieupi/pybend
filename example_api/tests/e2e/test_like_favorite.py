@@ -117,8 +117,6 @@ def test_like_and_favorite():
             if resp.request.method == "POST" and resp.status == 200:
                 try:
                     body = resp.json()
-                    if isinstance(body, str):
-                        body = json.loads(body)
                     if 'action' in body:
                         last_action['value'] = body['action']
                 except:

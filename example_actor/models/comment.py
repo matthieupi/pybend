@@ -43,7 +43,7 @@ class Comment(ActorModel):
     likes: ListRef[Like] = Field(default=[], description="Likes on this comment")
 
     @expose_route('/like', methods=['POST'], access=AUTHENTICATED)
-    def like(self, user: User = None) -> str:
+    def like(self, user: User = None) -> dict:
         """Toggle like — create if not liked, delete if already liked."""
         if not user:
             raise MethodError("authentication required", 401)
@@ -54,14 +54,14 @@ class Comment(ActorModel):
         items = existing if isinstance(existing, list) else existing.get('data', [])
         if items:
             join_cls.delete(items[0].id)
-            return '{"action": "unliked"}'
+            return {'action': 'unliked'}
         new_like = Like(user=user.id, created_at=datetime.now().isoformat())
         new_like.__owner__ = self
         new_like.save()
-        return '{"action": "liked"}'
+        return {'action': 'liked'}
 
     @expose_route('/reply', methods=['POST'], access=AUTHENTICATED)
-    def reply(self, text: str, user: User = None) -> str:
+    def reply(self, text: str, user: User = None) -> Comment:
         """Add a reply to this comment."""
         comment = Comment(name=text, user_owner=user.id if user else None, parent_id=self.id)
         # Find the product parent so the reply goes into the same ProductComment join table
@@ -70,6 +70,6 @@ class Comment(ActorModel):
             from models.product import Product
             comment.__owner__ = Product.get(product_id)
         created = comment.save()
-        return created.model_dump_json() if created else comment.model_dump_json()
+        return created if created else comment
 
 Comment.model_rebuild()

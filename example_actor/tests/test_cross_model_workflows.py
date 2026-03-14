@@ -4,7 +4,6 @@ Test Plan Section 11: Cross-Model Workflows
 End-to-end lifecycle tests spanning multiple models.
 """
 
-import json
 import pytest
 from helpers import auth_header
 
@@ -66,8 +65,6 @@ class TestCompleteProductLifecycle:
                            json={}, headers=auth_header(alice_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         assert data.get("action") in ("liked", "unliked")
 
     def test_06_reply_to_comment(self, client, alice_token):
@@ -78,8 +75,6 @@ class TestCompleteProductLifecycle:
                            headers=auth_header(alice_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         assert data.get("parent_id") == cid
 
     def test_07_favorite_product(self, client, bob_token):
@@ -133,8 +128,6 @@ class TestUserCentricWorkflow:
                              headers=auth_header(alice_token))
         assert r_resp.status_code == 200
         reply_data = r_resp.json()
-        if isinstance(reply_data, str):
-            reply_data = json.loads(reply_data)
         reply_id = reply_data["id"]
         assert reply_data["parent_id"] == comment_id
 

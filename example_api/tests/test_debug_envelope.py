@@ -95,7 +95,7 @@ class TestLoginDebugEnvelope:
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, dict)
-        assert 'result' in data
+        assert 'data' in data
         assert '_debug' in data
 
     def test_login_envelope_contains_result_and_debug_keys(
@@ -106,7 +106,7 @@ class TestLoginDebugEnvelope:
             "password": "alice123",
         })
         data = resp.json()
-        assert set(data.keys()) == {'result', '_debug'}
+        assert set(data.keys()) == {'data', '_debug'}
 
     def test_login_envelope_top_level_has_exactly_two_keys(
         self, client, seed_data, debug_on
@@ -126,7 +126,7 @@ class TestLoginDebugEnvelope:
             "password": "alice123",
         })
         data = resp.json()
-        result = data['result']
+        result = data['data']
         assert 'token' in result
         assert 'user' in result
 
@@ -211,15 +211,15 @@ class TestLoginDebugFalse:
         data = resp.json()
         assert '_debug' not in data
 
-    def test_login_debug_false_no_result_key(self, client, seed_data):
+    def test_login_debug_false_no_envelope_key(self, client, seed_data):
         n3tx_config.DEBUG = False
         resp = client.post("/users/login", json={
             "email": "charlie@example.com",
             "password": "charlie123",
         })
         data = resp.json()
-        # 'result' is not a key in the raw login response
-        assert 'result' not in data
+        # Raw login response has 'token' and 'user', not envelope keys
+        assert '_debug' not in data
 
 
 # ===================================================================
@@ -237,7 +237,7 @@ class TestRegisterDebugEnvelope:
         })
         assert resp.status_code == 200
         data = resp.json()
-        assert 'result' in data
+        assert 'data' in data
         assert '_debug' in data
 
     def test_register_debug_true_method_name_is_register_user(self, client, debug_on):
@@ -266,7 +266,7 @@ class TestRegisterDebugEnvelope:
             "password": "pass123",
         })
         data = resp.json()
-        result = data['result']
+        result = data['data']
         assert 'token' in result
         assert 'user' in result
 
@@ -297,7 +297,7 @@ class TestStrReturningMethod:
         assert resp.status_code == 200
         data = resp.json()
         assert '_debug' in data
-        assert 'result' in data
+        assert 'data' in data
 
     def test_str_returning_method_debug_false_returns_200(
         self, client, alice_token, seed_data
@@ -342,8 +342,8 @@ class TestDebugToggle:
         assert 'token' in data_off
         assert '_debug' not in data_off
 
-        # DEBUG=True: envelope with result and _debug
-        assert 'result' in data_on
+        # DEBUG=True: envelope with data and _debug
+        assert 'data' in data_on
         assert '_debug' in data_on
 
     def test_invalid_credentials_debug_true_still_returns_401(

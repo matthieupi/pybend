@@ -4,7 +4,6 @@ Test Plan Section 6: Custom Methods with @expose_route
 Tests Product.comment(), Product.favorite(), Comment.like(), Comment.reply()
 """
 
-import json
 import pytest
 from helpers import auth_header
 
@@ -35,10 +34,7 @@ class TestProductComment:
                 "description": "Testing auto user resolution",
             },
         }, headers=auth_header(alice_token))
-        # The response is a JSON string from model_dump_json()
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         # Comment should have user_owner set to alice's ID
         user_owner = data.get("user_owner")
         if isinstance(user_owner, str) and "/" in user_owner:
@@ -81,8 +77,6 @@ class TestProductFavorite:
                            headers=auth_header(charlie_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         assert "action" in data
         assert data["action"] in ("favorited", "unfavorited")
 
@@ -92,14 +86,10 @@ class TestProductFavorite:
         resp1 = client.post(f"/products/{product.id}/favorite", json={},
                             headers=auth_header(charlie_token))
         data1 = resp1.json()
-        if isinstance(data1, str):
-            data1 = json.loads(data1)
 
         resp2 = client.post(f"/products/{product.id}/favorite", json={},
                             headers=auth_header(charlie_token))
         data2 = resp2.json()
-        if isinstance(data2, str):
-            data2 = json.loads(data2)
 
         assert data1["action"] != data2["action"]
 
@@ -119,8 +109,6 @@ class TestCommentLike:
                            json={}, headers=auth_header(alice_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         assert "action" in data
         assert data["action"] in ("liked", "unliked")
 
@@ -132,14 +120,10 @@ class TestCommentLike:
         resp1 = client.post(f"/products/{product.id}/comments/{comment.id}/like",
                             json={}, headers=auth_header(bob_token))
         data1 = resp1.json()
-        if isinstance(data1, str):
-            data1 = json.loads(data1)
 
         resp2 = client.post(f"/products/{product.id}/comments/{comment.id}/like",
                             json={}, headers=auth_header(bob_token))
         data2 = resp2.json()
-        if isinstance(data2, str):
-            data2 = json.loads(data2)
 
         assert data1["action"] != data2["action"]
 
@@ -161,8 +145,6 @@ class TestCommentReply:
                            headers=auth_header(alice_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         assert data.get("name") == "Great point!"
 
     def test_reply_has_parent_id(self, client, bob_token, seed_data):
@@ -172,8 +154,6 @@ class TestCommentReply:
                            json={"text": "Reply with parent_id"},
                            headers=auth_header(bob_token))
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         assert data.get("parent_id") == comment.id
 
     def test_reply_has_user_owner(self, client, alice_token, seed_data):
@@ -184,8 +164,6 @@ class TestCommentReply:
                            json={"text": "Reply owner test"},
                            headers=auth_header(alice_token))
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         user_owner = data.get("user_owner")
         if isinstance(user_owner, str) and "/" in user_owner:
             user_owner = int(user_owner.rstrip("/").rsplit("/", 1)[-1])
@@ -198,8 +176,6 @@ class TestCommentReply:
                            json={"text": "ID check reply"},
                            headers=auth_header(charlie_token))
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         assert data.get("id", 0) > 0
 
     def test_reply_unauthenticated_returns_403(self, client, seed_data):
@@ -248,8 +224,6 @@ class TestCustomMethodPersistence:
                            headers=auth_header(alice_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         reply_id = data.get("id")
         assert reply_id is not None
 
@@ -269,8 +243,6 @@ class TestCustomMethodPersistence:
                            json={}, headers=auth_header(bob_token))
         assert resp.status_code == 200
         data = resp.json()
-        if isinstance(data, str):
-            data = json.loads(data)
         action = data["action"]
 
         after = client.get(f"/products/{product.id}/comments/{comment.id}")
