@@ -10,9 +10,13 @@ Each function is a pure dict → dict transformation:
     s = proto_schema.ui(cls, s)
     s = proto_schema.metadata(cls, s)
 
-Stages are registered in a pipeline so that external packages (federation,
-agents, polymorphism) can insert new stages via @schema_extension without
-modifying this module.
+Stages are registered in named pipelines so that external packages
+(federation, agents, polymorphism) can insert new stages via
+@schema_extension without modifying this module.
+
+The 'default' pipeline produces the full frontend schema. Additional
+pipelines (e.g., 'llm') can be registered for different consumers,
+each with their own ordered stages.
 
 access() and ui() will move to mixins (AccessMixin, ViewableMixin)
 when those are introduced — each mixin's schema() will call super().schema()
@@ -30,25 +34,29 @@ logger = logging.getLogger('n3tx.schema')
 
 
 # ── Pipeline registry ──────────────────────────────────────────────
-# Ordered list of (name, callable). Extensions insert relative to
-# named stages via register_stage() or @schema_extension.
+# Named pipelines — each is an ordered list of (name, callable).
+# Extensions insert relative to named stages via register_stage()
+# or @schema_extension.
 
-_stages: list[tuple[str, callable]] = []
+_pipelines: dict[str, list[tuple[str, callable]]] = {'default': []}
+_stages = _pipelines['default']  # backward compat — same list object
 
 
-def _find_stage(name: str) -> int:
+def _find_stage(name: str, pipeline: str = 'default') -> int:
     """Find stage index by name. Raises ValueError if not found."""
-    for i, (stage_name, _) in enumerate(_stages):
+    stages = _pipelines.get(pipeline, [])
+    for i, (stage_name, _) in enumerate(stages):
         if stage_name == name:
             return i
     raise ValueError(
-        f"Schema pipeline stage '{name}' not found. "
-        f"Registered stages: {[n for n, _ in _stages]}"
+        f"Schema pipeline stage '{name}' not found in '{pipeline}' pipeline. "
+        f"Registered stages: {[n for n, _ in stages]}"
     )
 
 
-def register_stage(name: str, func, *, after: str = None, before: str = None):
-    """Register a named stage into the schema pipeline.
+def register_stage(name: str, func, *, after: str = None, before: str = None,
+                    pipeline: str = 'default'):
+    """Register a named stage into a schema pipeline.
 
     Args:
         name: Stage name (used for positioning and introspection).
@@ -56,33 +64,39 @@ def register_stage(name: str, func, *, after: str = None, before: str = None):
               All others: func(cls, schema) -> dict.
         after: Insert after this named stage.
         before: Insert before this named stage.
+        pipeline: Pipeline name (default: 'default').
 
     If neither after nor before, appends to the end.
+    Non-existent pipelines are auto-created.
     """
     if after and before:
         raise ValueError("Specify 'after' or 'before', not both")
 
-    # Prevent duplicate stage names
-    existing = {n for n, _ in _stages}
+    stages = _pipelines.setdefault(pipeline, [])
+
+    # Prevent duplicate stage names within a pipeline
+    existing = {n for n, _ in stages}
     if name in existing:
         raise ValueError(
-            f"Schema pipeline stage '{name}' already registered. "
-            f"Registered stages: {[n for n, _ in _stages]}"
+            f"Schema pipeline stage '{name}' already registered in '{pipeline}' pipeline. "
+            f"Registered stages: {[n for n, _ in stages]}"
         )
 
     if after:
-        idx = _find_stage(after)
-        _stages.insert(idx + 1, (name, func))
+        idx = _find_stage(after, pipeline)
+        stages.insert(idx + 1, (name, func))
     elif before:
-        idx = _find_stage(before)
-        _stages.insert(idx, (name, func))
+        idx = _find_stage(before, pipeline)
+        stages.insert(idx, (name, func))
     else:
-        _stages.append((name, func))
+        stages.append((name, func))
 
-    logger.debug("Registered schema stage '%s' -> pipeline: %s", name, get_pipeline())
+    logger.debug("Registered schema stage '%s' in '%s' pipeline -> %s",
+                 name, pipeline, get_pipeline(pipeline))
 
 
-def schema_extension(*, after: str = None, before: str = None):
+def schema_extension(*, after: str = None, before: str = None,
+                     pipeline: str = 'default'):
     """Decorator to register a schema pipeline extension.
 
     Usage:
@@ -99,48 +113,64 @@ def schema_extension(*, after: str = None, before: str = None):
     plugs in -- zero ProtoModel modifications needed.
     """
     def decorator(func):
-        register_stage(func.__name__, func, after=after, before=before)
+        register_stage(func.__name__, func, after=after, before=before,
+                       pipeline=pipeline)
         return func
     return decorator
 
 
-def run_pipeline(cls) -> dict:
-    """Execute the full schema pipeline for a model class.
+def run_pipeline(cls, pipeline: str = 'default') -> dict:
+    """Execute a named schema pipeline for a model class.
 
     The first stage (typically 'base') seeds the schema: func(cls) -> dict.
     All subsequent stages transform it: func(cls, schema) -> dict.
+
+    Args:
+        cls: The model class to generate schema for.
+        pipeline: Pipeline name (default: 'default').
     """
-    if not _stages:
+    stages = _pipelines.get(pipeline)
+    if not stages:
         raise RuntimeError(
-            "No schema pipeline stages registered. "
-            "Ensure proto_schema is imported before calling schema()."
+            f"No schema pipeline stages registered for '{pipeline}' pipeline. "
+            f"Registered pipelines: {list(_pipelines.keys())}"
         )
 
     # First stage seeds the schema
-    _, seed_fn = _stages[0]
+    _, seed_fn = stages[0]
     s = seed_fn(cls)
 
     # Remaining stages transform
-    for _, stage_fn in _stages[1:]:
+    for _, stage_fn in stages[1:]:
         s = stage_fn(cls, s)
 
     return s
 
 
-def get_pipeline() -> list[str]:
-    """Return current pipeline stage names (for debugging/introspection)."""
-    return [name for name, _ in _stages]
+def get_pipeline(pipeline: str = 'default') -> list[str]:
+    """Return pipeline stage names (for debugging/introspection)."""
+    return [name for name, _ in _pipelines.get(pipeline, [])]
 
 
-def clear_pipeline():
-    """Clear all registered stages. For testing only."""
-    _stages.clear()
+def clear_pipeline(pipeline: str = None):
+    """Clear pipeline stages. For testing only.
+
+    Args:
+        pipeline: Specific pipeline to clear, or None to clear all.
+    """
+    if pipeline is None:
+        for stages in _pipelines.values():
+            stages.clear()
+    else:
+        stages = _pipelines.get(pipeline)
+        if stages is not None:
+            stages.clear()
 
 
-def remove_stage(name: str):
-    """Remove a named stage from the pipeline."""
-    idx = _find_stage(name)
-    _stages.pop(idx)
+def remove_stage(name: str, pipeline: str = 'default'):
+    """Remove a named stage from a pipeline."""
+    idx = _find_stage(name, pipeline)
+    _pipelines[pipeline].pop(idx)
 
 
 # ── Default pipeline stages ───────────────────────────────────────
