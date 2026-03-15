@@ -58,6 +58,10 @@ export class ListElement extends Component {
       this.scheduleRender();  // Data arrived before schema — render now
       return;
     }
+    // Dedup: if another list already triggered a READ for this model, skip.
+    // All list watchers will be notified when that READ completes.
+    if (this.proto._listReadPending || this.proto.instances?.size > 0) return;
+    this.proto._listReadPending = true;
     this.#offset = 0;
     const popDepth = this.proto._schema?.ui?.populate?.depth ?? 1;
     const popParams = popDepth > 0 ? {depth: popDepth} : {};

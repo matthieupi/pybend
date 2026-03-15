@@ -419,14 +419,13 @@ export class NTT extends TT {
         // Replay queued messages + callbacks
         NTT.#replayWaiting(addr, DC);
 
-        // Check for pre-loaded data before network fetch
+        // Check for pre-loaded data (SSR) — if present, feed directly to DC.READ.
+        // No network READ is fired here — consumer components (ListElement, etc.)
+        // trigger their own paginated READs in definedCallback().
         const tablename = data.__tablename__ || addr.toLowerCase() + 's';
         const preloadedData = NTT.#consumePreloadedData(tablename);
         if (preloadedData) {
             DC.READ(preloadedData);
-        } else {
-            const popDepth = data.ui?.populate?.depth ?? 1;
-            DC.call('READ', popDepth > 0 ? {depth: popDepth} : {});
         }
     }
 
@@ -729,6 +728,7 @@ function prototype(addr, schema, href) {
     DynamicClass._pendingAttaches = [];
     DynamicClass.__signals = new Set();
     DynamicClass.__observers = new Map();
+    DynamicClass._listReadPending = false; // Dedup flag: prevents multiple list READs in same cycle
 
 
     // 2. Add schema properties to the subclass prototype
@@ -916,6 +916,9 @@ function prototype(addr, schema, href) {
      * Replays pending instance ATTACHes, then notifies all watchers.
      */
     DynamicClass.READ = function(data) {
+        // Clear dedup flag — the in-flight READ has completed
+        DynamicClass._listReadPending = false;
+
         // Detect paginated response: {data: [...], meta: {...}}
         if (data && !Array.isArray(data) && Array.isArray(data.data) && data.meta) {
             DynamicClass._paginationMeta = data.meta;
@@ -1089,13 +1092,21 @@ function prototype(addr, schema, href) {
     };
 
     /**
-     * Instance _response_ — handles method call responses (e.g. comment).
-     * After a method executes server-side, re-pull the entity so child
-     * lists (comments, etc.) reflect the new state.
-     * Errors now flow through ERROR TX → NTTElement.ERROR() → toast.
+     * Instance _response_ — handles method call responses (e.g. like, comment).
+     *
+     * If the response contains entity data (has `id`), update the instance
+     * directly — no network pull needed.  Otherwise (simple action result
+     * like {action: 'liked'}), do nothing — the method succeeded and the
+     * calling component can pull() explicitly if it needs fresh data.
+     *
+     * This avoids the unconditional GET-after-every-method-call that caused
+     * redundant fetches, full DOM re-renders, and image reloads.
      */
     DynamicClass.prototype._response_ = function(data, tx) {
-        this.pull();
+        if (data && typeof data === 'object' && data.id !== undefined) {
+            normalizePopulated(data, DynamicClass._schema);
+            this.update(data);
+        }
     };
 
 
