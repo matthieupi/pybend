@@ -159,7 +159,11 @@
 
         const data = await resp.json();
         const payload = data.result || data;
-        window.localStorage.setItem('jwtToken', payload.token);
+        // Compat: expose_route debug envelope nests result under 'data' key
+        // when DEBUG=True. Extract token from either location.
+        // TODO: remove this fallback once responses use TX-based wire format
+        const token = payload.token || (payload.data && payload.data.token);
+        window.localStorage.setItem('jwtToken', token);
         window.location.href = '/';
       } catch (err) {
         errorEl.textContent = err.message;

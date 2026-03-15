@@ -158,7 +158,10 @@
         }
 
         const data = await resp.json();
-        window.localStorage.setItem('jwtToken', data.token);
+        // Compat: debug envelope nests result under 'data' key when DEBUG=True
+        // TODO: remove this fallback once responses use TX-based wire format
+        const token = data.token || (data.data && data.data.token);
+        window.localStorage.setItem('jwtToken', token);
         window.location.href = '/';
       } catch (err) {
         errorEl.textContent = err.message;
