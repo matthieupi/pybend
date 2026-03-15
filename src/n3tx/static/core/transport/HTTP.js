@@ -108,8 +108,12 @@ export default class HTTP {
             }
         }).then((resp) => {
             if (resp === undefined) return;
-            if(resp.hasOwnProperty('token')) {
-                window.localStorage['jwtToken'] = resp.token;
+            // Compat: expose_route debug envelope nests result under 'data' key
+            // when DEBUG=True. Check both locations for token auto-save.
+            // TODO: remove this fallback once responses use TX-based wire format
+            const token = resp.token || (resp.data && typeof resp.data === 'object' && resp.data.token);
+            if (token) {
+                window.localStorage['jwtToken'] = token;
             }
             if (HTTP._checkBodyForError(resp)) {
                 onError(resp);
@@ -163,8 +167,11 @@ export default class HTTP {
             }
         }).then((resp) => {
             if (resp === undefined) return;
-            if(resp.hasOwnProperty('token')) {
-                window.localStorage['jwtToken'] = resp.token;
+            // Compat: debug envelope nests token under 'data' — check both locations
+            // TODO: remove this fallback once responses use TX-based wire format
+            const token = resp.token || (resp.data && typeof resp.data === 'object' && resp.data.token);
+            if (token) {
+                window.localStorage['jwtToken'] = token;
             }
             if (HTTP._checkBodyForError(resp)) {
                 onError(resp);
@@ -216,8 +223,11 @@ export default class HTTP {
             }
         }).then((resp) => {
             if (resp === undefined) return;
-            if(resp.hasOwnProperty('token')) {
-                window.localStorage['jwtToken'] = resp.token;
+            // Compat: debug envelope nests token under 'data' — check both locations
+            // TODO: remove this fallback once responses use TX-based wire format
+            const token = resp.token || (resp.data && typeof resp.data === 'object' && resp.data.token);
+            if (token) {
+                window.localStorage['jwtToken'] = token;
             }
             if (HTTP._checkBodyForError(resp)) {
                 onError(resp);
