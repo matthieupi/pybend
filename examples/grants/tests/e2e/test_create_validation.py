@@ -7,7 +7,7 @@ Validates the full validation feedback loop:
   4. Bypass client-side validation and submit to backend, observe server-side 422 feedback
   5. Verify the grant was NOT created
 
-Requires a running server: cd example_grants && python main.py
+Requires a running server: cd examples/grants && python main.py
 """
 import json
 from playwright.sync_api import sync_playwright

@@ -15,14 +15,14 @@ import sys
 import tempfile
 import pytest
 
-# Ensure the core directory and example_api are on the Python path so imports resolve
+# Ensure the core directory and examples/core are on the Python path so imports resolve
 _core_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _workspace = os.path.dirname(os.path.dirname(os.path.dirname(_core_dir)))
-_example_api = os.path.join(_workspace, 'example_api')
+_example_core = os.path.join(_workspace, 'examples', 'core')
 if _core_dir not in sys.path:
     sys.path.insert(0, _core_dir)
-if _example_api not in sys.path:
-    sys.path.insert(0, _example_api)
+if _example_core not in sys.path:
+    sys.path.insert(0, _example_core)
 if os.path.join(_workspace, 'src') not in sys.path:
     sys.path.insert(0, os.path.join(_workspace, 'src'))
 

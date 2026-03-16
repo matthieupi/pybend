@@ -1,7 +1,7 @@
 """N3TX Chat Example — multi-turn LLM chat with SSE streaming.
 
 Usage:
-    cd /workspace/example_chat && python main.py
+    cd /workspace/examples/chat && python main.py
 
 Models:
     User         — authentication (BaseUser + ActorModel)

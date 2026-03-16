@@ -9,8 +9,8 @@ import shutil
 import tempfile
 import pytest
 
-_WORKSPACE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-_APP_DIR = os.path.join(_WORKSPACE, 'example_chat')
+_WORKSPACE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
+_APP_DIR = os.path.join(_WORKSPACE, 'examples', 'chat')
 
 # Make the shared helpers importable
 sys.path.insert(0, os.path.join(_WORKSPACE, 'tests'))

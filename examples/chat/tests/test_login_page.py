@@ -1,8 +1,8 @@
 """
-Tests for login/register page availability in example_chat.
+Tests for login/register page availability in examples/chat.
 
 Bug: GET /login.html returns 404 Not Found, breaking the auth redirect flow.
-Other examples (example_actor, example_grants) serve login.html correctly.
+Other examples (examples/actors, examples/grants) serve login.html correctly.
 """
 
 

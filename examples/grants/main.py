@@ -1,7 +1,7 @@
 """N3TX Grant-Watching Example — an agentic app that scans for government grants.
 
 Usage:
-    cd /workspace/example_grants && python main.py
+    cd /workspace/examples/grants && python main.py
 
 Models:
     User        — authentication (inherited from BaseUser)

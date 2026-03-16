@@ -21,14 +21,14 @@ logger = logging.getLogger('n3tx.seed_perf')
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
 
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', '..', 'example_api'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', '..', 'examples', 'core'))
 from models import Product, Comment, Like, User, Bot
 from n3tx_core.models.proto_model import generate_join_model
 from n3tx_core.utils.registrar import register_model, join_models
 from n3tx_core.authorize import hash_password
 
 # Database path — use the example app's location for compatibility
-_EXAMPLE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', '..', 'example_api')
+_EXAMPLE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', '..', 'examples', 'core')
 DB_PATH = os.path.join(_EXAMPLE_DIR, config.SQLITE_DB_FILE)
 
 # Deterministic data pools

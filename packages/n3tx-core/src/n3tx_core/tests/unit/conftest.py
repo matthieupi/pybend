@@ -18,7 +18,7 @@ from n3tx_core import config
 
 
 # ---------------------------------------------------------------------------
-# Ensure DEBUG=False for all unit tests (example_api conftest sets it True)
+# Ensure DEBUG=False for all unit tests (examples/core conftest sets it True)
 # Individual tests can opt-in to DEBUG=True via their own fixtures.
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)

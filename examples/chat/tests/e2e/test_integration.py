@@ -7,7 +7,7 @@ tokens, messages persist in DB, and the UI reflects it all.
 Uses pydantic-ai TestModel (no real LLM) via N3TX_TEST_MODE=1.
 
 Run with:
-    cd /workspace && python -m pytest example_chat/tests/e2e/ -v
+    cd /workspace && python -m pytest examples/chat/tests/e2e/ -v
 """
 import uuid
 import pytest
