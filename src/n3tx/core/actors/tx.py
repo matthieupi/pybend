@@ -77,9 +77,8 @@ class TX:
         Centralizes the exception → error TX translation for CRUD,
         custom method dispatch, and generic Actor handler paths.
         """
-        from n3tx.core.utils.erroring import MethodError
-
-        if isinstance(e, MethodError):
+        if hasattr(e, 'message') and hasattr(e, 'status_code'):
+            # MethodError or similar — duck-typed to avoid cross-package import
             return tx.error(e.message, code=e.status_code)
         if hasattr(e, 'status_code') and hasattr(e, 'detail'):
             # HTTPException from FastAPI
