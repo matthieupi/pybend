@@ -145,11 +145,15 @@ def build_bundle(html_path, static_dirs):
 
 
 def _find_esbuild_bin(static_dirs):
-    """Locate the esbuild binary in node_modules."""
+    """Locate the esbuild binary in node_modules or on PATH."""
     for sd in static_dirs:
         candidate = Path(sd) / 'node_modules' / '.bin' / 'esbuild'
         if candidate.is_file():
             return str(candidate)
+    # Fallback: check system PATH (e.g. globally installed esbuild)
+    system_esbuild = shutil.which('esbuild')
+    if system_esbuild:
+        return system_esbuild
     return None
 
 

@@ -1,0 +1,8 @@
+{
+  "name": "n3tx-core-static",
+  "version": "0.10.0",
+  "private": true,
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
