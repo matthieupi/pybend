@@ -14,7 +14,7 @@ BOOT VERIFICATION
 """
 
 import pytest
-from n3tx.core.utils.registrar import registered_models
+from n3tx_core.utils.registrar import registered_models
 
 
 class TestAppBoot:

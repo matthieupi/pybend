@@ -77,11 +77,11 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from n3tx.core.api.network_mcp import NetworkMCP, create_mcp_routes
-from n3tx.core.actors.tx import TX
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.models.actor_model import ActorModel
+from n3tx_actors.api.network_mcp import NetworkMCP, create_mcp_routes
+from n3tx_actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.models.actor_model import ActorModel
 
 pytestmark = pytest.mark.unit
 

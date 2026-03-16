@@ -26,18 +26,18 @@ if _example_api not in sys.path:
 if os.path.join(_workspace, 'src') not in sys.path:
     sys.path.insert(0, os.path.join(_workspace, 'src'))
 
-from n3tx.core import config
-from n3tx.core import authorize
+from n3tx_core import config
+from n3tx_core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 # Import main to trigger model registration and route setup (uses production DB initially)
 os.environ["GENERATE_DOCS"] = "false"  # Skip doc generation during tests
 from main import app  # noqa: triggers model registration
 
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.utils.registrar import registered_models, join_models
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.registrar import registered_models, join_models
 from models import Product, Comment, Like, User
-from n3tx.core.authorize import create_token
+from n3tx_core.authorize import create_token
 
 
 def _setup_test_db(db_path):

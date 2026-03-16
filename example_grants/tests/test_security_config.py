@@ -42,7 +42,7 @@ class TestCORSConfig:
 
     def test_cors_backend_module_exists(self):
         """Backend module has FastAPIBackend class with CORS handling."""
-        from n3tx.core.api import backend
+        from n3tx_core.api import backend
         assert hasattr(backend, 'FastAPIBackend')
 
     def test_cors_implementation_documented(self):

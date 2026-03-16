@@ -15,10 +15,10 @@ from typing import ClassVar
 import pytest
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.actors.tx import TX
-from n3tx.core.api.network_adapter import NetworkAdapter
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.tx import TX
+from n3tx_actors.api.network_adapter import NetworkAdapter
 
 pytestmark = pytest.mark.unit
 
@@ -423,7 +423,7 @@ class TestActorModelStreamHandler:
     @pytest.mark.asyncio
     async def test_async_gen_method_sends_stream_chunks(self):
         """Handler detects async generator and streams chunks via TX."""
-        from n3tx.core.models.actor_model import ActorModel
+        from n3tx_actors.models.actor_model import ActorModel
 
         class StreamModel(ActorModel, auto_register=False):
             __tablename__: ClassVar[str] = 'stream_test'
@@ -461,7 +461,7 @@ class TestActorModelStreamHandler:
     @pytest.mark.asyncio
     async def test_async_gen_stream_end_has_correct_meta(self):
         """Stream end TX has stream=True and stream_end=True."""
-        from n3tx.core.models.actor_model import ActorModel
+        from n3tx_actors.models.actor_model import ActorModel
 
         class EndMetaModel(ActorModel, auto_register=False):
             __tablename__: ClassVar[str] = 'end_meta_test'
@@ -489,7 +489,7 @@ class TestActorModelStreamHandler:
     @pytest.mark.asyncio
     async def test_async_gen_chunks_have_req_field(self):
         """Each stream chunk has meta.req pointing to the original TX uuid."""
-        from n3tx.core.models.actor_model import ActorModel
+        from n3tx_actors.models.actor_model import ActorModel
 
         class ReqModel(ActorModel, auto_register=False):
             __tablename__: ClassVar[str] = 'req_test'
@@ -516,7 +516,7 @@ class TestActorModelStreamHandler:
     @pytest.mark.asyncio
     async def test_async_gen_wraps_non_dict_chunks(self):
         """Non-dict chunks are wrapped in {'chunk': value}."""
-        from n3tx.core.models.actor_model import ActorModel
+        from n3tx_actors.models.actor_model import ActorModel
 
         class StringChunkModel(ActorModel, auto_register=False):
             __tablename__: ClassVar[str] = 'str_chunk_test'
@@ -543,7 +543,7 @@ class TestActorModelStreamHandler:
     @pytest.mark.asyncio
     async def test_async_gen_error_sends_error_tx(self):
         """If the async generator raises, an error TX is sent."""
-        from n3tx.core.models.actor_model import ActorModel
+        from n3tx_actors.models.actor_model import ActorModel
 
         class ErrorGenModel(ActorModel, auto_register=False):
             __tablename__: ClassVar[str] = 'error_gen_test'

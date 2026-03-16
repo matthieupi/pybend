@@ -10,9 +10,9 @@ from contextlib import contextmanager
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from n3tx.core.actors.tx import TX
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
+from n3tx_actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
 
 pytestmark = pytest.mark.unit
 
@@ -766,7 +766,7 @@ class TestMatrix:
         m = Matrix()
 
         tx = TX(name='X', source='client', target='nowhere')
-        with patch('n3tx.core.actors.matrix.logger') as mock_logger:
+        with patch('n3tx_actors.matrix.logger') as mock_logger:
             await m.inbox(tx)
             mock_logger.warning.assert_called_once()
             assert 'No route' in mock_logger.warning.call_args[0][0]
@@ -799,7 +799,7 @@ class TestDefaultMatrix:
     """Module-level default matrix instance."""
 
     def test_module_level_matrix_exists(self):
-        from n3tx.core.actors.matrix import matrix as default_matrix
+        from n3tx_actors.matrix import matrix as default_matrix
         assert default_matrix is not None
         assert isinstance(default_matrix, Matrix)
 
@@ -809,7 +809,7 @@ class TestDefaultMatrix:
         Note: Due to test isolation, Actor.__matrix__ may have been
         restored by the fixture, but the module-level instance exists.
         """
-        from n3tx.core.actors.matrix import matrix as default_matrix
+        from n3tx_actors.matrix import matrix as default_matrix
         assert isinstance(default_matrix, Matrix)
         assert default_matrix.addr == 'matrix'
 
@@ -825,7 +825,7 @@ class TestTxFromException:
         return TX(name='test', source='a', target='b')
 
     def test_method_error_uses_its_status_code(self):
-        from n3tx.core.utils.erroring import MethodError
+        from n3tx_core.utils.erroring import MethodError
         tx = self._make_tx()
         result = TX.from_exception(MethodError('auth required', 401), tx)
         assert result.is_error
@@ -879,7 +879,7 @@ class TestTxFromException:
 
     def test_backward_compat_alias(self):
         """Module-level exception_to_tx_error still works."""
-        from n3tx.core.actors.tx import exception_to_tx_error
+        from n3tx_actors.tx import exception_to_tx_error
         tx = self._make_tx()
         result = exception_to_tx_error(ValueError('test'), tx)
         assert result.data['code'] == 400

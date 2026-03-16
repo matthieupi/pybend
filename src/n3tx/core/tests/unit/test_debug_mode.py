@@ -11,7 +11,7 @@ Covers:
 import pytest
 from unittest.mock import patch, MagicMock
 
-from n3tx.core import config
+from n3tx_core import config
 
 pytestmark = pytest.mark.unit
 
@@ -38,21 +38,21 @@ class TestN3TXAppDebugPropagation:
     def test_debug_true_sets_config(self):
         """N3TXApp(debug=True) propagates to config.DEBUG."""
         config.DEBUG = False
-        from n3tx.core.app import N3TXApp
+        from n3tx_core.app import N3TXApp
         N3TXApp(debug=True)
         assert config.DEBUG is True
 
     def test_debug_false_does_not_override_env(self):
         """N3TXApp(debug=False) does NOT reset config.DEBUG."""
         config.DEBUG = True  # Simulate env var N3TX_DEBUG=true
-        from n3tx.core.app import N3TXApp
+        from n3tx_core.app import N3TXApp
         N3TXApp(debug=False)  # Default
         assert config.DEBUG is True  # NOT overridden
 
     def test_create_app_debug_true_sets_config(self):
         """create_app(debug=True) propagates to config.DEBUG."""
         config.DEBUG = False
-        from n3tx.core.app import N3TXApp
+        from n3tx_core.app import N3TXApp
         # Just test the constructor, not full build (which needs models)
         N3TXApp(debug=True)
         assert config.DEBUG is True
@@ -68,7 +68,7 @@ class TestAutoAdminRegistration:
     @pytest.fixture
     def test_db(self, tmp_path):
         """Create a temporary SQLite database."""
-        from n3tx.core.storage.sqlite_storage import SQLiteStorage
+        from n3tx_core.storage.sqlite_storage import SQLiteStorage
         db_path = tmp_path / "test_debug_admin.db"
         storage = SQLiteStorage(database=str(db_path))
         yield storage
@@ -77,7 +77,7 @@ class TestAutoAdminRegistration:
     def user_model(self, test_db):
         """A concrete User model extending BaseUser."""
         from typing import ClassVar
-        from n3tx.core.models.base_user import BaseUser
+        from n3tx_core.models.base_user import BaseUser
 
         class DebugUser(BaseUser):
             __tablename__: ClassVar[str] = 'debug_users'
@@ -91,7 +91,7 @@ class TestAutoAdminRegistration:
     @pytest.fixture
     def configure_test_auth(self):
         """Configure auth with test secret."""
-        from n3tx.core.authorize import configure
+        from n3tx_core.authorize import configure
         configure(jwt_secret='test-debug-admin-secret', jwt_expiry_hours=1)
         yield
         configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
@@ -121,7 +121,7 @@ class TestAutoAdminRegistration:
     def test_register_user_token_has_admin_role_when_debug(self, user_model, configure_test_auth):
         """When DEBUG=True, the JWT token also carries role='admin'."""
         config.DEBUG = True
-        from n3tx.core.authorize import decode_token
+        from n3tx_core.authorize import decode_token
         result = user_model.register_user(
             name='DebugCharlie',
             email='debugcharlie@example.com',
@@ -171,26 +171,26 @@ class TestBuildMetaDebugFlag:
     def test_debug_true_in_meta(self):
         """When DEBUG=True, meta includes debug: True."""
         config.DEBUG = True
-        from n3tx.core.api.discovery import _build_meta
+        from n3tx_core.api.discovery import _build_meta
         meta = _build_meta({}, 'App', '1.0', 'http://localhost:5000')
         assert meta['debug'] is True
 
     def test_debug_false_in_meta(self):
         """When DEBUG=False, meta includes debug: False."""
         config.DEBUG = False
-        from n3tx.core.api.discovery import _build_meta
+        from n3tx_core.api.discovery import _build_meta
         meta = _build_meta({}, 'App', '1.0', 'http://localhost:5000')
         assert meta['debug'] is False
 
     def test_debug_key_exists(self):
         """The 'debug' key is always present in meta output."""
-        from n3tx.core.api.discovery import _build_meta
+        from n3tx_core.api.discovery import _build_meta
         meta = _build_meta({}, 'App', '1.0', 'http://localhost:5000')
         assert 'debug' in meta
 
     def test_debug_is_boolean(self):
         """The 'debug' value is a boolean, not a string."""
-        from n3tx.core.api.discovery import _build_meta
+        from n3tx_core.api.discovery import _build_meta
         meta = _build_meta({}, 'App', '1.0', 'http://localhost:5000')
         assert isinstance(meta['debug'], bool)
 
@@ -205,7 +205,7 @@ class TestDebugLoggingMiddleware:
     def test_middleware_added_when_debug_true(self):
         """When DEBUG=True, the app has more middleware than DEBUG=False."""
         config.DEBUG = True
-        from n3tx.core.api.backend import FastAPIBackend
+        from n3tx_core.api.backend import FastAPIBackend
         backend_debug = FastAPIBackend(
             name="test", description="test", version="1.0.0",
         )
@@ -222,7 +222,7 @@ class TestDebugLoggingMiddleware:
     def test_middleware_not_added_when_debug_false(self):
         """When DEBUG=False, no debug logging middleware is added."""
         config.DEBUG = False
-        from n3tx.core.api.backend import FastAPIBackend
+        from n3tx_core.api.backend import FastAPIBackend
         backend = FastAPIBackend(
             name="test", description="test", version="1.0.0",
         )
@@ -233,7 +233,7 @@ class TestDebugLoggingMiddleware:
     def test_middleware_present_when_debug_true(self):
         """When DEBUG=True, DebugLoggingMiddleware is in the stack."""
         config.DEBUG = True
-        from n3tx.core.api.backend import FastAPIBackend
+        from n3tx_core.api.backend import FastAPIBackend
         backend = FastAPIBackend(
             name="test", description="test", version="1.0.0",
         )

@@ -5,7 +5,7 @@ from typing import get_args, get_origin, Annotated, List, Union
 
 from pydantic import BaseModel, Field
 
-from n3tx.core.models.ref import ListRef, _ListRefMarker
+from n3tx_core.models.ref import ListRef, _ListRefMarker
 
 pytestmark = pytest.mark.unit
 

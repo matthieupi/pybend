@@ -2,7 +2,7 @@
 import os
 
 # Import framework config and override
-from n3tx.core import config as _fw
+from n3tx_core import config as _fw
 
 # Deployment settings (edit these)
 HOST = os.environ.get("N3TX_HOST", "0.0.0.0")

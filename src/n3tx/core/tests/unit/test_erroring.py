@@ -1,7 +1,7 @@
 """Tests for utils/erroring.py — get_traceback_info."""
 
 import pytest
-from n3tx.core.utils.erroring import get_traceback_info
+from n3tx_core.utils.erroring import get_traceback_info
 
 pytestmark = pytest.mark.unit
 

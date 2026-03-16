@@ -1,7 +1,7 @@
 """Tests for storage/abstract_storage.py — AbstractStorage interface."""
 
 import pytest
-from n3tx.core.storage.abstract_storage import AbstractStorage
+from n3tx_core.storage.abstract_storage import AbstractStorage
 
 pytestmark = pytest.mark.unit
 

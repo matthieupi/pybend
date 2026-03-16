@@ -5,7 +5,7 @@ CG-4: Coverage gap — viewable_mixin.py has zero test coverage.
 
 import pytest
 
-from n3tx.core.models.viewable_mixin import ViewableMixin
+from n3tx_core.models.viewable_mixin import ViewableMixin
 
 pytestmark = pytest.mark.unit
 

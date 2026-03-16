@@ -39,8 +39,8 @@ for name, path in _namespace_shims.items():
         sys.modules[name] = m
 
 import config
-from n3tx.core import config as n3tx_config
-from n3tx.core import authorize
+from n3tx_core import config as n3tx_config
+from n3tx_core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 os.environ["GENERATE_DOCS"] = "false"
@@ -49,12 +49,12 @@ from main import app  # noqa: triggers model registration
 # Ensure integration tests run with DEBUG=False (test business behavior, not debug envelopes).
 n3tx_config.DEBUG = False
 
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.utils.registrar import registered_models
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.registrar import registered_models
 from models import User, Grant, Source, WebTools
-from n3tx.core.agents.actor import AgentActor
-from n3tx.core.agents.tool_model import AgentTool
-from n3tx.core.authorize import create_token
+from n3tx_agents.actor import AgentActor
+from n3tx_agents.tool_model import AgentTool
+from n3tx_core.authorize import create_token
 
 
 def _setup_test_db(db_path):

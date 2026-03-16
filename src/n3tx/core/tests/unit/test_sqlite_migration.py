@@ -7,8 +7,8 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from n3tx.core.storage.sqlite_migration import Migration, SQLiteMigration
-from n3tx.core.models.proto_model import ProtoModel
+from n3tx_core.storage.sqlite_migration import Migration, SQLiteMigration
+from n3tx_core.models.proto_model import ProtoModel
 
 pytestmark = pytest.mark.unit
 
@@ -215,7 +215,7 @@ class TestLoadMigrationClass:
         mig_dir = str(tmp_path / 'migrations')
         os.makedirs(mig_dir, exist_ok=True)
         code = '''
-from n3tx.core.storage.sqlite_migration import Migration
+from n3tx_core.storage.sqlite_migration import Migration
 
 class AddColumn(Migration):
     def up(self, cursor):
@@ -243,7 +243,7 @@ class TestRunMigrations:
         mig_dir = str(tmp_path / 'migrations')
         os.makedirs(mig_dir, exist_ok=True)
         code = '''
-from n3tx.core.storage.sqlite_migration import Migration
+from n3tx_core.storage.sqlite_migration import Migration
 
 class CreateFoo(Migration):
     def up(self, cursor):
@@ -260,7 +260,7 @@ class CreateFoo(Migration):
         mig_dir = str(tmp_path / 'migrations')
         os.makedirs(mig_dir, exist_ok=True)
         code = '''
-from n3tx.core.storage.sqlite_migration import Migration
+from n3tx_core.storage.sqlite_migration import Migration
 
 class CreateBar(Migration):
     def up(self, cursor):
@@ -286,7 +286,7 @@ class TestRollback:
         mig_dir = str(tmp_path / 'migrations')
         os.makedirs(mig_dir, exist_ok=True)
         code = '''
-from n3tx.core.storage.sqlite_migration import Migration
+from n3tx_core.storage.sqlite_migration import Migration
 
 class CreateBaz(Migration):
     def up(self, cursor):
@@ -333,7 +333,7 @@ class TestMigrationStatus:
         mig_dir = str(tmp_path / 'migrations')
         os.makedirs(mig_dir, exist_ok=True)
         code = '''
-from n3tx.core.storage.sqlite_migration import Migration
+from n3tx_core.storage.sqlite_migration import Migration
 
 class StatusTest(Migration):
     def up(self, cursor):
@@ -352,7 +352,7 @@ class StatusTest(Migration):
         mig_dir = str(tmp_path / 'migrations')
         os.makedirs(mig_dir, exist_ok=True)
         code = '''
-from n3tx.core.storage.sqlite_migration import Migration
+from n3tx_core.storage.sqlite_migration import Migration
 
 class PendingTest(Migration):
     def up(self, cursor):

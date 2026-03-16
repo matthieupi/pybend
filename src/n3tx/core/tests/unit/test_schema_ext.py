@@ -10,9 +10,9 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from n3tx.core import config
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.models.proto_schema import (
+from n3tx_core import config
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.proto_schema import (
     register_stage,
     schema_extension,
     run_pipeline,
@@ -21,7 +21,7 @@ from n3tx.core.models.proto_schema import (
     remove_stage,
     _stages,
 )
-import n3tx.core.models.proto_schema as proto_schema
+import n3tx_core.models.proto_schema as proto_schema
 
 pytestmark = pytest.mark.unit
 

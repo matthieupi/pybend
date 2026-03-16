@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import MagicMock
 
-from n3tx.core.api.discovery import _build_meta, _build_agent_card
-from n3tx.core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx_core.api.discovery import _build_meta, _build_agent_card
+from n3tx_core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE
 
 pytestmark = pytest.mark.unit
 

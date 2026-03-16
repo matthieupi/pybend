@@ -6,18 +6,18 @@ from datetime import datetime
 
 from pydantic import Field, field_validator
 
-from n3tx.core.models.viewable_mixin import ViewableMixin
+from n3tx_core.models.viewable_mixin import ViewableMixin
 from models.comment import Comment
 from models.like import Like
-from n3tx.core.models.proto_model import ProtoModel
+from n3tx_core.models.proto_model import ProtoModel
 from models.user import User
-from n3tx.core.models.ref import ListRef
+from n3tx_core.models.ref import ListRef
 from typing import ClassVar
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.utils.registrar import join_models
-from n3tx.core.authorize import ANYONE, AUTHENTICATED
-from n3tx.core.utils.erroring import MethodError
-from n3tx.core.widgets import CurrencyField, TextareaField
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.utils.registrar import join_models
+from n3tx_core.authorize import ANYONE, AUTHENTICATED
+from n3tx_core.utils.erroring import MethodError
+from n3tx_core.widgets import CurrencyField, TextareaField
 
 
 class Product(ProtoModel):

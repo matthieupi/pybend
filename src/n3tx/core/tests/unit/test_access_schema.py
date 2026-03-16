@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import MagicMock
 
-from n3tx.core.authorize.schema import access_schema
-from n3tx.core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE, Where
+from n3tx_core.authorize.schema import access_schema
+from n3tx_core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE, Where
 
 pytestmark = pytest.mark.unit
 

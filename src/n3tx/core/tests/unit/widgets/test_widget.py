@@ -8,7 +8,7 @@ from typing import Annotated, Optional, get_origin, get_args
 
 from pydantic import BaseModel, Field, AnyHttpUrl, EmailStr
 
-from n3tx.core.widgets.widget import (
+from n3tx_core.widgets.widget import (
     Widget, WidgetMeta,
     UrlField, EmailField, DateField, DateTimeField,
     MarkdownField, ConsoleField, ReferenceField,

@@ -79,11 +79,11 @@ from datetime import datetime, timezone
 
 from pydantic import Field
 
-from n3tx.core.api.network_ap import NetworkAP, create_federation_routes, AS_CONTEXT
-from n3tx.core.actors.tx import TX
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.models.actor_model import ActorModel
+from n3tx_actors.api.network_ap import NetworkAP, create_federation_routes, AS_CONTEXT
+from n3tx_actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.models.actor_model import ActorModel
 
 pytestmark = pytest.mark.unit
 

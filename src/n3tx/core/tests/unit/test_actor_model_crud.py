@@ -14,8 +14,8 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from n3tx.core.models.actor_model import ActorModel, _NOT_HANDLED
-from n3tx.core.actors.tx import TX
+from n3tx_actors.models.actor_model import ActorModel, _NOT_HANDLED
+from n3tx_actors.tx import TX
 
 pytestmark = pytest.mark.unit
 
@@ -447,7 +447,7 @@ class TestHandlerCrudExceptionMapping:
     """tx.exception() maps exception types to HTTP codes."""
 
     def test_method_error_uses_status_code(self, mock_storage, make_tx):
-        from n3tx.core.utils.erroring import MethodError
+        from n3tx_core.utils.erroring import MethodError
         mock_storage.create.side_effect = MethodError('auth required', 401)
         tx = make_tx('create', {'name': 'X'})
         result = _CrudModel.handler_crud(tx)

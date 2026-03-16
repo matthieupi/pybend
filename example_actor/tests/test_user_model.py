@@ -9,8 +9,8 @@ from typing import ClassVar
 from unittest.mock import MagicMock
 
 from models import User, Bot
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.models.storable_mixin import StorableMixin
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.storable_mixin import StorableMixin
 
 pytestmark = pytest.mark.unit
 

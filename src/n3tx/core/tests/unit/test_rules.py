@@ -6,13 +6,13 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from n3tx.core.authorize.rules import (
+from n3tx_core.authorize.rules import (
     AccessRule, ANYONE, AUTHENTICATED, OWNER, ROLE, Where,
     OrRule, AndRule, NotRule,
     _Anyone, _Authenticated, _Owner, _Role,
 )
-from n3tx.core.authorize.context import AccessContext
-from n3tx.core.models.proto_model import ProtoModel
+from n3tx_core.authorize.context import AccessContext
+from n3tx_core.models.proto_model import ProtoModel
 
 pytestmark = pytest.mark.unit
 

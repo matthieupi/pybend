@@ -16,11 +16,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import config
 
 logger = logging.getLogger('n3tx.seed')
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from models import Product, Comment, Like, User, Bot
-from n3tx.core.models.proto_model import generate_join_model
-from n3tx.core.utils.registrar import register_model, join_models
-from n3tx.core.authorize import hash_password
+from n3tx_core.models.proto_model import generate_join_model
+from n3tx_core.utils.registrar import register_model, join_models
+from n3tx_core.authorize import hash_password
 
 # Database path — resolve relative to this file so it's stable regardless of CWD
 _HERE = os.path.dirname(os.path.abspath(__file__))

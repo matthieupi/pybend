@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from pydantic import BaseModel, Field
 
-from n3tx.core.utils.introspection import (
+from n3tx_core.utils.introspection import (
     pydantic_schema_for_type,
     record_model_type,
     _is_self_ref,
@@ -15,9 +15,9 @@ from n3tx.core.utils.introspection import (
     get_ref_fields,
     _unwrap_listref,
 )
-from n3tx.core.utils.typer import Ref, _SelfRefMarker
-from n3tx.core.models.ref import ListRef, _ListRefMarker
-from n3tx.core.models.proto_model import ProtoModel
+from n3tx_core.utils.typer import Ref, _SelfRefMarker
+from n3tx_core.models.ref import ListRef, _ListRefMarker
+from n3tx_core.models.proto_model import ProtoModel
 
 pytestmark = pytest.mark.unit
 

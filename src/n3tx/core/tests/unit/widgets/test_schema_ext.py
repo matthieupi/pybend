@@ -13,12 +13,12 @@ from datetime import date
 
 from pydantic import Field, AnyHttpUrl, EmailStr
 
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.models.proto_schema import (
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.proto_schema import (
     run_pipeline, get_pipeline, _stages,
 )
-from n3tx.core.models.ref import ListRef
-from n3tx.core.widgets.widget import (
+from n3tx_core.models.ref import ListRef
+from n3tx_core.widgets.widget import (
     Widget, MarkdownField, UrlField, EmailField,
     DateField, CurrencyField, TextareaField, ConsoleField,
 )

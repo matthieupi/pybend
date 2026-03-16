@@ -9,7 +9,7 @@ not exact value, to avoid execution-order dependency (TI-1/UT-1).
 """
 
 import pytest
-from n3tx.core import config
+from n3tx_core import config
 
 pytestmark = pytest.mark.unit
 

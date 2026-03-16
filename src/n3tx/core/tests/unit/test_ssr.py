@@ -18,12 +18,12 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from n3tx.core.app import create_app, _resolve_ssr
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core import config
-from n3tx.core.authorize import configure as auth_configure
-from n3tx.core.utils.registrar import registered_models
-from n3tx.core.ssr.bundler import (
+from n3tx_core.app import create_app, _resolve_ssr
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core import config
+from n3tx_core.authorize import configure as auth_configure
+from n3tx_core.utils.registrar import registered_models
+from n3tx_core.ssr.bundler import (
     parse_html_modules,
     build_bundle,
     discover_css_deps,
@@ -32,7 +32,7 @@ from n3tx.core.ssr.bundler import (
     _rewrite_import_meta_urls,
     _inline_css_imports,
 )
-from n3tx.core.ssr.html import (
+from n3tx_core.ssr.html import (
     build_schema_tags,
     inject_schemas,
     inject_bundle,
@@ -45,7 +45,7 @@ from n3tx.core.ssr.html import (
 # Minimal model for SSR tests (avoids importing example models)
 # ---------------------------------------------------------------------------
 from pydantic import Field
-from n3tx.core.models.proto_model import ProtoModel
+from n3tx_core.models.proto_model import ProtoModel
 
 
 class SSRProduct(ProtoModel):
@@ -324,7 +324,7 @@ class TestSSRBundleMode:
     @pytest.fixture(scope="class")
     def bundle_app(self, _isolated_models, static_dir_with_modules):
         auth_configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=1)
-        with patch('n3tx.core.ssr.bundler.build_bundle', return_value=MOCK_BUNDLE_JS):
+        with patch('n3tx_core.ssr.bundler.build_bundle', return_value=MOCK_BUNDLE_JS):
             return create_app(
                 models=[SSRProduct],
                 storage=SQLiteStorage("/tmp/test_ssr_bundle.db"),
@@ -371,7 +371,7 @@ class TestSSRFullMode:
     @pytest.fixture(scope="class")
     def full_app(self, _isolated_models, static_dir_with_modules):
         auth_configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=1)
-        with patch('n3tx.core.ssr.bundler.build_bundle', return_value=MOCK_BUNDLE_JS):
+        with patch('n3tx_core.ssr.bundler.build_bundle', return_value=MOCK_BUNDLE_JS):
             return create_app(
                 models=[SSRProduct],
                 storage=SQLiteStorage("/tmp/test_ssr_full.db"),

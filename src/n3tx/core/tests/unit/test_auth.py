@@ -4,12 +4,12 @@ import pytest
 import time
 import jwt as pyjwt
 
-from n3tx.core.authorize.auth import (
+from n3tx_core.authorize.auth import (
     configure, hash_password, verify_password,
     create_token, decode_token,
     _jwt_secret, _jwt_expiry_hours,
 )
-from n3tx.core import config as _config
+from n3tx_core import config as _config
 
 pytestmark = pytest.mark.unit
 

@@ -1,8 +1,8 @@
 """Tests for utils/decorators.py — @expose_route decorator."""
 
 import pytest
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.authorize.rules import AUTHENTICATED, ANYONE, OWNER
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.authorize.rules import AUTHENTICATED, ANYONE, OWNER
 
 pytestmark = pytest.mark.unit
 

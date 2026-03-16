@@ -6,8 +6,8 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.utils.registrar import (
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.utils.registrar import (
     register_model, registered_models, join_models,
     prepare_model, apply_registration, RegistrationResult,
 )

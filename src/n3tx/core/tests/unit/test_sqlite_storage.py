@@ -8,10 +8,10 @@ from unittest.mock import patch
 
 from pydantic import Field, BaseModel, AnyHttpUrl
 
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.utils.populate import PopulateSpec
-from n3tx.core.widgets import UrlField
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.utils.populate import PopulateSpec
+from n3tx_core.widgets import UrlField
 
 pytestmark = pytest.mark.unit
 

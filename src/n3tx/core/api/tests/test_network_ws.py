@@ -42,17 +42,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.actors.tx import TX
-from n3tx.core.api.network_ws import (
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.tx import TX
+from n3tx_actors.api.network_ws import (
     NetworkWebSocket,
     create_ws_routes,
     _NAME_MAP,
     _NON_SERIALIZABLE_META,
 )
-from n3tx.core.models.storable_mixin import StorableMixin
-from n3tx.core.utils.decorators import expose_route
+from n3tx_core.models.storable_mixin import StorableMixin
+from n3tx_core.utils.decorators import expose_route
 
 pytestmark = pytest.mark.unit
 
@@ -124,8 +124,8 @@ class TestTranslateIncoming:
     def _make_ws(self):
         return NetworkWebSocket()
 
-    @patch('n3tx.core.api.network_ws.config')
-    @patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel})
+    @patch('n3tx_actors.api.network_ws.config')
+    @patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel})
     def test_translate_incoming_schema_from_classname(self, mock_config):
         """Target=ClassName should resolve to schema request on tablename."""
         mock_config.API_URL = 'http://localhost:5000'
@@ -142,8 +142,8 @@ class TestTranslateIncoming:
         assert tx.target == 'products'
         assert tx.source == 'ws'
 
-    @patch('n3tx.core.api.network_ws.config')
-    @patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel})
+    @patch('n3tx_actors.api.network_ws.config')
+    @patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel})
     def test_translate_incoming_list_from_tablename(self, mock_config):
         """Target=tablename with READ should become 'list'."""
         mock_config.API_URL = 'http://localhost:5000'
@@ -160,8 +160,8 @@ class TestTranslateIncoming:
         assert tx.target == 'products'
         assert tx.data.get('limit') == 20
 
-    @patch('n3tx.core.api.network_ws.config')
-    @patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel})
+    @patch('n3tx_actors.api.network_ws.config')
+    @patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel})
     def test_translate_incoming_get_with_id_in_path(self, mock_config):
         """Target=tablename/42 with READ should become 'get' with id=42."""
         mock_config.API_URL = 'http://localhost:5000'
@@ -178,8 +178,8 @@ class TestTranslateIncoming:
         assert tx.target == 'products'
         assert tx.data.get('id') == 42
 
-    @patch('n3tx.core.api.network_ws.config')
-    @patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel})
+    @patch('n3tx_actors.api.network_ws.config')
+    @patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel})
     def test_translate_incoming_create(self, mock_config):
         mock_config.API_URL = 'http://localhost:5000'
         ws = self._make_ws()
@@ -195,8 +195,8 @@ class TestTranslateIncoming:
         assert tx.target == 'products'
         assert tx.data['name'] == 'Widget'
 
-    @patch('n3tx.core.api.network_ws.config')
-    @patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel})
+    @patch('n3tx_actors.api.network_ws.config')
+    @patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel})
     def test_translate_incoming_update_with_id(self, mock_config):
         mock_config.API_URL = 'http://localhost:5000'
         ws = self._make_ws()
@@ -213,8 +213,8 @@ class TestTranslateIncoming:
         assert tx.data['id'] == 5
         assert tx.data['name'] == 'Updated'
 
-    @patch('n3tx.core.api.network_ws.config')
-    @patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel})
+    @patch('n3tx_actors.api.network_ws.config')
+    @patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel})
     def test_translate_incoming_delete_with_id(self, mock_config):
         mock_config.API_URL = 'http://localhost:5000'
         ws = self._make_ws()
@@ -230,8 +230,8 @@ class TestTranslateIncoming:
         assert tx.target == 'products'
         assert tx.data['id'] == 10
 
-    @patch('n3tx.core.api.network_ws.config')
-    @patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel})
+    @patch('n3tx_actors.api.network_ws.config')
+    @patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel})
     def test_translate_incoming_strips_api_url(self, mock_config):
         """Should strip the API URL prefix from target."""
         mock_config.API_URL = 'http://localhost:5000'
@@ -246,8 +246,8 @@ class TestTranslateIncoming:
         tx = ws._translate_incoming(msg, {})
         assert tx.target == 'products'
 
-    @patch('n3tx.core.api.network_ws.config')
-    @patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel})
+    @patch('n3tx_actors.api.network_ws.config')
+    @patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel})
     def test_translate_incoming_custom_method(self, mock_config):
         """Non-CRUD names should pass through as lowercase."""
         mock_config.API_URL = 'http://localhost:5000'
@@ -263,8 +263,8 @@ class TestTranslateIncoming:
         assert tx.name == 'favorite'
         assert tx.data['id'] == 3
 
-    @patch('n3tx.core.api.network_ws.config')
-    @patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel})
+    @patch('n3tx_actors.api.network_ws.config')
+    @patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel})
     def test_translate_incoming_preserves_meta(self, mock_config):
         """Frontend meta fields should carry through."""
         mock_config.API_URL = 'http://localhost:5000'
@@ -454,8 +454,8 @@ class TestHandleMessage:
             return tx.reply(data=schema_data)
 
         with mock_method(ws, 'request', mock_request), \
-             patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel}), \
-             patch('n3tx.core.api.network_ws.config') as mock_config:
+             patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel}), \
+             patch('n3tx_actors.api.network_ws.config') as mock_config:
             mock_config.API_URL = 'http://localhost:5000'
             result = await ws.handle_message('test', {
                 'name': 'SCHEMA',
@@ -513,7 +513,7 @@ class TestIntegrationWebSocket:
         from fastapi.testclient import TestClient
         client = TestClient(app)
 
-        with patch('n3tx.core.api.network_ws.decode_token',
+        with patch('n3tx_actors.api.network_ws.decode_token',
                    return_value={'user_id': 1, 'email': 'test@example.com'}):
             with client.websocket_connect('/ws?token=valid_jwt') as websocket:
                 websocket.send_json({'heartbeat': True})
@@ -553,8 +553,8 @@ class TestIntegrationWebSocket:
         client = TestClient(app)
 
         with mock_method(ws, 'request', mock_request), \
-             patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel}), \
-             patch('n3tx.core.api.network_ws.config') as mock_config:
+             patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel}), \
+             patch('n3tx_actors.api.network_ws.config') as mock_config:
             mock_config.API_URL = 'http://localhost:5000'
 
             with client.websocket_connect('/ws') as websocket:
@@ -590,8 +590,8 @@ class TestIntegrationWebSocket:
         client = TestClient(app)
 
         with mock_method(ws, 'request', mock_request), \
-             patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel}), \
-             patch('n3tx.core.api.network_ws.config') as mock_config:
+             patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel}), \
+             patch('n3tx_actors.api.network_ws.config') as mock_config:
             mock_config.API_URL = 'http://localhost:5000'
 
             with client.websocket_connect('/ws') as websocket:
@@ -627,8 +627,8 @@ class TestIntegrationWebSocket:
         client = TestClient(app)
 
         with mock_method(ws, 'request', mock_request), \
-             patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel}), \
-             patch('n3tx.core.api.network_ws.config') as mock_config:
+             patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel}), \
+             patch('n3tx_actors.api.network_ws.config') as mock_config:
             mock_config.API_URL = 'http://localhost:5000'
 
             with client.websocket_connect('/ws') as websocket:
@@ -663,8 +663,8 @@ class TestIntegrationWebSocket:
         client = TestClient(app)
 
         with mock_method(ws, 'request', mock_request), \
-             patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel}), \
-             patch('n3tx.core.api.network_ws.config') as mock_config:
+             patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel}), \
+             patch('n3tx_actors.api.network_ws.config') as mock_config:
             mock_config.API_URL = 'http://localhost:5000'
 
             with client.websocket_connect('/ws') as websocket:
@@ -699,8 +699,8 @@ class TestIntegrationWebSocket:
         client = TestClient(app)
 
         with mock_method(ws, 'request', mock_request), \
-             patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel}), \
-             patch('n3tx.core.api.network_ws.config') as mock_config:
+             patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel}), \
+             patch('n3tx_actors.api.network_ws.config') as mock_config:
             mock_config.API_URL = 'http://localhost:5000'
 
             with client.websocket_connect('/ws') as websocket:
@@ -736,8 +736,8 @@ class TestIntegrationWebSocket:
         client = TestClient(app)
 
         with mock_method(ws, 'request', mock_request), \
-             patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel}), \
-             patch('n3tx.core.api.network_ws.config') as mock_config:
+             patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel}), \
+             patch('n3tx_actors.api.network_ws.config') as mock_config:
             mock_config.API_URL = 'http://localhost:5000'
 
             with client.websocket_connect('/ws') as websocket:
@@ -768,8 +768,8 @@ class TestIntegrationWebSocket:
         client = TestClient(app)
 
         with mock_method(ws, 'request', mock_request), \
-             patch('n3tx.core.api.network_ws.registered_models', {'products': MockModel}), \
-             patch('n3tx.core.api.network_ws.config') as mock_config:
+             patch('n3tx_actors.api.network_ws.registered_models', {'products': MockModel}), \
+             patch('n3tx_actors.api.network_ws.config') as mock_config:
             mock_config.API_URL = 'http://localhost:5000'
 
             with client.websocket_connect('/ws') as websocket:

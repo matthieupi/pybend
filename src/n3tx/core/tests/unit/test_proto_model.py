@@ -8,11 +8,11 @@ from typing import ClassVar, Optional
 
 from pydantic import Field, BaseModel
 
-from n3tx.core import config
-from n3tx.core.models.proto_model import ProtoModel, _apply_field_exclusion, _AUTO_HIDE_FIELDS, generate_join_model
-from n3tx.core.models.storable_mixin import StorableMixin
-from n3tx.core.utils.typer import Ref
-from n3tx.core.models.ref import ListRef
+from n3tx_core import config
+from n3tx_core.models.proto_model import ProtoModel, _apply_field_exclusion, _AUTO_HIDE_FIELDS, generate_join_model
+from n3tx_core.models.storable_mixin import StorableMixin
+from n3tx_core.utils.typer import Ref
+from n3tx_core.models.ref import ListRef
 
 pytestmark = pytest.mark.unit
 
@@ -215,7 +215,7 @@ class TestMethodsJsonSignature:
 
     def test_access_rule_in_method(self):
         from utils.decorators import expose_route
-        from n3tx.core.authorize.rules import AUTHENTICATED
+        from n3tx_core.authorize.rules import AUTHENTICATED
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'mj_t5'
             @expose_route('/secure', methods=['POST'], access=AUTHENTICATED)
@@ -299,7 +299,7 @@ class TestSchema:
         assert 'methods' in schema
 
     def test_access_section(self):
-        from n3tx.core.authorize.rules import ANYONE, AUTHENTICATED
+        from n3tx_core.authorize.rules import ANYONE, AUTHENTICATED
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'sc_t7'
             __access__: ClassVar[dict] = {'read': ANYONE, 'create': AUTHENTICATED}

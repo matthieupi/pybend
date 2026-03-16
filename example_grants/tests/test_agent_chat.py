@@ -6,7 +6,7 @@ Uses pydantic-ai's built-in 'test' model string which maps to TestModel.
 import json
 import pytest
 from helpers import auth_header
-from n3tx.core.agents.actor import AgentActor
+from n3tx_agents.actor import AgentActor
 
 pytestmark = pytest.mark.integration
 

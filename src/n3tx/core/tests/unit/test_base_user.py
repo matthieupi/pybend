@@ -25,10 +25,10 @@ import os
 from typing import ClassVar
 from fastapi import HTTPException
 
-from n3tx.core.models.base_user import BaseUser
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.authorize import configure, verify_password, decode_token
-from n3tx.core import config
+from n3tx_core.models.base_user import BaseUser
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.authorize import configure, verify_password, decode_token
+from n3tx_core import config
 
 pytestmark = pytest.mark.unit
 
@@ -72,7 +72,7 @@ def configure_test_auth():
     configure(jwt_secret='test-base-user-secret', jwt_expiry_hours=1)
     yield
     # Restore to default
-    from n3tx.core import config
+    from n3tx_core import config
     configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 

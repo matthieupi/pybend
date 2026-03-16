@@ -6,9 +6,9 @@ from typing import ClassVar
 
 from pydantic import Field, BaseModel
 
-from n3tx.core.storage.sqlite_helpers import get_parent_fk_columns
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.models.ref import ListRef
+from n3tx_core.storage.sqlite_helpers import get_parent_fk_columns
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.ref import ListRef
 
 pytestmark = pytest.mark.unit
 
@@ -27,7 +27,7 @@ class TestGetParentFkColumns:
         Parent.__name__ = 'Parent'
 
         # Patch registered_models to contain our Parent
-        with patch('n3tx.core.storage.sqlite_helpers.registered_models',
+        with patch('n3tx_core.storage.sqlite_helpers.registered_models',
                    {'helpers_parents': Parent}):
             result = get_parent_fk_columns(Child)
             assert len(result) == 1
@@ -37,7 +37,7 @@ class TestGetParentFkColumns:
         class Orphan(BaseModel):
             name: str = ''
 
-        with patch('n3tx.core.storage.sqlite_helpers.registered_models', {}):
+        with patch('n3tx_core.storage.sqlite_helpers.registered_models', {}):
             result = get_parent_fk_columns(Orphan)
             assert result == []
 
@@ -55,7 +55,7 @@ class TestGetParentFkColumns:
             items: ListRef[SharedChild] = Field(default=[])
         ParentB.__name__ = 'ParentB'
 
-        with patch('n3tx.core.storage.sqlite_helpers.registered_models',
+        with patch('n3tx_core.storage.sqlite_helpers.registered_models',
                    {'helpers_pa': ParentA, 'helpers_pb': ParentB}):
             result = get_parent_fk_columns(SharedChild)
             fk_cols = [r[1] for r in result]
@@ -71,7 +71,7 @@ class TestGetParentFkColumns:
             other: str = ''
         Unrelated.__name__ = 'Unrelated'
 
-        with patch('n3tx.core.storage.sqlite_helpers.registered_models',
+        with patch('n3tx_core.storage.sqlite_helpers.registered_models',
                    {'helpers_unrelated': Unrelated}):
             result = get_parent_fk_columns(Child)
             assert result == []

@@ -48,8 +48,8 @@ for name, path in _namespace_shims.items():
         sys.modules[name] = m
 
 import config
-from n3tx.core import config as n3tx_config
-from n3tx.core import authorize
+from n3tx_core import config as n3tx_config
+from n3tx_core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 # Import app to trigger model registration and route setup
@@ -61,10 +61,10 @@ from main import app  # noqa: triggers model registration
 # Debug envelope tests opt-in explicitly.
 n3tx_config.DEBUG = False
 
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.utils.registrar import registered_models, join_models
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.registrar import registered_models, join_models
 from models import Product, Comment, Like, User
-from n3tx.core.authorize import create_token
+from n3tx_core.authorize import create_token
 
 
 def _setup_test_db(db_path):

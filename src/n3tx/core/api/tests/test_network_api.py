@@ -79,18 +79,18 @@ from fastapi import Request, HTTPException
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
-from n3tx.core.api.network_api import (
+from n3tx_actors.api.network_api import (
     NetworkAPI,
     create_api_routes,
     _get_user,
     _response_or_raise,
     _parse_method_args,
 )
-from n3tx.core.actors.tx import TX
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.models.storable_mixin import StorableMixin
-from n3tx.core.utils.decorators import expose_route
+from n3tx_actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_core.models.storable_mixin import StorableMixin
+from n3tx_core.utils.decorators import expose_route
 
 pytestmark = pytest.mark.unit
 

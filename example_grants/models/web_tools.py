@@ -1,9 +1,9 @@
 from __future__ import annotations
 from typing import ClassVar
 
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.authorize import AUTHENTICATED
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.authorize import AUTHENTICATED
 
 
 class WebTools(ActorModel):

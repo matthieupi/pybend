@@ -13,8 +13,8 @@ from typing import ClassVar, Optional
 
 from pydantic import Field
 
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.models.proto_model import ProtoModel
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.models.proto_model import ProtoModel
 
 pytestmark = pytest.mark.unit
 

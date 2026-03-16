@@ -47,7 +47,7 @@ import json
 import pytest
 
 from helpers import auth_header
-from n3tx.core import config as n3tx_config
+from n3tx_core import config as n3tx_config
 
 pytestmark = pytest.mark.integration
 

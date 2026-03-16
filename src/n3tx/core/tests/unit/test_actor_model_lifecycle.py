@@ -12,10 +12,10 @@ from unittest.mock import patch
 
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.utils.descriptors import fullmethod
-from n3tx.core.actors.tx import TX
-from n3tx.core.models.actor_model import ActorModel
+from n3tx_actors.actor import Actor
+from n3tx_core.utils.descriptors import fullmethod
+from n3tx_actors.tx import TX
+from n3tx_actors.models.actor_model import ActorModel
 
 pytestmark = pytest.mark.unit
 
@@ -109,7 +109,7 @@ class TestPublishLifecycleNoSubscribers:
             __tablename__: ClassVar[str] = 'lc_notask'
             name: str = Field(default='')
 
-        with patch('n3tx.core.models.actor_model.asyncio.create_task') as mock_ct:
+        with patch('n3tx_actors.models.actor_model.asyncio.create_task') as mock_ct:
             _M._publish_lifecycle('after_create', {'id': 1})
             assert mock_ct.call_count == 0
 
@@ -127,7 +127,7 @@ class TestPublishLifecycleWithSubscribers:
             _subscribers: ClassVar[list] = ['audit/logger']
             name: str = Field(default='')
 
-        with patch('n3tx.core.models.actor_model.asyncio.create_task') as mock_ct:
+        with patch('n3tx_actors.models.actor_model.asyncio.create_task') as mock_ct:
             _M._publish_lifecycle('after_create', {'id': 1})
             assert mock_ct.call_count == 1
 
@@ -141,7 +141,7 @@ class TestPublishLifecycleWithSubscribers:
             ]
             name: str = Field(default='')
 
-        with patch('n3tx.core.models.actor_model.asyncio.create_task') as mock_ct:
+        with patch('n3tx_actors.models.actor_model.asyncio.create_task') as mock_ct:
             _M._publish_lifecycle('after_update', {'id': 5, 'name': 'updated'})
             assert mock_ct.call_count == 3
 
@@ -169,7 +169,7 @@ class TestPublishLifecycleEvents:
         loop = asyncio.new_event_loop()
         try:
             with patch(
-                'n3tx.core.models.actor_model.asyncio.create_task',
+                'n3tx_actors.models.actor_model.asyncio.create_task',
                 side_effect=lambda coro: loop.run_until_complete(coro),
             ):
                 model_cls._publish_lifecycle(event, entity_data)
@@ -231,7 +231,7 @@ class TestPublishLifecycleTXShape:
 
         loop = asyncio.new_event_loop()
         with patch(
-            'n3tx.core.models.actor_model.asyncio.create_task',
+            'n3tx_actors.models.actor_model.asyncio.create_task',
             side_effect=lambda coro: loop.run_until_complete(coro),
         ):
             _M._publish_lifecycle('after_create', {'id': 1, 'name': 'test'})
@@ -259,7 +259,7 @@ class TestPublishLifecycleTXShape:
 
         loop = asyncio.new_event_loop()
         with patch(
-            'n3tx.core.models.actor_model.asyncio.create_task',
+            'n3tx_actors.models.actor_model.asyncio.create_task',
             side_effect=lambda coro: loop.run_until_complete(coro),
         ):
             _M._publish_lifecycle('after_update', {'id': 5})
@@ -283,7 +283,7 @@ class TestPublishLifecycleTXShape:
 
         loop = asyncio.new_event_loop()
         with patch(
-            'n3tx.core.models.actor_model.asyncio.create_task',
+            'n3tx_actors.models.actor_model.asyncio.create_task',
             side_effect=lambda coro: loop.run_until_complete(coro),
         ):
             _M._publish_lifecycle('after_delete', {'id': 99})
@@ -306,7 +306,7 @@ class TestPublishLifecycleTXShape:
 
         loop = asyncio.new_event_loop()
         with patch(
-            'n3tx.core.models.actor_model.asyncio.create_task',
+            'n3tx_actors.models.actor_model.asyncio.create_task',
             side_effect=lambda coro: loop.run_until_complete(coro),
         ):
             _M._publish_lifecycle('after_create', {'id': 1})
@@ -332,7 +332,7 @@ class TestPublishLifecycleTXShape:
 
         loop = asyncio.new_event_loop()
         with patch(
-            'n3tx.core.models.actor_model.asyncio.create_task',
+            'n3tx_actors.models.actor_model.asyncio.create_task',
             side_effect=lambda coro: loop.run_until_complete(coro),
         ):
             _M._publish_lifecycle('after_create', entity_data)

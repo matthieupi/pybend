@@ -6,13 +6,13 @@ from typing import ClassVar, Dict, Any
 
 from pydantic import Field
 
-from n3tx.core.api.routes_fastapi import (
+from n3tx_core.api.routes_fastapi import import (
     _get_user, _build_context, _serialize, _resolve_user,
     register_route,
 )
-from n3tx.core.authorize.context import AccessContext
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.models.storable_mixin import StorableMixin
+from n3tx_core.authorize.context import AccessContext
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.storable_mixin import StorableMixin
 
 pytestmark = pytest.mark.unit
 
@@ -144,28 +144,28 @@ class TestResolveUser:
 class TestRegisterRoute:
 
     def test_get(self):
-        with patch('n3tx.core.api.routes_fastapi.router') as mock_router:
+        with patch('n3tx_core.api.routes_fastapi.router') as mock_router:
             def handler():
                 pass
             register_route('/test', handler, method='GET')
             mock_router.get.assert_called_once_with('/test')
 
     def test_post(self):
-        with patch('n3tx.core.api.routes_fastapi.router') as mock_router:
+        with patch('n3tx_core.api.routes_fastapi.router') as mock_router:
             def handler():
                 pass
             register_route('/test', handler, method='POST')
             mock_router.post.assert_called_once_with('/test')
 
     def test_put(self):
-        with patch('n3tx.core.api.routes_fastapi.router') as mock_router:
+        with patch('n3tx_core.api.routes_fastapi.router') as mock_router:
             def handler():
                 pass
             register_route('/test', handler, method='PUT')
             mock_router.put.assert_called_once_with('/test')
 
     def test_delete(self):
-        with patch('n3tx.core.api.routes_fastapi.router') as mock_router:
+        with patch('n3tx_core.api.routes_fastapi.router') as mock_router:
             def handler():
                 pass
             register_route('/test', handler, method='DELETE')

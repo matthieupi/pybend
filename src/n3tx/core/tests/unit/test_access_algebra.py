@@ -19,12 +19,12 @@ Properties tested:
 import pytest
 from unittest.mock import MagicMock
 
-from n3tx.core.authorize.rules import (
+from n3tx_core.authorize.rules import (
     ANYONE, NEVER, AUTHENTICATED, OWNER, ROLE, Where,
     Federated, FEDERATED, Local, LOCAL, Follower, FOLLOWER,
     OrRule, AndRule, NotRule,
 )
-from n3tx.core.authorize.context import AccessContext
+from n3tx_core.authorize.context import AccessContext
 
 pytestmark = pytest.mark.unit
 

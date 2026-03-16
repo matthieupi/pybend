@@ -67,9 +67,9 @@ import pytest
 from unittest.mock import MagicMock
 from typing import ClassVar
 
-from n3tx.core.api.auth_interceptor import auth_interceptor, _get_method_access
-from n3tx.core.actors.tx import TX
-from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx_actors.api.auth_interceptor import auth_interceptor, _get_method_access
+from n3tx_actors.tx import TX
+from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 
 pytestmark = pytest.mark.unit
 
@@ -310,7 +310,7 @@ class TestSQLFilterInjection:
     async def test_list_sql_filter_with_compound_and_rule(self, user_dict):
         model = MagicMock()
         model.__name__ = 'AndModel'
-        from n3tx.core.authorize import Where
+        from n3tx_core.authorize import Where
         model.__access__ = {'read': AUTHENTICATED & Where(status='published')}
         tx = TX(name='list', source='api', target='andmodel',
                 meta={'model_cls': model, 'user': user_dict})

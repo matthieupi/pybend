@@ -1,7 +1,7 @@
 """Tests for utils/populate.py — PopulateSpec and parse_populate."""
 
 import pytest
-from n3tx.core.utils.populate import PopulateSpec, parse_populate, DEFAULT_CHILD_LIMIT
+from n3tx_core.utils.populate import PopulateSpec, parse_populate, DEFAULT_CHILD_LIMIT
 
 pytestmark = pytest.mark.unit
 

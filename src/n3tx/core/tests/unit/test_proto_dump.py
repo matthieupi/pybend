@@ -7,8 +7,8 @@ and utility functions.  Mirrors how test_schema_ext.py tests proto_schema.py.
 
 import pytest
 
-import n3tx.core.models.proto_dump as proto_dump
-from n3tx.core.models.proto_dump import (
+import n3tx_core.models.proto_dump as proto_dump
+from n3tx_core.models.proto_dump import (
     register_stage,
     dump_extension,
     run_pipeline,

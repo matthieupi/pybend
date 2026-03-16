@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import MagicMock
 from dataclasses import FrozenInstanceError
 
-from n3tx.core.authorize.context import AccessContext
+from n3tx_core.authorize.context import AccessContext
 
 pytestmark = pytest.mark.unit
 

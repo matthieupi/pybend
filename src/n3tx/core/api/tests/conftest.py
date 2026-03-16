@@ -3,8 +3,8 @@
 import pytest
 from contextlib import contextmanager
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
 
 
 @contextmanager

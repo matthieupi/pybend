@@ -16,11 +16,11 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.actors.tx import TX
-from n3tx.core.actors.actor import Actor
-from n3tx.core.utils.descriptors import fullmethod
-from n3tx.core.actors.matrix import Matrix
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_core.utils.descriptors import fullmethod
+from n3tx_actors.matrix import Matrix
 
 pytestmark = pytest.mark.unit
 

@@ -36,7 +36,7 @@ def _use_test_model():
     Product.__agent__ = True (bool), so LLM comes from AGENT_DEFAULTS.
     """
     from pydantic_ai.models.test import TestModel
-    from n3tx.core import config
+    from n3tx_core import config
 
     original = config.AGENT_DEFAULTS.copy()
     config.AGENT_DEFAULTS['llm'] = TestModel(call_tools=[])

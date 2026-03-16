@@ -11,13 +11,13 @@ from typing import ClassVar, Optional
 
 from pydantic import Field
 
-from n3tx.core import config
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.utils.typer import Ref
-from n3tx.core.models.ref import ListRef
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE
-import n3tx.core.models.proto_schema as proto_schema
+from n3tx_core import config
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.utils.typer import Ref
+from n3tx_core.models.ref import ListRef
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE
+import n3tx_core.models.proto_schema as proto_schema
 
 pytestmark = pytest.mark.unit
 

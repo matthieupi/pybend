@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from typing import ClassVar
 
-from n3tx.core.api.backend import BaseBackend, FastAPIBackend
+from n3tx_core.api.backend import BaseBackend, FastAPIBackend
 
 pytestmark = pytest.mark.unit
 

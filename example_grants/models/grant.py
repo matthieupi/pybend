@@ -2,9 +2,9 @@ from __future__ import annotations
 from typing import ClassVar, Literal, Optional
 from pydantic import Field
 
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
-from n3tx.core.widgets import UrlField, DateField, CurrencyField, TextareaField
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx_core.widgets import UrlField, DateField, CurrencyField, TextareaField
 from models.user import User
 
 

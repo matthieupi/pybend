@@ -2,7 +2,7 @@
 
 Re-exports the public API so consumers can write::
 
-    from n3tx.core.widgets import Widget, MarkdownField, UrlField, ...
+    from n3tx_core.widgets import Widget, MarkdownField, UrlField, ...
 """
 
 from .widget import (

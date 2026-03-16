@@ -12,11 +12,11 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import config
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.utils.registrar import register_model
-from n3tx.core.models.proto_model import generate_join_model
-from n3tx.core.agents.actor import AgentActor
-from n3tx.core.agents.tool_model import AgentTool
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.registrar import register_model
+from n3tx_core.models.proto_model import generate_join_model
+from n3tx_agents.actor import AgentActor
+from n3tx_agents.tool_model import AgentTool
 from models import User, Grant, Source, WebTools
 
 logger = logging.getLogger('n3tx.seed')

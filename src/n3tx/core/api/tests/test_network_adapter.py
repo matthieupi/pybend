@@ -55,10 +55,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic import PrivateAttr
 
-from n3tx.core.api.network_adapter import NetworkAdapter
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.actors.tx import TX
+from n3tx_actors.api.network_adapter import NetworkAdapter
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.tx import TX
 
 pytestmark = pytest.mark.unit
 
@@ -551,7 +551,7 @@ class TestNetworkAdapterStateManagement:
 
         # This will overwrite the pending entry
         with mock_method(adapter, 'send', capture_send):
-            with patch('n3tx.core.actors.tx.uuid4') as mock_uuid4:
+            with patch('n3tx_actors.tx.uuid4') as mock_uuid4:
                 mock_uuid4.return_value.hex.__getitem__ = lambda s, key: test_uuid
                 tx = TX(name='DUP', source='adapter', target='products')
 

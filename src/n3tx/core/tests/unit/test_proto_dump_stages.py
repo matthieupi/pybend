@@ -8,9 +8,9 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from n3tx.core import config
-from n3tx.core.models.proto_model import ProtoModel
-import n3tx.core.models.proto_dump as proto_dump
+from n3tx_core import config
+from n3tx_core.models.proto_model import ProtoModel
+import n3tx_core.models.proto_dump as proto_dump
 
 pytestmark = pytest.mark.unit
 

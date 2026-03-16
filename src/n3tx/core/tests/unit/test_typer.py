@@ -5,7 +5,7 @@ from typing import Annotated, get_args
 
 from pydantic import BaseModel, Field
 
-from n3tx.core.utils.typer import Ref, flatten_refs, _SelfRefMarker
+from n3tx_core.utils.typer import Ref, flatten_refs, _SelfRefMarker
 
 pytestmark = pytest.mark.unit
 

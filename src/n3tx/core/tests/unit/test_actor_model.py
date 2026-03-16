@@ -9,12 +9,12 @@ from typing import ClassVar
 
 from pydantic import BaseModel as PydanticBaseModel, Field
 
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.actors.actor import Actor
-from n3tx.core.utils.descriptors import fullmethod, fullproperty
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.models.storable_mixin import StorableMixin
-from n3tx.core import config
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_actors.actor import Actor
+from n3tx_core.utils.descriptors import fullmethod, fullproperty
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.storable_mixin import StorableMixin
+from n3tx_core import config
 
 pytestmark = pytest.mark.unit
 

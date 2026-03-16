@@ -7,7 +7,7 @@ in a debug envelope. The widget must extract the answer correctly.
 import json
 import pytest
 from helpers import auth_header
-from n3tx.core.agents.actor import AgentActor
+from n3tx_agents.actor import AgentActor
 
 pytestmark = pytest.mark.integration
 

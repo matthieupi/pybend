@@ -13,16 +13,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import Field
 
-from n3tx.core import config
-from n3tx.core.actors.actor import Actor
-from n3tx.core.utils.descriptors import fullmethod, fullproperty
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.actors.tx import TX
-from n3tx.core.models.actor_model import ActorModel, _NOT_HANDLED, _CRUD_OPS
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.models.storable_mixin import StorableMixin
-import n3tx.core.models.proto_dump as proto_dump
-import n3tx.core.models.proto_schema as proto_schema
+from n3tx_core import config
+from n3tx_actors.actor import Actor
+from n3tx_core.utils.descriptors import fullmethod, fullproperty
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.tx import TX
+from n3tx_actors.models.actor_model import ActorModel, _NOT_HANDLED, _CRUD_OPS
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.storable_mixin import StorableMixin
+import n3tx_core.models.proto_dump as proto_dump
+import n3tx_core.models.proto_schema as proto_schema
 
 pytestmark = pytest.mark.unit
 
@@ -521,7 +521,7 @@ class TestActorModelSchema:
         assert schema['$id'] == f'{config.API_URL}/M'
 
     def test_schema_with_ui_and_access(self):
-        from n3tx.core.authorize.rules import ANYONE, AUTHENTICATED
+        from n3tx_core.authorize.rules import ANYONE, AUTHENTICATED
 
         class M(ActorModel, auto_register=False):
             __tablename__: ClassVar[str] = 'schema_full'
@@ -542,7 +542,7 @@ class TestActorModelSchema:
         assert schema['ui']['field_order'] == ['name']
 
     def test_schema_with_exposed_method(self):
-        from n3tx.core.utils.decorators import expose_route
+        from n3tx_core.utils.decorators import expose_route
 
         class M(ActorModel, auto_register=False):
             __tablename__: ClassVar[str] = 'schema_method'
@@ -566,21 +566,21 @@ class TestBaseUserRegisterEndpoint:
     """Rename from register to register_user didn't break @expose_route."""
 
     def test_register_user_has_endpoint(self):
-        from n3tx.core.models.base_user import BaseUser
+        from n3tx_core.models.base_user import BaseUser
         assert hasattr(BaseUser.register_user, '__endpoint__')
 
     def test_register_user_endpoint_is_dict(self):
-        from n3tx.core.models.base_user import BaseUser
+        from n3tx_core.models.base_user import BaseUser
         endpoint = BaseUser.register_user.__endpoint__
         assert isinstance(endpoint, dict)
 
     def test_register_user_has_route(self):
-        from n3tx.core.models.base_user import BaseUser
+        from n3tx_core.models.base_user import BaseUser
         endpoint = BaseUser.register_user.__endpoint__
         assert 'route' in endpoint
 
     def test_register_user_has_methods(self):
-        from n3tx.core.models.base_user import BaseUser
+        from n3tx_core.models.base_user import BaseUser
         endpoint = BaseUser.register_user.__endpoint__
         assert 'methods' in endpoint
         assert 'POST' in endpoint['methods']
@@ -594,12 +594,12 @@ class TestBaseUserRegisterRoute:
     """The rename preserved the '/register' route."""
 
     def test_route_is_register(self):
-        from n3tx.core.models.base_user import BaseUser
+        from n3tx_core.models.base_user import BaseUser
         endpoint = BaseUser.register_user.__endpoint__
         assert endpoint['route'] == '/register'
 
     def test_login_route_unchanged(self):
-        from n3tx.core.models.base_user import BaseUser
+        from n3tx_core.models.base_user import BaseUser
         assert hasattr(BaseUser.login, '__endpoint__')
         assert BaseUser.login.__endpoint__['route'] == '/login'
 

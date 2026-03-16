@@ -53,8 +53,8 @@ import inspect
 import json
 import pytest
 
-from n3tx.core import config
-from n3tx.core.utils.decorators import expose_route
+from n3tx_core import config
+from n3tx_core.utils.decorators import expose_route
 
 pytestmark = pytest.mark.unit
 
@@ -480,7 +480,7 @@ class TestMetadataPreservation:
                act.__endpoint__['methods'] == ['GET', 'POST']
 
     def test_endpoint_metadata_access_preserved(self):
-        from n3tx.core.authorize.rules import AUTHENTICATED
+        from n3tx_core.authorize.rules import AUTHENTICATED
         @expose_route('/secure', access=AUTHENTICATED)
         def secure(self):
             pass

@@ -10,9 +10,9 @@ from typing import ClassVar, Dict, List, Any, Optional
 
 from pydantic import BaseModel, Field
 
-from n3tx.core.storage.sqlite_storage import SQLiteStorage, _coerce_value, _deserialize_json_fields
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.utils.introspection import get_json_fields
+from n3tx_core.storage.sqlite_storage import SQLiteStorage, _coerce_value, _deserialize_json_fields
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.utils.introspection import get_json_fields
 
 pytestmark = pytest.mark.unit
 

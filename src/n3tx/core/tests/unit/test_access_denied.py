@@ -1,7 +1,7 @@
 """Tests for authorize/errors.py — AccessDenied exception."""
 
 import pytest
-from n3tx.core.authorize.errors import AccessDenied
+from n3tx_core.authorize.errors import AccessDenied
 
 pytestmark = pytest.mark.unit
 

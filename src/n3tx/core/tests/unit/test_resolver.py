@@ -3,10 +3,10 @@
 import pytest
 from unittest.mock import MagicMock
 
-from n3tx.core.authorize.resolver import DefaultResolver, AuthorizationResolver
-from n3tx.core.authorize.context import AccessContext
-from n3tx.core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE
-from n3tx.core.authorize.errors import AccessDenied
+from n3tx_core.authorize.resolver import DefaultResolver, AuthorizationResolver
+from n3tx_core.authorize.context import AccessContext
+from n3tx_core.authorize.rules import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx_core.authorize.errors import AccessDenied
 
 pytestmark = pytest.mark.unit
 

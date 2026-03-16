@@ -16,9 +16,9 @@ import pytest
 from typing import ClassVar, Any, Dict, List, Type
 from pydantic import Field
 
-from n3tx.core.storage.json_storage import JSONStorage
-from n3tx.core.storage.abstract_storage import AbstractStorage
-from n3tx.core.models.proto_model import ProtoModel
+from n3tx_core.storage.json_storage import JSONStorage
+from n3tx_core.storage.abstract_storage import AbstractStorage
+from n3tx_core.models.proto_model import ProtoModel
 
 pytestmark = pytest.mark.unit
 

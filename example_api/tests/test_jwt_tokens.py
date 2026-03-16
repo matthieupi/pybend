@@ -17,12 +17,12 @@ class TestCreateToken:
     """authorize.create_token() -- JWT creation."""
 
     def test_create_token_returns_string(self):
-        from n3tx.core.authorize import create_token
+        from n3tx_core.authorize import create_token
         token = create_token(user_id=1, email="test@test.com", role="user")
         assert isinstance(token, str)
 
     def test_create_token_has_required_claims(self):
-        from n3tx.core.authorize import create_token, decode_token
+        from n3tx_core.authorize import create_token, decode_token
         token = create_token(user_id=42, email="claims@test.com", role="admin")
         payload = decode_token(token)
         assert payload["user_id"] == 42
@@ -32,7 +32,7 @@ class TestCreateToken:
         assert "iat" in payload
 
     def test_create_token_uses_hs256(self):
-        from n3tx.core.authorize import create_token
+        from n3tx_core.authorize import create_token
         import config
         token = create_token(user_id=1, email="algo@test.com", role="user")
         # Decode without verification to check header
@@ -44,7 +44,7 @@ class TestDecodeToken:
     """authorize.decode_token() -- JWT validation."""
 
     def test_decode_valid_token(self):
-        from n3tx.core.authorize import create_token, decode_token
+        from n3tx_core.authorize import create_token, decode_token
         token = create_token(user_id=10, email="valid@test.com", role="user")
         payload = decode_token(token)
         assert payload["user_id"] == 10
@@ -60,13 +60,13 @@ class TestDecodeToken:
             "iat": datetime.now(timezone.utc) - timedelta(hours=2),
         }
         token = jwt.encode(expired_payload, config.JWT_SECRET, algorithm="HS256")
-        from n3tx.core.authorize import decode_token
+        from n3tx_core.authorize import decode_token
         with pytest.raises(jwt.ExpiredSignatureError):
             decode_token(token)
 
     def test_decode_invalid_signature_raises(self):
         token = jwt.encode({"user_id": 1}, "wrong-secret", algorithm="HS256")
-        from n3tx.core.authorize import decode_token
+        from n3tx_core.authorize import decode_token
         with pytest.raises(jwt.InvalidSignatureError):
             decode_token(token)
 
@@ -125,23 +125,23 @@ class TestPasswordHashing:
     """authorize.hash_password() / verify_password()."""
 
     def test_hash_password_returns_bcrypt_string(self):
-        from n3tx.core.authorize import hash_password
+        from n3tx_core.authorize import hash_password
         hashed = hash_password("testpassword")
         assert isinstance(hashed, str)
         assert hashed.startswith("$2")
 
     def test_verify_password_correct(self):
-        from n3tx.core.authorize import hash_password, verify_password
+        from n3tx_core.authorize import hash_password, verify_password
         hashed = hash_password("mypass123")
         assert verify_password("mypass123", hashed) is True
 
     def test_verify_password_incorrect(self):
-        from n3tx.core.authorize import hash_password, verify_password
+        from n3tx_core.authorize import hash_password, verify_password
         hashed = hash_password("correct")
         assert verify_password("wrong", hashed) is False
 
     def test_hash_is_unique_per_call(self):
-        from n3tx.core.authorize import hash_password
+        from n3tx_core.authorize import hash_password
         h1 = hash_password("same")
         h2 = hash_password("same")
         # bcrypt generates unique salts
