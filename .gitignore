@@ -5,6 +5,7 @@ __pycache__/
 pybend.egg-info/
 src/pybend.egg-info/
 *.egg-info/
+build/
 dist/
 *.db
 .env
@@ -14,3 +15,4 @@ node_modules/
 *.db-wal
 .coverage
 .planning/intel/
+test-results/

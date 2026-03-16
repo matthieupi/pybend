@@ -29,7 +29,11 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(gh repo view matthieupi/pyrofunc --json description,name,url 2>/dev/null; echo \"---\"; gh api repos/matthieupi/pyrofunc/contents 2>/dev/null | python3 -c \"import sys,json; [print\\(f['name'], f['type']\\) for f in json.load\\(sys.stdin\\)]\" 2>/dev/null || echo \"Trying web...\")",
       "WebFetch(domain:magentic.dev)",
-      "WebFetch(domain:deepwiki.com)"
+      "WebFetch(domain:deepwiki.com)",
+      "Bash(python3 -m pytest example_actor/tests/e2e/test_card_overflow.py -v --tb=short 2>&1 | tail -15)",
+      "Bash(python3 -m pytest packages/n3tx-actors/src/n3tx_actors/tests/test_auth_interceptor.py packages/n3tx-actors/src/n3tx_actors/tests/test_actormodel_auth.py -v --tb=short 2>&1 | tail -20)",
+      "Bash(done)",
+      "Bash(for pkg in packages/*/; do echo \"--- $\\(basename $pkg\\) ---\"; cat \"$pkg/pyproject.toml\" | python3 -c \"import sys,tomllib; d=tomllib.loads\\(sys.stdin.read\\(\\)\\); print\\('  deps:', d.get\\('project',{}\\).get\\('dependencies',[]\\)\\); print\\('  optional:', list\\(d.get\\('project',{}\\).get\\('optional-dependencies',{}\\).keys\\(\\)\\)\\)\"; done)"
     ]
   },
   "enableAllProjectMcpServers": true,
