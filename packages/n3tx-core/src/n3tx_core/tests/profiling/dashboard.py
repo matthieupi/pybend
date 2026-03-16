@@ -100,7 +100,7 @@ async def get_frontend_run(label: str):
 @app.get('/api/compare')
 async def compare_runs(a: str = Query(...), b: str = Query(...)):
     """Compare two runs by label. Returns structured comparison data."""
-    from n3tx.core.tests.profiling.compare import compare_json
+    from n3tx_core.tests.profiling.compare import compare_json
     file_a = PROFILING_DIR / f'api_perf_{a}.json'
     file_b = PROFILING_DIR / f'api_perf_{b}.json'
     if not file_a.exists():

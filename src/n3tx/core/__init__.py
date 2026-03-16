@@ -1,15 +1,2 @@
-import logging
-logging.getLogger('n3tx').addHandler(logging.NullHandler())
-
-from .models.proto_model import ProtoModel, generate_join_model
-from .models.storable_mixin import StorableMixin
-from .models.viewable_mixin import ViewableMixin
-from .models.base_user import BaseUser
-from .models.ref import ListRef
-from .utils.typer import Ref
-from .storage.abstract_storage import AbstractStorage
-from .storage.json_storage import JSONStorage
-from .storage.sqlite_storage import SQLiteStorage
-from .api.backend import FastAPIBackend
-from .utils.decorators import expose_route
-from .utils.registrar import register_model, registered_models
+"""Legacy location — use n3tx_core directly."""
+from n3tx_core import *  # noqa: F401,F403

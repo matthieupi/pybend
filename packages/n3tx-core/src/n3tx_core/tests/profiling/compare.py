@@ -9,7 +9,7 @@ import json
 import sys
 from pathlib import Path
 
-from n3tx.core.tests.profiling.seed_perf import tier_record_count
+from n3tx_core.tests.profiling.seed_perf import tier_record_count
 
 PROFILING_DIR = Path('.traces/.profiling')
 

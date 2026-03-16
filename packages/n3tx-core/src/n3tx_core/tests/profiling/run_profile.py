@@ -18,7 +18,7 @@ from pathlib import Path
 
 import requests
 
-from n3tx.core.tests.profiling.seed_perf import tier_record_count
+from n3tx_core.tests.profiling.seed_perf import tier_record_count
 
 WORKSPACE = Path(__file__).resolve().parents[5]
 EXAMPLE_DIR = WORKSPACE / 'src' / 'n3tx' / 'example'

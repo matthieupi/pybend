@@ -1,43 +1,23 @@
-"""N3TX -- Schema-driven full-stack framework for Python."""
+"""N3TX -- Schema-driven full-stack framework for Python.
 
-from .core.models.proto_model import ProtoModel, generate_join_model
-from .core.models.storable_mixin import StorableMixin
-from .core.models.viewable_mixin import ViewableMixin
-from .core.models.base_user import BaseUser
-from .core.models.ref import ListRef
-from .core.utils.decorators import expose_route
-from .core.utils.erroring import MethodError
-from .core.utils.registrar import register_model, registered_models
-from .core.utils.typer import Ref
-from .core.storage.sqlite_storage import SQLiteStorage
-from .core.storage.json_storage import JSONStorage
-from .core.storage.abstract_storage import AbstractStorage
-from .core.api.backend import FastAPIBackend
-from .core.app import create_app, N3TXApp
-from .core.models.proto_schema import schema_extension
-from .core.actors import Actor, Matrix, TX, matrix
-from .core.api.network_adapter import NetworkAdapter
-from .core.api.network_api import NetworkAPI
-from .core.api.network_ws import NetworkWebSocket, create_ws_routes
-from .core.agents import AgentMixin, AgentActor
-from .core.widgets import (
-    Widget, UrlField, EmailField, DateField, DateTimeField,
-    MarkdownField, ConsoleField, ReferenceField, CurrencyField, TextareaField,
-)
+This is the legacy package location. The framework has been split into:
+    - n3tx-core: Models, storage, API, auth, utils
+    - n3tx-actors: Actor system, network adapters
+    - n3tx-ui: Frontend components and themes
+    - n3tx-agents: LLM-powered agent system
+    - n3tx (meta-package): Re-exports from all packages
 
-__version__ = "0.8.0b"
+Install the meta-package: pip install n3tx
+Or install individual packages: pip install n3tx-core n3tx-actors
+"""
 
-__all__ = [
-    "ProtoModel", "generate_join_model", "StorableMixin", "ViewableMixin",
-    "BaseUser", "ListRef", "Ref", "expose_route", "MethodError",
-    "register_model", "registered_models",
-    "SQLiteStorage", "JSONStorage", "AbstractStorage", "FastAPIBackend",
-    "create_app", "N3TXApp", "schema_extension",
-    "Actor", "Matrix", "TX", "matrix", "NetworkAdapter", "NetworkAPI",
-    "NetworkWebSocket", "create_ws_routes",
-    "AgentMixin", "AgentActor",
-    "Widget", "UrlField", "EmailField", "DateField", "DateTimeField",
-    "MarkdownField", "ConsoleField", "ReferenceField",
-    "CurrencyField", "TextareaField",
-    "__version__",
-]
+# Redirect to new package locations
+from n3tx_core import *  # noqa: F401,F403
+from n3tx_actors import *  # noqa: F401,F403
+
+try:
+    from n3tx_agents import *  # noqa: F401,F403
+except ImportError:
+    pass  # n3tx-agents is optional (requires pydantic-ai)
+
+__version__ = "0.10.0"

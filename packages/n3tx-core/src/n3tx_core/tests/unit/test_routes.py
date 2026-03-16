@@ -6,7 +6,7 @@ from typing import ClassVar, Dict, Any
 
 from pydantic import Field
 
-from n3tx_core.api.routes_fastapi import import (
+from n3tx_core.api.routes_fastapi import (
     _get_user, _build_context, _serialize, _resolve_user,
     register_route,
 )

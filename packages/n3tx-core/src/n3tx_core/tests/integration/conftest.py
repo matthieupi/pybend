@@ -223,7 +223,7 @@ def _seed_favorites(users, products):
 
 def _make_product(client, token, name="Factory Product", price=19.99, **overrides):
     """Create a product via the API and return the response data dict."""
-    from n3tx.core.tests.helpers import auth_header
+    from n3tx_core.tests.helpers import auth_header
     payload = {"name": name, "price": price, **overrides}
     resp = client.post("/products", json=payload, headers=auth_header(token))
     assert resp.status_code == 201, f"Failed to create product: {resp.text}"
@@ -233,7 +233,7 @@ def _make_product(client, token, name="Factory Product", price=19.99, **override
 def _make_comment(client, token, product_id, name="Factory Comment",
                   description="Factory description", **overrides):
     """Create a comment on a product via the API and return the response data dict."""
-    from n3tx.core.tests.helpers import auth_header
+    from n3tx_core.tests.helpers import auth_header
     payload = {"name": name, "description": description, **overrides}
     resp = client.post(f"/products/{product_id}/comments", json=payload,
                        headers=auth_header(token))

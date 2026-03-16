@@ -173,7 +173,7 @@ class TestModelDump:
 class TestMethodsJsonSignature:
 
     def test_exposed_method_present(self):
-        from utils.decorators import expose_route
+        from n3tx_core.utils.decorators import expose_route
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'mj_t1'
             @expose_route('/act', methods=['POST'])
@@ -192,7 +192,7 @@ class TestMethodsJsonSignature:
         assert 'helper' not in methods
 
     def test_self_and_user_filtered(self):
-        from utils.decorators import expose_route
+        from n3tx_core.utils.decorators import expose_route
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'mj_t3'
             @expose_route('/do', methods=['POST'])
@@ -204,7 +204,7 @@ class TestMethodsJsonSignature:
         assert 'data' in methods['do']['parameters']
 
     def test_no_params_method(self):
-        from utils.decorators import expose_route
+        from n3tx_core.utils.decorators import expose_route
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'mj_t4'
             @expose_route('/ping', methods=['POST'])
@@ -214,7 +214,7 @@ class TestMethodsJsonSignature:
         assert methods['ping']['parameters'] == {}
 
     def test_access_rule_in_method(self):
-        from utils.decorators import expose_route
+        from n3tx_core.utils.decorators import expose_route
         from n3tx_core.authorize.rules import AUTHENTICATED
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'mj_t5'
@@ -225,7 +225,7 @@ class TestMethodsJsonSignature:
         assert methods['secure']['access'] == {'rule': 'authenticated'}
 
     def test_multiple_methods(self):
-        from utils.decorators import expose_route
+        from n3tx_core.utils.decorators import expose_route
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'mj_t6'
             @expose_route('/a', methods=['POST'])
@@ -237,7 +237,7 @@ class TestMethodsJsonSignature:
         assert 'b' in methods
 
     def test_return_type(self):
-        from utils.decorators import expose_route
+        from n3tx_core.utils.decorators import expose_route
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'mj_t7'
             @expose_route('/count', methods=['POST'])
@@ -517,7 +517,7 @@ class TestGenerateJoinModel:
 
     def test_join_model_inherits_methods(self):
         """UT-2: Join model inherits exposed methods from ref_model."""
-        from utils.decorators import expose_route
+        from n3tx_core.utils.decorators import expose_route
         class O(ProtoModel):
             __tablename__: ClassVar[str] = 'gj_own10'
             __storable__: ClassVar[bool] = True
