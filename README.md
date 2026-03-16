@@ -1,95 +1,97 @@
-# **N3TX Documentation**
+# 🛠️ N3TX: Define a Model, Get a Full-Stack App
 
-## **Table of Contents**
+Welcome to N3TX! This isn't your typical API framework -- it's a schema-driven powerhouse where **one Python model** gives you a working API, a database, forms, permissions, and a frontend. No boilerplate. No busywork. You define the model, N3TX handles the rest.
 
-1. [Introduction](#introduction)
-2. [Features](#features)
-3. [Installation](#installation)
-4. [Configuration](#configuration)
-5. [Running the Application](#running-the-application)
-6. [Switching API Backends](#switching-api-backends)
-7. [Switching Storage Backends](#switching-storage-backends)
-8. [Model Relationships](#model-relationships)
-9. [API Documentation](#api-documentation)
-10. [Usage Examples](#usage-examples)
-11. [Schema Endpoint Responses](#schema-endpoint-responses)
-12. [Schema-Driven Development](#schema-driven-development)
-13. [Schema-Driven Architecture](#schema-driven-architecture)
-14. [Extending the Application](#extending-the-application)
-15. [Why N3TX?](#why-n3tx)
-16. [Testing](#testing)
+Write a Python class, get CRUD endpoints, a JSON Schema, auth, a UI, and everything in between. Seriously.
 
 ---
 
-## **Introduction**
+## 📚 Table of Contents
 
-N3TX is a modular, extensible backend framework built with Python. It supports both **FastAPI** and **Flask** backends, dynamically switchable at runtime. It enables model-driven CRUD APIs, schema discovery, join model inference, and custom routes via decorators. Storage backends are pluggable with auto-migration support.
-
----
-
-## **Features**
-
-* ✅ FastAPI **and** Flask backend support
-* ⚙️ Adapter architecture to switch between backends
-* 🧠 Model auto-registration with dynamic route generation
-* 🔄 Auto-generated CRUD + custom endpoints using `@expose_route`
-* 🔗 Automatic Join Model Generation for relationships
-* 🧩 ForeignKey support with schema resolution and FK hydration (href arrays)
-* 📃 Integrated OpenAPI (Swagger) docs
-* 🛢️ Pluggable storage backends (SQLite, JSON)
-* 🚀 Schema introspection at runtime via `/ModelName`
-* 🧪 Auto-migrating storage schema (SQLite)
-* 📄 Schema includes full method metadata, UI hints, and $defs resolution
-* 🔐 ABAC (Attribute-Based Access Control) with composable rules (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`)
-* 🔁 Toggle endpoints (like/favorite) with join table lookups
-* 📂 Collection routes for join models (`GET /products/comments`, `GET /products/likes`)
-* 📄 Pagination with `?limit=N&offset=M` on list endpoints
-* ✅ Typed end-to-end using Pydantic v2
-* 🤖 LLM-powered agents via Pydantic AI — dynamic agents as data, any model method can be agentic
-* 🧪 Built-in tests via PyTest + Playwright frontend tests
+1. [Features](#-features)
+2. [Installation](#-installation)
+3. [Quick Start](#-quick-start)
+4. [Package Landscape](#-package-landscape)
+5. [Schema-Driven Development](#-schema-driven-development)
+6. [Schema Architecture](#-schema-architecture)
+7. [Configuration](#-configuration)
+8. [Running the Application](#-running-the-application)
+9. [Model Relationships](#-model-relationships)
+10. [Usage Examples](#-usage-examples)
+11. [Agents](#-agents)
+12. [Re-export Map](#-re-export-map)
+13. [Extending the Application](#-extending-the-application)
+14. [Testing](#-testing)
+15. [Per-Package Documentation](#-per-package-documentation)
+16. [License](#-license)
 
 ---
 
-## **Installation**
+## ⚙️ Features
+
+Here's what you get out of the box -- no assembly required:
+
+- FastAPI and Flask backend support with adapter architecture
+- Model auto-registration with dynamic CRUD + custom endpoint generation via `@expose_route`
+- Automatic join model generation for relationships with FK hydration (href arrays)
+- Integrated OpenAPI (Swagger) docs
+- Pluggable storage backends (SQLite, JSON) with auto-migration
+- Schema introspection at runtime via `GET /ModelName`
+- ABAC access control with composable rules (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`)
+- Toggle endpoints (like/favorite) with join table lookups
+- Collection routes for join models (`GET /products/comments`)
+- Pagination with `?limit=N&offset=M` on list endpoints
+- Typed end-to-end using Pydantic v2
+- Actor/Matrix/TX messaging system with multi-protocol adapters (HTTP, WS, MCP, ActivityPub)
+- LLM-powered agents via Pydantic AI -- dynamic agents as data, any model method can be agentic
+- Streaming SSE endpoints with progressive frontend rendering
+- Schema-driven frontend Web Components (zero frontend code required)
+- Built-in tests via PyTest + Playwright frontend tests
+
+---
+
+## 🚀 Installation
+
+Getting started is quick. Pick your path.
 
 ### Prerequisites
 
-* Python 3.10+
-* Docker (optional)
+- Python 3.10+
+- Docker (optional)
 
-### Install from Source (Development)
+### Install from PyPI
 
-```bash
-git clone https://github.com/<your_repo>.git
-cd <your_repo>
-pip install -e ".[dev]"     # editable install with dev dependencies
-```
-
-### Install from PyPI (when published)
+The simplest route -- one command, full stack:
 
 ```bash
 pip install n3tx
 ```
 
-### Project Structure
+### Install from Source (Development)
 
-```
-src/n3tx/
-    core/           Framework (models, storage, API, auth, actors, app builder)
-    core/agents/    LLM agent system (AgentMixin, AgentActor, tool discovery)
-    example/        Demo application (product catalog with comments/likes)
-    static/         Frontend components (JS/CSS web components)
+If you want to hack on N3TX itself:
+
+```bash
+# Automated (recommended)
+./dev-install.sh
+
+# Or manually (editable installs)
+pip install -e packages/n3tx-core \
+            -e packages/n3tx-actors \
+            -e packages/n3tx-ui \
+            -e packages/n3tx-agents \
+            -e packages/n3tx
 ```
 
 ---
 
-## **Quickstart**
+## ⚡ Quick Start
 
-The fastest way to get a working app:
+Here's your "zero to working app" moment. Define two models, call `create_app`, and you're live:
 
 ```python
-from n3tx import create_app, ProtoModel, expose_route
-from n3tx.core.models.base_user import BaseUser
+from n3tx_core.app import create_app
+from n3tx_meta import ProtoModel, BaseUser, expose_route, ListRef
 from pydantic import Field
 
 class User(BaseUser):
@@ -99,238 +101,86 @@ class User(BaseUser):
 class Product(ProtoModel):
     __tablename__ = 'products'
     __storable__ = True
-    name: str = Field(min_length=1)
+    name: str = Field(min_length=1, max_length=200)
     price: float = Field(gt=0)
 
+    @expose_route('/discount', methods=['POST'])
+    def discount(self, percent: float) -> str:
+        self.price *= (1 - percent / 100)
+        self.save()
+        return f"New price: {self.price}"
+
+# One line: CRUD API + JSON Schema + auth + frontend
 app = create_app(models=[User, Product], storage="sqlite:///app.db")
-
-if __name__ == '__main__':
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
 ```
 
-See `src/n3tx/example/` for a full working application with:
-- Product catalog with comments and likes
-- User authentication (login/register)
-- Schema-driven frontend
+Run with `uvicorn main:app --reload`. Visit `/Product` for the auto-generated JSON Schema, `/products` for data, or `/` for the schema-driven frontend.
 
-## **Configuration**
+That's it. You didn't write a single route, form, or migration. They just exist.
 
-Environment variables or `main.py` can control configuration:
+---
 
-```env
-BACKEND=fastapi
-STORAGE_BACKEND=sqlite
+## 📦 Package Landscape
+
+N3TX is four packages with clean dependency boundaries. Use what you need, ignore what you don't:
+
+```
+n3tx (meta-package) <-- THIS PACKAGE
+  |
+  +-- n3tx-core        Foundation: models, storage, auth, API routes,
+  |                    schema pipeline, JS runtime
+  |
+  +-- n3tx-actors      Actor/Matrix/TX messaging system, ActorModel
+  |   (depends on      bridge, NetworkAdapter (HTTP, WS, MCP, AP)
+  |    n3tx-core)
+  |
+  +-- n3tx-agents      AgentMixin, AgentActor, tool discovery,
+  |   (depends on      LLM integration via pydantic-ai
+  |    n3tx-core,
+  |    n3tx-actors)
+  |
+  +-- n3tx-ui          Frontend Web Components, form generators,
+      (depends on      widgets, themes (served as static assets)
+       n3tx-core)
 ```
 
-You can also configure programmatically:
+### When to use which package
+
+Not sure what you need? This table has you covered:
+
+| Goal | Package | Key exports |
+|------|---------|-------------|
+| Define models, storage, CRUD APIs | `n3tx-core` | `ProtoModel`, `BaseUser`, `SQLiteStorage`, `expose_route`, `create_app` |
+| Add actor messaging and routing | `n3tx-actors` | `Actor`, `Matrix`, `TX`, `ActorProxy`, `ActorModel` |
+| Add LLM-powered agent reasoning | `n3tx-agents` | `AgentMixin`, `AgentActor`, `AgentTool`, `discover_tools` |
+| Serve schema-driven frontend | `n3tx-ui` | Static assets (auto-discovered by the backend) |
+| Get everything at once | `n3tx` | Re-exports all of the above |
+
+### Three bootstrapping levels
+
+You choose how much control you want. All three produce identical API endpoints:
 
 ```python
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.storage.json_storage import JSONStorage
+# Level 1 -- One-liner (ProtoModel + direct routes)
+app = create_app(models=[Product, User], storage="sqlite:///app.db")
 
-storage_backend = SQLiteStorage("database.db")
-# or
-storage_backend = JSONStorage(directory="data")
+# Level 2 -- Builder (chainable configuration)
+from n3tx_core.app import N3TXApp
+pb = N3TXApp(storage="sqlite:///app.db")
+pb.model(Product).model(User).join(Product, Comment)
+app = pb.build()
+
+# Level 3 -- Actor routing (full messaging via Matrix)
+app = create_app(models=[Product], storage="sqlite:///app.db", routing='actor')
 ```
 
-Register your models with `create_app()` (recommended) or manually:
-
-```python
-from n3tx import create_app
-
-# Recommended: one-liner
-app = create_app(
-    models=[User, Product],
-    join_models=[(Product, Comment), (Comment, Like), (Product, Like)],
-    storage="sqlite:///app.db",
-)
-
-# Or manual registration (Level 3):
-from n3tx.core.utils.registrar import register_model
-from n3tx.core.models.proto_model import generate_join_model
-
-register_model(Product, storage=storage_backend)
-register_model(User, storage=storage_backend)
-register_model(generate_join_model(Product, Comment), storage=storage_backend)
-register_model(generate_join_model(Comment, Like), storage=storage_backend)
-register_model(generate_join_model(Product, Like), storage=storage_backend)
-```
+Level 3 adds TX-based messaging and two-tier authorization on top of the same endpoints.
 
 ---
 
-## **Running the Application**
+## 🧠 Schema-Driven Development
 
-```bash
-# Run the example app:
-cd src/n3tx/example && python3 main.py
-
-# Or as a module:
-python3 -m n3tx.example.main
-
-# Or with uvicorn directly:
-uvicorn n3tx.example.main:app --reload
-
-# Or with Docker:
-docker-compose up --build
-```
-
----
-
-## **Switching API Backends**
-
-N3TX uses an adapter pattern. Set in `main.py` or environment:
-
-```python
-BACKEND = "fastapi"  # or "flask"
-```
-
-Routes are automatically registered via `register_routes()`.
-
----
-
-## **Switching Storage Backends**
-
-```python
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.storage.json_storage import JSONStorage
-
-storage_backend = SQLiteStorage("db.sqlite")
-register_model(MyModel, storage=storage_backend)
-```
-
-SQLite includes auto-migration of fields on boot.
-
----
-
-## **Model Relationships**
-
-N3TX provides dynamic join model generation and foreign key resolution between models:
-
-* Use `ForeignKey[Model]` in your fields — injected automatically when `__storable__ = True`.
-* N3TX generates join models via `generate_join_model(Product, Comment)`.
-* Related objects are persisted and filtered via join tables.
-* Foreign keys serialize to primitive types in storage but expose full schemas in OpenAPI.
-
-Example:
-
-```python
-class Product(ProtoModel):
-    __storable__ = True
-    __tablename__ = 'products'
-    comments: List[Comment]
-
-class Comment(ProtoModel):
-    __storable__ = True
-    user_owner: User
-```
-
-Join model:
-
-```python
-register_model(generate_join_model(Product, Comment), storage=backend)
-```
-
----
-
-## **API Documentation**
-
-* FastAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
-* Flask: [http://localhost:8000/apidocs/](http://localhost:8000/apidocs/)
-
----
-
-## **Usage Examples**
-
-### Create a User
-
-```http
-POST /users
-{
-  "name": "Alice",
-  "email": "alice@example.com"
-}
-```
-
-### Login a User
-
-```http
-POST /users/login
-{
-  "email": "alice@example.com"
-}
-```
-
-### List Products
-
-```http
-GET /products/list
-```
-
-### Comment on a Product
-
-```http
-POST /products/1/comment
-{
-  "comment": {"name": "Nice product", "description": "Really liked this!"}
-}
-```
-
-### Toggle Favorite on a Product
-
-```http
-POST /products/1/favorite
-{}
-```
-
-Returns `{"action": "favorited"}` or `{"action": "unfavorited"}`.
-
-### Toggle Like on a Comment
-
-```http
-POST /products/1/comments/3/like
-{}
-```
-
-Returns `{"action": "liked"}` or `{"action": "unliked"}`.
-
-### Reply to a Comment
-
-```http
-POST /products/1/comments/3/reply
-{"text": "I agree, great product!"}
-```
-
-### List All Comments Across Products (Collection Route)
-
-```http
-GET /products/comments
-```
-
----
-
-## **Schema Endpoint Responses**
-
-Each model is introspectable via:
-
-```http
-GET /Product
-GET /Comment
-```
-
-Returns:
-
-* JSON schema
-* Referenced types via `$defs`
-* Custom method metadata (`/comment`, `/login`, etc.)
-
----
-
-## **Schema-Driven Development**
-
-N3TX's core idea: **write a Python model, get a working full-stack application**. The model definition is the only thing a developer writes. Everything else — API, validation, storage, UI, permissions, navigation — is derived from the JSON Schema that model produces.
-
-### The model is the app
+This is the big idea. Your Python model **is** your application. Everything else is derived.
 
 A single model class encodes the entire application concern:
 
@@ -342,8 +192,8 @@ class Product(ProtoModel):
         'field_order': ['name', 'price', 'description', 'comments', 'favorites'],
         'groups': {'main': ['name', 'description', 'price'], 'Social': ['comments', 'favorites']},
         'methods': {
-            'comment': {'layout': 'inline', 'attach_to': 'comments', ...},
-            'favorite': {'layout': 'button', 'icon': 'star', 'count_field': 'favorites', ...},
+            'comment': {'layout': 'inline', 'attach_to': 'comments'},
+            'favorite': {'layout': 'button', 'icon': 'star', 'count_field': 'favorites'},
         },
         'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
     }
@@ -366,17 +216,17 @@ class Product(ProtoModel):
     def comment(self, comment: Comment, user: User = None) -> str: ...
 
     @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
-    def favorite(self, user: User = None) -> str:
-        """Toggle favorite — add if not favorited, remove if already favorited."""
-        ...
+    def favorite(self, user: User = None) -> str: ...
 ```
 
-From this single definition, `ProtoModel.schema()` generates a JSON Schema that carries **everything the frontend needs**: field types, validation rules, UI rendering hints, access control policies, callable methods, and relationship structure.
+From this definition, `ProtoModel.schema()` generates a JSON Schema carrying everything the frontend needs. No glue code. No wiring. It just works.
 
 ### What gets generated automatically
 
-| Concern | Generated from | No code required |
-|---------|---------------|-----------------|
+Here's the fun part -- you wrote one class, and you got all of this for free:
+
+| Concern | Generated from | How |
+|---------|---------------|-----|
 | CRUD API endpoints | `__tablename__`, model fields | Routes auto-registered |
 | JSON Schema | Field types, validators, `json_schema_extra` | Pydantic generates it |
 | DB table + migrations | `__storable__`, field annotations | SQLite auto-migrates |
@@ -387,26 +237,27 @@ From this single definition, `ProtoModel.schema()` generates a JSON Schema that 
 | Form rendering | `properties`, `ui.widget`, `ui.placeholder` | Form generator reads schema |
 | Field ordering + grouping | `ui.field_order`, `ui.groups` | Fieldsets rendered automatically |
 | Edit/delete button visibility | `access.update`, `access.delete` | Permissions checked from schema |
-| Method action buttons | `schema.methods` | `<ntx-method>` renders them (fieldset, inline, or button layout) |
-| Method UI hints | `__ui__.methods` (icon, layout, count_field) | Button-layout methods (like, favorite) render as icon+count pills |
-| Toggle endpoints | `@expose_route` + join table logic | Like/favorite toggle via create/delete on join models |
-| Collection routes | Join model `__tablename__` | `GET /products/comments`, `GET /products/likes` across all parents |
+| Method action buttons | `schema.methods` | `<ntx-method>` renders them |
+| Toggle endpoints | `@expose_route` + join table logic | Like/favorite via join models |
+| Collection routes | Join model `__tablename__` | `GET /products/comments` across all parents |
 | Component tag resolution | `ui.renderer.item`, `ui.renderer.detail` | Router resolves on navigation |
 
 ### The workflow
 
+Your daily loop looks like this:
+
 1. Define or modify a Python model
 2. Restart the server
-3. Open the frontend — it fetches the schema, creates entity classes, renders everything
+3. Open the frontend -- it fetches the schema, creates entity classes, renders everything
 4. No frontend code changed. No routes added. No forms built. No permissions wired.
+
+Add a field? It shows up everywhere. Change permissions? The UI adapts. Add `@expose_route`? A button appears. You stay in Python, the framework handles the rest.
 
 ---
 
-## **Schema-Driven Architecture**
+## 🗺️ Schema Architecture
 
-The JSON Schema served at `GET /{ClassName}` is the **universal contract** between backend and frontend. It carries not just type information but the complete specification of how an entity behaves, renders, and is controlled.
-
-### Schema anatomy
+The JSON Schema served at `GET /{ClassName}` is the universal contract between your backend and frontend. It carries not just types, but the complete specification of how an entity behaves, renders, and is controlled.
 
 ```
 GET /Product -> JSON Schema
@@ -432,6 +283,8 @@ GET /Product -> JSON Schema
 ```
 
 ### How it flows through the stack
+
+Here's the full journey, from Python class to rendered UI:
 
 ```
 1. Model Definition (Python)
@@ -460,138 +313,298 @@ GET /Product -> JSON Schema
    |  Collection fields return href arrays for lazy resolution
 ```
 
-### Why this matters
-
-**Adding a field** to a model automatically adds a DB column, includes it in API responses, generates a form input, and validates on both sides. **Changing `__access__`** propagates to the frontend: the edit button appears or disappears, list queries filter differently. **Adding `@expose_route`** creates an API endpoint and a clickable button in the UI. The schema carries intent, not just structure.
-
 ---
 
-## **Extending the Application**
+## 🔧 Configuration
 
-### Add a New Model
+You can configure N3TX through environment variables or programmatically. Your call.
 
-1. Subclass `ProtoModel`
-2. Set `__storable__ = True` for persistence
-3. Use `@expose_route()` for custom API endpoints
-4. Register with `register_model(...)`
+Environment variables:
 
-### Add Relationships
-
-```python
-register_model(generate_join_model(OwnerModel, SubModel))
+```env
+BACKEND=fastapi
+STORAGE_BACKEND=sqlite
 ```
 
-### Add a Storage Backend
+Programmatic configuration:
 
-1. Implement `AbstractStorage` methods
-2. Inject via `set_storage()`
+```python
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.storage.json_storage import JSONStorage
+
+storage_backend = SQLiteStorage("database.db")
+# or
+storage_backend = JSONStorage(directory="data")
+```
+
+Register models with `create_app()` (recommended) or go manual if you need full control:
+
+```python
+# Recommended: one-liner
+app = create_app(
+    models=[User, Product],
+    join_models=[(Product, Comment), (Comment, Like), (Product, Like)],
+    storage="sqlite:///app.db",
+)
+
+# Or manual registration (Level 3):
+from n3tx_core import register_model, generate_join_model
+
+register_model(Product, storage=storage_backend)
+register_model(User, storage=storage_backend)
+register_model(generate_join_model(Product, Comment), storage=storage_backend)
+```
 
 ---
 
-## **Agents**
+## ▶️ Running the Application
 
-N3TX includes an LLM-powered agent system built on [Pydantic AI](https://ai.pydantic.dev/). The core idea: **every Actor with `@expose_route` methods is a tool collection, and an Agent is an Actor that reasons**.
+Pick your favorite way to start things up:
+
+```bash
+# Run the example app
+cd src/n3tx/example && python3 main.py
+
+# Or as a module
+python3 -m n3tx.example.main
+
+# Or with uvicorn directly
+uvicorn n3tx.example.main:app --reload
+
+# Or with Docker
+docker-compose up --build
+```
+
+API documentation is available at:
+- FastAPI: `http://localhost:5000/docs`
+- Flask: `http://localhost:5000/apidocs/`
+
+---
+
+## 🔗 Model Relationships
+
+N3TX makes relationships between models effortless. Define the link, register the join model, and you're done:
+
+- `ListRef[T]` for collection fields (stored in join tables, serialized as href arrays)
+- `Ref[T]` for single FK fields (stored as int, serialized as href URL)
+- `generate_join_model(Parent, Child)` creates the bridge model automatically
+
+```python
+class Product(ProtoModel):
+    __storable__ = True
+    __tablename__ = 'products'
+    comments: ListRef[Comment] = Field(default=[])
+
+class Comment(ProtoModel):
+    __storable__ = True
+    __tablename__ = 'comments'
+    text: str = Field(min_length=1)
+
+# Register the join model
+register_model(generate_join_model(Product, Comment), storage=backend)
+```
+
+That's it -- `GET /products/1` now returns comments as href arrays, and `GET /products/comments` gives you a collection route across all products.
+
+---
+
+## 📡 Usage Examples
+
+Here's a taste of what your API looks like once models are registered:
+
+```http
+POST /users                              # Create a user
+POST /users/login                        # Login (returns JWT token)
+GET  /products                           # List products (paginated)
+GET  /products/1                         # Get product by ID
+POST /products                           # Create product (auth required)
+POST /products/1/comment                 # Comment on product
+POST /products/1/favorite                # Toggle favorite
+POST /products/1/comments/3/like         # Toggle like on comment
+POST /products/1/comments/3/reply        # Reply to comment
+GET  /products/comments                  # Collection route: all comments across products
+GET  /Product                            # Schema endpoint (no auth)
+```
+
+Toggle endpoints return `{"action": "favorited"}` or `{"action": "unfavorited"}`.
+
+Pagination: `GET /products?limit=20&offset=0` returns `{data: [...], meta: {total, limit, offset, has_more}}`.
+
+---
+
+## 🤖 Agents
+
+N3TX ships with an LLM-powered agent system built on [Pydantic AI](https://ai.pydantic.dev/). The idea is simple: every Actor with `@expose_route` methods is a tool collection, and an Agent is an Actor that reasons.
 
 ### Dynamic Agents (primary path)
 
-Agents are instances of `AgentActor` — configuration is data, not code:
+Agents are instances of `AgentActor` -- configuration is data, not code. Create them in Python, via API, or store them in your database:
 
 ```python
-from n3tx import AgentActor
+from n3tx_agents import AgentActor
 
 scanner = AgentActor(
     name="Grant Scanner",
     prompt="You find government grants...",
-    tools=["grants", "web_tools"],       # actor addresses = tool sets
+    tools=["grants", "web_tools"],
     llm="anthropic:claude-sonnet-4-5-20250929",
     constraints={"max_iterations": 30},
 )
 
-result = await scanner.run(task="Find grants about renewable energy")
+result = await scanner.agentic(task="Find grants about renewable energy")
 ```
 
-Agents can be created via API (`POST /agents`), stored in the database, and triggered via `POST /agents/{id}/run`.
+Agents can be created via API (`POST /agents`), stored in the database, and triggered via `POST /agents/{id}/agentic`.
 
 ### Agentic Model Methods (secondary path)
 
-Any model with `__agent__ = True` gets `agent_run()` injected. Methods can use LLM reasoning internally — callers don't need to know:
+Any model with `__agent__ = True` gains LLM reasoning capabilities. It's one flag and your model can think:
 
 ```python
 class Product(ActorModel):
     __agent__ = True
 
-    @expose_route('/create_from_text', methods=['POST'])
-    async def create_from_text(self, text: str, tools: list = []) -> str:
-        result = await self.agent_run(
-            prompt="Parse freeform text into a Product.",
-            tools=["products"] + tools,
-            task=text,
-        )
-        return result['answer']
+# Class-level: reasons about the schema
+result = await Product.agentic(task='What fields does Product have?')
+
+# Instance-level: reasons about schema + this specific record
+product = Product.get(1)
+result = await product.agentic(task='Is this product priced competitively?')
+
+# Streaming
+async for chunk in product.agentic_stream(task='Describe this product'):
+    print(chunk['data'], end='', flush=True)
 ```
 
-Tool calls route through Matrix as TX messages, preserving auth and interceptors. See [`src/n3tx/core/agents/README.md`](src/n3tx/core/agents/README.md) for full documentation.
+Tool calls route through Matrix as TX messages, preserving auth and interceptors. It's agents all the way down.
 
 ---
 
-## **Why N3TX?**
+## 🗃️ Re-export Map
 
-* 🧠 Self-discoverable data models and APIs
-* 🔗 Schema-driven architecture
-* 🧬 Foreign key resolution + join modeling built-in
-* 🧱 Modular for switching backend/storage
-* 📐 Fully typed runtime behavior with schema traceability
-* 🔍 Frontend-ready API schema via OpenAPI and custom metadata
+The meta-package's `n3tx_meta` module re-exports from all sub-packages via star-import, so you can grab most things from one place:
+
+```python
+from n3tx_core import *      # always
+from n3tx_actors import *    # always
+from n3tx_agents import *    # optional (skipped if pydantic-ai not installed)
+```
+
+### Directly available via `from n3tx_meta import ...`
+
+| Export | Source | Type | Purpose |
+|--------|--------|------|---------|
+| `ProtoModel` | n3tx-core | class | Base model class, schema pipeline, dump pipeline |
+| `BaseUser` | n3tx-core | class | User model with auth (login, register, JWT) |
+| `StorableMixin` | n3tx-core | class | Injected when `__storable__ = True` (save/get/list/delete) |
+| `ViewableMixin` | n3tx-core | class | View count tracking mixin |
+| `ListRef` | n3tx-core | type | FK reference type (`ListRef[Comment]`) |
+| `Ref` | n3tx-core | type | Single FK reference type |
+| `generate_join_model` | n3tx-core | function | Create join table model from parent/child pair |
+| `expose_route` | n3tx-core | decorator | Declare custom API endpoints on models |
+| `register_model` | n3tx-core | function | Register model with storage and route generation |
+| `registered_models` | n3tx-core | dict | Global registry of all registered models |
+| `AbstractStorage` | n3tx-core | class | Storage backend interface |
+| `SQLiteStorage` | n3tx-core | class | SQLite storage with auto-migration |
+| `JSONStorage` | n3tx-core | class | JSON file storage backend |
+| `FastAPIBackend` | n3tx-core | class | FastAPI application wrapper |
+| `TX` | n3tx-actors | dataclass | Message envelope (name, source, target, data, meta) |
+| `Actor` | n3tx-actors | class | Base actor with inbox/handler/send/register/spawn |
+| `Matrix` | n3tx-actors | class | Root actor and message router |
+| `matrix` | n3tx-actors | instance | Module-level Matrix singleton |
+| `ActorProxy` | n3tx-actors | class | Actor interface wrapper (no inheritance required) |
+| `AgentMixin` | n3tx-agents | class | Injected via `__agent__ = True` (ctx/tools/agentic/run) |
+| `AgentActor` | n3tx-agents | class | Concrete agent model (config in DB fields) |
+| `AgentTool` | n3tx-agents | class | Tool registration model |
+| `AgentDeps` | n3tx-agents | dataclass | Dependency injection for pydantic-ai RunContext |
+| `ToolSpec` | n3tx-agents | dataclass | Specification for a discovered tool |
+| `discover_tools` | n3tx-agents | function | Build tool set from actor addresses |
+| `make_tool` | n3tx-agents | function | Create a pydantic-ai tool from a ToolSpec |
+
+### Requires sub-package import
+
+These aren't star-exported, so you'll need to import them from the sub-package directly:
+
+```python
+from n3tx_core.app import create_app, N3TXApp
+from n3tx_core import config
+from n3tx_core import authorize
+from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx_core.widgets import CurrencyField, TextareaField, UrlField, DateField
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_actors.api.network_api import NetworkAPI
+```
 
 ---
 
-## **Testing**
+## 🛠️ Extending the Application
 
-### Framework Unit Tests
+N3TX is built to be extended. Here's how you grow your app.
 
-```bash
-cd src/n3tx/core
-pytest tests/unit/
+### Add a New Model
+
+1. Subclass `ProtoModel` (or `ActorModel` for actor capabilities)
+2. Set `__storable__ = True` for persistence
+3. Use `@expose_route()` for custom API endpoints
+4. Register with `register_model(...)` or pass to `create_app(models=[...])`
+
+### Add Relationships
+
+```python
+register_model(generate_join_model(OwnerModel, SubModel), storage=backend)
 ```
 
-### Integration Tests (Example App)
+### Add a Storage Backend
 
-```bash
-cd src/n3tx/core
-pytest ../example/tests/
-```
-
-### Frontend (Jest)
-
-```bash
-cd src/n3tx/static
-npm test
-```
-
-Tests include:
-
-* CRUD API coverage
-* Schema endpoint behavior
-* Storage backend logic
-* Custom method invocation
-* Authorization and access control
-* Social feature toggle actions (like/favorite)
-* Reply creation with parent_id nesting
-* Collection routes (`/products/comments`, `/products/likes`)
-* Pagination
-* Agent system (mixin injection, tool discovery, agent CRUD, LLM execution)
-* Frontend component unit tests
+1. Implement `AbstractStorage` methods (`create_table`, `create`, `get`, `list`, `update`, `delete`)
+2. Inject via `set_storage()` or pass to `register_model()`
 
 ---
 
-## **License**
+## 🧪 Testing
+
+N3TX comes with a thorough test suite. Run what you need:
+
+```bash
+# Framework unit tests
+cd packages/n3tx-core && python3 -m pytest src/n3tx_core/tests/unit/
+
+# Integration tests (Level 1/2 direct routes)
+python3 -m pytest example_api/tests/
+
+# Integration tests (Level 3 actor routing)
+python3 -m pytest example_actor/tests/
+
+# Integration tests (agents/grants app)
+python3 -m pytest example_grants/tests/
+
+# Frontend tests
+cd src/n3tx/static && npm test
+```
+
+Test coverage includes: CRUD APIs, schema endpoints, storage backends, custom methods, authorization, social features (like/favorite/toggle), pagination, collection routes, agent system (mixin, tool discovery, CRUD, LLM execution), and frontend components.
+
+---
+
+## 📚 Per-Package Documentation
+
+Each sub-package has its own README with API reference, patterns, and deep-dive links:
+
+| Package | README | Focus |
+|---------|--------|-------|
+| n3tx-core | [packages/n3tx-core/README.md](packages/n3tx-core/README.md) | Models, storage, schema pipeline, auth, app bootstrap |
+| n3tx-actors | [packages/n3tx-actors/README.md](packages/n3tx-actors/README.md) | Actor/Matrix/TX, ActorModel, interceptors, network adapters |
+| n3tx-agents | [packages/n3tx-agents/README.md](packages/n3tx-agents/README.md) | AgentMixin, AgentActor, tool discovery, LLM integration |
+| n3tx-ui | [packages/n3tx-ui/README.md](packages/n3tx-ui/README.md) | Web Components, form generators, widgets, themes |
+
+For project-level architecture, conventions, and development workflow, see [CLAUDE.md](CLAUDE.md) at the repository root.
+
+---
+
+## 📜 License
 
 MIT
 
-## **Contact**
-
-* Email: [you@example.com](mailto:you@example.com)
-* GitHub: [yourusername/yourrepository](https://github.com/yourusername/yourrepository)
-
-
 ---
+
+Happy building! 🛠️

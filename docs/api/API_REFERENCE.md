@@ -646,32 +646,46 @@ class Product(ProtoModel):
 
 ## Agents
 
-LLM-powered reasoning via the actor system. See [`src/n3tx/core/agents/README.md`](../core/agents/README.md) for full documentation.
+LLM-powered reasoning via the actor system. See [`packages/n3tx-agents/README.md`](../../../packages/n3tx-agents/README.md) for full documentation.
 
 ### AgentMixin
 
-**Module**: `agents.mixin`
+**Module**: `n3tx_agents.mixin`
 
-Injected into any model with `__agent__ = True` via `ProtoModel.__init_subclass__`.
+Injected into any model with `__agent__ = True` via `ProtoModel.__init_subclass__`. All methods use `@fullmethod` (unified class/instance dispatch).
 
-#### `agent_run(prompt, tools, task, user=None, **kwargs) -> dict`
+#### `agentic(target, task: str, **kwargs) -> dict`
 
-Execute an LLM reasoning loop with Matrix-routed tools.
+Policy layer. Resolves config via 3-tier cascade, creates transient adapter, delegates to `run()`.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `prompt` | `str` | System prompt for the LLM |
-| `tools` | `list[str]` | Actor addresses whose methods become tools |
 | `task` | `str` | The user task / query to execute |
-| `user` | `dict` | JWT user dict for auth context (optional) |
+| `prompt` | `str` | Override system prompt (kwarg) |
+| `tools` | `list[str]` | Override actor addresses (kwarg) |
+| `user` | `dict` | JWT user dict for auth context (kwarg) |
 | `llm` | `str \| Model` | Override LLM model (kwarg) |
 | `constraints` | `dict` | Override constraints (kwarg) |
+| `message_history` | `list` | Previous messages for multi-turn (kwarg) |
+| `result_type` | `type` | Pydantic model for structured output (kwarg) |
 
-**Returns**: `{"answer": str, "usage": {"input_tokens", "output_tokens", "requests"}, "messages": int}`
+**Returns**: `{"answer": str, "usage": {"input_tokens", "output_tokens", "requests"}, "messages": list, "message_count": int}`
+
+#### `run(target, task, prompt, tools, ...) -> dict`
+
+Engine. No config resolution. Receives fully resolved params. Same return shape as `agentic()`.
+
+#### `agentic_stream(target, task, **kwargs)` -> async generator
+
+Streaming policy layer. Same config cascade as `agentic()`. Yields TX-aligned chunks.
+
+#### `run_stream(target, task, prompt, tools, ...)` -> async generator
+
+Streaming engine. Yields `{"name": "text"|"done"|"error", "data": {...}, "meta": {...}}`.
 
 ### AgentActor
 
-**Module**: `agents.actor`
+**Module**: `n3tx_agents.actor`
 
 Concrete `ActorModel` whose instances ARE agents. Configuration lives in fields (DB-storable).
 
@@ -679,13 +693,13 @@ Concrete `ActorModel` whose instances ARE agents. Configuration lives in fields 
 |-------|------|---------|-------------|
 | `name` | `str` | (required) | Human-readable agent name |
 | `prompt` | `str` | `''` | System prompt for the LLM |
-| `tools` | `list` | `[]` | Actor addresses for tool discovery |
+| `tools` | `ListRef[AgentTool]` | `[]` | Tool references via join table |
 | `llm` | `str` | `'ollama:llama3.1'` | Pydantic AI `provider:model` string |
 | `constraints` | `dict` | `{}` | Budget/safety limits |
 
-#### `run(task, **kwargs) -> str`
+#### `agentic(self, task: str, **kwargs) -> str`
 
-Execute the agent's reasoning loop. Exposed as `POST /{tablename}/{id}/run`.
+Execute the agent's reasoning loop. Exposed as `POST /agents/{id}/agentic`. Returns JSON string.
 
 ### AgentDeps
 
@@ -715,7 +729,7 @@ Specification for a single discovered tool.
 
 #### Related Functions
 
-- `discover_tools(actor_addrs, root) -> list[ToolSpec]` — Discover tools from actor addresses
+- `discover_tools(actor_addrs, root, caller_addr=None) -> list[ToolSpec]` — Discover tools from actor addresses
 - `create_tool_function(spec) -> async function` — Create typed async function from ToolSpec
 - `make_tool(spec) -> pydantic_ai.Tool` — Create Pydantic AI Tool wrapper
 

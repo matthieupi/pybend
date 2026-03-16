@@ -360,7 +360,10 @@ LLM-powered agents built on [Pydantic AI](https://ai.pydantic.dev/). N3TX provid
 ```python
 # AgentMixin — injected when __agent__ = True (same pattern as StorableMixin)
 class AgentMixin:
-    async def agent_run(self, prompt, tools, task, user=None, **kwargs) -> dict:
+    # agentic() = policy layer (config cascade, adapter lifecycle)
+    async def agentic(target, task: str, **kwargs) -> dict: ...
+    # run() = engine (explicit params, no config magic)
+    async def run(target, task: str, prompt: str, tools: list, ...) -> dict:
         # 1. Create transient NetworkAdapter for request/response correlation
         # 2. discover_tools(tools, root) — read schemas, build ToolSpecs
         # 3. Create Pydantic AI Agent with generated tool functions
@@ -375,23 +378,23 @@ class AgentActor(ActorModel):
 
     name: str               # Human-readable name
     prompt: str             # System prompt
-    tools: list             # Actor addresses = tool sets
+    tools: ListRef[AgentTool]  # Actor addresses via join table
     llm: str                # Pydantic AI provider:model string
     constraints: dict       # {max_iterations, ...}
 
-    @expose_route('/run', methods=['POST'])
-    async def run(self, task: str, **kwargs) -> str: ...
+    @expose_route('/agentic', methods=['POST'])
+    async def agentic(self, task: str, **kwargs) -> str: ...
 ```
 
 **Two paths, one mechanism**:
 - **Path A**: `AgentActor` instances (dynamic agents — created via API/DB/code)
-- **Path B**: Any model with `__agent__ = True` (agentic methods — `self.agent_run()`)
+- **Path B**: Any model with `__agent__ = True` (agentic methods — `self.agentic()`)
 
 **Tool discovery**: `discover_tools(actor_addrs, root)` reads `schema.methods` from Matrix children. Storable models get CRUD tools (list, get, create, update, delete). All `@expose_route` methods become tools. Tool functions use `exec()` for dynamic typed signatures (same as dataclasses).
 
 **Tool call routing**: Generated tool functions create TX messages and send them through `NetworkAdapter.request()` for Future-based correlation. Error TXs raise `ModelRetry` (Pydantic AI retries the LLM).
 
-**Schema extension**: `@schema_extension(after='methods')` adds `agent: {enabled, run_endpoint}` to JSON Schema output for agent-capable models.
+**Schema extension**: `@schema_extension(after='methods')` adds `agent: {enabled, agentic_endpoint}` to JSON Schema output for agent-capable models.
 
 See [`src/n3tx/core/agents/README.md`](../agents/README.md) for full documentation.
 
@@ -613,7 +616,7 @@ class Scanner(ActorModel):
 
 # After __init_subclass__
 class Scanner(AgentMixin, ActorModel):
-    # Now has .agent_run()
+    # Now has .agentic(), .run(), .ctx(), .tools(), etc.
 ```
 
 **Benefits**:
@@ -906,7 +909,7 @@ Comments support nesting via `parent_id: Ref['self']`. The `reply()` method crea
 12. ~~**Two-Tier Auth**: Protocol-boundary + handler-level authorization~~ — Implemented (v0.8.2)
 13. ~~**Agent System**: LLM-powered agents~~ — Implemented via `AgentMixin` + `AgentActor` (v0.10)
 14. **Agent Traces**: Run history, step log, cost tracking (planned Phase 2)
-15. **Agent Streaming**: Pydantic AI `run_stream()` + SSE (planned Phase 3)
+15. ~~**Agent Streaming**: Pydantic AI `run_stream()` + SSE~~ — Implemented via `agentic_stream()`/`run_stream()` (v0.10)
 
 ## Conclusion
 
