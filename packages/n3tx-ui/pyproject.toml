@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "n3tx-ui"
+version = "0.10.0"
+description = "N3TX UI: Web Components, form generators, widgets, themes."
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Matthieu Pi", email = "qcpi@gmail.com"}]
+dependencies = [
+    "n3tx-core>=0.10.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"n3tx_ui" = ["static/**/*"]
