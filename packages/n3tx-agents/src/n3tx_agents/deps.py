@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from n3tx.core.api.network_adapter import NetworkAdapter
+    from n3tx_actors.api.network_adapter import NetworkAdapter
 
 
 @dataclass

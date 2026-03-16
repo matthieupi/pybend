@@ -4,8 +4,8 @@ from typing import ClassVar, Any, List
 
 from pydantic import BaseModel
 
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.storage.abstract_storage import AbstractStorage as StorageInterface
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.storage.abstract_storage import AbstractStorage as StorageInterface
 
 
 viewables = {} # Global registry for viewable models

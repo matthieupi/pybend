@@ -1,6 +1,6 @@
 from typing import Annotated, List, Union
 
-from n3tx.core.utils.typer import Ref
+from n3tx_core.utils.typer import Ref
 
 
 class _ListRefMarker:

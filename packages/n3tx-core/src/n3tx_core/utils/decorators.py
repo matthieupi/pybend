@@ -5,7 +5,7 @@ import json
 import logging
 from functools import wraps
 
-from n3tx.core import config
+from n3tx_core import config
 
 logger = logging.getLogger('n3tx.debug')
 

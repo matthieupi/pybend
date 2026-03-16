@@ -1,7 +1,7 @@
 # scripts/generate_docs.py
 import logging
 import os
-from n3tx.core.models.proto_model import ProtoModel
+from n3tx_core.models.proto_model import ProtoModel
 from .registrar import registered_models
 from pathlib import Path
 

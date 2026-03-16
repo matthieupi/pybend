@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.actor_proxy import ActorProxy, ActorLike
-from n3tx.core.actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_actors.actor_proxy import ActorProxy, ActorLike
+from n3tx_actors.tx import TX
 from .conftest import make_tx
 
 pytestmark = pytest.mark.unit
@@ -226,7 +226,7 @@ class TestActorProxyInbox:
     async def test_no_parent_no_route_logs_warning(self):
         proxy = ActorProxy("orphan", addr='orphan')
         tx = make_tx(target='elsewhere')
-        with patch('n3tx.core.actors.actor_proxy.logger') as mock_logger:
+        with patch('n3tx_actors.actor_proxy.logger') as mock_logger:
             await proxy.inbox(tx)
             mock_logger.warning.assert_called_once()
 

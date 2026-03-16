@@ -4,8 +4,8 @@ from contextlib import contextmanager
 
 import pytest
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
 
 
 @contextmanager
@@ -60,6 +60,6 @@ def fresh_matrix():
 
 def make_tx(name='TEST', source='client', target='target', data=None, meta=None):
     """Shorthand TX constructor for tests."""
-    from n3tx.core.actors.tx import TX
+    from n3tx_actors.tx import TX
     return TX(name=name, source=source, target=target,
               data=data or {}, meta=meta or {})

@@ -7,13 +7,13 @@ import traceback
 from fastapi import APIRouter, Request, HTTPException, status, Body, Path, Query
 from fastapi.responses import StreamingResponse
 from typing import Dict, Type, Any, List
-from n3tx.core import config
-from n3tx.core.models.storable_mixin import StorableMixin
-from n3tx.core.utils.erroring import get_traceback_info, MethodError
-from n3tx.core.utils.registrar import registered_models, join_models
-from n3tx.core.utils.typer import flatten_refs
-from n3tx.core.utils.populate import parse_populate
-from n3tx.core.authorize import AccessContext, DefaultResolver, AccessDenied
+from n3tx_core import config
+from n3tx_core.models.storable_mixin import StorableMixin
+from n3tx_core.utils.erroring import get_traceback_info, MethodError
+from n3tx_core.utils.registrar import registered_models, join_models
+from n3tx_core.utils.typer import flatten_refs
+from n3tx_core.utils.populate import parse_populate
+from n3tx_core.authorize import AccessContext, DefaultResolver, AccessDenied
 
 logger = logging.getLogger('n3tx.api')
 
@@ -174,7 +174,7 @@ def make_get_schema(model_class):
     async def get_model_schema(scaffold: str = None):
         if scaffold:
             from fastapi.responses import PlainTextResponse
-            from n3tx.core.utils.scaffold import scaffold_single
+            from n3tx_core.utils.scaffold import scaffold_single
             try:
                 source = scaffold_single(model_class.__name__, kind=scaffold, schema=model_class.schema())
                 return PlainTextResponse(source, media_type='text/plain')

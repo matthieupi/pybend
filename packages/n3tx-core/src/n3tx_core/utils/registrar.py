@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Type, Any
-from n3tx.core.storage.abstract_storage import AbstractStorage as StorageInterface
+from n3tx_core.storage.abstract_storage import AbstractStorage as StorageInterface
 
 logger = logging.getLogger('n3tx.utils')
 

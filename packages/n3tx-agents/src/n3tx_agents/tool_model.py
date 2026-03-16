@@ -13,7 +13,7 @@ following the standard N3TX collection pattern.
 
 from pydantic import Field
 
-from n3tx.core.models.actor_model import ActorModel
+from n3tx_actors.models.actor_model import ActorModel
 
 
 class AgentTool(ActorModel):

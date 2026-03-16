@@ -14,8 +14,8 @@ Tier 1 handles:
     - read/update/delete: identity gate only (OWNER check deferred to Tier 2)
 """
 
-from n3tx.core.actors.tx import TX
-from n3tx.core.authorize import AccessContext, DefaultResolver, AccessDenied
+from n3tx_actors.tx import TX
+from n3tx_core.authorize import AccessContext, DefaultResolver, AccessDenied
 
 _resolver = DefaultResolver()
 

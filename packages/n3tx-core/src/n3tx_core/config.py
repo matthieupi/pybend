@@ -72,7 +72,7 @@ def configure(**kwargs):
 
     Example::
 
-        from n3tx.core import config
+        from n3tx_core import config
         config.configure(host="127.0.0.1", port=8080, debug=False)
     """
     g = globals()

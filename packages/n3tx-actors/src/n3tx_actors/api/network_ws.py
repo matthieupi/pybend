@@ -27,11 +27,11 @@ from uuid import uuid4
 
 from pydantic import PrivateAttr
 
-from n3tx.core.actors.tx import TX
-from n3tx.core.api.network_adapter import NetworkAdapter
-from n3tx.core.utils.registrar import registered_models
-from n3tx.core import config
-from n3tx.core.authorize.auth import decode_token
+from n3tx_actors.tx import TX
+from n3tx_actors.api.network_adapter import NetworkAdapter
+from n3tx_core.utils.registrar import registered_models
+from n3tx_core import config
+from n3tx_core.authorize.auth import decode_token
 
 logger = logging.getLogger('n3tx.network.ws')
 

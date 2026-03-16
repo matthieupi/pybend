@@ -353,7 +353,7 @@ def scaffold_model(model_name: str, schema: Optional[dict] = None, output_dir: O
         output_dir: Directory to write files. Defaults to COMPONENTS_DIR.
     """
     if schema is None:
-        from n3tx.core.utils.registrar import registered_models
+        from n3tx_core.utils.registrar import registered_models
         model_cls = registered_models.get(model_name)
         if not model_cls:
             raise ValueError(f"Model '{model_name}' not found in registered_models. "
@@ -397,7 +397,7 @@ def scaffold_single(model_name: str, kind: str = 'item', schema: Optional[dict] 
         Generated source code as string
     """
     if schema is None:
-        from n3tx.core.utils.registrar import registered_models
+        from n3tx_core.utils.registrar import registered_models
         model_cls = registered_models.get(model_name)
         if not model_cls:
             raise ValueError(f"Model '{model_name}' not found")
@@ -439,7 +439,7 @@ if __name__ == '__main__':
 
     # Import and register models (requires main.py setup)
     try:
-        from n3tx.core.main import app  # noqa: triggers model registration
+        from n3tx_core.main import app  # noqa: triggers model registration
     except ImportError:
         print("Warning: Could not import main.py. Ensure you run from src/n3tx/core/")
         print("  cd /workspace/src/n3tx/core && python -m utils.scaffold " + model_name)

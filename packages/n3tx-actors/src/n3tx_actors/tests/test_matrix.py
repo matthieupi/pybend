@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.tx import TX
 from .conftest import mock_method, make_tx
 
 pytestmark = pytest.mark.unit
@@ -87,7 +87,7 @@ class TestMatrixInbox:
     async def test_self_send_logs_error(self):
         m = Matrix()
         tx = make_tx(target='matrix')
-        with patch('n3tx.core.actors.matrix.logger') as mock_logger:
+        with patch('n3tx_actors.matrix.logger') as mock_logger:
             await m.inbox(tx)
             mock_logger.error.assert_called_once()
             assert 'Cannot route to self' in mock_logger.error.call_args[0][0]
@@ -125,7 +125,7 @@ class TestMatrixInbox:
     async def test_no_route_logs_warning(self):
         m = Matrix()
         tx = make_tx(target='nowhere')
-        with patch('n3tx.core.actors.matrix.logger') as mock_logger:
+        with patch('n3tx_actors.matrix.logger') as mock_logger:
             await m.inbox(tx)
             mock_logger.warning.assert_called_once()
             assert 'No route' in mock_logger.warning.call_args[0][0]
@@ -139,7 +139,7 @@ class TestMatrixInbox:
         m.register_adapter(adapter)
 
         tx = make_tx(target='nowhere')
-        with patch('n3tx.core.actors.matrix.logger') as mock_logger:
+        with patch('n3tx_actors.matrix.logger') as mock_logger:
             await m.inbox(tx)
             mock_logger.warning.assert_called_once()
 
@@ -181,10 +181,10 @@ class TestModuleLevelMatrix:
     """Module-level default matrix instance."""
 
     def test_exists(self):
-        from n3tx.core.actors.matrix import matrix as default_matrix
+        from n3tx_actors.matrix import matrix as default_matrix
         assert default_matrix is not None
         assert isinstance(default_matrix, Matrix)
 
     def test_addr_is_matrix(self):
-        from n3tx.core.actors.matrix import matrix as default_matrix
+        from n3tx_actors.matrix import matrix as default_matrix
         assert default_matrix.addr == 'matrix'

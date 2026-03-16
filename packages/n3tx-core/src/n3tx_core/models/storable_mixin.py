@@ -5,9 +5,9 @@ from typing import ClassVar, Any, List, Union
 
 from pydantic import BaseModel
 
-from n3tx.core.storage.abstract_storage import AbstractStorage as StorageInterface
-from n3tx.core.utils.registrar import join_models
-from n3tx.core.utils.typer import Ref
+from n3tx_core.storage.abstract_storage import AbstractStorage as StorageInterface
+from n3tx_core.utils.registrar import join_models
+from n3tx_core.utils.typer import Ref
 
 logger = logging.getLogger('n3tx.models')
 

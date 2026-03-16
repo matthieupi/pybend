@@ -10,13 +10,13 @@ from typing import Any, ClassVar, Dict, Type, get_type_hints, get_origin, get_ar
 from pydantic.json_schema import JsonSchemaValue, JsonSchemaMode, GenerateJsonSchema, DEFAULT_REF_TEMPLATE
 from pydantic_core import CoreSchema
 
-from n3tx.core import config
-import n3tx.core.models.proto_schema as proto_schema
-import n3tx.core.models.proto_dump as proto_dump
-from n3tx.core.utils.registrar import register_model
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.utils.introspection import pydantic_schema_for_type, record_model_type, _is_self_ref
-from n3tx.core.utils.typer import Ref, _SelfRefMarker
+from n3tx_core import config
+import n3tx_core.models.proto_schema as proto_schema
+import n3tx_core.models.proto_dump as proto_dump
+from n3tx_core.utils.registrar import register_model
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.utils.introspection import pydantic_schema_for_type, record_model_type, _is_self_ref
+from n3tx_core.utils.typer import Ref, _SelfRefMarker
 from .storable_mixin import StorableMixin
 
 logger = logging.getLogger('n3tx.models')
@@ -89,7 +89,7 @@ class ProtoModel(PydanticBaseModel):
         # Agent mixin injection (same pattern as StorableMixin)
         __agent__ = getattr(cls, '__agent__', False)
         if __agent__:
-            from n3tx.core.agents.mixin import AgentMixin
+            from n3tx_agents.mixin import AgentMixin
             if not issubclass(cls, AgentMixin):
                 cls.__bases__ = (AgentMixin,) + cls.__bases__
 
@@ -263,7 +263,7 @@ class ProtoModel(PydanticBaseModel):
         """
         Returns the blueprint of registered models
         """
-        from n3tx.core.utils.registrar import registered_models
+        from n3tx_core.utils.registrar import registered_models
         blueprint = {}
         for model_name, model_cls in registered_models.items():
             blueprint[model_name] = model_cls.schema()
@@ -290,7 +290,7 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
     # Resolve field_name before creating the model — it determines the URL
     # segment used in routes (e.g., "favorites" vs "likes")
     if not field_name:
-        from n3tx.core.utils.introspection import get_list_fields
+        from n3tx_core.utils.introspection import get_list_fields
         for fname, child_cls in get_list_fields(owner_cls):
             if child_cls is ref_model:
                 field_name = fname

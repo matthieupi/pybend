@@ -13,7 +13,7 @@ this module.
 
 Mirrors proto_schema.py — same pattern, same extension mechanism:
 
-    from n3tx.core.models.proto_dump import dump_extension
+    from n3tx_core.models.proto_dump import dump_extension
 
     @dump_extension(after='instance_url')
     def activity(instance, d: dict) -> dict:
@@ -27,7 +27,7 @@ import logging
 
 from pydantic import BaseModel as PydanticBaseModel
 
-from n3tx.core import config
+from n3tx_core import config
 
 logger = logging.getLogger('n3tx.dump')
 
@@ -94,7 +94,7 @@ def dump_extension(*, after: str = None, before: str = None):
     """Decorator to register a dump pipeline extension.
 
     Usage:
-        from n3tx.core.models.proto_dump import dump_extension
+        from n3tx_core.models.proto_dump import dump_extension
 
         @dump_extension(after='response')
         def activity(instance, d: dict) -> dict:

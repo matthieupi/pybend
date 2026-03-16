@@ -17,7 +17,7 @@ Output in default schema:
     }
 """
 
-from n3tx.core.models.proto_schema import schema_extension, register_stage
+from n3tx_core.models.proto_schema import schema_extension, register_stage
 
 
 # ── Default pipeline: agent metadata stage ────────────────────────
@@ -37,7 +37,7 @@ def agent(cls, schema: dict) -> dict:
         agent_meta['config'] = {k: v for k, v in agent_flag.items() if k in safe_keys}
 
     # AgentActor instances have an /agentic endpoint — add the pattern
-    from n3tx.core.agents.actor import AgentActor
+    from n3tx_agents.actor import AgentActor
     if issubclass(cls, AgentActor):
         tablename = schema.get('__tablename__', cls.__tablename__)
         agent_meta['agentic_endpoint'] = f'/{tablename}/{{id}}/agentic'

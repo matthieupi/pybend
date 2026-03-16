@@ -25,9 +25,9 @@ from fastapi import APIRouter, Body, HTTPException, Path, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from n3tx.core.actors.tx import TX
-from n3tx.core.api.network_adapter import NetworkAdapter
-from n3tx.core.models.storable_mixin import StorableMixin
+from n3tx_actors.tx import TX
+from n3tx_actors.api.network_adapter import NetworkAdapter
+from n3tx_core.models.storable_mixin import StorableMixin
 
 logger = logging.getLogger('n3tx.network.api')
 
@@ -67,8 +67,8 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
     Returns:
         A FastAPI APIRouter with all CRUD and custom method routes.
     """
-    from n3tx.core.utils.registrar import join_models
-    from n3tx.core.utils.typer import flatten_refs
+    from n3tx_core.utils.registrar import join_models
+    from n3tx_core.utils.typer import flatten_refs
 
     router = APIRouter()
 
@@ -143,7 +143,7 @@ def _register_schema_route(router, api_adapter, model_class, tag):
     ):
         if scaffold:
             from fastapi.responses import PlainTextResponse
-            from n3tx.core.utils.scaffold import scaffold_single
+            from n3tx_core.utils.scaffold import scaffold_single
             try:
                 source = scaffold_single(
                     _cls.__name__, kind=scaffold, schema=_cls.schema(),
@@ -214,7 +214,7 @@ def _register_crud_routes(
         parent_id: int = None,
         _addr=addr, _cls=model_class, _param_cls=param_class,
     ):
-        from n3tx.core.utils.typer import flatten_refs
+        from n3tx_core.utils.typer import flatten_refs
         user = _get_user(request)
         data_dict = flatten_refs(data)
 
@@ -323,7 +323,7 @@ def _register_crud_routes(
         parent_id: int = None,
         _addr=addr, _cls=model_class, _param_cls=param_class,
     ):
-        from n3tx.core.utils.typer import flatten_refs
+        from n3tx_core.utils.typer import flatten_refs
         user = _get_user(request)
         data_dict = flatten_refs(data)
 
@@ -566,7 +566,7 @@ def _parse_method_args(sig, type_hints, data, request):
         user = _get_user(request)
         if user and user.get('user_id'):
             # Resolve full user instance if type hint is StorableMixin subclass
-            from n3tx.core.models.storable_mixin import StorableMixin
+            from n3tx_core.models.storable_mixin import StorableMixin
             user_type = type_hints.get('user')
             if (isinstance(user_type, type)
                     and issubclass(user_type, StorableMixin)

@@ -34,8 +34,8 @@ from typing import Any, Optional
 
 from pydantic import PrivateAttr
 
-from n3tx.core.actors.tx import TX
-from n3tx.core.api.network_adapter import NetworkAdapter
+from n3tx_actors.tx import TX
+from n3tx_actors.api.network_adapter import NetworkAdapter
 
 logger = logging.getLogger('n3tx.network.ap')
 

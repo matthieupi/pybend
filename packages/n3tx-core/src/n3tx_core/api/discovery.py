@@ -8,7 +8,7 @@ Both endpoints are generated from the Matrix's actor registry — they
 ask the Matrix for its registered actors and their capabilities.
 
 Usage:
-    from n3tx.core.api.discovery import create_discovery_routes
+    from n3tx_core.api.discovery import create_discovery_routes
 
     app.include_router(create_discovery_routes(
         registered_models=registered_models,
@@ -23,7 +23,7 @@ from typing import Optional
 
 logger = logging.getLogger('n3tx.api.discovery')
 
-from n3tx.core import config
+from n3tx_core import config
 
 
 def _build_meta(registered_models: dict, name: str, version: str,

@@ -45,14 +45,14 @@ from pydantic_ai import Agent, UsageLimits
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 
-from n3tx.core import config
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.tx import TX
-from n3tx.core.agents.deps import AgentDeps
-from n3tx.core.agents.tools import discover_tools, make_tool
-from n3tx.core.api.network_adapter import NetworkAdapter
-from n3tx.core.utils.descriptors import fullmethod
-from n3tx.core.utils.introspection import get_list_fields
+from n3tx_core import config
+from n3tx_actors.actor import Actor
+from n3tx_actors.tx import TX
+from n3tx_agents.deps import AgentDeps
+from n3tx_agents.tools import discover_tools, make_tool
+from n3tx_actors.api.network_adapter import NetworkAdapter
+from n3tx_core.utils.descriptors import fullmethod
+from n3tx_core.utils.introspection import get_list_fields
 
 logger = logging.getLogger('n3tx.agents')
 
@@ -85,7 +85,7 @@ def _resolve_llm(llm):
 
 def _build_schema_text(cls) -> str:
     """Generate LLM context from model schema as cleaned JSON."""
-    from n3tx.core.models.proto_schema import run_pipeline
+    from n3tx_core.models.proto_schema import run_pipeline
     cleaned = run_pipeline(cls, pipeline='llm')
     tablename = getattr(cls, '__tablename__', cls.__name__)
     return (f'You operate on {cls.__name__} entities (table: {tablename}).\n\n'

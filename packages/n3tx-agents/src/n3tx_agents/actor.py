@@ -27,10 +27,10 @@ import logging
 
 from pydantic import Field
 
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.models.ref import ListRef
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.agents.tool_model import AgentTool
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.models.ref import ListRef
+from n3tx_core.utils.decorators import expose_route
+from n3tx_agents.tool_model import AgentTool
 
 logger = logging.getLogger('n3tx.agents')
 
@@ -116,7 +116,7 @@ class AgentActor(ActorModel):
         Returns:
             JSON string with {answer, usage, messages, message_count}.
         """
-        from n3tx.core.agents.mixin import AgentMixin
+        from n3tx_agents.mixin import AgentMixin
         tool_addrs = self._resolve_tool_addrs()
         # Call the mixin's run engine directly via the descriptor's
         # underlying function, bypassing the MRO override on self.

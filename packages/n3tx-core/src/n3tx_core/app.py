@@ -22,13 +22,13 @@ from typing import List, Optional, Tuple, Type, Union
 
 _SSR_MODES = ('off', 'schema', 'bundle', 'full')
 
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.storage.abstract_storage import AbstractStorage
-from n3tx.core.utils.registrar import register_model, registered_models, join_models, prepare_model, apply_registration
-from n3tx.core.models.proto_model import generate_join_model
-from n3tx.core.api.backend import FastAPIBackend
-from n3tx.core import config
-import n3tx.core.authorize as authorize
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.storage.abstract_storage import AbstractStorage
+from n3tx_core.utils.registrar import register_model, registered_models, join_models, prepare_model, apply_registration
+from n3tx_core.models.proto_model import generate_join_model
+from n3tx_core.api.backend import FastAPIBackend
+from n3tx_core import config
+import n3tx_core.authorize as authorize
 
 
 def _resolve_storage(storage) -> AbstractStorage:
@@ -228,9 +228,9 @@ class N3TXApp:
 
         # 6. Register routes — direct (Level 1/2) or actor (Level 3)
         if self._routing == 'actor':
-            from n3tx.core.api.network_api import NetworkAPI, create_api_routes
-            from n3tx.core.api.auth_interceptor import auth_interceptor
-            from n3tx.core.actors.matrix import matrix
+            from n3tx_actors.api.network_api import NetworkAPI, create_api_routes
+            from n3tx_actors.api.auth_interceptor import auth_interceptor
+            from n3tx_actors.matrix import matrix
 
             api = NetworkAPI()
             matrix.register(api)
@@ -241,7 +241,7 @@ class N3TXApp:
 
             # 6a. WebSocket bridge (requires actor routing)
             if self._ws:
-                from n3tx.core.api.network_ws import (
+                from n3tx_actors.api.network_ws import (
                     NetworkWebSocket, create_ws_routes,
                 )
                 ws_adapter = NetworkWebSocket()
@@ -256,7 +256,7 @@ class N3TXApp:
             backend.register_routes(registered_models)
 
         # 6b. Mount discovery endpoints (/_meta, /.well-known/agent.json)
-        from n3tx.core.api.discovery import create_discovery_routes
+        from n3tx_core.api.discovery import create_discovery_routes
 
         base_url = f'http://{config.HOST}:{config.PORT}'
         backend.app.include_router(create_discovery_routes(

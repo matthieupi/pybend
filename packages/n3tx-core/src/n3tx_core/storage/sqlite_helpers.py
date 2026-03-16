@@ -5,8 +5,8 @@ from typing import Any, List, Type, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from n3tx.core.utils.registrar import registered_models
-from n3tx.core.utils.introspection import get_list_fields, _unwrap_listref  # noqa: F401 — re-export
+from n3tx_core.utils.registrar import registered_models
+from n3tx_core.utils.introspection import get_list_fields, _unwrap_listref  # noqa: F401 — re-export
 
 logger = logging.getLogger('n3tx.storage')
 

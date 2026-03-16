@@ -26,9 +26,9 @@ then apply its own stage.
 import logging
 from typing import get_origin, get_args
 
-from n3tx.core import config
-from n3tx.core.utils.introspection import collect_all_referenced_models, _is_self_ref
-from n3tx.core.utils.typer import Ref
+from n3tx_core import config
+from n3tx_core.utils.introspection import collect_all_referenced_models, _is_self_ref
+from n3tx_core.utils.typer import Ref
 
 logger = logging.getLogger('n3tx.schema')
 
@@ -100,7 +100,7 @@ def schema_extension(*, after: str = None, before: str = None,
     """Decorator to register a schema pipeline extension.
 
     Usage:
-        from n3tx.core.models.proto_schema import schema_extension
+        from n3tx_core.models.proto_schema import schema_extension
 
         @schema_extension(after='methods')
         def federation(cls, schema: dict) -> dict:
@@ -246,7 +246,7 @@ def defs(cls, s: dict) -> dict:
 
 def access(cls, s: dict) -> dict:
     """Serialize ABAC rules into schema (top-level + $defs)."""
-    from n3tx.core.authorize.schema import access_schema
+    from n3tx_core.authorize.schema import access_schema
     s['access'] = access_schema(cls)
 
     if '$defs' in s:
@@ -259,7 +259,7 @@ def access(cls, s: dict) -> dict:
 def ui(cls, s: dict) -> dict:
     """Inject UI hints: field exclusion, protected fields, __ui__ config.
     Handles both top-level and $defs."""
-    from n3tx.core.models.proto_model import _apply_field_exclusion
+    from n3tx_core.models.proto_model import _apply_field_exclusion
 
     # Field exclusion + protected fields (top-level)
     _apply_field_exclusion(s)

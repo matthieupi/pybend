@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Any, ClassVar
 
-from n3tx.core.utils.registrar import registered_models
+from n3tx_core.utils.registrar import registered_models
 
 # app/adapters/base_adapter.py
 
@@ -62,7 +62,7 @@ class FastAPIBackend(BaseBackend):
         if "*" in cors_origins:
             logger.warning("CORS allows all origins ('*'). Set explicit origins for production.")
 
-        from n3tx.core.config import DEBUG
+        from n3tx_core.config import DEBUG
         self.app = FastAPI(
             title=self.name,
             version=self.version,
@@ -80,7 +80,7 @@ class FastAPIBackend(BaseBackend):
         self._add_auth_middleware()
 
         if os.getenv('N3TX_PROFILING', '').lower() in ('1', 'true'):
-            from n3tx.core.tests.profiling.middleware import ProfilingMiddleware
+            from n3tx_core.tests.profiling.middleware import ProfilingMiddleware
             self.app.add_middleware(ProfilingMiddleware)
 
         if DEBUG:
@@ -89,7 +89,7 @@ class FastAPIBackend(BaseBackend):
     def _add_auth_middleware(self):
         from starlette.responses import JSONResponse
         from starlette.types import ASGIApp, Receive, Scope, Send
-        from n3tx.core.authorize import decode_token
+        from n3tx_core.authorize import decode_token
 
         exempt_extensions = self.AUTH_EXEMPT_EXTENSIONS
 
@@ -189,8 +189,8 @@ class FastAPIBackend(BaseBackend):
         self.app.add_middleware(DebugLoggingMiddleware)
 
     def register_routes(self, registered_models: dict[str, type]):
-        from n3tx.core.api.routes_fastapi import register_routes, register_route
-        from n3tx.core.api.routes_fastapi import router
+        from n3tx_core.api.routes_fastapi import register_routes, register_route
+        from n3tx_core.api.routes_fastapi import router
         register_routes()
         self.app.include_router(router)
 
@@ -272,8 +272,8 @@ class FastAPIBackend(BaseBackend):
         """
         from pathlib import Path
         from fastapi.responses import HTMLResponse
-        from n3tx.core.ssr import inject_schemas, inject_bundle, inject_full, inject_css_preloads
-        from n3tx.core.ssr.bundler import build_bundle, discover_css_deps
+        from n3tx_core.ssr import inject_schemas, inject_bundle, inject_full, inject_css_preloads
+        from n3tx_core.ssr.bundler import build_bundle, discover_css_deps
 
         # Read HTML once at startup
         with open(html_path) as f:
@@ -334,7 +334,7 @@ class FlaskBackend(BaseBackend):
         Swagger(self.app)
 
     def register_routes(self, registered_models: dict[str, type]):
-        from n3tx.core.api.routes_flask import create_api_blueprint
+        from n3tx_core.api.routes_flask import create_api_blueprint
         blueprint = create_api_blueprint(registered_models)
         self.app.register_blueprint(blueprint)
 

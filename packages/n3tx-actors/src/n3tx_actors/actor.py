@@ -55,8 +55,8 @@ from typing import Any, ClassVar, Optional
 
 from pydantic import BaseModel as PydanticBaseModel, ConfigDict, PrivateAttr
 
-from n3tx.core.actors.tx import TX
-from n3tx.core.utils.descriptors import fullmethod, fullproperty
+from n3tx_actors.tx import TX
+from n3tx_core.utils.descriptors import fullmethod, fullproperty
 
 logger = logging.getLogger('n3tx.actors')
 

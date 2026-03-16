@@ -10,10 +10,10 @@ from typing import Any, Dict, List, Type
 
 from pydantic import BaseModel
 
-from n3tx.core import config
-from n3tx.core.utils.registrar import registered_models
-from n3tx.core.utils.introspection import get_json_fields, get_list_fields, get_ref_fields
-from n3tx.core.utils.populate import PopulateSpec
+from n3tx_core import config
+from n3tx_core.utils.registrar import registered_models
+from n3tx_core.utils.introspection import get_json_fields, get_list_fields, get_ref_fields
+from n3tx_core.utils.populate import PopulateSpec
 from .abstract_storage import AbstractStorage
 from .sqlite_migration import SQLiteMigration
 

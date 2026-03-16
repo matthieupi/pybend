@@ -3,10 +3,10 @@
 import pytest
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.actors.actor_proxy import ActorProxy
-from n3tx.core.actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.actor_proxy import ActorProxy
+from n3tx_actors.tx import TX
 from .conftest import mock_method, make_tx
 
 pytestmark = pytest.mark.unit

@@ -4,15 +4,15 @@ import json
 import pytest
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.models.proto_model import generate_join_model
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.utils.registrar import register_model
-from n3tx.core.agents.actor import AgentActor
-from n3tx.core.agents.tool_model import AgentTool
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.models.proto_model import generate_join_model
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.utils.registrar import register_model
+from n3tx_agents.actor import AgentActor
+from n3tx_agents.tool_model import AgentTool
 
 pytestmark = pytest.mark.unit
 
@@ -21,11 +21,11 @@ class TestAgentActorClass:
     """Tests for AgentActor class structure."""
 
     def test_has_agent_mixin(self, fresh_matrix):
-        from n3tx.core.agents.mixin import AgentMixin
+        from n3tx_agents.mixin import AgentMixin
         assert issubclass(AgentActor, AgentMixin)
 
     def test_has_storable_mixin(self, fresh_matrix):
-        from n3tx.core.models.storable_mixin import StorableMixin
+        from n3tx_core.models.storable_mixin import StorableMixin
         assert issubclass(AgentActor, StorableMixin)
 
     def test_is_actor_model(self, fresh_matrix):
@@ -44,7 +44,7 @@ class TestAgentActorClass:
         assert 'constraints' in props
 
     def test_mro_order(self, fresh_matrix):
-        from n3tx.core.agents.mixin import AgentMixin
+        from n3tx_agents.mixin import AgentMixin
         mro = [cls.__name__ for cls in AgentActor.__mro__]
         # AgentMixin should be before ActorModel
         assert mro.index('AgentMixin') < mro.index('ActorModel')

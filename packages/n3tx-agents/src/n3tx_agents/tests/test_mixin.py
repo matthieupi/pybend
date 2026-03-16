@@ -4,15 +4,15 @@ import asyncio
 import pytest
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.models.proto_model import ProtoModel
-from n3tx.core.models.ref import ListRef
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.utils.registrar import register_model
-from n3tx.core.agents.mixin import AgentMixin
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.ref import ListRef
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.utils.registrar import register_model
+from n3tx_agents.mixin import AgentMixin
 
 pytestmark = pytest.mark.unit
 
@@ -107,7 +107,7 @@ class TestMixinInjection:
         assert not issubclass(RegularModel, AgentMixin)
 
     def test_agent_mixin_coexists_with_storable(self, fresh_matrix, memory_storage):
-        from n3tx.core.models.storable_mixin import StorableMixin
+        from n3tx_core.models.storable_mixin import StorableMixin
 
         class DualModel(ActorModel):
             __tablename__ = 'dual'
@@ -291,7 +291,7 @@ class TestRunEngine:
     async def test_accepts_adapter(self, fresh_matrix):
         """run() uses provided adapter, no transient creation."""
         from pydantic_ai.models.test import TestModel
-        from n3tx.core.api.network_adapter import NetworkAdapter
+        from n3tx_actors.api.network_adapter import NetworkAdapter
 
         adapter = NetworkAdapter(addr='_test_adapter')
         root = Actor.root()
@@ -541,7 +541,7 @@ class TestUserAuthPropagation:
     async def test_user_context_in_tool_calls(self, fresh_matrix, tmp_path):
         """Tool TX messages carry meta.user from agentic(user=...)."""
         from pydantic_ai.models.test import TestModel
-        from n3tx.core.actors.tx import TX
+        from n3tx_actors.tx import TX
 
         file_storage = SQLiteStorage(str(tmp_path / 'test.db'))
 

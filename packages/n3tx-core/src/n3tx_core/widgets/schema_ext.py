@@ -15,8 +15,8 @@ from __future__ import annotations
 import logging
 from typing import get_args, get_origin, get_type_hints, Annotated, Union
 
-from n3tx.core.models.proto_schema import schema_extension
-from n3tx.core.widgets.widget import Widget, get_auto_widget
+from n3tx_core.models.proto_schema import schema_extension
+from n3tx_core.widgets.widget import Widget, get_auto_widget
 
 logger = logging.getLogger('n3tx.widgets')
 

@@ -17,9 +17,9 @@ import logging
 from typing import ClassVar, Optional
 from pydantic import Field, field_validator
 from .proto_model import ProtoModel
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.authorize import ANYONE, hash_password, verify_password, create_token
-from n3tx.core import config
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.authorize import ANYONE, hash_password, verify_password, create_token
+from n3tx_core import config
 
 logger = logging.getLogger('n3tx.models')
 

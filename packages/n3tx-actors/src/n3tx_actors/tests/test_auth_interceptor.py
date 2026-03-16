@@ -60,9 +60,9 @@ TX RESPONSE CONTRACT — error format
 import asyncio
 import pytest
 
-from n3tx.core.actors.tx import TX
-from n3tx.core.api.auth_interceptor import auth_interceptor
-from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx_actors.tx import TX
+from n3tx_actors.api.auth_interceptor import auth_interceptor
+from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 
 pytestmark = pytest.mark.unit
 

@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from n3tx.core.actors.tx import TX
+from n3tx_actors.tx import TX
 
 pytestmark = pytest.mark.unit
 

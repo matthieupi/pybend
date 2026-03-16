@@ -6,14 +6,14 @@ import json
 import pytest
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.actors.tx import TX
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.utils.decorators import expose_route
-from n3tx.core.utils.registrar import register_model
-from n3tx.core.agents.tools import (
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_actors.tx import TX
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.utils.registrar import register_model
+from n3tx_agents.tools import (
     ToolSpec, discover_tools, create_tool_function, make_tool,
     _crud_tool_specs, _method_tool_specs, _route_tool_call,
 )
@@ -237,8 +237,8 @@ class TestRouteToolCall:
     async def test_error_response_raises_model_retry(self, fresh_matrix):
         """_route_tool_call raises ModelRetry when tool returns error TX."""
         from pydantic_ai import ModelRetry
-        from n3tx.core.api.network_adapter import NetworkAdapter
-        from n3tx.core.agents.deps import AgentDeps
+        from n3tx_actors.api.network_adapter import NetworkAdapter
+        from n3tx_agents.deps import AgentDeps
 
         m = fresh_matrix
 
@@ -269,8 +269,8 @@ class TestRouteToolCall:
     async def test_tool_call_to_missing_actor(self, fresh_matrix):
         """_route_tool_call to non-existent actor raises ModelRetry."""
         from pydantic_ai import ModelRetry
-        from n3tx.core.api.network_adapter import NetworkAdapter
-        from n3tx.core.agents.deps import AgentDeps
+        from n3tx_actors.api.network_adapter import NetworkAdapter
+        from n3tx_agents.deps import AgentDeps
 
         m = fresh_matrix
 
@@ -427,9 +427,9 @@ class TestLoopDetection:
 
     def test_agent_actor_run_excluded(self, fresh_matrix, tmp_path):
         """AgentActor subclass's run method is auto-excluded from tools."""
-        from n3tx.core.agents.actor import AgentActor
-        from n3tx.core.agents.tool_model import AgentTool
-        from n3tx.core.models.proto_model import generate_join_model
+        from n3tx_agents.actor import AgentActor
+        from n3tx_agents.tool_model import AgentTool
+        from n3tx_core.models.proto_model import generate_join_model
 
         m = fresh_matrix
         storage = SQLiteStorage(str(tmp_path / 'test.db'))

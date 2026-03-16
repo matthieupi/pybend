@@ -27,8 +27,8 @@ import logging
 
 from pydantic import PrivateAttr
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_actors.tx import TX
 
 logger = logging.getLogger('n3tx.network')
 
@@ -96,7 +96,7 @@ class NetworkAdapter(Actor, auto_register=False):
             The response TX (reply or error).
         """
         # Run 'request' interceptors (e.g., auth, rate limiting)
-        from n3tx.core.actors.actor import Actor
+        from n3tx_actors.actor import Actor
         interceptors = Actor._get_interceptors(self, 'request')
         if interceptors:
             tx = await Actor._run_interceptors(interceptors, tx)
@@ -128,7 +128,7 @@ class NetworkAdapter(Actor, auto_register=False):
         Yields:
             TX: Stream chunk, stream_end, or error TXs.
         """
-        from n3tx.core.actors.actor import Actor
+        from n3tx_actors.actor import Actor
         interceptors = Actor._get_interceptors(self, 'request')
         if interceptors:
             tx = await Actor._run_interceptors(interceptors, tx)

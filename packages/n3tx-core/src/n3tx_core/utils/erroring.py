@@ -16,7 +16,7 @@ class MethodError(Exception):
 
     Usage in a model method::
 
-        from n3tx.core.utils.erroring import MethodError
+        from n3tx_core.utils.erroring import MethodError
 
         @expose_route('/like', methods=['POST'])
         def like(self, user=None):

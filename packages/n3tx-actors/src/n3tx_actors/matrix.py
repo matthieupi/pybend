@@ -15,8 +15,8 @@ from typing import Any
 
 from pydantic import PrivateAttr
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.tx import TX
+from n3tx_actors.actor import Actor
+from n3tx_actors.tx import TX
 
 logger = logging.getLogger('n3tx.actors')
 

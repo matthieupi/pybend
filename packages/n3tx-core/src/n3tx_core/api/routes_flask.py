@@ -6,7 +6,7 @@ from flasgger import swag_from
 from functools import wraps
 import yaml
 
-from n3tx.core.models.storable_mixin import StorableMixin
+from n3tx_core.models.storable_mixin import StorableMixin
 
 logger = logging.getLogger('n3tx.api')
 

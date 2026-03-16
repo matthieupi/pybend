@@ -13,7 +13,7 @@ import json
 import logging
 from dataclasses import dataclass
 
-from n3tx.core.actors.tx import TX
+from n3tx_actors.tx import TX
 
 logger = logging.getLogger('n3tx.agents')
 
@@ -54,8 +54,8 @@ def discover_tools(actor_addrs: list, root, caller_addr: str = None) -> list[Too
     Returns:
         List of ToolSpec objects for all discovered tools.
     """
-    from n3tx.core.models.storable_mixin import StorableMixin
-    from n3tx.core.agents.actor import AgentActor
+    from n3tx_core.models.storable_mixin import StorableMixin
+    from n3tx_agents.actor import AgentActor
 
     specs = []
     children = root._children if not isinstance(root, type) else root.__children__
@@ -290,7 +290,7 @@ def create_tool_function(spec: ToolSpec):
 
     exec(code, ns)  # noqa: S102
     fn = ns[func_name]
-    fn.__module__ = 'n3tx.core.agents.tools'
+    fn.__module__ = 'n3tx_agents.tools'
     return fn
 
 

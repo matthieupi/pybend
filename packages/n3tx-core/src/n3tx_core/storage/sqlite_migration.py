@@ -11,7 +11,7 @@ from typing import Any, List, Type, Union, get_args, get_origin
 from pydantic import BaseModel
 
 from .sqlite_helpers import get_parent_fk_columns
-from n3tx.core.utils.introspection import _is_self_ref, _unwrap_listref
+from n3tx_core.utils.introspection import _is_self_ref, _unwrap_listref
 
 logger = logging.getLogger('n3tx.storage')
 

@@ -2,10 +2,10 @@
 
 import pytest
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.actors.matrix import Matrix
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.utils.registrar import registered_models
+from n3tx_actors.actor import Actor
+from n3tx_actors.matrix import Matrix
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.registrar import registered_models
 
 
 @pytest.fixture(autouse=True)

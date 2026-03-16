@@ -22,10 +22,10 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from n3tx.core.actors.actor import Actor
-from n3tx.core.utils.descriptors import fullmethod, fullproperty
-from n3tx.core.actors.tx import TX
-from n3tx.core.models.proto_model import ProtoModel
+from n3tx_actors.actor import Actor
+from n3tx_core.utils.descriptors import fullmethod, fullproperty
+from n3tx_actors.tx import TX
+from n3tx_core.models.proto_model import ProtoModel
 
 logger = logging.getLogger('n3tx.actors')
 
@@ -42,7 +42,7 @@ def _parse_populate_from_data(data: dict):
     depth_int = data.get('depth')
     if populate_str is None and depth_int is None:
         return None
-    from n3tx.core.utils.populate import parse_populate
+    from n3tx_core.utils.populate import parse_populate
     return parse_populate(populate_str, depth_int)
 
 
@@ -102,7 +102,7 @@ class ActorModel(Actor, ProtoModel):
                         endpoint_info = getattr(method, '__endpoint__', {})
                         method_access = endpoint_info.get('access')
                         if method_access is not None:
-                            from n3tx.core.authorize import AccessContext
+                            from n3tx_core.authorize import AccessContext
                             ctx = AccessContext(
                                 user=tx.meta.get('user', {}),
                                 action=tx.name, model_class=cls,
@@ -200,7 +200,7 @@ class ActorModel(Actor, ProtoModel):
         if not access:
             return None  # No access rules declared
 
-        from n3tx.core.authorize import AccessContext, DefaultResolver
+        from n3tx_core.authorize import AccessContext, DefaultResolver
         resolver = DefaultResolver()
         rule = resolver.resolve_rule(cls, action)
 
