@@ -120,8 +120,8 @@ class TestProductAgentAsk:
         """Stream should contain a chunk with answer and usage fields.
 
         In Level 3 actor routing, agentic_stream yields TX-aligned chunks that
-        include a 'done' chunk with answer+usage. These are sent as SSE 'chunk'
-        events (the SSE 'done' sentinel is empty).
+        include a 'done' chunk with answer+usage. SSE data is a full TX envelope:
+        {name: 'STREAM', data: {name: 'done', data: {answer, usage}, ...}, ...}
         """
         from helpers import auth_header
 
@@ -133,11 +133,14 @@ class TestProductAgentAsk:
         )
 
         events = _parse_sse_events(resp.text)
-        # Look for the done chunk in the stream (name='done' inside chunk data)
+        # SSE data is TX envelope; inner chunk is at e['data']['data']
         chunk_events = [e for e in events if e['event'] == 'chunk']
         done_chunks = [e for e in chunk_events
-                       if isinstance(e['data'], dict) and e['data'].get('name') == 'done']
+                       if isinstance(e['data'], dict)
+                       and isinstance(e['data'].get('data'), dict)
+                       and e['data']['data'].get('name') == 'done']
         assert len(done_chunks) >= 1, f"No done chunk. Chunks: {[e['data'] for e in chunk_events]}"
-        done_data = done_chunks[0]['data'].get('data', {})
+        inner = done_chunks[0]['data']['data']
+        done_data = inner.get('data', {})
         assert 'answer' in done_data
         assert 'usage' in done_data

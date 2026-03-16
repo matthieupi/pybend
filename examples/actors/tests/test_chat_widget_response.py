@@ -46,23 +46,30 @@ def _widget_extract_text(events):
 
     Mirrors the onChunk + onDone callbacks in ntx-chat.js _sendStream().
     Returns the text the widget would display in the assistant message.
+
+    SSE data is a full TX envelope: {name: 'STREAM', data: {name, data, meta}, ...}
+    The inner chunk is at chunk['data'] where chunk = e['data'] (the TX envelope).
     """
     text = ''
     for e in events:
         if e['event'] == 'chunk':
-            chunk = e['data']
-            # Widget handles TX-aligned chunks: {name, data, meta}
-            if isinstance(chunk, dict) and chunk.get('name') == 'done':
-                # Done chunk carries the final answer as fallback
-                if chunk.get('data', {}).get('answer') and not text:
-                    text = chunk['data']['answer']
+            tx = e['data']
+            if not isinstance(tx, dict):
                 continue
-            # Text extraction: try chunk.data.text first (TX format), then direct keys
-            t = ''
-            if isinstance(chunk, dict):
-                t = (chunk.get('data', {}).get('text') if isinstance(chunk.get('data'), dict) else None) \
-                    or chunk.get('text') or chunk.get('chunk') or chunk.get('content') or ''
-            text += t
+            # Navigate TX envelope: inner chunk is tx['data']
+            inner = tx.get('data', {})
+            if not isinstance(inner, dict):
+                continue
+            # Done chunk carries the final answer as fallback
+            if inner.get('name') == 'done':
+                answer = inner.get('data', {}).get('answer', '')
+                if answer and not text:
+                    text = answer
+                continue
+            # Text extraction from inner chunk
+            if inner.get('name') == 'text':
+                t = inner.get('data', {}).get('text', '')
+                text += t
     return text
 
 
@@ -98,19 +105,20 @@ class TestStreamingChunkTextExtraction:
             headers=auth_header(alice_token),
         )
         events = _parse_sse_events(resp.text)
+        # SSE data is TX envelope; inner chunk name is at e['data']['data']['name']
         text_chunks = [e for e in events
                        if e['event'] == 'chunk'
                        and isinstance(e['data'], dict)
-                       and e['data'].get('name') == 'text']
+                       and isinstance(e['data'].get('data'), dict)
+                       and e['data']['data'].get('name') == 'text']
 
         assert len(text_chunks) >= 1, "No text chunks in SSE response"
 
-        # Widget must be able to extract text from at least one text chunk
+        # Extract text from inner chunk: tx['data']['data']['text']
         extracted = ''
         for tc in text_chunks:
-            chunk = tc['data']
-            t = (chunk.get('data', {}).get('text') if isinstance(chunk.get('data'), dict) else None) \
-                or chunk.get('text') or chunk.get('chunk') or chunk.get('content') or ''
+            inner = tc['data']['data']
+            t = inner.get('data', {}).get('text', '') if isinstance(inner.get('data'), dict) else ''
             extracted += t
 
         assert extracted != '', (
@@ -129,13 +137,16 @@ class TestStreamingChunkTextExtraction:
             headers=auth_header(alice_token),
         )
         events = _parse_sse_events(resp.text)
+        # SSE data is TX envelope; inner chunk name is at e['data']['data']['name']
         done_chunks = [e for e in events
                        if e['event'] == 'chunk'
                        and isinstance(e['data'], dict)
-                       and e['data'].get('name') == 'done']
+                       and isinstance(e['data'].get('data'), dict)
+                       and e['data']['data'].get('name') == 'done']
 
         assert len(done_chunks) >= 1, "No done chunk in SSE stream"
-        answer = done_chunks[0]['data'].get('data', {}).get('answer', '')
+        inner = done_chunks[0]['data']['data']
+        answer = inner.get('data', {}).get('answer', '')
         assert answer != '', (
             f"Done chunk missing answer. Data: {done_chunks[0]['data']}"
         )

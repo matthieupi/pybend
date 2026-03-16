@@ -75,7 +75,9 @@ class TestStreamingCountdown:
         events = _parse_sse_events(resp.text)
         chunk_events = [e for e in events if e['event'] == 'chunk']
 
-        counts = [e['data']['count'] for e in chunk_events if 'count' in e['data']]
+        # SSE data is a full TX envelope; inner chunk data is in e['data']['data']
+        counts = [e['data']['data']['count'] for e in chunk_events
+                  if isinstance(e['data'].get('data'), dict) and 'count' in e['data']['data']]
         # Should be descending: 4, 3, 2, 1, 0
         assert counts == [4, 3, 2, 1, 0]
 
@@ -131,8 +133,10 @@ class TestStreamingCountdown:
         )
         events = _parse_sse_events(resp.text)
         chunk_events = [e for e in events if e['event'] == 'chunk']
+        # SSE data is a full TX envelope; inner chunk data is in e['data']['data']
         for event in chunk_events:
-            assert 'message' in event['data']
+            inner = event['data'].get('data', {})
+            assert isinstance(inner, dict) and 'message' in inner
 
     def test_streaming_schema_includes_stream_flag(self, client):
         """Product schema should include stream: true for countdown method."""
