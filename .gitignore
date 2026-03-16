@@ -4,6 +4,7 @@
 __pycache__/
 pybend.egg-info/
 src/pybend.egg-info/
+*.egg-info/
 dist/
 *.db
 .env
