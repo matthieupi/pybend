@@ -1,4 +1,9 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
+
+const coreStatic = path.resolve(__dirname, '../../packages/n3tx-core/src/n3tx_core/static');
+const uiStatic = path.resolve(__dirname, '../../packages/n3tx-ui/src/n3tx_ui/static');
+const agentsStatic = path.resolve(__dirname, '../../packages/n3tx-agents/src/n3tx_agents/static');
 
 export default defineConfig({
   test: {
@@ -10,8 +15,18 @@ export default defineConfig({
     restoreMocks: true,
   },
   resolve: {
-    alias: {
-      // Allow tests to import source modules directly
-    }
+    alias: [
+      // Core framework JS (core/, utils/, transport/, config.js)
+      { find: /^(\.\.\/)+core\//, replacement: coreStatic + '/core/' },
+      { find: /^(\.\.\/)+utils\//, replacement: coreStatic + '/utils/' },
+      { find: /^(\.\.\/)+config\.js$/, replacement: coreStatic + '/config.js' },
+      // UI components (components/, widgets/, generators/, vendor/)
+      { find: /^(\.\.\/)+components\//, replacement: uiStatic + '/components/' },
+      { find: /^(\.\.\/)+widgets\//, replacement: uiStatic + '/widgets/' },
+      { find: /^(\.\.\/)+generators\//, replacement: uiStatic + '/generators/' },
+      { find: /^(\.\.\/)+vendor\//, replacement: uiStatic + '/vendor/' },
+      // Agent components
+      { find: /^(\.\.\/)+components\/ntx-chat\.js$/, replacement: agentsStatic + '/components/ntx-chat.js' },
+    ]
   }
 });
