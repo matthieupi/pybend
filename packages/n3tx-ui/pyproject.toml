@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "n3tx-ui"
 version = "0.10.0"
 description = "N3TX UI: Web Components, form generators, widgets, themes."
+readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "Matthieu Pi", email = "qcpi@gmail.com"}]

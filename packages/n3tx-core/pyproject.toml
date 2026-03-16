@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "n3tx-core"
 version = "0.10.0"
 description = "N3TX core: models, storage, auth, API routes, schema pipeline, and JS runtime."
+readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "Matthieu Pi", email = "qcpi@gmail.com"}]

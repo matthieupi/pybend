@@ -6,9 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "n3tx"
 version = "0.10.0"
 description = "N3TX meta-package: installs n3tx-core, n3tx-actors, n3tx-ui, n3tx-agents."
+readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
-authors = [{name = "Matthieu Pi", email = "qcpi@gmail.com"}]
+authors = [{name = "Matthieu Pi", email = "matthieupi1.4@gmail.com"}]
 dependencies = [
     "n3tx-core>=0.10.0",
     "n3tx-actors>=0.10.0",
