@@ -1,4 +1,4 @@
-"""Tests for Actor — unified class/instance dispatch via actormethod/actorproperty."""
+"""Tests for Actor — unified class/instance dispatch via fullmethod/fullproperty."""
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
@@ -6,7 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor, actormethod, actorproperty
+from n3tx.core.actors.actor import Actor
+from n3tx.core.utils.descriptors import fullmethod, fullproperty
 from n3tx.core.actors.matrix import Matrix
 from n3tx.core.actors.tx import TX
 from .conftest import mock_method, make_tx
@@ -18,12 +19,12 @@ pytestmark = pytest.mark.unit
 # Descriptors
 # ===================================================================
 
-class TestActormethod:
-    """actormethod descriptor binds target = cls or self."""
+class TestFullmethod:
+    """fullmethod descriptor binds target = cls or self."""
 
     def test_class_access_binds_class(self):
         class A(Actor, auto_register=False):
-            @actormethod
+            @fullmethod
             def who(target):
                 return target
 
@@ -31,7 +32,7 @@ class TestActormethod:
 
     def test_instance_access_binds_instance(self):
         class A(Actor, auto_register=False):
-            @actormethod
+            @fullmethod
             def who(target):
                 return target
 
@@ -40,7 +41,7 @@ class TestActormethod:
 
     def test_preserves_name_and_doc(self):
         class A(Actor, auto_register=False):
-            @actormethod
+            @fullmethod
             def my_method(target):
                 """My doc."""
 
@@ -48,9 +49,9 @@ class TestActormethod:
         assert desc.__name__ == 'my_method'
         assert desc.__doc__ == 'My doc.'
 
-    def test_async_actormethod_works(self):
+    def test_async_fullmethod_works(self):
         class A(Actor, auto_register=False):
-            @actormethod
+            @fullmethod
             async def async_who(target):
                 return target
 
@@ -60,8 +61,8 @@ class TestActormethod:
                                            else a.async_who)
 
 
-class TestActorproperty:
-    """actorproperty descriptor resolves class or instance state."""
+class TestFullproperty:
+    """fullproperty descriptor resolves class or instance state."""
 
     def test_class_access(self):
         class A(Actor, auto_register=False):
@@ -456,7 +457,7 @@ class TestActorClassHandler:
 
         async def cap_send(target, tx):
             sent.append(tx)
-        Actor.send = actormethod(cap_send)
+        Actor.send = fullmethod(cap_send)
 
         await Product.handler(make_tx('SCHEMA', target='Product'))
         assert sent[0].data == {'schema': 'Product'}
@@ -471,7 +472,7 @@ class TestActorClassHandler:
 
         async def cap_send(target, tx):
             sent.append(tx)
-        Actor.send = actormethod(cap_send)
+        Actor.send = fullmethod(cap_send)
 
         await Empty.handler(make_tx('NOPE', target='Empty'))
         assert sent[0].name == 'ERROR'
@@ -487,7 +488,7 @@ class TestActorClassHandler:
 
         async def cap_send(target, tx):
             sent.append(tx)
-        Actor.send = actormethod(cap_send)
+        Actor.send = fullmethod(cap_send)
 
         await Broken.handler(make_tx('FAIL', target='Broken'))
         assert sent[0].name == 'ERROR'
@@ -646,7 +647,7 @@ class TestActorInbox:
         sent = []
         async def cap_send(target, tx):
             sent.append(tx)
-        Actor.send = actormethod(cap_send)
+        Actor.send = fullmethod(cap_send)
 
         await Spy.inbox(make_tx('PING', target='Spy'))
         assert 'pinged' in called

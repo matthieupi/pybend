@@ -28,7 +28,7 @@ def reset_actor_state():
 
     Actor.__matrix__, Actor.__children__, and any subclass registrations
     must be isolated per test to prevent cross-contamination.
-    Also saves/restores actormethod descriptors that tests may monkey-patch.
+    Also saves/restores fullmethod descriptors that tests may monkey-patch.
     """
     saved_matrix = Actor.__matrix__
     saved_children = Actor.__children__.copy()

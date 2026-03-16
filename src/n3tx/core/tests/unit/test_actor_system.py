@@ -578,7 +578,7 @@ class TestActorSend:
 # ===================================================================
 
 class TestActorClassSend:
-    """Class-level send() three-case routing (via unified actormethod)."""
+    """Class-level send() three-case routing (via unified fullmethod)."""
 
     @pytest.mark.asyncio
     async def test_case1_direct_child_match(self):

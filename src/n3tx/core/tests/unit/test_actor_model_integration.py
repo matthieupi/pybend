@@ -14,7 +14,8 @@ import pytest
 from pydantic import Field
 
 from n3tx.core import config
-from n3tx.core.actors.actor import Actor, actormethod, actorproperty
+from n3tx.core.actors.actor import Actor
+from n3tx.core.utils.descriptors import fullmethod, fullproperty
 from n3tx.core.actors.matrix import Matrix
 from n3tx.core.actors.tx import TX
 from n3tx.core.models.actor_model import ActorModel, _NOT_HANDLED, _CRUD_OPS
@@ -469,7 +470,7 @@ class TestActorModelStorableAndActor:
         assert hasattr(_Item, 'handler_crud')
 
     def test_has_inbox(self):
-        # actormethod is accessible on class
+        # fullmethod is accessible on class
         assert callable(getattr(_Item, 'inbox', None))
 
     def test_has_model_response(self):
@@ -608,15 +609,15 @@ class TestBaseUserRegisterRoute:
 # ===================================================================
 
 class TestActorRegisterNotShadowed:
-    """Actor.register() is the actormethod, not BaseUser's register."""
+    """Actor.register() is the fullmethod, not BaseUser's register."""
 
-    def test_register_is_actormethod_on_actormodel(self):
-        # ActorModel inherits Actor.register which is an actormethod descriptor
+    def test_register_is_fullmethod_on_actormodel(self):
+        # ActorModel inherits Actor.register which is a fullmethod descriptor
         # At class level, accessing it gives a MethodType bound to the class
         reg = ActorModel.__dict__.get('register') or Actor.__dict__.get('register')
-        # The actormethod lives on Actor
+        # The fullmethod lives on Actor
         actor_register = Actor.__dict__['register']
-        assert isinstance(actor_register, actormethod)
+        assert isinstance(actor_register, fullmethod)
 
     def test_register_works_as_child_registration(self):
         class M(ActorModel, auto_register=False):

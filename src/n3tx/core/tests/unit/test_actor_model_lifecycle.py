@@ -12,7 +12,8 @@ from unittest.mock import patch
 
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor, actormethod
+from n3tx.core.actors.actor import Actor
+from n3tx.core.utils.descriptors import fullmethod
 from n3tx.core.actors.tx import TX
 from n3tx.core.models.actor_model import ActorModel
 
@@ -158,7 +159,7 @@ class TestPublishLifecycleEvents:
 
         original_send = model_cls.send
 
-        @actormethod
+        @fullmethod
         async def capture_send(target, tx):
             sent.append(tx)
 
@@ -224,7 +225,7 @@ class TestPublishLifecycleTXShape:
             _subscribers: ClassVar[list] = ['target/addr']
             name: str = Field(default='')
 
-            @actormethod
+            @fullmethod
             async def send(target, tx):
                 sent.append(tx)
 
@@ -252,7 +253,7 @@ class TestPublishLifecycleTXShape:
             _subscribers: ClassVar[list] = ['monitor']
             name: str = Field(default='')
 
-            @actormethod
+            @fullmethod
             async def send(target, tx):
                 sent.append(tx)
 
@@ -276,7 +277,7 @@ class TestPublishLifecycleTXShape:
             _subscribers: ClassVar[list] = ['sub']
             name: str = Field(default='')
 
-            @actormethod
+            @fullmethod
             async def send(target, tx):
                 sent.append(tx)
 
@@ -299,7 +300,7 @@ class TestPublishLifecycleTXShape:
             _subscribers: ClassVar[list] = ['audit/logger', 'federation/outbox']
             name: str = Field(default='')
 
-            @actormethod
+            @fullmethod
             async def send(target, tx):
                 sent.append(tx)
 
@@ -325,7 +326,7 @@ class TestPublishLifecycleTXShape:
             _subscribers: ClassVar[list] = ['sub']
             name: str = Field(default='')
 
-            @actormethod
+            @fullmethod
             async def send(target, tx):
                 sent.append(tx)
 

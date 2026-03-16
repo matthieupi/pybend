@@ -18,7 +18,8 @@ from pydantic import Field
 
 from n3tx.core.models.actor_model import ActorModel
 from n3tx.core.actors.tx import TX
-from n3tx.core.actors.actor import Actor, actormethod
+from n3tx.core.actors.actor import Actor
+from n3tx.core.utils.descriptors import fullmethod
 from n3tx.core.actors.matrix import Matrix
 
 pytestmark = pytest.mark.unit
@@ -82,7 +83,7 @@ def capture_send():
     """
     sent = []
 
-    @actormethod
+    @fullmethod
     async def mock_send(target, tx):
         sent.append(tx)
 

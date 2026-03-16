@@ -3,7 +3,7 @@
 import pytest
 from pydantic import Field
 
-from n3tx.core.actors.actor import Actor, actormethod
+from n3tx.core.actors.actor import Actor
 from n3tx.core.actors.matrix import Matrix
 from n3tx.core.actors.actor_proxy import ActorProxy
 from n3tx.core.actors.tx import TX

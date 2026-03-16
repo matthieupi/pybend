@@ -22,7 +22,8 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
-from n3tx.core.actors.actor import Actor, actormethod, actorproperty
+from n3tx.core.actors.actor import Actor
+from n3tx.core.utils.descriptors import fullmethod, fullproperty
 from n3tx.core.actors.tx import TX
 from n3tx.core.models.proto_model import ProtoModel
 
@@ -57,7 +58,7 @@ class ActorModel(Actor, ProtoModel):
     """
 
     model_config = ConfigDict(
-        ignored_types=(actormethod, actorproperty),
+        ignored_types=(fullmethod, fullproperty),
         arbitrary_types_allowed=True,
         extra='allow',
     )
@@ -66,7 +67,7 @@ class ActorModel(Actor, ProtoModel):
 
     # ── Handler override ──
 
-    @actormethod
+    @fullmethod
     async def handler(target, tx: TX) -> None:
         """Try CRUD adapter first, fall back to generic dispatch."""
         cls = target if isinstance(target, type) else target.__class__

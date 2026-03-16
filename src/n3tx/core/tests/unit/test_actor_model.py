@@ -10,7 +10,8 @@ from typing import ClassVar
 from pydantic import BaseModel as PydanticBaseModel, Field
 
 from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.actors.actor import Actor, actormethod, actorproperty
+from n3tx.core.actors.actor import Actor
+from n3tx.core.utils.descriptors import fullmethod, fullproperty
 from n3tx.core.models.proto_model import ProtoModel
 from n3tx.core.models.storable_mixin import StorableMixin
 from n3tx.core import config
@@ -129,16 +130,16 @@ class TestMRO:
 # ===================================================================
 
 class TestModelConfig:
-    """model_config has ignored_types with actormethod and actorproperty,
+    """model_config has ignored_types with fullmethod and fullproperty,
     arbitrary_types_allowed is True, extra is 'allow'."""
 
-    def test_ignored_types_includes_actormethod(self):
+    def test_ignored_types_includes_fullmethod(self):
         ignored = _TestProduct.model_config.get('ignored_types', ())
-        assert actormethod in ignored
+        assert fullmethod in ignored
 
-    def test_ignored_types_includes_actorproperty(self):
+    def test_ignored_types_includes_fullproperty(self):
         ignored = _TestProduct.model_config.get('ignored_types', ())
-        assert actorproperty in ignored
+        assert fullproperty in ignored
 
     def test_arbitrary_types_allowed(self):
         assert _TestProduct.model_config.get('arbitrary_types_allowed') is True

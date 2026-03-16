@@ -7,21 +7,21 @@ The key insight: every actor operation is the SAME on classes and instances.
 The only difference is where the state lives (__children__ vs _children,
 __addr__ vs _addr). Two descriptors make this transparent:
 
-    actormethod   — binds target = cls or self, returns bound method
-    actorproperty — resolves to class or instance state, returns value
+    fullmethod   — binds target = cls or self, returns bound method
+    fullproperty — resolves to class or instance state, returns value
 
-    @actormethod
+    @fullmethod
     async def inbox(target, tx):   # target is cls OR self
         await target.handler(tx)   # works for both
 
-    @actorproperty
+    @fullproperty
     def children(target):          # target is cls OR self
         ...                        # returns __children__ or _children
 
 Architecture:
     ActorMeta      (metaclass)   → class construction only (children, addr, interceptors, auto-register)
-    actormethod    (descriptor)  → binds target = cls or self (for methods)
-    actorproperty  (descriptor)  → resolves class or instance state (for properties)
+    fullmethod     (descriptor)  → binds target = cls or self (for methods)
+    fullproperty   (descriptor)  → resolves class or instance state (for properties)
     Actor          (class)       → fully unified API: everything works on both
 
 Interceptors:
@@ -63,18 +63,13 @@ logger = logging.getLogger('n3tx.actors')
 # Pydantic's metaclass — extend it to stay compatible
 _PydanticMeta = type(PydanticBaseModel)
 
-# ── Descriptors (backward-compat aliases) ─────────────────────────
-actormethod = fullmethod
-actorproperty = fullproperty
-
-
 # ── ActorMeta metaclass ────────────────────────────────────────────
 
 class ActorMeta(_PydanticMeta):
     """Metaclass for Actor class construction.
 
     Handles per-class setup: __children__, __addr__, __interceptors__, auto-registration.
-    Messaging lives on Actor via actormethod — NOT on the metaclass.
+    Messaging lives on Actor via fullmethod — NOT on the metaclass.
     """
 
     def __new__(mcs, name, bases, namespace, auto_register=True, **kwargs):
@@ -111,8 +106,8 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
         await Product.inbox(tx) / await product.inbox(tx)
 
     Two descriptors make this possible:
-        actormethod   — binds target = cls or self (inbox, handler, send, register, spawn)
-        actorproperty — resolves to class or instance state (addr, children, parent)
+        fullmethod   — binds target = cls or self (inbox, handler, send, register, spawn)
+        fullproperty — resolves to class or instance state (addr, children, parent)
 
     State:
         Class-level:    __addr__, __children__, __matrix__ (set by ActorMeta)
@@ -120,7 +115,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
     """
 
     # Tell Pydantic to ignore our custom descriptors
-    model_config = ConfigDict(ignored_types=(actormethod, actorproperty))
+    model_config = ConfigDict(ignored_types=(fullmethod, fullproperty))
 
     # Class-level state (managed by ActorMeta.__new__)
     __addr__: ClassVar[str] = ''
@@ -143,21 +138,21 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
 
     # ── Unified properties (class and instance) ──
 
-    @actorproperty
+    @fullproperty
     def addr(target) -> str:
         """Actor address. Class: __addr__. Instance: _addr."""
         if isinstance(target, type):
             return target.__addr__
         return target._addr
 
-    @actorproperty
+    @fullproperty
     def children(target) -> dict:
         """Children dict. Class: __children__. Instance: _children."""
         if isinstance(target, type):
             return target.__children__
         return target._children
 
-    @actorproperty
+    @fullproperty
     def parent(target):
         """Parent actor. Class: __matrix__ (root). Instance: _parent."""
         if isinstance(target, type):
@@ -175,7 +170,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
 
     # ── Interceptors ──
 
-    @actormethod
+    @fullmethod
     def use(target, interceptor=None, *, on='inbox'):
         """Register a TX interceptor on a specific method.
 
@@ -231,7 +226,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
 
     # ── Core messaging (ONE implementation for both class and instance) ──
 
-    @actormethod
+    @fullmethod
     async def inbox(target, tx: TX) -> None:
         """Receive a message. Runs 'inbox' interceptors, then handler.
 
@@ -248,7 +243,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
                 return
         await target.handler(tx)
 
-    @actormethod
+    @fullmethod
     async def handler(target, tx: TX) -> None:
         """Dispatch to named method on target, wrap result, route reply.
 
@@ -288,7 +283,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
                 return
             await target.send(tx.error(f"Unhandled message: {tx.name}"))
 
-    @actormethod
+    @fullmethod
     async def send(target, tx: TX) -> None:
         """Route message for delivery. Runs 'send' interceptors first.
 
@@ -332,7 +327,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
 
     # ── Unified child management ──
 
-    @actormethod
+    @fullmethod
     def register(target, child: 'Actor') -> 'Actor':
         """Register a child actor. Works on both classes and instances.
 
@@ -352,7 +347,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
 
         return child
 
-    @actormethod
+    @fullmethod
     def spawn(target, addr: str, actor_cls: type, *args, **kwargs) -> 'Actor':
         """Spawn and register a child actor."""
         if addr in target.children:
@@ -362,7 +357,7 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
         child = actor_cls(*args, addr=addr, **kwargs)
         return target.register(child)
 
-    @actormethod
+    @fullmethod
     def has(target, addr: str) -> bool:
         """Check if a child exists by first address segment."""
         return addr.split('/')[0] in target.children
