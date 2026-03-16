@@ -272,8 +272,8 @@ class TestHandlerCrudAuthIntegration:
             )
             result = AuthTestModel.handler_crud(tx)
 
-            # Should call get first
-            mock_get.assert_called_once_with(1)
+            # Should call get first (handler_crud passes populate from data)
+            mock_get.assert_called_once_with(1, populate=None)
 
             # ANYONE read rule passes
             assert isinstance(result, dict)
@@ -293,11 +293,12 @@ class TestHandlerCrudAuthIntegration:
             )
             AuthTestModel.handler_crud(tx)
 
-            # Should pass sql_filter from meta
+            # Should pass sql_filter from meta (handler_crud also passes populate)
             mock_list.assert_called_once_with(
                 sql_filter=('user_owner = ?', [1]),
                 limit=10,
                 offset=0,
+                populate=None,
             )
 
     def test_handler_crud_update_fetches_then_checks_auth_with_resource(self):

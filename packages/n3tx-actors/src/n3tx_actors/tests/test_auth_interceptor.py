@@ -181,28 +181,16 @@ class TestAccessDenied403:
     """403 errors for access denied (authenticated but not authorized)."""
 
     def test_list_action_access_denied_returns_403(self):
-        # AuthOnlyModel requires AUTHENTICATED for list, but we'll create a pathological case
-        # by using a model that would cause sql_filter to raise AccessDenied.
-        # Actually, DefaultResolver.sql_filter_for doesn't raise AccessDenied unless the rule itself does.
-        # Let's use a ROLE rule for list with wrong role.
-        class RoleOnlyList:
-            __access__ = {'list': ROLE('admin')}
+        # Interceptor maps 'list' action to 'read' for access resolution.
+        # So __access__ must use 'read' key to be picked up by the interceptor.
+        class RoleOnlyRead:
+            __access__ = {'read': ROLE('admin')}
 
-        tx = make_tx_with_model('list', RoleOnlyList, user=AUTH_USER)  # user role is 'user', not 'admin'
+        tx = make_tx_with_model('list', RoleOnlyRead, user=AUTH_USER)  # user role is 'user', not 'admin'
         result = run_async(auth_interceptor(tx))
-        # ROLE rule for list generates sql_filter "1=0" for non-matching role, not AccessDenied
-        # So this actually passes through with a restrictive filter.
-        # Let me check the actual behavior...
-        # Actually, looking at auth_interceptor line 48-52, it catches AccessDenied from sql_filter_for.
-        # DefaultResolver.sql_filter_for doesn't raise AccessDenied — it returns None or a filter.
-        # So we need a rule that would cause sql_filter to raise AccessDenied.
-        # Looking at the rules, none of them raise in sql_filter().
-        # Let me re-read the interceptor... oh, it's only if sql_filter_for itself fails.
-        # Actually, the DefaultResolver.sql_filter_for calls rule.sql_filter(ctx), which can return None
-        # but doesn't raise. So this case might not be reachable with current rule implementations.
-        # Let's test that list with restrictive role generates a restrictive filter instead.
+        # ROLE rule for list generates sql_filter "1=0" for non-matching role
         assert not result.is_error
-        assert result.meta['sql_filter'] == ("1=0", [])  # Role rule with wrong role
+        assert result.meta['sql_filter'] == ("1=0", [])
 
     def test_create_action_denied_returns_403(self):
         class AdminOnlyCreate:
@@ -241,7 +229,8 @@ class TestAnyoneRule:
     """ANYONE rule allows unauthenticated access."""
 
     def test_read_anyone_rule_unauthenticated_passes_through(self):
-        tx = make_tx_with_model('read', PublicModel, user=NO_USER)
+        # TX uses 'get' for read operations (not 'read')
+        tx = make_tx_with_model('get', PublicModel, user=NO_USER)
         result = run_async(auth_interceptor(tx))
         assert not result.is_error
 
@@ -262,11 +251,12 @@ class TestAuthenticatedRule:
         result = run_async(auth_interceptor(tx))
         assert not result.is_error
 
-    def test_create_authenticated_rule_without_user_returns_403(self):
+    def test_create_authenticated_rule_without_user_returns_401(self):
+        # Unauthenticated users get 401 (not 403) via _deny()
         tx = make_tx_with_model('create', PublicModel, user=NO_USER)
         result = run_async(auth_interceptor(tx))
         assert result.is_error
-        assert result.data['code'] == 403
+        assert result.data['code'] == 401
 
 
 class TestOwnerRuleDeferredToTier2:
@@ -361,25 +351,27 @@ class TestSQLFilterGeneration:
         assert result.meta['sql_filter'] == ("1=1", [])
 
     def test_list_owner_rule_generates_owner_field_filter(self):
-        class OwnerList:
-            __access__ = {'list': OWNER}
+        # Interceptor maps 'list' to 'read' for access resolution
+        class OwnerRead:
+            __access__ = {'read': OWNER}
             __owner_field__ = 'user_owner'
 
-        tx = make_tx_with_model('list', OwnerList, user=AUTH_USER)
+        tx = make_tx_with_model('list', OwnerRead, user=AUTH_USER)
         result = run_async(auth_interceptor(tx))
         assert result.meta['sql_filter'] == ("user_owner = ?", [1])
 
     def test_list_role_rule_generates_filter_based_on_role(self):
-        class AdminList:
-            __access__ = {'list': ROLE('admin')}
+        # Interceptor maps 'list' to 'read' for access resolution
+        class AdminRead:
+            __access__ = {'read': ROLE('admin')}
 
         # User with admin role
-        tx = make_tx_with_model('list', AdminList, user=ADMIN_USER)
+        tx = make_tx_with_model('list', AdminRead, user=ADMIN_USER)
         result = run_async(auth_interceptor(tx))
         assert result.meta['sql_filter'] == ("1=1", [])
 
         # User with wrong role
-        tx = make_tx_with_model('list', AdminList, user=AUTH_USER)
+        tx = make_tx_with_model('list', AdminRead, user=AUTH_USER)
         result = run_async(auth_interceptor(tx))
         assert result.meta['sql_filter'] == ("1=0", [])
 
