@@ -44,6 +44,45 @@ class BaseBackend(ABC, BaseModel):
         pass
 
 
+class _CascadingStaticFiles:
+    """ASGI handler that searches multiple directories for static files.
+
+    Looks up the requested path across all directories; the first match
+    wins.  This allows split packages (n3tx-agents, n3tx-ui, n3tx-core)
+    to each contribute static assets under the same URL namespace.
+    """
+
+    def __init__(self, directories):
+        from pathlib import Path
+        self._directories = [Path(d) for d in directories]
+        # Keep a single StaticFiles per directory for proper MIME handling
+        from fastapi.staticfiles import StaticFiles
+        self._apps = {
+            str(d): StaticFiles(directory=str(d))
+            for d in self._directories
+        }
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return
+
+        path = scope.get("path", "/").lstrip("/")
+        if not path:
+            path = "index.html"
+
+        # Find which directory contains this file
+        for d in self._directories:
+            candidate = d / path
+            if candidate.is_file():
+                await self._apps[str(d)](scope, receive, send)
+                return
+
+        # Not found in any directory — let last dir's StaticFiles handle 404
+        if self._apps:
+            last = list(self._apps.values())[-1]
+            await last(scope, receive, send)
+
+
 # app/backends/fastapi_backend.py
 class FastAPIBackend(BaseBackend):
     # Paths that do not require authentication
@@ -194,14 +233,41 @@ class FastAPIBackend(BaseBackend):
         register_routes()
         self.app.include_router(router)
 
+    @staticmethod
+    def _discover_static_dirs():
+        """Discover static directories from installed N3TX packages.
+
+        Returns directories in priority order (highest first):
+            1. n3tx-agents static (if installed)
+            2. n3tx-ui static (if installed)
+            3. n3tx-core static (always present)
+        """
+        import importlib
+        from pathlib import Path
+
+        dirs = []
+        # Optional packages first (higher priority)
+        for pkg_name in ('n3tx_agents', 'n3tx_ui'):
+            try:
+                mod = importlib.import_module(pkg_name)
+                pkg_static = Path(mod.__file__).parent / "static"
+                if pkg_static.is_dir():
+                    dirs.append(pkg_static)
+            except ImportError:
+                pass
+        # Core static last (catch-all)
+        core_static = Path(__file__).resolve().parent.parent / "static"
+        if core_static.is_dir():
+            dirs.append(core_static)
+        return dirs
+
     def _mount_static(self, app_static_dirs=None):
-        import os
         from pathlib import Path
         from fastapi.staticfiles import StaticFiles
         from fastapi.responses import FileResponse
 
         ssr_active = self._ssr_mode != 'off'
-        static_dir = Path(__file__).resolve().parent.parent.parent / "static"
+        framework_dirs = self._discover_static_dirs()
         index_html_path = None  # Track for SSR and GET / route
 
         # Serve files from app-specific static directories as explicit routes.
@@ -226,7 +292,7 @@ class FastAPIBackend(BaseBackend):
                     lambda _path=str(file_path): FileResponse(_path)
                 )
 
-        if not static_dir.is_dir():
+        if not framework_dirs:
             if ssr_active and index_html_path:
                 self._mount_ssr_route(index_html_path, app_static_dirs)
             elif index_html_path:
@@ -236,19 +302,21 @@ class FastAPIBackend(BaseBackend):
                 )
             return
 
-        # Serve framework HTML pages at the root
+        # Serve framework HTML pages at the root (search all package dirs)
         for html_file in ("schema.html", "example.html", "index.html", "login.html", "register.html"):
-            html_path = static_dir / html_file
-            if html_path.exists():
-                # Track index.html for SSR interception and GET / route
-                if html_file == 'index.html':
-                    if index_html_path is None:
-                        index_html_path = html_path
-                    if ssr_active:
-                        continue  # SSR route handles it
-                self.app.get(f"/{html_file}", include_in_schema=False)(
-                    lambda _path=str(html_path): FileResponse(_path)
-                )
+            for static_dir in framework_dirs:
+                html_path = static_dir / html_file
+                if html_path.exists():
+                    # Track index.html for SSR interception and GET / route
+                    if html_file == 'index.html':
+                        if index_html_path is None:
+                            index_html_path = html_path
+                        if ssr_active:
+                            break  # SSR route handles it
+                    self.app.get(f"/{html_file}", include_in_schema=False)(
+                        lambda _path=str(html_path): FileResponse(_path)
+                    )
+                    break  # First match wins
 
         # Mount SSR route for index.html (dynamic, with injected content)
         if ssr_active and index_html_path:
@@ -259,8 +327,12 @@ class FastAPIBackend(BaseBackend):
                 lambda _path=str(index_html_path): FileResponse(_path)
             )
 
-        # Mount the framework static directory so JS/CSS imports resolve
-        self.app.mount("/", StaticFiles(directory=str(static_dir)), name="static")
+        # Mount framework static directories so JS/CSS imports resolve.
+        # Use a cascading handler that searches all package dirs.
+        if len(framework_dirs) == 1:
+            self.app.mount("/", StaticFiles(directory=str(framework_dirs[0])), name="static")
+        else:
+            self.app.mount("/", _CascadingStaticFiles(directories=framework_dirs), name="static")
 
     def _mount_ssr_route(self, html_path, app_static_dirs=None):
         """Mount a dynamic route for index.html with SSR content injection.
@@ -285,9 +357,8 @@ class FastAPIBackend(BaseBackend):
 
         # Build the list of static directories for the bundler
         static_dirs = list(app_static_dirs or [])
-        framework_static = Path(__file__).resolve().parent.parent.parent / "static"
-        if framework_static.is_dir():
-            static_dirs.append(str(framework_static))
+        for fdir in self._discover_static_dirs():
+            static_dirs.append(str(fdir))
 
         def _build_ssr_html():
             if 'html' not in cache:
