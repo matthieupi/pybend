@@ -15,6 +15,7 @@ import TX from '../core/TX.js';
 import Logging from '../utils/Logging.js';
 import {permissions} from '../utils/Permissions.js';
 import {NTTModal} from './ntx-modal.js';
+import { Formidable } from '../generators/form.js';
 
 
 export class ListElement extends Component {
@@ -147,6 +148,12 @@ export class ListElement extends Component {
 
     modal.onSubmit = () => {
       if (!el.value || typeof el.value !== 'object') return;
+      // Client-side validation before sending
+      const errors = Formidable.validateForm(el);
+      if (errors.length > 0) {
+        if (el.showFieldErrors) el.showFieldErrors(errors);
+        return;
+      }
       // Strip null/NaN values before sending to avoid invalid payloads
       const data = {};
       for (const [k, v] of Object.entries(el.value)) {
