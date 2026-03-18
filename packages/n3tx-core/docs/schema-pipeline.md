@@ -20,13 +20,17 @@ Stage 2: strip_hidden(cls,s)  -- Remove __hidden_fields__
 Stage 3: methods(cls,s)       -- Inject @expose_route signatures
 Stage 4: defs(cls,s)          -- Collect referenced models into $defs
 Stage 5: access(cls,s)        -- Serialize __access__ ABAC rules
-Stage 6: widget(cls,s)        -- Inject ui.widget from Widget annotations [via @schema_extension]
-Stage 7: ui(cls,s)            -- Field exclusion, __protected_fields__, __ui__ config
-Stage 8: metadata(cls,s)      -- Stamp $schema and $id
+Stage 6: widget(cls,s)        -- Inject ui.widget from Widget annotations [via @schema_extension, n3tx-core.widgets]
+Stage 7: ui(cls,s)            -- Field exclusion, __protected_fields__ [field-level only — core]
+Stage 8: viewable(cls,s)      -- Emit __ui__ class config into schema['ui'] [via @schema_extension, n3tx-ui]
+Stage 9: agent(cls,s)         -- Emit agent metadata into schema['agent'] [via @schema_extension, n3tx-agents]
+Stage N: metadata(cls,s)      -- Stamp $schema and $id
   |
   v
 dict (JSON Schema with N3TX extensions)
 ```
+
+Stages 8 (`viewable`), 9 (`agent`), and any widget stage are registered by their respective packages at import time. Only the 7 core stages (`base` through `ui`, `metadata`) are guaranteed present when running core alone.
 
 Each stage is a pure `dict -> dict` function. The first stage (`base`) takes only `cls` and returns the seed dict. All subsequent stages take `(cls, schema)` and return the modified schema.
 
@@ -85,6 +89,44 @@ register_stage('fields', llm_fields, pipeline='llm')
 result = run_pipeline(cls, pipeline='llm')
 ```
 
+## Mixin Registry
+
+### `register_mixin(flag, mixin_cls, *, also_if=None)`
+
+External packages register mixins for auto-injection into `ProtoModel` subclasses. Called at import time (typically in the package `__init__.py`).
+
+```python
+from n3tx_core.models.proto_model import register_mixin
+from my_package.mixin import MyMixin
+
+register_mixin('__my_flag__', MyMixin)
+```
+
+When a model class is defined with the flag set, `__init_subclass__` injects the mixin automatically:
+
+```python
+class Widget(ProtoModel):
+    __my_flag__ = True
+    # → MyMixin is prepended to Widget.__bases__ automatically
+```
+
+**`also_if`** — additional ClassVar names that also trigger injection, with flag normalization:
+
+```python
+# __ui__ = {...} is a guardrail: auto-sets __viewable__ = True and injects ViewableMixin
+register_mixin('__viewable__', ViewableMixin, also_if=['__ui__'])
+```
+
+**Timing requirement**: `register_mixin()` must be called **before** any model with that flag is defined. Both `n3tx-ui` and `n3tx-agents` register at their `__init__.py` import time. Applications using `__agent__ = True` must `import n3tx_agents` before importing model files.
+
+**Built-in registrations:**
+- `n3tx_ui.__init__` registers `ViewableMixin` for `__viewable__` (also fires on `__ui__`)
+- `n3tx_agents.__init__` registers `AgentMixin` for `__agent__`
+
+`StorableMixin` is **not** in the registry — it's special-cased in `__init_subclass__` because it rewrites FK annotations at injection time.
+
+---
+
 ## Usage Patterns
 
 ### Adding a ClassVar-Driven Feature
@@ -129,3 +171,5 @@ def enrich_defs(cls, schema: dict) -> dict:
 - **The `base` stage patches Ref fields.** Pydantic serializes `Ref[T]` as `{"type": "integer"}`. The `base` stage patches these back to `{"type": "$ref", "$ref": "#/$defs/{TargetName}"}`. If you add a stage that reads field types, account for this patching.
 - **`_apply_field_exclusion` auto-hides `id`, `image`, `created_at`, `updated_at`, and `*_id` fields** by setting `ui.display = false`. Existing `display` values are preserved -- only unset fields get the default.
 - **The `widget` stage is registered by `n3tx_core.widgets`** (via `@schema_extension(before='ui')`). It runs only if the widgets package is imported. The default pipeline includes it because `n3tx_core.widgets.__init__` imports `schema_ext`.
+- **`__ui__` config (`field_order`, `groups`, `renderer`, etc.) lives in the `viewable` stage** (n3tx-ui), not the `ui` stage (core). If you call `schema()` without importing `n3tx_ui`, the `ui` key will be absent from the schema. This is intentional — core has zero dependency on n3tx-ui.
+- **`register_mixin()` requires pre-import.** If a model is defined before its mixin package is imported, the flag fires with an empty registry and injection is skipped silently. Always import external packages (e.g., `n3tx_agents`, `n3tx_ui`) before importing model files that use their flags.
