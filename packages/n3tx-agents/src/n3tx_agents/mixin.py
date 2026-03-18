@@ -44,6 +44,15 @@ import logging
 from pydantic_ai import Agent, UsageLimits
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
+from pydantic_ai._agent_graph import (
+    ModelRequestNode, CallToolsNode, UserPromptNode, End,
+)
+from pydantic_ai.messages import (
+    PartStartEvent, PartDeltaEvent, PartEndEvent,
+    FunctionToolCallEvent, FunctionToolResultEvent,
+    TextPart, ToolCallPart, ThinkingPart,
+    TextPartDelta, ThinkingPartDelta, ToolCallPartDelta,
+)
 
 from n3tx_core import config
 from n3tx_actors.actor import Actor
@@ -463,7 +472,10 @@ class AgentMixin:
 
         TX-Aligned Chunk Format:
             {'name': 'text',        'data': {'text': '...'}, 'meta': {'stream': True, 'seq': N}}
-            {'name': 'done',        'data': {'answer': '...', 'usage': {...}}, 'meta': {'stream_end': True}}
+            {'name': 'tool_call',   'data': {'tool': '...', 'args': {...}, 'call_id': '...'}, 'meta': {'stream': True, 'seq': N}}
+            {'name': 'tool_result', 'data': {'tool': '...', 'result': '...', 'call_id': '...'}, 'meta': {'stream': True, 'seq': N}}
+            {'name': 'thinking',    'data': {'text': '...'}, 'meta': {'stream': True, 'seq': N}}
+            {'name': 'done',        'data': {'answer': '...', 'usage': {...}, 'tool_calls': N}, 'meta': {'stream_end': True}}
             {'name': 'error',       'data': {'message': '...'}, 'meta': {'error': True}}
         """
         cls = target if isinstance(target, type) else target.__class__
@@ -542,29 +554,74 @@ class AgentMixin:
             if message_history:
                 run_kwargs['message_history'] = message_history
 
-            # Use Agent.run_stream() for token-level streaming
+            # ── Rich streaming via agent.iter() graph API ──
             streamed_text = ''
-            async with ai_agent.run_stream(task, **run_kwargs) as result:
-                async for text in result.stream_text(delta=True):
-                    streamed_text += text
-                    yield {
-                        # TODO Add type (tool call, thinking, response etc)
-                        'name': 'text',
-                        'data': {'text': text},
-                        'meta': {'stream': True, 'seq': seq},
-                    }
-                    seq += 1
+            tool_call_count = 0
 
-                # Stream complete — emit final done chunk
-                usage = result.usage()
-                try:
-                    output = await result.get_output()
-                except Exception:
-                    output = ''
+            async with ai_agent.iter(task, **run_kwargs) as agent_run:
+                async for node in agent_run:
+                    if isinstance(node, ModelRequestNode):
+                        async with node.stream(agent_run.ctx) as request_stream:
+                            async for event in request_stream:
+                                if isinstance(event, PartStartEvent):
+                                    if isinstance(event.part, ToolCallPart):
+                                        tool_call_count += 1
+                                        yield {
+                                            'name': 'tool_call',
+                                            'data': {
+                                                'tool': event.part.tool_name,
+                                                'args': event.part.args,
+                                                'call_id': event.part.tool_call_id,
+                                            },
+                                            'meta': {'stream': True, 'seq': seq},
+                                        }
+                                        seq += 1
+                                    elif isinstance(event.part, ThinkingPart):
+                                        if event.part.content:
+                                            yield {
+                                                'name': 'thinking',
+                                                'data': {'text': event.part.content},
+                                                'meta': {'stream': True, 'seq': seq},
+                                            }
+                                            seq += 1
+                                elif isinstance(event, PartDeltaEvent):
+                                    if isinstance(event.delta, TextPartDelta):
+                                        streamed_text += event.delta.content_delta
+                                        yield {
+                                            'name': 'text',
+                                            'data': {'text': event.delta.content_delta},
+                                            'meta': {'stream': True, 'seq': seq},
+                                        }
+                                        seq += 1
+                                    elif isinstance(event.delta, ThinkingPartDelta):
+                                        yield {
+                                            'name': 'thinking',
+                                            'data': {'text': event.delta.content_delta},
+                                            'meta': {'stream': True, 'seq': seq},
+                                        }
+                                        seq += 1
+                    elif isinstance(node, CallToolsNode):
+                        async with node.stream(agent_run.ctx) as tools_stream:
+                            async for event in tools_stream:
+                                if isinstance(event, FunctionToolResultEvent):
+                                    yield {
+                                        'name': 'tool_result',
+                                        'data': {
+                                            'tool': event.result.tool_name,
+                                            'result': str(event.result.content),
+                                            'call_id': event.result.tool_call_id,
+                                        },
+                                        'meta': {'stream': True, 'seq': seq},
+                                    }
+                                    seq += 1
+
+                # ── Iteration complete — build done chunk ──
+                run_result = agent_run.result
+                usage = agent_run.usage()
+                output = run_result.output if run_result else ''
                 if not output and streamed_text:
                     output = streamed_text
-
-                all_messages = result.all_messages()
+                all_messages = agent_run.all_messages()
 
                 # ── Thread: post-stream update ──
                 if thread_id is not None:
@@ -595,13 +652,11 @@ class AgentMixin:
                         'output_tokens': usage.output_tokens,
                         'requests': usage.requests,
                     },
+                    'tool_calls': tool_call_count,
                 }
                 if thread_id is not None:
                     done_data['thread_id'] = thread_id
 
-                # TODO
-                #  Replace by returning full output (text, thinking, tool calls, any other relevant info
-                #  We can probably remove streamed_text and use output.
                 yield {
                     'name': 'done',
                     'data': done_data,

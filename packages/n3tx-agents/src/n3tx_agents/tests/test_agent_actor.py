@@ -359,6 +359,95 @@ class TestAgentActorAgentic:
         assert 'answer' in result
 
 
+class TestAgentActorStream:
+    """Tests for AgentActor.agentic_stream() — streaming with DB tool resolution."""
+
+    @pytest.mark.asyncio
+    async def test_stream_yields_chunks(self, fresh_matrix, tmp_path):
+        """agentic_stream() yields TX-aligned chunks."""
+        from pydantic_ai.models.test import TestModel
+
+        storage = SQLiteStorage(str(tmp_path / 'test.db'))
+        register_model(AgentTool, storage=storage)
+        register_model(AgentActor, storage=storage)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
+
+        agent = AgentActor(
+            name='Test Streamer',
+            prompt='You are a test agent.',
+            llm='test',
+        )
+        created = AgentActor.create(agent)
+
+        chunks = []
+        async for chunk in created.agentic_stream(
+            task='Hello',
+            llm=TestModel(call_tools=[]),
+        ):
+            chunks.append(chunk)
+
+        assert len(chunks) > 0
+        names = [c['name'] for c in chunks]
+        assert 'done' in names or 'text' in names
+
+    @pytest.mark.asyncio
+    async def test_stream_with_tool_resolution(self, fresh_matrix, tmp_path):
+        """agentic_stream() resolves tools from DB and yields tool events."""
+        from pydantic_ai.models.test import TestModel
+
+        storage = SQLiteStorage(str(tmp_path / 'test.db'))
+
+        class Item(ActorModel):
+            __tablename__ = 'items'
+            __storable__ = True
+            title: str = Field(default='')
+
+        register_model(Item, storage=storage)
+        register_model(AgentTool, storage=storage)
+        register_model(AgentActor, storage=storage)
+        join_cls = generate_join_model(AgentActor, AgentTool)
+        register_model(join_cls, storage=storage)
+
+        agent = AgentActor(
+            name='Tool Streamer',
+            prompt='You list items.',
+            llm='test',
+        )
+        created = AgentActor.create(agent)
+
+        # Add tool record via join table
+        tool_record = join_cls(target='items', description='Item CRUD', agentactor_id=created.id)
+        join_cls.create(tool_record)
+
+        # Reload to get tool hrefs
+        agent = AgentActor.get(created.id)
+
+        chunks = []
+        async for chunk in agent.agentic_stream(
+            task='List items',
+            llm=TestModel(call_tools=['items_list']),
+        ):
+            chunks.append(chunk)
+
+        names = [c['name'] for c in chunks]
+        assert 'tool_call' in names, f"No tool_call in: {names}"
+        assert 'tool_result' in names, f"No tool_result in: {names}"
+        assert 'done' in names
+
+    @pytest.mark.asyncio
+    async def test_stream_schema_has_method(self, fresh_matrix, tmp_path):
+        """AgentActor schema includes agentic_stream in methods with stream=True."""
+        storage = SQLiteStorage(str(tmp_path / 'test.db'))
+        register_model(AgentTool, storage=storage)
+        register_model(AgentActor, storage=storage)
+
+        schema = AgentActor.schema()
+        methods = schema.get('methods', {})
+        assert 'agentic_stream' in methods, f"agentic_stream not in: {list(methods.keys())}"
+        assert methods['agentic_stream'].get('stream') is True
+
+
 class TestAgentActorSchema:
     """Tests for schema extension on AgentActor."""
 

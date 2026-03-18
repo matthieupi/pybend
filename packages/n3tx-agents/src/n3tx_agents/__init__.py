@@ -12,6 +12,11 @@ Core components:
 """
 
 from .mixin import AgentMixin
+
+# Register AgentMixin BEFORE importing AgentActor, so __init_subclass__ fires correctly
+from n3tx_core.models.proto_model import register_mixin
+register_mixin('__agent__', AgentMixin)
+
 from .actor import AgentActor
 from .tool_model import AgentTool
 from .deps import AgentDeps

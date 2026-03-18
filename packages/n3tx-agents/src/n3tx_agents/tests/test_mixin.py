@@ -594,3 +594,225 @@ class TestRunStreamEngine:
         assert len(error_chunks) == 1
         assert error_chunks[0]['meta']['error'] is True
         assert 'message' in error_chunks[0]['data']
+
+
+class TestRunStreamTypedEvents:
+    """Tests for rich typed events from run_stream() via agent.iter()."""
+
+    @pytest.mark.asyncio
+    async def test_text_chunks_backward_compat(self, fresh_matrix):
+        """run_stream() still yields text chunks with name='text'."""
+        from pydantic_ai.models.test import TestModel
+
+        class Scanner(ActorModel):
+            __tablename__ = 'scanners'
+            __storable__ = False
+            __agent__ = True
+
+        scanner = Scanner(addr='scanners/1')
+        chunks = []
+        async for chunk in scanner.run_stream(
+            task='Test',
+            prompt='Test prompt',
+            tools=[],
+            llm=TestModel(call_tools=[]),
+        ):
+            chunks.append(chunk)
+
+        text_chunks = [c for c in chunks if c['name'] == 'text']
+        assert len(text_chunks) > 0, f"No text chunks. Got: {[c['name'] for c in chunks]}"
+        for tc in text_chunks:
+            assert 'text' in tc['data']
+            assert tc['meta']['stream'] is True
+            assert 'seq' in tc['meta']
+
+    @pytest.mark.asyncio
+    async def test_tool_call_event(self, fresh_matrix, tmp_path):
+        """run_stream() yields tool_call event when LLM calls a tool."""
+        from pydantic_ai.models.test import TestModel
+
+        file_storage = SQLiteStorage(str(tmp_path / 'test.db'))
+
+        class Grant(ActorModel):
+            __tablename__ = 'grants'
+            __storable__ = True
+            title: str = Field(default='')
+
+        register_model(Grant, storage=file_storage)
+        file_storage.create_table(Grant)
+
+        class Scanner(ActorModel):
+            __tablename__ = 'scanners'
+            __storable__ = False
+            __agent__ = True
+
+        scanner = Scanner(addr='scanners/1')
+        chunks = []
+        async for chunk in scanner.run_stream(
+            task='List grants',
+            prompt='List grants.',
+            tools=['grants'],
+            llm=TestModel(call_tools=['grants_list']),
+        ):
+            chunks.append(chunk)
+
+        tool_calls = [c for c in chunks if c['name'] == 'tool_call']
+        assert len(tool_calls) >= 1, f"No tool_call events. Got: {[c['name'] for c in chunks]}"
+        tc = tool_calls[0]
+        assert tc['data']['tool'] == 'grants_list'
+        assert 'call_id' in tc['data']
+        assert 'args' in tc['data']
+
+    @pytest.mark.asyncio
+    async def test_tool_result_event(self, fresh_matrix, tmp_path):
+        """run_stream() yields tool_result event after tool execution."""
+        from pydantic_ai.models.test import TestModel
+
+        file_storage = SQLiteStorage(str(tmp_path / 'test.db'))
+
+        class Grant(ActorModel):
+            __tablename__ = 'grants'
+            __storable__ = True
+            title: str = Field(default='')
+
+        register_model(Grant, storage=file_storage)
+        file_storage.create_table(Grant)
+
+        class Scanner(ActorModel):
+            __tablename__ = 'scanners'
+            __storable__ = False
+            __agent__ = True
+
+        scanner = Scanner(addr='scanners/1')
+        chunks = []
+        async for chunk in scanner.run_stream(
+            task='List grants',
+            prompt='List grants.',
+            tools=['grants'],
+            llm=TestModel(call_tools=['grants_list']),
+        ):
+            chunks.append(chunk)
+
+        tool_results = [c for c in chunks if c['name'] == 'tool_result']
+        assert len(tool_results) >= 1, f"No tool_result events. Got: {[c['name'] for c in chunks]}"
+        tr = tool_results[0]
+        assert tr['data']['tool'] == 'grants_list'
+        assert 'result' in tr['data']
+        assert 'call_id' in tr['data']
+
+    @pytest.mark.asyncio
+    async def test_done_chunk_has_tool_calls_count(self, fresh_matrix, tmp_path):
+        """Done chunk includes tool_calls count."""
+        from pydantic_ai.models.test import TestModel
+
+        file_storage = SQLiteStorage(str(tmp_path / 'test.db'))
+
+        class Grant(ActorModel):
+            __tablename__ = 'grants'
+            __storable__ = True
+            title: str = Field(default='')
+
+        register_model(Grant, storage=file_storage)
+        file_storage.create_table(Grant)
+
+        class Scanner(ActorModel):
+            __tablename__ = 'scanners'
+            __storable__ = False
+            __agent__ = True
+
+        scanner = Scanner(addr='scanners/1')
+        chunks = []
+        async for chunk in scanner.run_stream(
+            task='List grants',
+            prompt='List grants.',
+            tools=['grants'],
+            llm=TestModel(call_tools=['grants_list']),
+        ):
+            chunks.append(chunk)
+
+        done_chunks = [c for c in chunks if c['name'] == 'done']
+        assert len(done_chunks) == 1
+        assert done_chunks[0]['data']['tool_calls'] >= 1
+
+    @pytest.mark.asyncio
+    async def test_seq_monotonically_increasing(self, fresh_matrix):
+        """All chunk seq numbers are monotonically increasing."""
+        from pydantic_ai.models.test import TestModel
+
+        class Scanner(ActorModel):
+            __tablename__ = 'scanners'
+            __storable__ = False
+            __agent__ = True
+
+        scanner = Scanner(addr='scanners/1')
+        chunks = []
+        async for chunk in scanner.run_stream(
+            task='Test',
+            prompt='Test',
+            tools=[],
+            llm=TestModel(call_tools=[]),
+        ):
+            chunks.append(chunk)
+
+        seqs = [c['meta']['seq'] for c in chunks if 'seq' in c.get('meta', {})]
+        for i in range(1, len(seqs)):
+            assert seqs[i] > seqs[i-1], f"seq not monotonic: {seqs}"
+
+    @pytest.mark.asyncio
+    async def test_event_ordering_tool_call_before_result(self, fresh_matrix, tmp_path):
+        """tool_call events appear before their matching tool_result."""
+        from pydantic_ai.models.test import TestModel
+
+        file_storage = SQLiteStorage(str(tmp_path / 'test.db'))
+
+        class Grant(ActorModel):
+            __tablename__ = 'grants'
+            __storable__ = True
+            title: str = Field(default='')
+
+        register_model(Grant, storage=file_storage)
+        file_storage.create_table(Grant)
+
+        class Scanner(ActorModel):
+            __tablename__ = 'scanners'
+            __storable__ = False
+            __agent__ = True
+
+        scanner = Scanner(addr='scanners/1')
+        chunks = []
+        async for chunk in scanner.run_stream(
+            task='List grants',
+            prompt='List grants.',
+            tools=['grants'],
+            llm=TestModel(call_tools=['grants_list']),
+        ):
+            chunks.append(chunk)
+
+        names = [c['name'] for c in chunks]
+        if 'tool_call' in names and 'tool_result' in names:
+            first_call = names.index('tool_call')
+            first_result = names.index('tool_result')
+            assert first_call < first_result, f"tool_call at {first_call} but tool_result at {first_result}"
+
+    @pytest.mark.asyncio
+    async def test_done_always_last(self, fresh_matrix):
+        """Done chunk is always the last chunk emitted."""
+        from pydantic_ai.models.test import TestModel
+
+        class Scanner(ActorModel):
+            __tablename__ = 'scanners'
+            __storable__ = False
+            __agent__ = True
+
+        scanner = Scanner(addr='scanners/1')
+        chunks = []
+        async for chunk in scanner.run_stream(
+            task='Test',
+            prompt='Test',
+            tools=[],
+            llm=TestModel(call_tools=[]),
+        ):
+            chunks.append(chunk)
+
+        assert chunks[-1]['name'] == 'done'
+        assert chunks[-1]['meta']['stream_end'] is True
