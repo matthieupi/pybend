@@ -7,7 +7,6 @@ from datetime import datetime
 from pydantic import Field, field_validator
 
 from n3tx_actors.tx import TX
-from n3tx_core.models.viewable_mixin import ViewableMixin
 from models.comment import Comment
 from models.like import Like
 from n3tx_actors.models.actor_model import ActorModel

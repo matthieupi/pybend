@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import config
 from n3tx_core.app import create_app
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
+import n3tx_agents  # noqa: registers AgentMixin before model definitions  # noqa: F401
 from models import User, Bot, Product, Comment, Like
 
 # Configure logging for development
