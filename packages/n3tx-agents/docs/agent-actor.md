@@ -61,7 +61,7 @@ Linked to AgentActor via `ListRef` + auto-generated join table.
 Exposed as `POST /agents/{id}/agentic`. Returns a JSON string (not dict)
 containing `{answer, usage, messages, message_count}`.
 
-**kwargs accepted**: `llm`, `constraints`, `user`, `message_history`,
+**kwargs accepted**: `llm`, `constraints`, `user`, `thread_id`,
 `result_type`.
 
 **Tool resolution**: Calls `_resolve_tool_addrs()` which handles three

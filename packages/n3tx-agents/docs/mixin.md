@@ -19,7 +19,6 @@ receives either the class or the instance.
 agentic(task)                    agentic_stream(task)
     |                                |
     | 3-tier config cascade          | same cascade
-    | create transient adapter       | create transient adapter
     |                                |
     v                                v
 run(task, prompt, tools, ...)    run_stream(task, prompt, tools, ...)
@@ -31,6 +30,9 @@ run(task, prompt, tools, ...)    run_stream(task, prompt, tools, ...)
     v                                v
 {answer, usage, messages}        yields {name, data, meta} chunks
 ```
+
+Tool calls and thread operations route through `Actor.root().request()`
+(Matrix request-response) — no transient adapters needed.
 
 ## Interface
 
@@ -54,17 +56,14 @@ Returns actor addresses for tool discovery. Same result for class and instance.
 
 ### `agentic(target, task: str, **kwargs) -> dict`
 
-Policy layer. Resolves config, creates transient adapter, delegates to `run()`.
+Policy layer. Resolves config, delegates to `run()`.
 
 **kwargs accepted**: `prompt`, `tools`, `llm`, `constraints`, `user`,
-`message_history`, `result_type`.
+`thread_id`, `result_type`.
 
 **Config cascade**: `config.AGENT_DEFAULTS` < `__agent__` dict < kwargs.
 The `tools` kwarg uses `in` check (passing `tools=[]` is valid and means
 "no tools", distinct from omitting it which triggers auto-discovery).
-
-**Adapter lifecycle**: Creates `NetworkAdapter(addr='_agent_{uuid}')`,
-registers with Matrix, cleans up in `finally` block (even on error).
 
 **Returns**: `{"answer": str|structured, "usage": {"input_tokens": int, "output_tokens": int, "requests": int}, "messages": list, "message_count": int}`
 
@@ -80,15 +79,15 @@ Engine. No config resolution. Receives fully resolved params.
 | `prompt` | str | System prompt |
 | `tools` | list[str] | Actor addresses |
 | `user` | dict | JWT user context (injected into tool TX meta) |
-| `llm` | str or Model | LLM identifier or pydantic-ai Model instance |
 | `constraints` | dict | `{"max_iterations": N}` maps to UsageLimits |
-| `adapter` | NetworkAdapter | Reuse existing (skips transient creation) |
-| `message_history` | list | Previous messages for multi-turn |
+| `thread_id` | int | Thread ID for persistent conversation history |
 | `result_type` | type | Pydantic model for structured output |
+| `**kwargs` | | Override `llm` (LLM model string or pydantic-ai Model) |
 
-**LLM resolution**: `ollama:model` strings are converted to
-`OpenAIChatModel` with `OllamaProvider`. All other strings pass through
-to pydantic-ai's default resolution.
+**LLM resolution** (3-tier cascade inside run): `kwargs['llm']` >
+`__agent__['llm']` > instance `llm` attr > `config.AGENT_DEFAULTS['llm']`.
+Raises `ValueError` if nothing resolves. `ollama:model` strings are
+converted to `OpenAIChatModel` with `OllamaProvider`.
 
 ### `agentic_stream(target, task, **kwargs)` -> async generator
 
@@ -109,13 +108,21 @@ Errors are caught and yielded as error chunks rather than raised.
 
 ## Usage Patterns
 
-### Multi-turn conversation
+### Multi-turn conversation (via Thread)
 
 ```python
-result1 = await product.agentic(task='What fields do I have?')
+from n3tx_agents import Thread
+
+# Create a thread for this conversation
+thread = Thread.create(Thread(agent_addr='products', user_owner=user_id))
+
+# First turn
+result1 = await product.agentic(task='What fields do I have?', thread_id=thread.id)
+
+# Second turn — thread carries history automatically
 result2 = await product.agentic(
     task='Tell me more about the price field',
-    message_history=result1['messages'],
+    thread_id=thread.id,
 )
 ```
 
@@ -152,14 +159,11 @@ result = await Product.agentic(
 
 ## Gotchas
 
-- `run()` creates a transient adapter if none is provided. If you call
-  `run()` in a loop, pass a shared adapter to avoid creating/destroying
-  one per iteration.
 - The `tools` kwarg on `agentic()` uses `'tools' in kwargs` (not truthiness).
   Passing `tools=[]` means "no tools". Omitting `tools` means "auto-discover".
-- `agentic_stream()` cleanup depends on the generator's `finally` block.
-  Always fully consume the generator or call `await gen.aclose()`.
-- LLM defaults to `ollama:llama3.1`. In tests, always pass
-  `llm=TestModel(call_tools=[])` to avoid hitting a real LLM.
+- No LLM default — `run()` raises `ValueError` if no LLM resolves from
+  the 3-tier cascade. In tests, always pass `llm=TestModel(call_tools=[])`.
 - `RuntimeError("No Matrix root")` means no `Matrix()` was instantiated.
-  Agent methods require a live Matrix for tool routing.
+  Agent methods require a live Matrix for tool routing and request-response.
+- Tool calls route through `Actor.root().request()` (Matrix). No adapter
+  creation/teardown overhead.

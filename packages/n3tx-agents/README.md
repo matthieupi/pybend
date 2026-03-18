@@ -93,7 +93,7 @@ This is the design decision you'll thank us for later.
 
 `agentic()` is the policy layer -- resolves config via 3-tier cascade
 (`config.AGENT_DEFAULTS` < `__agent__` dict < kwargs), auto-discovers
-prompt and tools, manages adapter lifecycle. Expose this via HTTP.
+prompt and tools. Expose this via HTTP.
 
 `run()` is the engine -- takes fully resolved params, executes the LLM
 loop, returns results. Call directly for testing, pipelines, or when you
@@ -156,9 +156,9 @@ class AgentMixin:
     def tools(target) -> list[str]: ...
     async def agentic(target, task: str, **kwargs) -> dict: ...
     async def run(target, task: str, prompt: str, tools: list,
-                  user: dict = None, llm=None, constraints: dict = None,
-                  adapter=None, message_history=None,
-                  result_type=None) -> dict: ...
+                  user: dict = None, constraints: dict = None,
+                  thread_id=None, result_type=None,
+                  **kwargs) -> dict: ...
     async def agentic_stream(target, task: str, **kwargs): ...  # async gen
     async def run_stream(target, task: str, prompt: str, tools: list,
                          ...) -> AsyncGenerator[dict, None]: ...
@@ -205,8 +205,8 @@ See [docs/tool-discovery.md](docs/tool-discovery.md) for the full pipeline.
 A few things to keep in mind as you build with agents:
 
 1. **Always use `agentic()` for HTTP-exposed agent calls**, never `run()`.
-   `agentic()` handles adapter lifecycle and config resolution. `run()` is
-   the raw engine for testing and internal pipelines.
+   `agentic()` handles config resolution. `run()` is the raw engine for
+   testing and internal pipelines.
 
 2. **A Matrix must exist before running agents.** Both `agentic()` and
    `run()` require `Actor.root()` to return a Matrix. Without it, a
