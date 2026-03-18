@@ -132,40 +132,84 @@ class NTTChat extends HTMLElement {
         this._els.send.disabled = true;
         let text = '';
         const msgEl = this._appendMsg('assistant', '');
+        const textEl = msgEl.querySelector('.msg-text');
+        this._toolCards = new Map(); // call_id → DOM element
 
         this._streamHandle = HTTP.stream(url, payload,
             (chunk) => {
-                // SSE chunks are TX-aligned: {name, data, meta}
-                // Text chunks: {name: "text", data: {text: "..."}}
-                // Done chunks: {name: "done", data: {answer, usage}}
-                if (chunk.name === 'done') {
-                    if (chunk.data?.answer && !text) {
-                        msgEl.querySelector('.msg-text').textContent = chunk.data.answer;
-                        text = chunk.data.answer;
+                switch (chunk.name) {
+                    case 'thinking': {
+                        let thinkEl = msgEl.querySelector('.msg-thinking');
+                        if (!thinkEl) {
+                            thinkEl = document.createElement('div');
+                            thinkEl.className = 'msg-thinking';
+                            thinkEl.innerHTML = '<span class="thinking-dots">thinking</span>';
+                            msgEl.insertBefore(thinkEl, textEl);
+                        }
+                        break;
                     }
-                    return;
+                    case 'tool_call': {
+                        // Remove thinking indicator when tools start
+                        msgEl.querySelector('.msg-thinking')?.remove();
+                        const card = document.createElement('div');
+                        card.className = 'tool-card';
+                        card.innerHTML = `<div class="tool-header"><span class="tool-icon">\u2699</span> ${this._esc(chunk.data.tool)} <span class="tool-spin">\u25CF</span></div>`;
+                        msgEl.insertBefore(card, textEl);
+                        if (chunk.data.call_id) this._toolCards.set(chunk.data.call_id, card);
+                        break;
+                    }
+                    case 'tool_result': {
+                        const card = chunk.data.call_id && this._toolCards.get(chunk.data.call_id);
+                        if (card) {
+                            card.querySelector('.tool-spin')?.remove();
+                            const summary = (chunk.data.result || '').slice(0, 120);
+                            card.innerHTML += `<div class="tool-result">${this._esc(summary)}</div>`;
+                        }
+                        break;
+                    }
+                    case 'done': {
+                        msgEl.querySelector('.msg-thinking')?.remove();
+                        if (chunk.data?.answer && !text) {
+                            textEl.textContent = chunk.data.answer;
+                            text = chunk.data.answer;
+                        }
+                        // Show usage stats if available
+                        if (chunk.data?.tool_calls > 0) {
+                            const stats = document.createElement('div');
+                            stats.className = 'msg-stats';
+                            stats.textContent = `${chunk.data.tool_calls} tool call${chunk.data.tool_calls > 1 ? 's' : ''}`;
+                            msgEl.appendChild(stats);
+                        }
+                        break;
+                    }
+                    default: {
+                        // 'text' and any unknown types — progressive text append
+                        msgEl.querySelector('.msg-thinking')?.remove();
+                        const t = chunk.data?.text || chunk.text || chunk.chunk || chunk.content || '';
+                        text += t;
+                        textEl.textContent = text;
+                        msgEl.querySelector('.cursor')?.remove();
+                        textEl.insertAdjacentHTML('afterend', '<span class="cursor">|</span>');
+                    }
                 }
-                const t = chunk.data?.text || chunk.text || chunk.chunk || chunk.content || '';
-                text += t;
-                msgEl.querySelector('.msg-text').textContent = text;
-                msgEl.querySelector('.cursor')?.remove();
-                msgEl.querySelector('.msg-text').insertAdjacentHTML('afterend',
-                    '<span class="cursor">|</span>');
                 this._scrollToBottom();
             },
             (data) => {
-                // SSE done sentinel — empty {}, just clean up
                 this._isStreaming = false;
                 this._streamHandle = null;
                 this._els.send.disabled = false;
+                this._toolCards = null;
                 msgEl.querySelector('.cursor')?.remove();
+                msgEl.querySelector('.msg-thinking')?.remove();
                 this._scrollToBottom();
             },
             (err) => {
                 this._isStreaming = false;
                 this._streamHandle = null;
                 this._els.send.disabled = false;
+                this._toolCards = null;
                 msgEl.querySelector('.cursor')?.remove();
+                msgEl.querySelector('.msg-thinking')?.remove();
                 this._appendMsg('system', `Error: ${err?.message || err?.detail || err}`);
             },
         );
@@ -317,6 +361,32 @@ class NTTChat extends HTMLElement {
         }
         .send-btn:hover { filter: brightness(1.1); }
         .send-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+        /* ── Tool cards ── */
+        .tool-card {
+            margin: .3rem 0; padding: .3rem .5rem;
+            background: var(--surface-3, #0f3460); border-radius: .3rem;
+            font-size: .75rem; border-left: 2px solid var(--accent, #4cc9f0);
+        }
+        .tool-header { font-weight: 600; display: flex; align-items: center; gap: .3rem; }
+        .tool-icon { opacity: .6; }
+        .tool-spin { animation: spin 1s linear infinite; font-size: .5rem; color: var(--accent, #4cc9f0); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .tool-result { margin-top: .2rem; opacity: .7; font-size: .7rem; word-break: break-word; }
+
+        /* ── Thinking indicator ── */
+        .msg-thinking {
+            font-style: italic; opacity: .5; font-size: .75rem; margin-bottom: .3rem;
+        }
+        .thinking-dots::after {
+            content: ''; animation: dots 1.5s steps(3, end) infinite;
+        }
+        @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
+
+        /* ── Stats ── */
+        .msg-stats {
+            font-size: .65rem; opacity: .4; margin-top: .2rem;
+        }
     `;
 }
 
