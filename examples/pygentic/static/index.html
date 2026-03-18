@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pygentic</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./dark-theme.css">
+    <link rel="stylesheet" href="./light-theme.css">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="preload" href="./components/ntx-item.css" as="style">
+    <link rel="preload" href="./components/ntx-list.css" as="style">
+    <link rel="preload" href="./components/ntx-router.css" as="style">
+    <link rel="preload" href="./components/ntx-topbar.css" as="style">
+    <link rel="preload" href="./components/ntx-sidebar.css" as="style">
+    <link rel="preload" href="./components/ntx-table.css" as="style">
+    <link rel="preload" href="./components/ntx-row.css" as="style">
+    <link rel="preload" href="./components/ntx-user.css" as="style">
+    <link rel="preload" href="./widgets/widgets.css" as="style">
+    <script src="./vendor/marked.min.js"></script>
+    <script src="./vendor/ansi_up.min.js"></script>
+    <link rel="modulepreload" href="./config.js">
+    <link rel="modulepreload" href="./utils/Assert.js">
+    <link rel="modulepreload" href="./utils/Logging.js">
+    <link rel="modulepreload" href="./utils/Permissions.js">
+    <link rel="modulepreload" href="./utils/theme.js">
+    <link rel="modulepreload" href="./core/Utils.js">
+    <link rel="modulepreload" href="./core/TX.js">
+    <link rel="modulepreload" href="./core/Observable.js">
+    <link rel="modulepreload" href="./core/Actor.js">
+    <link rel="modulepreload" href="./core/Matrix.js">
+    <link rel="modulepreload" href="./core/Component.js">
+    <link rel="modulepreload" href="./core/Router.js">
+    <link rel="modulepreload" href="./core/NTT.js">
+    <link rel="modulepreload" href="./core/transport/HTTP.js">
+    <link rel="modulepreload" href="./core/transport/NetworkAdapter.js">
+    <link rel="modulepreload" href="./components/NTTElement.js">
+    <link rel="modulepreload" href="./components/ListElement.js">
+    <link rel="modulepreload" href="./components/ntx-item.js">
+    <link rel="modulepreload" href="./components/ntx-list.js">
+    <link rel="modulepreload" href="./components/ntx-router.js">
+    <link rel="modulepreload" href="./components/ntx-method.js">
+    <link rel="modulepreload" href="./components/ntx-stream.js">
+    <link rel="modulepreload" href="./components/ntx-topbar.js">
+    <link rel="modulepreload" href="./components/ntx-sidebar.js">
+    <link rel="modulepreload" href="./components/ntx-profile.js">
+    <link rel="modulepreload" href="./components/ntx-row.js">
+    <link rel="modulepreload" href="./components/ntx-user.js">
+    <link rel="modulepreload" href="./components/ntx-table.js">
+    <link rel="modulepreload" href="./components/ntx-chat.js">
+    <link rel="modulepreload" href="./components/ntx-agent-live.js">
+    <link rel="modulepreload" href="./components/ntx-agent.js">
+    <link rel="modulepreload" href="./generators/form.js">
+    <link rel="modulepreload" href="./widgets/Widget.js">
+    <link rel="modulepreload" href="./widgets/registry.js">
+    <link rel="modulepreload" href="./widgets/index.js">
+    <script type="module" src="./utils/theme.js"></script>
+</head>
+<body>
+
+    <ntx-topbar brand="Pygentic" version="0.10.0" logo="PG"></ntx-topbar>
+    <ntx-sidebar router="main">
+        <ntx-list model="Task" allow-create></ntx-list>
+        <ntx-list model="AgentActor" item-tag="ntx-agent"></ntx-list>
+        <ntx-table model="Memory"></ntx-table>
+    </ntx-sidebar>
+
+    <div class="page">
+        <ntx-router name="main" hash>
+            <ntx-table model="Task" id="task-table" allow-create></ntx-table>
+        </ntx-router>
+    </div>
+
+    <ntx-agent-live model="AgentActor" ref="agents/1" method="agentic_stream"></ntx-agent-live>
+
+    <ntx-chat model="AgentActor" method="agentic_stream"></ntx-chat>
+
+    <script type="module">
+        import Logging from './utils/Logging.js';
+        Logging.init('Loading Pygentic...');
+
+        import {Matrix, matrix} from './core/Matrix.js';
+        import { NTT } from './core/NTT.js';
+        import { config } from './config.js';
+        import { permissions } from './utils/Permissions.js';
+        import './components/ntx-item.js';
+        import './components/ntx-list.js';
+        import './components/ntx-router.js';
+        import './components/ntx-method.js';
+        import './components/ntx-stream.js';
+        import './components/ntx-topbar.js';
+        import './components/ntx-sidebar.js';
+        import './components/ntx-profile.js';
+        import './components/ntx-user.js';
+        import './components/ntx-row.js';
+        import './components/ntx-table.js';
+        import './components/ntx-chat.js';
+        import './components/ntx-agent-live.js';
+        import './components/ntx-agent.js';
+
+        permissions.init();
+    </script>
+
+</body>
+</html>
