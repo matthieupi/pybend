@@ -1,90 +1,132 @@
 # N3TX Frontend Reference
 
-This document contains frontend-specific key files, schema consumption details, and patterns. It supplements the main `CLAUDE.md` which contains cross-cutting architecture, the actor system, custom methods, and all directives.
+This document contains frontend-specific key files, schema consumption details, and patterns. It supplements the main `CLAUDE.md` which contains cross-cutting architecture, the multi-package structure, and all directives.
+
+**Before reading this file**, check the documentation first. See `CLAUDE.md` → "Documentation-First Context Loading" for the required order.
+
+Relevant docs:
+- `/workspace/docs/frontend/ARCHITECTURE.md` — Frontend architecture overview
+- `/workspace/docs/frontend/COMPONENTS.md` — Component layer details
+- `/workspace/docs/frontend/TRANSPORT.md` — Transport protocol
+- `/workspace/docs/frontend/ACTORS.md` — Frontend actor system
+- `/workspace/docs/frontend/MESSAGE_PROTOCOL.md` — Message protocol
+- `packages/n3tx-ui/docs/components.md` — Component hierarchy and lifecycle
+- `packages/n3tx-ui/docs/formidable.md` — Form generator internals
+- `packages/n3tx-ui/docs/widgets.md` — Widget system (JS side)
 
 ## Frontend Architecture (Vanilla JS Web Components)
 
+The frontend is split across two packages:
+- **n3tx-core** (`packages/n3tx-core/src/n3tx_core/static/`) — Non-visual JS runtime: messaging (Actor/TX/Matrix), entity system (NTT), abstract component bridge (Component), transport, utils
+- **n3tx-ui** (`packages/n3tx-ui/src/n3tx_ui/static/`) — Visual layer: registered custom elements, base classes with visual behavior (NTTElement, ListElement), form generator, widgets, themes
+
+At runtime, static files from both packages (plus n3tx-agents if installed) are merged into a single URL namespace by `_discover_static_dirs()` in `backend.py`. The browser doesn't know which package shipped each file.
+
 ```
-N3TX.js               Core entity system. Bootstraps by fetching schema from backend.
+NTT.js (n3tx-core)    Core entity system. Bootstraps by fetching schema from backend.
   |
-  +-- SCHEMA()        Receives schema, creates DynamicClass via prototype()
-  +-- prototype()     Builds class with typed properties, methods, value getter
-  |                   Value getter injects $schema (schema URL) and $id (instance URL)
+  +-- SCHEMA()         Receives schema, creates DynamicClass via prototype()
+  +-- prototype()      Builds class with typed properties, methods, value getter
+  |                    Value getter injects $schema (schema URL) and $id (instance URL)
   |
   v
-ntx-list.js          <ntx-list model="Product"> - fetches and renders entity list
-ntx-item.js          <ntx-item> - adaptive entity rendering (xs pill → xl page)
-ntx-element.js       Base web component class for all N3TX elements
-ntx-method.js        Renders callable methods as buttons
-ntx-stream.js        Extends ntx-method for streaming methods (SSE + progressive output)
-form.js              Formidable generator - builds forms from schema properties
+ntx-list.js (n3tx-ui)   <ntx-list model="Product"> - fetches and renders entity list
+ntx-item.js (n3tx-ui)    <ntx-item> - adaptive entity rendering (xs pill → xl page)
+ntx-stream.js (n3tx-ui)  Extends ntx-method for streaming methods (SSE + progressive output)
+form.js (n3tx-ui)        Formidable generator - builds forms from schema properties
 ```
 
 ## Key Files
 
-### Core
-- `src/n3tx/static/core/N3TX.js` - Core: N3TX class, prototype() factory, SCHEMA handler, DynamicClass creation
-- `src/n3tx/static/core/Matrix.js` - Message bus / actor system
-- `src/n3tx/static/core/Actor.js` - Base actor class
-- `src/n3tx/static/core/Router.js` - Navigation state Actor (hash sync, history stack, Observable)
+### JS Runtime (n3tx-core — non-visual)
+- `packages/n3tx-core/src/n3tx_core/static/core/NTT.js` - Core: NTT class, prototype() factory, SCHEMA handler, DynamicClass creation
+- `packages/n3tx-core/src/n3tx_core/static/core/Actor.js` - Base actor class (messaging)
+- `packages/n3tx-core/src/n3tx_core/static/core/TX.js` - Message envelope
+- `packages/n3tx-core/src/n3tx_core/static/core/Matrix.js` - Message bus / root actor
+- `packages/n3tx-core/src/n3tx_core/static/core/Component.js` - Abstract HTMLElement + Actor bridge (base for every web component)
+- `packages/n3tx-core/src/n3tx_core/static/core/Observable.js` - Observer mixin
+- `packages/n3tx-core/src/n3tx_core/static/core/Router.js` - Navigation state Actor (hash sync, history stack)
+- `packages/n3tx-core/src/n3tx_core/static/core/Utils.js` - Core utilities
+- `packages/n3tx-core/src/n3tx_core/static/core/transport/HTTP.js` - HTTP adapter
+- `packages/n3tx-core/src/n3tx_core/static/core/transport/Socket.js` - WebSocket transport
+- `packages/n3tx-core/src/n3tx_core/static/core/transport/NetworkAdapter.js` - Matrix ↔ network bridge
+- `packages/n3tx-core/src/n3tx_core/static/utils/` - Frontend utils (Assert, Logging, Permissions, Toast, DateFormat, Snippets, etc.)
+- `packages/n3tx-core/src/n3tx_core/static/config.js` - Frontend config
 
-### Components
-- `src/n3tx/static/components/ntx-item.js` - Item component: size methods (xs-xl), render dispatch, edit toggle, click-to-select
-- `src/n3tx/static/components/ntx-list.js` - List component
-- `src/n3tx/static/components/ntx-router.js` - Generic view container (loads any component via Router)
-- `src/n3tx/static/components/ntx-element.js` - Base component class
+### Visual Components (n3tx-ui)
+- `packages/n3tx-ui/src/n3tx_ui/static/components/NTTElement.js` - Abstract single-entity base (extends Component, adds forms, edit mode, modals)
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js` - Abstract collection base (extends Component, adds pagination, filtering)
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js` - Item component: size methods (xs-xl), render dispatch, edit toggle
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.js` - List component
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.js` - Table component
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-row.js` - Table row component
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js` - Method call button
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js` - Streaming method output (extends ntx-method)
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-router.js` - Generic view container (loads any component via Router)
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-modal.js` - Modal overlay
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-ref-picker.js` - Reference field picker
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.js` - Model navigation sidebar
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js` - Header/nav bar
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-profile.js` - User profile page
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-user.js` - User display
 
-### Streaming
-- `src/n3tx/static/components/ntx-stream.js` - `<ntx-stream>` component extending NTTMethod for streaming methods. Progressive output rendering with blinking cursor, AbortController cancellation on disconnect.
+### Form Generator (n3tx-ui)
+- `packages/n3tx-ui/src/n3tx_ui/static/generators/form.js` - Formidable: schema-driven form generator
 
-### Generators & Utils
-- `src/n3tx/static/generators/form.js` - Formidable: schema-driven form generator
-- `src/n3tx/static/utils/Permissions.js` - Reads schema access rules for UI permission checks
+### Widgets (n3tx-ui)
+- `packages/n3tx-ui/src/n3tx_ui/static/widgets/Widget.js` - JS base Widget class with display/edit/list methods
+- `packages/n3tx-ui/src/n3tx_ui/static/widgets/registry.js` - JS registry: `registerWidget()`, `getWidgetForField()`
+- `packages/n3tx-ui/src/n3tx_ui/static/widgets/index.js` - Loader: imports all built-ins, registers them
+- `packages/n3tx-ui/src/n3tx_ui/static/widgets/*.js` - Built-in widgets (Url, Email, Date, Markdown, Console, Reference, Currency, Textarea)
+- `packages/n3tx-ui/src/n3tx_ui/static/widgets/widgets.css` - Widget-specific styles
 
-### Widgets (JS)
-- `src/n3tx/static/widgets/Widget.js` - JS base Widget class with display/edit/list methods + shared utilities
-- `src/n3tx/static/widgets/registry.js` - JS registry: `registerWidget()`, `getWidgetForField()`
-- `src/n3tx/static/widgets/index.js` - Loader: imports all built-ins, registers them, exports public API
-- `src/n3tx/static/widgets/*.js` - Built-in widget implementations (UrlWidget, EmailWidget, DateWidget, MarkdownWidget, ConsoleWidget, ReferenceWidget, CurrencyWidget, TextareaWidget)
-- `src/n3tx/static/widgets/widgets.css` - Widget-specific styles
-- `src/n3tx/static/vendor/marked.min.js` - Vendored markdown parser (~40KB)
-- `src/n3tx/static/vendor/ansi_up.min.js` - Vendored ANSI color renderer (~15KB)
+### Agent UI (n3tx-agents)
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Agent chat panel (imports from core only, NOT from ui)
+
+### Themes & Default HTML (n3tx-ui)
+- `packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` - Dark theme
+- `packages/n3tx-ui/src/n3tx_ui/static/light-theme.css` - Light theme
+- `packages/n3tx-ui/src/n3tx_ui/static/index.html` - Default app entry point (example apps override this)
+- `packages/n3tx-ui/src/n3tx_ui/static/login.html` - Default login page
+- `packages/n3tx-ui/src/n3tx_ui/static/register.html` - Default register page
+
+## Frontend Split Rationale
+
+The backend split axis (core/actors/agents) doesn't map to the frontend. Analysis of the JS import graph:
+
+- **Component.js** imports Actor, Matrix, AND TX — it's the base for every web component
+- **NTT.js** extends Actor and uses Matrix — it's the entity registry
+- Every `ntx-*` component transitively depends on all three "actor" files
+
+The frontend split axis is **runtime vs. visual**:
+- **n3tx-core**: Non-visual runtime — messaging, entity system, abstract component bridge, transport, utils
+- **n3tx-ui**: Visual layer — registered custom elements, visual base classes, form generator, widgets, themes
+- **n3tx-agents**: Agent-specific UI — `ntx-chat.js` only
+
+No circular dependencies:
+```
+core ← ui      (ui imports from core, never reverse)
+core ← agents  (agents imports from core, never reverse)
+ui and agents are independent of each other
+```
+
+## Static File Serving (Multi-Package)
+
+Three packages bundle `static/` directories (n3tx-core, n3tx-ui, n3tx-agents). At runtime, `N3TXApp` discovers and merges them into a single URL namespace.
+
+**Mount priority** (highest first):
+1. App-specific static dirs (from `create_app(static_dir=...)`)
+2. n3tx-agents static (if installed) — `ntx-chat.js`
+3. n3tx-ui static (if installed) — all components, widgets, themes, default HTML
+4. n3tx-core static (catch-all) — JS runtime, utils, config
+
+`index.html` lives in n3tx-ui and imports from both core and ui directories. Since all static dirs merge into the same URL namespace, relative imports resolve correctly. Example apps override `index.html` with their own versions (existing pattern).
 
 ## Schema as Universal Contract
 
 The JSON Schema returned by `GET /{ClassName}` is the **single contract between backend and frontend**. It is not just a type description — it is the complete specification of how an entity behaves, renders, and is controlled.
 
-### Schema Anatomy
-
-```
-GET /Product → JSON Schema
-├── $schema         → "http://localhost:5000/Schema"          (meta-schema URL)
-├── $id             → "http://localhost:5000/Product"         (this schema's URL)
-├── __name__        → "Product"                               (class name)
-├── __tablename__   → "products"                              (API collection path)
-├── properties      → { name: {type, minLength, ui, ...}, ...}  (field definitions)
-│   └── each field carries:
-│       ├── type, format, validation (Pydantic standard)
-│       ├── ui.widget       → rendering hint (currency, textarea, ...)
-│       ├── ui.placeholder  → input placeholder text
-│       ├── ui.display      → false to hide from UI
-│       ├── ui.protected    → true for backend-owned fields (hidden in edit forms)
-│       └── access          → field-level permission rules
-├── ui              → model-level UI configuration
-│   ├── field_order → render fields in this sequence
-│   ├── groups      → group fields into fieldsets
-│   └── renderer    → { item: 'ntx-item', list: 'ntx-list', detail: '...' }
-├── access          → model-level ABAC rules (serialized)
-│   ├── create      → { rule: "authenticated" }
-│   ├── read        → { rule: "anyone" }
-│   ├── update      → { op: "or", rules: [{rule: "owner"}, {rule: "role", roles: ["admin"]}] }
-│   └── delete      → { rule: "role", roles: ["admin"] }
-├── methods         → callable endpoints
-│   └── comment     → { route, methods, scope, parameters, returns, access }
-├── $defs           → nested/related model schemas
-│   └── Comment     → { $id, properties, methods, ui, access, ... }
-└── required        → required field names
-```
+For full schema anatomy details, see `/workspace/docs/CORE.md`.
 
 ### How Each Schema Section Is Consumed
 
@@ -92,19 +134,19 @@ GET /Product → JSON Schema
 
 | Schema section | Frontend consumer | What it controls |
 |---------------|------------------|-----------------|
-| `properties` | `prototype()` in N3TX.js | Creates typed getters/setters on DynamicClass |
+| `properties` | `prototype()` in NTT.js | Creates typed getters/setters on DynamicClass |
 | `properties[field].type` | `form.js` → `getInput()` | Chooses input type (text, number, checkbox, ...) |
 | `properties[field].ui.widget` | `form.js` → `getInput()` | Specialized rendering (currency prefix, textarea) |
-| `properties[field].ui.display` | `form.js` → field filtering | Hides internal fields (IDs, timestamps, FKs) |
-| `properties[field].ui.protected` | `form.js` → field filtering | Hides backend-owned fields in edit mode (display-only) |
+| `properties[field].ui.display` | `form.js` → field filtering | Hides internal fields |
+| `properties[field].ui.protected` | `form.js` → field filtering | Hides backend-owned fields in edit mode |
 | `properties[field].ui.placeholder` | `form.js` → input attrs | Sets placeholder text on inputs |
 | `properties[field].access` | `Permissions.js` → `canView()` | Field-level visibility per user role |
 | `ui.field_order` | `form.js` → `getForm()` | Controls field rendering sequence |
 | `ui.groups` | `form.js` → `renderGroupedFields()` | Wraps fields in `<fieldset>` groups |
 | `ui.renderer.*` | `ntx-router.js` → `#resolveTag()` | Chooses component tag for navigation views |
 | `access` | `Permissions.js` → `canAction(access, action, resource)` | Shows/hides edit/delete buttons with resource-aware OWNER evaluation |
-| `methods` | `prototype()` + `<ntx-method>` / `<ntx-stream>` | Creates callable methods + renders action buttons (streaming methods use `<ntx-stream>`) |
-| `$defs` | `N3TX.SCHEMA()` | Registers nested DynamicClasses (Comment, etc.) |
+| `methods` | `prototype()` + `<ntx-method>` / `<ntx-stream>` | Creates callable methods + renders action buttons |
+| `$defs` | `NTT.SCHEMA()` | Registers nested DynamicClasses |
 | `$id` / `$schema` | DynamicClass value getter | Injected into every entity instance for self-description |
 
 ### Schema Propagation Lifecycle
@@ -120,7 +162,7 @@ GET /Product → JSON Schema
    HTTP GET /Product → JSON response
                     │
 4. Schema Bootstrap (Frontend)
-   N3TX.SCHEMA(data) → prototype(addr, schema, href) → DynamicClass
+   NTT.SCHEMA(data) → prototype(addr, schema, href) → DynamicClass
    │  Creates typed class with getters, setters, methods from schema
    │  Registers nested $defs as additional DynamicClasses
                     │
@@ -134,16 +176,14 @@ GET /Product → JSON Schema
 6. Entity Responses (Backend, on GET /products)
    model_response() runs dump pipeline → injects $schema + $id into each record
    │  Frontend DynamicClass value getter preserves these for self-description
-   │  Any entity can be independently resolved: GET $id → full entity
    │  Collection fields return href arrays: ["http://.../products/1/comments/1", ...]
 ```
 
 ## Frontend Patterns
 
 ### Widget Extension (JS)
-On the frontend, `form.js` and `ntx-item.js` dispatch to registered JS Widget instances (`getWidgetForField()`) before falling through to type-based rendering. Fields without `ui.widget` render identically to before (zero-risk).
+On the frontend, `form.js` and `ntx-item.js` dispatch to registered JS Widget instances (`getWidgetForField()`) before falling through to type-based rendering. See `packages/n3tx-ui/docs/widgets.md` for the full widget system.
 
-App developers extend with a single class:
 ```javascript
 class ColorWidget extends Widget { display(v) { ... } }
 registerWidget('color', new ColorWidget());
@@ -151,11 +191,11 @@ registerWidget('color', new ColorWidget());
 
 ### Streaming Transport
 
-The frontend transport layer supports streaming for long-running operations (agent runs, data exports, multi-step workflows). Streaming works over both HTTP (SSE) and WebSocket.
+The frontend transport layer supports streaming for long-running operations. See `packages/n3tx-ui/docs/components.md` for the `<ntx-stream>` component.
 
 #### HTTP.stream()
 
-`HTTP.stream(url, data, onChunk, onDone, onError)` — SSE client using the Fetch API with `ReadableStream`. Parses `event: chunk|done|error` and `data: {json}` lines. Returns `{ cancel: Function }` for `AbortController` cancellation.
+`HTTP.stream(url, data, onChunk, onDone, onError)` — SSE client using Fetch API with `ReadableStream`. Parses `event: chunk|done|error` and `data: {json}` lines. Returns `{ cancel: Function }` for AbortController cancellation.
 
 ```javascript
 const handle = HTTP.stream('/products/1/generate', { prompt: 'hello' },
@@ -163,21 +203,20 @@ const handle = HTTP.stream('/products/1/generate', { prompt: 'hello' },
     (data)  => console.log('Done:', data),
     (err)   => console.error('Error:', err),
 );
-// Cancel mid-stream:
-handle.cancel();
+handle.cancel();  // Cancel mid-stream
 ```
 
 #### Socket.registerStream()
 
-`socket.registerStream(reqId, onChunk, onDone, onError)` — registers stream handlers for correlated WS messages. Messages with `meta.stream` and matching `meta.req` are dispatched to the registered handler instead of the generic `onmessage`. Returns a cancel function.
+`socket.registerStream(reqId, onChunk, onDone, onError)` — registers stream handlers for correlated WS messages. Messages with `meta.stream` and matching `meta.req` are dispatched to the registered handler.
 
 #### NetworkAdapter.sendStream()
 
-`adapter.sendStream(event, onChunk, onDone, onError)` — unified streaming API. Uses WebSocket if connected (`socket.registerStream`), falls back to HTTP SSE (`HTTP.stream`). Returns `{ cancel: Function }`.
+`adapter.sendStream(event, onChunk, onDone, onError)` — unified streaming API. Uses WebSocket if connected, falls back to HTTP SSE.
 
 #### `<ntx-stream>` Component
 
-Extends `NTTMethod`. For methods with `schema.methods[m].stream === true`, use `<ntx-stream>` instead of `<ntx-method>`. Overrides `callMethod()` to use `HTTP.stream()`, renders progressive output with a blinking cursor, and cancels in-flight streams on disconnect.
+Extends `NTTMethod`. For methods with `schema.methods[m].stream === true`. Renders progressive output with blinking cursor, cancels in-flight streams on disconnect.
 
 ```html
 <ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
