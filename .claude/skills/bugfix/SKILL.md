@@ -27,11 +27,13 @@ guess-and-check — you prove the root cause before touching production code.
 |---|---|---|
 | 1 | **Write failing tests** | 3+ test files written |
 | 2 | **Confirm red** | All tests fail for the right reason |
-| 3 | **Diagnose & fix loop** | All tests pass (or 4-iteration limit hit) |
-| 4 | **Root cause analysis** | Root cause categorized, assessment presented |
-| 5 | **Optimal fix** | Better fix implemented if one exists |
-| 6 | **Full suite validation** | No regressions in full test suite |
-| 7 | **Summary** | Summary presented, no auto-commit |
+| 3 | **Diagnose** | Root cause identified, theory validated read-only |
+| 4 | **Propose fix — USER REVIEW** | User approves the proposed solution |
+| 5 | **Apply fix** | All tests pass (or 4-iteration limit hit) |
+| 6 | **Root cause analysis** | Root cause categorized, assessment presented |
+| 7 | **Optimal fix — USER REVIEW** | User approves deeper fix if one exists |
+| 8 | **Full suite validation** | No regressions in full test suite |
+| 9 | **Summary** | Summary presented, no auto-commit |
 
 ---
 
@@ -91,9 +93,11 @@ Save the exact pytest command — you will reuse it in every iteration.
 
 ---
 
-## Phase 3: Diagnose and Fix Loop
+## Phase 3: Diagnose
 
-Iterate until green. Each iteration follows this strict sequence:
+This phase is **read-only**. You investigate the bug without changing any
+production code. The goal is to understand the root cause well enough to
+propose a concrete fix.
 
 ### 3.1 — Analyze
 
@@ -112,23 +116,55 @@ Prove your theory through read-only investigation before making any edits:
 - Add temporary `print()` / `console.log()` statements and run the tests
   to confirm the theory if needed (remove them after)
 
-Do **not** proceed to 3.3 unless you are confident in the root cause.
+Do **not** proceed to Phase 4 unless you are confident in the root cause.
 
-### 3.3 — Apply Fix
+---
 
-Make the **minimal change** needed to fix the bug. Do not refactor, do not
-clean up adjacent code, do not improve naming — just fix the bug.
+## Phase 4: Propose Fix — USER REVIEW
 
-### 3.4 — Verify
+> **STOP. Do not write any fix yet.** Present your findings to the user and
+> wait for approval before touching production code.
+
+Use `AskUserQuestion` to present the following and get explicit approval:
+
+1. **Bug location** — exact file(s) and function(s) where the bug lives
+2. **Root cause** — why it happens (one clear sentence)
+3. **Proposed fix** — what you will change and why (be specific: "in
+   `file.py:function()`, change X to Y because Z")
+4. **Scope** — which files will be modified and roughly how many lines
+5. **Risk** — anything this fix might affect beyond the bug
+
+The user may:
+- **Approve** → proceed to Phase 5
+- **Redirect** → adjust your approach based on their feedback, re-propose
+- **Reject** → return to Phase 3 with a different theory
+
+Do **not** proceed to Phase 5 without explicit user approval.
+
+---
+
+## Phase 5: Apply Fix
+
+Iterate until green. Each iteration follows this strict sequence:
+
+### 5.1 — Apply Fix
+
+Make the **minimal change** needed to fix the bug, as approved in Phase 4.
+Do not refactor, do not clean up adjacent code, do not improve naming — just
+fix the bug.
+
+### 5.2 — Verify
 
 Run the **same three+ tests** from Phase 2 (the saved pytest command).
 
-### 3.5 — Evaluate Result
+### 5.3 — Evaluate Result
 
-- **All tests pass** → exit the loop, proceed to Phase 4.
-- **Any test fails** → the fix is wrong. **Undo all changes** made in 3.3
-  (`git checkout -- <files>`) and return to 3.1 with a new theory. Do not
-  iterate on a broken fix — revert and rethink.
+- **All tests pass** → exit the loop, proceed to Phase 6.
+- **Any test fails** → the fix is wrong. **Undo all changes** made in 5.1
+  (`git checkout -- <files>`) and return to 5.1 with an adjusted approach.
+  If the failure suggests the approved approach is fundamentally wrong,
+  go back to Phase 4 and re-propose to the user. Do not iterate on a
+  broken fix — revert and rethink.
 
 **Hard limit: 4 iterations.** If you haven't found the fix after 4 loops,
 stop and present your findings to the user:
@@ -138,7 +174,7 @@ stop and present your findings to the user:
 
 ---
 
-## Phase 4: Root Cause Analysis
+## Phase 6: Root Cause Analysis
 
 The bug is fixed, but is the fix *right*? Analyze deeper:
 
@@ -164,11 +200,28 @@ The bug is fixed, but is the fix *right*? Analyze deeper:
 
 ---
 
-## Phase 5: Optimal Fix (if applicable)
+## Phase 7: Optimal Fix — USER REVIEW (if applicable)
 
-If Phase 4 identified a better solution:
+If Phase 6 identified a better solution:
 
-1. **Undo the Phase 3 fix**: `git checkout -- <files>` to restore the
+> **STOP. Do not implement the deeper fix yet.** Present the proposed
+> optimal fix to the user and wait for approval.
+
+Use `AskUserQuestion` to present:
+
+1. **Current fix** — what's in place now and why it's suboptimal
+2. **Proposed optimal fix** — what you would change instead
+3. **Trade-off** — scope increase, risk, and benefit of the deeper fix
+4. **Recommendation** — your honest take on whether it's worth it
+
+The user may:
+- **Approve** → undo the Phase 5 fix, implement the optimal fix
+- **Keep current** → skip to Phase 8, the Phase 5 fix stands
+- **Modify** → adjust based on feedback, re-propose
+
+If approved:
+
+1. **Undo the Phase 5 fix**: `git checkout -- <files>` to restore the
    buggy state. The failing tests are still in place.
 
 2. **Implement the optimal fix.** This may be a broader refactor — that's
@@ -176,13 +229,13 @@ If Phase 4 identified a better solution:
    simpler or more correct.
 
 3. **Run the same failing tests** from Phase 2. Iterate until they pass
-   (same 3.3→3.5 loop, same 4-iteration hard limit).
+   (same 5.1→5.3 loop, same 4-iteration hard limit).
 
-If no better fix exists, skip this phase — the Phase 3 fix stands.
+If no better fix exists, skip this phase — the Phase 5 fix stands.
 
 ---
 
-## Phase 6: Full Suite Validation
+## Phase 8: Full Suite Validation
 
 The failing tests pass with the optimal fix. Now verify nothing else broke.
 
@@ -197,12 +250,12 @@ cd /workspace && python3 -m pytest example_actor/tests/ -v
 
 If any unrelated test fails:
 - Investigate whether it's a real regression from the fix or a pre-existing flake
-- If it's a regression, go back to Phase 5 and adjust
+- If it's a regression, go back to Phase 7 and adjust
 - If it's a flake, note it but don't let it block the fix
 
 ---
 
-## Phase 7: Summary
+## Phase 9: Summary
 
 Present a concise summary:
 
@@ -223,12 +276,14 @@ or `/git-smart`).
 ## Safety Rails
 
 - **NEVER** commit during this skill — diagnosis and fix only
-- **NEVER** run the full test suite before the targeted tests pass (Phase 2-5)
+- **NEVER** run the full test suite before the targeted tests pass (Phase 2-7)
 - **NEVER** iterate on a broken fix — always revert and rethink
 - **NEVER** modify tests to make them pass — tests are the spec, code is the fix
-- **NEVER** skip Phase 4 — understanding "why" prevents the next bug
+- **NEVER** skip Phase 6 — understanding "why" prevents the next bug
+- **NEVER** implement a fix without user approval (Phase 4 and Phase 7 gates)
 - **ALWAYS** undo failed fix attempts before trying a new theory
 - **ALWAYS** use the exact same test command throughout the session
+- **ALWAYS** use `AskUserQuestion` for the Phase 4 and Phase 7 review gates
 
 ---
 
@@ -238,8 +293,10 @@ Re-read this before each action to stay on track:
 
 1. **WRITE TESTS FIRST** — 3+ failing tests, no source code analysis yet
 2. **RUN TESTS** — confirm they all fail for the right reason
-3. **ANALYZE → VALIDATE → FIX → VERIFY** — loop until green, revert on failure
-4. **ROOT CAUSE** — categorize why the bug existed
-5. **OPTIMAL FIX** — undo and redo if a better solution exists
-6. **FULL SUITE** — run all tests to catch regressions
-7. **SUMMARY** — report results, do not commit
+3. **DIAGNOSE** — analyze and validate theory, read-only investigation
+4. **PROPOSE FIX → USER REVIEW** — present findings, wait for approval
+5. **APPLY FIX → VERIFY** — implement approved fix, loop until green, revert on failure
+6. **ROOT CAUSE** — categorize why the bug existed
+7. **OPTIMAL FIX → USER REVIEW** — propose deeper fix if one exists, wait for approval
+8. **FULL SUITE** — run all tests to catch regressions
+9. **SUMMARY** — report results, do not commit
