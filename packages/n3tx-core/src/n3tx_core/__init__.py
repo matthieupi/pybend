@@ -3,7 +3,6 @@ logging.getLogger('n3tx').addHandler(logging.NullHandler())
 
 from .models.proto_model import ProtoModel, generate_join_model
 from .models.storable_mixin import StorableMixin
-from .models.viewable_mixin import ViewableMixin
 from .models.base_user import BaseUser
 from .models.ref import ListRef
 from .utils.typer import Ref

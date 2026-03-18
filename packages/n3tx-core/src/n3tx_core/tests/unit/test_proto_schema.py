@@ -75,33 +75,11 @@ class _WithAccess(ProtoModel):
     name: str = Field(default='')
 
 
-class _WithUI(ProtoModel):
-    __tablename__: ClassVar[str] = 'ps_ui'
-    __ui__: ClassVar[dict] = {
-        'field_order': ['name', 'value'],
-        'groups': {'main': ['name', 'value']},
-    }
-    name: str = Field(default='')
-    value: int = Field(default=0)
-
-
 class _WithProtected(ProtoModel):
     __tablename__: ClassVar[str] = 'ps_protected'
     __protected_fields__: ClassVar[set] = {'owner'}
     name: str = Field(default='')
     owner: int = Field(default=0)
-
-
-class _WithMethodUI(ProtoModel):
-    __tablename__: ClassVar[str] = 'ps_method_ui'
-    __ui__: ClassVar[dict] = {
-        'methods': {'ping': {'icon': 'send'}},
-    }
-    name: str = Field(default='')
-
-    @expose_route('/ping', methods=['POST'])
-    def ping(self) -> str:
-        return 'pong'
 
 
 # ===================================================================
@@ -313,19 +291,6 @@ class TestUI:
         s = proto_schema.ui(_WithProtected, s)
         assert s['properties']['owner']['ui']['protected'] is True
 
-    def test_ui_config_injected(self):
-        s = proto_schema.base(_WithUI)
-        s = proto_schema.methods(_WithUI, s)
-        s = proto_schema.ui(_WithUI, s)
-        assert s['ui']['field_order'] == ['name', 'value']
-        assert s['ui']['groups'] == {'main': ['name', 'value']}
-
-    def test_method_ui_hints(self):
-        s = proto_schema.base(_WithMethodUI)
-        s = proto_schema.methods(_WithMethodUI, s)
-        s = proto_schema.ui(_WithMethodUI, s)
-        assert s['methods']['ping']['ui'] == {'icon': 'send'}
-
     def test_defs_field_exclusion(self):
         s = proto_schema.base(_WithRef)
         s = proto_schema.defs(_WithRef, s)
@@ -338,7 +303,7 @@ class TestUI:
     def test_no_ui_config_noop(self):
         s = proto_schema.base(_Simple)
         s = proto_schema.ui(_Simple, s)
-        assert 'ui' not in s or isinstance(s.get('ui'), dict)
+        assert 'ui' not in s
 
     def test_returns_same_dict(self):
         s = proto_schema.base(_Simple)
@@ -403,12 +368,6 @@ class TestPipelineComposition:
         result = self._run_pipeline(_WithAccess)
         assert result == expected
 
-    def test_model_with_ui_matches(self):
-        _WithUI.invalidate_schema_cache()
-        expected = _WithUI.schema()
-        result = self._run_pipeline(_WithUI)
-        assert result == expected
-
     def test_model_with_hidden_matches(self):
         _WithHidden.invalidate_schema_cache()
         expected = _WithHidden.schema()
@@ -425,12 +384,6 @@ class TestPipelineComposition:
         _WithProtected.invalidate_schema_cache()
         expected = _WithProtected.schema()
         result = self._run_pipeline(_WithProtected)
-        assert result == expected
-
-    def test_model_with_method_ui_matches(self):
-        _WithMethodUI.invalidate_schema_cache()
-        expected = _WithMethodUI.schema()
-        result = self._run_pipeline(_WithMethodUI)
         assert result == expected
 
 

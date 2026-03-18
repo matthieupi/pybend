@@ -22,6 +22,28 @@ from .storable_mixin import StorableMixin
 logger = logging.getLogger('n3tx.models')
 
 
+# ── Mixin registry ──────────────────────────────────────────────────────────
+# External packages register mixins via register_mixin() at import time.
+# ProtoModel.__init_subclass__ loops this registry to inject mixins.
+
+_mixin_registry: list[tuple] = []  # (flag, mixin_cls, also_if)
+
+
+def register_mixin(flag: str, mixin_cls: type, *, also_if: list[str] = None) -> None:
+    """Register an external mixin for auto-injection via __init_subclass__.
+
+    Args:
+        flag:      ClassVar name that triggers injection (e.g. '__viewable__')
+        mixin_cls: The mixin class to prepend to cls.__bases__
+        also_if:   Additional ClassVar names that also trigger injection.
+                   When any fires, flag is also set to True on the class.
+
+    Called at import time by external packages (n3tx-ui, n3tx-agents).
+    Packages must be imported before models with these flags are defined.
+    """
+    _mixin_registry.append((flag, mixin_cls, also_if or []))
+
+
 _AUTO_HIDE_FIELDS = {'id', 'image', 'created_at', 'updated_at'}
 
 def _apply_field_exclusion(schema: dict):
@@ -86,12 +108,15 @@ class ProtoModel(PydanticBaseModel):
                 if new_annotations:
                     cls.__annotations__ = dict(cls.__annotations__)  # make a copy
                     cls.__annotations__.update(new_annotations)
-        # Agent mixin injection (same pattern as StorableMixin)
-        __agent__ = getattr(cls, '__agent__', False)
-        if __agent__:
-            from n3tx_agents.mixin import AgentMixin
-            if not issubclass(cls, AgentMixin):
-                cls.__bases__ = (AgentMixin,) + cls.__bases__
+        # External mixin injection (register via register_mixin())
+        for flag, mixin_cls, also_if in _mixin_registry:
+            triggered = getattr(cls, flag, False)
+            if not triggered and also_if:
+                triggered = any(getattr(cls, alt, None) for alt in also_if)
+                if triggered:
+                    setattr(cls, flag, True)  # normalize the flag
+            if triggered and not issubclass(cls, mixin_cls):
+                cls.__bases__ = (mixin_cls,) + cls.__bases__
 
         super().__init_subclass__(**kwargs)
 

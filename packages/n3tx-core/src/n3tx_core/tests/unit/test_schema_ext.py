@@ -25,8 +25,10 @@ import n3tx_core.models.proto_schema as proto_schema
 
 pytestmark = pytest.mark.unit
 
-# Default pipeline stage names for reference
-DEFAULT_STAGES = ['base', 'strip_hidden', 'methods', 'agent', 'defs', 'access', 'widget', 'ui', 'metadata']
+# Core pipeline stage names — always registered by proto_schema.py itself.
+# Extensions from other packages (n3tx-agents 'agent', n3tx-ui 'viewable', widgets 'widget')
+# may also be present depending on which modules have been imported.
+CORE_STAGES = ['base', 'strip_hidden', 'methods', 'defs', 'access', 'ui', 'metadata']
 
 
 # ===================================================================
@@ -58,11 +60,17 @@ def _restore_pipeline():
 
 class TestDefaultPipeline:
 
-    def test_default_stages_registered(self):
-        assert get_pipeline() == DEFAULT_STAGES
+    def test_core_stages_registered(self):
+        """Core stages are always present, in order, regardless of extensions."""
+        pipeline = get_pipeline()
+        indices = []
+        for stage in CORE_STAGES:
+            assert stage in pipeline, f"Core stage '{stage}' missing from pipeline"
+            indices.append(pipeline.index(stage))
+        assert indices == sorted(indices), "Core stages out of order"
 
-    def test_default_stage_count(self):
-        assert len(get_pipeline()) == 9
+    def test_at_least_core_stage_count(self):
+        assert len(get_pipeline()) >= len(CORE_STAGES)
 
     def test_base_is_first(self):
         assert get_pipeline()[0] == 'base'

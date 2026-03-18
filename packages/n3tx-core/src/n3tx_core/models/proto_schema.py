@@ -257,8 +257,11 @@ def access(cls, s: dict) -> dict:
 
 
 def ui(cls, s: dict) -> dict:
-    """Inject UI hints: field exclusion, protected fields, __ui__ config.
-    Handles both top-level and $defs."""
+    """Inject field-level UI hints: auto-hide and protected fields.
+
+    Handles both top-level and $defs. __ui__ class config is handled by
+    ViewableMixin's schema extension (n3tx-ui).
+    """
     from n3tx_core.models.proto_model import _apply_field_exclusion
 
     # Field exclusion + protected fields (top-level)
@@ -269,16 +272,7 @@ def ui(cls, s: dict) -> dict:
             if field_name in s['properties']:
                 s['properties'][field_name].setdefault('ui', {})['protected'] = True
 
-    # __ui__ config (top-level)
-    ui_config = getattr(cls, '__ui__', None)
-    if ui_config:
-        s['ui'] = dict(ui_config)
-        method_ui = ui_config.get('methods', {})
-        for method_name, hints in method_ui.items():
-            if method_name in s.get('methods', {}):
-                s['methods'][method_name]['ui'] = dict(hints)
-
-    # $defs: field exclusion, protected, __ui__
+    # $defs: field exclusion + protected fields
     if '$defs' in s:
         for def_schema in s['$defs'].values():
             _apply_field_exclusion(def_schema)
@@ -286,22 +280,12 @@ def ui(cls, s: dict) -> dict:
         for model in collect_all_referenced_models(cls):
             if model.__name__ not in s['$defs']:
                 continue
-            # Protected fields
             ref_protected = getattr(model, '__protected_fields__', set())
             if ref_protected:
                 def_props = s['$defs'][model.__name__].get('properties', {})
                 for field_name in ref_protected:
                     if field_name in def_props:
                         def_props[field_name].setdefault('ui', {})['protected'] = True
-            # __ui__
-            ref_ui = getattr(model, '__ui__', None)
-            if ref_ui:
-                s['$defs'][model.__name__]['ui'] = dict(ref_ui)
-                ref_method_ui = ref_ui.get('methods', {})
-                def_methods = s['$defs'][model.__name__].get('methods', {})
-                for method_name, hints in ref_method_ui.items():
-                    if method_name in def_methods:
-                        def_methods[method_name]['ui'] = dict(hints)
     return s
 
 
