@@ -598,7 +598,7 @@ HTTP GET /users/1
 
 ### 1. Mixin Pattern
 
-**StorableMixin**, **ViewableMixin**, and **AgentMixin** are dynamically injected into models via `__init_subclass__`:
+**StorableMixin**, **ViewableMixin**, and **AgentMixin** are dynamically injected into models via `__init_subclass__`. `StorableMixin` is special-cased in core (it rewrites FK annotations). External mixins use the `register_mixin()` registry:
 
 ```python
 # Before
@@ -609,19 +609,40 @@ class User(ProtoModel):
 class User(StorableMixin, ProtoModel):
     # Now has .save(), .create(), .list(), etc.
 
-# Agent injection (same pattern)
+# Agent injection — n3tx_agents must be imported first
+import n3tx_agents  # registers AgentMixin via register_mixin()
+
 class Scanner(ActorModel):
     __agent__ = True
 
 # After __init_subclass__
 class Scanner(AgentMixin, ActorModel):
     # Now has .agentic(), .run(), .ctx(), .tools(), etc.
+
+# ViewableMixin injection — n3tx_ui must be imported first
+import n3tx_ui  # registers ViewableMixin via register_mixin()
+
+class Product(ProtoModel):
+    __ui__ = {'field_order': ['name', 'price']}  # also triggers injection
+
+# After __init_subclass__
+class Product(ViewableMixin, ProtoModel):
+    # schema() now emits schema['ui'] from __ui__
+```
+
+**Extension API** — external packages register their own mixins:
+
+```python
+from n3tx_core.models.proto_model import register_mixin
+register_mixin('__my_flag__', MyMixin)                         # explicit flag
+register_mixin('__viewable__', ViewableMixin, also_if=['__ui__'])  # guardrail
 ```
 
 **Benefits**:
 - Opt-in functionality
-- Keeps concerns separated
+- Keeps concerns separated (core has zero knowledge of ViewableMixin/AgentMixin)
 - No inheritance pollution
+- Extensible: third-party packages can register their own mixins
 
 ### 2. Strategy Pattern
 

@@ -199,12 +199,28 @@ src/n3tx/core/agents/
 
 ### AgentMixin (`mixin.py`)
 
-Injected into any model with `__agent__ = True` via `ProtoModel.__init_subclass__`.
+Injected into any model with `__agent__ = True` via `ProtoModel`'s mixin registry.
 Same injection pattern as `StorableMixin`:
 
 ```python
-__storable__ = True  -->  injects StorableMixin
-__agent__    = True  -->  injects AgentMixin
+__storable__ = True  -->  injects StorableMixin  (special-cased in core)
+__agent__    = True  -->  injects AgentMixin     (registered by n3tx_agents.__init__)
+__ui__       = {...} -->  injects ViewableMixin  (registered by n3tx_ui.__init__)
+```
+
+**Import ordering requirement**: `n3tx_agents` (or just `import n3tx_agents`) must
+be imported **before** any model with `__agent__ = True` is defined. The mixin
+registry is populated at `n3tx_agents` import time. Applications must put
+`import n3tx_agents` before their model imports in `main.py`.
+
+```python
+# main.py — correct order
+import n3tx_agents   # registers AgentMixin in proto_model._mixin_registry
+from models import Product  # __agent__ = True fires → AgentMixin injected
+
+# main.py — wrong order (AgentMixin silently not injected)
+from models import Product  # __agent__ = True fires with empty registry
+import n3tx_agents          # too late
 ```
 
 Provides one method:
@@ -553,7 +569,6 @@ a separate, empty database.
 
 | File | Change |
 |------|--------|
-| `proto_model.py` | `__init_subclass__()`: detect `__agent__ = True`, inject `AgentMixin` |
-| `test_schema_ext.py` | `DEFAULT_STAGES` updated to include `agent` stage |
-| `n3tx/__init__.py` | Exports `AgentMixin`, `AgentActor` |
+| `proto_model.py` | Added `register_mixin()` API + `_mixin_registry`. `n3tx_agents.__init__` calls `register_mixin('__agent__', AgentMixin)` to register the mixin before model classes are defined. |
+| `n3tx_agents/__init__.py` | Calls `register_mixin('__agent__', AgentMixin)` before importing `AgentActor` so the registry is populated when `AgentActor.__init_subclass__` fires. |
 | `pyproject.toml` | `pydantic-ai>=1.0` in `agents` and `dev` extras |

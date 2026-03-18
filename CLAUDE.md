@@ -247,8 +247,8 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 |------|---------|
 | `packages/n3tx-core/src/n3tx_core/app.py` | `N3TXApp` builder + `create_app()` factory |
 | `packages/n3tx-core/src/n3tx_core/config.py` | HOST, PORT, API_URL, SQLITE_DB_FILE, AGENT_DEFAULTS |
-| `packages/n3tx-core/src/n3tx_core/models/proto_model.py` | Base model, `schema()`, `model_response()`, `generate_join_model()` |
-| `packages/n3tx-core/src/n3tx_core/models/proto_schema.py` | Schema pipeline: 8 composable stages |
+| `packages/n3tx-core/src/n3tx_core/models/proto_model.py` | Base model, `schema()`, `model_response()`, `generate_join_model()`, `register_mixin()` |
+| `packages/n3tx-core/src/n3tx_core/models/proto_schema.py` | Schema pipeline: 7 core stages + external extensions |
 | `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` | Dump pipeline for serialization |
 | `packages/n3tx-core/src/n3tx_core/models/base_user.py` | Abstract base user with login/register |
 | `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` | CRUD operations, pagination |
@@ -290,6 +290,7 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 ### n3tx-ui — Visual Components (Frontend Only)
 | File | Purpose |
 |------|---------|
+| `packages/n3tx-ui/src/n3tx_ui/mixin.py` | `ViewableMixin` + `viewable` schema stage; registers via `register_mixin()` |
 | `packages/n3tx-ui/src/n3tx_ui/static/components/NTTElement.js` | Abstract single-entity base |
 | `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js` | Abstract collection base |
 | `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js` | Single entity renderer |
@@ -397,6 +398,8 @@ For full details, read `/workspace/docs/AGENTS.md` and `packages/n3tx-agents/doc
 **Config cascade** (3-tier): `config.AGENT_DEFAULTS` < `__agent__` dict < `agentic()` kwargs.
 
 **AgentMixin vs AgentActor**: AgentMixin derives config from model definition; AgentActor stores config in DB fields.
+
+**Import ordering**: `n3tx_agents` (or `import n3tx_agents`) must be imported **before** any model with `__agent__ = True` is defined. `n3tx_agents.__init__` calls `register_mixin('__agent__', AgentMixin)` which populates `proto_model._mixin_registry`. If a model is defined before this call, the mixin is silently not injected.
 
 ### Three Levels of N3TX
 ```python

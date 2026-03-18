@@ -24,9 +24,12 @@ ProtoModel           Base class: injects StorableMixin, rewrites FK fields,
 (n3tx-core)          orchestrates schema pipeline, handles serialization
      |
      +-- schema()              Orchestrates proto_schema.* pipeline (base → strip_hidden →
-     |                         methods → defs → access → widget → ui → metadata)
+     |                         methods → defs → access → widget → ui → [viewable] → [agent] → metadata)
+     |                         [ ] = registered by external packages at import time
      +-- model_dump()          Plain dict (DB). model_response() adds $schema/$id via dump pipeline
-     +-- __init_subclass__()   Auto-injects StorableMixin for __storable__=True models
+     +-- __init_subclass__()   Auto-injects StorableMixin for __storable__=True models;
+     |                         loops _mixin_registry for external mixins (ViewableMixin, AgentMixin)
+     +-- register_mixin()      Module-level API — external packages register mixins at import time
      |
      v
 ActorModel           Bridge class (Actor + ProtoModel): models that participate
@@ -53,8 +56,8 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 ## Key Files
 
 ### Models & Serialization (n3tx-core)
-- `packages/n3tx-core/src/n3tx_core/models/proto_model.py` - Base model, `model_response()`, `generate_join_model()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
-- `packages/n3tx-core/src/n3tx_core/models/proto_schema.py` - Schema pipeline: 8 composable stages. Extensible via `@schema_extension` decorator.
+- `packages/n3tx-core/src/n3tx_core/models/proto_model.py` - Base model, `model_response()`, `generate_join_model()`, `register_mixin()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
+- `packages/n3tx-core/src/n3tx_core/models/proto_schema.py` - Schema pipeline: 7 core stages + external extensions. Extensible via `@schema_extension` and `register_mixin()`.
 - `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` - Dump pipeline for serialization. Extensible via `@dump_extension` decorator.
 - `packages/n3tx-core/src/n3tx_core/models/base_user.py` - Abstract base user with `login()` and `register_user()` endpoints
 - `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` - CRUD operations. `list()` supports `limit`/`offset` pagination.
@@ -107,6 +110,10 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 - `packages/n3tx-agents/src/n3tx_agents/deps.py` - `AgentDeps` dataclass for Pydantic AI
 - `packages/n3tx-agents/src/n3tx_agents/tools.py` - Tool discovery + function generation
 - `packages/n3tx-agents/src/n3tx_agents/schema_ext.py` - Schema extension for `__agent__` models
+- `packages/n3tx-agents/src/n3tx_agents/__init__.py` - Calls `register_mixin('__agent__', AgentMixin)` **before** importing AgentActor (import ordering requirement)
+
+### UI Mixin (n3tx-ui)
+- `packages/n3tx-ui/src/n3tx_ui/mixin.py` - `ViewableMixin` + `viewable` schema stage. Registers `__viewable__`/`__ui__` triggers via `register_mixin()`. **Must be imported before model files with `__ui__`.**
 
 ## Backend Patterns
 
