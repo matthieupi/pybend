@@ -52,6 +52,9 @@ class AgentActor(ActorModel):
     __tablename__ = 'agents'
     __storable__ = True
     __agent__ = True  # injects AgentMixin → provides agentic()
+    __ui__ = {
+        'renderer': {'item': 'ntx-agent', 'detail': 'ntx-agent'},
+    }
 
     name: str = Field(min_length=1, max_length=200)
     prompt: str = Field(default='')
