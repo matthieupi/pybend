@@ -10,6 +10,7 @@ A module-level default `matrix` instance is created at import time so that
 __init_subclass__ auto-registration always has a root available.
 """
 
+import asyncio
 import logging
 from typing import Any
 
@@ -22,9 +23,15 @@ logger = logging.getLogger('n3tx.actors')
 
 
 class Matrix(Actor):
-    """Root actor and message router."""
+    """Root actor and message router.
+
+    Provides request() for internal request-response over fire-and-forget
+    messaging. Any actor can call Actor.root().request(tx) to send a TX
+    and await the correlated reply — no NetworkAdapter needed.
+    """
 
     _adapters: list = PrivateAttr(default_factory=list)
+    _pending: dict = PrivateAttr(default_factory=dict)
 
     def __init__(self, **kwargs):
         kwargs.setdefault('addr', 'matrix')
@@ -39,7 +46,24 @@ class Matrix(Actor):
 
     async def inbox(self, tx: TX) -> None:
         """Route message to local child actor or network adapter.
-        Runs 'inbox' interceptors before routing."""
+        Runs 'inbox' interceptors before routing.
+
+        Checks pending request() correlations first — a reply TX with
+        meta['req'] matching a pending future resolves it directly,
+        bypassing normal routing (including self-send prevention).
+        """
+        # ── Correlation: resolve pending request() futures ──
+        reply_to = tx.meta.get('req')
+        if reply_to and reply_to in self._pending:
+            pending = self._pending.pop(reply_to)
+            if isinstance(pending, asyncio.Future) and not pending.done():
+                pending.set_result(tx)
+            elif isinstance(pending, asyncio.Queue):
+                await pending.put(tx)
+                if not (tx.is_error or tx.meta.get('stream_end')):
+                    self._pending[reply_to] = pending  # keep open
+            return
+
         # Run interceptors (e.g., routing authorization)
         interceptors = Actor._get_interceptors(self, 'inbox')
         if interceptors:
@@ -82,8 +106,44 @@ class Matrix(Actor):
             return
         error_tx = tx.error(f"No route to '{tx.target}'", code=404)
         source_root = tx.source.split('/')[0] if tx.source else ''
-        if source_root and source_root in self._children:
+        if source_root == self.addr:
+            # Source is matrix itself — route through inbox for correlation
+            await self.inbox(error_tx)
+        elif source_root and source_root in self._children:
             await self._children[source_root].inbox(error_tx)
+
+    async def request(self, tx: TX, timeout: float = 30.0) -> TX:
+        """Send TX and await the correlated response.
+
+        Internal request-response for any actor that needs to send a
+        message and wait for a reply. No adapter registration needed.
+
+            response = await Actor.root().request(
+                TX(name='get', source='matrix', target='products', data={'id': 1})
+            )
+
+        The reply TX arrives at inbox() with meta['req'] == tx.uuid,
+        resolving the future before normal routing runs.
+
+        Args:
+            tx: The message to send. source is set to self.addr automatically.
+            timeout: Seconds to wait before returning a timeout error TX.
+
+        Returns:
+            The response TX (reply or error).
+        """
+        tx.source = tx.source or self.addr
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        self._pending[tx.uuid] = future
+        await self.send(tx)
+        try:
+            return await asyncio.wait_for(future, timeout=timeout)
+        except asyncio.TimeoutError:
+            self._pending.pop(tx.uuid, None)
+            return tx.error(
+                f"Request to {tx.target} timed out after {timeout}s", code=504
+            )
 
     def register_adapter(self, adapter: Any):
         """Add a protocol adapter (HTTP, WS, MCP, AP...)."""
