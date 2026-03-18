@@ -111,7 +111,7 @@ class AgentActor(ActorModel):
 
         Args:
             task: The user task / query to execute.
-            **kwargs: Override llm, constraints, user, message_history, result_type.
+            **kwargs: Override llm, constraints, user, thread_id, result_type.
 
         Returns:
             JSON string with {answer, usage, messages, message_count}.
@@ -129,7 +129,7 @@ class AgentActor(ActorModel):
             llm=kwargs.get('llm', self.llm),
             constraints={**self.constraints, **kwargs.get('constraints', {})},
             user=kwargs.get('user'),
-            message_history=kwargs.get('message_history'),
+            thread_id=kwargs.get('thread_id'),
             result_type=kwargs.get('result_type'),
         )
         return json.dumps(result, default=str)

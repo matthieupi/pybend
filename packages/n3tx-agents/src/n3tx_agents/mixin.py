@@ -50,9 +50,10 @@ from n3tx_actors.actor import Actor
 from n3tx_actors.tx import TX
 from n3tx_agents.deps import AgentDeps
 from n3tx_agents.tools import discover_tools, make_tool
-from n3tx_actors.api.network_adapter import NetworkAdapter
 from n3tx_core.utils.descriptors import fullmethod
 from n3tx_core.utils.introspection import get_list_fields
+
+from n3tx_agents.thread import Thread
 
 logger = logging.getLogger('n3tx.agents')
 
@@ -66,8 +67,15 @@ def _resolve_llm(llm):
     OllamaProvider(base_url=config.OLLAMA_BASE_URL) so we don't rely on
     environment variables being set.
 
+    Raises ValueError if no LLM is provided.
     Passes through non-ollama strings and existing model instances as-is.
     """
+    if not llm:
+        raise ValueError(
+            "No LLM provided. Pass an llm= argument "
+            "(e.g., 'ollama:llama3.1', 'anthropic:claude-sonnet-4-5-20250929') "
+            "or set it via __agent__['llm'] or config.AGENT_DEFAULTS['llm']."
+        )
     if not isinstance(llm, str) or not llm.startswith('ollama:'):
         return llm
 
@@ -200,7 +208,7 @@ class AgentMixin:
         """Public entry point for agent reasoning.
 
         Resolves config via 3-tier cascade, builds prompt, discovers tools,
-        manages adapter lifecycle, delegates to run().
+        delegates to run().
 
         Config resolution (3-tier cascade):
             config.AGENT_DEFAULTS < __agent__ dict < agentic() kwargs
@@ -214,8 +222,6 @@ class AgentMixin:
         cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(cls, '__agent__', False)
         model_conf = agent_flag if isinstance(agent_flag, dict) else {}
-
-        # 3-tier cascade: config.AGENT_DEFAULTS < __agent__ dict < kwargs
         defaults = config.AGENT_DEFAULTS
 
         # Prompt: kwargs > auto-generated ctx
@@ -224,12 +230,6 @@ class AgentMixin:
         # Tools: kwargs > auto-discovered (use 'in' check — [] is valid)
         tools = kwargs['tools'] if 'tools' in kwargs else target.tools()
 
-        # LLM: kwargs > __agent__['llm'] > instance attr > defaults
-        llm = (kwargs.get('llm')
-               or model_conf.get('llm')
-               or getattr(target, 'llm', None)
-               or defaults.get('llm', 'ollama:llama3.1'))
-
         # Constraints: merge all tiers
         constraints = dict(defaults.get('constraints', {}))
         constraints.update(model_conf.get('constraints', {}))
@@ -237,50 +237,33 @@ class AgentMixin:
 
         # Pass-through params
         user = kwargs.get('user')
-        message_history = kwargs.get('message_history')
+        thread_id = kwargs.get('thread_id')
         result_type = kwargs.get('result_type') or model_conf.get('result_type')
 
-        # Adapter lifecycle: create transient adapter for this run
-        run_id = TX(name='', source='', target='').uuid
-        adapter_addr = f'_agent_{run_id}'
-        adapter = NetworkAdapter(addr=adapter_addr)
-        root = Actor.root()
-        if not root:
-            raise RuntimeError(
-                "No Matrix root. Initialize a Matrix before running agents."
-            )
-        root.register(adapter)
+        if isinstance(target, type):
+            instance = target()
+        else:
+            instance = target
 
-        try:
-            # Resolve target for run() — need an instance
-            if isinstance(target, type):
-                instance = target()
-            else:
-                instance = target
+        # LLM resolved by run() from conf; pass explicit override if any
+        run_kwargs = dict(
+            task=task, prompt=prompt, tools=tools,
+            user=user, constraints=constraints,
+            thread_id=thread_id, result_type=result_type,
+        )
+        if 'llm' in kwargs:
+            run_kwargs['llm'] = kwargs['llm']
 
-            return await instance.run(
-                task=task,
-                prompt=prompt,
-                tools=tools,
-                user=user,
-                llm=llm,
-                constraints=constraints,
-                adapter=adapter,
-                message_history=message_history,
-                result_type=result_type,
-            )
-        finally:
-            root._children.pop(adapter_addr, None)
+        return await instance.run(**run_kwargs)
 
     @fullmethod
     async def run(target, task: str, prompt: str, tools: list,
-                  user: dict = None, llm=None, constraints: dict = None,
-                  adapter=None, message_history=None,
-                  result_type=None, **kwargs) -> dict:
-        """Execute the LLM agent loop. Pure execution — no config resolution.
+                  user: dict = None, constraints: dict = None,
+                  thread_id=None, result_type=None, **kwargs) -> dict:
+        """Execute the LLM agent loop.
 
-        Receives fully resolved params from agentic(). Can also be called
-        directly for advanced use cases (testing, pipelines, custom workflows).
+        Resolves LLM from model config (3-tier cascade), can be overridden
+        via kwargs['llm'] (used by agentic() and tests).
 
         Product.run(task=..., prompt=..., tools=...) → class-level
         product.run(task=..., prompt=..., tools=...) → instance-level
@@ -290,11 +273,11 @@ class AgentMixin:
             prompt: System prompt for the LLM.
             tools: List of actor addresses whose methods become tools.
             user: Auth context (JWT user dict).
-            llm: LLM model string or pydantic_ai Model instance.
             constraints: Budget/safety limits dict.
-            adapter: NetworkAdapter for TX routing (created if None).
-            message_history: Previous messages for multi-turn.
+            thread_id: Thread ID for persistent conversation history.
+                       Reads/updates Thread via TX for multi-turn support.
             result_type: Pydantic model for structured output.
+            **kwargs: Override llm (LLM model string or pydantic_ai Model).
 
         Returns:
             dict with keys:
@@ -302,12 +285,20 @@ class AgentMixin:
                 usage: {input_tokens, output_tokens, requests}
                 messages: All conversation messages (list).
                 message_count: Number of messages (backward compat).
+                thread_id: Thread ID (when thread was used).
         """
         cls = target if isinstance(target, type) else target.__class__
         instance = target if not isinstance(target, type) else target()
 
-        # ── Defaults ──
-        llm = _resolve_llm(llm or 'ollama:llama3.1')
+        # ── LLM: kwargs > __agent__['llm'] > instance attr > AGENT_DEFAULTS ──
+        agent_flag = getattr(cls, '__agent__', False)
+        model_conf = agent_flag if isinstance(agent_flag, dict) else {}
+        llm = _resolve_llm(
+            kwargs.get('llm')
+            or model_conf.get('llm')
+            or getattr(instance, 'llm', None)
+            or config.AGENT_DEFAULTS.get('llm')
+        )
         constraints = constraints or {}
 
         # ── Agent address ──
@@ -316,79 +307,110 @@ class AgentMixin:
             or getattr(cls, '__addr__', '')
         )
 
-        # ── Adapter lifecycle ──
-        owns_adapter = adapter is None
-        if owns_adapter:
-            run_id = TX(name='', source='', target='').uuid
-            adapter_addr = f'_agent_{run_id}'
-            adapter = NetworkAdapter(addr=adapter_addr)
-            root = Actor.root()
-            if not root:
-                raise RuntimeError(
-                    "No Matrix root. Initialize a Matrix before running agents."
-                )
-            root.register(adapter)
-
-        try:
-            # ── Discover tools from actor addresses ──
-            root = Actor.root()
-            tool_specs = discover_tools(tools, root, caller_addr=agent_addr)
-            if not tool_specs:
-                logger.warning(
-                    "[%s] No tools discovered from addresses: %s", agent_addr, tools
-                )
-            ai_tools = [make_tool(spec) for spec in tool_specs]
-
-            # ── Build Pydantic AI agent ──
-            agent_kwargs = {
-                'system_prompt': prompt,
-                'deps_type': AgentDeps,
-                'tools': ai_tools,
-            }
-            if result_type:
-                agent_kwargs['output_type'] = result_type
-
-            ai_agent = Agent(llm, **agent_kwargs)
-
-            # ── Deps ──
-            deps = AgentDeps(
-                adapter=adapter,
-                user=user,
-                agent_addr=agent_addr,
+        # ── Matrix root (for request-response) ──
+        root = Actor.root()
+        if not root:
+            raise RuntimeError(
+                "No Matrix root. Initialize a Matrix before running agents."
             )
 
-            # ── Usage limits ──
-            usage_limits = None
-            if constraints.get('max_iterations'):
-                usage_limits = UsageLimits(
-                    request_limit=constraints['max_iterations'],
+        # ── Thread: pre-run read ──
+        message_history = None
+        if thread_id is not None:
+            thread_tx = TX(
+                name='get', source=root.addr, target='threads',
+                data={'id': thread_id},
+                meta={'user': user} if user else {},
+            )
+            thread_resp = await root.request(thread_tx)
+            if thread_resp.is_error:
+                raise RuntimeError(
+                    f"Thread {thread_id} not found or access denied: "
+                    f"{thread_resp.data.get('message', 'unknown error')}"
+                )
+            message_history = Thread.to_history(
+                thread_resp.data.get('messages', [])
+            )
+
+        # ── Discover tools from actor addresses ──
+        tool_specs = discover_tools(tools, root, caller_addr=agent_addr)
+        if not tool_specs:
+            logger.warning(
+                "[%s] No tools discovered from addresses: %s", agent_addr, tools
+            )
+        ai_tools = [make_tool(spec) for spec in tool_specs]
+
+        # ── Build Pydantic AI agent ──
+        agent_kwargs = {
+            'system_prompt': prompt,
+            'deps_type': AgentDeps,
+            'tools': ai_tools,
+        }
+        if result_type:
+            agent_kwargs['output_type'] = result_type
+
+        ai_agent = Agent(llm, **agent_kwargs)
+
+        # ── Deps ──
+        deps = AgentDeps(
+            user=user,
+            agent_addr=agent_addr,
+        )
+
+        # ── Usage limits ──
+        usage_limits = None
+        if constraints.get('max_iterations'):
+            usage_limits = UsageLimits(
+                request_limit=constraints['max_iterations'],
+            )
+
+        # ── Run ──
+        run_kwargs = {'deps': deps}
+        if usage_limits:
+            run_kwargs['usage_limits'] = usage_limits
+        if message_history:
+            run_kwargs['message_history'] = message_history
+
+        result = await ai_agent.run(task, **run_kwargs)
+
+        usage = result.usage()
+        all_messages = result.all_messages()
+
+        # ── Thread: post-run update ──
+        if thread_id is not None:
+            update_tx = TX(
+                name='update', source=root.addr, target='threads',
+                data={
+                    'id': thread_id,
+                    'messages': Thread.from_history(
+                        all_messages,
+                        source=root.addr,
+                        target=agent_addr,
+                    ),
+                },
+                meta={'user': user} if user else {},
+            )
+            update_resp = await root.request(update_tx)
+            if update_resp.is_error:
+                logger.warning(
+                    "Failed to update thread %s: %s",
+                    thread_id,
+                    update_resp.data.get('message', 'unknown'),
                 )
 
-            # ── Run ──
-            run_kwargs = {'deps': deps}
-            if usage_limits:
-                run_kwargs['usage_limits'] = usage_limits
-            if message_history:
-                run_kwargs['message_history'] = message_history
-
-            result = await ai_agent.run(task, **run_kwargs)
-
-            usage = result.usage()
-            all_messages = result.all_messages()
-            return {
-                'answer': result.output,
-                'usage': {
-                    'input_tokens': usage.input_tokens,
-                    'output_tokens': usage.output_tokens,
-                    'requests': usage.requests,
-                },
-                'messages': all_messages,
-                'message_count': len(all_messages),
-            }
-
-        finally:
-            if owns_adapter:
-                root._children.pop(adapter._addr, None)
+        result_dict = {
+            'answer': result.output,
+            'usage': {
+                'input_tokens': usage.input_tokens,
+                'output_tokens': usage.output_tokens,
+                'requests': usage.requests,
+            },
+            'messages': all_messages,
+            'message_count': len(all_messages),
+        }
+        if thread_id is not None:
+            result_dict['thread_id'] = thread_id
+        return result_dict
 
     @fullmethod
     async def agentic_stream(target, task: str, **kwargs):
@@ -400,65 +422,41 @@ class AgentMixin:
         cls = target if isinstance(target, type) else target.__class__
         agent_flag = getattr(cls, '__agent__', False)
         model_conf = agent_flag if isinstance(agent_flag, dict) else {}
-
-        # 3-tier cascade (same as run())
         defaults = config.AGENT_DEFAULTS
+
         prompt = kwargs.get('prompt') or target.ctx()
-        # Tools: kwargs > auto-discovered (use 'in' check — [] is valid)
         tools = kwargs['tools'] if 'tools' in kwargs else target.tools()
-        llm = (kwargs.get('llm')
-               or model_conf.get('llm')
-               or getattr(target, 'llm', None)
-               or defaults.get('llm', 'ollama:llama3.1'))
         constraints = dict(defaults.get('constraints', {}))
         constraints.update(model_conf.get('constraints', {}))
         constraints.update(kwargs.get('constraints', {}))
         user = kwargs.get('user')
-        message_history = kwargs.get('message_history')
+        thread_id = kwargs.get('thread_id')
         result_type = kwargs.get('result_type') or model_conf.get('result_type')
 
-        # Adapter lifecycle
-        run_id = TX(name='', source='', target='').uuid
-        adapter_addr = f'_agent_{run_id}'
-        adapter = NetworkAdapter(addr=adapter_addr)
-        root = Actor.root()
-        if not root:
-            raise RuntimeError(
-                "No Matrix root. Initialize a Matrix before running agents."
-            )
-        root.register(adapter)
+        if isinstance(target, type):
+            instance = target()
+        else:
+            instance = target
 
-        try:
-            if isinstance(target, type):
-                instance = target()
-            else:
-                instance = target
+        # LLM resolved by run_stream() from conf; pass explicit override if any
+        stream_kwargs = dict(
+            task=task, prompt=prompt, tools=tools,
+            user=user, constraints=constraints,
+            thread_id=thread_id, result_type=result_type,
+        )
+        if 'llm' in kwargs:
+            stream_kwargs['llm'] = kwargs['llm']
 
-            async for chunk in instance.run_stream(
-                task=task,
-                prompt=prompt,
-                tools=tools,
-                user=user,
-                llm=llm,
-                constraints=constraints,
-                adapter=adapter,
-                message_history=message_history,
-                result_type=result_type,
-            ):
-                # TODO Returns should be wrapped in proper TX, even for stream chunks
-                yield chunk
-        finally:
-            root._children.pop(adapter_addr, None)
+        async for chunk in instance.run_stream(**stream_kwargs):
+            yield chunk
 
     @fullmethod
     async def run_stream(target, task: str, prompt: str, tools: list,
-                         user: dict = None, llm=None, constraints: dict = None,
-                         adapter=None, message_history=None,
-                         result_type=None, **kwargs):
+                         user: dict = None, constraints: dict = None,
+                         thread_id=None, result_type=None, **kwargs):
         """Streaming agent loop — yields TX-aligned chunks.
 
-        Pure execution — no config resolution. Same params as run()
-        but returns an async generator instead of a dict.
+        Same LLM resolution as run(). Returns an async generator.
 
         Product.run_stream(task=..., prompt=..., tools=...) → class-level
         product.run_stream(task=..., prompt=..., tools=...) → instance-level
@@ -471,9 +469,15 @@ class AgentMixin:
         cls = target if isinstance(target, type) else target.__class__
         instance = target if not isinstance(target, type) else target()
 
-        # TODO Should not resolve to default LLM, should throw instead to send an error into the actor system to have \
-        #  visibility on missing var
-        llm = _resolve_llm(llm or 'ollama:llama3.1')
+        # ── LLM: kwargs > __agent__['llm'] > instance attr > AGENT_DEFAULTS ──
+        agent_flag = getattr(cls, '__agent__', False)
+        model_conf = agent_flag if isinstance(agent_flag, dict) else {}
+        llm = _resolve_llm(
+            kwargs.get('llm')
+            or model_conf.get('llm')
+            or getattr(instance, 'llm', None)
+            or config.AGENT_DEFAULTS.get('llm')
+        )
         constraints = constraints or {}
 
         agent_addr = (
@@ -481,21 +485,33 @@ class AgentMixin:
             or getattr(cls, '__addr__', '')
         )
 
-        owns_adapter = adapter is None
-        if owns_adapter:
-            run_id = TX(name='', source='', target='').uuid
-            adapter_addr = f'_agent_{run_id}'
-            adapter = NetworkAdapter(addr=adapter_addr)
-            root = Actor.root()
-            if not root:
-                raise RuntimeError(
-                    "No Matrix root. Initialize a Matrix before running agents."
-                )
-            root.register(adapter)
+        # ── Matrix root (for request-response) ──
+        root = Actor.root()
+        if not root:
+            raise RuntimeError(
+                "No Matrix root. Initialize a Matrix before running agents."
+            )
 
         seq = 0
         try:
-            root = Actor.root()
+            # ── Thread: pre-run read ──
+            message_history = None
+            if thread_id is not None:
+                thread_tx = TX(
+                    name='get', source=root.addr, target='threads',
+                    data={'id': thread_id},
+                    meta={'user': user} if user else {},
+                )
+                thread_resp = await root.request(thread_tx)
+                if thread_resp.is_error:
+                    raise RuntimeError(
+                        f"Thread {thread_id} not found or access denied: "
+                        f"{thread_resp.data.get('message', 'unknown error')}"
+                    )
+                message_history = Thread.to_history(
+                    thread_resp.data.get('messages', [])
+                )
+
             tool_specs = discover_tools(tools, root, caller_addr=agent_addr)
             ai_tools = [make_tool(spec) for spec in tool_specs]
 
@@ -510,7 +526,6 @@ class AgentMixin:
             ai_agent = Agent(llm, **agent_kwargs)
 
             deps = AgentDeps(
-                adapter=adapter,
                 user=user,
                 agent_addr=agent_addr,
             )
@@ -548,19 +563,48 @@ class AgentMixin:
                     output = ''
                 if not output and streamed_text:
                     output = streamed_text
+
+                all_messages = result.all_messages()
+
+                # ── Thread: post-stream update ──
+                if thread_id is not None:
+                    update_tx = TX(
+                        name='update', source=root.addr, target='threads',
+                        data={
+                            'id': thread_id,
+                            'messages': Thread.from_history(
+                                all_messages,
+                                source=root.addr,
+                                target=agent_addr,
+                            ),
+                        },
+                        meta={'user': user} if user else {},
+                    )
+                    update_resp = await root.request(update_tx)
+                    if update_resp.is_error:
+                        logger.warning(
+                            "Failed to update thread %s: %s",
+                            thread_id,
+                            update_resp.data.get('message', 'unknown'),
+                        )
+
+                done_data = {
+                    'answer': str(output),
+                    'usage': {
+                        'input_tokens': usage.input_tokens,
+                        'output_tokens': usage.output_tokens,
+                        'requests': usage.requests,
+                    },
+                }
+                if thread_id is not None:
+                    done_data['thread_id'] = thread_id
+
                 # TODO
                 #  Replace by returning full output (text, thinking, tool calls, any other relevant info
                 #  We can probably remove streamed_text and use output.
                 yield {
                     'name': 'done',
-                    'data': {
-                        'answer': str(output),
-                        'usage': {
-                            'input_tokens': usage.input_tokens,
-                            'output_tokens': usage.output_tokens,
-                            'requests': usage.requests,
-                        },
-                    },
+                    'data': done_data,
                     'meta': {
                         'stream': True,
                         'stream_end': True,
@@ -575,6 +619,3 @@ class AgentMixin:
                 'data': {'message': str(e), 'code': 500},
                 'meta': {'stream': True, 'error': True, 'seq': seq},
             }
-        finally:
-            if owns_adapter:
-                root._children.pop(adapter._addr, None)

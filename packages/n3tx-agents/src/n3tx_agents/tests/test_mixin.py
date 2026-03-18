@@ -288,71 +288,6 @@ class TestRunEngine:
         assert result['message_count'] == len(result['messages'])
 
     @pytest.mark.asyncio
-    async def test_accepts_adapter(self, fresh_matrix):
-        """run() uses provided adapter, no transient creation."""
-        from pydantic_ai.models.test import TestModel
-        from n3tx_actors.api.network_adapter import NetworkAdapter
-
-        adapter = NetworkAdapter(addr='_test_adapter')
-        root = Actor.root()
-        root.register(adapter)
-
-        class Scanner(ActorModel):
-            __tablename__ = 'scanners'
-            __storable__ = False
-            __agent__ = True
-
-        scanner = Scanner(addr='scanners/1')
-
-        children_before = set(root._children.keys())
-        result = await scanner.run(
-            task='Test',
-            prompt='Test',
-            tools=[],
-            llm=TestModel(call_tools=[]),
-            adapter=adapter,
-        )
-        children_after = set(root._children.keys())
-
-        assert 'answer' in result
-        # No new _agent_* adapters created (we provided one)
-        new_adapters = {k for k in children_after - children_before if k.startswith('_agent_')}
-        assert len(new_adapters) == 0
-
-    @pytest.mark.asyncio
-    async def test_message_history(self, fresh_matrix):
-        """run() supports multi-turn via message_history."""
-        from pydantic_ai.models.test import TestModel
-
-        class Scanner(ActorModel):
-            __tablename__ = 'scanners'
-            __storable__ = False
-            __agent__ = True
-
-        scanner = Scanner(addr='scanners/1')
-
-        # First turn
-        result1 = await scanner.run(
-            task='What fields do I have?',
-            prompt='You are a scanner.',
-            tools=[],
-            llm=TestModel(call_tools=[]),
-        )
-        history = result1['messages']
-
-        # Second turn with history
-        result2 = await scanner.run(
-            task='Tell me more',
-            prompt='You are a scanner.',
-            tools=[],
-            llm=TestModel(call_tools=[]),
-            message_history=history,
-        )
-        assert 'answer' in result2
-        # Second turn should have more messages
-        assert result2['message_count'] > result1['message_count']
-
-    @pytest.mark.asyncio
     async def test_no_matrix_raises(self):
         """run() without Matrix raises RuntimeError."""
         from pydantic_ai.models.test import TestModel
@@ -446,34 +381,6 @@ class TestAgentic:
         assert 'answer' in result
 
     @pytest.mark.asyncio
-    async def test_adapter_lifecycle(self, fresh_matrix):
-        """Transient adapter is created and cleaned up."""
-        from pydantic_ai.models.test import TestModel
-
-        m = fresh_matrix
-        children_before = set(m._children.keys())
-
-        await AgenticProduct.agentic(task='Test', llm=TestModel(call_tools=[]))
-
-        children_after = set(m._children.keys())
-        agent_adapters = {k for k in children_after if k.startswith('_agent_')}
-        assert len(agent_adapters) == 0
-
-    @pytest.mark.asyncio
-    async def test_adapter_cleaned_up_on_error(self, fresh_matrix):
-        """Transient adapter is cleaned up even if agentic() fails."""
-        m = fresh_matrix
-
-        try:
-            await AgenticProduct.agentic(task='Test', llm='nonexistent:model')
-        except Exception:
-            pass
-
-        children_after = set(m._children.keys())
-        agent_adapters = {k for k in children_after if k.startswith('_agent_')}
-        assert len(agent_adapters) == 0
-
-    @pytest.mark.asyncio
     async def test_class_vs_instance_agentic(self, fresh_matrix):
         """Class uses schema context, instance uses instance context."""
         from pydantic_ai.models.test import TestModel
@@ -505,14 +412,12 @@ class TestAgentic:
 # ── Concurrent Runs ──────────────────────────────────────────────
 
 class TestConcurrentRuns:
-    """Verify adapter isolation under concurrent runs."""
+    """Verify isolation under concurrent runs."""
 
     @pytest.mark.asyncio
     async def test_concurrent_runs_isolated(self, fresh_matrix):
         """Multiple concurrent agentic() calls don't cross-contaminate."""
         from pydantic_ai.models.test import TestModel
-
-        m = fresh_matrix
 
         tasks = [
             AgenticProduct.agentic(
@@ -527,9 +432,6 @@ class TestConcurrentRuns:
         for r in results:
             assert 'answer' in r
             assert 'usage' in r
-
-        agent_adapters = {k for k in m._children if k.startswith('_agent_')}
-        assert len(agent_adapters) == 0
 
 
 # ── User Auth Propagation ────────────────────────────────────────
@@ -599,27 +501,6 @@ class TestAgenticStreamPolicy:
         assert len(chunks) > 0
         # Last chunk should be 'done'
         assert chunks[-1]['name'] in ('done', 'error')
-
-    @pytest.mark.asyncio
-    async def test_adapter_cleanup(self, fresh_matrix):
-        """Adapter cleaned up when generator is properly closed."""
-        from pydantic_ai.models.test import TestModel
-
-        m = fresh_matrix
-
-        # Properly close the generator after one chunk
-        gen = AgenticProduct.agentic_stream(
-            task='Test',
-            llm=TestModel(call_tools=[]),
-        )
-        try:
-            async for chunk in gen:
-                break  # consume one chunk then stop
-        finally:
-            await gen.aclose()  # explicit cleanup triggers finally block
-
-        agent_adapters = {k for k in m._children if k.startswith('_agent_')}
-        assert len(agent_adapters) == 0
 
     @pytest.mark.asyncio
     async def test_auto_discovery(self, fresh_matrix):

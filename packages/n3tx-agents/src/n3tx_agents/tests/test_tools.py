@@ -237,10 +237,7 @@ class TestRouteToolCall:
     async def test_error_response_raises_model_retry(self, fresh_matrix):
         """_route_tool_call raises ModelRetry when tool returns error TX."""
         from pydantic_ai import ModelRetry
-        from n3tx_actors.api.network_adapter import NetworkAdapter
         from n3tx_agents.deps import AgentDeps
-
-        m = fresh_matrix
 
         # Actor that returns an error for any 'do_something' message.
         # Non-exposed methods on class actors use (data, tx) signature.
@@ -252,10 +249,7 @@ class TestRouteToolCall:
             def do_something(cls, data, tx):
                 return tx.error("Something went wrong", code=500)
 
-        adapter = NetworkAdapter(addr='_test_adapter')
-        m.register(adapter)
-
-        deps = AgentDeps(adapter=adapter, user=None, agent_addr='test')
+        deps = AgentDeps(user=None, agent_addr='test')
 
         class MockCtx:
             pass
@@ -269,22 +263,16 @@ class TestRouteToolCall:
     async def test_tool_call_to_missing_actor(self, fresh_matrix):
         """_route_tool_call to non-existent actor raises ModelRetry."""
         from pydantic_ai import ModelRetry
-        from n3tx_actors.api.network_adapter import NetworkAdapter
         from n3tx_agents.deps import AgentDeps
 
-        m = fresh_matrix
-
-        adapter = NetworkAdapter(addr='_test_adapter')
-        m.register(adapter)
-
-        deps = AgentDeps(adapter=adapter, user=None, agent_addr='test')
+        deps = AgentDeps(user=None, agent_addr='test')
 
         class MockCtx:
             pass
         ctx = MockCtx()
         ctx.deps = deps
 
-        # Matrix._route_error sends error TX back to adapter
+        # Matrix._route_error sends error TX back to source (matrix)
         with pytest.raises(ModelRetry, match="No route"):
             await _route_tool_call(ctx, 'nonexistent_actor', 'get', {'id': 1})
 

@@ -201,19 +201,21 @@ def _method_tool_specs(addr, tablename, model_name, schema, exclude=None):
 async def _route_tool_call(ctx, target_addr: str, method_name: str, data: dict) -> str:
     """Route a tool call through Matrix as TX. Used by generated tool functions.
 
-    Creates a TX, sends via adapter.request() for correlation, returns
+    Creates a TX, sends via Matrix.request() for correlation, returns
     the response as a JSON string (tool results are always text for the LLM).
     """
-    adapter = ctx.deps.adapter
+    from n3tx_actors.actor import Actor
+
+    root = Actor.root()
     meta = {'user': ctx.deps.user} if ctx.deps.user else {}
     tx = TX(
         name=method_name,
-        source=adapter.addr,
+        source=root.addr,
         target=target_addr,
         data=data,
         meta=meta,
     )
-    response = await adapter.request(tx)
+    response = await root.request(tx)
     if response.is_error:
         from pydantic_ai import ModelRetry
         raise ModelRetry(response.data.get('message', 'Tool call failed'))

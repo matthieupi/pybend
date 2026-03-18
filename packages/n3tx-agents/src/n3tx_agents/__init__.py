@@ -16,6 +16,7 @@ from .actor import AgentActor
 from .tool_model import AgentTool
 from .deps import AgentDeps
 from .tools import ToolSpec, discover_tools, make_tool
+from .thread import Thread
 
 # Register schema extension (side-effect import)
 from . import schema_ext as _schema_ext  # noqa: F401
@@ -23,4 +24,5 @@ from . import schema_ext as _schema_ext  # noqa: F401
 __all__ = [
     'AgentMixin', 'AgentActor', 'AgentTool', 'AgentDeps',
     'ToolSpec', 'discover_tools', 'make_tool',
+    'Thread',
 ]
