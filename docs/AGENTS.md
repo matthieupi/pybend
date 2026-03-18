@@ -181,7 +181,7 @@ AgentActor (ActorModel + __agent__ = True)
 ```
 src/n3tx/core/agents/
   __init__.py        Re-exports: AgentMixin, AgentActor, AgentDeps, ToolSpec
-  mixin.py           AgentMixin: agent_run(), transient adapter, Pydantic AI binding
+  mixin.py           AgentMixin: agentic(), run(), Matrix request-response, Pydantic AI binding
   actor.py           AgentActor(ActorModel): the dynamic agent class
   deps.py            AgentDeps dataclass (Pydantic AI RunContext deps)
   tools.py           ToolSpec, discover_tools(), create_tool_function(), make_tool()
@@ -240,18 +240,18 @@ Execute an LLM reasoning loop with Matrix-routed tools.
 
 **Internals:**
 
-Each call to `agent_run()`:
+Each call to `run()`:
 
-1. Creates a transient `NetworkAdapter` with a unique address (`_agent_{uuid}`)
-2. Registers it with Matrix for request/response correlation
+1. Resolves LLM from 3-tier cascade (kwargs > model config > AGENT_DEFAULTS)
+2. Reads thread history via `Actor.root().request()` (if `thread_id` provided)
 3. Calls `discover_tools(tools, root)` to build `ToolSpec` list
 4. Creates a `pydantic_ai.Agent` with the discovered tools
 5. Runs the Pydantic AI agent loop (`ai_agent.run(task, deps=...)`)
-6. Cleans up the transient adapter in a `finally` block (even on error)
+6. Updates thread with conversation messages (if `thread_id` provided)
 
-The transient adapter is necessary because `NetworkAdapter.request()` uses
-asyncio Futures for request/response correlation — each concurrent
-`agent_run()` needs its own pending-Future dict.
+Tool calls and thread operations route through `Actor.root().request()`
+(Matrix request-response) — no transient adapters needed. Matrix uses
+asyncio Futures keyed by TX uuid for concurrent correlation.
 
 ---
 
@@ -439,15 +439,14 @@ Complete lifecycle of an agent tool call:
 2. AgentActor(id=1).run(task)
    --> calls self.agent_run(self.prompt, self.tools, task)
         |
-3. AgentMixin.agent_run():
-   a. Creates transient NetworkAdapter(_agent_{uuid})
-   b. Registers adapter with Matrix
-   c. discover_tools(["grants", "web_tools"], matrix)
+3. AgentMixin.run():
+   a. Resolves LLM from config cascade
+   b. discover_tools(["grants", "web_tools"], matrix)
       --> Gets schema.methods from each actor
       --> Builds ToolSpec list: grants_create, grants_list, ...,
                                 web_tools_scrape, web_tools_extract
-   d. Creates pydantic_ai.Agent(llm, system_prompt, tools=[...])
-   e. Runs ai_agent.run(task, deps=AgentDeps(adapter, user, agent_addr))
+   c. Creates pydantic_ai.Agent(llm, system_prompt, tools=[...])
+   d. Runs ai_agent.run(task, deps=AgentDeps(user, agent_addr))
         |
 4. Pydantic AI loop (internal):
    a. Sends messages + tool specs to LLM

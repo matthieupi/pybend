@@ -656,7 +656,7 @@ Injected into any model with `__agent__ = True` via `ProtoModel.__init_subclass_
 
 #### `agentic(target, task: str, **kwargs) -> dict`
 
-Policy layer. Resolves config via 3-tier cascade, creates transient adapter, delegates to `run()`.
+Policy layer. Resolves config via 3-tier cascade, delegates to `run()`.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|

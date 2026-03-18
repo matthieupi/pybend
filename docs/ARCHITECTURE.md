@@ -360,15 +360,14 @@ LLM-powered agents built on [Pydantic AI](https://ai.pydantic.dev/). N3TX provid
 ```python
 # AgentMixin — injected when __agent__ = True (same pattern as StorableMixin)
 class AgentMixin:
-    # agentic() = policy layer (config cascade, adapter lifecycle)
+    # agentic() = policy layer (config cascade)
     async def agentic(target, task: str, **kwargs) -> dict: ...
     # run() = engine (explicit params, no config magic)
     async def run(target, task: str, prompt: str, tools: list, ...) -> dict:
-        # 1. Create transient NetworkAdapter for request/response correlation
+        # 1. Resolve LLM from config cascade
         # 2. discover_tools(tools, root) — read schemas, build ToolSpecs
         # 3. Create Pydantic AI Agent with generated tool functions
-        # 4. Run agent loop — tool calls route through Matrix as TX
-        # 5. Cleanup transient adapter
+        # 4. Run agent loop — tool calls route through Matrix.request()
         # Returns: {answer, usage: {input_tokens, output_tokens, requests}, messages}
 
 # AgentActor — concrete model whose instances ARE agents (data, not code)
