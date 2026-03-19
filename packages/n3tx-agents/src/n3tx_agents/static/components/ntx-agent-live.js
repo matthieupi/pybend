@@ -12,25 +12,29 @@
  * Usage:
  *   <ntx-agent-live model="AgentActor" ref="agents/1"></ntx-agent-live>
  */
-import HTTP from '../core/transport/HTTP.js';
+import { StreamActor } from './StreamActor.js';
 import { config } from '../config.js';
 import { NTT } from '../core/NTT.js';
+import { renderJson, jsonTreeCSS, initJsonToggle } from '../widgets/JsonTree.js';
 
-class NTTAgentLive extends HTMLElement {
+class NTTAgentLive extends StreamActor(HTMLElement) {
+    #model; #ref; #method; #schema; #tablename; #toolCards; #els;
+    #textBuf = ''; #textRendered = 0; #textTimer = null;
+    #thinkBuf = ''; #thinkRendered = 0; #thinkTimer = null;
+
     connectedCallback() {
-        this._model = this.getAttribute('model');
-        this._ref = this.getAttribute('ref');
-        this._method = this.getAttribute('method') || 'agentic_stream';
-        this._streamHandle = null;
-        this._schema = null;
-        this._tablename = null;
-        this._toolCards = new Map();
+        this.#model = this.getAttribute('model');
+        this.#ref = this.getAttribute('ref');
+        this.#method = this.getAttribute('method') || 'agentic_stream';
+        this.#schema = null;
+        this.#tablename = null;
+        this.#toolCards = new Map();
 
         this.attachShadow({ mode: 'open' });
         this.shadowRoot.innerHTML = `<style>${NTTAgentLive.styles}</style>
             <div class="live-panel">
                 <div class="live-header">
-                    <span class="live-title">${this._model} &middot; Live</span>
+                    <span class="live-title">${this.#model} &middot; Live</span>
                     <span class="live-status" id="status">idle</span>
                 </div>
                 <div class="live-input">
@@ -41,7 +45,7 @@ class NTTAgentLive extends HTMLElement {
                 <div class="live-footer" id="footer"></div>
             </div>`;
 
-        this._els = {
+        this.#els = {
             status: this.shadowRoot.getElementById('status'),
             log: this.shadowRoot.getElementById('log'),
             footer: this.shadowRoot.getElementById('footer'),
@@ -49,154 +53,233 @@ class NTTAgentLive extends HTMLElement {
             runBtn: this.shadowRoot.querySelector('.run-btn'),
         };
 
-        this._els.runBtn.addEventListener('click', () => this._run());
-        this._els.textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._run(); }
+        this.#els.runBtn.addEventListener('click', () => this.#run());
+        this.#els.textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.#run(); }
+        });
+        initJsonToggle(this.shadowRoot);
+
+        // Click-to-expand/collapse on collapsible entries
+        this.#els.log.addEventListener('click', (e) => {
+            // Don't toggle when clicking JSON tree toggles or links
+            if (e.target.closest('.jt-toggle') || e.target.closest('a')) return;
+            const entry = e.target.closest('.entry.collapsible');
+            if (entry) entry.classList.toggle('expanded');
         });
 
-        this._loadSchema();
+        this.#loadSchema();
     }
 
     disconnectedCallback() {
-        if (this._streamHandle) { this._streamHandle.cancel(); this._streamHandle = null; }
+        this.streamClose();
+        clearTimeout(this.#textTimer);
+        clearTimeout(this.#thinkTimer);
     }
 
-    _loadSchema() {
-        NTT.attach(this._model, (DC) => {
-            this._schema = DC._schema;
-            this._tablename = this._schema.__tablename__ || this._model.toLowerCase() + 's';
+    #loadSchema() {
+        NTT.attach(this.#model, (DC) => {
+            this.#schema = DC._schema;
+            this.#tablename = this.#schema.__tablename__ || this.#model.toLowerCase() + 's';
+            this._validateStreamHandlers(this.#schema, this.#method);
         });
     }
 
-    _run() {
-        const task = this._els.textarea.value.trim();
-        if (!task || !this._tablename) return;
+    #run() {
+        const task = this.#els.textarea.value.trim();
+        if (!task || !this.#tablename) return;
 
-        this._els.textarea.value = '';
-        this._els.log.innerHTML = '';
-        this._els.footer.innerHTML = '';
-        this._toolCards.clear();
-        this._els.status.textContent = 'running';
-        this._els.status.className = 'live-status running';
-        this._els.runBtn.disabled = true;
+        this.#els.textarea.value = '';
+        this.#els.log.innerHTML = '';
+        this.#els.footer.innerHTML = '';
+        this.#toolCards.clear();
+        this.#textBuf = ''; this.#textRendered = 0; clearTimeout(this.#textTimer);
+        this.#thinkBuf = ''; this.#thinkRendered = 0; clearTimeout(this.#thinkTimer);
+        this.#els.status.textContent = 'running';
+        this.#els.status.className = 'live-status running';
+        this.#els.runBtn.disabled = true;
 
-        // Resolve entity ref for URL
-        const ref = this._ref || '';
+        const ref = this.#ref || '';
         const id = ref.includes('/') ? ref.split('/').pop() : ref;
         const url = id
-            ? `${config.API_URL}/${this._tablename}/${id}/${this._method}`
-            : `${config.API_URL}/${this._tablename}/${this._method}`;
+            ? `${config.API_URL}/${this.#tablename}/${id}/${this.#method}`
+            : `${config.API_URL}/${this.#tablename}/${this.#method}`;
 
-        this._addEntry('task', `Task: ${task}`);
-
-        this._streamHandle = HTTP.stream(url, { task },
-            (chunk) => this._onChunk(chunk),
-            () => this._onDone(),
-            (err) => this._onError(err),
-        );
+        this.#addEntry('task', `Task: ${task}`);
+        this.stream(url, { task });
     }
 
-    _onChunk(chunk) {
-        switch (chunk.name) {
-            case 'thinking': {
-                this._setThinking(true);
-                break;
-            }
-            case 'tool_call': {
-                this._setThinking(false);
-                const entry = this._addEntry('tool-call',
-                    `<span class="entry-icon">\u2699</span> Calling <strong>${this._esc(chunk.data.tool)}</strong>` +
-                    (chunk.data.args ? `<pre class="tool-args">${this._esc(JSON.stringify(chunk.data.args, null, 2))}</pre>` : ''));
-                const spinner = document.createElement('span');
-                spinner.className = 'entry-spin';
-                spinner.textContent = ' \u25CF';
-                entry.querySelector('.entry-content').appendChild(spinner);
-                if (chunk.data.call_id) this._toolCards.set(chunk.data.call_id, entry);
-                break;
-            }
-            case 'tool_result': {
-                const card = chunk.data.call_id && this._toolCards.get(chunk.data.call_id);
-                if (card) {
-                    card.querySelector('.entry-spin')?.remove();
-                    card.classList.add('complete');
-                    const resultDiv = document.createElement('div');
-                    resultDiv.className = 'tool-result-text';
-                    const preview = (chunk.data.result || '').slice(0, 200);
-                    resultDiv.textContent = preview + (chunk.data.result?.length > 200 ? '...' : '');
-                    card.querySelector('.entry-content').appendChild(resultDiv);
-                } else {
-                    this._addEntry('tool-result',
-                        `<span class="entry-icon">\u2714</span> ${this._esc(chunk.data.tool)}: ${this._esc((chunk.data.result || '').slice(0, 200))}`);
-                }
-                break;
-            }
-            case 'text': {
-                this._setThinking(false);
-                let textEl = this._els.log.querySelector('.entry-text-output');
-                if (!textEl) {
-                    const entry = this._addEntry('text-output', '');
-                    textEl = entry.querySelector('.entry-content');
-                    textEl.classList.add('entry-text-output-content');
-                    entry.classList.add('entry-text-output');
-                }
-                const content = textEl.querySelector('.entry-text-output-content') || textEl;
-                content.textContent += (chunk.data?.text || '');
-                break;
-            }
-            case 'done': {
-                this._setThinking(false);
-                const usage = chunk.data?.usage;
-                if (usage) {
-                    this._els.footer.innerHTML =
-                        `<span>Tokens: ${usage.input_tokens || 0} in / ${usage.output_tokens || 0} out</span>` +
-                        (chunk.data.tool_calls ? ` &middot; <span>${chunk.data.tool_calls} tool calls</span>` : '');
-                }
-                break;
-            }
+    // -- TX inbox handlers (UPPERCASE) ------------------------------------------
+
+    THINKING(data, meta) {
+        const text = data?.text || '';
+        if (!text) { this.#setThinking(true); return; }
+
+        this.#thinkBuf += text;
+        let entry = this.#els.log.querySelector('.entry-thinking-active');
+        if (!entry) {
+            entry = this.#addEntry('thinking', '');
+            entry.classList.add('entry-thinking-active');
         }
-        this._scrollToBottom();
+        this.#scheduleRender(entry, 'think');
     }
 
-    _onDone() {
-        this._streamHandle = null;
-        this._els.status.textContent = 'done';
-        this._els.status.className = 'live-status done';
-        this._els.runBtn.disabled = false;
-        this._setThinking(false);
+    TOOL_CALL(data, meta) {
+        this.#setThinking(false);
+        const argsHtml = data.args && Object.keys(data.args).length
+            ? `<div class="tool-json">${renderJson(data.args)}</div>` : '';
+        const entry = this.#addEntry('tool-call',
+            `<span class="entry-icon">\u2699</span> Calling <strong>${this.#esc(data.tool)}</strong>${argsHtml}`);
+        const spinner = document.createElement('span');
+        spinner.className = 'entry-spin';
+        spinner.textContent = ' \u25CF';
+        entry.querySelector('.entry-content').appendChild(spinner);
+        if (argsHtml) entry.classList.add('collapsible');
+        if (data.call_id) this.#toolCards.set(data.call_id, entry);
     }
 
-    _onError(err) {
-        this._streamHandle = null;
-        this._els.status.textContent = 'error';
-        this._els.status.className = 'live-status error';
-        this._els.runBtn.disabled = false;
-        this._addEntry('error', `Error: ${err?.message || err?.detail || err}`);
+    TOOL_RESULT(data, meta) {
+        const card = data.call_id && this.#toolCards.get(data.call_id);
+        if (card) {
+            card.querySelector('.entry-spin')?.remove();
+            card.classList.add('complete');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'tool-result-text';
+            resultDiv.innerHTML = renderJson(data.result);
+            card.querySelector('.entry-content').appendChild(resultDiv);
+        } else {
+            this.#addEntry('tool-result',
+                `<span class="entry-icon">\u2714</span> ${this.#esc(data.tool)}: <div class="tool-result-text">${renderJson(data.result)}</div>`);
+        }
     }
 
-    _addEntry(type, html) {
+    TEXT(data, meta) {
+        this.#setThinking(false);
+        this.#textBuf += (data?.text || '');
+
+        let entry = this.#els.log.querySelector('.entry-text-output');
+        if (!entry) {
+            entry = this.#addEntry('text-output', '');
+            entry.querySelector('.entry-content').classList.add('entry-text-output-content');
+            entry.classList.add('entry-text-output');
+        }
+        this.#scheduleRender(entry, 'text');
+    }
+
+    DONE(data, meta) {
+        this.#setThinking(false);
+        this.#flushRender();
+        const usage = data?.usage;
+        if (usage) {
+            this.#els.footer.innerHTML =
+                `<span>Tokens: ${usage.input_tokens || 0} in / ${usage.output_tokens || 0} out</span>` +
+                (data.tool_calls ? ` &middot; <span>${data.tool_calls} tool calls</span>` : '');
+        }
+        this.#scrollToBottom();
+    }
+
+    STREAM_END(data) {
+        this.#els.status.textContent = 'done';
+        this.#els.status.className = 'live-status done';
+        this.#els.runBtn.disabled = false;
+        this.#setThinking(false);
+    }
+
+    STREAM_ERROR(err) {
+        this.#els.status.textContent = 'error';
+        this.#els.status.className = 'live-status error';
+        this.#els.runBtn.disabled = false;
+        this.#addEntry('error', `Error: ${err?.message || err?.detail || err}`);
+    }
+
+    // -- Internal helpers -------------------------------------------------------
+
+    #addEntry(type, html) {
         const el = document.createElement('div');
         el.className = `entry entry-${type}`;
         el.innerHTML = `<div class="entry-content">${html}</div>`;
-        this._els.log.appendChild(el);
-        this._scrollToBottom();
+        this.#els.log.appendChild(el);
+        this.#scrollToBottom();
         return el;
     }
 
-    _setThinking(on) {
-        let el = this._els.log.querySelector('.entry-thinking-active');
+    #setThinking(on) {
+        let el = this.#els.log.querySelector('.entry-thinking-active');
         if (on && !el) {
-            el = this._addEntry('thinking', '<span class="thinking-anim">Thinking</span>');
+            el = this.#addEntry('thinking', '<span class="thinking-anim">Thinking</span>');
             el.classList.add('entry-thinking-active');
         } else if (!on && el) {
-            el.remove();
+            const content = el.querySelector('.entry-content');
+            if (content?.querySelector('.thinking-anim')) {
+                // Empty animated indicator — remove it
+                el.remove();
+            } else {
+                // Has real content — flush render, collapse, deactivate
+                clearTimeout(this.#thinkTimer);
+                this.#renderMd(el, 'think');
+                el.classList.remove('entry-thinking-active');
+                el.classList.add('collapsible');
+                this.#thinkBuf = ''; this.#thinkRendered = 0;
+            }
         }
     }
 
-    _scrollToBottom() {
-        this._els.log.scrollTop = this._els.log.scrollHeight;
+    /**
+     * Schedule a markdown re-render. Fires immediately when a newline arrives
+     * (natural paragraph/block boundary), otherwise debounces at 300ms so the
+     * trailing partial line still renders after a short pause.
+     */
+    #scheduleRender(entry, kind) {
+        const buf = kind === 'text' ? this.#textBuf : this.#thinkBuf;
+        const rendered = kind === 'text' ? this.#textRendered : this.#thinkRendered;
+
+        // New content since last render
+        const fresh = buf.slice(rendered);
+        const hasNewline = fresh.includes('\n');
+
+        if (kind === 'text') {
+            clearTimeout(this.#textTimer);
+            if (hasNewline) this.#renderMd(entry, kind);
+            else this.#textTimer = setTimeout(() => this.#renderMd(entry, kind), 300);
+        } else {
+            clearTimeout(this.#thinkTimer);
+            if (hasNewline) this.#renderMd(entry, kind);
+            else this.#thinkTimer = setTimeout(() => this.#renderMd(entry, kind), 300);
+        }
+        this.#scrollToBottom();
     }
 
-    _esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    /** Render accumulated buffer as markdown into the entry's content element. */
+    #renderMd(entry, kind) {
+        if (!entry) return;
+        const buf = kind === 'text' ? this.#textBuf : this.#thinkBuf;
+        if (!buf) return;
+        const content = entry.querySelector('.entry-text-output-content')
+            || entry.querySelector('.entry-content');
+        if (typeof marked !== 'undefined' && marked.parse) {
+            content.innerHTML = marked.parse(buf);
+        } else {
+            content.textContent = buf;
+        }
+        if (kind === 'text') this.#textRendered = buf.length;
+        else this.#thinkRendered = buf.length;
+        this.#scrollToBottom();
+    }
+
+    /** Flush both buffers — final render on DONE/stream end. */
+    #flushRender() {
+        clearTimeout(this.#textTimer);
+        clearTimeout(this.#thinkTimer);
+        const textEntry = this.#els.log.querySelector('.entry-text-output');
+        if (textEntry) this.#renderMd(textEntry, 'text');
+        const thinkEntry = this.#els.log.querySelector('.entry-thinking-active');
+        if (thinkEntry) this.#renderMd(thinkEntry, 'think');
+    }
+
+    #scrollToBottom() {
+        this.#els.log.scrollTop = this.#els.log.scrollHeight;
+    }
+
+    #esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
     static styles = `
         :host { display: block; font-family: system-ui, -apple-system, sans-serif; font-size: .85rem; }
@@ -251,20 +334,78 @@ class NTTAgentLive extends HTMLElement {
         .entry { margin-bottom: .4rem; line-height: 1.5; }
         .entry-content { padding: .3rem .5rem; border-radius: .3rem; }
 
+        /* Collapsible entries — show ~3 lines, click to expand */
+        .entry.collapsible:not(.expanded) .entry-content {
+            max-height: 4.2em;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .entry.collapsible:not(.expanded)::after {
+            content: '\u25BE  more';
+            display: block;
+            text-align: center;
+            font-size: .6rem;
+            letter-spacing: .03em;
+            color: var(--text-2, #aaa);
+            cursor: pointer;
+            padding: .1rem 0;
+            opacity: .5;
+        }
+        .entry.collapsible:not(.expanded):hover::after { opacity: .8; }
+        .entry.collapsible.expanded .entry-content { cursor: pointer; }
+
         .entry-task .entry-content {
             background: var(--surface-3, #0f3460); font-weight: 600;
             border-left: 2px solid var(--accent, #4cc9f0);
         }
+        .entry-thinking .entry-content {
+            background: rgba(167, 139, 250, 0.08);
+            border-left: 2px solid var(--thinking, #a78bfa);
+            word-break: break-word; line-height: 1.5;
+        }
+        .entry-thinking p { margin: .3em 0; }
+        .entry-thinking code {
+            background: rgba(0,0,0,.2); padding: .1em .3em; border-radius: 3px;
+            font-size: .85em; font-family: 'SF Mono', Consolas, Monaco, monospace;
+        }
+        .entry-thinking pre {
+            background: rgba(0,0,0,.2); border-radius: .3rem;
+            padding: .3rem .5rem; overflow-x: auto; font-size: .8em; margin: .3em 0;
+        }
+        .entry-thinking pre code { background: none; padding: 0; }
         .entry-tool-call .entry-content {
             background: var(--surface-3, #0f3460);
-            border-left: 2px solid var(--warning, #fbbf24);
+            border-left: 2px solid var(--warning, #f59e0b);
         }
         .entry-tool-call.complete .entry-content {
-            border-left-color: var(--success, #4ade80);
+            border-left-color: var(--success, #22c55e);
         }
         .entry-text-output .entry-content {
-            white-space: pre-wrap; word-break: break-word;
+            word-break: break-word;
+            border-left: 2px solid var(--text-accent, #38bdf8);
+            line-height: 1.6;
         }
+        .entry-text-output h1, .entry-text-output h2, .entry-text-output h3 {
+            margin: .6em 0 .3em; font-size: 1.1em;
+        }
+        .entry-text-output p { margin: .4em 0; }
+        .entry-text-output code {
+            background: rgba(0,0,0,.3); padding: .1em .3em; border-radius: 3px;
+            font-size: .85em; font-family: 'SF Mono', Consolas, Monaco, monospace;
+        }
+        .entry-text-output pre {
+            background: rgba(0,0,0,.3); border-radius: .3rem;
+            padding: .4rem .6rem; overflow-x: auto; font-size: .8em; margin: .4em 0;
+        }
+        .entry-text-output pre code { background: none; padding: 0; }
+        .entry-text-output blockquote {
+            border-left: 2px solid var(--text-2, #aaa); margin: .4em 0;
+            padding: .2em .8em; opacity: .8;
+        }
+        .entry-text-output ul, .entry-text-output ol {
+            padding-left: 1.5em; margin: .3em 0;
+        }
+        .entry-text-output a { color: var(--accent, #4cc9f0); }
         .entry-error .entry-content {
             background: rgba(248, 113, 113, 0.1);
             border-left: 2px solid var(--error, #f87171);
@@ -274,19 +415,24 @@ class NTTAgentLive extends HTMLElement {
         .entry-spin { animation: spin 1s linear infinite; color: var(--warning, #fbbf24); font-size: .6rem; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .tool-args {
-            margin: .2rem 0 0; padding: .2rem .4rem;
+        .tool-json {
+            margin: .3rem 0 0; padding: .3rem .5rem;
             background: rgba(0,0,0,.2); border-radius: .2rem;
-            font-size: .7rem; overflow-x: auto; max-height: 80px;
+            font-size: .75rem; font-family: 'SF Mono', Consolas, Monaco, monospace;
+            overflow: auto; max-height: 200px;
         }
         .tool-result-text {
-            margin-top: .2rem; font-size: .75rem; opacity: .7;
-            word-break: break-word;
+            margin-top: .3rem; font-size: .75rem;
+            font-family: 'SF Mono', Consolas, Monaco, monospace;
+            overflow: auto; max-height: 200px;
         }
+        ${jsonTreeCSS}
 
         .thinking-anim::after { content: ''; animation: dots 1.5s steps(3, end) infinite; }
         @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
-        .entry-thinking-active { opacity: .5; font-style: italic; }
+        .entry-thinking-active .entry-content:empty + .entry-content,
+        .entry-thinking-active .thinking-anim { opacity: .5; font-style: italic; }
+        .entry-thinking-active .entry-content { font-style: italic; opacity: .7; color: var(--thinking, #a78bfa); font-size: .8rem; }
 
         .live-footer {
             padding: .3rem .75rem; font-size: .65rem; color: var(--text-2, #aaa);

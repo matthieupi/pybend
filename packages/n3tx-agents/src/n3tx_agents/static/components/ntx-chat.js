@@ -12,6 +12,7 @@
  *   <ntx-chat model="Product" method="ask"></ntx-chat>
  *   <ntx-chat model="AgentActor" method="run"></ntx-chat>
  */
+import { StreamActor } from './StreamActor.js';
 import HTTP from '../core/transport/HTTP.js';
 import { config } from '../config.js';
 import { NTT } from '../core/NTT.js';
@@ -20,25 +21,30 @@ const ICON_CHAT = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20
 const ICON_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const ICON_SEND = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
 
-class NTTChat extends HTMLElement {
+class NTTChat extends StreamActor(HTMLElement) {
+    #model; #method; #items; #schema; #tablename;
+    #isStream; #isStreaming; #selectedId; #messages; #open;
+    #els; #toolCards;
+    // Per-message streaming state
+    #currentMsgEl; #currentTextEl; #currentText;
+
     connectedCallback() {
-        this._model = this.getAttribute('model');
-        this._method = this.getAttribute('method');
-        this._items = [];
-        this._schema = null;
-        this._tablename = null;
-        this._isStreaming = false;
-        this._selectedId = null;
-        this._messages = [];
-        this._streamHandle = null;
-        this._open = false;
+        this.#model = this.getAttribute('model');
+        this.#method = this.getAttribute('method');
+        this.#items = [];
+        this.#schema = null;
+        this.#tablename = null;
+        this.#isStreaming = false;
+        this.#selectedId = null;
+        this.#messages = [];
+        this.#open = false;
 
         this.attachShadow({ mode: 'open' });
         this.shadowRoot.innerHTML = `<style>${NTTChat.styles}</style>
             <button class="chat-tab" aria-label="Open chat">${ICON_CHAT}</button>
             <div class="panel">
                 <div class="panel-header">
-                    <span class="panel-title">${this._model} &middot; ${this._method}</span>
+                    <span class="panel-title">${this.#model} &middot; ${this.#method}</span>
                     <button class="panel-close" aria-label="Close">${ICON_CLOSE}</button>
                 </div>
                 <div class="panel-controls">
@@ -51,7 +57,7 @@ class NTTChat extends HTMLElement {
                 </div>
             </div>`;
 
-        this._els = {
+        this.#els = {
             tab: this.shadowRoot.querySelector('.chat-tab'),
             panel: this.shadowRoot.querySelector('.panel'),
             close: this.shadowRoot.querySelector('.panel-close'),
@@ -61,202 +67,193 @@ class NTTChat extends HTMLElement {
             send: this.shadowRoot.querySelector('.send-btn'),
         };
 
-        this._els.tab.addEventListener('click', () => this._toggle());
-        this._els.close.addEventListener('click', () => this._toggle());
-        this._els.send.addEventListener('click', () => this._send());
-        this._els.textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._send(); }
+        this.#els.tab.addEventListener('click', () => this.#toggle());
+        this.#els.close.addEventListener('click', () => this.#toggle());
+        this.#els.send.addEventListener('click', () => this.#send());
+        this.#els.textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.#send(); }
         });
 
-        this._loadSchema();
+        this.#loadSchema();
     }
 
     disconnectedCallback() {
-        if (this._streamHandle) { this._streamHandle.cancel(); this._streamHandle = null; }
+        this.streamClose();
     }
 
-    _toggle() {
-        this._open = !this._open;
-        this._els.panel.classList.toggle('open', this._open);
-        this._els.tab.classList.toggle('hidden', this._open);
-        if (this._open) this._els.textarea.focus();
+    #toggle() {
+        this.#open = !this.#open;
+        this.#els.panel.classList.toggle('open', this.#open);
+        this.#els.tab.classList.toggle('hidden', this.#open);
+        if (this.#open) this.#els.textarea.focus();
     }
 
-    _loadSchema() {
-        // Use NTT.attach() to leverage SSR-preloaded schemas and caching
-        // instead of making a raw HTTP.get() that bypasses the cache.
-        NTT.attach(this._model, (DC) => {
+    #loadSchema() {
+        NTT.attach(this.#model, (DC) => {
             const schema = DC._schema;
-            this._schema = schema;
-            this._tablename = schema.__tablename__ || this._model.toLowerCase() + 's';
-            this._isStream = !!(schema.methods?.[this._method]?.stream);
-            this._loadInstances();
+            this.#schema = schema;
+            this.#tablename = schema.__tablename__ || this.#model.toLowerCase() + 's';
+            this.#isStream = !!(schema.methods?.[this.#method]?.stream);
+            this.#loadInstances();
         });
     }
 
-    _loadInstances() {
-        const url = `${config.API_URL}/${this._tablename}`;
+    #loadInstances() {
+        const url = `${config.API_URL}/${this.#tablename}`;
         HTTP.get(url, (resp) => {
-            this._items = resp.data || resp || [];
-            const sel = this._els.select;
-            sel.innerHTML = this._items.map(item => {
+            this.#items = resp.data || resp || [];
+            const sel = this.#els.select;
+            sel.innerHTML = this.#items.map(item => {
                 const label = item.name || item.title || `#${item.id}`;
                 return `<option value="${item.id}">${label}</option>`;
             }).join('');
-            if (this._items.length) this._selectedId = this._items[0].id;
-            sel.addEventListener('change', () => { this._selectedId = sel.value; });
+            if (this.#items.length) this.#selectedId = this.#items[0].id;
+            sel.addEventListener('change', () => { this.#selectedId = sel.value; });
         }, (err) => {
-            this._els.select.innerHTML = '<option value="">No instances</option>';
+            this.#els.select.innerHTML = '<option value="">No instances</option>';
         });
     }
 
-    _send() {
-        const task = this._els.textarea.value.trim();
-        if (!task || !this._selectedId) return;
+    #send() {
+        const task = this.#els.textarea.value.trim();
+        if (!task || !this.#selectedId) return;
 
-        this._els.textarea.value = '';
-        this._appendMsg('user', task);
+        this.#els.textarea.value = '';
+        this.#appendMsg('user', task);
 
-        const url = `${config.API_URL}/${this._tablename}/${this._selectedId}/${this._method}`;
+        const url = `${config.API_URL}/${this.#tablename}/${this.#selectedId}/${this.#method}`;
         const payload = { task };
 
-        if (this._isStream) {
-            this._sendStream(url, payload);
+        if (this.#isStream) {
+            this.#isStreaming = true;
+            this.#els.send.disabled = true;
+            this.#currentText = '';
+            this.#currentMsgEl = this.#appendMsg('assistant', '');
+            this.#currentTextEl = this.#currentMsgEl.querySelector('.msg-text');
+            this.#toolCards = new Map();
+            this.stream(url, payload);
         } else {
-            this._sendPost(url, payload);
+            this.#sendPost(url, payload);
         }
     }
 
-    _sendStream(url, payload) {
-        this._isStreaming = true;
-        this._els.send.disabled = true;
-        let text = '';
-        const msgEl = this._appendMsg('assistant', '');
-        const textEl = msgEl.querySelector('.msg-text');
-        this._toolCards = new Map(); // call_id → DOM element
+    // -- TX inbox handlers (UPPERCASE) ------------------------------------------
 
-        this._streamHandle = HTTP.stream(url, payload,
-            (chunk) => {
-                switch (chunk.name) {
-                    case 'thinking': {
-                        let thinkEl = msgEl.querySelector('.msg-thinking');
-                        if (!thinkEl) {
-                            thinkEl = document.createElement('div');
-                            thinkEl.className = 'msg-thinking';
-                            thinkEl.innerHTML = '<span class="thinking-dots">thinking</span>';
-                            msgEl.insertBefore(thinkEl, textEl);
-                        }
-                        break;
-                    }
-                    case 'tool_call': {
-                        // Remove thinking indicator when tools start
-                        msgEl.querySelector('.msg-thinking')?.remove();
-                        const card = document.createElement('div');
-                        card.className = 'tool-card';
-                        card.innerHTML = `<div class="tool-header"><span class="tool-icon">\u2699</span> ${this._esc(chunk.data.tool)} <span class="tool-spin">\u25CF</span></div>`;
-                        msgEl.insertBefore(card, textEl);
-                        if (chunk.data.call_id) this._toolCards.set(chunk.data.call_id, card);
-                        break;
-                    }
-                    case 'tool_result': {
-                        const card = chunk.data.call_id && this._toolCards.get(chunk.data.call_id);
-                        if (card) {
-                            card.querySelector('.tool-spin')?.remove();
-                            const summary = (chunk.data.result || '').slice(0, 120);
-                            card.innerHTML += `<div class="tool-result">${this._esc(summary)}</div>`;
-                        }
-                        break;
-                    }
-                    case 'done': {
-                        msgEl.querySelector('.msg-thinking')?.remove();
-                        if (chunk.data?.answer && !text) {
-                            textEl.textContent = chunk.data.answer;
-                            text = chunk.data.answer;
-                        }
-                        // Show usage stats if available
-                        if (chunk.data?.tool_calls > 0) {
-                            const stats = document.createElement('div');
-                            stats.className = 'msg-stats';
-                            stats.textContent = `${chunk.data.tool_calls} tool call${chunk.data.tool_calls > 1 ? 's' : ''}`;
-                            msgEl.appendChild(stats);
-                        }
-                        break;
-                    }
-                    default: {
-                        // 'text' and any unknown types — progressive text append
-                        msgEl.querySelector('.msg-thinking')?.remove();
-                        const t = chunk.data?.text || chunk.text || chunk.chunk || chunk.content || '';
-                        text += t;
-                        textEl.textContent = text;
-                        msgEl.querySelector('.cursor')?.remove();
-                        textEl.insertAdjacentHTML('afterend', '<span class="cursor">|</span>');
-                    }
-                }
-                this._scrollToBottom();
-            },
-            (data) => {
-                this._isStreaming = false;
-                this._streamHandle = null;
-                this._els.send.disabled = false;
-                this._toolCards = null;
-                msgEl.querySelector('.cursor')?.remove();
-                msgEl.querySelector('.msg-thinking')?.remove();
-                this._scrollToBottom();
-            },
-            (err) => {
-                this._isStreaming = false;
-                this._streamHandle = null;
-                this._els.send.disabled = false;
-                this._toolCards = null;
-                msgEl.querySelector('.cursor')?.remove();
-                msgEl.querySelector('.msg-thinking')?.remove();
-                this._appendMsg('system', `Error: ${err?.message || err?.detail || err}`);
-            },
-        );
+    THINKING(data, meta) {
+        let thinkEl = this.#currentMsgEl.querySelector('.msg-thinking');
+        if (!thinkEl) {
+            thinkEl = document.createElement('div');
+            thinkEl.className = 'msg-thinking';
+            thinkEl.innerHTML = '<span class="thinking-dots">thinking</span>';
+            this.#currentMsgEl.insertBefore(thinkEl, this.#currentTextEl);
+        }
     }
 
-    _sendPost(url, payload) {
-        this._els.send.disabled = true;
+    TOOL_CALL(data, meta) {
+        this.#currentMsgEl.querySelector('.msg-thinking')?.remove();
+        const card = document.createElement('div');
+        card.className = 'tool-card';
+        card.innerHTML = `<div class="tool-header"><span class="tool-icon">\u2699</span> ${this.#esc(data.tool)} <span class="tool-spin">\u25CF</span></div>`;
+        this.#currentMsgEl.insertBefore(card, this.#currentTextEl);
+        if (data.call_id) this.#toolCards.set(data.call_id, card);
+    }
+
+    TOOL_RESULT(data, meta) {
+        const card = data.call_id && this.#toolCards.get(data.call_id);
+        if (card) {
+            card.querySelector('.tool-spin')?.remove();
+            const summary = (data.result || '').slice(0, 120);
+            card.innerHTML += `<div class="tool-result">${this.#esc(summary)}</div>`;
+        }
+    }
+
+    TEXT(data, meta) {
+        this.#currentMsgEl.querySelector('.msg-thinking')?.remove();
+        const t = data?.text || '';
+        this.#currentText += t;
+        this.#currentTextEl.textContent = this.#currentText;
+        this.#currentMsgEl.querySelector('.cursor')?.remove();
+        this.#currentTextEl.insertAdjacentHTML('afterend', '<span class="cursor">|</span>');
+        this.#scrollToBottom();
+    }
+
+    DONE(data, meta) {
+        this.#currentMsgEl.querySelector('.msg-thinking')?.remove();
+        if (data?.answer && !this.#currentText) {
+            this.#currentTextEl.textContent = data.answer;
+            this.#currentText = data.answer;
+        }
+        if (data?.tool_calls > 0) {
+            const stats = document.createElement('div');
+            stats.className = 'msg-stats';
+            stats.textContent = `${data.tool_calls} tool call${data.tool_calls > 1 ? 's' : ''}`;
+            this.#currentMsgEl.appendChild(stats);
+        }
+        this.#scrollToBottom();
+    }
+
+    STREAM_END(data) {
+        this.#isStreaming = false;
+        this.#els.send.disabled = false;
+        this.#toolCards = null;
+        this.#currentMsgEl?.querySelector('.cursor')?.remove();
+        this.#currentMsgEl?.querySelector('.msg-thinking')?.remove();
+        this.#scrollToBottom();
+    }
+
+    STREAM_ERROR(err) {
+        this.#isStreaming = false;
+        this.#els.send.disabled = false;
+        this.#toolCards = null;
+        this.#currentMsgEl?.querySelector('.cursor')?.remove();
+        this.#currentMsgEl?.querySelector('.msg-thinking')?.remove();
+        this.#appendMsg('system', `Error: ${err?.message || err?.detail || err}`);
+    }
+
+    // -- Internal helpers -------------------------------------------------------
+
+    #sendPost(url, payload) {
+        this.#els.send.disabled = true;
         HTTP.post(url, payload,
             (resp) => {
-                this._els.send.disabled = false;
+                this.#els.send.disabled = false;
                 let answer;
                 if (typeof resp === 'string') {
                     try { answer = JSON.parse(resp).answer || resp; } catch { answer = resp; }
                 } else {
                     answer = resp.answer || resp.result || JSON.stringify(resp, null, 2);
                 }
-                this._appendMsg('assistant', answer);
+                this.#appendMsg('assistant', answer);
             },
             (err) => {
-                this._els.send.disabled = false;
-                this._appendMsg('system', `Error: ${err?.message || err?.detail || err}`);
+                this.#els.send.disabled = false;
+                this.#appendMsg('system', `Error: ${err?.message || err?.detail || err}`);
             },
         );
     }
 
-    _appendMsg(role, text) {
+    #appendMsg(role, text) {
         const el = document.createElement('div');
         el.className = `msg msg-${role}`;
-        el.innerHTML = `<span class="msg-role">${role}</span><span class="msg-text">${this._esc(text)}</span>`;
-        this._els.messages.appendChild(el);
-        this._scrollToBottom();
+        el.innerHTML = `<span class="msg-role">${role}</span><span class="msg-text">${this.#esc(text)}</span>`;
+        this.#els.messages.appendChild(el);
+        this.#scrollToBottom();
         return el;
     }
 
-    _clear() {
-        this._messages = [];
-        this._els.messages.innerHTML = '';
-        if (this._streamHandle) { this._streamHandle.cancel(); this._streamHandle = null; }
-        this._isStreaming = false;
-        this._els.send.disabled = false;
+    #clear() {
+        this.#messages = [];
+        this.#els.messages.innerHTML = '';
+        this.streamClose();
+        this.#isStreaming = false;
+        this.#els.send.disabled = false;
     }
 
-    _scrollToBottom() {
-        this._els.messages.scrollTop = this._els.messages.scrollHeight;
+    #scrollToBottom() {
+        this.#els.messages.scrollTop = this.#els.messages.scrollHeight;
     }
 
-    _esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    #esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
     static styles = `
         :host {
@@ -264,7 +261,7 @@ class NTTChat extends HTMLElement {
             font-family: system-ui, -apple-system, sans-serif; font-size: .875rem;
         }
 
-        /* ── Floating tab button ── */
+        /* -- Floating tab button -- */
         .chat-tab {
             width: 48px; height: 48px; border-radius: 50%;
             background: var(--accent, #4cc9f0); color: #000;
@@ -276,7 +273,7 @@ class NTTChat extends HTMLElement {
         .chat-tab:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(0,0,0,.5); }
         .chat-tab.hidden { display: none; }
 
-        /* ── Slide-up panel ── */
+        /* -- Slide-up panel -- */
         .panel {
             position: absolute; bottom: 0; right: 0;
             width: 380px; max-height: 520px;
@@ -291,7 +288,7 @@ class NTTChat extends HTMLElement {
             transform: translateY(0) scale(1); opacity: 1; pointer-events: auto;
         }
 
-        /* ── Panel header ── */
+        /* -- Panel header -- */
         .panel-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: .6rem .75rem;
@@ -311,7 +308,7 @@ class NTTChat extends HTMLElement {
         }
         .panel-close:hover { color: var(--text-1, #eee); background: var(--surface-3, #0f3460); }
 
-        /* ── Controls ── */
+        /* -- Controls -- */
         .panel-controls {
             padding: .4rem .75rem; border-bottom: 1px solid var(--border, #333);
         }
@@ -321,7 +318,7 @@ class NTTChat extends HTMLElement {
             border: 1px solid var(--border, #333); font-size: .8rem;
         }
 
-        /* ── Messages area ── */
+        /* -- Messages area -- */
         .chat-messages {
             flex: 1; overflow-y: auto; padding: .5rem .75rem;
             min-height: 150px; max-height: 300px;
@@ -339,7 +336,7 @@ class NTTChat extends HTMLElement {
         .cursor { animation: blink 1s step-end infinite; color: var(--accent, #4cc9f0); }
         @keyframes blink { 50% { opacity: 0; } }
 
-        /* ── Input area ── */
+        /* -- Input area -- */
         .chat-input {
             display: flex; gap: .4rem; align-items: flex-end;
             padding: .5rem .75rem;
@@ -362,7 +359,7 @@ class NTTChat extends HTMLElement {
         .send-btn:hover { filter: brightness(1.1); }
         .send-btn:disabled { opacity: .4; cursor: not-allowed; }
 
-        /* ── Tool cards ── */
+        /* -- Tool cards -- */
         .tool-card {
             margin: .3rem 0; padding: .3rem .5rem;
             background: var(--surface-3, #0f3460); border-radius: .3rem;
@@ -374,7 +371,7 @@ class NTTChat extends HTMLElement {
         @keyframes spin { to { transform: rotate(360deg); } }
         .tool-result { margin-top: .2rem; opacity: .7; font-size: .7rem; word-break: break-word; }
 
-        /* ── Thinking indicator ── */
+        /* -- Thinking indicator -- */
         .msg-thinking {
             font-style: italic; opacity: .5; font-size: .75rem; margin-bottom: .3rem;
         }
@@ -383,7 +380,7 @@ class NTTChat extends HTMLElement {
         }
         @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
 
-        /* ── Stats ── */
+        /* -- Stats -- */
         .msg-stats {
             font-size: .65rem; opacity: .4; margin-top: .2rem;
         }
