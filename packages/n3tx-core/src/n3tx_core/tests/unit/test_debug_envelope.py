@@ -541,12 +541,12 @@ class TestMetadataPreservation:
         params = list(sig.parameters.keys())
         assert params == ['self', 'name', 'value']
 
-    def test_endpoint_dict_has_exactly_four_keys(self):
+    def test_endpoint_dict_has_exactly_five_keys(self):
         @expose_route('/check')
         def check(self):
             pass
 
-        assert set(check.__endpoint__.keys()) == {'route', 'methods', 'access', 'stream'}
+        assert set(check.__endpoint__.keys()) == {'route', 'methods', 'access', 'stream', 'events'}
 
 
 # ===================================================================

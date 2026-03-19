@@ -10,7 +10,7 @@ from n3tx_core import config
 logger = logging.getLogger('n3tx.debug')
 
 
-def expose_route(route, methods=["POST"], access=None, stream=False):
+def expose_route(route, methods=["POST"], access=None, stream=False, events=None):
     """
     Decorator to mark a method as an endpoint to be exposed via the API.
     Args:
@@ -20,6 +20,9 @@ def expose_route(route, methods=["POST"], access=None, stream=False):
             If None, falls back to model's __access__ dict or AUTHENTICATED default.
         stream (bool): If True, marks this method as a streaming endpoint.
             Streaming methods must be async generators (use yield, not return).
+        events (dict, optional): Map of event name to ProtoModel subclass for
+            streaming methods. Declares the schema of each stream event type.
+            Example: events={'text': TextChunk, 'done': DoneChunk}
     """
     def decorator(func):
         @wraps(func)
@@ -76,6 +79,7 @@ def expose_route(route, methods=["POST"], access=None, stream=False):
             'methods': methods,
             'access': access,
             'stream': stream,
+            'events': events,
         }
         # Preserve __globals__ so get_type_hints() can resolve forward refs
         # (e.g., 'Comment' in the model's module). functools.wraps doesn't copy this.

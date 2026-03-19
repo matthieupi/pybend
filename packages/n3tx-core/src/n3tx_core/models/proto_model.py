@@ -201,6 +201,11 @@ class ProtoModel(PydanticBaseModel):
             }
             if endpoint_info.get('stream'):
                 method_entry['stream'] = True
+            if endpoint_info.get('events'):
+                method_entry['events'] = {
+                    name: evt_cls.model_json_schema()
+                    for name, evt_cls in endpoint_info['events'].items()
+                }
             if endpoint_info.get('access') and hasattr(endpoint_info['access'], 'to_dict'):
                 method_entry['access'] = endpoint_info['access'].to_dict()
             methods[method_name] = method_entry
