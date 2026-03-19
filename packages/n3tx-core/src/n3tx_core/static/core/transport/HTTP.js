@@ -356,6 +356,7 @@ export default class HTTP {
         if (token) headers['x-access-token'] = token;
 
         const controller = new AbortController();
+        let _done = false;
 
         fetch(url, {
             method: 'POST', headers,
@@ -369,7 +370,7 @@ export default class HTTP {
 
             function pump() {
                 reader.read().then(({ done, value }) => {
-                    if (done) { onDone({}); return; }
+                    if (done) { if (!_done) onDone({}); return; }
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
                     buffer = lines.pop();
@@ -380,7 +381,7 @@ export default class HTTP {
                             try {
                                 const parsed = JSON.parse(line.slice(6));
                                 if (eventType === 'error') onError(parsed);
-                                else if (eventType === 'done') onDone(parsed);
+                                else if (eventType === 'done') { _done = true; onDone(parsed); }
                                 else onChunk(parsed);
                             } catch (e) { /* partial JSON, wait for more data */ }
                         }
