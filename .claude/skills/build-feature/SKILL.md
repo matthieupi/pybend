@@ -114,7 +114,10 @@ Write each task as a single JSON line. The file format is:
 ```
 {"id":"task-01","wave":1,"title":"...","intent":"...","context":"...","instructions":"...","files":{"read":[],"modify":[],"create":[]},"conventions":"...","verification":{"commands":[],"checks":[]},"depends_on":[]}
 {"id":"task-02","wave":1,"title":"...","intent":"...","context":"...","instructions":"...","files":{"read":[],"modify":[],"create":[]},"conventions":"...","verification":{"commands":[],"checks":[]},"depends_on":[]}
-```
+``` 
+Once the tasks are created, we can create a human readable version in a .md 
+file <plan-name>-prd.md with all the tasks (a jsonl on one line is hard to 
+proofreadd)
 
 **Field definitions:**
 
