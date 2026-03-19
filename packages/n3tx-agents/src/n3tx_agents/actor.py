@@ -28,11 +28,41 @@ import logging
 from pydantic import Field
 
 from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.models.ref import ListRef
 from n3tx_core.utils.decorators import expose_route
 from n3tx_agents.tool_model import AgentTool
 
 logger = logging.getLogger('n3tx.agents')
+
+
+# -- Stream event models (non-storable -- pure schema) ----------------------
+
+class TextChunk(ProtoModel):
+    """Progressive text output from the LLM."""
+    text: str = Field(default='')
+
+class ToolCallEvent(ProtoModel):
+    """Agent is calling a tool."""
+    tool: str = Field(default='')
+    args: dict = Field(default={})
+    call_id: str = Field(default='')
+
+class ToolResultEvent(ProtoModel):
+    """Result returned from a tool call."""
+    tool: str = Field(default='')
+    result: str = Field(default='')
+    call_id: str = Field(default='')
+
+class ThinkingChunk(ProtoModel):
+    """Agent is in a thinking/reasoning phase."""
+    text: str = Field(default='')
+
+class DoneChunk(ProtoModel):
+    """Terminal event -- agent completed the task."""
+    answer: str = Field(default='')
+    usage: dict = Field(default={})
+    tool_calls: int = Field(default=0)
 
 
 class AgentActor(ActorModel):
@@ -137,7 +167,12 @@ class AgentActor(ActorModel):
         )
         return json.dumps(result, default=str)
 
-    @expose_route('/agentic_stream', methods=['POST'], stream=True)
+    @expose_route('/agentic_stream', methods=['POST'], stream=True,
+                  events={
+                      'text': TextChunk, 'tool_call': ToolCallEvent,
+                      'tool_result': ToolResultEvent, 'thinking': ThinkingChunk,
+                      'done': DoneChunk,
+                  })
     async def agentic_stream(self, task: str, **kwargs):
         """Streaming agent execution — resolves tools from DB.
 
