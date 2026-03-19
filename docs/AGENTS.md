@@ -445,6 +445,132 @@ section to JSON Schema for models with `__agent__ = True`.
 
 ---
 
+## Streaming
+
+Agent reasoning can stream progressive results to the frontend via SSE.
+
+### Stream Event Models
+
+Streaming methods declare their event vocabulary using non-storable `ProtoModel` subclasses. These serve as the schema contract between backend and frontend — the frontend knows exactly what shape each event carries.
+
+```python
+# Defined in n3tx_agents/actor.py (shipped with the package)
+class TextChunk(ProtoModel):
+    text: str = Field(default='')
+
+class ToolCallEvent(ProtoModel):
+    tool: str = Field(default='')
+    args: dict = Field(default={})
+    call_id: str = Field(default='')
+
+class ToolResultEvent(ProtoModel):
+    tool: str = Field(default='')
+    result: str = Field(default='')
+    call_id: str = Field(default='')
+
+class ThinkingChunk(ProtoModel):
+    text: str = Field(default='')
+
+class DoneChunk(ProtoModel):
+    answer: str = Field(default='')
+    usage: dict = Field(default={})
+    tool_calls: int = Field(default=0)
+```
+
+These models are not storable — they exist purely for validation and JSON Schema generation. The schema pipeline serializes them into the method schema so the frontend can validate and type-check events at runtime.
+
+### `events=` Parameter on `@expose_route`
+
+Streaming methods declare their event types via the `events=` parameter:
+
+```python
+@expose_route('/agentic_stream', methods=['POST'], stream=True,
+              events={
+                  'text': TextChunk, 'tool_call': ToolCallEvent,
+                  'tool_result': ToolResultEvent, 'thinking': ThinkingChunk,
+                  'done': DoneChunk,
+              })
+async def agentic_stream(self, task: str, **kwargs):
+    ...
+```
+
+The schema pipeline (`methods` stage in `proto_model.py`) serializes this into:
+
+```json
+{
+  "methods": {
+    "agentic_stream": {
+      "route": "/agentic_stream",
+      "stream": true,
+      "events": {
+        "text": {"type": "object", "properties": {"text": {"type": "string"}}},
+        "tool_call": {"type": "object", "properties": {"tool": {...}, "args": {...}, "call_id": {...}}},
+        ...
+      }
+    }
+  }
+}
+```
+
+### Frontend: StreamActor Mixin
+
+**File**: `packages/n3tx-agents/src/n3tx_agents/static/components/StreamActor.js`
+
+The `StreamActor` mixin adds TX-aware stream dispatch to any web component. It handles the difference between Level 1/2 (direct) and Level 3 (actor-routed, STREAM-enveloped) SSE formats transparently.
+
+```javascript
+import { StreamActor } from './StreamActor.js';
+
+class MyComponent extends StreamActor(HTMLElement) {
+    // UPPERCASE methods = TX inbox handlers (actor convention)
+    TEXT(data, meta)       { /* data.text */ }
+    TOOL_CALL(data, meta)  { /* data.tool, data.args, data.call_id */ }
+    TOOL_RESULT(data, meta){ /* data.tool, data.result */ }
+    THINKING(data, meta)   { /* data.text */ }
+    DONE(data, meta)       { /* data.answer, data.usage */ }
+
+    // Lifecycle hooks (called by the mixin)
+    STREAM_END(data)       { /* stream completed */ }
+    STREAM_ERROR(err)      { /* stream failed */ }
+}
+```
+
+**API provided by StreamActor:**
+
+| Method | Purpose |
+|--------|---------|
+| `stream(url, payload)` | Open SSE connection. Chunks dispatch to UPPERCASE handlers. |
+| `streamClose()` | Cancel active stream. |
+| `_validateStreamHandlers(schema, method)` | Warn if schema declares events with no handler. |
+
+**How dispatch works:**
+
+1. SSE chunk arrives via `HTTP.stream()`.
+2. If outer envelope has `name === 'STREAM'` (Level 3), unwrap one level.
+3. Read inner `name`, convert to UPPERCASE, call `this[NAME](data, meta)`.
+
+```
+Level 3: {name:'STREAM', data:{name:'text', data:{text:'hello'}}}
+  → unwrap → inner = {name:'text', data:{text:'hello'}}
+  → this.TEXT({text:'hello'}, meta)
+
+Level 1/2: {name:'text', data:{text:'hello'}}
+  → no unwrap → this.TEXT({text:'hello'}, meta)
+```
+
+**UPPERCASE convention**: All methods that handle TX messages are UPPERCASE. This mirrors the backend actor handler pattern and visually separates inbox handlers from internal component logic (lowercase/camelCase).
+
+### Concrete Streaming Components
+
+Both `ntx-agent-live` and `ntx-chat` extend `StreamActor(HTMLElement)`:
+
+- **`<ntx-agent-live>`** — Real-time agent activity view. Shows structured event log (thinking → tool calls → text → done) with collapsible entries and JSON rendering.
+- **`<ntx-chat>`** — Agent chat panel. Floating chat widget for conversational agent interaction.
+
+Both call `this.stream(url, payload)` to start and `this.streamClose()` in `disconnectedCallback()`.
+
+---
+
 ## Message Flow
 
 Complete lifecycle of an agent tool call:

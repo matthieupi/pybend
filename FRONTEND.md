@@ -81,7 +81,9 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-ui/src/n3tx_ui/static/widgets/widgets.css` - Widget-specific styles
 
 ### Agent UI (n3tx-agents)
-- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Agent chat panel (imports from core only, NOT from ui)
+- `packages/n3tx-agents/src/n3tx_agents/static/components/StreamActor.js` - StreamActor mixin: TX-aware stream dispatch with UPPERCASE handlers
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` - Real-time agent activity view (extends StreamActor)
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Agent chat panel (extends StreamActor, imports from core only, NOT from ui)
 
 ### Themes & Default HTML (n3tx-ui)
 - `packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` - Dark theme
