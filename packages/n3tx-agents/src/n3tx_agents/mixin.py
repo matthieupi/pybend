@@ -584,6 +584,15 @@ class AgentMixin:
                                                 'meta': {'stream': True, 'seq': seq},
                                             }
                                             seq += 1
+                                    elif isinstance(event.part, TextPart):
+                                        if event.part.content:
+                                            streamed_text += event.part.content
+                                            yield {
+                                                'name': 'text',
+                                                'data': {'text': event.part.content},
+                                                'meta': {'stream': True, 'seq': seq},
+                                            }
+                                            seq += 1
                                 elif isinstance(event, PartDeltaEvent):
                                     if isinstance(event.delta, TextPartDelta):
                                         streamed_text += event.delta.content_delta
