@@ -19,6 +19,12 @@ Veille delivers value in a tight sequence: stand up the data models and UI, wire
 
 **Requirements:** AUTH-01, AUTH-02, ORG-01, ORG-02, ORG-03, SRC-01, SRC-02, SRC-03
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md -- App skeleton, models (User, Organization, Source, Grant), config, seed script
+- [ ] 01-02-PLAN.md -- Frontend (login, register, main app), document upload routes
+
 **Success Criteria:**
 1. User can log in with email/password and access the application (unauthenticated users see nothing)
 2. User can create and edit an organization profile with mission, legal status, location, and custom eligibility criteria
@@ -106,4 +112,4 @@ Veille delivers value in a tight sequence: stand up the data models and UI, wire
 **Mapped: 22/22**
 
 ---
-*Last updated: 2026-03-20 after roadmap creation*
+*Last updated: 2026-03-20 after Phase 1 planning*
