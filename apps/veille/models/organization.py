@@ -21,6 +21,7 @@ class Organization(ActorModel):
             'province', 'charitable_status',
             'employee_count', 'annual_budget',
             'focus_areas', 'custom_criteria', 'documents',
+            'schedule_enabled', 'schedule_interval_hours',
         ],
         'groups': {
             'Identity': ['name', 'mission', 'activities'],
@@ -28,6 +29,7 @@ class Organization(ActorModel):
             'Size': ['employee_count', 'annual_budget'],
             'Eligibility': ['focus_areas', 'custom_criteria'],
             'Documents': ['documents'],
+            'Schedule': ['schedule_enabled', 'schedule_interval_hours'],
         },
     }
 
@@ -51,3 +53,10 @@ class Organization(ActorModel):
 
     # Document references (list of filenames stored on disk)
     documents: list = Field(default_factory=list)
+
+    # Scheduling configuration
+    schedule_enabled: bool = Field(default=False)
+    schedule_interval_hours: int = Field(
+        default=168,
+        json_schema_extra={'ui': {'placeholder': 'Hours between runs (168 = weekly)'}},
+    )

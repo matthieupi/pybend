@@ -541,13 +541,21 @@ def _add_streaming_handler(
 
 
 def _parse_method_args(sig, type_hints, data, request):
-    """Parse method arguments from request body, matching routes_fastapi.py behavior."""
+    """Parse method arguments from request body or query params.
+
+    For GET requests the body is empty, so query string parameters are
+    checked as a fallback.  Body takes precedence over query params.
+    """
+    # Merge query params as fallback (body values override query params)
+    query_params = dict(request.query_params) if request.query_params else {}
+    merged = {**query_params, **data}
+
     payload = {}
     for name, param in sig.parameters.items():
         if name in ('self', 'cls', 'user'):
             continue
         param_type = type_hints.get(name, str)
-        raw = data.get(name)
+        raw = merged.get(name)
         if raw is None:
             continue
         try:

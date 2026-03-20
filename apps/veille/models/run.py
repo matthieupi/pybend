@@ -64,6 +64,71 @@ class Run(ActorModel):
     # Error tracking
     error: TextareaField = Field(default='')
 
+    # ── Report endpoint (class-level, no self) ───────────────────
+
+    @expose_route('/report', methods=['GET'], access=AUTHENTICATED)
+    def report(run_id: int) -> dict:
+        """Return grants for a run grouped by admissibility status.
+
+        Route: GET /runs/report?run_id=N
+        """
+        from models.grant import Grant
+
+        # Fetch run metadata
+        run_record = Run.get(run_id)
+        run_meta = run_record if isinstance(run_record, dict) else (
+            run_record.model_dump() if hasattr(run_record, 'model_dump') else {}
+        )
+
+        # Fetch all grants for this run
+        grants = Grant.list(sql_filter=('run_id = ?', [run_id]), limit=1000)
+        data = grants.get('data', grants) if isinstance(grants, dict) else grants
+
+        # Group by status
+        admissible = []
+        partially_admissible = []
+        non_admissible = []
+        new_grants = []
+
+        for g in data:
+            gd = g if isinstance(g, dict) else (g.model_dump() if hasattr(g, 'model_dump') else {})
+            status = gd.get('status', 'new')
+            if status == 'admissible':
+                admissible.append(gd)
+            elif status == 'partially admissible':
+                partially_admissible.append(gd)
+            elif status == 'non-admissible':
+                non_admissible.append(gd)
+            else:
+                new_grants.append(gd)
+
+        # Sort scored buckets by admissibility_score descending (Python-side)
+        admissible.sort(
+            key=lambda g: (g.get('admissibility_score') or 0.0),
+            reverse=True,
+        )
+        partially_admissible.sort(
+            key=lambda g: (g.get('admissibility_score') or 0.0),
+            reverse=True,
+        )
+
+        total = len(admissible) + len(partially_admissible) + len(non_admissible) + len(new_grants)
+        return {
+            'run_id': run_id,
+            'run': run_meta,
+            'admissible': admissible,
+            'partially_admissible': partially_admissible,
+            'non_admissible': non_admissible,
+            'new': new_grants,
+            'counts': {
+                'admissible': len(admissible),
+                'partially_admissible': len(partially_admissible),
+                'non_admissible': len(non_admissible),
+                'new': len(new_grants),
+                'total': total,
+            },
+        }
+
     # ── Streaming execute endpoint ────────────────────────────────
 
     @expose_route('/execute', methods=['POST'], stream=True, access=AUTHENTICATED,
