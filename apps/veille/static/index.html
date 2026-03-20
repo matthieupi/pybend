@@ -41,6 +41,7 @@
     <link rel="modulepreload" href="./components/ntx-stream.js">
     <link rel="modulepreload" href="./components/ntx-run-panel.js">
     <link rel="modulepreload" href="./components/ntx-grant-analyze.js">
+    <link rel="modulepreload" href="./components/ntx-run-report.js">
     <link rel="modulepreload" href="./generators/form.js">
     <link rel="modulepreload" href="./widgets/Widget.js">
     <link rel="modulepreload" href="./widgets/registry.js">
@@ -98,6 +99,7 @@
             <ntx-list model="Source" id="source-list" allow-create></ntx-list>
             <ntx-run-panel id="run-panel" data-route="runs" style="display:none"></ntx-run-panel>
             <ntx-grant-analyze id="analyze-panel" style="display:none"></ntx-grant-analyze>
+            <ntx-run-report id="report-panel" style="display:none"></ntx-run-report>
         </ntx-router>
 
         <!-- Document upload section -->
@@ -127,6 +129,7 @@
         import './components/ntx-stream.js';
         import './components/ntx-run-panel.js';
         import './components/ntx-grant-analyze.js';
+        import './components/ntx-run-report.js';
 
         // Redirect to login if not authenticated
         permissions.init().then(user => {
@@ -135,19 +138,21 @@
             }
         });
 
-        // Simple hash-based routing for the run panel and analyze panel
+        // Simple hash-based routing for the run panel, analyze panel, and report panel
         function handleRoute() {
             const hash = window.location.hash.replace('#', '') || '';
             const runPanel = document.getElementById('run-panel');
             const sourceList = document.getElementById('source-list');
             const uploadSection = document.getElementById('upload-section');
             const analyzePanel = document.getElementById('analyze-panel');
+            const reportPanel = document.getElementById('report-panel');
 
             // Hide all panels
             if (runPanel) runPanel.style.display = 'none';
             if (sourceList) sourceList.style.display = 'none';
             if (uploadSection) uploadSection.style.display = 'none';
             if (analyzePanel) analyzePanel.style.display = 'none';
+            if (reportPanel) reportPanel.style.display = 'none';
 
             if (hash === 'runs') {
                 if (runPanel) runPanel.style.display = 'block';
@@ -156,6 +161,12 @@
                 if (analyzePanel && grantId) {
                     analyzePanel.setAttribute('grant-id', grantId);
                     analyzePanel.style.display = 'block';
+                }
+            } else if (hash.startsWith('report/')) {
+                const runId = hash.split('/')[1];
+                if (reportPanel && runId) {
+                    reportPanel.setAttribute('run-id', runId);
+                    reportPanel.style.display = 'block';
                 }
             } else {
                 if (sourceList) sourceList.style.display = '';
