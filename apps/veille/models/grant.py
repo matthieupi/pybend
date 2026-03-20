@@ -38,6 +38,11 @@ class Grant(ActorModel):
     url: str = Field(default='')
     source_url: str = Field(default='')
 
+    # Dedup tracking: all source URLs where this grant was found
+    # Hidden from UI — internal tracking only. SQLite auto-serializes list to JSON TEXT.
+    source_urls: list = Field(default_factory=list,
+                              json_schema_extra={'ui': {'display': False}})
+
     # Details
     description: TextareaField = Field(default='')
     amount_min: Optional[float] = Field(default=None)
