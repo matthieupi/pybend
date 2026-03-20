@@ -1,4 +1,4 @@
-# Veille — Requirements
+# Veille -- Requirements
 
 ## v1 Requirements
 
@@ -24,9 +24,9 @@
 - [ ] **GRANT-04**: User can run the agent on a specific ad-hoc URL on demand
 
 ### Admissibility Analysis
-- [ ] **ADM-01**: Criteria matching — extract grant criteria, match against org profile fields
-- [ ] **ADM-02**: LLM reasoning — agent reasons holistically about org-grant fit with detailed justification
-- [ ] **ADM-03**: Classification — each grant labeled admissible / partially admissible / non-admissible
+- [ ] **ADM-01**: Criteria matching -- extract grant criteria, match against org profile fields
+- [ ] **ADM-02**: LLM reasoning -- agent reasons holistically about org-grant fit with detailed justification
+- [ ] **ADM-03**: Classification -- each grant labeled admissible / partially admissible / non-admissible
 - [ ] **ADM-04**: User can re-run analysis on a specific grant (e.g., after profile changes)
 
 ### Run Management
@@ -49,38 +49,38 @@
 
 ## Out of Scope
 
-- Multi-tenant (multiple orgs per instance) — deploy separate instances
-- Public-facing pages — admin-only
-- Grant application submission — Veille finds and evaluates, doesn't apply
-- Bilingual UI — English primary, French source scraping handled by LLM
-- Real-time push notifications (WebSocket) — in-app + streaming is sufficient
+- Multi-tenant (multiple orgs per instance) -- deploy separate instances
+- Public-facing pages -- admin-only
+- Grant application submission -- Veille finds and evaluates, doesn't apply
+- Bilingual UI -- English primary, French source scraping handled by LLM
+- Real-time push notifications (WebSocket) -- in-app + streaming is sufficient
 
 ## Traceability
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| ORG-01 | — | Pending |
-| ORG-02 | — | Pending |
-| ORG-03 | — | Pending |
-| SRC-01 | — | Pending |
-| SRC-02 | — | Pending |
-| SRC-03 | — | Pending |
-| SRC-04 | — | Pending |
-| GRANT-01 | — | Pending |
-| GRANT-02 | — | Pending |
-| GRANT-03 | — | Pending |
-| GRANT-04 | — | Pending |
-| ADM-01 | — | Pending |
-| ADM-02 | — | Pending |
-| ADM-03 | — | Pending |
-| ADM-04 | — | Pending |
-| RUN-01 | — | Pending |
-| RUN-02 | — | Pending |
-| RUN-03 | — | Pending |
-| RUN-04 | — | Pending |
-| RPT-01 | — | Pending |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| ORG-01 | Phase 1 | Pending |
+| ORG-02 | Phase 1 | Pending |
+| ORG-03 | Phase 1 | Pending |
+| SRC-01 | Phase 1 | Pending |
+| SRC-02 | Phase 1 | Pending |
+| SRC-03 | Phase 1 | Pending |
+| SRC-04 | Phase 2 | Pending |
+| GRANT-01 | Phase 2 | Pending |
+| GRANT-02 | Phase 2 | Pending |
+| GRANT-03 | Phase 2 | Pending |
+| GRANT-04 | Phase 2 | Pending |
+| RUN-01 | Phase 2 | Pending |
+| RUN-03 | Phase 2 | Pending |
+| ADM-01 | Phase 3 | Pending |
+| ADM-02 | Phase 3 | Pending |
+| ADM-03 | Phase 3 | Pending |
+| ADM-04 | Phase 3 | Pending |
+| RPT-01 | Phase 4 | Pending |
+| RUN-02 | Phase 4 | Pending |
+| RUN-04 | Phase 4 | Pending |
 
 ---
-*Last updated: 2026-03-20 after requirements definition*
+*Last updated: 2026-03-20 after roadmap creation (phase assignments added)*
