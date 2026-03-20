@@ -57,6 +57,9 @@ class NTTAgentLive extends StreamActor(HTMLElement) {
         this.#els.textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.#run(); }
         });
+        // Stop click propagation at host level — prevents card click handler
+        // from firing when this component is embedded inside an ntx-item card.
+        this.addEventListener('click', (e) => e.stopPropagation());
         initJsonToggle(this.shadowRoot);
 
         // Click-to-expand/collapse on collapsible entries
