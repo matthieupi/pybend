@@ -36,7 +36,7 @@ Plans:
 
 ---
 
-## Phase 2: Scraping and Grant Extraction
+## Phase 2: Scraping and Grant Extraction -- COMPLETE
 
 **Goal:** User can trigger a scraping run and watch the agent discover, extract, and store grant opportunities from all configured sources in real time.
 
@@ -47,8 +47,10 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Backend: Run model, WebTools actor, Grant dedup field, main.py wiring
-- [ ] 02-02-PLAN.md -- Frontend: ntx-run-panel streaming component, index.html Runs navigation
+- [x] 02-01-PLAN.md -- Backend: Run model, WebTools actor, Grant dedup field, main.py wiring
+- [x] 02-02-PLAN.md -- Frontend: ntx-run-panel streaming component, index.html Runs navigation
+
+**Verification:** Passed (14/14 must-haves verified)
 
 **Success Criteria:**
 1. User can trigger a full scraping run across all configured sources and see streaming progress as the agent works
@@ -120,4 +122,4 @@ Plans:
 **Mapped: 22/22**
 
 ---
-*Last updated: 2026-03-20 after Phase 2 planning*
+*Last updated: 2026-03-20 after Phase 2 completion*

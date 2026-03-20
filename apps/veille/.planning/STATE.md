@@ -4,21 +4,21 @@
 
 **Core value:** Reliably discover new grants from configured sources, extract their details, and evaluate admissibility against the organization profile -- with justification.
 
-**Current focus:** Phase 2 Plan 02 at checkpoint. ntx-run-panel.js and index.html wiring complete. Awaiting human verification of streaming UI.
+**Current focus:** Phase 2 complete. Ready for Phase 3 (Admissibility Analysis).
 
 ## Current Phase
 
-Phase 2: Scraping and Grant Extraction -- In Progress
-Plan: 2 of 2 (at checkpoint, awaiting human verify)
-Status: In progress
-Last activity: 2026-03-20 - Completed tasks 1+2 of 02-02-PLAN.md, checkpoint reached
+Phase 2: Scraping and Grant Extraction -- Complete
+Plan: 2 of 2 (all complete)
+Status: Complete
+Last activity: 2026-03-20 - Phase 2 verified (14/14 must-haves passed)
 
 ## Phase Status
 
 | Phase | Name | Status | Plans |
 |-------|------|--------|-------|
 | 1 | Foundation and Data Models | Complete | 01 complete, 02 complete |
-| 2 | Scraping and Grant Extraction | In Progress | 01 complete, 02 at checkpoint |
+| 2 | Scraping and Grant Extraction | Complete | 01 complete, 02 complete |
 | 3 | Admissibility Analysis | Not Started | -- |
 | 4 | Reports and Run Management | Not Started | -- |
 
@@ -26,7 +26,7 @@ Last activity: 2026-03-20 - Completed tasks 1+2 of 02-02-PLAN.md, checkpoint rea
 
 ```
 Phase 1 [======] Foundation and Data Models   (2/2 plans)
-Phase 2 [=====.] Scraping and Grant Extraction (1.5/2 plans -- 02-02 at checkpoint)
+Phase 2 [======] Scraping and Grant Extraction (2/2 plans)
 Phase 3 [      ] Admissibility Analysis
 Phase 4 [      ] Reports and Run Management
 ```
@@ -70,8 +70,7 @@ Phase 4 [      ] Reports and Run Management
 
 ### TODOs
 
-- Human verification of streaming UI (02-02 checkpoint)
-- After approval: Phase 2 complete, can proceed to Phase 3
+- Proceed to Phase 3: Admissibility Analysis
 
 ---
-*Last updated: 2026-03-20 after Phase 2 Plan 02 tasks 1+2 completion (checkpoint)*
+*Last updated: 2026-03-20 after Phase 2 completion (14/14 must-haves verified)*

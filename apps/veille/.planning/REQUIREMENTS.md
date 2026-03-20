@@ -67,13 +67,13 @@
 | SRC-01 | Phase 1 | Complete |
 | SRC-02 | Phase 1 | Complete |
 | SRC-03 | Phase 1 | Complete |
-| SRC-04 | Phase 2 | Pending |
-| GRANT-01 | Phase 2 | Pending |
-| GRANT-02 | Phase 2 | Pending |
-| GRANT-03 | Phase 2 | Pending |
-| GRANT-04 | Phase 2 | Pending |
-| RUN-01 | Phase 2 | Pending |
-| RUN-03 | Phase 2 | Pending |
+| SRC-04 | Phase 2 | Complete |
+| GRANT-01 | Phase 2 | Complete |
+| GRANT-02 | Phase 2 | Complete |
+| GRANT-03 | Phase 2 | Complete |
+| GRANT-04 | Phase 2 | Complete |
+| RUN-01 | Phase 2 | Complete |
+| RUN-03 | Phase 2 | Complete |
 | ADM-01 | Phase 3 | Pending |
 | ADM-02 | Phase 3 | Pending |
 | ADM-03 | Phase 3 | Pending |
@@ -83,4 +83,4 @@
 | RUN-04 | Phase 4 | Pending |
 
 ---
-*Last updated: 2026-03-20 after Phase 1 completion (8 requirements marked Complete)*
+*Last updated: 2026-03-20 after Phase 2 completion (15 requirements marked Complete)*
