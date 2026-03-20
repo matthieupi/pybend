@@ -8,10 +8,10 @@
 
 ## Current Phase
 
-Phase 3: Admissibility Analysis -- Complete
-Plan: 2 of 2 (03-01 complete, 03-02 complete)
-Status: Phase complete
-Last activity: 2026-03-20 - Completed 03-02-PLAN.md
+Phase 4: Reports and Run Management -- In Progress
+Plan: 1 of 2 (04-01 complete)
+Status: In progress
+Last activity: 2026-03-20 - Completed 04-01-PLAN.md
 
 ## Phase Status
 
@@ -20,15 +20,15 @@ Last activity: 2026-03-20 - Completed 03-02-PLAN.md
 | 1 | Foundation and Data Models | Complete | 01 complete, 02 complete |
 | 2 | Scraping and Grant Extraction | Complete | 01 complete, 02 complete |
 | 3 | Admissibility Analysis | Complete | 01 complete, 02 complete |
-| 4 | Reports and Run Management | Not Started | -- |
+| 4 | Reports and Run Management | In Progress | 01 complete |
 
 ## Progress
 
 ```
 Phase 1 [======] Foundation and Data Models    (2/2 plans)
-Phase 2 [======] Scraping and Grant Extraction (2/2 plans)
+Phase 2 [======] Scraping and Grant Execution  (2/2 plans)
 Phase 3 [======] Admissibility Analysis        (2/2 plans)
-Phase 4 [      ] Reports and Run Management
+Phase 4 [===   ] Reports and Run Management    (1/2 plans)
 ```
 
 ## Memory
@@ -47,6 +47,9 @@ Phase 4 [      ] Reports and Run Management
 | Agent creates grants via tool calls | Tool-use (grants_create) more natural than structured output for agent scraping pattern | 2026-03-20 |
 | Grant analyze() pre-checks org profile | Avoids starting stream agent only to fail; yields clear error text chunk instead | 2026-03-20 |
 | Batch analysis non-streaming in Run.execute() | SSE stream done after scraping; mixing analysis events would confuse frontend run panel | 2026-03-20 |
+| Plain function (no self) for Run.report() | Registers as GET /runs/report (not instance-scoped); accepts run_id query param | 2026-03-20 |
+| GET query params merged in _parse_method_args | network_api only read body; GET body is always empty so query_params merged as fallback | 2026-03-20 |
+| Scheduler uses app.router.on_startup.append() | app.on_event('startup') is deprecated in FastAPI 0.135.1; on_startup.append is canonical | 2026-03-20 |
 | ntx-run-panel in app static/components/ | ssr='full' serves app static files; placing component in static/components/ makes it available at /components/ntx-run-panel.js alongside framework components | 2026-03-20 |
 | Hash routing with handleRoute() | Simple display:none/block toggle for run-panel vs source-list; no ntx-router internals needed | 2026-03-20 |
 | Hide-all-then-show in handleRoute() | Cleaner pattern; new panels don't require changes to every existing branch | 2026-03-20 |
@@ -74,6 +77,9 @@ Phase 4 [      ] Reports and Run Management
 - ntx-grant-analyze.js lives in apps/veille/static/components/ (app-level, same as ntx-run-panel)
 - Hash route #analyze/{id} sets grant-id attribute on <ntx-grant-analyze> and shows the panel
 - handleRoute() now uses hide-all-then-show pattern for cleaner multi-panel management
+- Run.report() is a class-level @expose_route (no self); route is GET /runs/report?run_id=N
+- GET endpoints with query params require network_api._parse_method_args to merge query_params (fixed in 04-01)
+- Scheduler loop: _scheduler_loop() + _start_scheduler() in main.py; fires every 15 min when schedule_enabled=True
 
 ### Blockers
 
@@ -81,7 +87,7 @@ Phase 4 [      ] Reports and Run Management
 
 ### TODOs
 
-- Proceed to Phase 4 (Reports and Run Management)
+- Proceed to Phase 4 Plan 02 (Frontend report panel)
 
 ---
-*Last updated: 2026-03-20 after Phase 3 Plan 02 completion (frontend: ntx-grant-analyze StreamActor component + index.html hash routing)*
+*Last updated: 2026-03-20 after Phase 4 Plan 01 completion (backend: Run.report endpoint, Organization schedule fields, asyncio scheduler loop)*
