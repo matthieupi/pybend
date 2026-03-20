@@ -60,7 +60,7 @@ class Comment(ActorModel):
         new_like.save()
         return {'action': 'liked'}
 
-    @expose_route('/reply', methods=['POST'], access=AUTHENTICATED)
+    @expose_route('/reply', methods=['POST'], access=AUTHENTICATED | OWNER )
     def reply(self, text: str, user: User = None) -> Comment:
         """Add a reply to this comment."""
         comment = Comment(name=text, user_owner=user.id if user else None, parent_id=self.id)
