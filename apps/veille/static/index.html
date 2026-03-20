@@ -39,6 +39,7 @@
     <link rel="modulepreload" href="./components/ntx-modal.js">
     <link rel="modulepreload" href="./components/ntx-sidebar.js">
     <link rel="modulepreload" href="./components/ntx-stream.js">
+    <link rel="modulepreload" href="./components/ntx-run-panel.js">
     <link rel="modulepreload" href="./generators/form.js">
     <link rel="modulepreload" href="./widgets/Widget.js">
     <link rel="modulepreload" href="./widgets/registry.js">
@@ -88,11 +89,13 @@
         <ntx-list model="Source" allow-create></ntx-list>
         <ntx-list model="Organization"></ntx-list>
         <ntx-list model="Grant" allow-create></ntx-list>
+        <a href="#runs" class="sidebar-nav-item" data-route="runs">Runs</a>
     </ntx-sidebar>
 
     <div class="page">
         <ntx-router name="main" hash>
             <ntx-list model="Source" id="source-list" allow-create></ntx-list>
+            <ntx-run-panel id="run-panel" data-route="runs" style="display:none"></ntx-run-panel>
         </ntx-router>
 
         <!-- Document upload section -->
@@ -120,6 +123,7 @@
         import './components/ntx-topbar.js';
         import './components/ntx-sidebar.js';
         import './components/ntx-stream.js';
+        import './components/ntx-run-panel.js';
 
         // Redirect to login if not authenticated
         permissions.init().then(user => {
@@ -127,6 +131,28 @@
                 window.location.href = '/login.html';
             }
         });
+
+        // Simple hash-based routing for the run panel
+        function handleRoute() {
+            const hash = window.location.hash.replace('#', '') || '';
+            const runPanel = document.getElementById('run-panel');
+            const sourceList = document.getElementById('source-list');
+            const uploadSection = document.getElementById('upload-section');
+
+            if (hash === 'runs') {
+                if (runPanel) runPanel.style.display = 'block';
+                if (sourceList) sourceList.style.display = 'none';
+                if (uploadSection) uploadSection.style.display = 'none';
+            } else {
+                if (runPanel) runPanel.style.display = 'none';
+                if (sourceList) sourceList.style.display = '';
+                if (uploadSection) uploadSection.style.display = '';
+            }
+        }
+
+        window.addEventListener('hashchange', handleRoute);
+        // Run once on load
+        handleRoute();
     </script>
 
     <script>
