@@ -51,6 +51,16 @@ class NTXRunPanel extends StreamActor(HTMLElement) {
                 </div>
 
                 <div class="footer" id="footer"></div>
+
+                <div class="history-section" id="history-section">
+                    <div class="history-header">
+                        <h3>Run History</h3>
+                        <button class="btn btn-secondary btn-sm" id="refresh-history-btn">Refresh</button>
+                    </div>
+                    <div class="history-list" id="history-list">
+                        <div class="history-placeholder">Loading run history...</div>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -63,6 +73,8 @@ class NTXRunPanel extends StreamActor(HTMLElement) {
             log: this.shadowRoot.getElementById('log'),
             placeholder: this.shadowRoot.getElementById('placeholder'),
             footer: this.shadowRoot.getElementById('footer'),
+            historyList: this.shadowRoot.getElementById('history-list'),
+            refreshHistoryBtn: this.shadowRoot.getElementById('refresh-history-btn'),
         };
 
         this.#els.startBtn.addEventListener('click', () => this.#startFullRun());
@@ -70,9 +82,13 @@ class NTXRunPanel extends StreamActor(HTMLElement) {
         this.#els.adhocUrl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') this.#startAdhocRun();
         });
+        this.#els.refreshHistoryBtn.addEventListener('click', () => this.#loadHistory());
 
         // Stop click propagation (in case embedded in a card)
         this.addEventListener('click', (e) => e.stopPropagation());
+
+        // Load run history on connect
+        this.#loadHistory();
     }
 
     disconnectedCallback() {
@@ -278,6 +294,9 @@ class NTXRunPanel extends StreamActor(HTMLElement) {
 
         // Add completion entry
         this.#addEntry('info', 'Run complete. Check the Grants list for results.');
+
+        // Refresh history so the completed run appears with "View Report"
+        this.#loadHistory();
     }
 
     STREAM_ERROR(err) {
@@ -343,6 +362,102 @@ class NTXRunPanel extends StreamActor(HTMLElement) {
     #scrollToBottom() {
         const container = this.#els.logContainer;
         container.scrollTop = container.scrollHeight;
+    }
+
+    // ── Run history ───────────────────────────────────────────────
+
+    async #loadHistory() {
+        if (!this.#els) return;
+        const token = localStorage.getItem('jwtToken');
+        if (!token) return;
+
+        try {
+            const resp = await fetch(`${config.API_URL}/runs?limit=20`, {
+                headers: { 'x-access-token': token },
+            });
+            if (!resp.ok) return;
+            const result = await resp.json();
+            const runs = result.data || result;
+
+            runs.sort((a, b) => {
+                const ta = a.started_at || '';
+                const tb = b.started_at || '';
+                return tb.localeCompare(ta);
+            });
+
+            this.#renderHistory(runs);
+        } catch (e) {
+            console.warn('Failed to load run history:', e);
+        }
+    }
+
+    #renderHistory(runs) {
+        if (!this.#els?.historyList) return;
+
+        if (!runs || runs.length === 0) {
+            this.#els.historyList.innerHTML = `
+                <div class="history-empty">No runs yet. Start your first run above.</div>
+            `;
+            return;
+        }
+
+        const rows = runs.map(run => {
+            const statusClass = this.#runStatusClass(run.status);
+            const typeClass = run.type === 'full' ? 'type-full' : 'type-adhoc';
+            const viewReportHtml = run.status === 'complete'
+                ? `<a class="report-link" href="#report/${run.id}">View Report</a>`
+                : `<span class="report-link-disabled">—</span>`;
+
+            return `
+                <div class="history-row">
+                    <span class="history-cell run-id">#${run.id}</span>
+                    <span class="history-cell">
+                        <span class="type-pill ${typeClass}">${this.#esc(run.type || 'full')}</span>
+                    </span>
+                    <span class="history-cell">
+                        <span class="run-status-pill ${statusClass}">${this.#esc(run.status || 'pending')}</span>
+                    </span>
+                    <span class="history-cell run-date">${this.#formatDate(run.started_at)}</span>
+                    <span class="history-cell run-count">${run.grants_found ?? '—'}</span>
+                    <span class="history-cell run-count">${run.sources_covered ?? '—'}</span>
+                    <span class="history-cell">${viewReportHtml}</span>
+                </div>
+            `;
+        }).join('');
+
+        this.#els.historyList.innerHTML = `
+            <div class="history-table-header">
+                <span class="history-cell">Run</span>
+                <span class="history-cell">Type</span>
+                <span class="history-cell">Status</span>
+                <span class="history-cell">Started</span>
+                <span class="history-cell">Grants</span>
+                <span class="history-cell">Sources</span>
+                <span class="history-cell">Actions</span>
+            </div>
+            ${rows}
+        `;
+    }
+
+    #runStatusClass(status) {
+        const map = {
+            complete: 'run-status-complete',
+            running:  'run-status-running',
+            failed:   'run-status-failed',
+            pending:  'run-status-pending',
+        };
+        return map[status] || 'run-status-pending';
+    }
+
+    #formatDate(iso) {
+        if (!iso) return '—';
+        try {
+            const d = new Date(iso);
+            return d.toLocaleDateString('en', { month: 'short', day: 'numeric' })
+                + ', ' + d.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+        } catch {
+            return iso;
+        }
     }
 
     #esc(t) {
@@ -555,6 +670,136 @@ class NTXRunPanel extends StreamActor(HTMLElement) {
             color: var(--text-2, #aaa);
             border-top: 1px solid var(--border, #333);
             min-height: 1.2rem;
+        }
+
+        /* ── Run History ─────────────────────────────────────────────── */
+
+        .history-section {
+            border-top: 1px solid var(--border, #333);
+            background: var(--surface-1, #1a1a2e);
+        }
+
+        .history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid var(--border, #333);
+            background: var(--surface-2, #16213e);
+        }
+
+        .history-header h3 {
+            margin: 0;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-2, #aaa);
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.6rem;
+            font-size: 0.7rem;
+        }
+
+        .history-list {
+            overflow-y: auto;
+            max-height: 300px;
+        }
+
+        .history-placeholder,
+        .history-empty {
+            padding: 1rem;
+            text-align: center;
+            color: var(--text-2, #aaa);
+            font-style: italic;
+            font-size: 0.8rem;
+        }
+
+        .history-table-header {
+            display: grid;
+            grid-template-columns: 3rem 4.5rem 5.5rem 1fr 4rem 4.5rem 6rem;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-2, #aaa);
+            border-bottom: 1px solid var(--border, #333);
+            background: var(--surface-2, #16213e);
+            position: sticky;
+            top: 0;
+        }
+
+        .history-row {
+            display: grid;
+            grid-template-columns: 3rem 4.5rem 5.5rem 1fr 4rem 4.5rem 6rem;
+            padding: 0.35rem 0.75rem;
+            font-size: 0.78rem;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            align-items: center;
+            transition: background 0.12s;
+        }
+        .history-row:hover {
+            background: var(--surface-2, #16213e);
+        }
+
+        .history-cell {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-1, #eee);
+        }
+
+        .run-id {
+            font-weight: 600;
+            color: var(--text-2, #aaa);
+            font-size: 0.75rem;
+        }
+
+        .run-date {
+            font-size: 0.75rem;
+            color: var(--text-2, #aaa);
+        }
+
+        .run-count {
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .type-pill {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.2rem;
+            text-transform: capitalize;
+        }
+        .type-full  { background: var(--accent, #4cc9f0); color: #000; }
+        .type-adhoc { background: var(--warning, #f59e0b); color: #000; }
+
+        .run-status-pill {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.2rem;
+            text-transform: capitalize;
+        }
+        .run-status-complete { background: var(--success, #4ade80); color: #000; }
+        .run-status-running  { background: var(--accent, #4cc9f0); color: #000; }
+        .run-status-failed   { background: var(--error, #f87171); color: #fff; }
+        .run-status-pending  { background: var(--surface-3, #0f3460); color: var(--text-2, #aaa); }
+
+        .report-link {
+            color: var(--accent, #4cc9f0);
+            text-decoration: none;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .report-link:hover { text-decoration: underline; }
+
+        .report-link-disabled {
+            color: var(--text-2, #555);
+            font-size: 0.75rem;
         }
     `;
 }
