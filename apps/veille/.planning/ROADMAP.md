@@ -44,6 +44,12 @@ Plans:
 
 **Requirements:** GRANT-01, GRANT-02, GRANT-03, GRANT-04, SRC-04, RUN-01, RUN-03
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md -- Backend: Run model, WebTools actor, Grant dedup field, main.py wiring
+- [ ] 02-02-PLAN.md -- Frontend: ntx-run-panel streaming component, index.html Runs navigation
+
 **Success Criteria:**
 1. User can trigger a full scraping run across all configured sources and see streaming progress as the agent works
 2. Grants appear in the database with full extracted details (amount, deadlines, criteria, required documents, application process)
@@ -114,4 +120,4 @@ Plans:
 **Mapped: 22/22**
 
 ---
-*Last updated: 2026-03-20 after Phase 1 completion*
+*Last updated: 2026-03-20 after Phase 2 planning*
