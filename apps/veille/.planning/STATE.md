@@ -4,14 +4,14 @@
 
 **Core value:** Reliably discover new grants from configured sources, extract their details, and evaluate admissibility against the organization profile -- with justification.
 
-**Current focus:** Phase 2 complete. Ready for Phase 3 (Admissibility Analysis).
+**Current focus:** Phase 3 complete. Ready for Phase 4 (Reports and Run Management).
 
 ## Current Phase
 
-Phase 3: Admissibility Analysis -- In Progress
-Plan: 1 of 2 (03-01 complete)
-Status: In progress
-Last activity: 2026-03-20 - Completed 03-01-PLAN.md
+Phase 3: Admissibility Analysis -- Complete
+Plan: 2 of 2 (03-01 complete, 03-02 complete)
+Status: Phase complete
+Last activity: 2026-03-20 - Completed 03-02-PLAN.md
 
 ## Phase Status
 
@@ -19,15 +19,15 @@ Last activity: 2026-03-20 - Completed 03-01-PLAN.md
 |-------|------|--------|-------|
 | 1 | Foundation and Data Models | Complete | 01 complete, 02 complete |
 | 2 | Scraping and Grant Extraction | Complete | 01 complete, 02 complete |
-| 3 | Admissibility Analysis | In Progress | 01 complete |
+| 3 | Admissibility Analysis | Complete | 01 complete, 02 complete |
 | 4 | Reports and Run Management | Not Started | -- |
 
 ## Progress
 
 ```
-Phase 1 [======] Foundation and Data Models   (2/2 plans)
+Phase 1 [======] Foundation and Data Models    (2/2 plans)
 Phase 2 [======] Scraping and Grant Extraction (2/2 plans)
-Phase 3 [===   ] Admissibility Analysis
+Phase 3 [======] Admissibility Analysis        (2/2 plans)
 Phase 4 [      ] Reports and Run Management
 ```
 
@@ -49,6 +49,9 @@ Phase 4 [      ] Reports and Run Management
 | Batch analysis non-streaming in Run.execute() | SSE stream done after scraping; mixing analysis events would confuse frontend run panel | 2026-03-20 |
 | ntx-run-panel in app static/components/ | ssr='full' serves app static files; placing component in static/components/ makes it available at /components/ntx-run-panel.js alongside framework components | 2026-03-20 |
 | Hash routing with handleRoute() | Simple display:none/block toggle for run-panel vs source-list; no ntx-router internals needed | 2026-03-20 |
+| Hide-all-then-show in handleRoute() | Cleaner pattern; new panels don't require changes to every existing branch | 2026-03-20 |
+| STREAM_END reloads grant info | Shows updated score/status/justification immediately after analysis without page refresh | 2026-03-20 |
+| attributeChangedCallback drives grant load | Natural signal for attribute change; guards against double-load edge case | 2026-03-20 |
 
 ### Accumulated Context
 
@@ -68,6 +71,9 @@ Phase 4 [      ] Reports and Run Management
 - ntx-run-panel.js lives in apps/veille/static/components/ (app-level, not framework-level)
 - StreamActor import in ntx-run-panel.js: './StreamActor.js' (same merged /components/ URL space)
 - marked.js already loaded in index.html as vendor script; TEXT handler checks typeof marked
+- ntx-grant-analyze.js lives in apps/veille/static/components/ (app-level, same as ntx-run-panel)
+- Hash route #analyze/{id} sets grant-id attribute on <ntx-grant-analyze> and shows the panel
+- handleRoute() now uses hide-all-then-show pattern for cleaner multi-panel management
 
 ### Blockers
 
@@ -75,7 +81,7 @@ Phase 4 [      ] Reports and Run Management
 
 ### TODOs
 
-- Proceed to Phase 3 Plan 02 (Frontend: ntx-grant-analyze component and grant list analysis indicators)
+- Proceed to Phase 4 (Reports and Run Management)
 
 ---
-*Last updated: 2026-03-20 after Phase 3 Plan 01 completion (backend: Grant __agent__ + analyze() + Run batch analysis)*
+*Last updated: 2026-03-20 after Phase 3 Plan 02 completion (frontend: ntx-grant-analyze StreamActor component + index.html hash routing)*
