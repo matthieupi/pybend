@@ -112,14 +112,56 @@ class Run(ActorModel):
 
             # Count grants created during this run
             from models.grant import Grant
+            _run_grants_data = []
             try:
                 grants = Grant.list(limit=1000)
-                data = grants.get('data', grants) if isinstance(grants, dict) else grants
-                count = sum(1 for g in data
+                _run_grants_data = grants.get('data', grants) if isinstance(grants, dict) else grants
+                count = sum(1 for g in _run_grants_data
                             if (g.get('run_id') if isinstance(g, dict)
                                 else getattr(g, 'run_id', None)) == self.id)
             except Exception:
                 count = 0
+
+            # ── Batch admissibility analysis ─────────────────────────────
+            # Analyze each newly discovered grant against the org profile.
+            # Uses non-streaming agentic() -- the SSE stream to the client
+            # is already done at this point.
+            new_grants = [g for g in _run_grants_data
+                          if (g.get('run_id') if isinstance(g, dict)
+                              else getattr(g, 'run_id', None)) == self.id
+                          and (g.get('status') if isinstance(g, dict)
+                               else getattr(g, 'status', 'new')) == 'new']
+
+            # Check org exists before batch
+            from models.organization import Organization
+            try:
+                orgs = Organization.list(limit=1)
+                org_data = orgs.get('data', orgs) if isinstance(orgs, dict) else orgs
+            except Exception:
+                org_data = []
+
+            if org_data:
+                for i, grant_record in enumerate(new_grants):
+                    grant_id = (grant_record.get('id') if isinstance(grant_record, dict)
+                                else getattr(grant_record, 'id', None))
+                    if not grant_id:
+                        continue
+                    try:
+                        raw = Grant.get(grant_id)
+                        if isinstance(raw, dict):
+                            grant_instance = Grant(**{k: v for k, v in raw.items()})
+                        else:
+                            grant_instance = raw
+
+                        await grant_instance.agentic(
+                            task=grant_instance._build_analysis_task(),
+                            prompt=grant_instance._build_analysis_prompt(),
+                        )
+                        logger.info(f"Analyzed grant {grant_id} ({i+1}/{len(new_grants)})")
+                    except Exception as e:
+                        logger.warning(f"Analysis failed for grant {grant_id}: {e}")
+            else:
+                logger.warning("No org profile configured -- skipping batch analysis")
 
             Run.update(self.id, {
                 'status': 'complete',
