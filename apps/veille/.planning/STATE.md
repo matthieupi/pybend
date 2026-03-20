@@ -4,21 +4,21 @@
 
 **Core value:** Reliably discover new grants from configured sources, extract their details, and evaluate admissibility against the organization profile -- with justification.
 
-**Current focus:** Phase 2 Plan 01 complete. Run model and WebTools actor ready. Next: Phase 2 Plan 02 (frontend for runs).
+**Current focus:** Phase 2 Plan 02 at checkpoint. ntx-run-panel.js and index.html wiring complete. Awaiting human verification of streaming UI.
 
 ## Current Phase
 
 Phase 2: Scraping and Grant Extraction -- In Progress
-Plan: 1 of 2 complete
+Plan: 2 of 2 (at checkpoint, awaiting human verify)
 Status: In progress
-Last activity: 2026-03-20 - Completed 02-01-PLAN.md
+Last activity: 2026-03-20 - Completed tasks 1+2 of 02-02-PLAN.md, checkpoint reached
 
 ## Phase Status
 
 | Phase | Name | Status | Plans |
 |-------|------|--------|-------|
 | 1 | Foundation and Data Models | Complete | 01 complete, 02 complete |
-| 2 | Scraping and Grant Extraction | In Progress | 01 complete |
+| 2 | Scraping and Grant Extraction | In Progress | 01 complete, 02 at checkpoint |
 | 3 | Admissibility Analysis | Not Started | -- |
 | 4 | Reports and Run Management | Not Started | -- |
 
@@ -26,7 +26,7 @@ Last activity: 2026-03-20 - Completed 02-01-PLAN.md
 
 ```
 Phase 1 [======] Foundation and Data Models   (2/2 plans)
-Phase 2 [===   ] Scraping and Grant Extraction (1/2 plans)
+Phase 2 [=====.] Scraping and Grant Extraction (1.5/2 plans -- 02-02 at checkpoint)
 Phase 3 [      ] Admissibility Analysis
 Phase 4 [      ] Reports and Run Management
 ```
@@ -45,6 +45,8 @@ Phase 4 [      ] Reports and Run Management
 | stdlib html.parser instead of bs4 | bs4 not installed; html.parser achieves same result for text extraction | 2026-03-20 |
 | __agent__ explicit tools list | self_tools=False, neighbors=False, tools=['web_tools','grants','sources'] by tablename | 2026-03-20 |
 | Agent creates grants via tool calls | Tool-use (grants_create) more natural than structured output for agent scraping pattern | 2026-03-20 |
+| ntx-run-panel in app static/components/ | ssr='full' serves app static files; placing component in static/components/ makes it available at /components/ntx-run-panel.js alongside framework components | 2026-03-20 |
+| Hash routing with handleRoute() | Simple display:none/block toggle for run-panel vs source-list; no ntx-router internals needed | 2026-03-20 |
 
 ### Accumulated Context
 
@@ -58,12 +60,18 @@ Phase 4 [      ] Reports and Run Management
 - Run model uses agentic_stream() from AgentMixin injected by __agent__ = True
 - App has 54 routes after Phase 2 Plan 01 (Run + WebTools added)
 - httpx and playwright are imported lazily inside WebTools methods (optional at import time)
+- ntx-run-panel.js lives in apps/veille/static/components/ (app-level, not framework-level)
+- StreamActor import in ntx-run-panel.js: './StreamActor.js' (same merged /components/ URL space)
+- marked.js already loaded in index.html as vendor script; TEXT handler checks typeof marked
 
 ### Blockers
+
 (none)
 
 ### TODOs
-(none)
+
+- Human verification of streaming UI (02-02 checkpoint)
+- After approval: Phase 2 complete, can proceed to Phase 3
 
 ---
-*Last updated: 2026-03-20 after Phase 2 Plan 01 completion*
+*Last updated: 2026-03-20 after Phase 2 Plan 02 tasks 1+2 completion (checkpoint)*
