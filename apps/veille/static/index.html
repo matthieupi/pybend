@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Veille - Grant Monitoring</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./dark-theme.css">
+    <link rel="stylesheet" href="./light-theme.css">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="preload" href="./components/ntx-item.css" as="style">
+    <link rel="preload" href="./components/ntx-list.css" as="style">
+    <link rel="preload" href="./components/ntx-router.css" as="style">
+    <link rel="preload" href="./components/ntx-topbar.css" as="style">
+    <link rel="preload" href="./components/ntx-sidebar.css" as="style">
+    <link rel="preload" href="./components/ntx-modal.css" as="style">
+    <link rel="preload" href="./widgets/widgets.css" as="style">
+    <script src="./vendor/marked.min.js"></script>
+    <!-- Modulepreload -- eliminates import waterfall -->
+    <link rel="modulepreload" href="./config.js">
+    <link rel="modulepreload" href="./utils/Assert.js">
+    <link rel="modulepreload" href="./utils/Logging.js">
+    <link rel="modulepreload" href="./utils/Permissions.js">
+    <link rel="modulepreload" href="./core/Utils.js">
+    <link rel="modulepreload" href="./core/TX.js">
+    <link rel="modulepreload" href="./core/Observable.js">
+    <link rel="modulepreload" href="./core/Actor.js">
+    <link rel="modulepreload" href="./core/Matrix.js">
+    <link rel="modulepreload" href="./core/Component.js">
+    <link rel="modulepreload" href="./core/Router.js">
+    <link rel="modulepreload" href="./core/NTT.js">
+    <link rel="modulepreload" href="./core/transport/HTTP.js">
+    <link rel="modulepreload" href="./core/transport/NetworkAdapter.js">
+    <link rel="modulepreload" href="./components/NTTElement.js">
+    <link rel="modulepreload" href="./components/ListElement.js">
+    <link rel="modulepreload" href="./components/ntx-item.js">
+    <link rel="modulepreload" href="./components/ntx-list.js">
+    <link rel="modulepreload" href="./components/ntx-router.js">
+    <link rel="modulepreload" href="./components/ntx-method.js">
+    <link rel="modulepreload" href="./components/ntx-modal.js">
+    <link rel="modulepreload" href="./components/ntx-sidebar.js">
+    <link rel="modulepreload" href="./components/ntx-stream.js">
+    <link rel="modulepreload" href="./generators/form.js">
+    <link rel="modulepreload" href="./widgets/Widget.js">
+    <link rel="modulepreload" href="./widgets/registry.js">
+    <link rel="modulepreload" href="./widgets/index.js">
+    <script type="module" src="./utils/theme.js"></script>
+    <style>
+        /* Document upload section */
+        .upload-section {
+            margin: 1.5rem;
+            padding: 1.25rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg, 12px);
+        }
+        .upload-section h3 {
+            margin: 0 0 0.75rem 0;
+            font-size: 0.95rem;
+            color: var(--text-1);
+        }
+        .upload-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .upload-row input[type="file"] {
+            flex: 1;
+            min-width: 200px;
+        }
+        .upload-row button {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+        .upload-status {
+            margin-top: 0.5rem;
+            font-size: 0.825rem;
+            color: var(--text-2);
+        }
+        .upload-status.error {
+            color: var(--error);
+        }
+    </style>
+</head>
+<body>
+    <ntx-topbar></ntx-topbar>
+    <ntx-sidebar router="main">
+        <ntx-list model="Source" allow-create></ntx-list>
+        <ntx-list model="Organization"></ntx-list>
+        <ntx-list model="Grant" allow-create></ntx-list>
+    </ntx-sidebar>
+
+    <div class="page">
+        <ntx-router name="main" hash>
+            <ntx-list model="Source" id="source-list" allow-create></ntx-list>
+        </ntx-router>
+
+        <!-- Document upload section -->
+        <div class="upload-section" id="upload-section">
+            <h3>Upload Strategic Document</h3>
+            <div class="upload-row">
+                <input type="file" id="doc-file" accept=".pdf,.txt,.md,.doc,.docx" />
+                <button id="upload-btn" onclick="uploadDocument()">Upload</button>
+            </div>
+            <div class="upload-status" id="upload-status"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import Logging from './utils/Logging.js';
+        Logging.init("Loading Veille v1.0...");
+
+        import { Matrix, matrix } from './core/Matrix.js';
+        import { NTT } from './core/NTT.js';
+        import { config } from './config.js';
+        import { permissions } from './utils/Permissions.js';
+        import './components/ntx-item.js';
+        import './components/ntx-list.js';
+        import './components/ntx-router.js';
+        import './components/ntx-topbar.js';
+        import './components/ntx-sidebar.js';
+        import './components/ntx-stream.js';
+
+        // Redirect to login if not authenticated
+        permissions.init().then(user => {
+            if (!user) {
+                window.location.href = '/login.html';
+            }
+        });
+    </script>
+
+    <script>
+        // Document upload handler (plain script, no module -- needs global access for onclick)
+        async function uploadDocument() {
+            const fileInput = document.getElementById('doc-file');
+            const statusEl = document.getElementById('upload-status');
+            const file = fileInput.files[0];
+            if (!file) {
+                statusEl.textContent = 'Please select a file first.';
+                statusEl.className = 'upload-status error';
+                return;
+            }
+
+            const token = window.localStorage.getItem('jwtToken');
+            if (!token) {
+                statusEl.textContent = 'Not authenticated. Please log in.';
+                statusEl.className = 'upload-status error';
+                return;
+            }
+
+            statusEl.textContent = 'Uploading...';
+            statusEl.className = 'upload-status';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                const resp = await fetch('/organizations/upload', {
+                    method: 'POST',
+                    headers: { 'x-access-token': token },
+                    body: formData,
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    throw new Error(data.detail || 'Upload failed');
+                }
+                statusEl.textContent = 'Uploaded: ' + data.filename + ' (' + data.size + ' bytes)';
+                statusEl.className = 'upload-status';
+                fileInput.value = '';
+            } catch (err) {
+                statusEl.textContent = err.message;
+                statusEl.className = 'upload-status error';
+            }
+        }
+    </script>
+</body>
+</html>
