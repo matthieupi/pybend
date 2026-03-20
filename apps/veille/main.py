@@ -1,7 +1,9 @@
 """Veille -- Grant monitoring application."""
+import asyncio
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -15,6 +17,7 @@ from n3tx_core.storage.sqlite_storage import SQLiteStorage  # noqa: E402
 from models import User, Organization, Source, Grant, Run, WebTools  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
+logger = logging.getLogger('veille.scheduler')
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(_HERE, config.SQLITE_DB_FILE)
@@ -31,6 +34,90 @@ app = create_app(
     version='1.0.0',
     description='Agentic grant monitoring for non-profits',
 )
+
+# -- Background scheduler loop ─────────────────────────────────
+
+async def _scheduler_loop():
+    """Background loop: check every 15 minutes if a scheduled run is due."""
+    CHECK_INTERVAL = 900  # 15 minutes
+    await asyncio.sleep(30)  # Let app fully start
+    while True:
+        try:
+            orgs = Organization.list(limit=1)
+            data = orgs.get('data', orgs) if isinstance(orgs, dict) else orgs
+            if not data:
+                await asyncio.sleep(CHECK_INTERVAL)
+                continue
+
+            org = data[0]
+            enabled = (org.get('schedule_enabled') if isinstance(org, dict)
+                       else getattr(org, 'schedule_enabled', False))
+            interval = (org.get('schedule_interval_hours') if isinstance(org, dict)
+                        else getattr(org, 'schedule_interval_hours', 168))
+
+            if not enabled:
+                await asyncio.sleep(CHECK_INTERVAL)
+                continue
+
+            # Avoid overlapping runs
+            all_runs = Run.list(sql_filter=("type = ?", ['full']), limit=1000)
+            runs_data = all_runs.get('data', all_runs) if isinstance(all_runs, dict) else all_runs
+            running = [r for r in runs_data
+                       if (r.get('status') if isinstance(r, dict)
+                           else getattr(r, 'status', '')) == 'running']
+            if running:
+                await asyncio.sleep(CHECK_INTERVAL)
+                continue
+
+            # Find last completed full run
+            completed = [r for r in runs_data
+                         if (r.get('completed_at') if isinstance(r, dict)
+                             else getattr(r, 'completed_at', None))]
+            now = datetime.now(timezone.utc)
+            should_run = True
+            if completed:
+                last_run = max(completed, key=lambda r: (
+                    r.get('completed_at') if isinstance(r, dict)
+                    else getattr(r, 'completed_at', '')))
+                last_ts_str = (last_run.get('completed_at') if isinstance(last_run, dict)
+                               else getattr(last_run, 'completed_at', None))
+                if last_ts_str:
+                    try:
+                        last_ts = datetime.fromisoformat(last_ts_str)
+                        if last_ts.tzinfo is None:
+                            last_ts = last_ts.replace(tzinfo=timezone.utc)
+                        elapsed_hours = (now - last_ts).total_seconds() / 3600
+                        should_run = elapsed_hours >= interval
+                    except (ValueError, TypeError):
+                        pass
+
+            if should_run:
+                logger.info("Triggering scheduled full run")
+                try:
+                    run_record = Run.create(Run(type='full', status='pending'))
+                    run_id = (run_record.get('id') if isinstance(run_record, dict)
+                              else getattr(run_record, 'id', None))
+                    if run_id:
+                        raw = Run.get(run_id)
+                        run_instance = Run(**raw) if isinstance(raw, dict) else raw
+                        async for _ in run_instance.execute():
+                            pass
+                        logger.info(f"Scheduled run {run_id} complete")
+                except Exception as e:
+                    logger.error(f"Scheduled run failed: {e}")
+
+        except Exception as e:
+            logger.error(f"Scheduler loop error: {e}")
+
+        await asyncio.sleep(CHECK_INTERVAL)
+
+
+async def _start_scheduler():
+    asyncio.create_task(_scheduler_loop())
+
+
+app.router.on_startup.append(_start_scheduler)
+
 
 # -- Document upload routes (custom, not auto-generated) --------
 # All routes require JWT authentication via the x-access-token header.
