@@ -101,10 +101,19 @@ Streaming engine. Same params as `run()`. Yields TX-aligned chunks:
 | Chunk | `name` | `data` | `meta` |
 |-------|--------|--------|--------|
 | Text | `"text"` | `{"text": "..."}` | `{"stream": true, "seq": N}` |
-| Done | `"done"` | `{"answer": "...", "usage": {...}}` | `{"stream_end": true, "seq": N}` |
+| Tool Call | `"tool_call"` | `{"tool": "...", "args": {...}, "call_id": "..."}` | `{"stream": true, "seq": N}` |
+| Tool Result | `"tool_result"` | `{"tool": "...", "result": "...", "call_id": "..."}` | `{"stream": true, "seq": N}` |
+| Thinking | `"thinking"` | `{"text": "..."}` | `{"stream": true, "seq": N}` |
+| Done | `"done"` | `{"answer": "...", "usage": {...}, "tool_calls": N}` | `{"stream_end": true, "seq": N}` |
 | Error | `"error"` | `{"message": "...", "code": 500}` | `{"error": true, "seq": N}` |
 
 Errors are caught and yielded as error chunks rather than raised.
+
+Event schemas can be declared via `events=` on `@expose_route` (see
+[agent-actor.md](agent-actor.md) for the concrete event models). The
+`methods` stage in `proto_model.py` serializes these into the method
+schema as `events: {name: json_schema}`, enabling frontend validation
+and handler discovery.
 
 ## Usage Patterns
 

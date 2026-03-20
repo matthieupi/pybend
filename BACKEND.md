@@ -219,6 +219,42 @@ async def generate(self, prompt: str = ''):
         yield {'chunk': f'Processing step {i}'}
 ```
 
+#### Schema-Declared Stream Events (`events=`)
+
+Streaming methods can declare their event vocabulary via the `events=` parameter. Event types are non-storable `ProtoModel` subclasses — pure Pydantic models for validation and JSON Schema generation:
+
+```python
+class TextChunk(ProtoModel):
+    text: str = Field(default='')
+
+class DoneChunk(ProtoModel):
+    answer: str = Field(default='')
+    usage: dict = Field(default={})
+
+@expose_route('/agentic_stream', methods=['POST'], stream=True,
+              events={'text': TextChunk, 'done': DoneChunk})
+async def agentic_stream(self, task: str, **kwargs):
+    yield {'name': 'text', 'data': {'text': 'hello'}, 'meta': {'stream': True, 'seq': 0}}
+```
+
+The `methods` stage in `proto_model.py` serializes `events` into the method schema:
+
+```json
+{
+  "methods": {
+    "agentic_stream": {
+      "stream": true,
+      "events": {
+        "text": {"type": "object", "properties": {"text": {"type": "string"}}},
+        "done": {"type": "object", "properties": {"answer": {...}, "usage": {...}}}
+      }
+    }
+  }
+}
+```
+
+The `n3tx-agents` package ships five built-in event models in `actor.py`: `TextChunk`, `ToolCallEvent`, `ToolResultEvent`, `ThinkingChunk`, `DoneChunk`. These are used by `AgentActor.agentic_stream()`. Custom streaming methods can define their own event models.
+
 #### TX Stream Protocol
 TX uses `meta` fields for stream correlation:
 

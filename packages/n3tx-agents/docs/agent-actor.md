@@ -20,17 +20,41 @@ AgentActor (DB record)
     +-- name, prompt, llm, constraints  (DB fields)
     +-- tools: ListRef[AgentTool]       (join table)
     |
-    +-- agentic(task)  @expose_route('/agentic', POST)
+    +-- agentic(task)          @expose_route('/agentic', POST)
+    |      |
+    |      | _resolve_tool_addrs()  -- DB lookup
+    |      v
+    |   AgentMixin.run()  -- bypasses mixin's agentic() cascade
+    |
+    +-- agentic_stream(task)   @expose_route('/agentic_stream', POST, stream=True, events={...})
            |
-           | _resolve_tool_addrs()  -- DB lookup
-           |
+           | _resolve_tool_addrs()  -- same DB lookup
            v
-        AgentMixin.run()  -- bypasses mixin's agentic() cascade
+        AgentMixin.run_stream()  -- streaming engine
 ```
 
-AgentActor's `agentic()` overrides the mixin's version. It reads config
-from its own DB fields instead of using the 3-tier cascade, then calls
-`AgentMixin.run()` directly via the descriptor's underlying function.
+AgentActor's `agentic()` and `agentic_stream()` override the mixin's
+versions. They read config from DB fields instead of using the 3-tier
+cascade, then call `AgentMixin.run()` / `run_stream()` directly via the
+descriptor's underlying function.
+
+### Stream Event Models
+
+`actor.py` defines five non-storable `ProtoModel` subclasses used by
+`agentic_stream()` via the `events=` parameter:
+
+| Model | Fields | Purpose |
+|-------|--------|---------|
+| `TextChunk` | `text` | Progressive text output from the LLM |
+| `ToolCallEvent` | `tool`, `args`, `call_id` | Agent is calling a tool |
+| `ToolResultEvent` | `tool`, `result`, `call_id` | Result from a tool call |
+| `ThinkingChunk` | `text` | Agent is in a thinking/reasoning phase |
+| `DoneChunk` | `answer`, `usage`, `tool_calls` | Terminal event — task complete |
+
+These models exist purely for validation and JSON Schema generation. They
+are not storable. The schema pipeline serializes them into
+`schema.methods.agentic_stream.events` so the frontend knows the exact
+shape of each event type.
 
 ## Interface
 

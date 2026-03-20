@@ -17,7 +17,7 @@ proto_schema.run_pipeline(cls, pipeline='default')
   v
 Stage 1: base(cls)           -- Pydantic model_json_schema() + Ref patching
 Stage 2: strip_hidden(cls,s)  -- Remove __hidden_fields__
-Stage 3: methods(cls,s)       -- Inject @expose_route signatures
+Stage 3: methods(cls,s)       -- Inject @expose_route signatures + stream events
 Stage 4: defs(cls,s)          -- Collect referenced models into $defs
 Stage 5: access(cls,s)        -- Serialize __access__ ABAC rules
 Stage 6: widget(cls,s)        -- Inject ui.widget from Widget annotations [via @schema_extension, n3tx-core.widgets]

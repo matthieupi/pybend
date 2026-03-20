@@ -199,6 +199,8 @@ The frontend transport layer supports streaming for long-running operations. See
 
 `HTTP.stream(url, data, onChunk, onDone, onError)` — SSE client using Fetch API with `ReadableStream`. Parses `event: chunk|done|error` and `data: {json}` lines. Returns `{ cancel: Function }` for AbortController cancellation.
 
+A `_done` guard prevents double `onDone` callbacks when SSE `event: done` is followed by ReadableStream closure.
+
 ```javascript
 const handle = HTTP.stream('/products/1/generate', { prompt: 'hello' },
     (chunk) => console.log('Chunk:', chunk),
@@ -223,3 +225,69 @@ Extends `NTTMethod`. For methods with `schema.methods[m].stream === true`. Rende
 ```html
 <ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
 ```
+
+### StreamActor Mixin (Agent Streaming)
+
+**File**: `packages/n3tx-agents/src/n3tx_agents/static/components/StreamActor.js`
+
+A JS mixin that adds TX-aware stream dispatch to any web component. Handles the difference between Level 1/2 (direct SSE) and Level 3 (STREAM-enveloped SSE) transparently.
+
+```javascript
+import { StreamActor } from './StreamActor.js';
+
+class MyComponent extends StreamActor(HTMLElement) {
+    // UPPERCASE = TX inbox handlers (actor convention)
+    TEXT(data, meta)       { /* data.text */ }
+    TOOL_CALL(data, meta)  { /* data.tool, data.args, data.call_id */ }
+    DONE(data, meta)       { /* data.answer, data.usage */ }
+
+    // Lifecycle hooks
+    STREAM_END(data)       { /* stream completed */ }
+    STREAM_ERROR(err)      { /* error */ }
+}
+```
+
+**API:**
+
+| Method | Purpose |
+|--------|---------|
+| `stream(url, payload)` | Open SSE connection. Chunks dispatch to UPPERCASE handlers. |
+| `streamClose()` | Cancel active stream. Call in `disconnectedCallback()`. |
+| `_validateStreamHandlers(schema, methodName)` | Warn if declared event types have no matching handler. |
+
+**Dispatch flow:**
+
+1. SSE chunk arrives via `HTTP.stream()`
+2. If outer envelope has `name === 'STREAM'` (Level 3 actor routing), unwrap one level
+3. Read inner `name`, convert to UPPERCASE, call `this[NAME](data, meta)`
+
+**UPPERCASE convention**: All methods that handle TX messages are UPPERCASE. lowercase/camelCase = internal component logic. This mirrors the backend actor handler pattern (`SCHEMA`, `CREATE`, `LIFECYCLE`, etc.).
+
+**Schema-aware validation**: After schema loads, call `this._validateStreamHandlers(schema, methodName)`. It reads `schema.methods[m].events` and warns for any declared event with no matching UPPERCASE handler.
+
+**Concrete components using StreamActor:**
+- `<ntx-agent-live>` — Real-time agent activity log with structured event rendering
+- `<ntx-chat>` — Floating chat panel for conversational agent interaction
+
+Both extend `StreamActor(HTMLElement)`, call `this.stream(url, payload)` to start, and `this.streamClose()` in `disconnectedCallback()`.
+
+### Schema-Declared Stream Events
+
+Streaming methods can declare their event vocabulary via `events=` on `@expose_route` (backend). The schema pipeline serializes these into `schema.methods[m].events`:
+
+```json
+{
+  "methods": {
+    "agentic_stream": {
+      "stream": true,
+      "events": {
+        "text": {"type": "object", "properties": {"text": {"type": "string"}}},
+        "tool_call": {"type": "object", "properties": {"tool": {...}, "args": {...}}},
+        "done": {"type": "object", "properties": {"answer": {...}, "usage": {...}}}
+      }
+    }
+  }
+}
+```
+
+Frontend components can read `events` to discover available chunk types and validate their handler coverage.

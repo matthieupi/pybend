@@ -116,7 +116,7 @@ class Product(ProtoModel):
 ProtoModel.schema()
 |
 |-- Pydantic model_json_schema()     -> properties, types, validation, $defs
-|-- __n3tx_methods_json_signature__()  -> methods with routes, params, returns, access
+|-- __n3tx_methods_json_signature__()  -> methods with routes, params, returns, access, stream, events
 |-- access_schema(cls)               -> ABAC rules serialized to JSON
 |-- _apply_field_exclusion()         -> auto-hide id, *_id, timestamps (ui.display=false)
 |-- __ui__ injection                 -> field_order, groups, renderer hints
@@ -136,7 +136,7 @@ GET /Product -> JSON Schema
 |-- properties      -> field definitions with types, validation, ui hints, access
 |-- ui              -> { field_order, groups, renderer }
 |-- access          -> { create, read, update, delete } as serialized ABAC rules
-|-- methods         -> { comment: { route, methods, scope, parameters, returns, access, ui } }
+|-- methods         -> { comment: { route, methods, scope, parameters, returns, access, ui, stream, events } }
 |-- $defs           -> { Comment: { $id, properties, methods, ui, access }, Like: { ... } }
 +-- required        -> required field names
 ```
@@ -156,6 +156,7 @@ GET /Product -> JSON Schema
 | `access` | `Permissions.js` | Show/hide edit/delete buttons (resource-aware OWNER) |
 | `methods` | `prototype()` + `<ntx-method>` | Callable methods + action buttons |
 | `methods[m].ui` | `<ntx-method>` | Button layout, icon, count-field for social actions |
+| `methods[m].events` | `StreamActor._validateStreamHandlers()` | Declared stream event types (JSON Schema per event) |
 | `$defs` | `N3TX.SCHEMA()` | Nested DynamicClass registration |
 | `$id` / `$schema` | DynamicClass value getter | Self-describing entity instances |
 

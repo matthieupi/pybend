@@ -697,7 +697,16 @@ router.post('/users', make_create_instance(User))
 def login(email: str, password: str):
     pass
 
-# Adds: method.__endpoint__ = {'route': '/login', 'methods': ['POST']}
+# Adds: method.__endpoint__ = {'route': '/login', 'methods': ['POST'], 'access': None, 'stream': False, 'events': None}
+```
+
+For streaming methods, `events=` declares the event vocabulary as a dict of `{name: ProtoModel}`. The schema pipeline serializes these into `schema.methods[m].events` as JSON Schema objects:
+
+```python
+@expose_route('/stream', methods=['POST'], stream=True,
+              events={'text': TextChunk, 'done': DoneChunk})
+async def stream(self, task: str):
+    yield {'name': 'text', 'data': {'text': 'hello'}}
 ```
 
 ### 6. Two-Pass Route Registration

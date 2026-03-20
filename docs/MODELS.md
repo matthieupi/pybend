@@ -77,7 +77,7 @@ class. `ProtoModel.schema()` calls `proto_schema.run_pipeline(cls)`.
 |---|-------|-------|--------|
 | 1 | `base` | `cls` | Pydantic core JSON Schema + `Ref['self']` patches |
 | 2 | `strip_hidden` | `cls, schema` | Removes `__hidden_fields__` from properties |
-| 3 | `methods` | `cls, schema` | Injects `@expose_route` method signatures |
+| 3 | `methods` | `cls, schema` | Injects `@expose_route` method signatures + stream event schemas |
 | 4 | `defs` | `cls, schema` | Collects referenced models into `$defs` |
 | 5 | `access` | `cls, schema` | Serializes ABAC rules (top-level + `$defs`) |
 | 6 | `ui` | `cls, schema` | Injects UI hints, protected fields, `__ui__` config |
