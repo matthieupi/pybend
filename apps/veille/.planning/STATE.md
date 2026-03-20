@@ -8,10 +8,10 @@
 
 ## Current Phase
 
-Phase 2: Scraping and Grant Extraction -- Complete
-Plan: 2 of 2 (all complete)
-Status: Complete
-Last activity: 2026-03-20 - Phase 2 verified (14/14 must-haves passed)
+Phase 3: Admissibility Analysis -- In Progress
+Plan: 1 of 2 (03-01 complete)
+Status: In progress
+Last activity: 2026-03-20 - Completed 03-01-PLAN.md
 
 ## Phase Status
 
@@ -19,7 +19,7 @@ Last activity: 2026-03-20 - Phase 2 verified (14/14 must-haves passed)
 |-------|------|--------|-------|
 | 1 | Foundation and Data Models | Complete | 01 complete, 02 complete |
 | 2 | Scraping and Grant Extraction | Complete | 01 complete, 02 complete |
-| 3 | Admissibility Analysis | Not Started | -- |
+| 3 | Admissibility Analysis | In Progress | 01 complete |
 | 4 | Reports and Run Management | Not Started | -- |
 
 ## Progress
@@ -27,7 +27,7 @@ Last activity: 2026-03-20 - Phase 2 verified (14/14 must-haves passed)
 ```
 Phase 1 [======] Foundation and Data Models   (2/2 plans)
 Phase 2 [======] Scraping and Grant Extraction (2/2 plans)
-Phase 3 [      ] Admissibility Analysis
+Phase 3 [===   ] Admissibility Analysis
 Phase 4 [      ] Reports and Run Management
 ```
 
@@ -45,6 +45,8 @@ Phase 4 [      ] Reports and Run Management
 | stdlib html.parser instead of bs4 | bs4 not installed; html.parser achieves same result for text extraction | 2026-03-20 |
 | __agent__ explicit tools list | self_tools=False, neighbors=False, tools=['web_tools','grants','sources'] by tablename | 2026-03-20 |
 | Agent creates grants via tool calls | Tool-use (grants_create) more natural than structured output for agent scraping pattern | 2026-03-20 |
+| Grant analyze() pre-checks org profile | Avoids starting stream agent only to fail; yields clear error text chunk instead | 2026-03-20 |
+| Batch analysis non-streaming in Run.execute() | SSE stream done after scraping; mixing analysis events would confuse frontend run panel | 2026-03-20 |
 | ntx-run-panel in app static/components/ | ssr='full' serves app static files; placing component in static/components/ makes it available at /components/ntx-run-panel.js alongside framework components | 2026-03-20 |
 | Hash routing with handleRoute() | Simple display:none/block toggle for run-panel vs source-list; no ntx-router internals needed | 2026-03-20 |
 
@@ -58,7 +60,10 @@ Phase 4 [      ] Reports and Run Management
 - Document upload routes are custom FastAPI routes inserted before static mount catch-all
 - WebTools is non-storable (no DB table, no CRUD routes) but registered in Matrix for tool discovery
 - Run model uses agentic_stream() from AgentMixin injected by __agent__ = True
-- App has 54 routes after Phase 2 Plan 01 (Run + WebTools added)
+- App has 54 routes after Phase 2 Plan 01 (Run + WebTools added); Phase 3 adds POST /grants/{id}/analyze (streaming)
+- Grant model now agent-enabled: agentic() and agentic_stream() available on instances
+- Grant.analyze() sets status='analyzing' during analysis, resets to 'new' on error
+- Run.execute() runs batch non-streaming analysis after scraping via grant_instance.agentic()
 - httpx and playwright are imported lazily inside WebTools methods (optional at import time)
 - ntx-run-panel.js lives in apps/veille/static/components/ (app-level, not framework-level)
 - StreamActor import in ntx-run-panel.js: './StreamActor.js' (same merged /components/ URL space)
@@ -70,7 +75,7 @@ Phase 4 [      ] Reports and Run Management
 
 ### TODOs
 
-- Proceed to Phase 3: Admissibility Analysis
+- Proceed to Phase 3 Plan 02 (Frontend: ntx-grant-analyze component and grant list analysis indicators)
 
 ---
-*Last updated: 2026-03-20 after Phase 2 completion (14/14 must-haves verified)*
+*Last updated: 2026-03-20 after Phase 3 Plan 01 completion (backend: Grant __agent__ + analyze() + Run batch analysis)*
