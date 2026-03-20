@@ -93,6 +93,12 @@ Plans:
 
 **Requirements:** RPT-01, RUN-02, RUN-04
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md -- Backend: Run report endpoint, Organization schedule fields, scheduler loop
+- [ ] 04-02-PLAN.md -- Frontend: ntx-run-report component, run history in ntx-run-panel, hash routing
+
 **Success Criteria:**
 1. Each completed run generates an in-app report showing admissible, partially admissible, and non-admissible grants with justifications
 2. User can browse full run history and compare results across runs (new grants found, status changes)
@@ -130,4 +136,4 @@ Plans:
 **Mapped: 22/22**
 
 ---
-*Last updated: 2026-03-20 after Phase 3 planning*
+*Last updated: 2026-03-20 after Phase 4 planning*
