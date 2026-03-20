@@ -61,7 +61,7 @@ Plans:
 
 ---
 
-## Phase 3: Admissibility Analysis
+## Phase 3: Admissibility Analysis -- COMPLETE
 
 **Goal:** Every grant is automatically evaluated against the organization profile and classified with detailed justification.
 
@@ -72,8 +72,10 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Backend: Grant __agent__ + analyze() streaming method, batch analysis in Run.execute()
-- [ ] 03-02-PLAN.md -- Frontend: ntx-grant-analyze StreamActor component, index.html #analyze route
+- [x] 03-01-PLAN.md -- Backend: Grant __agent__ + analyze() streaming method, batch analysis in Run.execute()
+- [x] 03-02-PLAN.md -- Frontend: ntx-grant-analyze StreamActor component, index.html #analyze route
+
+**Verification:** Passed (12/12 must-haves verified)
 
 **Success Criteria:**
 1. After a scraping run, each grant is automatically scored by matching its criteria against the organization profile fields
