@@ -8,10 +8,10 @@
 
 ## Current Phase
 
-Phase 4: Reports and Run Management -- In Progress
-Plan: 1 of 2 (04-01 complete)
-Status: In progress
-Last activity: 2026-03-20 - Completed 04-01-PLAN.md
+Phase 4: Reports and Run Management -- Complete
+Plan: 2 of 2 (04-01 complete, 04-02 complete)
+Status: Phase complete
+Last activity: 2026-03-20 - Completed 04-02-PLAN.md
 
 ## Phase Status
 
@@ -20,7 +20,7 @@ Last activity: 2026-03-20 - Completed 04-01-PLAN.md
 | 1 | Foundation and Data Models | Complete | 01 complete, 02 complete |
 | 2 | Scraping and Grant Extraction | Complete | 01 complete, 02 complete |
 | 3 | Admissibility Analysis | Complete | 01 complete, 02 complete |
-| 4 | Reports and Run Management | In Progress | 01 complete |
+| 4 | Reports and Run Management | Complete | 01 complete, 02 complete |
 
 ## Progress
 
@@ -28,7 +28,7 @@ Last activity: 2026-03-20 - Completed 04-01-PLAN.md
 Phase 1 [======] Foundation and Data Models    (2/2 plans)
 Phase 2 [======] Scraping and Grant Execution  (2/2 plans)
 Phase 3 [======] Admissibility Analysis        (2/2 plans)
-Phase 4 [===   ] Reports and Run Management    (1/2 plans)
+Phase 4 [======] Reports and Run Management    (2/2 plans)
 ```
 
 ## Memory
@@ -55,6 +55,8 @@ Phase 4 [===   ] Reports and Run Management    (1/2 plans)
 | Hide-all-then-show in handleRoute() | Cleaner pattern; new panels don't require changes to every existing branch | 2026-03-20 |
 | STREAM_END reloads grant info | Shows updated score/status/justification immediately after analysis without page refresh | 2026-03-20 |
 | attributeChangedCallback drives grant load | Natural signal for attribute change; guards against double-load edge case | 2026-03-20 |
+| Plain HTMLElement (no StreamActor) for ntx-run-report | Read-only report view; no streaming needed | 2026-03-20 |
+| STREAM_END refreshes run history | Shows completed run with View Report link immediately after run finishes | 2026-03-20 |
 
 ### Accumulated Context
 
@@ -80,6 +82,9 @@ Phase 4 [===   ] Reports and Run Management    (1/2 plans)
 - Run.report() is a class-level @expose_route (no self); route is GET /runs/report?run_id=N
 - GET endpoints with query params require network_api._parse_method_args to merge query_params (fixed in 04-01)
 - Scheduler loop: _scheduler_loop() + _start_scheduler() in main.py; fires every 15 min when schedule_enabled=True
+- ntx-run-report.js: read-only report component; extends HTMLElement; observed attribute run-id
+- Hash route #report/{id} shows report panel; grant title links to #analyze/{id}
+- Run history in ntx-run-panel: CSS grid table, last 20 runs, View Report for complete runs
 
 ### Blockers
 
@@ -87,7 +92,7 @@ Phase 4 [===   ] Reports and Run Management    (1/2 plans)
 
 ### TODOs
 
-- Proceed to Phase 4 Plan 02 (Frontend report panel)
+All phases complete. Application is fully functional.
 
 ---
-*Last updated: 2026-03-20 after Phase 4 Plan 01 completion (backend: Run.report endpoint, Organization schedule fields, asyncio scheduler loop)*
+*Last updated: 2026-03-20 after Phase 4 Plan 02 completion (frontend: ntx-run-report component, run history in ntx-run-panel, hash routing for #report/{id})*
