@@ -69,6 +69,12 @@ Plans:
 
 **Requirements:** ADM-01, ADM-02, ADM-03, ADM-04
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md -- Backend: Grant __agent__ + analyze() streaming method, batch analysis in Run.execute()
+- [ ] 03-02-PLAN.md -- Frontend: ntx-grant-analyze StreamActor component, index.html #analyze route
+
 **Success Criteria:**
 1. After a scraping run, each grant is automatically scored by matching its criteria against the organization profile fields
 2. The agent provides holistic LLM reasoning about organization-grant fit with a written justification per grant
@@ -122,4 +128,4 @@ Plans:
 **Mapped: 22/22**
 
 ---
-*Last updated: 2026-03-20 after Phase 2 completion*
+*Last updated: 2026-03-20 after Phase 3 planning*
