@@ -100,7 +100,8 @@ async def _scheduler_loop():
                     if run_id:
                         raw = Run.get(run_id)
                         run_instance = Run(**raw) if isinstance(raw, dict) else raw
-                        async for _ in run_instance.execute():
+                        system_user = {'user_id': 0, 'role': 'system', 'email': 'scheduler@veille'}
+                        async for _ in run_instance.execute(user=system_user):
                             pass
                         logger.info(f"Scheduled run {run_id} complete")
                 except Exception as e:

@@ -7,6 +7,10 @@ from n3tx_actors.models.actor_model import ActorModel
 from n3tx_core.utils.decorators import expose_route
 from n3tx_core.authorize import AUTHENTICATED
 
+from playwright.async_api import async_playwright
+
+from models.grant import Grant
+
 
 # ── HTML-to-text extractor (stdlib, no dependencies) ──────────────
 
@@ -56,7 +60,7 @@ class WebTools(ActorModel):
     __storable__: ClassVar[bool] = False
 
     @expose_route('/scrape', methods=['POST'], access=AUTHENTICATED)
-    async def scrape(self, url: str) -> dict:
+    async def scrape(url: str) -> dict:
         """Fetch a URL via HTTP and return its text content.
 
         Uses httpx with redirect following. Returns extracted text
@@ -81,13 +85,12 @@ class WebTools(ActorModel):
             return {'url': url, 'status': 0, 'text': '', 'error': str(e)}
 
     @expose_route('/scrape_js', methods=['POST'], access=AUTHENTICATED)
-    async def scrape_js(self, url: str) -> dict:
+    async def scrape_js(url: str) -> dict:
         """Fetch a JS-rendered page using Playwright headless browser.
 
         Use this when scrape() returns empty/minimal content,
         indicating the page requires JavaScript to render.
         """
-        from playwright.async_api import async_playwright
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
@@ -106,14 +109,13 @@ class WebTools(ActorModel):
             return {'url': url, 'status': 0, 'text': '', 'error': str(e)}
 
     @expose_route('/check_duplicate', methods=['POST'], access=AUTHENTICATED)
-    def check_duplicate(self, url: str, title: str = '') -> dict:
+    def check_duplicate(url: str, title: str = '') -> dict:
         """Check if a grant already exists by URL match.
 
         Returns {duplicate: True, id: N, method: 'url'} if found,
         or {duplicate: False} if no match. The agent can use LLM
         reasoning for title-based comparison when URL doesn't match.
         """
-        from models.grant import Grant
         try:
             existing = Grant.list(limit=200)
             data = existing.get('data', existing) if isinstance(existing, dict) else existing

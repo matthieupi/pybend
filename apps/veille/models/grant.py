@@ -10,6 +10,8 @@ from n3tx_core.utils.decorators import expose_route
 from n3tx_core.authorize import AUTHENTICATED, ROLE
 from n3tx_core.widgets import TextareaField, MarkdownField
 
+from models.organization import Organization
+
 logger = logging.getLogger('veille.grant')
 
 
@@ -36,6 +38,10 @@ class Grant(ActorModel):
             'Details': ['description', 'eligibility_criteria',
                         'required_documents', 'application_process'],
             'Analysis': ['admissibility_score', 'admissibility_reasoning'],
+        },
+        'renderer': {'item': 'ntx-grant-item'},
+        'methods': {
+            'analyze': {'renderer': 'ntx-grant-analyze'},
         },
     }
     __agent__: ClassVar[dict] = {
@@ -85,25 +91,39 @@ class Grant(ActorModel):
                       'thinking': ThinkingChunk,
                       'done': DoneChunk,
                   })
-    async def analyze(self):
+    async def analyze(self, user=None):
         """Analyze this grant's admissibility against the org profile. Streams progress.
         Route: POST /grants/{id}/analyze
         """
-        from models.organization import Organization
         try:
             orgs = Organization.list(limit=1)
             data = orgs.get('data', orgs) if isinstance(orgs, dict) else orgs
         except Exception:
             data = []
         if not data:
-            yield {'name': 'text', 'data': {'text': 'No organization profile configured. Cannot analyze.'}}
-            return
+            raise LookupError('No organization found to analyze the grant against')
+
+        print("USER")
+        print("USER")
+        print("USER")
+        print("USER")
+        print(type(user))
+        print(user)
+
+        # Resolve user to dict for agent pipeline
+        user_dict = None
+        if user is not None:
+            if hasattr(user, 'model_dump'):
+                ud = user.model_dump()
+                user_dict = {'user_id': ud.get('id'), 'email': ud.get('email'), 'role': ud.get('role', 'user')}
+            elif isinstance(user, dict):
+                user_dict = user
 
         task = self._build_analysis_task()
         prompt = self._build_analysis_prompt()
         Grant.update(self.id, {'status': 'analyzing'})
         try:
-            async for chunk in self.agentic_stream(task=task, prompt=prompt):
+            async for chunk in self.agentic_stream(task=task, prompt=prompt, user=user_dict):
                 yield chunk
         except Exception as e:
             logger.error(f"Analysis failed for grant {self.id}: {e}")

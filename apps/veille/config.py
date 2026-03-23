@@ -3,7 +3,7 @@ import os
 from n3tx_core import config as _fw
 
 HOST = os.environ.get("N3TX_HOST", "0.0.0.0")
-PORT = int(os.environ.get("N3TX_PORT", "5000"))
+PORT = int(os.environ.get("N3TX_PORT", "4000"))
 API_URL = os.environ.get("N3TX_API_URL", f"http://localhost:{PORT}")
 SQLITE_DB_FILE = os.environ.get("N3TX_SQLITE_DB", "veille.db")
 JWT_SECRET = os.environ.get("N3TX_JWT_SECRET", "veille-dev-secret-change-in-production")

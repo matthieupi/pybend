@@ -13,6 +13,8 @@ from n3tx_core.utils.decorators import expose_route
 from n3tx_core.authorize import AUTHENTICATED, ROLE
 from n3tx_core.widgets import TextareaField
 
+from models.grant import Grant
+
 logger = logging.getLogger('veille.run')
 
 
@@ -46,6 +48,10 @@ class Run(ActorModel):
             'Config': ['adhoc_url'],
             'Errors': ['error'],
         },
+        'renderer': {'item': 'ntx-run-item'},
+        'methods': {
+            'execute': {'renderer': 'ntx-stream-agent'},
+        },
     }
 
     # Lifecycle
@@ -72,7 +78,6 @@ class Run(ActorModel):
 
         Route: GET /runs/report?run_id=N
         """
-        from models.grant import Grant
 
         # Fetch run metadata
         run_record = Run.get(run_id)
@@ -139,7 +144,7 @@ class Run(ActorModel):
                       'thinking': ThinkingChunk,
                       'done': DoneChunk,
                   })
-    async def execute(self, adhoc_url: str = ''):
+    async def execute(self, adhoc_url: str = '', user=None):
         """Execute the scraping run. Streams agent progress as SSE events.
 
         For full runs: scrapes all active sources.
@@ -168,11 +173,19 @@ class Run(ActorModel):
         })
         logger.info(f"Run {self.id} started (type={self.type})")
 
+        # Resolve user to a dict for the agent pipeline (could be User instance, dict, or None)
+        user_dict = None
+        if user is not None:
+            if hasattr(user, 'model_dump'):
+                ud = user.model_dump()
+                user_dict = {'user_id': ud.get('id'), 'email': ud.get('email'), 'role': ud.get('role', 'user')}
+            elif isinstance(user, dict):
+                user_dict = user
         task = self._build_task()
         prompt = self._build_prompt()
 
         try:
-            async for chunk in self.agentic_stream(task=task, prompt=prompt):
+            async for chunk in self.agentic_stream(task=task, prompt=prompt, user=user_dict):
                 yield chunk
 
             # Count grants created during this run
@@ -221,6 +234,7 @@ class Run(ActorModel):
                         await grant_instance.agentic(
                             task=grant_instance._build_analysis_task(),
                             prompt=grant_instance._build_analysis_prompt(),
+                            user=user_dict,
                         )
                         logger.info(f"Analyzed grant {grant_id} ({i+1}/{len(new_grants)})")
                     except Exception as e:
