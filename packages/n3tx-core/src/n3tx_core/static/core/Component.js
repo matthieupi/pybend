@@ -427,6 +427,7 @@ export class Component extends HTMLElement {
       this.displayModeChanged(old, forced);
     }
     this.#startResizeObserver();
+    this.prerender();
   }
 
   disconnectedCallback() {
@@ -434,6 +435,12 @@ export class Component extends HTMLElement {
     this.#detach?.();
     this.#unsubscribe?.();
   }
+
+  /**
+   * Pre-schema structural UI. Called once from connectedCallback().
+   * Override in subclasses to render DOM skeleton before schema loads.
+   */
+  prerender() {}
 
   /**
    * Abstract — subclasses must implement.
