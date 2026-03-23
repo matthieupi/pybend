@@ -9,6 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <link rel="preload" href="./components/ntx-item.css" as="style">
     <link rel="preload" href="./components/ntx-list.css" as="style">
+    <link rel="preload" href="./components/ntx-table.css" as="style">
     <link rel="preload" href="./components/ntx-router.css" as="style">
     <link rel="preload" href="./components/ntx-topbar.css" as="style">
     <link rel="preload" href="./components/ntx-sidebar.css" as="style">
@@ -39,8 +40,12 @@
     <link rel="modulepreload" href="./components/ntx-modal.js">
     <link rel="modulepreload" href="./components/ntx-sidebar.js">
     <link rel="modulepreload" href="./components/ntx-stream.js">
-    <link rel="modulepreload" href="./components/ntx-run-panel.js">
+    <link rel="modulepreload" href="./components/ntx-stream-agent.js">
+    <link rel="modulepreload" href="./components/ntx-table.js">
+    <link rel="modulepreload" href="./components/ntx-grant-item.js">
     <link rel="modulepreload" href="./components/ntx-grant-analyze.js">
+    <link rel="modulepreload" href="./components/ntx-run-item.js">
+    <link rel="modulepreload" href="./components/ntx-run-panel.js">
     <link rel="modulepreload" href="./components/ntx-run-report.js">
     <link rel="modulepreload" href="./generators/form.js">
     <link rel="modulepreload" href="./widgets/Widget.js">
@@ -83,34 +88,161 @@
         .upload-status.error {
             color: var(--error);
         }
+
+        /* Run launcher */
+        .run-launcher {
+            margin: 1.5rem;
+            padding: 1.25rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg, 12px);
+        }
+        .run-launcher-title {
+            margin: 0 0 0.75rem 0;
+            font-size: 0.95rem;
+            color: var(--text-1);
+        }
+        .run-launcher-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .run-url-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            font-family: inherit;
+            color: var(--text-0, #f0f2f8);
+            background: var(--surface-1, #0e1018);
+            border: 1px solid var(--border, rgba(255,255,255,0.06));
+            border-radius: var(--radius-sm, 8px);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .run-url-input:focus {
+            border-color: var(--accent, #22d3c5);
+            box-shadow: 0 0 0 2px var(--accent-dim, rgba(34,211,197,0.12));
+        }
+        .run-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            border: 1px solid var(--border, rgba(255,255,255,0.06));
+            border-radius: var(--radius-sm, 8px);
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .run-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .run-btn-scan {
+            color: var(--text-0, #f0f2f8);
+            background: var(--surface-3, #1c2030);
+        }
+        .run-btn-scan:hover:not(:disabled) {
+            border-color: var(--accent-dim, rgba(34,211,197,0.25));
+            background: var(--surface-2, rgba(22, 26, 38, 0.7));
+        }
+        .run-btn-full {
+            color: white;
+            background: var(--gradient-accent, linear-gradient(135deg, #22d3c5, #1a9e94));
+            border-color: transparent;
+        }
+        .run-btn-full:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+        .run-launcher-status {
+            margin-top: 0.5rem;
+            font-size: 0.825rem;
+            color: var(--text-2);
+            min-height: 1.2em;
+        }
+        .run-launcher-status.error {
+            color: var(--error);
+        }
+        .run-live-output {
+            margin: 0 1.5rem;
+        }
+        .run-live-output:empty {
+            display: none;
+        }
+        .run-live-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm, 8px);
+        }
+        .run-live-header .run-id {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-0, #f0f2f8);
+        }
+        .run-live-header .run-type,
+        .run-live-header .run-status {
+            display: inline-block;
+            padding: 0.15rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .run-live-url {
+            font-size: 0.8rem;
+            color: var(--text-2, #9ba3bd);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .run-history-title {
+            margin: 1.5rem 1.5rem 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-3, #555e78);
+        }
     </style>
 </head>
 <body>
     <ntx-topbar></ntx-topbar>
     <ntx-sidebar router="main">
-        <ntx-list model="Source" allow-create></ntx-list>
-        <ntx-list model="Organization"></ntx-list>
+        <ntx-table model="Source" allow-create></ntx-table>
         <ntx-list model="Grant" allow-create></ntx-list>
-        <a href="#runs" class="sidebar-nav-item" data-route="runs">Runs</a>
+        <ntx-item model="Organization" id="org-panel" display="md" style="display:none"></ntx-item>
+
+        <a href="#sources" class="sidebar-nav-item" data-route="sources">Sources</a>
+        <a href="#organization" class="sidebar-nav-item" data-route="organization">Organization</a>
     </ntx-sidebar>
 
     <div class="page">
-        <ntx-router name="main" hash>
-            <ntx-list model="Source" id="source-list" allow-create></ntx-list>
-            <ntx-run-panel id="run-panel" data-route="runs" style="display:none"></ntx-run-panel>
-            <ntx-grant-analyze id="analyze-panel" style="display:none"></ntx-grant-analyze>
+        <ntx-router name="main">
+            <ntx-run-panel id="run-panel"></ntx-run-panel>
+            <div id="source-panel" style="display:none">
+                <ntx-table model="Source" id="source-list" allow-create></ntx-table>
+                <div class="upload-section" id="upload-section">
+                    <h3>Upload Strategic Document</h3>
+                    <div class="upload-row">
+                        <input type="file" id="doc-file" accept=".pdf,.txt,.md,.doc,.docx" />
+                        <button id="upload-btn" onclick="uploadDocument()">Upload</button>
+                    </div>
+                    <div class="upload-status" id="upload-status"></div>
+                </div>
+            </div>
+            <ntx-item model="Organization" id="org-panel" display="md" style="display:none"></ntx-item>
+            <ntx-grant-analyze id="analyze-panel" model="Grant" method="analyze" style="display:none"></ntx-grant-analyze>
             <ntx-run-report id="report-panel" style="display:none"></ntx-run-report>
         </ntx-router>
-
-        <!-- Document upload section -->
-        <div class="upload-section" id="upload-section">
-            <h3>Upload Strategic Document</h3>
-            <div class="upload-row">
-                <input type="file" id="doc-file" accept=".pdf,.txt,.md,.doc,.docx" />
-                <button id="upload-btn" onclick="uploadDocument()">Upload</button>
-            </div>
-            <div class="upload-status" id="upload-status"></div>
-        </div>
     </div>
 
     <script type="module">
@@ -127,8 +259,12 @@
         import './components/ntx-topbar.js';
         import './components/ntx-sidebar.js';
         import './components/ntx-stream.js';
-        import './components/ntx-run-panel.js';
+        import './components/ntx-stream-agent.js';
+        import './components/ntx-table.js';
+        import './components/ntx-grant-item.js';
         import './components/ntx-grant-analyze.js';
+        import './components/ntx-run-item.js';
+        import './components/ntx-run-panel.js';
         import './components/ntx-run-report.js';
 
         // Redirect to login if not authenticated
@@ -138,39 +274,62 @@
             }
         });
 
-        // Simple hash-based routing for the run panel, analyze panel, and report panel
+        // Simple hash-based routing
         function handleRoute() {
             const hash = window.location.hash.replace('#', '') || '';
-            const runPanel = document.getElementById('run-panel');
-            const sourceList = document.getElementById('source-list');
-            const uploadSection = document.getElementById('upload-section');
-            const analyzePanel = document.getElementById('analyze-panel');
-            const reportPanel = document.getElementById('report-panel');
+            const panels = ['run-panel', 'source-panel',
+                            'analyze-panel', 'report-panel', 'org-panel'];
+            panels.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
 
-            // Hide all panels
-            if (runPanel) runPanel.style.display = 'none';
-            if (sourceList) sourceList.style.display = 'none';
-            if (uploadSection) uploadSection.style.display = 'none';
-            if (analyzePanel) analyzePanel.style.display = 'none';
-            if (reportPanel) reportPanel.style.display = 'none';
-
-            if (hash === 'runs') {
-                if (runPanel) runPanel.style.display = 'block';
+            if (hash === 'sources') {
+                document.getElementById('source-panel').style.display = 'block';
+            } else if (hash === 'organization') {
+                const orgPanel = document.getElementById('org-panel');
+                if (orgPanel) {
+                    orgPanel.style.display = 'block';
+                    loadOrgRef(orgPanel);
+                }
             } else if (hash.startsWith('analyze/')) {
                 const grantId = hash.split('/')[1];
-                if (analyzePanel && grantId) {
-                    analyzePanel.setAttribute('grant-id', grantId);
-                    analyzePanel.style.display = 'block';
+                const el = document.getElementById('analyze-panel');
+                if (el && grantId) {
+                    el.setAttribute('uuid', grantId);
+                    el.style.display = 'block';
                 }
             } else if (hash.startsWith('report/')) {
                 const runId = hash.split('/')[1];
-                if (reportPanel && runId) {
-                    reportPanel.setAttribute('run-id', runId);
-                    reportPanel.style.display = 'block';
+                const el = document.getElementById('report-panel');
+                if (el && runId) {
+                    el.setAttribute('run-id', runId);
+                    el.style.display = 'block';
                 }
             } else {
-                if (sourceList) sourceList.style.display = '';
-                if (uploadSection) uploadSection.style.display = '';
+                // Default: show runs (homepage)
+                document.getElementById('run-panel').style.display = 'block';
+            }
+        }
+
+        // Load the first (only) organization into the ntx-item
+        async function loadOrgRef(el) {
+            if (el.getAttribute('ref')) return; // already loaded
+            const token = localStorage.getItem('jwtToken');
+            if (!token) return;
+            try {
+                const resp = await fetch(`${config.API_URL}/organizations?limit=1`, {
+                    headers: { 'x-access-token': token },
+                });
+                if (!resp.ok) return;
+                const result = await resp.json();
+                const data = result.data || result;
+                if (data.length > 0) {
+                    const id = data[0].id || data[0].$id?.split('/').pop();
+                    if (id) el.setAttribute('ref', `Organization/${id}`);
+                }
+            } catch (e) {
+                console.warn('Failed to load organization:', e);
             }
         }
 
