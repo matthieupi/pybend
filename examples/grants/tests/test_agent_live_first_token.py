@@ -109,7 +109,7 @@ class TestSSEStreamAllTokensDelivered:
 
 
 class TestAgentLiveAccumulatesAllChunks:
-    """StreamActor TEXT handler must accumulate all chunks from index 0."""
+    """NTTStreamAgent TEXT handler must accumulate all chunks from index 0."""
 
     def test_stream_text_accumulation_starts_from_first_chunk(
         self, client, live_agent, alice_token
