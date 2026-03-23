@@ -1094,16 +1094,41 @@ function prototype(addr, schema, href) {
     /**
      * Instance _response_ — handles method call responses (e.g. like, comment).
      *
-     * If the response contains entity data (has `id`), update the instance
-     * directly — no network pull needed.  Otherwise (simple action result
-     * like {action: 'liked'}), do nothing — the method succeeded and the
-     * calling component can pull() explicitly if it needs fresh data.
-     *
-     * This avoids the unconditional GET-after-every-method-call that caused
-     * redundant fetches, full DOM re-renders, and image reloads.
+     * Three cases:
+     * 1. Action response with _field hint (like/favorite toggle):
+     *    Appends or removes child ref from the named array field.
+     * 2. Entity data response (has id, no action):
+     *    Updates this instance directly — no network pull needed.
+     * 3. Otherwise: no-op (simple action succeeded, no entity data).
      */
     DynamicClass.prototype._response_ = function(data, tx) {
-        if (data && typeof data === 'object' && data.id !== undefined) {
+        if (!data || typeof data !== 'object') return;
+
+        // Case 1: Action response with field hint — update array in-place
+        if (data.action && data._field && data.id !== undefined) {
+            const field = data._field;
+            const arr = Array.isArray(this._data[field]) ? [...this._data[field]] : [];
+
+            if (data.action === 'liked' || data.action === 'favorited') {
+                const childHref = `${this.href}/${field}/${data.id}`;
+                arr.push(childHref);
+                // Register child entity if DynamicClass exists
+                const props = DynamicClass._schema?.properties?.[field];
+                const childModel = props ? resolveModelName(props) : null;
+                const ChildDC = childModel ? NTT.get(childModel) : null;
+                if (ChildDC) registerInstance(ChildDC, { ...data, $id: childHref });
+            } else if (data.action === 'unliked' || data.action === 'unfavorited') {
+                const idStr = String(data.id);
+                const idx = arr.findIndex(ref => String(ref).endsWith('/' + idStr));
+                if (idx >= 0) arr.splice(idx, 1);
+            }
+
+            this.value = { ...this._data, [field]: arr };
+            return;
+        }
+
+        // Case 2: Entity data response — update directly
+        if (data.id !== undefined) {
             normalizePopulated(data, DynamicClass._schema);
             this.update(data);
         }

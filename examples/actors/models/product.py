@@ -95,12 +95,17 @@ class Product(ActorModel):
         existing = join_cls.list(sql_filter=("product_id = ? AND user = ?", [self.id, user.id]))
         items = existing if isinstance(existing, list) else existing.get('data', [])
         if items:
-            join_cls.delete(items[0].id)
-            return {'action': 'unfavorited'}
+            deleted_id = items[0].id
+            join_cls.delete(deleted_id)
+            return {'action': 'unfavorited', 'id': deleted_id, '_field': 'favorites'}
         new_like = Like(user=user.id, created_at=datetime.now().isoformat())
         new_like.__owner__ = self
-        new_like.save()
-        return {'action': 'favorited'}
+        saved = new_like.save()
+        return {
+            'action': 'favorited', '_field': 'favorites',
+            'id': saved.id, 'user': user.id,
+            'created_at': saved.created_at,
+        }
 
     # TODO We just added the return type, we have to make sure this plays well within the framework
     #  (fastapi, automatic docs, type checking in N3TX etc) as this is the first we use a AsyncGen return type.

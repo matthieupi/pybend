@@ -120,7 +120,9 @@ class TestProductFavorite:
         with patch('models.product.join_models', {('Product', 'Like'): mock_join}):
             with patch.object(Like, 'save', return_value=Like(user=1)):
                 result = p.favorite(user=mock_user)
-                assert result == {'action': 'favorited'}
+                assert result['action'] == 'favorited'
+                assert result['_field'] == 'favorites'
+                assert 'id' in result
 
     def test_unfavorite_existing(self):
         p = Product(id=1, name='Test', price=10.0)
@@ -134,5 +136,7 @@ class TestProductFavorite:
 
         with patch('models.product.join_models', {('Product', 'Like'): mock_join}):
             result = p.favorite(user=mock_user)
-            assert result == {'action': 'unfavorited'}
+            assert result['action'] == 'unfavorited'
+            assert result['_field'] == 'favorites'
+            assert result['id'] == 10
             mock_join.delete.assert_called_once_with(10)
