@@ -55,14 +55,18 @@ from pydantic_ai.messages import (
 )
 
 from n3tx_core import config
-from n3tx_actors.actor import Actor
-from n3tx_actors.tx import TX
-from n3tx_agents.deps import AgentDeps
-from n3tx_agents.tools import discover_tools, make_tool
+from n3tx_core.models.proto_schema import run_pipeline
 from n3tx_core.utils.descriptors import fullmethod
 from n3tx_core.utils.introspection import get_list_fields
 
+from n3tx_actors.tx import TX
+from n3tx_actors.actor import Actor
+
+from n3tx_agents.deps import AgentDeps
+from n3tx_agents.tools import discover_tools, make_tool
 from n3tx_agents.thread import Thread
+
+
 
 logger = logging.getLogger('n3tx.agents')
 
@@ -102,7 +106,6 @@ def _resolve_llm(llm):
 
 def _build_schema_text(cls) -> str:
     """Generate LLM context from model schema as cleaned JSON."""
-    from n3tx_core.models.proto_schema import run_pipeline
     cleaned = run_pipeline(cls, pipeline='llm')
     tablename = getattr(cls, '__tablename__', cls.__name__)
     return (f'You operate on {cls.__name__} entities (table: {tablename}).\n\n'
@@ -117,6 +120,7 @@ def _build_instance_text(target) -> str:
         return ''
 
     # Truncate long values
+    # We will need to review the trucation to make sure we are not removing relevant context.
     truncated = {}
     for k, v in data.items():
         s = str(v)
@@ -249,11 +253,6 @@ class AgentMixin:
         thread_id = kwargs.get('thread_id')
         result_type = kwargs.get('result_type') or model_conf.get('result_type')
 
-        if isinstance(target, type):
-            instance = target()
-        else:
-            instance = target
-
         # LLM resolved by run() from conf; pass explicit override if any
         run_kwargs = dict(
             task=task, prompt=prompt, tools=tools,
@@ -263,7 +262,8 @@ class AgentMixin:
         if 'llm' in kwargs:
             run_kwargs['llm'] = kwargs['llm']
 
-        return await instance.run(**run_kwargs)
+        return await target.run(**run_kwargs)
+
 
     @fullmethod
     async def run(target, task: str, prompt: str, tools: list,
@@ -297,7 +297,6 @@ class AgentMixin:
                 thread_id: Thread ID (when thread was used).
         """
         cls = target if isinstance(target, type) else target.__class__
-        instance = target if not isinstance(target, type) else target()
 
         # ── LLM: kwargs > __agent__['llm'] > instance attr > AGENT_DEFAULTS ──
         agent_flag = getattr(cls, '__agent__', False)
@@ -305,15 +304,15 @@ class AgentMixin:
         llm = _resolve_llm(
             kwargs.get('llm')
             or model_conf.get('llm')
-            or getattr(instance, 'llm', None)
+            or getattr(target, 'llm', None)
             or config.AGENT_DEFAULTS.get('llm')
         )
         constraints = constraints or {}
 
         # ── Agent address ──
         agent_addr = (
-            getattr(instance, '_addr', '')
-            or getattr(cls, '__addr__', '')
+            getattr(target, '_addr', '')
+            or getattr(target, '__addr__', '')
         )
 
         # ── Matrix root (for request-response) ──
@@ -479,7 +478,6 @@ class AgentMixin:
             {'name': 'error',       'data': {'message': '...'}, 'meta': {'error': True}}
         """
         cls = target if isinstance(target, type) else target.__class__
-        instance = target if not isinstance(target, type) else target()
 
         # ── LLM: kwargs > __agent__['llm'] > instance attr > AGENT_DEFAULTS ──
         agent_flag = getattr(cls, '__agent__', False)
@@ -487,14 +485,14 @@ class AgentMixin:
         llm = _resolve_llm(
             kwargs.get('llm')
             or model_conf.get('llm')
-            or getattr(instance, 'llm', None)
+            or getattr(target, 'llm', None)
             or config.AGENT_DEFAULTS.get('llm')
         )
         constraints = constraints or {}
 
         agent_addr = (
-            getattr(instance, '_addr', '')
-            or getattr(cls, '__addr__', '')
+            getattr(target, '_addr', '')
+            or getattr(target, '__addr__', '')
         )
 
         # ── Matrix root (for request-response) ──
@@ -566,11 +564,19 @@ class AgentMixin:
                                 if isinstance(event, PartStartEvent):
                                     if isinstance(event.part, ToolCallPart):
                                         tool_call_count += 1
+                                        # Normalize args: pydantic-ai ToolCallPart.args
+                                        # can be str (raw JSON) or dict depending on the model.
+                                        args = event.part.args
+                                        if isinstance(args, str):
+                                            try:
+                                                args = json.loads(args)
+                                            except (json.JSONDecodeError, TypeError):
+                                                args = {'raw': args}
                                         yield {
                                             'name': 'tool_call',
                                             'data': {
                                                 'tool': event.part.tool_name,
-                                                'args': event.part.args,
+                                                'args': args,
                                                 'call_id': event.part.tool_call_id,
                                             },
                                             'meta': {'stream': True, 'seq': seq},

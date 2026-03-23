@@ -207,7 +207,7 @@ async def _route_tool_call(ctx, target_addr: str, method_name: str, data: dict) 
     from n3tx_actors.actor import Actor
 
     root = Actor.root()
-    meta = {'user': ctx.deps.user} if ctx.deps.user else {}
+    meta = {'user': ctx.deps.user}
     tx = TX(
         name=method_name,
         source=root.addr,
