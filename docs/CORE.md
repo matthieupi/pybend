@@ -156,7 +156,7 @@ GET /Product -> JSON Schema
 | `access` | `Permissions.js` | Show/hide edit/delete buttons (resource-aware OWNER) |
 | `methods` | `prototype()` + `<ntx-method>` | Callable methods + action buttons |
 | `methods[m].ui` | `<ntx-method>` | Button layout, icon, count-field for social actions |
-| `methods[m].events` | `StreamActor._validateStreamHandlers()` | Declared stream event types (JSON Schema per event) |
+| `methods[m].events` | `NTTStreamAgent` UPPERCASE handlers | Declared stream event types (JSON Schema per event) |
 | `$defs` | `N3TX.SCHEMA()` | Nested DynamicClass registration |
 | `$id` / `$schema` | DynamicClass value getter | Self-describing entity instances |
 

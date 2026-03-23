@@ -57,17 +57,20 @@ Component (n3tx-core: shadow DOM, addr, ref, model, proto, define(), scheduleRen
 
 Standalone (no Component base): `NTTModal`, `NTTRefPicker`, `NTTTopbar`, `NTTSidebar`, `NTTProfile`.
 
-**Agent components** (n3tx-agents, extend `StreamActor(HTMLElement)` — NOT `Component`):
+**Agent components** (n3tx-agents, extend `NTTStream` from n3tx-ui):
 
 ```
-StreamActor (StreamActor.js)              -- Mixin: TX-aware stream dispatch
-  |  Provides: stream(url, payload), streamClose(), #dispatch()
-  |  Unwraps STREAM envelopes (Level 3) and dispatches to UPPERCASE handlers
+NTTStream (ntx-stream.js)                -- TX-based streaming with cancel()
   |
-  +-- NTTAgentLive (ntx-agent-live.js)    -- <ntx-agent-live>
+  +-- NTTStreamAgent (ntx-stream-agent.js)  -- Rich agent output (entries, markdown, tool cards)
   |     Handlers: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE, STREAM_END, STREAM_ERROR
   |
-  +-- NTTChat (ntx-chat.js)              -- <ntx-chat>
+  +-- NTTAgentLive (ntx-agent-live.js)      -- <ntx-agent-live> standalone monitor
+  |     prerender(): textarea + log + footer
+  |     Handlers: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE, STREAM_END, STREAM_ERROR
+  |
+  +-- NTTChat (ntx-chat.js)                 -- <ntx-chat> floating chat panel
+        prerender(): floating tab + slide-up panel
         Handlers: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE, STREAM_END, STREAM_ERROR
 ```
 
@@ -208,8 +211,6 @@ Declarative route templates control what the sidebar navigates to:
 
 - **AbortController for event listeners.** NTTItem and NTTRow create a new AbortController per render and abort the previous one. This prevents listener accumulation. If you extend these classes and add custom listeners, use the same pattern with `{signal}`.
 
-- **NTTStream binds a dynamic handler** named after the method (e.g., `this.GENERATE = (data, tx) => ...`). If the method name changes, the old handler is unbound. The handler dispatches based on `tx.meta`: stream_end -> onDone, error -> onError, else -> onChunk. For agent-style streaming with typed events, use `StreamActor` mixin instead (in n3tx-agents).
-
-- **StreamActor mixin** (in n3tx-agents) is for components that consume TX-aligned stream chunks with named event types (text, tool_call, done, etc.). It unwraps STREAM envelopes from Level 3 routing and dispatches to UPPERCASE methods. Use `StreamActor` for agent UIs; use `NTTStream` for simple progressive-output rendering.
+- **NTTStream binds a dynamic handler** named after the method (e.g., `this.GENERATE = (data, tx) => ...`). If the method name changes, the old handler is unbound. The handler dispatches based on `tx.meta`: stream_end -> onDone, error -> onError, else -> onChunk. For agent-style streaming with typed events (text, tool_call, done, etc.), extend `NTTStreamAgent` instead — it unwraps STREAM envelopes and dispatches to UPPERCASE handler methods (THINKING, TOOL_CALL, TEXT, DONE, etc.).
 
 - **NTTModal locks body scroll** (`document.body.style.overflow = 'hidden'`) while open and restores on close via the `modal-close` event listener.

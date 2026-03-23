@@ -81,9 +81,9 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-ui/src/n3tx_ui/static/widgets/widgets.css` - Widget-specific styles
 
 ### Agent UI (n3tx-agents)
-- `packages/n3tx-agents/src/n3tx_agents/static/components/StreamActor.js` - StreamActor mixin: TX-aware stream dispatch with UPPERCASE handlers
-- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` - Real-time agent activity view (extends StreamActor)
-- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Agent chat panel (extends StreamActor, imports from core only, NOT from ui)
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js` - NTTStreamAgent: rich agent output (entries, markdown, tool cards). Extends NTTStream.
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` - Real-time agent activity view (extends NTTStream)
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Agent chat panel (extends NTTStream)
 
 ### Themes & Default HTML (n3tx-ui)
 - `packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` - Dark theme
@@ -226,16 +226,16 @@ Extends `NTTMethod`. For methods with `schema.methods[m].stream === true`. Rende
 <ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
 ```
 
-### StreamActor Mixin (Agent Streaming)
+### NTTStreamAgent (Agent Streaming)
 
-**File**: `packages/n3tx-agents/src/n3tx_agents/static/components/StreamActor.js`
+**File**: `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js`
 
-A JS mixin that adds TX-aware stream dispatch to any web component. Handles the difference between Level 1/2 (direct SSE) and Level 3 (STREAM-enveloped SSE) transparently.
+Extends `NTTStream` with rich agent output rendering — typed entries (thinking, tool calls, text), markdown rendering, and tool result cards. All agent-style streaming components extend `NTTStreamAgent` (or `NTTStream` directly for simpler cases):
 
 ```javascript
-import { StreamActor } from './StreamActor.js';
+import { NTTStreamAgent } from './ntx-stream-agent.js';
 
-class MyComponent extends StreamActor(HTMLElement) {
+class MyComponent extends NTTStreamAgent {
     // UPPERCASE = TX inbox handlers (actor convention)
     TEXT(data, meta)       { /* data.text */ }
     TOOL_CALL(data, meta)  { /* data.tool, data.args, data.call_id */ }
@@ -247,29 +247,36 @@ class MyComponent extends StreamActor(HTMLElement) {
 }
 ```
 
-**API:**
+**Component hierarchy:**
 
-| Method | Purpose |
-|--------|---------|
-| `stream(url, payload)` | Open SSE connection. Chunks dispatch to UPPERCASE handlers. |
-| `streamClose()` | Cancel active stream. Call in `disconnectedCallback()`. |
-| `_validateStreamHandlers(schema, methodName)` | Warn if declared event types have no matching handler. |
+```
+Component → NTTMethod → NTTStream → NTTStreamAgent → (app subclasses)
+```
+
+**Lifecycle hooks:**
+
+| Method | When | Purpose |
+|--------|------|---------|
+| `prerender()` | `connectedCallback()`, before schema | Structural DOM (shell, layout). Never wiped by render(). |
+| `render()` | After schema arrives | Additive updates (title, etc.). Must not wipe prerender() output. |
+| `callMethod()` | User triggers execution | Starts stream. Generates `#streamReqId` correlation ID. |
+| `cancel()` | Cleanup / user action | Sets `#cancelled` flag, sends `STREAM_CANCEL` TX, calls `STREAM_END`. |
+| `disconnectedCallback()` | Element removed | Auto-calls `cancel()` for cleanup. |
 
 **Dispatch flow:**
 
-1. SSE chunk arrives via `HTTP.stream()`
-2. If outer envelope has `name === 'STREAM'` (Level 3 actor routing), unwrap one level
-3. Read inner `name`, convert to UPPERCASE, call `this[NAME](data, meta)`
+1. `callMethod()` sends TX with `meta: {stream: true, req: reqId}` via Actor system
+2. Backend sends stream chunks as TX messages
+3. `NTTStream.STREAM()` handler receives chunks, skips if `#cancelled`
+4. Dispatches to UPPERCASE handlers: `THINKING()`, `TOOL_CALL()`, `TEXT()`, `DONE()`, `STREAM_END()`, `STREAM_ERROR()`
 
-**UPPERCASE convention**: All methods that handle TX messages are UPPERCASE. lowercase/camelCase = internal component logic. This mirrors the backend actor handler pattern (`SCHEMA`, `CREATE`, `LIFECYCLE`, etc.).
+**UPPERCASE convention**: All methods that handle TX messages are UPPERCASE. lowercase/camelCase = internal component logic. This mirrors the backend actor handler pattern.
 
-**Schema-aware validation**: After schema loads, call `this._validateStreamHandlers(schema, methodName)`. It reads `schema.methods[m].events` and warns for any declared event with no matching UPPERCASE handler.
-
-**Concrete components using StreamActor:**
+**Concrete components extending NTTStream:**
 - `<ntx-agent-live>` — Real-time agent activity log with structured event rendering
 - `<ntx-chat>` — Floating chat panel for conversational agent interaction
 
-Both extend `StreamActor(HTMLElement)`, call `this.stream(url, payload)` to start, and `this.streamClose()` in `disconnectedCallback()`.
+Both extend `NTTStream` directly, use `prerender()` for structural UI, and auto-cancel streams in `disconnectedCallback()`.
 
 ### Schema-Declared Stream Events
 

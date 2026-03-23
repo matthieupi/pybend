@@ -512,16 +512,22 @@ The schema pipeline (`methods` stage in `proto_model.py`) serializes this into:
 }
 ```
 
-### Frontend: StreamActor Mixin
+### Frontend: NTTStreamAgent
 
-**File**: `packages/n3tx-agents/src/n3tx_agents/static/components/StreamActor.js`
+**File**: `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js`
 
-The `StreamActor` mixin adds TX-aware stream dispatch to any web component. It handles the difference between Level 1/2 (direct) and Level 3 (actor-routed, STREAM-enveloped) SSE formats transparently.
+`NTTStreamAgent` extends `NTTStream` with rich agent output rendering — typed entries (thinking, tool calls, text), markdown rendering, and tool result cards. All agent-style streaming components extend `NTTStreamAgent` (or `NTTStream` directly for simpler cases).
+
+**Component hierarchy:**
+
+```
+Component → NTTMethod → NTTStream → NTTStreamAgent → (app subclasses)
+```
 
 ```javascript
-import { StreamActor } from './StreamActor.js';
+import { NTTStreamAgent } from './ntx-stream-agent.js';
 
-class MyComponent extends StreamActor(HTMLElement) {
+class MyComponent extends NTTStreamAgent {
     // UPPERCASE methods = TX inbox handlers (actor convention)
     TEXT(data, meta)       { /* data.text */ }
     TOOL_CALL(data, meta)  { /* data.tool, data.args, data.call_id */ }
@@ -529,45 +535,37 @@ class MyComponent extends StreamActor(HTMLElement) {
     THINKING(data, meta)   { /* data.text */ }
     DONE(data, meta)       { /* data.answer, data.usage */ }
 
-    // Lifecycle hooks (called by the mixin)
+    // Lifecycle hooks
     STREAM_END(data)       { /* stream completed */ }
     STREAM_ERROR(err)      { /* stream failed */ }
 }
 ```
 
-**API provided by StreamActor:**
+**Key methods:**
 
 | Method | Purpose |
 |--------|---------|
-| `stream(url, payload)` | Open SSE connection. Chunks dispatch to UPPERCASE handlers. |
-| `streamClose()` | Cancel active stream. |
-| `_validateStreamHandlers(schema, method)` | Warn if schema declares events with no handler. |
+| `prerender()` | Structural DOM created before schema loads. Never wiped by render(). |
+| `callMethod()` | Start stream via TX with `meta: {stream: true, req: reqId}`. |
+| `cancel()` | Client-side cancel: sets `#cancelled` flag, sends `STREAM_CANCEL` TX. |
 
 **How dispatch works:**
 
-1. SSE chunk arrives via `HTTP.stream()`.
-2. If outer envelope has `name === 'STREAM'` (Level 3), unwrap one level.
-3. Read inner `name`, convert to UPPERCASE, call `this[NAME](data, meta)`.
-
-```
-Level 3: {name:'STREAM', data:{name:'text', data:{text:'hello'}}}
-  → unwrap → inner = {name:'text', data:{text:'hello'}}
-  → this.TEXT({text:'hello'}, meta)
-
-Level 1/2: {name:'text', data:{text:'hello'}}
-  → no unwrap → this.TEXT({text:'hello'}, meta)
-```
+1. `callMethod()` sends TX with `meta: {stream: true}` via the Actor system.
+2. Backend sends stream chunks as TX messages.
+3. `NTTStream.STREAM()` handler receives chunks, skips if `#cancelled`.
+4. Dispatches to UPPERCASE handlers: `THINKING()`, `TOOL_CALL()`, `TEXT()`, `DONE()`, etc.
 
 **UPPERCASE convention**: All methods that handle TX messages are UPPERCASE. This mirrors the backend actor handler pattern and visually separates inbox handlers from internal component logic (lowercase/camelCase).
 
 ### Concrete Streaming Components
 
-Both `ntx-agent-live` and `ntx-chat` extend `StreamActor(HTMLElement)`:
+`<ntx-agent-live>` and `<ntx-chat>` extend `NTTStream` directly:
 
 - **`<ntx-agent-live>`** — Real-time agent activity view. Shows structured event log (thinking → tool calls → text → done) with collapsible entries and JSON rendering.
 - **`<ntx-chat>`** — Agent chat panel. Floating chat widget for conversational agent interaction.
 
-Both call `this.stream(url, payload)` to start and `this.streamClose()` in `disconnectedCallback()`.
+Both use `prerender()` for structural UI and auto-cancel streams in `disconnectedCallback()`.
 
 ---
 

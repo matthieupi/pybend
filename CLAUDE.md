@@ -236,7 +236,7 @@ class Product(ProtoModel):
 | Streaming SSE endpoints | `@expose_route(stream=True)` + async generator | `routes_fastapi.py` / `network_api.py` SSE handler |
 | Streaming UI component | `schema.methods[m].stream` flag | `<ntx-stream>` reads method schema, renders progressive output |
 | Stream event schemas | `@expose_route(events={...})` | `proto_model.py` serializes event ProtoModels into `methods[m].events` |
-| Stream event dispatch | `StreamActor` mixin + UPPERCASE handlers | `StreamActor.js` unwraps STREAM envelopes, dispatches to `this.TEXT()` etc. |
+| Stream event dispatch | `NTTStreamAgent` + UPPERCASE handlers | `NTTStreamAgent` (extends `NTTStream`) dispatches to `this.TEXT()` etc. |
 
 ### Schema as Universal Contract
 
@@ -288,9 +288,9 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 | `packages/n3tx-agents/src/n3tx_agents/deps.py` | AgentDeps dataclass for Pydantic AI |
 | `packages/n3tx-agents/src/n3tx_agents/tools.py` | Tool discovery + function generation |
 | `packages/n3tx-agents/src/n3tx_agents/schema_ext.py` | Schema pipeline extension for `__agent__` models |
-| `packages/n3tx-agents/src/n3tx_agents/static/components/StreamActor.js` | JS mixin: TX-aware stream dispatch with UPPERCASE handlers |
-| `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` | `<ntx-agent-live>` — real-time agent activity view |
-| `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` | `<ntx-chat>` — agent chat panel |
+| `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js` | `NTTStreamAgent`: rich agent output (entries, markdown, tool cards) |
+| `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` | `<ntx-agent-live>` — real-time agent activity view (extends NTTStream) |
+| `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` | `<ntx-chat>` — agent chat panel (extends NTTStream) |
 
 ### n3tx-ui — Visual Components (Frontend Only)
 | File | Purpose |
@@ -377,17 +377,23 @@ async def stream_method(self, task: str):
 
 Events appear in schema as `methods[m].events` with full JSON Schema per event type. See `docs/AGENTS.md` → Streaming for the complete pattern.
 
-#### Frontend StreamActor Mixin
+#### Frontend NTTStreamAgent
 
-`StreamActor` (`n3tx-agents/static/components/StreamActor.js`) adds TX-aware stream dispatch to any component. It unwraps Level 3 STREAM envelopes and dispatches to UPPERCASE handler methods:
+`NTTStreamAgent` (`n3tx-agents/static/components/ntx-stream-agent.js`) extends `NTTStream` with rich agent output rendering — typed entries (thinking, tool calls, text), markdown rendering, and tool result cards. Components that need agent-style streaming extend `NTTStreamAgent` and override UPPERCASE handlers:
 
 ```javascript
-class MyComponent extends StreamActor(HTMLElement) {
+class MyComponent extends NTTStreamAgent {
     TEXT(data, meta)  { /* data.text */ }
     DONE(data, meta)  { /* data.answer */ }
     STREAM_END(data)  { /* cleanup */ }
 }
 ```
+
+For simpler progressive output (plain chunks), extend `NTTStream` directly.
+
+**Component hierarchy**: `Component → NTTMethod → NTTStream → NTTStreamAgent → (app subclasses)`
+
+**prerender()/render() lifecycle**: `prerender()` is called from `connectedCallback()` before schema loads — use it for structural DOM. `render()` is the schema-aware pass — it is additive and should never wipe `prerender()` output.
 
 **UPPERCASE convention**: TX inbox handlers are always UPPERCASE. This mirrors the backend actor handler pattern.
 
