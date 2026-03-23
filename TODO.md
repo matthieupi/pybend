@@ -8,8 +8,6 @@
 
 _End-to-end features spanning backend and frontend_
 
-- [x] Streaming via SSE
-- [x] Streaming via WS
 - [ ] Addr that cross boundaries
   - Currently the addr for the incoming TX will be the actor creating this 
     TX from the network data, like 'ws' or 'api'. We would need to change 
@@ -17,11 +15,6 @@ _End-to-end features spanning backend and frontend_
     2 different client on the same network would share the same ref. 
 - [ ] Storable Mixin search method
 - [ ] Storable Mixin update to get many (checks if param is item or list)
-
-- [x] Add debug mode:
-  - Server starts in debug, auto-reloads
-  - All users are created as admin role
-  - ntt-method shows method tx results
 
 
 - [ ] When deleting from ListRef, on a Item detail page, the actual record 
@@ -36,6 +29,11 @@ _End-to-end features spanning backend and frontend_
 - [ ] Method button label defaults to method name instead of "run"
 - [ ] When we have a method button that needs params, when we click on it we 
   should open a small form yo enter the required fields
+- [ ] Add dtype to TX
+- [ ] Add <ntx-render> capability to chat agents
+- [ ] CDN
+- [ ] Notion style recursive blocks
+- [ ] Actors execution app live view
 
 ---
 
@@ -43,12 +41,8 @@ _End-to-end features spanning backend and frontend_
 
 _Python · Models · Storage · API · Auth · Actors · Agents_
 
-- [x] Change agent_run for run() or exec()
-- [x] Swap agentic() and run()
 - [ ] TX Collection
-- 
 - [ ] TX/RX
-- [x] Add dict and list types (saved as JSON) based on AgentActor idea
 - [ ] AgentMixin improvements
   - The docstring as the prompt?
   - Magentic
@@ -77,3 +71,16 @@ _JS · Web Components · UI · Forms · Rendering_
 - [ ] ...
 - 
 ---
+
+## Done
+
+- [x] Add dict and list types (saved as JSON) based on AgentActor idea
+- [x] Change agent_run for run() or exec()
+- [x] Swap agentic() and run()
+- [x] Streaming via SSE
+- [x] Streaming via WS
+- [x] Add debug mode:
+  - Server starts in debug, auto-reloads
+  - All users are created as admin role
+  - ntt-method shows method tx results
+
