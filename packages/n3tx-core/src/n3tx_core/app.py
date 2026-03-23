@@ -102,7 +102,7 @@ class N3TXApp:
         jwt_secret: Optional[str] = None,
         jwt_expiry_hours: int = 24,
         cors_origins: Optional[List[str]] = None,
-        debug: bool = False,
+        debug: bool = None,
         ssr: Union[bool, str, None] = None,
     ):
         """
@@ -133,8 +133,8 @@ class N3TXApp:
         self._jwt_secret = jwt_secret
         self._jwt_expiry_hours = jwt_expiry_hours
         self._cors_origins = cors_origins
-        self._debug = debug
-        if debug:
+        self._debug = debug if debug is not None else config.DEBUG
+        if self._debug:
             config.configure(debug=True)
         self._ssr_mode = _resolve_ssr(ssr)
 
@@ -255,7 +255,15 @@ class N3TXApp:
         else:
             backend.register_routes(registered_models)
 
-        # 6b. Mount discovery endpoints (/_meta, /.well-known/agent.json)
+        # 6b. TX Inspector (optional — requires n3tx-trace installed)
+        if self._debug and self._routing == 'actor':
+            try:
+                from n3tx_trace import enable_tracing
+                enable_tracing(backend.app, matrix)
+            except ImportError:
+                pass  # n3tx-trace not installed — skip
+
+        # 6c. Mount discovery endpoints (/_meta, /.well-known/agent.json)
         from n3tx_core.api.discovery import create_discovery_routes
 
         base_url = f'http://{config.HOST}:{config.PORT}'
@@ -285,7 +293,7 @@ def create_app(
     jwt_secret=None,
     jwt_expiry_hours=24,
     cors_origins=None,
-    debug=False,
+    debug=None,
     ssr=None,
     name="N3TX",
     version="1.0.0",

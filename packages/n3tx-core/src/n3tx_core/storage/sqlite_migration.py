@@ -287,6 +287,9 @@ class SQLiteMigration:
             elif origin_type is list or origin_type is List:
                 sql_type = 'TEXT'
                 default_value = json.dumps([])
+            elif base_type == bool:
+                sql_type = 'INTEGER'
+                default_value = 0
             elif base_type == int:
                 sql_type = 'INTEGER'
                 default_value = '0'
