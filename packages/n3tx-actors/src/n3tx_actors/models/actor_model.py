@@ -102,14 +102,18 @@ class ActorModel(Actor, ProtoModel):
                         endpoint_info = getattr(method, '__endpoint__', {})
                         method_access = endpoint_info.get('access')
                         if method_access is not None:
-                            from n3tx_core.authorize import AccessContext
-                            ctx = AccessContext(
-                                user=tx.meta.get('user', {}),
-                                action=tx.name, model_class=cls,
-                            )
-                            if not method_access.evaluate(ctx):
-                                await target.send(tx.error("Access denied", code=403))
-                                return
+                            user = tx.meta.get('user')
+                            if user is not None:
+                                # External or agent-proxied request — evaluate access
+                                from n3tx_core.authorize import AccessContext
+                                ctx = AccessContext(
+                                    user=user,
+                                    action=tx.name, model_class=cls,
+                                )
+                                if not method_access.evaluate(ctx):
+                                    await target.send(tx.error("Access denied", code=403))
+                                    return
+                            # user is None → internal message, no auth context (matches _authorize())
 
                         # @expose_route method: unpack data as kwargs.
                         # Instance methods need 'self' resolved from id in data.
