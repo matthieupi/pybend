@@ -354,9 +354,7 @@ function getListInput(ntt, key, mode = 'display') {
         childTag = defs[modelName].ui.renderer.item;
     }
 
-    // Count refs — items can be href strings or populated objects with $id
-    const refs = Array.isArray(value) ? value.filter(v => typeof v === 'string' || (v && typeof v === 'object' && v.$id)) : [];
-    const count = refs.length;
+    const count = Array.isArray(value) ? value.length : 0;
 
     html.push(`<div class="list-field" data-model="${modelName || ''}" data-value="${key}">`);
     html.push(`<div class="list-field-header">`);
@@ -365,19 +363,33 @@ function getListInput(ntt, key, mode = 'display') {
     html.push(`</div>`);
 
     if (Array.isArray(value)) {
-        value.forEach((item, i) => {
-            // Extract href: plain string or populated object's $id
-            const ref = typeof item === 'string' ? item : (item?.$id || null);
-            if (ref) {
+        if (modelName) {
+            // Reference array — render as <ntx-item> components
+            value.forEach((item, i) => {
+                const ref = typeof item === 'string' ? item : (item?.$id || null);
+                if (ref) {
+                    if (i === VISIBLE_COUNT) {
+                        html.push(`<div class="nested-collapsed">`);
+                    }
+                    html.push(`<${childTag} ref="${ref}" display="sm" data-model="${modelName}"></${childTag}>`);
+                }
+            });
+            if (count > VISIBLE_COUNT) {
+                html.push(`</div>`);
+                html.push(`<button type="button" class="show-more-btn">Show ${count - VISIBLE_COUNT} more</button>`);
+            }
+        } else {
+            // Simple value array (strings, numbers) — render as plain list items
+            value.forEach((item, i) => {
                 if (i === VISIBLE_COUNT) {
                     html.push(`<div class="nested-collapsed">`);
                 }
-                html.push(`<${childTag} ref="${ref}" display="sm"${modelName ? ` data-model="${modelName}"` : ''}></${childTag}>`);
+                html.push(`<div class="list-field-item">${item}</div>`);
+            });
+            if (count > VISIBLE_COUNT) {
+                html.push(`</div>`);
+                html.push(`<button type="button" class="show-more-btn">Show ${count - VISIBLE_COUNT} more</button>`);
             }
-        });
-        if (count > VISIBLE_COUNT) {
-            html.push(`</div>`);
-            html.push(`<button type="button" class="show-more-btn">Show ${count - VISIBLE_COUNT} more</button>`);
         }
     }
 

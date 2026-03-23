@@ -35,9 +35,7 @@ export class NTTItem extends NTTElement {
 
   get styles() { return new URL('./ntx-item.css', import.meta.url).href; }
 
-  connectedCallback() {
-    super.connectedCallback();
-    // Show skeleton placeholder only if no schema has been set yet (via define() or DESCRIBE)
+  prerender() {
     if (!this.schema?.__name__) {
       const size = this.displayMode;
       this.shadowRoot.innerHTML =
@@ -334,7 +332,7 @@ export class NTTItem extends NTTElement {
     let methodsHtml = '';
     for (const [name, def] of Object.entries(methods)) {
       if (def.ui?.layout === 'button') {
-        const tag = def.stream ? 'ntx-stream' : 'ntx-method';
+        const tag = def.ui?.renderer || (def.stream ? 'ntx-stream' : 'ntx-method');
         methodsHtml += `<${tag}
           model="${schema.__name__}"
           uuid="${this.value?.id || ''}"
@@ -747,7 +745,7 @@ export class NTTItem extends NTTElement {
     // Card click → SELECT (skip interactive elements and edit mode)
     if (this.mode !== 'edit') {
       this.shadowRoot.querySelector('.card')?.addEventListener('click', (e) => {
-        if (e.target.closest('button, input, textarea, select, a, ntx-method, ntx-stream, .reply-input-box, ntx-ref-picker')) return;
+        if (e.target.closest('button, input, textarea, select, a, ntx-method, ntx-stream, ntx-stream-agent, .reply-input-box, ntx-ref-picker')) return;
         const target = this.getAttribute('select-target');
         if (target) {
           this.send(new TX({
@@ -817,7 +815,7 @@ export class NTTItem extends NTTElement {
     return Object.entries(methods).map(([name, def]) => {
       const label = def.title || name;
       const ui = def.ui || {};
-      const tag = def.stream ? 'ntx-stream' : 'ntx-method';
+      const tag = def.ui?.renderer || (def.stream ? 'ntx-stream' : 'ntx-method');
       return `
         <${tag}
           model="${this.schema?.__name__ || ''}"
