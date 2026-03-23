@@ -4,6 +4,8 @@
  * Shows structured activity log with typed events:
  * thinking, tool calls, tool results, text generation.
  *
+ * Extends NTTStream for TX-based streaming (replaces StreamActor).
+ *
  * Attributes:
  *   model  — Class name (e.g., 'AgentActor')
  *   ref    — Entity ref (e.g., 'agents/1')
@@ -12,29 +14,27 @@
  * Usage:
  *   <ntx-agent-live model="AgentActor" ref="agents/1"></ntx-agent-live>
  */
-import { StreamActor } from './StreamActor.js';
-import { config } from '../config.js';
+import { NTTStream } from './ntx-stream.js';
 import { NTT } from '../core/NTT.js';
 import { renderJson, jsonTreeCSS, initJsonToggle } from '../widgets/JsonTree.js';
 
-class NTTAgentLive extends StreamActor(HTMLElement) {
-    #model; #ref; #method; #schema; #tablename; #toolCards; #els;
+class NTTAgentLive extends NTTStream {
+    #toolCards = new Map();
+    #els;
     #textBuf = ''; #textRendered = 0; #textTimer = null;
     #thinkBuf = ''; #thinkRendered = 0; #thinkTimer = null;
 
     connectedCallback() {
-        this.#model = this.getAttribute('model');
-        this.#ref = this.getAttribute('ref');
-        this.#method = this.getAttribute('method') || 'agentic_stream';
-        this.#schema = null;
-        this.#tablename = null;
-        this.#toolCards = new Map();
+        if (!this.getAttribute('method')) this.setAttribute('method', 'agentic_stream');
+        super.connectedCallback();
+        this.addEventListener('click', (e) => e.stopPropagation());
+    }
 
-        this.attachShadow({ mode: 'open' });
+    prerender() {
         this.shadowRoot.innerHTML = `<style>${NTTAgentLive.styles}</style>
             <div class="live-panel">
                 <div class="live-header">
-                    <span class="live-title">${this.#model} &middot; Live</span>
+                    <span class="live-title">${this.getAttribute('model') || ''} &middot; Live</span>
                     <span class="live-status" id="status">idle</span>
                 </div>
                 <div class="live-input">
@@ -45,70 +45,54 @@ class NTTAgentLive extends StreamActor(HTMLElement) {
                 <div class="live-footer" id="footer"></div>
             </div>`;
 
-        this.#els = {
-            status: this.shadowRoot.getElementById('status'),
-            log: this.shadowRoot.getElementById('log'),
-            footer: this.shadowRoot.getElementById('footer'),
-            textarea: this.shadowRoot.querySelector('textarea'),
-            runBtn: this.shadowRoot.querySelector('.run-btn'),
-        };
-
-        this.#els.runBtn.addEventListener('click', () => this.#run());
-        this.#els.textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.#run(); }
-        });
-        // Stop click propagation at host level — prevents card click handler
-        // from firing when this component is embedded inside an ntx-item card.
-        this.addEventListener('click', (e) => e.stopPropagation());
+        this.#cacheEls();
+        this.#bindListeners();
         initJsonToggle(this.shadowRoot);
 
         // Click-to-expand/collapse on collapsible entries
         this.#els.log.addEventListener('click', (e) => {
-            // Don't toggle when clicking JSON tree toggles or links
             if (e.target.closest('.jt-toggle') || e.target.closest('a')) return;
             const entry = e.target.closest('.entry.collapsible');
             if (entry) entry.classList.toggle('expanded');
         });
-
-        this.#loadSchema();
     }
 
-    disconnectedCallback() {
-        this.streamClose();
-        clearTimeout(this.#textTimer);
-        clearTimeout(this.#thinkTimer);
+    render() {
+        // Additive — never wipes prerender() DOM.
+        // Update title with resolved model name if available.
+        if (this.#els && this.model) {
+            const title = this.shadowRoot.querySelector('.live-title');
+            if (title) title.textContent = `${this.model} · Live`;
+        }
     }
 
-    #loadSchema() {
-        NTT.attach(this.#model, (DC) => {
-            this.#schema = DC._schema;
-            this.#tablename = this.#schema.__tablename__ || this.#model.toLowerCase() + 's';
-            this._validateStreamHandlers(this.#schema, this.#method);
-        });
-    }
-
-    #run() {
+    callMethod() {
         const task = this.#els.textarea.value.trim();
-        if (!task || !this.#tablename) return;
+        if (!task) return;
+
+        // Extract uuid from ref attribute if needed
+        const ref = this.getAttribute('ref') || '';
+        if (ref && !this.uuid) {
+            const id = ref.includes('/') ? ref.split('/').pop() : ref;
+            this.uuid = id;
+            this.ntt = NTT.get(this.model + '/' + id);
+        }
 
         this.#els.textarea.value = '';
-        this.#els.log.innerHTML = '';
-        this.#els.footer.innerHTML = '';
-        this.#toolCards.clear();
-        this.#textBuf = ''; this.#textRendered = 0; clearTimeout(this.#textTimer);
-        this.#thinkBuf = ''; this.#thinkRendered = 0; clearTimeout(this.#thinkTimer);
+        this.#reset();
         this.#els.status.textContent = 'running';
         this.#els.status.className = 'live-status running';
         this.#els.runBtn.disabled = true;
-
-        const ref = this.#ref || '';
-        const id = ref.includes('/') ? ref.split('/').pop() : ref;
-        const url = id
-            ? `${config.API_URL}/${this.#tablename}/${id}/${this.#method}`
-            : `${config.API_URL}/${this.#tablename}/${this.#method}`;
-
         this.#addEntry('task', `Task: ${task}`);
-        this.stream(url, { task });
+
+        this.value = { task };
+        super.callMethod();
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        clearTimeout(this.#textTimer);
+        clearTimeout(this.#thinkTimer);
     }
 
     // -- TX inbox handlers (UPPERCASE) ------------------------------------------
@@ -128,6 +112,9 @@ class NTTAgentLive extends StreamActor(HTMLElement) {
 
     TOOL_CALL(data, meta) {
         this.#setThinking(false);
+        if (typeof data.args === 'string') {
+            try { data.args = JSON.parse(data.args); } catch { data.args = { raw: data.args }; }
+        }
         const argsHtml = data.args && Object.keys(data.args).length
             ? `<div class="tool-json">${renderJson(data.args)}</div>` : '';
         const entry = this.#addEntry('tool-call',
@@ -181,20 +168,49 @@ class NTTAgentLive extends StreamActor(HTMLElement) {
     }
 
     STREAM_END(data) {
-        this.#els.status.textContent = 'done';
-        this.#els.status.className = 'live-status done';
-        this.#els.runBtn.disabled = false;
+        if (this.#els) {
+            this.#els.status.textContent = 'done';
+            this.#els.status.className = 'live-status done';
+            this.#els.runBtn.disabled = false;
+        }
         this.#setThinking(false);
     }
 
     STREAM_ERROR(err) {
-        this.#els.status.textContent = 'error';
-        this.#els.status.className = 'live-status error';
-        this.#els.runBtn.disabled = false;
+        if (this.#els) {
+            this.#els.status.textContent = 'error';
+            this.#els.status.className = 'live-status error';
+            this.#els.runBtn.disabled = false;
+        }
         this.#addEntry('error', `Error: ${err?.message || err?.detail || err}`);
     }
 
     // -- Internal helpers -------------------------------------------------------
+
+    #cacheEls() {
+        this.#els = {
+            status: this.shadowRoot.getElementById('status'),
+            log: this.shadowRoot.getElementById('log'),
+            footer: this.shadowRoot.getElementById('footer'),
+            textarea: this.shadowRoot.querySelector('textarea'),
+            runBtn: this.shadowRoot.querySelector('.run-btn'),
+        };
+    }
+
+    #bindListeners() {
+        this.#els.runBtn.addEventListener('click', () => this.callMethod());
+        this.#els.textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.callMethod(); }
+        });
+    }
+
+    #reset() {
+        this.#els.log.innerHTML = '';
+        this.#els.footer.innerHTML = '';
+        this.#toolCards.clear();
+        this.#textBuf = ''; this.#textRendered = 0; clearTimeout(this.#textTimer);
+        this.#thinkBuf = ''; this.#thinkRendered = 0; clearTimeout(this.#thinkTimer);
+    }
 
     #addEntry(type, html) {
         const el = document.createElement('div');
@@ -213,10 +229,8 @@ class NTTAgentLive extends StreamActor(HTMLElement) {
         } else if (!on && el) {
             const content = el.querySelector('.entry-content');
             if (content?.querySelector('.thinking-anim')) {
-                // Empty animated indicator — remove it
                 el.remove();
             } else {
-                // Has real content — flush render, collapse, deactivate
                 clearTimeout(this.#thinkTimer);
                 this.#renderMd(el, 'think');
                 el.classList.remove('entry-thinking-active');
@@ -226,16 +240,9 @@ class NTTAgentLive extends StreamActor(HTMLElement) {
         }
     }
 
-    /**
-     * Schedule a markdown re-render. Fires immediately when a newline arrives
-     * (natural paragraph/block boundary), otherwise debounces at 300ms so the
-     * trailing partial line still renders after a short pause.
-     */
     #scheduleRender(entry, kind) {
         const buf = kind === 'text' ? this.#textBuf : this.#thinkBuf;
         const rendered = kind === 'text' ? this.#textRendered : this.#thinkRendered;
-
-        // New content since last render
         const fresh = buf.slice(rendered);
         const hasNewline = fresh.includes('\n');
 
@@ -251,7 +258,6 @@ class NTTAgentLive extends StreamActor(HTMLElement) {
         this.#scrollToBottom();
     }
 
-    /** Render accumulated buffer as markdown into the entry's content element. */
     #renderMd(entry, kind) {
         if (!entry) return;
         const buf = kind === 'text' ? this.#textBuf : this.#thinkBuf;
@@ -268,7 +274,6 @@ class NTTAgentLive extends StreamActor(HTMLElement) {
         this.#scrollToBottom();
     }
 
-    /** Flush both buffers — final render on DONE/stream end. */
     #flushRender() {
         clearTimeout(this.#textTimer);
         clearTimeout(this.#thinkTimer);

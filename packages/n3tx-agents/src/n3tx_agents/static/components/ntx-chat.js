@@ -4,6 +4,8 @@
  * Renders as a small tab on the right edge of the viewport.
  * Clicking the tab slides open a chat panel. Clicking again (or the X) closes it.
  *
+ * Extends NTTStream for TX-based streaming (replaces StreamActor).
+ *
  * Attributes:
  *   model    — Class name (e.g., "Product", "AgentActor")
  *   method   — Route name (e.g., "ask", "run")
@@ -12,39 +14,33 @@
  *   <ntx-chat model="Product" method="ask"></ntx-chat>
  *   <ntx-chat model="AgentActor" method="run"></ntx-chat>
  */
-import { StreamActor } from './StreamActor.js';
-import HTTP from '../core/transport/HTTP.js';
-import { config } from '../config.js';
+import { NTTStream } from './ntx-stream.js';
 import { NTT } from '../core/NTT.js';
+import HTTP from '../core/transport/HTTP.js';
 
 const ICON_CHAT = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 const ICON_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const ICON_SEND = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
 
-class NTTChat extends StreamActor(HTMLElement) {
-    #model; #method; #items; #schema; #tablename;
-    #isStream; #isStreaming; #selectedId; #messages; #open;
+class NTTChat extends NTTStream {
+    #items = [];
+    #isStream; #isStreaming = false; #selectedId = null;
+    #messages = []; #open = false;
     #els; #toolCards;
     // Per-message streaming state
     #currentMsgEl; #currentTextEl; #currentText;
 
     connectedCallback() {
-        this.#model = this.getAttribute('model');
-        this.#method = this.getAttribute('method');
-        this.#items = [];
-        this.#schema = null;
-        this.#tablename = null;
-        this.#isStreaming = false;
-        this.#selectedId = null;
-        this.#messages = [];
-        this.#open = false;
+        if (!this.getAttribute('display')) this.setAttribute('display', 'md');
+        super.connectedCallback();
+    }
 
-        this.attachShadow({ mode: 'open' });
+    prerender() {
         this.shadowRoot.innerHTML = `<style>${NTTChat.styles}</style>
             <button class="chat-tab" aria-label="Open chat">${ICON_CHAT}</button>
             <div class="panel">
                 <div class="panel-header">
-                    <span class="panel-title">${this.#model} &middot; ${this.#method}</span>
+                    <span class="panel-title">${this.getAttribute('model') || ''} &middot; ${this.getAttribute('method') || ''}</span>
                     <button class="panel-close" aria-label="Close">${ICON_CLOSE}</button>
                 </div>
                 <div class="panel-controls">
@@ -57,72 +53,34 @@ class NTTChat extends StreamActor(HTMLElement) {
                 </div>
             </div>`;
 
-        this.#els = {
-            tab: this.shadowRoot.querySelector('.chat-tab'),
-            panel: this.shadowRoot.querySelector('.panel'),
-            close: this.shadowRoot.querySelector('.panel-close'),
-            select: this.shadowRoot.querySelector('.instance-select'),
-            messages: this.shadowRoot.querySelector('.chat-messages'),
-            textarea: this.shadowRoot.querySelector('textarea'),
-            send: this.shadowRoot.querySelector('.send-btn'),
-        };
-
-        this.#els.tab.addEventListener('click', () => this.#toggle());
-        this.#els.close.addEventListener('click', () => this.#toggle());
-        this.#els.send.addEventListener('click', () => this.#send());
-        this.#els.textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.#send(); }
-        });
-
-        this.#loadSchema();
+        this.#cacheEls();
+        this.#bindListeners();
     }
 
-    disconnectedCallback() {
-        this.streamClose();
+    render() {
+        // Additive — never wipes prerender() DOM.
+        if (this.#els) {
+            const title = this.shadowRoot.querySelector('.panel-title');
+            if (title) title.textContent = `${this.model} · ${this.method}`;
+        }
     }
 
-    #toggle() {
-        this.#open = !this.#open;
-        this.#els.panel.classList.toggle('open', this.#open);
-        this.#els.tab.classList.toggle('hidden', this.#open);
-        if (this.#open) this.#els.textarea.focus();
+    definedCallback() {
+        super.definedCallback();
+        this.#isStream = !!this.methodSchema?.stream;
+        if (!this.uuid) this.#loadInstances();
     }
 
-    #loadSchema() {
-        NTT.attach(this.#model, (DC) => {
-            const schema = DC._schema;
-            this.#schema = schema;
-            this.#tablename = schema.__tablename__ || this.#model.toLowerCase() + 's';
-            this.#isStream = !!(schema.methods?.[this.#method]?.stream);
-            this.#loadInstances();
-        });
-    }
-
-    #loadInstances() {
-        const url = `${config.API_URL}/${this.#tablename}`;
-        HTTP.get(url, (resp) => {
-            this.#items = resp.data || resp || [];
-            const sel = this.#els.select;
-            sel.innerHTML = this.#items.map(item => {
-                const label = item.name || item.title || `#${item.id}`;
-                return `<option value="${item.id}">${label}</option>`;
-            }).join('');
-            if (this.#items.length) this.#selectedId = this.#items[0].id;
-            sel.addEventListener('change', () => { this.#selectedId = sel.value; });
-        }, (err) => {
-            this.#els.select.innerHTML = '<option value="">No instances</option>';
-        });
-    }
-
-    #send() {
+    callMethod() {
         const task = this.#els.textarea.value.trim();
         if (!task || !this.#selectedId) return;
 
-        this.#els.textarea.value = '';
         this.#appendMsg('user', task);
+        this.#els.textarea.value = '';
 
-        const url = `${config.API_URL}/${this.#tablename}/${this.#selectedId}/${this.#method}`;
-        const payload = { task };
+        this.uuid = this.#selectedId;
+        this.ntt = NTT.get(this.model + '/' + this.#selectedId);
+        this.value = { task };
 
         if (this.#isStream) {
             this.#isStreaming = true;
@@ -131,10 +89,21 @@ class NTTChat extends StreamActor(HTMLElement) {
             this.#currentMsgEl = this.#appendMsg('assistant', '');
             this.#currentTextEl = this.#currentMsgEl.querySelector('.msg-text');
             this.#toolCards = new Map();
-            this.stream(url, payload);
+            super.callMethod();
         } else {
-            this.#sendPost(url, payload);
+            // Non-streaming: use entity call path
+            this.#els.send.disabled = true;
+            const caller = this.ntt || this.proto;
+            if (caller?.call) {
+                caller.call(this.method, { ...this.value }, { inbox: '_response_' });
+            }
         }
+    }
+
+    _response_(data, tx) {
+        this.#els.send.disabled = false;
+        const answer = data?.answer || data?.result || JSON.stringify(data);
+        this.#appendMsg('assistant', answer);
     }
 
     // -- TX inbox handlers (UPPERCASE) ------------------------------------------
@@ -194,7 +163,7 @@ class NTTChat extends StreamActor(HTMLElement) {
 
     STREAM_END(data) {
         this.#isStreaming = false;
-        this.#els.send.disabled = false;
+        if (this.#els) this.#els.send.disabled = false;
         this.#toolCards = null;
         this.#currentMsgEl?.querySelector('.cursor')?.remove();
         this.#currentMsgEl?.querySelector('.msg-thinking')?.remove();
@@ -203,7 +172,7 @@ class NTTChat extends StreamActor(HTMLElement) {
 
     STREAM_ERROR(err) {
         this.#isStreaming = false;
-        this.#els.send.disabled = false;
+        if (this.#els) this.#els.send.disabled = false;
         this.#toolCards = null;
         this.#currentMsgEl?.querySelector('.cursor')?.remove();
         this.#currentMsgEl?.querySelector('.msg-thinking')?.remove();
@@ -212,24 +181,49 @@ class NTTChat extends StreamActor(HTMLElement) {
 
     // -- Internal helpers -------------------------------------------------------
 
-    #sendPost(url, payload) {
-        this.#els.send.disabled = true;
-        HTTP.post(url, payload,
-            (resp) => {
-                this.#els.send.disabled = false;
-                let answer;
-                if (typeof resp === 'string') {
-                    try { answer = JSON.parse(resp).answer || resp; } catch { answer = resp; }
-                } else {
-                    answer = resp.answer || resp.result || JSON.stringify(resp, null, 2);
-                }
-                this.#appendMsg('assistant', answer);
-            },
-            (err) => {
-                this.#els.send.disabled = false;
-                this.#appendMsg('system', `Error: ${err?.message || err?.detail || err}`);
-            },
-        );
+    #cacheEls() {
+        this.#els = {
+            tab: this.shadowRoot.querySelector('.chat-tab'),
+            panel: this.shadowRoot.querySelector('.panel'),
+            close: this.shadowRoot.querySelector('.panel-close'),
+            select: this.shadowRoot.querySelector('.instance-select'),
+            messages: this.shadowRoot.querySelector('.chat-messages'),
+            textarea: this.shadowRoot.querySelector('textarea'),
+            send: this.shadowRoot.querySelector('.send-btn'),
+        };
+    }
+
+    #bindListeners() {
+        this.#els.tab.addEventListener('click', () => this.#toggle());
+        this.#els.close.addEventListener('click', () => this.#toggle());
+        this.#els.send.addEventListener('click', () => this.callMethod());
+        this.#els.textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.callMethod(); }
+        });
+    }
+
+    #toggle() {
+        this.#open = !this.#open;
+        this.#els.panel.classList.toggle('open', this.#open);
+        this.#els.tab.classList.toggle('hidden', this.#open);
+        if (this.#open) this.#els.textarea.focus();
+    }
+
+    #loadInstances() {
+        const tablename = this.schema?.__tablename__ || this.model?.toLowerCase() + 's';
+        const url = `/api/${tablename}`;
+        HTTP.get(url, (resp) => {
+            this.#items = resp.data || resp || [];
+            const sel = this.#els.select;
+            sel.innerHTML = this.#items.map(item => {
+                const label = item.name || item.title || `#${item.id}`;
+                return `<option value="${item.id}">${label}</option>`;
+            }).join('');
+            if (this.#items.length) this.#selectedId = this.#items[0].id;
+            sel.addEventListener('change', () => { this.#selectedId = sel.value; });
+        }, (err) => {
+            this.#els.select.innerHTML = '<option value="">No instances</option>';
+        });
     }
 
     #appendMsg(role, text) {
@@ -239,14 +233,6 @@ class NTTChat extends StreamActor(HTMLElement) {
         this.#els.messages.appendChild(el);
         this.#scrollToBottom();
         return el;
-    }
-
-    #clear() {
-        this.#messages = [];
-        this.#els.messages.innerHTML = '';
-        this.streamClose();
-        this.#isStreaming = false;
-        this.#els.send.disabled = false;
     }
 
     #scrollToBottom() {
