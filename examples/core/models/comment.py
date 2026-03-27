@@ -53,12 +53,17 @@ class Comment(ProtoModel):
         existing = join_cls.list(sql_filter=(f"comment_id = ? AND user = ?", [self.id, user.id]))
         items = existing if isinstance(existing, list) else existing.get('data', [])
         if items:
-            join_cls.delete(items[0].id)
-            return {'action': 'unliked'}
+            deleted_id = items[0].id
+            join_cls.delete(deleted_id)
+            return {'action': 'unliked', 'id': deleted_id, '_field': 'likes'}
         new_like = Like(user=user.id, created_at=datetime.now().isoformat())
         new_like.__owner__ = self
-        new_like.save()
-        return {'action': 'liked'}
+        saved = new_like.save()
+        return {
+            'action': 'liked', '_field': 'likes',
+            'id': saved.id, 'user': user.id,
+            'created_at': saved.created_at,
+        }
 
     @expose_route('/reply', methods=['POST'], access=AUTHENTICATED)
     def reply(self, text: str, user: User = None) -> Comment:
