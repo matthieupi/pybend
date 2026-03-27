@@ -38,6 +38,10 @@ export class NetworkAdapter {
 
     assert(this, event && event.target, `Event must have a target property.`);
     assert(this, this.matrix.has(event.source), `No callback registered for target: ${event.source}`);
+    // Unwrap debug envelope — @expose_route wraps results in {data, _debug} when DEBUG=True
+    if (response && response._debug && 'data' in response) {
+      response = response.data;
+    }
     // Create a reply with swapped source/target (don't mutate the original event)
     let reply = {
       name: event.meta?.['inbox'] || event.name,

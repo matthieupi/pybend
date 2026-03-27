@@ -21,8 +21,9 @@ def get_token(page, email="alice@example.com", password="alice123"):
             body: JSON.stringify({email: args.email, password: args.password}),
         });
         const data = await resp.json();
-        window.localStorage.setItem('jwtToken', data.token);
-        return data.token;
+        const token = data.data ? data.data.token : data.token;
+        window.localStorage.setItem('jwtToken', token);
+        return token;
     }""", {"email": email, "password": password})
 
 
@@ -119,6 +120,8 @@ def test_like_and_favorite():
                     body = resp.json()
                     if isinstance(body, str):
                         body = json.loads(body)
+                    if '_debug' in body and 'data' in body:
+                        body = body['data']
                     if 'action' in body:
                         last_action['value'] = body['action']
                 except:

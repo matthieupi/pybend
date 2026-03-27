@@ -42,8 +42,9 @@ def authed_page(browser, e2e_server):
         });
         if (!resp.ok) return { error: resp.status };
         const data = await resp.json();
-        localStorage.setItem('jwtToken', data.token);
-        return { ok: true, token: data.token };
+        const token = data.data ? data.data.token : data.token;
+        localStorage.setItem('jwtToken', token);
+        return { ok: true, token: token };
     }""", base)
     assert result.get('ok'), f"Login failed: {result}"
     yield p

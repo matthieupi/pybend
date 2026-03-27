@@ -11,6 +11,9 @@ def _login(page, email="alice@example.com", password="alice123"):
         "email": email, "password": password,
     })
     body = resp.json()
+    # Unwrap debug envelope if present
+    if '_debug' in body and 'data' in body:
+        body = body['data']
     token = body.get("token")
     assert token, f"Login failed: {body}"
     page.evaluate(f"() => localStorage.setItem('jwtToken', '{token}')")

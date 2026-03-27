@@ -12,7 +12,7 @@ import re
 from playwright.sync_api import sync_playwright, expect
 
 
-BASE_URL = "http://localhost:5111"
+BASE = "http://localhost:5000"  # Patched by conftest
 
 
 @pytest.fixture(scope="module")
@@ -36,7 +36,7 @@ class TestLoginRedirectLoop:
 
     def test_login_stores_undefined_token(self, page):
         """After login, localStorage should have a real JWT, not 'undefined'."""
-        page.goto(f"{BASE_URL}/login.html")
+        page.goto(f"{BASE}/login.html")
         page.fill("#email", "alice@example.com")
         page.fill("#password", "alice123")
         page.click("button[type=submit]")
@@ -64,7 +64,7 @@ class TestLoginRedirectLoop:
 
         page.on("request", on_request)
 
-        page.goto(f"{BASE_URL}/login.html")
+        page.goto(f"{BASE}/login.html")
         page.fill("#email", "alice@example.com")
         page.fill("#password", "alice123")
         page.click("button[type=submit]")
@@ -82,7 +82,7 @@ class TestLoginRedirectLoop:
 
     def test_authenticated_page_loads_after_login(self, page):
         """After login, the main page should load successfully with user data visible."""
-        page.goto(f"{BASE_URL}/login.html")
+        page.goto(f"{BASE}/login.html")
         page.fill("#email", "alice@example.com")
         page.fill("#password", "alice123")
         page.click("button[type=submit]")
@@ -110,7 +110,7 @@ class TestLoginRedirectLoop:
         import requests as req
         # Use direct HTTP to avoid Playwright response body race condition
         resp = req.post(
-            f"{BASE_URL}/users/login",
+            f"{BASE}/users/login",
             json={"email": "alice@example.com", "password": "alice123"},
         )
         assert resp.status_code == 200
@@ -122,9 +122,9 @@ class TestLoginRedirectLoop:
             assert "token" not in data, (
                 "If debug envelope is present, token should NOT be at top level"
             )
-            assert "result" in data, "Debug envelope should have 'result' key"
-            assert "token" in data["result"], (
-                "Token should be inside data.result when debug envelope is active"
+            assert "data" in data, "Debug envelope should have 'data' key"
+            assert "token" in data["data"], (
+                "Token should be inside data.data when debug envelope is active"
             )
 
 
@@ -136,7 +136,7 @@ class TestRegisterRedirectLoop:
         import time
         unique_email = f"test_{int(time.time())}@example.com"
 
-        page.goto(f"{BASE_URL}/register.html")
+        page.goto(f"{BASE}/register.html")
 
         # Fill registration form (check what fields exist)
         page.fill("#email", unique_email)
