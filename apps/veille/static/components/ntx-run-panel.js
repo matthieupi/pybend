@@ -3,11 +3,11 @@
  *
  * Plain HTMLElement (not Component) that composes:
  * - Launcher section with URL input + action buttons
- * - Dynamic ntx-stream-agent for live run output
+ * - Dynamic ntx-run-output for live structured run output
  * - ntx-list for run history
  *
- * Flow: click button → POST /runs (create) → register NTT instance
- *       → append ntx-stream-agent → auto-trigger execute → live output.
+ * Flow: click button -> POST /runs (create) -> register NTT instance
+ *       -> append ntx-run-output -> auto-trigger execute/adhoc -> live output.
  */
 import { NTT } from '../core/NTT.js';
 
@@ -27,7 +27,7 @@ class NTXRunPanel extends HTMLElement {
             </div>
             <div class="run-live-output"></div>
             <h4 class="run-history-title">Previous Runs</h4>
-            <ntx-list model="Run" display="sm"></ntx-list>
+            <ntx-table model="Run" router="main"></ntx-table>
         `;
 
         this.querySelector('.run-btn-scan').addEventListener('click', () => this.#startRun('adhoc'));
@@ -64,7 +64,7 @@ class NTXRunPanel extends HTMLElement {
             if (!resp.ok) throw new Error(`Failed to create run (${resp.status})`);
             const run = await resp.json();
 
-            // Register the new run as an NTT instance so the stream agent
+            // Register the new run as an NTT instance so the stream component
             // can resolve it via NTT.get('Run/{id}') in its load() method.
             const RunDC = NTT.get('Run');
             if (RunDC) {
@@ -87,11 +87,17 @@ class NTXRunPanel extends HTMLElement {
             `;
             output.appendChild(header);
 
-            // Create stream agent for live output
-            const agent = document.createElement('ntx-stream-agent');
+            // Create ntx-run-output for structured live output
+            const agent = document.createElement('ntx-run-output');
             agent.setAttribute('model', 'Run');
             agent.setAttribute('uuid', String(run.id));
-            agent.setAttribute('method', 'execute');
+
+            // Wire method based on run type
+            if (type === 'adhoc') {
+                agent.setAttribute('method', 'adhoc');
+            } else {
+                agent.setAttribute('method', 'execute');
+            }
             output.appendChild(agent);
 
             statusEl.textContent = '';
@@ -106,8 +112,8 @@ class NTXRunPanel extends HTMLElement {
                     statusPill.textContent = 'complete';
                 }
                 // Refresh the run list to show the completed run
-                const list = this.querySelector('ntx-list');
-                if (list?.proto?.pull) list.proto.pull();
+                const table = this.querySelector('ntx-table');
+                if (table?.proto?.pull) table.proto.pull();
             };
             const origError = agent.STREAM_ERROR?.bind(agent);
             agent.STREAM_ERROR = (data) => {
@@ -122,6 +128,10 @@ class NTXRunPanel extends HTMLElement {
             const poll = setInterval(() => {
                 if (agent.methodSchema) {
                     clearInterval(poll);
+                    // Pre-set url parameter for adhoc runs
+                    if (type === 'adhoc' && adhocUrl) {
+                        agent.value = { url: adhocUrl };
+                    }
                     agent.callMethod();
                     buttons.forEach(b => b.disabled = false);
                     urlInput.value = '';

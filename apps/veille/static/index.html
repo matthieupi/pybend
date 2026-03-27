@@ -45,6 +45,7 @@
     <link rel="modulepreload" href="./components/ntx-grant-item.js">
     <link rel="modulepreload" href="./components/ntx-grant-analyze.js">
     <link rel="modulepreload" href="./components/ntx-run-item.js">
+    <link rel="modulepreload" href="./components/ntx-run-output.js">
     <link rel="modulepreload" href="./components/ntx-run-panel.js">
     <link rel="modulepreload" href="./components/ntx-run-report.js">
     <link rel="modulepreload" href="./generators/form.js">
@@ -219,10 +220,7 @@
     <ntx-sidebar router="main">
         <ntx-table model="Source" allow-create></ntx-table>
         <ntx-list model="Grant" allow-create></ntx-list>
-        <ntx-item model="Organization" id="org-panel" display="md" style="display:none"></ntx-item>
-
-        <a href="#sources" class="sidebar-nav-item" data-route="sources">Sources</a>
-        <a href="#organization" class="sidebar-nav-item" data-route="organization">Organization</a>
+        <ntx-item model="Organization"></ntx-item>
     </ntx-sidebar>
 
     <div class="page">
@@ -239,7 +237,6 @@
                     <div class="upload-status" id="upload-status"></div>
                 </div>
             </div>
-            <ntx-item model="Organization" id="org-panel" display="md" style="display:none"></ntx-item>
             <ntx-grant-analyze id="analyze-panel" model="Grant" method="analyze" style="display:none"></ntx-grant-analyze>
             <ntx-run-report id="report-panel" style="display:none"></ntx-run-report>
         </ntx-router>
@@ -251,7 +248,6 @@
 
         import { Matrix, matrix } from './core/Matrix.js';
         import { NTT } from './core/NTT.js';
-        import { config } from './config.js';
         import { permissions } from './utils/Permissions.js';
         import './components/ntx-item.js';
         import './components/ntx-list.js';
@@ -264,6 +260,7 @@
         import './components/ntx-grant-item.js';
         import './components/ntx-grant-analyze.js';
         import './components/ntx-run-item.js';
+        import './components/ntx-run-output.js';
         import './components/ntx-run-panel.js';
         import './components/ntx-run-report.js';
 
@@ -278,7 +275,7 @@
         function handleRoute() {
             const hash = window.location.hash.replace('#', '') || '';
             const panels = ['run-panel', 'source-panel',
-                            'analyze-panel', 'report-panel', 'org-panel'];
+                            'analyze-panel', 'report-panel'];
             panels.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
@@ -286,12 +283,6 @@
 
             if (hash === 'sources') {
                 document.getElementById('source-panel').style.display = 'block';
-            } else if (hash === 'organization') {
-                const orgPanel = document.getElementById('org-panel');
-                if (orgPanel) {
-                    orgPanel.style.display = 'block';
-                    loadOrgRef(orgPanel);
-                }
             } else if (hash.startsWith('analyze/')) {
                 const grantId = hash.split('/')[1];
                 const el = document.getElementById('analyze-panel');
@@ -309,27 +300,6 @@
             } else {
                 // Default: show runs (homepage)
                 document.getElementById('run-panel').style.display = 'block';
-            }
-        }
-
-        // Load the first (only) organization into the ntx-item
-        async function loadOrgRef(el) {
-            if (el.getAttribute('ref')) return; // already loaded
-            const token = localStorage.getItem('jwtToken');
-            if (!token) return;
-            try {
-                const resp = await fetch(`${config.API_URL}/organizations?limit=1`, {
-                    headers: { 'x-access-token': token },
-                });
-                if (!resp.ok) return;
-                const result = await resp.json();
-                const data = result.data || result;
-                if (data.length > 0) {
-                    const id = data[0].id || data[0].$id?.split('/').pop();
-                    if (id) el.setAttribute('ref', `Organization/${id}`);
-                }
-            } catch (e) {
-                console.warn('Failed to load organization:', e);
             }
         }
 

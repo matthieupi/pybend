@@ -16,7 +16,7 @@ from n3tx_core.app import create_app  # noqa: E402
 from n3tx_core.storage.sqlite_storage import SQLiteStorage  # noqa: E402
 from models import User, Organization, Source, Grant, Run, WebTools  # noqa: E402
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('veille.scheduler')
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -103,6 +103,19 @@ async def _scheduler_loop():
                         system_user = {'user_id': 0, 'role': 'system', 'email': 'scheduler@veille'}
                         async for _ in run_instance.execute(user=system_user):
                             pass
+
+                        # Batch analysis for un-analyzed grants (no UI to drive streaming)
+                        grant_data = Grant.list(
+                            sql_filter=('run_id = ? AND status = ?', [run_id, 'new']),
+                            limit=200,
+                        )
+                        glist = (grant_data.get('data', grant_data)
+                                 if isinstance(grant_data, dict) else grant_data)
+                        for g in glist:
+                            gid = g.get('id') if isinstance(g, dict) else getattr(g, 'id', None)
+                            if gid:
+                                await Run._analyze_grant_background(gid)
+
                         logger.info(f"Scheduled run {run_id} complete")
                 except Exception as e:
                     logger.error(f"Scheduled run failed: {e}")
@@ -207,6 +220,6 @@ for route in _api_router.routes:
 if __name__ == '__main__':
     import uvicorn
     if config.DEBUG:
-        uvicorn.run('main:app', host=config.HOST, port=config.PORT, reload=True)
+        uvicorn.run('main:app', host=config.HOST, port=config.PORT, reload=True, log_config=None)
     else:
-        uvicorn.run(app, host=config.HOST, port=config.PORT)
+        uvicorn.run(app, host=config.HOST, port=config.PORT, log_config=None)

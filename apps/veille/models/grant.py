@@ -18,6 +18,7 @@ logger = logging.getLogger('veille.grant')
 class Grant(ActorModel):
     __tablename__: ClassVar[str] = 'grants'
     __storable__: ClassVar[bool] = True
+    _subscribers: ClassVar[list] = ['runs']
     __access__: ClassVar[dict] = {
         'read': AUTHENTICATED,
         'create': AUTHENTICATED,
@@ -102,13 +103,6 @@ class Grant(ActorModel):
             data = []
         if not data:
             raise LookupError('No organization found to analyze the grant against')
-
-        print("USER")
-        print("USER")
-        print("USER")
-        print("USER")
-        print(type(user))
-        print(user)
 
         # Resolve user to dict for agent pipeline
         user_dict = None

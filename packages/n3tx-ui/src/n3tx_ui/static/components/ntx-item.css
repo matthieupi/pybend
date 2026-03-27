@@ -863,6 +863,53 @@ input.field-error, textarea.field-error,
     overflow: hidden;
 }
 
+.grant-urls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+}
+
+.grant-urls a {
+    font-size: 0.8rem;
+    color: var(--accent-text, #5eeadf);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.grant-urls a:hover {
+    text-decoration: underline;
+}
+
+.grant-section {
+    margin-bottom: 0.75rem;
+}
+
+.grant-description {
+    font-size: 0.85rem;
+    color: var(--text-2, #9ba3bd);
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.grant-list {
+    margin: 0.25rem 0 0 1.25rem;
+    padding: 0;
+    font-size: 0.85rem;
+    color: var(--text-2, #9ba3bd);
+    line-height: 1.6;
+}
+
+.grant-list li {
+    margin-bottom: 0.15rem;
+}
+
+.grant-meta {
+    font-size: 0.75rem;
+    color: var(--text-3, #555e78);
+    margin-bottom: 0.5rem;
+}
+
 /* ── Run item ── */
 
 .run-header {
