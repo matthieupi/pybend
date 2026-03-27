@@ -539,7 +539,9 @@ class TestActorModelSchema:
 
         assert schema['access']['read'] == {'rule': 'anyone'}
         assert schema['access']['create'] == {'rule': 'authenticated'}
-        assert schema['ui']['field_order'] == ['name']
+        # __ui__ → schema['ui'] is handled by ViewableMixin (n3tx-ui),
+        # not available in actors-only context
+        assert 'ui' not in schema
 
     def test_schema_with_exposed_method(self):
         from n3tx_core.utils.decorators import expose_route

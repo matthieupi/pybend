@@ -34,7 +34,7 @@ class TestNonStreamingResponseExtraction:
         would display [object Object] or pass an object to _appendMsg.
         """
         resp = client.post(
-            f"/agents/{simple_agent.id}/run",
+            f"/agents/{simple_agent.id}/agentic",
             json={"task": "hello"},
             headers=auth_header(alice_token),
         )

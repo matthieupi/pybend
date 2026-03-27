@@ -10,7 +10,7 @@ import os
 import re
 
 # Paths to the framework CSS/JS files
-_STATIC = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'packages', 'n3tx-ui', 'src', 'n3tx_ui', 'static')
+_STATIC = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'packages', 'n3tx-ui', 'src', 'n3tx_ui', 'static')
 ITEM_CSS = os.path.join(_STATIC, 'components', 'ntx-item.css')
 METHOD_JS = os.path.join(_STATIC, 'components', 'ntx-method.js')
 STREAM_JS = os.path.join(_STATIC, 'components', 'ntx-stream.js')

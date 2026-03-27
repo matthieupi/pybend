@@ -31,7 +31,7 @@ class TestSchemaEndpoints:
         assert schema["__name__"] == "AgentActor"
         assert "agent" in schema
         assert schema["agent"]["enabled"] is True
-        assert "run" in schema.get("methods", {})
+        assert "agentic" in schema.get("methods", {})
 
     def test_web_tools_schema(self, client, seed_data):
         resp = client.get("/WebTools")

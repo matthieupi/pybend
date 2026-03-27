@@ -51,7 +51,7 @@ class TestAgentAgentic:
         )
         result = json.loads(result_str)
         assert "answer" in result
-        assert result["messages"] >= 2  # at least prompt + response
+        assert len(result["messages"]) >= 2  # at least prompt + response
 
     @pytest.mark.asyncio
     async def test_agent_resolves_tool_hrefs(self, test_db, seed_data):
