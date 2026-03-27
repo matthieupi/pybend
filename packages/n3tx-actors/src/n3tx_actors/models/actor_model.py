@@ -181,6 +181,17 @@ class ActorModel(Actor, ProtoModel):
                 else:
                     await target.send(tx.reply())
             else:
+                # Drop errors and responses — sending an error in response
+                # to an error creates infinite bounce loops between actors.
+                # Instead, log and bubble up to root for correlation handling.
+                if tx.is_error or tx.name.endswith('_RESPONSE'):
+                    addr = target.addr if not isinstance(target, type) else target.__addr__
+                    logger.error("[%s] Unhandled %s from %s: %s", addr, tx.name, tx.source, tx.data)
+                    root = Actor.root()
+                    if root:
+                        tx.target = root.addr
+                        await root.inbox(tx)
+                    return
                 await target.send(tx.error(f"Unhandled message: {tx.name}"))
 
     # ── Tier 2: Handler-level authorization ──
