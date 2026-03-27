@@ -25,6 +25,7 @@ _SSR_MODES = ('off', 'schema', 'bundle', 'full')
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.storage.abstract_storage import AbstractStorage
 from n3tx_core.utils.registrar import register_model, registered_models, join_models, prepare_model, apply_registration
+from n3tx_core.utils.logging import setup_logging
 from n3tx_core.models.proto_model import generate_join_model
 from n3tx_core.api.backend import FastAPIBackend
 from n3tx_core import config
@@ -127,6 +128,7 @@ class N3TXApp:
                 - ``False``: shorthand for ``"off"``
                 - A string: ``"off"``, ``"schema"``, ``"bundle"``, ``"full"``
         """
+        setup_logging()
         self._storage = _resolve_storage(storage)
         self._routing = routing
         self._ws = ws
