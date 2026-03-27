@@ -68,7 +68,7 @@ _JS · Web Components · UI · Forms · Rendering_
     avatar. Url is not clickable. We had some validation bugs as well.
   - Might require a deeper redesign of the primitives to make the 
     integration more seamless
-- [ ] ...
+- [ ] Hook up router with URL bar, so we can navigate using browser and refresh
 - 
 ---
 
