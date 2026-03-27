@@ -4,16 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>N3TX — TX Inspector</title>
-    <link rel="stylesheet" href="/debug/static/vendor/litegraph.css">
     <link rel="stylesheet" href="/debug/static/inspector.css">
-    <script src="/debug/static/vendor/litegraph.js"></script>
 </head>
 <body>
     <ntx-tx-inspector></ntx-tx-inspector>
 
-    <script src="/debug/static/components/tx-graph.js"></script>
-    <script src="/debug/static/components/tx-sidebar.js"></script>
-    <script src="/debug/static/components/tx-detail.js"></script>
-    <script src="/debug/static/components/ntx-tx-inspector.js"></script>
+    <script type="module">
+        import { GraphFlow } from '/debug/static/graph-flow/graph-flow.js';
+        window.GraphFlow = GraphFlow;
+    </script>
+    <script type="module" src="/debug/static/components/tx-sidebar.js"></script>
+    <script type="module" src="/debug/static/components/tx-detail.js"></script>
+    <script type="module" src="/debug/static/components/tx-entry-detail.js"></script>
+    <script type="module" src="/debug/static/components/ntx-tx-inspector.js"></script>
 </body>
 </html>

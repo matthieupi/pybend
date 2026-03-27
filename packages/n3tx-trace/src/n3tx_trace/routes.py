@@ -20,6 +20,7 @@ from starlette.staticfiles import StaticFiles
 from n3tx_trace.tracer import TraceCollector
 
 STATIC_DIR = Path(__file__).parent / 'static'
+GRAPH_FLOW_DIR = Path(__file__).parent.parent.parent.parent / 'graph-flow' / 'src'
 
 
 def create_debug_routes(collector: TraceCollector, matrix) -> APIRouter:
@@ -109,9 +110,11 @@ def create_debug_routes(collector: TraceCollector, matrix) -> APIRouter:
             try:
                 while True:
                     entry = await queue.get()
+                    if entry is None:
+                        return
                     yield f"data: {json.dumps(entry)}\n\n"
             except asyncio.CancelledError:
-                pass
+                raise
             finally:
                 collector.unsubscribe(client_id)
 
@@ -129,6 +132,8 @@ def create_debug_routes(collector: TraceCollector, matrix) -> APIRouter:
 
 
 def mount_debug_static(app, prefix: str = '/debug/static'):
-    """Mount the debug static files directory."""
+    """Mount the debug static files directory and graph-flow sources."""
+    if GRAPH_FLOW_DIR.exists():
+        app.mount(f'{prefix}/graph-flow', StaticFiles(directory=str(GRAPH_FLOW_DIR)), name='graph-flow-static')
     if STATIC_DIR.exists():
         app.mount(prefix, StaticFiles(directory=str(STATIC_DIR)), name='debug-static')

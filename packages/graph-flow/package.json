@@ -1,0 +1,11 @@
+{
+  "name": "graph-flow",
+  "version": "0.1.0",
+  "description": "Zero-dependency Canvas2D directed graph visualization",
+  "type": "module",
+  "main": "src/graph-flow.js",
+  "exports": {
+    ".": "./src/graph-flow.js"
+  },
+  "license": "MIT"
+}

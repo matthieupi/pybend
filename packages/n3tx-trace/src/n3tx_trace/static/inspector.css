@@ -32,12 +32,6 @@ body {
     width: 100vw;
 }
 
-/* ── LiteGraph canvas overrides ── */
-
-.lgraphcanvas {
-    background-color: var(--bg-primary) !important;
-}
-
 /* ── Inspector layout ── */
 
 ntx-tx-inspector {
@@ -65,6 +59,51 @@ ntx-tx-inspector {
     flex-direction: column;
     background: var(--bg-secondary);
     overflow: hidden;
+}
+
+.inspector-sidebar tx-sidebar {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.inspector-sidebar tx-detail,
+.inspector-sidebar tx-entry-detail {
+    flex-shrink: 0;
+}
+
+/* ── Resize handles (horizontal — panel height) ── */
+
+.resize-handle {
+    display: none;
+    height: 5px;
+    cursor: row-resize;
+    background: var(--border-color);
+    flex-shrink: 0;
+    position: relative;
+}
+
+.resize-handle.visible {
+    display: block;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+    background: var(--accent-blue);
+}
+
+/* ── Resize handle (vertical — sidebar width) ── */
+
+.sidebar-resize-handle {
+    width: 5px;
+    cursor: col-resize;
+    background: var(--border-color);
+    flex-shrink: 0;
+}
+
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle.active {
+    background: var(--accent-blue);
 }
 
 /* ── Status bar ── */
@@ -212,13 +251,6 @@ ntx-tx-inspector {
 }
 
 /* ── Detail panel ── */
-
-.tx-detail {
-    border-top: 1px solid var(--border-color);
-    background: var(--bg-tertiary);
-    max-height: 40%;
-    overflow-y: auto;
-}
 
 .detail-header {
     display: flex;

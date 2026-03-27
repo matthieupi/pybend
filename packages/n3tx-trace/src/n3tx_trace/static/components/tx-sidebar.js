@@ -16,6 +16,7 @@ class TxSidebar extends HTMLElement {
         this._selectedTraceId = null;
         this._autoScroll = true;
         this._maxEntries = 2000;
+        this._streamGroups = new Map(); // traceId → { el, count }
     }
 
     connectedCallback() {
@@ -115,6 +116,14 @@ class TxSidebar extends HTMLElement {
                     flex: 1;
                 }
                 .arrow { color: #6e7681; margin: 0 2px; }
+                .stream-count {
+                    font-size: 10px;
+                    color: #39d4c5;
+                    background: rgba(57, 212, 197, 0.15);
+                    padding: 0 4px;
+                    border-radius: 3px;
+                    flex-shrink: 0;
+                }
             </style>
             <div class="header">
                 <h3>Transactions <span class="count">0</span></h3>
@@ -167,6 +176,20 @@ class TxSidebar extends HTMLElement {
         }
         this._countEl.textContent = this._entries.length;
 
+        // Stream grouping: collapse is_stream entries with same trace_id
+        if (entry.is_stream && entry.trace_id) {
+            const group = this._streamGroups.get(entry.trace_id);
+            if (group) {
+                group.count++;
+                const badge = group.el.querySelector('.stream-count');
+                if (badge) badge.textContent = group.count;
+                if (this._autoScroll) {
+                    this._listEl.scrollTop = this._listEl.scrollHeight;
+                }
+                return;
+            }
+        }
+
         // Fast path: if no filter and no selection, just append
         if (!this._filter && !this._selectedTraceId) {
             this._appendEntryEl(entry);
@@ -176,8 +199,9 @@ class TxSidebar extends HTMLElement {
     }
 
     loadEntries(entries) {
-        this._entries = entries;
+        this._entries = [...entries].sort((a, b) => a.timestamp - b.timestamp);
         this._countEl.textContent = this._entries.length;
+        this._streamGroups.clear();
         this._renderList();
     }
 
@@ -189,10 +213,23 @@ class TxSidebar extends HTMLElement {
 
     _renderList() {
         this._listEl.innerHTML = '';
-        for (const entry of this._entries) {
-            if (this._matchesFilter(entry)) {
-                this._appendEntryEl(entry);
+        this._streamGroups.clear();
+        const sorted = [...this._entries].sort((a, b) => a.timestamp - b.timestamp);
+        for (const entry of sorted) {
+            if (!this._matchesFilter(entry)) continue;
+
+            // Stream grouping: collapse is_stream entries with same trace_id
+            if (entry.is_stream && entry.trace_id) {
+                const group = this._streamGroups.get(entry.trace_id);
+                if (group) {
+                    group.count++;
+                    const badge = group.el.querySelector('.stream-count');
+                    if (badge) badge.textContent = group.count;
+                    continue;
+                }
             }
+
+            this._appendEntryEl(entry);
         }
     }
 
@@ -217,9 +254,14 @@ class TxSidebar extends HTMLElement {
         const d = new Date(entry.timestamp * 1000);
         const time = d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
 
+        const streamBadge = entry.is_stream
+            ? '<span class="stream-count">1</span>'
+            : '';
+
         el.innerHTML = `
             <span class="time">${time}</span>
             <span class="${nameClass}">${entry.name}</span>
+            ${streamBadge}
             <span class="route">
                 ${entry.source}<span class="arrow"> → </span>${entry.target}
             </span>
@@ -246,9 +288,17 @@ class TxSidebar extends HTMLElement {
             this.dispatchEvent(new CustomEvent('tx-select', {
                 bubbles: true, detail: { trace_id: entry.trace_id }
             }));
+            this.dispatchEvent(new CustomEvent('tx-inspect', {
+                bubbles: true, detail: { entry }
+            }));
         });
 
         el.dataset.traceId = entry.trace_id;
+
+        // Register stream group for future chunk collapsing
+        if (entry.is_stream && entry.trace_id) {
+            this._streamGroups.set(entry.trace_id, { el, count: 1 });
+        }
 
         this._listEl.appendChild(el);
 

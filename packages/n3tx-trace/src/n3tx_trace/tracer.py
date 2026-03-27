@@ -24,9 +24,30 @@ class TraceEntry:
     is_stream: bool = False
     seq: int = 0
     data_summary: str = ''
+    data: dict | list | str | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def _safe_serialize(obj, depth=0, max_depth=6):
+    """Recursively convert obj to JSON-safe types, truncating deep nesting."""
+    if depth > max_depth:
+        return str(obj)[:200]
+    if obj is None or isinstance(obj, (bool, int, float)):
+        return obj
+    if isinstance(obj, str):
+        return obj[:2000] if len(obj) > 2000 else obj
+    if isinstance(obj, dict):
+        return {str(k): _safe_serialize(v, depth + 1, max_depth) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_safe_serialize(v, depth + 1, max_depth) for v in obj]
+    # Pydantic models, dataclasses, etc.
+    if hasattr(obj, 'model_dump'):
+        return _safe_serialize(obj.model_dump(), depth, max_depth)
+    if hasattr(obj, '__dict__'):
+        return _safe_serialize(vars(obj), depth, max_depth)
+    return str(obj)[:200]
 
 
 class TraceCollector:
@@ -55,6 +76,12 @@ class TraceCollector:
         else:
             summary = str(data)[:100]
 
+        # Serialize data for JSON transport (safe copy)
+        try:
+            json_data = _safe_serialize(data)
+        except Exception:
+            json_data = None
+
         entry = TraceEntry(
             tx_uuid=tx.uuid,
             name=tx.name,
@@ -67,6 +94,7 @@ class TraceCollector:
             is_stream=meta.get('stream', False),
             seq=meta.get('seq', 0),
             data_summary=summary,
+            data=json_data,
         )
         self._buffer.append(entry)
 
@@ -97,6 +125,15 @@ class TraceCollector:
     def unsubscribe(self, client_id: str) -> None:
         """Remove an SSE client."""
         self._clients.pop(client_id, None)
+
+    def shutdown(self) -> None:
+        """Signal all SSE clients to disconnect by sending None sentinel."""
+        for queue in self._clients.values():
+            try:
+                queue.put_nowait(None)
+            except asyncio.QueueFull:
+                pass
+        self._clients.clear()
 
     def clear(self) -> None:
         """Clear all trace entries."""
