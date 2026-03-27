@@ -127,22 +127,28 @@ describe('Router Navigation', () => {
     expect(router.canGoBack).toBe(false);
   });
 
-  it('object route data is supported', () => {
+  it('non-string data is silently ignored', () => {
     const router = new Router('test-router-10', { hash: false });
-    const routeData = { tag: 'custom-component', attrs: { id: 1 }, title: 'Custom' };
-    router.NAVIGATE(routeData);
-    expect(router.current).toEqual(routeData);
-  });
-
-  it('duplicate object route data is detected via JSON.stringify', () => {
-    const router = new Router('test-router-11', { hash: false });
     const observer = vi.fn();
     router.observe('route', observer);
+    router.NAVIGATE({ tag: 'ntx-profile', attrs: {} });
+    router.NAVIGATE(42);
+    expect(observer).not.toHaveBeenCalled();
+    expect(router.current).toBeNull();
+  });
 
-    const routeData = { tag: 'custom-component', attrs: { id: 1 } };
-    router.NAVIGATE(routeData);
-    router.NAVIGATE({ tag: 'custom-component', attrs: { id: 1 } }); // same shape
-    expect(observer).toHaveBeenCalledTimes(1); // duplicate ignored
+  it('full flow: buildRoute string → NAVIGATE → resolved', async () => {
+    const { buildRoute, parseRoute, resolveRoute } = await import('../../core/Router.js');
+    const router = new Router('test-router-11', { hash: false });
+    const route = buildRoute({ type: 'model', model: 'Grant', params: { view: 'table' } });
+    expect(route).toBe('Grant?view=table');
+    router.NAVIGATE(route);
+    expect(router.current).toBe('Grant?view=table');
+    // resolved getter works (no schema → ntx-table via view= param)
+    const resolved = resolveRoute(parseRoute(router.current));
+    expect(resolved.tag).toBe('ntx-table');
+    expect(resolved.attrs.model).toBe('Grant');
+    expect(resolved.attrs.view).toBeUndefined(); // filtered from passthrough
   });
 
   it('@ prefixed routes resolve to ntx-{name} tag', () => {

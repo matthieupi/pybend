@@ -203,6 +203,39 @@
 
 
 /* ═══════════════════════════════════════════════════
+   Item entries (singleton — no accordion)
+   ═══════════════════════════════════════════════════ */
+
+.model-section--item .model-header {
+    cursor: pointer;
+}
+
+.model-section--item .model-name:hover {
+    color: var(--accent-text, #5eeadf);
+    background: var(--accent-dim, rgba(34,211,197,0.08));
+}
+
+
+/* ═══════════════════════════════════════════════════
+   Link entries (href navigation)
+   ═══════════════════════════════════════════════════ */
+
+.sidebar-link {
+    border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.04));
+}
+
+.link-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    color: var(--surface-0, #08090c);
+}
+
+
+/* ═══════════════════════════════════════════════════
    Record list (expanded section body)
    ═══════════════════════════════════════════════════ */
 

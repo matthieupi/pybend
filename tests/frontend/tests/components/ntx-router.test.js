@@ -42,14 +42,28 @@ describe('ntx-router.js (NTTRouter)', () => {
     });
   });
 
-  describe('render()', () => {
-    it('should show slot when no route', () => {
+  describe('prerender()', () => {
+    it('should create persistent chrome and content structure', () => {
       const el = document.createElement('ntx-router');
-      // Before connectedCallback, render shows slot
+      el.prerender();
+      const sr = el.shadowRoot;
+      expect(sr.querySelector('.router-chrome')).toBeTruthy();
+      expect(sr.querySelector('.router-chrome').hidden).toBe(true);
+      expect(sr.querySelector('.back-btn')).toBeTruthy();
+      expect(sr.querySelector('.router-title')).toBeTruthy();
+      expect(sr.querySelector('.router-content')).toBeTruthy();
+      expect(sr.querySelector('.router-content slot')).toBeTruthy();
+    });
+  });
+
+  describe('render()', () => {
+    it('should show slot when no route (chrome hidden)', () => {
+      const el = document.createElement('ntx-router');
+      el.prerender();
       el.render();
-      // After render with no router/current, should show slot
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('slot');
+      const sr = el.shadowRoot;
+      expect(sr.querySelector('.router-chrome').hidden).toBe(true);
+      expect(sr.querySelector('.router-content slot')).toBeTruthy();
     });
   });
 });

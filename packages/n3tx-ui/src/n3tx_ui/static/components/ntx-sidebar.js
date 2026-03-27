@@ -18,13 +18,18 @@
  *   When children are present and no `models` attribute is set, the model list
  *   is derived from the children (in DOM order).
  *
+ *   Three entry types are supported:
+ *
  *   <ntx-sidebar router="main">
- *     <ntx-table model="Grant" allow-create></ntx-table>
- *     <ntx-list  model="Source"></ntx-list>
+ *     <ntx-table model="Grant" allow-create></ntx-table>   <!-- model: expandable list -->
+ *     <ntx-list  model="Source"></ntx-list>                 <!-- model: expandable list -->
+ *     <ntx-item  model="Organization"></ntx-item>           <!-- item: singleton nav -->
+ *     <a href="#settings">Settings</a>                      <!-- link: hash navigation -->
  *   </ntx-sidebar>
  *
  *   Clicking "Grant" → router opens <ntx-table model="Grant" allow-create>
- *   Clicking "Source" → router opens <ntx-list model="Source">
+ *   Clicking "Organization" → router opens <ntx-item model="Organization" ref="Organization/1">
+ *   Clicking "Settings" → router dispatches "#settings" hash route
  *
  * Listens for:
  *   sidebar-toggle — on document (from ntx-topbar hamburger)
@@ -33,11 +38,14 @@
  *   <ntx-sidebar models="Grant,Source,AgentActor" view="table"></ntx-sidebar>
  */
 import { NTT } from '../core/NTT.js';
+import { matrix } from '../core/Matrix.js';
+import { buildRoute } from '../core/Router.js';
 
 const SIDEBAR_CSS = new URL('./ntx-sidebar.css', import.meta.url).href;
 
 const ICON_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const CHEVRON_RIGHT = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+const ICON_LINK = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
 
 // Accent gradient palette for model avatars
 const AVATAR_GRADIENTS = [
@@ -55,11 +63,14 @@ const AVATAR_GRADIENTS = [
 class NTTSidebar extends HTMLElement {
 
   #link;
-  #models = [];           // parsed model names
+  #entries = [];            // ordered [{type, name, ...}]
+  #models = [];             // model names (for NTT.attach bootstrapping)
   #routeTemplates = new Map(); // modelName → {tag, attrs}
-  #dynamicClasses = {};   // modelName → DynamicClass
-  #expanded = new Set();  // expanded model names
-  #unsubs = [];           // cleanup callbacks
+  #dynamicClasses = {};     // modelName → DynamicClass
+  #itemRefs = {};           // modelName → 'ModelName/id' (for item entries)
+  #itemNames = {};          // modelName → display name (for item entries)
+  #expanded = new Set();    // expanded model names
+  #unsubs = [];             // cleanup callbacks
 
   constructor() {
     super();
@@ -72,26 +83,49 @@ class NTTSidebar extends HTMLElement {
   }
 
   connectedCallback() {
-    // Scan Light DOM children as route templates
-    const children = [...this.querySelectorAll(':scope > [model]')];
-    const SKIP = new Set(['model', 'slot', 'class', 'style', 'id']);
+    // Scan ALL direct children in DOM order
+    const children = [...this.children];
+    const SKIP = new Set(['model', 'slot', 'class', 'style', 'id', 'display']);
+
     for (const child of children) {
-      const modelName = child.getAttribute('model');
-      const tag = child.tagName.toLowerCase();
-      const attrs = {};
-      for (const attr of child.attributes) {
-        if (!SKIP.has(attr.name)) attrs[attr.name] = attr.value;
+      if (child.hasAttribute('model')) {
+        const modelName = child.getAttribute('model');
+        const tag = child.tagName.toLowerCase();
+        const attrs = {};
+        for (const attr of child.attributes) {
+          if (!SKIP.has(attr.name)) attrs[attr.name] = attr.value;
+        }
+        this.#routeTemplates.set(modelName, { tag, attrs });
+
+        if (tag === 'ntx-item') {
+          this.#entries.push({ type: 'item', name: modelName });
+        } else {
+          this.#entries.push({ type: 'model', name: modelName });
+        }
+        child.hidden = true;
+      } else if (child.tagName === 'A' && child.hasAttribute('href')) {
+        this.#entries.push({
+          type: 'link',
+          label: child.textContent.trim(),
+          href: child.getAttribute('href'),
+        });
+        child.hidden = true;
       }
-      this.#routeTemplates.set(modelName, { tag, attrs });
-      child.hidden = true;
     }
 
-    // Derive models: from children if present, else from models attribute
-    if (this.#routeTemplates.size > 0 && !this.getAttribute('models')) {
-      this.#models = [...this.#routeTemplates.keys()];
-    } else {
+    // Derive #models from model+item entries (for NTT.attach bootstrapping)
+    this.#models = this.#entries
+      .filter(e => e.type === 'model' || e.type === 'item')
+      .map(e => e.name);
+
+    // Legacy: if no children parsed, fall back to models attribute
+    if (this.#entries.length === 0) {
       const modelsAttr = this.getAttribute('models') || '';
-      this.#models = modelsAttr.split(',').map(s => s.trim()).filter(Boolean);
+      const names = modelsAttr.split(',').map(s => s.trim()).filter(Boolean);
+      for (const name of names) {
+        this.#entries.push({ type: 'model', name });
+      }
+      this.#models = names;
     }
 
     this.#render();
@@ -139,14 +173,54 @@ class NTTSidebar extends HTMLElement {
 
   #bootstrapModels() {
     for (const modelName of this.#models) {
+      const entry = this.#entries.find(e => e.name === modelName);
+      const isItem = entry?.type === 'item';
+
       NTT.attach(modelName, (DC) => {
         this.#dynamicClasses[modelName] = DC;
         this.#updateModelHeader(modelName);
 
+        if (isItem) {
+          this.#fetchItemRef(modelName, DC);
+        }
+
         // Subscribe to class-level UPDATE observable for count changes
-        const unsub = DC.observe('UPDATE', () => this.#updateModelCount(modelName));
+        const unsub = DC.observe('UPDATE', () => {
+          if (!isItem) this.#updateModelCount(modelName);
+        });
         this.#unsubs.push(unsub);
       });
+    }
+  }
+
+  /** Fetch the singleton item for an item-type entry */
+  async #fetchItemRef(modelName, DC) {
+    const token = localStorage.getItem('jwtToken');
+    const headers = {};
+    if (token) headers['x-access-token'] = token;
+
+    try {
+      const resp = await fetch(`${DC.href}?limit=1`, { headers });
+      if (!resp.ok) return;
+      const result = await resp.json();
+      const data = result.data || result;
+      if (data.length > 0) {
+        const item = data[0];
+        const id = item.id || item.$id?.split('/').pop();
+        if (id) {
+          this.#itemRefs[modelName] = `${modelName}/${id}`;
+          const displayName = item.name || item.title || modelName;
+          this.#itemNames[modelName] = displayName;
+
+          // Update the name in the sidebar
+          const nameEl = this.shadowRoot.querySelector(
+            `.model-section[data-model="${modelName}"] .model-name`
+          );
+          if (nameEl) nameEl.textContent = displayName;
+        }
+      }
+    } catch (e) {
+      console.warn(`[ntx-sidebar] Failed to fetch item for ${modelName}:`, e);
     }
   }
 
@@ -157,11 +231,17 @@ class NTTSidebar extends HTMLElement {
     const DC = this.#dynamicClasses[modelName];
     if (!DC) return;
 
-    const displayName = DC._schema?.__name__ || modelName;
-    const nameEl = header.querySelector('.model-name');
-    if (nameEl) nameEl.textContent = displayName;
+    const entry = this.#entries.find(e => e.name === modelName);
+    // For item entries, don't overwrite with schema name — wait for fetchItemRef
+    if (entry?.type !== 'item') {
+      const displayName = DC._schema?.__name__ || modelName;
+      const nameEl = header.querySelector('.model-name');
+      if (nameEl) nameEl.textContent = displayName;
+    }
 
-    this.#updateModelCount(modelName);
+    if (entry?.type !== 'item') {
+      this.#updateModelCount(modelName);
+    }
   }
 
   #updateModelCount(modelName) {
@@ -187,27 +267,70 @@ class NTTSidebar extends HTMLElement {
     const routerAddr = this.getAttribute('router');
     if (!routerAddr) return;
 
-    let tag, attrs;
     const template = this.#routeTemplates.get(modelName);
+    const params = {};
 
     if (template) {
-      tag = template.tag;
-      attrs = { model: modelName, ...template.attrs };
+      // Map template tag to view= param
+      if (template.tag === 'ntx-table') params.view = 'table';
+      else if (template.tag !== 'ntx-list') params.view = template.tag.replace('ntx-', '');
+      // Forward template attrs as query params
+      for (const [k, v] of Object.entries(template.attrs)) {
+        params[k] = v;
+      }
     } else {
       const view = this.getAttribute('view') || 'grid';
-      tag = NTTSidebar.VIEW_TAGS[view] || 'ntx-list';
-      attrs = { model: modelName, 'allow-create': '' };
+      if (view === 'table') params.view = 'table';
+      params['allow-create'] = '';
     }
 
-    // Dispatch NAVIGATE TX to the router via Matrix.
-    // The sidebar is not an Actor, so we import Matrix directly.
-    import('../core/Matrix.js').then(({ matrix }) => {
-      matrix.dispatch({
-        name: 'NAVIGATE',
-        source: 'sidebar',
-        target: routerAddr,
-        data: { tag, attrs, title: modelName },
-      });
+    const route = buildRoute({
+      type: 'model',
+      model: modelName,
+      params: Object.keys(params).length > 0 ? params : undefined,
+    });
+
+    matrix.dispatch({
+      name: 'NAVIGATE',
+      source: 'sidebar',
+      target: routerAddr,
+      data: route,
+    });
+    this.close();
+  }
+
+  #navigateToItem(modelName) {
+    const routerAddr = this.getAttribute('router');
+    if (!routerAddr) return;
+
+    const itemRef = this.#itemRefs[modelName];
+    if (!itemRef) {
+      this.#navigateToModel(modelName);
+      return;
+    }
+
+    // itemRef is already "Model/id" — a valid route string
+    matrix.dispatch({
+      name: 'NAVIGATE',
+      source: 'sidebar',
+      target: routerAddr,
+      data: itemRef,
+    });
+    this.close();
+  }
+
+  #navigateToLink(href) {
+    const routerAddr = this.getAttribute('router');
+    if (!routerAddr) return;
+
+    // Convert hash links to @appRoutes
+    const route = href.startsWith('#') ? '@' + href.slice(1) : href;
+
+    matrix.dispatch({
+      name: 'NAVIGATE',
+      source: 'sidebar',
+      target: routerAddr,
+      data: route,
     });
     this.close();
   }
@@ -245,21 +368,17 @@ class NTTSidebar extends HTMLElement {
   // ── Render ──
 
   #render() {
-    const sectionsHtml = this.#models.map((modelName, i) => {
-      const initial = modelName[0].toUpperCase();
-      const gradient = AVATAR_GRADIENTS[i % AVATAR_GRADIENTS.length];
+    let avatarIdx = 0;
 
-      return `
-        <div class="model-section" data-model="${modelName}">
-          <button class="model-header">
-            <div class="model-avatar" style="background: ${gradient}">${initial}</div>
-            <span class="model-name">${modelName}</span>
-            <span class="model-count"></span>
-            <span class="model-chevron">${CHEVRON_RIGHT}</span>
-          </button>
-          <div class="model-records"></div>
-        </div>
-      `;
+    const sectionsHtml = this.#entries.map((entry) => {
+      if (entry.type === 'model') {
+        return this.#renderModelEntry(entry.name, avatarIdx++);
+      } else if (entry.type === 'item') {
+        return this.#renderItemEntry(entry.name, avatarIdx++);
+      } else if (entry.type === 'link') {
+        return this.#renderLinkEntry(entry, avatarIdx++);
+      }
+      return '';
     }).join('');
 
     const container = document.createElement('div');
@@ -285,19 +404,93 @@ class NTTSidebar extends HTMLElement {
     this.shadowRoot.querySelector('.sidebar-close')
       ?.addEventListener('click', () => this.close());
 
-    // Bind section headers
-    for (const modelName of this.#models) {
-      const section = this.shadowRoot.querySelector(`.model-section[data-model="${modelName}"]`);
-      // Click on model name → navigate to list view
-      section?.querySelector('.model-name')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.#navigateToModel(modelName);
-      });
-      // Click elsewhere on header → toggle accordion
-      section?.querySelector('.model-header')?.addEventListener('click', () => {
-        this.#toggleSection(modelName);
-      });
+    // Bind entry-specific events
+    for (const entry of this.#entries) {
+      if (entry.type === 'model') {
+        this.#bindModelEvents(entry.name);
+      } else if (entry.type === 'item') {
+        this.#bindItemEvents(entry.name);
+      } else if (entry.type === 'link') {
+        this.#bindLinkEvents(entry);
+      }
     }
+  }
+
+  #renderModelEntry(modelName, idx) {
+    const initial = modelName[0].toUpperCase();
+    const gradient = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
+
+    return `
+      <div class="model-section" data-model="${modelName}">
+        <button class="model-header">
+          <div class="model-avatar" style="background: ${gradient}">${initial}</div>
+          <span class="model-name">${modelName}</span>
+          <span class="model-count"></span>
+          <span class="model-chevron">${CHEVRON_RIGHT}</span>
+        </button>
+        <div class="model-records"></div>
+      </div>
+    `;
+  }
+
+  #renderItemEntry(modelName, idx) {
+    const initial = modelName[0].toUpperCase();
+    const gradient = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
+
+    return `
+      <div class="model-section model-section--item" data-model="${modelName}">
+        <button class="model-header">
+          <div class="model-avatar" style="background: ${gradient}">${initial}</div>
+          <span class="model-name">${modelName}</span>
+        </button>
+      </div>
+    `;
+  }
+
+  #renderLinkEntry(entry, idx) {
+    const gradient = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
+
+    return `
+      <div class="sidebar-link" data-href="${entry.href}">
+        <button class="model-header">
+          <div class="link-icon" style="background: ${gradient}">${ICON_LINK}</div>
+          <span class="model-name">${entry.label}</span>
+        </button>
+      </div>
+    `;
+  }
+
+  #bindModelEvents(modelName) {
+    const section = this.shadowRoot.querySelector(`.model-section[data-model="${modelName}"]`);
+    if (!section) return;
+    // Click on model name → navigate to list view
+    section.querySelector('.model-name')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.#navigateToModel(modelName);
+    });
+    // Click elsewhere on header → toggle accordion
+    section.querySelector('.model-header')?.addEventListener('click', () => {
+      this.#toggleSection(modelName);
+    });
+  }
+
+  #bindItemEvents(modelName) {
+    const section = this.shadowRoot.querySelector(
+      `.model-section--item[data-model="${modelName}"]`
+    );
+    if (!section) return;
+    // Click anywhere → navigate to item (no accordion)
+    section.querySelector('.model-header')?.addEventListener('click', () => {
+      this.#navigateToItem(modelName);
+    });
+  }
+
+  #bindLinkEvents(entry) {
+    const linkEl = this.shadowRoot.querySelector(`.sidebar-link[data-href="${entry.href}"]`);
+    if (!linkEl) return;
+    linkEl.querySelector('.model-header')?.addEventListener('click', () => {
+      this.#navigateToLink(entry.href);
+    });
   }
 }
 

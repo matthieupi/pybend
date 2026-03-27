@@ -19,7 +19,11 @@
 }
 
 .row:hover {
-    background: var(--glass-bg-hover, rgba(20, 24, 36, 0.70));
+    background: var(--row-hover-bg, rgba(255, 255, 255, 0.07));
+}
+
+:host(:hover) .row:not(.editing) {
+    background: var(--row-hover-bg, rgba(255, 255, 255, 0.07));
 }
 
 .row.editing {

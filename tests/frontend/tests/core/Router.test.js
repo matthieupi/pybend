@@ -86,13 +86,12 @@ describe('Router.js', () => {
       expect(cb).not.toHaveBeenCalled();
     });
 
-    it('should return early if navigating to same route (object)', () => {
-      const route = { tag: 'ntx-item', attrs: { ref: 'x' } };
-      router.NAVIGATE(route);
+    it('should silently ignore non-string data', () => {
       const cb = vi.fn();
       router.observe('route', cb);
-      router.NAVIGATE({ tag: 'ntx-item', attrs: { ref: 'x' } }); // Same by JSON
+      router.NAVIGATE({ tag: 'ntx-item', attrs: { ref: 'x' } });
       expect(cb).not.toHaveBeenCalled();
+      expect(router.current).toBeNull();
     });
 
     it('should handle multiple navigations', () => {
@@ -103,10 +102,15 @@ describe('Router.js', () => {
       expect(router.canGoBack).toBe(true);
     });
 
-    it('should handle object routes', () => {
-      const route = { tag: 'ntx-profile', attrs: {}, title: 'Profile' };
-      router.NAVIGATE(route);
-      expect(router.current).toEqual(route);
+    it('should ignore objects, numbers, null, undefined', () => {
+      const cb = vi.fn();
+      router.observe('route', cb);
+      router.NAVIGATE({ tag: 'ntx-profile' });
+      router.NAVIGATE(42);
+      router.NAVIGATE(null);
+      router.NAVIGATE(undefined);
+      router.NAVIGATE('');
+      expect(cb).not.toHaveBeenCalled();
     });
   });
 
@@ -154,6 +158,43 @@ describe('Router.js', () => {
     });
   });
 
+  describe('navigate() / back() sugar', () => {
+    it('navigate() sets current like NAVIGATE', () => {
+      router.navigate('Product/1');
+      expect(router.current).toBe('Product/1');
+    });
+
+    it('back() pops like BACK', () => {
+      router.navigate('A');
+      router.navigate('B');
+      router.back();
+      expect(router.current).toBe('A');
+    });
+
+    it('navigate() triggers observers', () => {
+      const cb = vi.fn();
+      router.observe('route', cb);
+      router.navigate('X');
+      expect(cb).toHaveBeenCalledWith('X', null, 'route', router);
+    });
+  });
+
+  describe('stack cap', () => {
+    it('should cap stack at 50 entries', () => {
+      for (let i = 0; i < 55; i++) {
+        router.NAVIGATE(`route-${i}`);
+      }
+      expect(router.current).toBe('route-54');
+      // Back 50 times should exhaust the stack
+      let backs = 0;
+      while (router.canGoBack) {
+        router.BACK();
+        backs++;
+      }
+      expect(backs).toBe(50);
+    });
+  });
+
   describe('getRouter(addr)', () => {
     it('should retrieve registered router', () => {
       const name = `get-test-${Math.random().toString(36).slice(2)}`;
@@ -171,6 +212,42 @@ describe('Router.js', () => {
       const name = `hash-${Math.random().toString(36).slice(2)}`;
       const r = new Router(name, { hash: true });
       expect(r).toBeTruthy();
+    });
+  });
+
+  describe('resolved (getter)', () => {
+    it('should return null when no route', () => {
+      expect(router.resolved).toBeNull();
+    });
+
+    it('should return resolveRoute output for string route', () => {
+      router.NAVIGATE('Product/3');
+      const r = router.resolved;
+      expect(r.tag).toBe('ntx-item'); // no schema → default
+      expect(r.attrs.ref).toBe('Product/3');
+      expect(r.attrs.display).toBe('lg');
+    });
+
+    it('should use getSchema when provided', () => {
+      const name = `schema-${Math.random().toString(36).slice(2)}`;
+      const schema = { ui: { renderer: { detail: 'ntx-custom' } } };
+      const r = new Router(name, { hash: false, getSchema: () => schema });
+      r.NAVIGATE('Product/3');
+      expect(r.resolved.tag).toBe('ntx-custom');
+    });
+
+    it('should resolve app routes', () => {
+      router.NAVIGATE('@profile');
+      const r = router.resolved;
+      expect(r.tag).toBe('ntx-profile');
+      expect(r.title).toBe('Profile');
+    });
+
+    it('should resolve model routes', () => {
+      router.NAVIGATE('Grant');
+      const r = router.resolved;
+      expect(r.tag).toBe('ntx-list');
+      expect(r.attrs.model).toBe('Grant');
     });
   });
 });
