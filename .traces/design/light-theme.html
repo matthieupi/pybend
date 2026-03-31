@@ -1,364 +1,387 @@
 <!DOCTYPE html>
 
-<html class="dark" lang="en"><head>
+<html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Veille | Grant Management Dashboard</title>
+<title>Veille Grant Management - Dashboard</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "on-error-container": "#ffa8a3",
-                        "on-secondary": "#005d52",
-                        "secondary-fixed": "#6ef9e2",
-                        "on-primary-fixed-variant": "#005561",
-                        "on-secondary-fixed-variant": "#00675b",
-                        "surface-tint": "#3adffa",
-                        "background": "#070d1f",
-                        "on-background": "#dfe4fe",
-                        "surface": "#070d1f",
-                        "on-primary-fixed": "#00363e",
-                        "tertiary-dim": "#c1d0e6",
-                        "secondary-container": "#006b5e",
-                        "error-container": "#9f0519",
-                        "inverse-on-surface": "#4f5469",
-                        "on-surface": "#dfe4fe",
-                        "primary-container": "#00cbe6",
-                        "on-secondary-container": "#ddfff6",
-                        "surface-container-high": "#171f36",
-                        "tertiary-fixed": "#cfdef5",
-                        "on-secondary-fixed": "#00483f",
-                        "surface-container-lowest": "#000000",
-                        "secondary-dim": "#5eead4",
-                        "primary-fixed": "#3adffa",
-                        "primary": "#3adffa",
-                        "outline": "#6f758b",
-                        "tertiary-fixed-dim": "#c1d0e6",
-                        "on-tertiary-fixed-variant": "#4a596c",
-                        "on-error": "#490006",
-                        "surface-bright": "#222b47",
-                        "on-primary-container": "#003d46",
-                        "surface-container-highest": "#1c253e",
-                        "surface-variant": "#1c253e",
-                        "on-tertiary-container": "#414f62",
-                        "outline-variant": "#41475b",
-                        "secondary-fixed-dim": "#5eead4",
-                        "tertiary": "#e0ecff",
-                        "primary-dim": "#1ad0eb",
-                        "on-primary": "#004b56",
-                        "surface-dim": "#070d1f",
-                        "surface-container": "#11192e",
-                        "on-tertiary": "#49586b",
-                        "error": "#ff716c",
-                        "tertiary-container": "#cfdef5",
-                        "error-dim": "#d7383b",
-                        "inverse-primary": "#006977",
-                        "surface-container-low": "#0c1326",
-                        "primary-fixed-dim": "#1ad0eb",
-                        "secondary": "#6ef9e2",
-                        "on-surface-variant": "#a5aac2",
-                        "inverse-surface": "#faf8ff",
-                        "on-tertiary-fixed": "#2e3d4e"
-                    },
-                    fontFamily: {
-                        "headline": ["Manrope"],
-                        "body": ["Manrope"],
-                        "label": ["Manrope"]
-                    },
-                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
-                },
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error-container": "#ffdad6",
+              "on-primary-container": "#8fd8dc",
+              "tertiary-fixed-dim": "#ffb866",
+              "secondary-fixed-dim": "#afcbd8",
+              "on-surface-variant": "#3f4949",
+              "on-tertiary-fixed-variant": "#673d00",
+              "primary": "#00464a",
+              "on-surface": "#191c1d",
+              "surface-container-highest": "#e1e3e4",
+              "surface": "#f8fafb",
+              "surface-bright": "#f8fafb",
+              "inverse-on-surface": "#eff1f2",
+              "on-secondary-container": "#4e6874",
+              "surface-container": "#eceeef",
+              "on-error": "#ffffff",
+              "error": "#ba1a1a",
+              "inverse-primary": "#8ad3d7",
+              "on-primary-fixed-variant": "#004f53",
+              "surface-tint": "#14696d",
+              "primary-container": "#006064",
+              "on-error-container": "#93000a",
+              "inverse-surface": "#2e3132",
+              "outline": "#6f7979",
+              "outline-variant": "#bec8c9",
+              "on-secondary-fixed": "#021f29",
+              "tertiary-fixed": "#ffddba",
+              "on-primary-fixed": "#002021",
+              "surface-variant": "#e1e3e4",
+              "on-tertiary-fixed": "#2b1700",
+              "secondary-fixed": "#cbe7f5",
+              "surface-container-lowest": "#ffffff",
+              "on-primary": "#ffffff",
+              "on-secondary": "#ffffff",
+              "tertiary-container": "#7c4b00",
+              "on-tertiary": "#ffffff",
+              "background": "#f8fafb",
+              "tertiary": "#5c3600",
+              "on-tertiary-container": "#ffc078",
+              "secondary-container": "#cbe7f5",
+              "primary-fixed": "#a6eff3",
+              "secondary": "#48626e",
+              "on-background": "#191c1d",
+              "surface-dim": "#d8dadb",
+              "surface-container-low": "#f2f4f5",
+              "on-secondary-fixed-variant": "#304a55",
+              "primary-fixed-dim": "#8ad3d7",
+              "surface-container-high": "#e6e8e9"
             },
-        }
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
     </script>
 <style>
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
         body {
-            font-family: 'Manrope', sans-serif;
-            background-color: #070d1f;
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafb;
         }
+        .headline-font { font-family: 'Manrope', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="bg-surface text-on-surface antialiased">
-<!-- TopNavBar -->
-<nav class="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-xl shadow-[0_20px_50px_rgba(58,223,250,0.06)] font-['Manrope'] antialiased tracking-tight">
-<div class="flex justify-between items-center w-full px-8 h-16">
-<div class="flex items-center gap-8">
-<span class="text-2xl font-black text-cyan-400 tracking-tighter">Veille</span>
-<div class="hidden md:flex gap-6">
-<a class="text-cyan-400 font-bold border-b-2 border-cyan-400 pb-1" href="#">Portfolio</a>
-<a class="text-slate-300 hover:text-cyan-200 transition-colors" href="#">Resources</a>
-<a class="text-slate-300 hover:text-cyan-200 transition-colors" href="#">Support</a>
-</div>
-</div>
-<div class="flex items-center gap-4">
-<button class="p-2 text-slate-300 hover:bg-slate-800/50 transition-all duration-300 rounded-full">
-<span class="material-symbols-outlined">notifications</span>
-</button>
-<button class="p-2 text-slate-300 hover:bg-slate-800/50 transition-all duration-300 rounded-full">
-<span class="material-symbols-outlined">settings</span>
-</button>
-<div class="h-8 w-8 rounded-full bg-surface-container overflow-hidden">
-<img alt="User profile" class="h-full w-full object-cover" data-alt="Close-up portrait of a professional man with a friendly expression in soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0TDT67jDXO061s_a-YhxOCsTJNQlmB7D8oBkSYgYLkUmzUS2VbKqad1yGHzudurCEB0ldnLN9fs0iSnJWRqTwEbbkkV8I6gGJhRhUQJQigBwe87DqR_RG1TTaWU7OofcraGkjv2mdy2CRPFzePtrL2CYnCIBrltlUz1V1Zh5Yy2r37wRMi5BhPGpalNCX3wTuYQH2mTQUKwiClVpt6Q1dmg6Grr4BFdvPV5W3zdpwMffn76LYX-pGR8LeQuV6KKg1jKrtekC0cj4"/>
-</div>
-</div>
-</div>
-</nav>
+<body class="text-on-surface bg-background antialiased">
 <!-- SideNavBar -->
-<aside class="h-screen w-64 fixed left-0 top-0 bg-slate-950 flex flex-col h-full p-4 border-r border-slate-800/50 hidden md:flex z-40 pt-20">
-<div class="mb-8 px-4">
-<h2 class="text-xl font-extrabold text-slate-100">Veille</h2>
-<p class="text-[0.6875rem] font-medium tracking-wide uppercase text-on-surface-variant">Grant Management</p>
+<aside class="fixed left-0 top-0 h-full flex flex-col p-4 bg-slate-50 dark:bg-slate-900 h-screen w-64 border-r-0 z-40">
+<div class="mb-8 px-2">
+<h1 class="text-xl font-bold tracking-tighter text-cyan-950 dark:text-cyan-50 headline-font">Veille Grant Mgmt</h1>
+<p class="text-xs text-slate-500 font-['Manrope']">Editorial Analyst</p>
 </div>
-<div class="flex flex-col gap-2 flex-grow">
-<a class="flex items-center gap-3 px-4 py-3 bg-slate-900 text-cyan-400 rounded-lg shadow-[inset_0_0_10px_rgba(58,223,250,0.1)] font-['Manrope'] text-sm font-medium tracking-wide uppercase transition-transform duration-300 ease-out" href="#">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">grid_view</span>
-                Dashboard
-            </a>
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-slate-900/80 hover:translate-x-1 transition-all font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
-<span class="material-symbols-outlined">manage_search</span>
-                Grant Search
-            </a>
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-slate-900/80 hover:translate-x-1 transition-all font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
-<span class="material-symbols-outlined">insert_chart</span>
-                Analytics
-            </a>
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-slate-900/80 hover:translate-x-1 transition-all font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-cyan-700 dark:text-cyan-300 font-bold bg-white dark:bg-slate-950 rounded-lg shadow-sm transition-all scale-95 duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-['Manrope'] text-sm tracking-tight">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-cyan-800 dark:hover:text-cyan-200 transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-800" href="#">
+<span class="material-symbols-outlined">search_check</span>
+<span class="font-['Manrope'] text-sm tracking-tight">Grant Search</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-cyan-800 dark:hover:text-cyan-200 transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-800" href="#">
+<span class="material-symbols-outlined">insights</span>
+<span class="font-['Manrope'] text-sm tracking-tight">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-cyan-800 dark:hover:text-cyan-200 transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-800" href="#">
+<span class="material-symbols-outlined">account_balance</span>
+<span class="font-['Manrope'] text-sm tracking-tight">Funder Database</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 dark:text-slate-400 hover:text-cyan-800 dark:hover:text-cyan-200 transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-800" href="#">
 <span class="material-symbols-outlined">description</span>
-                Reports
-            </a>
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-slate-900/80 hover:translate-x-1 transition-all font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
-<span class="material-symbols-outlined">group</span>
-                Team
-            </a>
+<span class="font-['Manrope'] text-sm tracking-tight">Reports</span>
+</a>
+</nav>
+<div class="mt-auto space-y-6">
+<button class="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/10 hover:opacity-90 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span>
+                New Grant Search
+            </button>
+<div class="pt-4 border-t border-slate-200 dark:border-slate-800">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-cyan-800 transition-colors text-sm font-['Manrope']" href="#">
+<span class="material-symbols-outlined">settings</span>
+                    Settings
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-cyan-800 transition-colors text-sm font-['Manrope']" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+                    Support
+                </a>
 </div>
-<div class="mt-auto border-t border-slate-800/50 pt-4 flex flex-col gap-2">
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
-<span class="material-symbols-outlined">help</span>
-                Help
-            </a>
-<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
-<span class="material-symbols-outlined">logout</span>
-                Logout
-            </a>
 </div>
 </aside>
-<!-- Main Content -->
-<main class="md:ml-64 pt-24 px-8 pb-12">
-<!-- Header Section -->
-<header class="mb-10 flex justify-between items-end">
-<div>
-<h1 class="text-4xl font-extrabold tracking-tight text-on-surface mb-2 leading-none">Intelligence Dashboard</h1>
-<p class="text-on-surface-variant text-lg">Real-time grant opportunity tracking and pipeline health.</p>
+<!-- Main Content Wrapper -->
+<main class="ml-64 min-h-screen">
+<!-- TopNavBar -->
+<header class="w-full h-16 sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-900 shadow-sm shadow-slate-200/50 dark:shadow-none flex justify-between items-center px-8">
+<div class="flex items-center gap-8 flex-1">
+<div class="relative w-64 group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg group-focus-within:text-cyan-600 transition-colors">search</span>
+<input class="w-full pl-10 pr-4 py-1.5 bg-surface-container-low border-none rounded-md text-sm focus:ring-2 ring-cyan-500/20 font-body placeholder:text-slate-400" placeholder="Search portfolio..." type="text"/>
 </div>
-<div class="flex gap-4">
-<button class="bg-surface-container-high px-6 py-2 rounded-lg font-semibold text-sm border border-outline-variant/15 hover:bg-surface-container-highest transition-colors">
-                    Export Report
-                </button>
-<button class="bg-gradient-to-br from-primary to-primary-container px-6 py-2 rounded-lg font-bold text-sm text-on-primary shadow-lg shadow-primary/10 transition-transform active:scale-95">
-                    + New Pipeline
-                </button>
+<nav class="flex gap-6">
+<a class="text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-600 dark:border-cyan-400 pb-2 font-['Inter'] text-xs font-semibold uppercase tracking-widest" href="#">Portfolio</a>
+<a class="text-slate-400 dark:text-slate-500 hover:text-cyan-900 dark:hover:text-cyan-100 font-['Inter'] text-xs font-semibold uppercase tracking-widest transition-opacity" href="#">Submissions</a>
+<a class="text-slate-400 dark:text-slate-500 hover:text-cyan-900 dark:hover:text-cyan-100 font-['Inter'] text-xs font-semibold uppercase tracking-widest transition-opacity" href="#">Archives</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 mr-4 border-r border-slate-100 pr-4">
+<button class="p-2 text-slate-400 hover:text-cyan-900 transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-tertiary rounded-full"></span>
+</button>
+<button class="p-2 text-slate-400 hover:text-cyan-900 transition-colors">
+<span class="material-symbols-outlined">history</span>
+</button>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 border border-outline-variant/10 hover:border-outline-variant/30 text-xs font-semibold uppercase tracking-widest text-on-surface-variant transition-all rounded-md">Filter</button>
+<button class="px-4 py-2 bg-gradient-to-r from-primary to-primary-container text-white text-xs font-semibold uppercase tracking-widest transition-all rounded-md shadow-lg shadow-primary/10">Export Data</button>
+</div>
+<img alt="Analyst Profile" class="w-8 h-8 rounded-full border border-slate-200 ml-2" data-alt="professional portrait of a male editorial analyst wearing glasses in a brightly lit modern office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBY36l3xLMmK5qrjV1t_elWMn9xVjSmsyq3ybUfwHCH9DZoY2XRj8dEJbURji2CSWL5VzISM70LTrZr17M8QhG9igD-lSb3vdRZzRzdZmE17rp9hLN-mO6IgqMEOd0WkvCG0ZOM6TkzRERxAc9JwgNvqaX2cKjltgmTbUz-kDORvyfcPfWmDqwvgmMzGQup9nd6yPu_uYYSsvSKMsUgaB4eXV9scRE78VFJs4-I6E63HVsPi4U2VonlvLp8eHWR86btoJxDhWAZC8M"/>
 </div>
 </header>
-<!-- Bento Grid Layout -->
-<div class="grid grid-cols-12 gap-6">
-<!-- Grant Pipeline Health (Large Section) -->
-<section class="col-span-12 lg:col-span-8 bg-surface-container-low rounded-xl p-6 border border-outline-variant/5">
-<div class="flex justify-between items-center mb-8">
-<h3 class="text-lg font-bold uppercase tracking-widest text-secondary">Grant Pipeline Health</h3>
-<div class="flex gap-2">
-<span class="px-3 py-1 bg-surface-container text-xs font-bold rounded-full text-on-surface-variant">MONTHLY</span>
-<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">LIVE</span>
+<!-- Dashboard Canvas -->
+<div class="p-8 space-y-12">
+<!-- Hero Heading Section -->
+<section class="flex justify-between items-end">
+<div>
+<h2 class="text-4xl font-extrabold headline-font tracking-tight text-primary mb-2">Grants <span class="text-outline-variant font-light ml-2">5 / 5</span></h2>
+<p class="text-on-surface-variant font-body max-w-lg">Monitoring active opportunities and upcoming deadlines for the Q3 Editorial Pipeline.</p>
+</div>
+<button class="flex items-center gap-2 bg-surface-container-lowest border border-outline-variant/20 hover:border-primary/40 px-6 py-3 rounded-xl transition-all shadow-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<span class="headline-font font-bold text-sm tracking-tight">Add Opportunity</span>
+</button>
+</section>
+<!-- Grant Cards Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+<!-- Card 1 -->
+<article class="bg-surface-container-lowest rounded-xl p-6 flex flex-col justify-between group hover:shadow-xl hover:shadow-slate-200/40 transition-all border border-transparent hover:border-primary/5">
+<div class="space-y-4">
+<div class="flex justify-between items-start">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-wider rounded-full">Analyzing</span>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">open_in_new</span>
+</a>
+</div>
+<h3 class="text-lg font-bold headline-font text-primary leading-tight min-h-[3.5rem] group-hover:text-primary-container transition-colors">TELUS Canadian Community Board Grants</h3>
+<!-- Metadata Cluster -->
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 pt-4">
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Funder</p>
+<p class="text-sm font-medium text-on-surface truncate">TELUS Friendly Future</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Score</p>
+<p class="text-xl font-bold headline-font text-tertiary">92%</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Deadline</p>
+<p class="text-sm font-medium text-on-surface">Oct 24, 2023</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Amount</p>
+<p class="text-sm font-bold text-primary">$20,000</p>
 </div>
 </div>
-<div class="h-64 flex items-end gap-4 px-2">
-<!-- Custom Chart Simulation -->
-<div class="flex-1 flex flex-col justify-end gap-2 group">
-<div class="w-full bg-slate-800 rounded-t-lg h-[40%] group-hover:bg-slate-700 transition-all"></div>
-<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">JAN</span>
 </div>
-<div class="flex-1 flex flex-col justify-end gap-2 group">
-<div class="w-full bg-slate-800 rounded-t-lg h-[60%] group-hover:bg-slate-700 transition-all"></div>
-<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">FEB</span>
+<div class="mt-8 pt-6 border-t border-slate-50 flex gap-3">
+<button class="flex-1 py-2.5 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">play_arrow</span>
+                            Run
+                        </button>
+<button class="px-4 py-2.5 border border-outline-variant/10 text-on-surface-variant rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all">Details</button>
 </div>
-<div class="flex-1 flex flex-col justify-end gap-2 group">
-<div class="w-full bg-primary/20 rounded-t-lg h-[85%] group-hover:bg-primary/30 transition-all relative">
-<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-on-primary text-[10px] font-black px-2 py-1 rounded">MATCH</div>
+</article>
+<!-- Card 2 -->
+<article class="bg-surface-container-lowest rounded-xl p-6 flex flex-col justify-between group hover:shadow-xl hover:shadow-slate-200/40 transition-all border border-transparent hover:border-primary/5">
+<div class="space-y-4">
+<div class="flex justify-between items-start">
+<span class="px-3 py-1 bg-secondary-fixed text-on-secondary-fixed text-[10px] font-bold uppercase tracking-wider rounded-full">Analyze</span>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">open_in_new</span>
+</a>
 </div>
-<span class="text-[0.6875rem] text-center text-primary font-bold">MAR</span>
+<h3 class="text-lg font-bold headline-font text-primary leading-tight min-h-[3.5rem] group-hover:text-primary-container transition-colors">Mission économique: Innovation en IA France-Canada</h3>
+<!-- Metadata Cluster -->
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 pt-4">
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Funder</p>
+<p class="text-sm font-medium text-on-surface truncate">Export Québec</p>
 </div>
-<div class="flex-1 flex flex-col justify-end gap-2 group">
-<div class="w-full bg-slate-800 rounded-t-lg h-[45%] group-hover:bg-slate-700 transition-all"></div>
-<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">APR</span>
+<div class="text-right">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Score</p>
+<p class="text-xl font-bold headline-font text-outline-variant">N/A</p>
 </div>
-<div class="flex-1 flex flex-col justify-end gap-2 group">
-<div class="w-full bg-slate-800 rounded-t-lg h-[75%] group-hover:bg-slate-700 transition-all"></div>
-<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">MAY</span>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Deadline</p>
+<p class="text-sm font-medium text-on-surface">Nov 15, 2023</p>
 </div>
-<div class="flex-1 flex flex-col justify-end gap-2 group">
-<div class="w-full bg-secondary/20 rounded-t-lg h-[95%] group-hover:bg-secondary/30 transition-all"></div>
-<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">JUN</span>
+<div class="text-right">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Amount</p>
+<p class="text-sm font-bold text-primary">$15,000+</p>
 </div>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-slate-50 flex gap-3">
+<button class="flex-1 py-2.5 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">play_arrow</span>
+                            Run
+                        </button>
+<button class="px-4 py-2.5 border border-outline-variant/10 text-on-surface-variant rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all">Details</button>
+</div>
+</article>
+<!-- Card 3 -->
+<article class="bg-surface-container-lowest rounded-xl p-6 flex flex-col justify-between group hover:shadow-xl hover:shadow-slate-200/40 transition-all border border-transparent hover:border-primary/5">
+<div class="space-y-4">
+<div class="flex justify-between items-start">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-wider rounded-full">Analyzing</span>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">open_in_new</span>
+</a>
+</div>
+<h3 class="text-lg font-bold headline-font text-primary leading-tight min-h-[3.5rem] group-hover:text-primary-container transition-colors">Canada Arts Council: Digital Strategy Fund</h3>
+<!-- Metadata Cluster -->
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 pt-4">
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Funder</p>
+<p class="text-sm font-medium text-on-surface truncate">Canada Council</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Score</p>
+<p class="text-xl font-bold headline-font text-tertiary">84%</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Deadline</p>
+<p class="text-sm font-medium text-on-surface">Dec 02, 2023</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Amount</p>
+<p class="text-sm font-bold text-primary">$50,000</p>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-slate-50 flex gap-3">
+<button class="flex-1 py-2.5 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">play_arrow</span>
+                            Run
+                        </button>
+<button class="px-4 py-2.5 border border-outline-variant/10 text-on-surface-variant rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all">Details</button>
+</div>
+</article>
+<!-- Card 4 (Analytical/Visual State) -->
+<article class="relative bg-primary-container overflow-hidden rounded-xl p-6 flex flex-col justify-between text-white col-span-1 lg:col-span-2 xl:col-span-1 border border-primary/20 shadow-lg shadow-primary/20">
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+<img class="w-full h-full object-cover" data-alt="abstract dark teal and blue background with flowing lines and sophisticated grainy texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMHz_-E87IgxaIN2NxcYiAxfMOUWcSZBVk22J-0GNyTKGBTYJcsCydgvsYfOc7PkX3_c75Svq6BBrDmPEaQPc3_NBQrhNomdaP3HF_FmodreCmPFSm4rHfvTk2FOOlyOJvbU4lZ8XdWGoaISZDNf1UkgktPHgH14AZPsvZ3arBnfeYRLfMH8PWiq-xWu6BOKzVuajyo1sY6ThQRVnFgbrUPbF-nhluTTKAryoU4o0b_vSwsPRwinIptwVG50jO949phh77fGt5Dyg"/>
+</div>
+<div class="relative z-10 space-y-4">
+<div class="flex justify-between items-start">
+<span class="px-3 py-1 bg-white/20 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider rounded-full">New Opportunity</span>
+<span class="material-symbols-outlined text-white/50">auto_awesome</span>
+</div>
+<h3 class="text-lg font-bold headline-font leading-tight">National Research Council: IRAP Technology Transfer</h3>
+<p class="text-sm text-on-primary-container leading-relaxed">System identified a 98% match based on your recent portfolio updates regarding LLM security protocols.</p>
+</div>
+<div class="relative z-10 mt-8">
+<div class="flex items-center gap-4 mb-4">
+<div class="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+<div class="w-[98%] h-full bg-white rounded-full"></div>
+</div>
+<span class="text-sm font-bold headline-font">98% Match</span>
+</div>
+<button class="w-full py-3 bg-white text-primary rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-opacity-90 transition-all">Review Matches</button>
+</div>
+</article>
+<!-- Card 5 -->
+<article class="bg-surface-container-lowest rounded-xl p-6 flex flex-col justify-between group hover:shadow-xl hover:shadow-slate-200/40 transition-all border border-transparent hover:border-primary/5">
+<div class="space-y-4">
+<div class="flex justify-between items-start">
+<span class="px-3 py-1 bg-secondary-fixed text-on-secondary-fixed text-[10px] font-bold uppercase tracking-wider rounded-full">Analyze</span>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">open_in_new</span>
+</a>
+</div>
+<h3 class="text-lg font-bold headline-font text-primary leading-tight min-h-[3.5rem] group-hover:text-primary-container transition-colors">Green Technology Pilot Program (Phase II)</h3>
+<!-- Metadata Cluster -->
+<div class="grid grid-cols-2 gap-y-4 gap-x-2 pt-4">
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Funder</p>
+<p class="text-sm font-medium text-on-surface truncate">SDTC Canada</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Score</p>
+<p class="text-xl font-bold headline-font text-outline-variant">N/A</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Deadline</p>
+<p class="text-sm font-medium text-on-surface">Jan 12, 2024</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold mb-1">Amount</p>
+<p class="text-sm font-bold text-primary">$250,000</p>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-slate-50 flex gap-3">
+<button class="flex-1 py-2.5 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">play_arrow</span>
+                            Run
+                        </button>
+<button class="px-4 py-2.5 border border-outline-variant/10 text-on-surface-variant rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all">Details</button>
+</div>
+</article>
+</div>
+<!-- Bento Statistics / Secondary Insights -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-12">
+<div class="md:col-span-2 bg-surface-container-low rounded-xl p-8 flex flex-col justify-between">
+<div>
+<h4 class="headline-font font-bold text-on-surface text-lg">Grant Pipeline Health</h4>
+<p class="text-on-surface-variant text-sm mt-1">Overall funding success probability across active applications.</p>
+</div>
+<div class="mt-8 flex items-end gap-1 h-32">
+<div class="flex-1 bg-primary/20 rounded-t-sm h-[40%]"></div>
+<div class="flex-1 bg-primary/40 rounded-t-sm h-[65%]"></div>
+<div class="flex-1 bg-primary/60 rounded-t-sm h-[50%]"></div>
+<div class="flex-1 bg-primary rounded-t-sm h-[85%]"></div>
+<div class="flex-1 bg-primary/70 rounded-t-sm h-[60%]"></div>
+<div class="flex-1 bg-primary/30 rounded-t-sm h-[45%]"></div>
+<div class="flex-1 bg-tertiary rounded-t-sm h-[95%]"></div>
+</div>
+</div>
+<div class="bg-white rounded-xl p-8 border border-slate-100 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-4xl text-tertiary mb-2">event_upcoming</span>
+<p class="text-3xl font-extrabold headline-font text-primary">12</p>
+<p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest mt-1">Days to next deadline</p>
+</div>
+<div class="bg-white rounded-xl p-8 border border-slate-100 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-4xl text-primary mb-2">payments</span>
+<p class="text-3xl font-extrabold headline-font text-primary">$345k</p>
+<p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest mt-1">Total Potential Value</p>
 </div>
 </section>
-<!-- Quick Stats (Tall Section) -->
-<section class="col-span-12 lg:col-span-4 grid grid-rows-2 gap-6">
-<div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 flex flex-col justify-between">
-<div>
-<p class="text-[0.6875rem] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Pipeline Value</p>
-<h4 class="text-3xl font-black text-on-surface">$2.4M</h4>
 </div>
-<div class="flex items-center gap-2 text-secondary text-sm font-bold">
-<span class="material-symbols-outlined text-sm">trending_up</span>
-                        +14.2% from last quarter
-                    </div>
-</div>
-<div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 flex flex-col justify-between">
-<div>
-<p class="text-[0.6875rem] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Active Proposals</p>
-<h4 class="text-3xl font-black text-on-surface">18</h4>
-</div>
-<div class="flex -space-x-3 overflow-hidden">
-<img alt="" class="inline-block h-8 w-8 rounded-full ring-2 ring-surface-container" data-alt="Portrait of a young executive man in a neutral setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJbZ1awxr415wZ2VSb0ETgyTxwuVZuGj3SzrZ8UGyD6AQrDIfH9oh2460NzVhea9-KyhlqXsvGG79JmAFyxBm67OtMSnCQDs5sX0Hxmw4x1WhGNcMT6YHCqXlxcw9ZNTcuxjxa0vPJcoTYchU8faJrx5P23tGe_EhSFa8gILtoK8UvcWoyghtjG9wFxLQgMyLLSXOiOTJLxXtZyB0IedKtSJ2SzPZk_8ulApb4hr5ebcDupgC68cWpahLy0tPhg26ypwJz_W74wkc"/>
-<img alt="" class="inline-block h-8 w-8 rounded-full ring-2 ring-surface-container" data-alt="Close-up of a smiling professional woman with bright lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3rlBdIz7ao5xQ-2A5uRTrJe3irQ2p_AtOKRoxVab-o4zTF-QCXkZ-CDeCPSQeNEzBhHenh3p2q2WRFopl_gWuLudGPq53INvqKMUiiZUU6teCEMJ0WG9JWKD2Lw5Jy5Z4FC5S9PlmSi245KIIRyoO8VPwx3Y_S-B9vkDKo-jZ1z7Ss1mgt3fv6vYXaqAb2aVruNU_UeBSUo1cmgBq9_W1ePwfVttbgdSFyIjlumQSO1ByftkodCPCd76YhzprSCFh-91FfaH35n0"/>
-<img alt="" class="inline-block h-8 w-8 rounded-full ring-2 ring-surface-container" data-alt="Man in a professional office environment with soft focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnDtKqOMPgCj3IPtTZzCghTZ2iAO3cSYcymGIBmgf-KPsaXS2Rr5jns3vFqQVKcFfs13Ynp8vwKwWH0ZmS_Djm93P5Eyf8ImLcVsmqZaOfZ8XibYy1qIivk1qoz0frfAnJhuaNoBdgxRR1pNUoHXnUsx5g-dOViL6MWugjjXjV5gZrxg19LF2Cgy1vG4YhV37x74xsuezd1U6v2DZBEMzsa5l6yHy5nj6FKCy8ivs5BhRtyQdAuVr6MZ51iyr2IRoQXkL-VF_O8S4"/>
-<div class="flex items-center justify-center h-8 w-8 rounded-full bg-slate-800 ring-2 ring-surface-container text-[10px] font-bold">+5</div>
-</div>
-</div>
-</section>
-<!-- Opportunity List Header -->
-<div class="col-span-12 mt-4">
-<h3 class="text-xl font-bold text-on-surface">Curated Opportunities</h3>
-</div>
-<!-- New Opportunity Highlight Card -->
-<div class="col-span-12 lg:col-span-4 group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 to-slate-950 border border-primary/20 p-1">
-<div class="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-<div class="bg-slate-950 rounded-[0.6rem] p-6 h-full relative z-10">
-<div class="flex justify-between items-start mb-6">
-<span class="bg-primary/10 text-primary text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">NEW OPPORTUNITY</span>
-<button class="text-on-surface-variant hover:text-primary transition-colors">
-<span class="material-symbols-outlined">bookmark</span>
-</button>
-</div>
-<h4 class="text-xl font-bold text-on-surface mb-2 leading-tight">NSF: Future of Quantum Computation</h4>
-<p class="text-on-surface-variant text-sm mb-6 line-clamp-2">Exploring innovative approaches to qubit coherence and architectural scaling for mid-range systems.</p>
-<div class="grid grid-cols-2 gap-4 mb-6">
-<div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Score</p>
-<p class="text-lg font-black text-secondary">98<span class="text-xs font-medium text-on-surface-variant ml-1">/100</span></p>
-</div>
-<div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Amount</p>
-<p class="text-lg font-black text-on-surface">$1.2M</p>
-</div>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-error text-sm">event</span>
-<span class="text-xs font-bold text-error">Deadline: Oct 24</span>
-</div>
-<button class="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider">Review</button>
-</div>
-</div>
-</div>
-<!-- Standard Opportunity Cards -->
-<div class="col-span-12 lg:col-span-4 bg-surface-container rounded-xl p-6 border border-outline-variant/5">
-<div class="flex justify-between items-start mb-6">
-<span class="bg-slate-800 text-slate-400 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">HIGH MATCH</span>
-<button class="text-on-surface-variant hover:text-primary transition-colors">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">bookmark</span>
-</button>
-</div>
-<h4 class="text-xl font-bold text-on-surface mb-2 leading-tight">DOE: Clean Energy Innovation</h4>
-<p class="text-on-surface-variant text-sm mb-6 line-clamp-2">Advancing grid-scale battery storage solutions using solid-state electrolytes.</p>
-<div class="grid grid-cols-2 gap-4 mb-6">
-<div class="bg-surface-container-low p-3 rounded-lg">
-<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Score</p>
-<p class="text-lg font-black text-on-surface">84<span class="text-xs font-medium text-on-surface-variant ml-1">/100</span></p>
-</div>
-<div class="bg-surface-container-low p-3 rounded-lg">
-<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Amount</p>
-<p class="text-lg font-black text-on-surface">$750K</p>
-</div>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-on-surface-variant text-sm">event</span>
-<span class="text-xs font-bold text-on-surface-variant">Deadline: Nov 12</span>
-</div>
-<button class="text-primary text-xs font-bold uppercase tracking-widest hover:underline underline-offset-4 transition-all">View Details</button>
-</div>
-</div>
-<div class="col-span-12 lg:col-span-4 bg-surface-container rounded-xl p-6 border border-outline-variant/5">
-<div class="flex justify-between items-start mb-6">
-<span class="bg-slate-800 text-slate-400 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">RECURRING</span>
-<button class="text-on-surface-variant hover:text-primary transition-colors">
-<span class="material-symbols-outlined">bookmark</span>
-</button>
-</div>
-<h4 class="text-xl font-bold text-on-surface mb-2 leading-tight">NIH: AI in Medical Imaging</h4>
-<p class="text-on-surface-variant text-sm mb-6 line-clamp-2">Development of automated diagnostic tools for rural health clinics using mobile AI interfaces.</p>
-<div class="grid grid-cols-2 gap-4 mb-6">
-<div class="bg-surface-container-low p-3 rounded-lg">
-<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Score</p>
-<p class="text-lg font-black text-on-surface">71<span class="text-xs font-medium text-on-surface-variant ml-1">/100</span></p>
-</div>
-<div class="bg-surface-container-low p-3 rounded-lg">
-<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Amount</p>
-<p class="text-lg font-black text-on-surface">$450K</p>
-</div>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-on-surface-variant text-sm">event</span>
-<span class="text-xs font-bold text-on-surface-variant">Deadline: Jan 05</span>
-</div>
-<button class="text-primary text-xs font-bold uppercase tracking-widest hover:underline underline-offset-4 transition-all">View Details</button>
-</div>
-</div>
-</div>
-<!-- Recent Activity Feed -->
-<section class="mt-12">
-<h3 class="text-lg font-bold uppercase tracking-widest text-on-surface-variant mb-6">System Feed</h3>
-<div class="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/5">
-<div class="divide-y divide-outline-variant/10">
-<div class="p-4 flex items-center justify-between hover:bg-slate-900/30 transition-colors">
-<div class="flex items-center gap-4">
-<div class="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined">update</span>
-</div>
-<div>
-<p class="text-sm font-bold text-on-surface">AI Match Engine Updated</p>
-<p class="text-xs text-on-surface-variant">42 new opportunities processed and scored.</p>
-</div>
-</div>
-<span class="text-[10px] font-bold text-on-surface-variant uppercase">2m ago</span>
-</div>
-<div class="p-4 flex items-center justify-between hover:bg-slate-900/30 transition-colors">
-<div class="flex items-center gap-4">
-<div class="h-10 w-10 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
-<span class="material-symbols-outlined">description</span>
-</div>
-<div>
-<p class="text-sm font-bold text-on-surface">Draft Submitted: Quantum Lab Phase II</p>
-<p class="text-xs text-on-surface-variant">Review pending by Sarah Jenkins.</p>
-</div>
-</div>
-<span class="text-[10px] font-bold text-on-surface-variant uppercase">1h ago</span>
-</div>
-</div>
-</div>
-</section>
 </main>
-<!-- Floating Action Button -->
-<button class="fixed bottom-8 right-8 h-14 w-14 bg-primary rounded-full shadow-2xl shadow-primary/40 flex items-center justify-center text-on-primary transition-transform hover:scale-110 active:scale-90 z-50">
-<span class="material-symbols-outlined text-3xl">chat_bubble</span>
-</button>
+<!-- FAB Suppression Logic: Not rendering FAB here as it's a dense dashboard view with a dedicated header action -->
 </body></html>
