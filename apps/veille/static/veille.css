@@ -1,0 +1,272 @@
+/* Veille app shell */
+
+body.veille-app > .page {
+    display: grid;
+    gap: 1.5rem;
+}
+
+body.veille-app ntx-router {
+    display: block;
+}
+
+body.veille-app #source-panel {
+    display: grid;
+    gap: 1.25rem;
+}
+
+body.veille-app .upload-section,
+body.veille-app .run-launcher,
+body.veille-app .run-live-header {
+    position: relative;
+    overflow: hidden;
+    background: var(--card-bg);
+    border: 0;
+    border-radius: var(--radius-lg);
+    box-shadow: none;
+}
+
+body.veille-app .upload-section::before,
+body.veille-app .run-launcher::before,
+body.veille-app .run-live-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: none;
+    pointer-events: none;
+}
+
+body.veille-app .upload-section,
+body.veille-app .run-launcher {
+    display: grid;
+    gap: 0.95rem;
+    padding: 1.35rem 1.45rem;
+}
+
+body.veille-app .upload-section h3,
+body.veille-app .run-launcher-title,
+body.veille-app .run-history-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-2);
+}
+
+body.veille-app .upload-row,
+body.veille-app .run-launcher-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+body.veille-app .upload-row input[type="file"],
+body.veille-app .run-url-input {
+    flex: 1 1 16rem;
+    min-width: 0;
+}
+
+body.veille-app .run-btn,
+body.veille-app .upload-row button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.85rem;
+    padding: 0 1.2rem;
+    border-radius: var(--radius-sm, 8px);
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transition:
+        border-color var(--duration-fast) var(--ease),
+        background var(--duration-fast) var(--ease);
+}
+
+body.veille-app .run-btn:hover:not(:disabled),
+body.veille-app .upload-row button:hover:not(:disabled) {
+    filter: brightness(1.03);
+}
+
+body.veille-app .run-btn:disabled,
+body.veille-app .upload-row button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+body.veille-app .run-btn-scan,
+body.veille-app .upload-row button {
+    color: var(--text-1);
+    background: var(--surface-3);
+    border: var(--border-width, 2px) solid var(--border);
+}
+
+body.veille-app .run-btn-scan:hover:not(:disabled),
+body.veille-app .upload-row button:hover:not(:disabled) {
+    border-color: var(--border-accent);
+    background: var(--surface-4);
+}
+
+body.veille-app .run-btn-full {
+    color: var(--button-text);
+    background: var(--gradient-accent);
+    border: 1px solid transparent;
+    box-shadow: none;
+}
+
+body.veille-app .run-btn-full:hover:not(:disabled) {
+    filter: brightness(1.03);
+}
+
+body.veille-app .upload-status,
+body.veille-app .run-launcher-status {
+    min-height: 1.2rem;
+    font-size: 0.82rem;
+    color: var(--text-2);
+}
+
+body.veille-app .upload-status.error,
+body.veille-app .run-launcher-status.error {
+    color: var(--error);
+}
+
+body.veille-app .run-live-output {
+    display: grid;
+    gap: 1rem;
+}
+
+body.veille-app .run-live-output:empty {
+    display: none;
+}
+
+body.veille-app .run-live-header {
+    display: grid;
+    grid-template-columns: auto auto auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.95rem 1.05rem;
+}
+
+body.veille-app .run-live-header > * {
+    position: relative;
+    z-index: 1;
+}
+
+body.veille-app .run-live-header .run-id {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text-0);
+}
+
+body.veille-app .run-live-url {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+    color: var(--text-2);
+}
+
+body.veille-app .run-history-title {
+    margin-top: 0.4rem;
+    padding-inline: 0.25rem;
+}
+
+body.veille-app .run-type,
+body.veille-app .run-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.26rem 0.62rem;
+    border-radius: var(--radius-sm, 8px);
+    border: 1px solid transparent;
+    font-family: var(--font-display);
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+body.veille-app .type-full {
+    color: var(--accent-text);
+    background: var(--accent-dim);
+    border-color: transparent;
+}
+
+body.veille-app .type-adhoc {
+    color: var(--warm);
+    background: var(--warm-dim);
+    border-color: transparent;
+}
+
+body.veille-app .run-status-pending {
+    color: var(--text-2);
+    background: rgba(111, 117, 139, 0.16);
+    border-color: transparent;
+}
+
+body.veille-app .run-status-running {
+    color: var(--warm);
+    background: var(--warm-dim);
+    border-color: transparent;
+}
+
+body.veille-app .run-status-complete {
+    color: var(--success);
+    background: rgba(110, 249, 226, 0.14);
+    border-color: transparent;
+}
+
+body.veille-app .run-status-failed {
+    color: var(--error);
+    background: rgba(255, 139, 135, 0.14);
+    border-color: transparent;
+}
+
+body.veille-auth .auth-page {
+    padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+body.veille-auth .auth-card {
+    width: min(100%, 28rem);
+}
+
+@media (max-width: 960px) {
+    body.veille-app .run-live-header {
+        grid-template-columns: auto auto;
+    }
+
+    body.veille-app .run-live-url {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 640px) {
+    body.veille-app .upload-section,
+    body.veille-app .run-launcher {
+        padding: 1rem;
+    }
+
+    body.veille-app .run-btn,
+    body.veille-app .upload-row button {
+        width: 100%;
+    }
+
+    body.veille-app .run-launcher-row,
+    body.veille-app .upload-row {
+        align-items: stretch;
+    }
+
+    body.veille-app .run-live-header {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+}

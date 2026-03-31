@@ -1,0 +1,277 @@
+.ro-progress {
+    display: grid;
+    gap: 0.55rem;
+    margin-bottom: 1rem;
+    padding: 0.95rem 1rem;
+    border: 0;
+    border-radius: var(--radius-lg, 12px);
+    background: var(--card-bg, rgba(17, 25, 46, 0.94));
+    box-shadow: none;
+}
+
+.ro-progress-bar {
+    width: 100%;
+    height: 8px;
+    overflow: hidden;
+    border-radius: var(--radius-sm, 8px);
+    background: var(--surface-3, rgba(23, 31, 54, 0.82));
+}
+
+.ro-progress-fill {
+    height: 100%;
+    background: var(--gradient-accent, linear-gradient(135deg, #3adffa, #00cbe6));
+    transition: width 240ms var(--ease, ease);
+}
+
+.ro-progress-done .ro-progress-fill {
+    background: linear-gradient(135deg, var(--success, #6ef9e2), var(--accent, #3adffa));
+}
+
+.ro-progress-label {
+    color: var(--text-2, #a5aac2);
+    font-family: var(--font-display, Manrope, sans-serif);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.ro-phases {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.ro-source-card,
+.ro-analysis-card {
+    overflow: hidden;
+    border: 0;
+    border-radius: var(--radius-lg, 12px);
+    background: var(--card-bg, rgba(17, 25, 46, 0.94));
+    box-shadow: none;
+}
+
+.ro-source-active {
+    background: var(--panel-bg, rgba(17, 25, 46, 0.94));
+    box-shadow: none;
+}
+
+.ro-source-done {
+    background: var(--card-bg, rgba(17, 25, 46, 0.94));
+}
+
+.ro-source-header,
+.ro-analysis-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.9rem 1rem;
+    background: var(--surface-2, rgba(17, 25, 46, 0.88));
+    cursor: pointer;
+}
+
+.ro-source-header:hover,
+.ro-analysis-header:hover {
+    background: var(--surface-3, rgba(23, 31, 54, 0.82));
+}
+
+.ro-source-spinner {
+    width: 1rem;
+    height: 1rem;
+    display: inline-block;
+    border: 2px solid var(--accent, #3adffa);
+    border-top-color: transparent;
+    border-radius: 999px;
+    animation: roSpin 800ms linear infinite;
+}
+
+.ro-source-check {
+    color: var(--success, #6ef9e2);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.ro-source-name,
+.ro-analysis-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-0, #eef3ff);
+    font-family: var(--font-display, Manrope, sans-serif);
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.ro-source-url {
+    color: var(--text-2, #a5aac2);
+    font-size: 0.72rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ro-source-count,
+.ro-analysis-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.45rem;
+    padding: 0 0.55rem;
+    border-radius: var(--radius-sm, 8px);
+    font-family: var(--font-display, Manrope, sans-serif);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.ro-source-count {
+    color: var(--success, #6ef9e2);
+    background: rgba(110, 249, 226, 0.14);
+}
+
+.ro-source-agent {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 280ms var(--ease, ease);
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.ro-source-agent.ro-agent-open {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.ro-source-agent .agent-output {
+    margin: 0;
+    padding: 0.85rem 0.85rem 0.1rem;
+    max-height: none;
+}
+
+.ro-agent-captured {
+    display: none;
+}
+
+.ro-source-grants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    padding: 0 1rem 0.95rem;
+}
+
+.ro-source-grants:empty {
+    display: none;
+}
+
+.ro-grant-pill {
+    display: inline-flex;
+    align-items: center;
+    max-width: 18rem;
+    padding: 0.32rem 0.66rem;
+    border-radius: var(--radius-sm, 8px);
+    background: var(--accent-dim, rgba(58, 223, 250, 0.12));
+    border: 0;
+    color: var(--accent-text, #84efff);
+    font-family: var(--font-display, Manrope, sans-serif);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ro-divider {
+    padding: 0.35rem 0.25rem;
+    color: var(--text-2, #a5aac2);
+    font-family: var(--font-display, Manrope, sans-serif);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.ro-analysis-status {
+    color: var(--text-2, #a5aac2);
+}
+
+.ro-status-running {
+    color: var(--warning, #ffb866);
+    animation: roPulse 1s ease infinite;
+}
+
+.ro-status-done {
+    color: var(--success, #6ef9e2);
+}
+
+.ro-status-failed {
+    color: var(--error, #ff8b87);
+}
+
+.ro-badge-admissible {
+    background: rgba(110, 249, 226, 0.14);
+    color: var(--success, #6ef9e2);
+}
+
+.ro-badge-partial {
+    background: rgba(255, 184, 102, 0.14);
+    color: var(--warning, #ffb866);
+}
+
+.ro-badge-non,
+.ro-badge-failed {
+    background: rgba(255, 139, 135, 0.14);
+    color: var(--error, #ff8b87);
+}
+
+.ro-badge-done {
+    background: var(--accent-dim, rgba(58, 223, 250, 0.12));
+    color: var(--accent-text, #84efff);
+}
+
+.ro-analysis-body {
+    overflow: hidden;
+    transition: max-height 280ms var(--ease, ease), padding 280ms var(--ease, ease);
+}
+
+.ro-analysis-body.ro-collapsed {
+    max-height: 0;
+}
+
+.ro-analysis-body:not(.ro-collapsed) {
+    max-height: 48rem;
+    overflow-y: auto;
+    padding: 0.75rem;
+}
+
+.ro-error {
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(255, 139, 135, 0.24);
+    border-radius: var(--radius-md, 10px);
+    background: rgba(255, 139, 135, 0.12);
+    color: var(--error, #ff8b87);
+}
+
+@media (max-width: 720px) {
+    .ro-source-header,
+    .ro-analysis-header {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .ro-source-url,
+    .ro-source-count,
+    .ro-analysis-badge {
+        grid-column: 2;
+    }
+}
+
+@keyframes roSpin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes roPulse {
+    50% { opacity: 0.45; }
+}

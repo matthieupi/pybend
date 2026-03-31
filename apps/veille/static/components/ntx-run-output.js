@@ -20,6 +20,12 @@ import { NTTStreamAgent } from './ntx-stream-agent.js';
 
 class NTXRunOutput extends NTTStreamAgent {
 
+    get styles() {
+        const parent = super.styles;
+        const inherited = Array.isArray(parent) ? parent : parent ? [parent] : [];
+        return [...inherited, new URL('./ntx-run-output.css', import.meta.url).href];
+    }
+
     #currentSourceEl = null;
     #grantsFound = [];
     #sourcesCompleted = 0;
@@ -267,10 +273,6 @@ class NTXRunOutput extends NTTStreamAgent {
 
     render() {
         super.render();
-        const style = this.shadowRoot.querySelector('style');
-        if (style && !style.textContent.includes('ro-source-card')) {
-            style.textContent += NTXRunOutput.runOutputStyles;
-        }
     }
 
     callMethod() {
@@ -329,187 +331,6 @@ class NTXRunOutput extends NTTStreamAgent {
         d.textContent = String(t ?? '');
         return d.innerHTML;
     }
-
-    // ── Styles ────────────────────────────────────────────────
-
-    static runOutputStyles = `
-        /* Progress bar */
-        .ro-progress {
-            margin-bottom: .75rem;
-            display: flex; align-items: center; gap: .75rem;
-        }
-        .ro-progress-bar {
-            flex: 1; height: 6px; background: var(--surface-3, #1a1a2e);
-            border-radius: 3px; overflow: hidden;
-        }
-        .ro-progress-fill {
-            height: 100%; background: var(--accent, #4cc9f0);
-            transition: width .3s ease;
-        }
-        .ro-progress-done .ro-progress-fill {
-            background: var(--success, #22c55e);
-        }
-        .ro-progress-label {
-            font-size: .75rem; color: var(--text-2, #aaa); white-space: nowrap;
-        }
-
-        /* Phases container */
-        .ro-phases {
-            display: flex; flex-direction: column; gap: .5rem;
-        }
-
-        /* Source cards */
-        .ro-source-card {
-            border: 1px solid var(--border, #333);
-            border-radius: .5rem; overflow: hidden;
-        }
-        .ro-source-active { border-color: var(--accent, #4cc9f0); }
-        .ro-source-done { border-color: var(--success, #22c55e); opacity: .85; }
-
-        .ro-source-header {
-            display: flex; align-items: center; gap: .5rem;
-            padding: .5rem .75rem;
-            background: var(--surface-2, #16213e);
-            cursor: pointer; user-select: none;
-        }
-        .ro-source-header:hover { background: var(--surface-3, #1a1a2e); }
-
-        .ro-source-spinner {
-            display: inline-block; width: 1em; height: 1em;
-            border: 2px solid var(--accent, #4cc9f0);
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: ro-spin .8s linear infinite;
-            flex-shrink: 0;
-        }
-        @keyframes ro-spin { to { transform: rotate(360deg); } }
-
-        .ro-source-check {
-            color: var(--success, #22c55e);
-            font-weight: bold; flex-shrink: 0;
-        }
-        .ro-source-name {
-            font-weight: 500; flex: 1; overflow: hidden;
-            text-overflow: ellipsis; white-space: nowrap;
-        }
-        .ro-source-url {
-            font-size: .7rem; color: var(--text-2, #aaa);
-            text-decoration: none; flex-shrink: 0;
-        }
-        .ro-source-url:hover { text-decoration: underline; }
-        .ro-source-count {
-            font-size: .7rem; color: var(--success, #22c55e);
-            background: rgba(34, 197, 94, 0.1);
-            padding: .1rem .4rem; border-radius: .2rem;
-        }
-
-        /* Agent output inside source cards — override parent defaults */
-        .ro-source-agent .agent-output {
-            max-height: none;
-            margin-top: 0;
-        }
-
-        /* Collapsible agent area */
-        .ro-source-agent {
-            max-height: 0; overflow: hidden;
-            transition: max-height .3s ease;
-            background: var(--surface-1, #0f0f23);
-        }
-        .ro-source-agent.ro-agent-open {
-            max-height: 400px; overflow-y: auto;
-        }
-
-        /* Retired agent outputs — hidden, no layout */
-        .ro-agent-captured { display: none; }
-
-        /* Grant pills in source cards */
-        .ro-source-grants {
-            display: flex; flex-wrap: wrap; gap: .3rem;
-            padding: .3rem .75rem;
-        }
-        .ro-source-grants:empty { display: none; }
-        .ro-grant-pill {
-            font-size: .7rem;
-            padding: .15rem .5rem;
-            background: var(--accent, #4cc9f0);
-            color: var(--surface-1, #0f0f23);
-            border-radius: 1rem;
-            text-decoration: none;
-            white-space: nowrap;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .ro-grant-pill:hover { opacity: .8; }
-
-        /* Divider */
-        .ro-divider {
-            margin: 1rem 0 .5rem;
-            padding: .4rem .75rem;
-            font-size: .8rem;
-            font-weight: 600;
-            color: var(--text-2, #aaa);
-            border-top: 1px solid var(--border, #333);
-            border-bottom: 1px solid var(--border, #333);
-        }
-
-        /* Analysis cards */
-        .ro-analysis-card {
-            border: 1px solid var(--border, #333);
-            border-radius: .5rem;
-            overflow: hidden;
-        }
-        .ro-analysis-header {
-            display: flex; align-items: center; gap: .5rem;
-            padding: .5rem .75rem;
-            background: var(--surface-2, #16213e);
-            cursor: pointer; user-select: none;
-        }
-        .ro-analysis-header:hover { background: var(--surface-3, #1a1a2e); }
-
-        .ro-analysis-status { flex-shrink: 0; }
-        .ro-status-pending { color: var(--text-2, #aaa); }
-        .ro-status-running { color: var(--warning, #f59e0b); animation: ro-pulse 1s ease infinite; }
-        .ro-status-done { color: var(--success, #22c55e); }
-        .ro-status-failed { color: var(--error, #f87171); }
-        @keyframes ro-pulse { 50% { opacity: .4; } }
-
-        .ro-analysis-title {
-            flex: 1; overflow: hidden;
-            text-overflow: ellipsis; white-space: nowrap;
-            font-size: .85rem;
-        }
-        .ro-analysis-badge {
-            font-size: .65rem;
-            padding: .1rem .4rem;
-            border-radius: .2rem;
-        }
-        .ro-badge-admissible { background: rgba(34, 197, 94, 0.15); color: var(--success, #22c55e); }
-        .ro-badge-partial { background: rgba(245, 158, 11, 0.15); color: var(--warning, #f59e0b); }
-        .ro-badge-non { background: rgba(248, 113, 113, 0.15); color: var(--error, #f87171); }
-        .ro-badge-done { background: rgba(76, 201, 240, 0.15); color: var(--accent, #4cc9f0); }
-        .ro-badge-failed { background: rgba(248, 113, 113, 0.15); color: var(--error, #f87171); }
-
-        .ro-analysis-body {
-            transition: max-height .3s ease;
-            overflow: hidden;
-        }
-        .ro-analysis-body.ro-collapsed {
-            max-height: 0;
-        }
-        .ro-analysis-body:not(.ro-collapsed) {
-            max-height: 600px;
-            overflow-y: auto;
-            padding: .5rem;
-        }
-
-        /* Error */
-        .ro-error {
-            padding: .5rem .75rem;
-            color: var(--error, #f87171);
-            font-style: italic;
-        }
-    `;
 }
 
 customElements.define('ntx-run-output', NTXRunOutput);
