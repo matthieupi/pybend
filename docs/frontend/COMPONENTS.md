@@ -95,9 +95,17 @@ matrix.register(Component);   // Component CLASS is a Matrix child
 ```javascript
 // Override in subclass:
 get styles() { return new URL('./my-component.css', import.meta.url).href; }
+
+// Or return multiple stylesheets for inherited component stacks:
+get styles() {
+  return [
+    new URL('./base.css', import.meta.url).href,
+    new URL('./my-component.css', import.meta.url).href,
+  ];
+}
 ```
 
-The base Component creates a `<link rel="stylesheet">` element in the constructor if `styles` returns a non-null URL. The `$styles` property holds the link element for re-appending after innerHTML rewrites.
+The base `Component` fetches stylesheet URL(s), converts them into shared constructable stylesheets, and adopts them on the shadow root. Return a single URL for simple components, or an array when a subclass needs both inherited and component-specific CSS.
 
 ### Adaptive Display Mode
 
@@ -892,7 +900,7 @@ cd /workspace/src/n3tx/core
 python -m utils.scaffold Product
 # Generates:
 #   components/product-card.js    (extends NTTElement)
-#   components/product-card.css   (glass morphism starter)
+#   components/product-card.css   (flat starter card)
 #   components/product-grid.js    (extends ListElement)
 #   components/product-grid.css   (grid layout starter)
 ```
@@ -920,7 +928,7 @@ GET /Product?scaffold=list-css   → List CSS
 - `get childTag()` returning the item tag
 - `get styles()` pointing to companion CSS
 
-**CSS files**: Glass morphism card, field-specific selectors, stagger animation.
+**CSS files**: Flat darker card starter, flatter field rows, stagger animation.
 
 ### Programmatic Use
 
