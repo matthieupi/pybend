@@ -2,59 +2,51 @@
     display: block;
 }
 
-/* ── Router chrome ── */
 .router-chrome {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.08));
-    animation: fadeIn 0.3s var(--ease, cubic-bezier(0.4, 0, 0.2, 1)) both;
+    gap: 0.7rem;
+    margin-bottom: 1.15rem;
 }
 
 .router-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--text-1, #c4c9da);
+    color: var(--text-0, #eef3ff);
+    font-family: var(--font-display, Manrope, sans-serif);
+    font-size: clamp(1.35rem, 2.6vw, 1.85rem);
+    font-weight: 800;
+    letter-spacing: -0.05em;
 }
 
-/* ── Back button — SVG left arrow ── */
 .back-btn {
-    width: 2.25rem;
-    height: 2.25rem;
-    display: grid;
-    place-items: center;
-    font-size: 0;
-    background: var(--surface-3, #1c2030);
-    border: 1px solid var(--border, rgba(255,255,255,0.06));
-    border-radius: var(--radius-sm, 8px);
-    cursor: pointer;
+    width: 2.35rem;
+    height: 2.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 0;
-    color: var(--text-2, #8891ab);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238891ab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='15 18 9 12 15 6'/%3E%3C/svg%3E");
+    border: var(--border-width, 2px) solid var(--border, rgba(255, 255, 255, 0.08));
+    border-radius: var(--radius-sm, 8px);
+    background: var(--panel-bg, rgba(17, 25, 46, 0.88));
+    color: var(--text-1, #dfe4fe);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23dfe4fe' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='15 18 9 12 15 6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: center;
-    background-size: 16px;
-    transition: all 0.2s;
-    box-shadow: none;
+    cursor: pointer;
+    transition:
+        border-color var(--duration-fast, 160ms) var(--ease, ease),
+        background var(--duration-fast, 160ms) var(--ease, ease);
 }
 
 .back-btn:hover {
-    border-color: var(--border-accent, rgba(34,211,197,0.30));
-    background-color: var(--accent-dim, rgba(34,211,197,0.12));
-    transform: none;
-    box-shadow: none;
+    border-color: var(--border-accent, rgba(58, 223, 250, 0.35));
+    background-color: var(--surface-3, rgba(23, 31, 54, 0.82));
 }
 
-/* ── Content area ── */
 .router-content {
-    animation: fadeIn 0.35s var(--ease, cubic-bezier(0.4, 0, 0.2, 1)) both;
-    animation-delay: 0.05s;
+    animation: fadeIn 240ms var(--ease, ease) both;
 }
 
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
+    to { opacity: 1; transform: translateY(0); }
 }

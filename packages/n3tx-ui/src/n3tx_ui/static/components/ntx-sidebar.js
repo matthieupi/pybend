@@ -49,14 +49,14 @@ const ICON_LINK = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14
 
 // Accent gradient palette for model avatars
 const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg, #22d3c5, #1a9e94)',
-  'linear-gradient(135deg, #6366f1, #4f46e5)',
-  'linear-gradient(135deg, #f59e0b, #d97706)',
-  'linear-gradient(135deg, #ec4899, #db2777)',
-  'linear-gradient(135deg, #10b981, #059669)',
-  'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-  'linear-gradient(135deg, #ef4444, #dc2626)',
-  'linear-gradient(135deg, #06b6d4, #0891b2)',
+  'linear-gradient(135deg, #3adffa, #00cbe6)',
+  'linear-gradient(135deg, #6ef9e2, #2fbca6)',
+  'linear-gradient(135deg, #ffb866, #c97b24)',
+  'linear-gradient(135deg, #90d7de, #4e6874)',
+  'linear-gradient(135deg, #89c4ff, #2d7fa7)',
+  'linear-gradient(135deg, #9ee3d5, #257a48)',
+  'linear-gradient(135deg, #ffd9a8, #a36310)',
+  'linear-gradient(135deg, #b9d6ff, #3f5f8f)',
 ];
 
 

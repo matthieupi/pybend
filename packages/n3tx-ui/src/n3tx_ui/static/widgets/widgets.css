@@ -2,7 +2,7 @@
 
 /* URL Widget */
 .widget-url-link {
-    color: var(--accent-primary, #6366f1);
+    color: var(--accent-text, #84efff);
     text-decoration: none;
     word-break: break-all;
 }
@@ -12,7 +12,7 @@
 
 /* Email Widget */
 .widget-email-link {
-    color: var(--accent-primary, #6366f1);
+    color: var(--accent-text, #84efff);
     text-decoration: none;
 }
 .widget-email-link:hover {
@@ -51,7 +51,7 @@
 .widget-markdown pre {
     background: var(--bg-tertiary, #1e1e2e);
     border: 1px solid var(--border-color, #333);
-    border-radius: 8px;
+    border-radius: var(--radius-sm, 8px);
     padding: 12px;
     overflow-x: auto;
     font-size: 0.85em;
@@ -62,7 +62,7 @@
     border-radius: 0;
 }
 .widget-markdown blockquote {
-    border-left: 3px solid var(--accent-primary, #6366f1);
+    border-left: 3px solid var(--accent, #3adffa);
     margin: 0.5em 0;
     padding: 0.3em 1em;
     color: var(--text-secondary, #999);
@@ -73,7 +73,7 @@
     margin: 0.5em 0;
 }
 .widget-markdown a {
-    color: var(--accent-primary, #6366f1);
+    color: var(--accent-text, #84efff);
 }
 
 /* Markdown Editor (side-by-side) */
@@ -90,7 +90,7 @@
 }
 .widget-markdown-preview {
     border: 1px solid var(--border-color, #333);
-    border-radius: 8px;
+    border-radius: var(--radius-sm, 8px);
     padding: 12px;
     overflow-y: auto;
     max-height: 400px;
@@ -104,7 +104,7 @@
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
     font-size: 0.85em;
     border: 1px solid var(--border-color, #333);
-    border-radius: 8px;
+    border-radius: var(--radius-sm, 8px);
     padding: 12px;
     overflow-x: auto;
     white-space: pre-wrap;
@@ -118,16 +118,16 @@
     background: var(--bg-tertiary, #0d0d14);
     color: var(--text-primary, #e0e0e0);
     border: 1px solid var(--border-color, #333);
-    border-radius: 8px;
+    border-radius: var(--radius-sm, 8px);
     resize: vertical;
     cursor: default;
 }
 
 /* Reference Widget */
 .widget-reference-link {
-    color: var(--accent-primary, #6366f1);
+    color: var(--accent-text, #84efff);
     text-decoration: none;
-    border-bottom: 1px dotted var(--accent-primary, #6366f1);
+    border-bottom: 1px dotted var(--accent-text, #84efff);
 }
 .widget-reference-link:hover {
     text-decoration: none;
@@ -147,10 +147,10 @@
     letter-spacing: 0.04em;
     text-transform: capitalize;
     padding: 0.15rem 0.6rem;
-    border-radius: 100px;
-    background: var(--accent-dim, rgba(99, 102, 241, 0.12));
-    color: var(--accent-primary, #6366f1);
-    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: var(--radius-sm, 8px);
+    background: var(--accent-dim, rgba(58, 223, 250, 0.12));
+    color: var(--accent-text, #84efff);
+    border: 1px solid var(--border-accent, rgba(58, 223, 250, 0.35));
 }
 
 /* Widget Wrappers (form.js integration) */

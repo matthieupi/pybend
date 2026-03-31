@@ -36,17 +36,14 @@
     gap: 0.6rem;
     padding: 0.4rem 0.75rem;
     border-radius: var(--radius-sm, 8px);
-    background: var(--glass-bg, rgba(14, 16, 24, 0.55));
-    backdrop-filter: blur(var(--glass-blur-sm, 10px));
-    -webkit-backdrop-filter: blur(var(--glass-blur-sm, 10px));
-    border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+    background: var(--panel-bg, rgba(14, 16, 24, 0.55));
+    border: 0;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
 }
 
 .card[data-display="sm"]:hover {
-    border-color: var(--glass-border-hover, rgba(255,255,255,0.16));
-    background: var(--glass-bg-hover, rgba(20, 24, 36, 0.70));
+    background: var(--panel-bg, rgba(20, 24, 36, 0.70));
 }
 
 .card[data-display="sm"] .sm-name {

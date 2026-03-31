@@ -249,18 +249,15 @@ def scaffold_css(schema: dict) -> str:
 
 .{tag} {{
     position: relative;
-    background: var(--glass-bg, rgba(14, 16, 24, 0.55));
-    backdrop-filter: blur(var(--glass-blur, 16px));
-    -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
-    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
-    border-radius: var(--radius-lg, 16px);
+    background: var(--card-bg, rgba(14, 16, 24, 0.55));
+    border: 0;
+    border-radius: var(--radius-lg, 12px);
     padding: 1.5rem 1.75rem 1.25rem;
-    transition: border-color 0.3s, box-shadow 0.3s;
+    transition: background 0.2s;
 }}
 
 .{tag}:hover {{
-    border-color: var(--glass-border-hover, rgba(255,255,255,0.14));
-    box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,.4));
+    background: var(--panel-bg, rgba(20, 24, 36, 0.7));
 }}
 
 h2 {{
@@ -289,6 +286,9 @@ label {{
 label + span {{
     font-size: 0.9rem;
     color: var(--text-1, #c4c9da);
+    display: block;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--line, rgba(255,255,255,0.08));
 }}
 
 {fields_css}
@@ -331,7 +331,7 @@ def scaffold_list_css(schema: dict) -> str:
     font-weight: 600;
     color: var(--accent, #22d3c5);
     background: var(--accent-dim, rgba(34,211,197,0.12));
-    border-radius: 100px;
+    border-radius: var(--radius-sm, 8px);
     padding: 0.15rem 0.6rem;
 }}
 

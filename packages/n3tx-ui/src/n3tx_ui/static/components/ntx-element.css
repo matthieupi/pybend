@@ -30,10 +30,8 @@
     padding: 1.5rem;
     color: var(--error, #f87171);
     background: rgba(248, 113, 113, 0.06);
-    backdrop-filter: blur(var(--glass-blur-sm, 8px));
-    -webkit-backdrop-filter: blur(var(--glass-blur-sm, 8px));
     border: 1px solid rgba(248, 113, 113, 0.12);
-    border-radius: var(--radius-md, 12px);
+    border-radius: var(--radius-md, 10px);
     margin: 0.75rem;
     font-size: 0.85rem;
 }
