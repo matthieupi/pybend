@@ -4,6 +4,12 @@ import { showToast } from '../utils/Toast.js';
 
 export class NTTStream extends NTTMethod {
 
+    get styles() {
+        const parent = super.styles;
+        const inherited = Array.isArray(parent) ? parent : parent ? [parent] : [];
+        return [...inherited, new URL('./ntx-stream.css', import.meta.url).href];
+    }
+
     // ── State ──
     #streaming = false;     // true while stream is active
     #textBuf = '';          // accumulated text from TEXT events
@@ -97,12 +103,7 @@ export class NTTStream extends NTTMethod {
     // ── Rendering ──
 
     render() {
-        super.render();  // NTTMethod renders form (fieldset/inline/button)
-        // Append stream CSS if not already present
-        const style = this.shadowRoot.querySelector('style');
-        if (style && !style.textContent.includes('stream-output')) {
-            style.textContent += NTTStream.streamStyles;
-        }
+        super.render();
     }
 
     #renderOutput() {
@@ -157,16 +158,6 @@ export class NTTStream extends NTTMethod {
         this.cancel();
         super.disconnectedCallback();
     }
-
-    static streamStyles = `
-        .stream-output { margin-top: .75rem; padding: .8rem; background: var(--surface-3);
-            border: 1px solid var(--border); border-radius: .5rem; min-height: 2rem;
-            max-height: 400px; overflow-y: auto; white-space: pre-wrap; color: var(--text-1); }
-        .stream-cursor { animation: blink 1s step-end infinite; color: var(--accent); }
-        @keyframes blink { 50% { opacity: 0; } }
-        .stream-text { line-height: 1.5; }
-        .stream-error { color: var(--error, #f87171); font-style: italic; line-height: 1.5; }
-    `;
 }
 
 customElements.define('ntx-stream', NTTStream);

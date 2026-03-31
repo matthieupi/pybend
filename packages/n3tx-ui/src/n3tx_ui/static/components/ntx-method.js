@@ -20,6 +20,10 @@ export class NTTMethod extends Component {
     this.response = null;
   }
 
+  get styles() {
+    return new URL('./ntx-method.css', import.meta.url).href;
+  }
+
   static get observedAttributes() {
     return ['model', 'method', 'uuid', 'mode', 'label', 'forward',
             'layout', 'placeholder', 'button-label', 'widget',
@@ -152,7 +156,6 @@ export class NTTMethod extends Component {
     }
 
     this.shadowRoot.innerHTML = `
-      <style>${NTTMethod.buttonStyles}</style>
       <button class="method-btn" title="${this.label}">
         <span class="method-btn-icon">${icon}</span>
         ${count !== '' ? `<span class="method-btn-count">${count}</span>` : ''}
@@ -199,10 +202,9 @@ export class NTTMethod extends Component {
       : '';
 
     this.shadowRoot.innerHTML = `
-      <style>${NTTMethod.baseStyles}</style>
-      <fieldset>
+      <fieldset class="method-fieldset">
         <legend>${this.label}</legend>
-        <form>
+        <form class="method-form">
           ${formInputs}
           ${this.mode === 'manual' ? `<button type="submit">${this.buttonLabel}</button>` : ''}
         </form>
@@ -253,10 +255,10 @@ export class NTTMethod extends Component {
         if (useTextarea) {
           formInputs = `<textarea name="${key}" placeholder="${placeholder}">${this.value[key] || ''}</textarea>`;
         } else {
-          formInputs = `<div class="method-inline-row">
-            <input name="${key}" type="${def.type || 'text'}" value="${this.value[key] || ''}" placeholder="${placeholder}" />
-            <button type="submit">${this.buttonLabel}</button>
-          </div>`;
+            formInputs = `<div class="method-inline-row">
+              <input name="${key}" type="${def.type || 'text'}" value="${this.value[key] || ''}" placeholder="${placeholder}" />
+              <button type="submit">${this.buttonLabel}</button>
+            </div>`;
         }
       }
     } else {
@@ -274,9 +276,8 @@ export class NTTMethod extends Component {
       : '';
 
     this.shadowRoot.innerHTML = `
-      <style>${NTTMethod.baseStyles}${NTTMethod.inlineStyles}</style>
       <div class="method-inline">
-        <form>
+        <form class="method-form method-form-inline">
           ${formInputs}
           ${buttonHtml}
         </form>
@@ -301,134 +302,6 @@ export class NTTMethod extends Component {
     }
   }
 
-  static baseStyles = `
-    :host { display: block; margin: 1rem 0; }
-    fieldset {
-      border: 1px solid var(--border);
-      border-radius: 1rem;
-      padding: 1rem;
-      background: var(--glass-bg);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-    legend { font-weight: bold; padding: 0 0.5rem; color: var(--text-0); }
-    label { display: block; margin-top: 1rem; color: var(--text-2); font-size: 0.9rem; }
-    input {
-      width: 100%; padding: 0.5rem 0.8rem;
-      box-sizing: border-box;
-      background: var(--surface-3);
-      color: var(--text-0);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-    }
-    button {
-      margin-top: 1rem;
-      background: var(--gradient-accent);
-      border: none;
-      border-radius: 8px;
-      padding: 0.6rem 1.2rem;
-      color: white;
-      cursor: pointer;
-    }
-    .output {
-      margin-top: 1rem;
-      font-family: monospace;
-      background: var(--surface-3);
-      padding: 0.8rem;
-      border-radius: 0.5rem;
-      border: 1px solid var(--border);
-      color: var(--text-1);
-    }
-  `;
-
-  static inlineStyles = `
-    .method-inline {
-      margin-top: 0.75rem;
-    }
-    .method-inline textarea {
-      width: 100%;
-      min-height: 80px;
-      resize: vertical;
-      padding: 0.6rem 0.8rem;
-      background: var(--surface-3);
-      color: var(--text-0);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-family: inherit;
-      font-size: 0.85rem;
-      box-sizing: border-box;
-    }
-    .method-inline textarea:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
-    }
-    .method-inline .actions {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 0.5rem;
-    }
-    .method-inline button {
-      background: var(--gradient-accent);
-      border: none;
-      border-radius: 8px;
-      padding: 0.5rem 1.2rem;
-      color: white;
-      cursor: pointer;
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-top: 0;
-    }
-    .method-inline-row {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-    }
-    .method-inline-row input {
-      flex: 1;
-    }
-    .method-inline-row button {
-      margin-top: 0;
-    }
-  `;
-
-  static buttonStyles = `
-    :host {
-      display: inline-block;
-      margin: 0;
-    }
-    .method-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-      padding: 0.25rem 0.6rem;
-      border-radius: 100px;
-      border: 1px solid var(--border, rgba(255,255,255,0.06));
-      background: var(--surface-2, rgba(22, 26, 38, 0.7));
-      color: var(--text-2, #9ba3bd);
-      cursor: pointer;
-      font-size: 0.75rem;
-      font-weight: 500;
-      font-family: inherit;
-      transition: all 0.2s;
-      line-height: 1;
-    }
-    .method-btn:hover {
-      border-color: var(--accent-dim, rgba(34,211,197,0.25));
-      background: var(--accent-dim, rgba(34,211,197,0.08));
-      color: var(--accent-text, #5eeadf);
-    }
-    .method-btn:active {
-      transform: scale(0.95);
-    }
-    .method-btn-icon {
-      display: flex;
-      align-items: center;
-    }
-    .method-btn-count {
-      font-variant-numeric: tabular-nums;
-    }
-  `;
 }
 
 customElements.define('ntx-method', NTTMethod);

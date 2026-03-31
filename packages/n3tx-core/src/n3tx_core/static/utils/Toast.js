@@ -15,6 +15,7 @@
 const TOAST_DURATION = 4000;   // Auto-dismiss after 4 seconds
 const FADE_DURATION  = 300;    // CSS transition length (ms)
 const TOAST_GAP      = 8;     // Vertical gap between stacked toasts (px)
+const TOAST_STYLES_URL = new URL('./Toast.css', import.meta.url).href;
 
 let container = null;
 
@@ -49,52 +50,10 @@ function injectStyles() {
     if (styleInjected) return;
     styleInjected = true;
 
-    const style = document.createElement('style');
-    style.textContent = `
-        .ntx-toast {
-            pointer-events: auto;
-            max-width: 420px;
-            min-width: 260px;
-            padding: 0.75rem 1.1rem;
-            border-radius: var(--radius-md, 12px);
-            font-family: inherit;
-            font-size: 0.85rem;
-            font-weight: 500;
-            line-height: 1.45;
-            color: var(--text-0, #f0f2f8);
-            background: var(--surface-3, #1c2030);
-            border: 1px solid var(--border, rgba(255,255,255,0.07));
-            box-shadow: var(--shadow-lg, 0 4px 8px rgba(0,0,0,0.3));
-            opacity: 0;
-            transform: translateY(12px) scale(0.96);
-            transition: opacity ${FADE_DURATION}ms var(--ease, ease),
-                        transform ${FADE_DURATION}ms var(--ease, ease);
-            word-break: break-word;
-        }
-        .ntx-toast.ntx-toast--visible {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
-        .ntx-toast--error {
-            border-color: var(--error, #f87171);
-            background: color-mix(in srgb, var(--error, #f87171) 12%, var(--surface-3, #1c2030));
-            box-shadow: var(--shadow-lg, 0 4px 8px rgba(0,0,0,0.3)),
-                        0 0 16px color-mix(in srgb, var(--error, #f87171) 20%, transparent);
-        }
-        .ntx-toast--success {
-            border-color: var(--success, #34d399);
-            background: color-mix(in srgb, var(--success, #34d399) 12%, var(--surface-3, #1c2030));
-            box-shadow: var(--shadow-lg, 0 4px 8px rgba(0,0,0,0.3)),
-                        0 0 16px color-mix(in srgb, var(--success, #34d399) 20%, transparent);
-        }
-        .ntx-toast--info {
-            border-color: var(--accent, #22d3c5);
-            background: color-mix(in srgb, var(--accent, #22d3c5) 12%, var(--surface-3, #1c2030));
-            box-shadow: var(--shadow-lg, 0 4px 8px rgba(0,0,0,0.3)),
-                        0 0 16px color-mix(in srgb, var(--accent, #22d3c5) 20%, transparent);
-        }
-    `;
-    document.head.appendChild(style);
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = TOAST_STYLES_URL;
+    document.head.appendChild(link);
 }
 
 /**

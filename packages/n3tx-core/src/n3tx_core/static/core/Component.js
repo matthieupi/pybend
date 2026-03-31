@@ -88,16 +88,18 @@ export class Component extends HTMLElement {
     // Bind callbacks that are passed as references
     this.define = this.define.bind(this);
 
-    // Stylesheet — constructable stylesheet, parsed once and shared.
+    // Stylesheet — constructable stylesheet(s), parsed once and shared.
     // Cache hit: adopt synchronously (no FOUC).
     // Cache miss: store the adoption promise; scheduleRender() defers until ready.
-    if (this.styles) {
-      const url = this.styles;
-      const cached = _sheetCache.get(url);
-      if (cached) {
-        this.shadowRoot.adoptedStyleSheets = [cached];
-      } else {
-        this.#styleReady = this.#adoptStylesheet(url);
+    const styleUrls = this.#styleUrls(this.styles);
+    if (styleUrls.length) {
+      const cachedSheets = styleUrls.map((url) => _sheetCache.get(url)).filter(Boolean);
+      if (cachedSheets.length) {
+        this.shadowRoot.adoptedStyleSheets = cachedSheets;
+      }
+
+      if (cachedSheets.length !== styleUrls.length) {
+        this.#styleReady = this.#adoptStylesheets(styleUrls);
       }
     }
   }
@@ -259,11 +261,20 @@ export class Component extends HTMLElement {
    */
   get styles() { return null; }
 
+  #styleUrls(styles) {
+    if (!styles) return [];
+    const urls = Array.isArray(styles) ? styles : [styles];
+    return urls.filter(Boolean);
+  }
+
   /**
    * Fetch a CSS file, create a CSSStyleSheet, cache it, and adopt it.
    * Deduplicates in-flight fetches so concurrent constructors share one request.
    */
-  async #adoptStylesheet(url) {
+  async #loadStylesheet(url) {
+    const cached = _sheetCache.get(url);
+    if (cached) return cached;
+
     let pending = _sheetPending.get(url);
     if (!pending) {
       pending = fetch(url)
@@ -282,8 +293,12 @@ export class Component extends HTMLElement {
         });
       _sheetPending.set(url, pending);
     }
-    const sheet = await pending;
-    if (sheet) this.shadowRoot.adoptedStyleSheets = [sheet];
+    return pending;
+  }
+
+  async #adoptStylesheets(urls) {
+    const sheets = (await Promise.all(urls.map((url) => this.#loadStylesheet(url)))).filter(Boolean);
+    if (sheets.length) this.shadowRoot.adoptedStyleSheets = sheets;
   }
 
 

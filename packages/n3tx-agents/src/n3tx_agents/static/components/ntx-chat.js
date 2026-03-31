@@ -23,6 +23,12 @@ const ICON_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="1
 const ICON_SEND = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
 
 class NTTChat extends NTTStream {
+    get styles() {
+        const parent = super.styles;
+        const inherited = Array.isArray(parent) ? parent : parent ? [parent] : [];
+        return [...inherited, new URL('./ntx-chat.css', import.meta.url).href];
+    }
+
     #items = [];
     #isStream; #isStreaming = false; #selectedId = null;
     #messages = []; #open = false;
@@ -36,7 +42,7 @@ class NTTChat extends NTTStream {
     }
 
     prerender() {
-        this.shadowRoot.innerHTML = `<style>${NTTChat.styles}</style>
+        this.shadowRoot.innerHTML = `
             <button class="chat-tab" aria-label="Open chat">${ICON_CHAT}</button>
             <div class="panel">
                 <div class="panel-header">
@@ -240,137 +246,6 @@ class NTTChat extends NTTStream {
     }
 
     #esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-
-    static styles = `
-        :host {
-            display: block; position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9000;
-            font-family: system-ui, -apple-system, sans-serif; font-size: .875rem;
-        }
-
-        /* -- Floating tab button -- */
-        .chat-tab {
-            width: 48px; height: 48px; border-radius: 50%;
-            background: var(--accent, #4cc9f0); color: #000;
-            border: none; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 16px rgba(0,0,0,.4);
-            transition: transform .15s, box-shadow .15s;
-        }
-        .chat-tab:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(0,0,0,.5); }
-        .chat-tab.hidden { display: none; }
-
-        /* -- Slide-up panel -- */
-        .panel {
-            position: absolute; bottom: 0; right: 0;
-            width: 380px; max-height: 520px;
-            border: 1px solid var(--border, #333); border-radius: .75rem;
-            background: var(--surface-1, #1a1a2e);
-            box-shadow: 0 8px 32px rgba(0,0,0,.5);
-            display: flex; flex-direction: column;
-            transform: translateY(10px) scale(.95); opacity: 0; pointer-events: none;
-            transition: transform .2s ease, opacity .2s ease;
-        }
-        .panel.open {
-            transform: translateY(0) scale(1); opacity: 1; pointer-events: auto;
-        }
-
-        /* -- Panel header -- */
-        .panel-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: .6rem .75rem;
-            background: var(--surface-2, #16213e);
-            border-bottom: 1px solid var(--border, #333);
-            border-radius: .75rem .75rem 0 0;
-        }
-        .panel-title {
-            font-weight: 600; font-size: .7rem;
-            text-transform: uppercase; letter-spacing: .05em;
-            color: var(--text-2, #aaa);
-        }
-        .panel-close {
-            background: none; border: none; color: var(--text-2, #aaa);
-            cursor: pointer; padding: .2rem; border-radius: .25rem;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .panel-close:hover { color: var(--text-1, #eee); background: var(--surface-3, #0f3460); }
-
-        /* -- Controls -- */
-        .panel-controls {
-            padding: .4rem .75rem; border-bottom: 1px solid var(--border, #333);
-        }
-        .instance-select {
-            width: 100%; padding: .3rem .5rem; border-radius: .3rem;
-            background: var(--surface-3, #0f3460); color: var(--text-1, #eee);
-            border: 1px solid var(--border, #333); font-size: .8rem;
-        }
-
-        /* -- Messages area -- */
-        .chat-messages {
-            flex: 1; overflow-y: auto; padding: .5rem .75rem;
-            min-height: 150px; max-height: 300px;
-        }
-        .msg { margin-bottom: .5rem; line-height: 1.5; }
-        .msg-role {
-            display: inline-block; font-size: .65rem; font-weight: 700;
-            text-transform: uppercase; margin-right: .4rem; opacity: .6;
-        }
-        .msg-text { white-space: pre-wrap; word-break: break-word; }
-        .msg-user .msg-role { color: var(--accent, #4cc9f0); }
-        .msg-assistant .msg-role { color: var(--success, #4ade80); }
-        .msg-system .msg-role { color: var(--warning, #fbbf24); }
-        .msg-system .msg-text { opacity: .7; font-style: italic; }
-        .cursor { animation: blink 1s step-end infinite; color: var(--accent, #4cc9f0); }
-        @keyframes blink { 50% { opacity: 0; } }
-
-        /* -- Input area -- */
-        .chat-input {
-            display: flex; gap: .4rem; align-items: flex-end;
-            padding: .5rem .75rem;
-            border-top: 1px solid var(--border, #333);
-            background: var(--surface-2, #16213e);
-            border-radius: 0 0 .75rem .75rem;
-        }
-        textarea {
-            flex: 1; resize: none; padding: .4rem .5rem; border-radius: .3rem;
-            background: var(--surface-3, #0f3460); color: var(--text-1, #eee);
-            border: 1px solid var(--border, #333); font-family: inherit; font-size: .8rem;
-            box-sizing: border-box; min-height: 36px; max-height: 80px;
-        }
-        textarea:focus { outline: 1px solid var(--accent, #4cc9f0); }
-        .send-btn {
-            width: 36px; height: 36px; border-radius: .3rem; border: none;
-            background: var(--accent, #4cc9f0); color: #000; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-        }
-        .send-btn:hover { filter: brightness(1.1); }
-        .send-btn:disabled { opacity: .4; cursor: not-allowed; }
-
-        /* -- Tool cards -- */
-        .tool-card {
-            margin: .3rem 0; padding: .3rem .5rem;
-            background: var(--surface-3, #0f3460); border-radius: .3rem;
-            font-size: .75rem; border-left: 2px solid var(--accent, #4cc9f0);
-        }
-        .tool-header { font-weight: 600; display: flex; align-items: center; gap: .3rem; }
-        .tool-icon { opacity: .6; }
-        .tool-spin { animation: spin 1s linear infinite; font-size: .5rem; color: var(--accent, #4cc9f0); }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .tool-result { margin-top: .2rem; opacity: .7; font-size: .7rem; word-break: break-word; }
-
-        /* -- Thinking indicator -- */
-        .msg-thinking {
-            font-style: italic; opacity: .5; font-size: .75rem; margin-bottom: .3rem;
-        }
-        .thinking-dots::after {
-            content: ''; animation: dots 1.5s steps(3, end) infinite;
-        }
-        @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
-
-        /* -- Stats -- */
-        .msg-stats {
-            font-size: .65rem; opacity: .4; margin-top: .2rem;
-        }
-    `;
 }
 
 customElements.define('ntx-chat', NTTChat);

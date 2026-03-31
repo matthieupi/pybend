@@ -3,6 +3,12 @@ import { showToast } from '../utils/Toast.js';
 
 export class NTTStreamAgent extends NTTStream {
 
+    get styles() {
+        const parent = super.styles;
+        const inherited = Array.isArray(parent) ? parent : parent ? [parent] : [];
+        return [...inherited, new URL('./ntx-stream-agent.css', import.meta.url).href];
+    }
+
     #toolCards = new Map();
     #textBuf = '';
     #textRendered = 0;
@@ -111,15 +117,10 @@ export class NTTStreamAgent extends NTTStream {
     // ── Rendering ──
 
     render() {
-        super.render();  // NTTMethod renders form → NTTStream appends stream CSS
+        super.render();
         // Replace NTTStream's simple output with our rich output container
         let el = this.shadowRoot.querySelector('.stream-output');
         if (el) el.remove();
-        // Inject agent-specific CSS
-        const style = this.shadowRoot.querySelector('style');
-        if (style && !style.textContent.includes('entry-thinking')) {
-            style.textContent += NTTStreamAgent.agentStyles;
-        }
     }
 
     callMethod() {
@@ -241,113 +242,6 @@ export class NTTStreamAgent extends NTTStream {
 
     #esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
-    // ── CSS ──
-    // Matches ntx-agent-live visual style, adapted for embedded method card context.
-    static agentStyles = `
-        .agent-output {
-            margin-top: .75rem;
-            max-height: 500px;
-            overflow-y: auto;
-            font-size: .85rem;
-        }
-
-        .entry { margin-bottom: .4rem; line-height: 1.5; }
-        .entry-content { padding: .3rem .5rem; border-radius: .3rem; }
-
-        /* Collapsible entries */
-        .entry.collapsible:not(.expanded) .entry-content {
-            max-height: 4.2em; overflow: hidden; cursor: pointer;
-        }
-        .entry.collapsible:not(.expanded)::after {
-            content: '\\25BE  more'; display: block; text-align: center;
-            font-size: .6rem; letter-spacing: .03em; color: var(--text-2, #aaa);
-            cursor: pointer; padding: .1rem 0; opacity: .5;
-        }
-        .entry.collapsible:not(.expanded):hover::after { opacity: .8; }
-        .entry.collapsible.expanded .entry-content { cursor: pointer; }
-
-        /* Thinking */
-        .entry-thinking .entry-content {
-            background: rgba(167, 139, 250, 0.08);
-            border-left: 2px solid var(--thinking, #a78bfa);
-            word-break: break-word; line-height: 1.5;
-        }
-        .entry-thinking p { margin: .3em 0; }
-        .entry-thinking code {
-            background: rgba(0,0,0,.2); padding: .1em .3em; border-radius: 3px;
-            font-size: .85em; font-family: 'SF Mono', Consolas, Monaco, monospace;
-        }
-        .entry-thinking pre {
-            background: rgba(0,0,0,.2); border-radius: .3rem;
-            padding: .3rem .5rem; overflow-x: auto; font-size: .8em; margin: .3em 0;
-        }
-        .entry-thinking pre code { background: none; padding: 0; }
-        .entry-thinking-active .entry-content { font-style: italic; opacity: .7; color: var(--thinking, #a78bfa); font-size: .8rem; }
-
-        /* Tool calls */
-        .entry-tool-call .entry-content {
-            background: var(--surface-3, #0f3460);
-            border-left: 2px solid var(--warning, #f59e0b);
-        }
-        .entry-tool-call.complete .entry-content {
-            border-left-color: var(--success, #22c55e);
-        }
-        .entry-icon { opacity: .6; margin-right: .2rem; }
-        .entry-spin { animation: spin 1s linear infinite; color: var(--warning, #fbbf24); font-size: .6rem; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .tool-json {
-            margin: .3rem 0 0; padding: .3rem .5rem;
-            background: rgba(0,0,0,.2); border-radius: .2rem;
-            font-size: .75rem; font-family: 'SF Mono', Consolas, Monaco, monospace;
-            overflow: auto; max-height: 200px; white-space: pre-wrap;
-        }
-        .tool-result-text {
-            margin-top: .3rem; font-size: .75rem;
-            font-family: 'SF Mono', Consolas, Monaco, monospace;
-            overflow: auto; max-height: 200px; white-space: pre-wrap; color: var(--text-2, #aaa);
-        }
-
-        /* Text output */
-        .entry-text-output .entry-content {
-            word-break: break-word;
-            border-left: 2px solid var(--text-accent, #38bdf8);
-            line-height: 1.6;
-        }
-        .entry-text-output h1, .entry-text-output h2, .entry-text-output h3 { margin: .6em 0 .3em; font-size: 1.1em; }
-        .entry-text-output p { margin: .4em 0; }
-        .entry-text-output code {
-            background: rgba(0,0,0,.3); padding: .1em .3em; border-radius: 3px;
-            font-size: .85em; font-family: 'SF Mono', Consolas, Monaco, monospace;
-        }
-        .entry-text-output pre {
-            background: rgba(0,0,0,.3); border-radius: .3rem;
-            padding: .4rem .6rem; overflow-x: auto; font-size: .8em; margin: .4em 0;
-        }
-        .entry-text-output pre code { background: none; padding: 0; }
-        .entry-text-output blockquote {
-            border-left: 2px solid var(--text-2, #aaa); margin: .4em 0;
-            padding: .2em .8em; opacity: .8;
-        }
-        .entry-text-output ul, .entry-text-output ol { padding-left: 1.5em; margin: .3em 0; }
-        .entry-text-output a { color: var(--accent, #4cc9f0); }
-
-        /* Error */
-        .entry-error .entry-content {
-            background: rgba(248, 113, 113, 0.1);
-            border-left: 2px solid var(--error, #f87171);
-            color: var(--error, #f87171);
-        }
-
-        /* Thinking animation */
-        .thinking-anim::after { content: ''; animation: dots 1.5s steps(3, end) infinite; }
-        @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
-
-        /* Footer (token usage) */
-        .stream-footer {
-            padding: .3rem .5rem; font-size: .65rem; color: var(--text-2, #aaa);
-            border-top: 1px solid var(--border, #333); margin-top: .4rem;
-        }
-    `;
 }
 
 customElements.define('ntx-stream-agent', NTTStreamAgent);

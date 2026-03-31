@@ -16,9 +16,19 @@
  */
 import { NTTStream } from './ntx-stream.js';
 import { NTT } from '../core/NTT.js';
-import { renderJson, jsonTreeCSS, initJsonToggle } from '../widgets/JsonTree.js';
+import { renderJson, initJsonToggle } from '../widgets/JsonTree.js';
 
 class NTTAgentLive extends NTTStream {
+    get styles() {
+        const parent = super.styles;
+        const inherited = Array.isArray(parent) ? parent : parent ? [parent] : [];
+        return [
+            ...inherited,
+            new URL('./ntx-agent-live.css', import.meta.url).href,
+            new URL('../widgets/json-tree.css', import.meta.url).href,
+        ];
+    }
+
     #toolCards = new Map();
     #els;
     #textBuf = ''; #textRendered = 0; #textTimer = null;
@@ -31,7 +41,7 @@ class NTTAgentLive extends NTTStream {
     }
 
     prerender() {
-        this.shadowRoot.innerHTML = `<style>${NTTAgentLive.styles}</style>
+        this.shadowRoot.innerHTML = `
             <div class="live-panel">
                 <div class="live-header">
                     <span class="live-title">${this.getAttribute('model') || ''} &middot; Live</span>
@@ -288,166 +298,6 @@ class NTTAgentLive extends NTTStream {
     }
 
     #esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-
-    static styles = `
-        :host { display: block; font-family: system-ui, -apple-system, sans-serif; font-size: .85rem; }
-
-        .live-panel {
-            border: 1px solid var(--border, #333); border-radius: .5rem;
-            background: var(--surface-1, #1a1a2e);
-            display: flex; flex-direction: column; max-height: 600px;
-        }
-
-        .live-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: .5rem .75rem;
-            border-bottom: 1px solid var(--border, #333);
-            background: var(--surface-2, #16213e);
-            border-radius: .5rem .5rem 0 0;
-        }
-        .live-title { font-weight: 600; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-2, #aaa); }
-        .live-status {
-            font-size: .65rem; font-weight: 600; text-transform: uppercase;
-            padding: .15rem .4rem; border-radius: .2rem;
-            background: var(--surface-3, #0f3460); color: var(--text-2, #aaa);
-        }
-        .live-status.running { background: var(--accent, #4cc9f0); color: #000; }
-        .live-status.done { background: var(--success, #4ade80); color: #000; }
-        .live-status.error { background: var(--error, #f87171); color: #000; }
-
-        .live-input {
-            display: flex; gap: .4rem; padding: .5rem .75rem;
-            border-bottom: 1px solid var(--border, #333);
-        }
-        .live-input textarea {
-            flex: 1; resize: none; padding: .4rem .5rem; border-radius: .3rem;
-            background: var(--surface-3, #0f3460); color: var(--text-1, #eee);
-            border: 1px solid var(--border, #333); font-family: inherit; font-size: .8rem;
-            box-sizing: border-box;
-        }
-        .live-input textarea:focus { outline: 1px solid var(--accent, #4cc9f0); }
-        .run-btn {
-            padding: .4rem .8rem; border-radius: .3rem; border: none;
-            background: var(--accent, #4cc9f0); color: #000; cursor: pointer;
-            font-weight: 600; font-size: .8rem;
-        }
-        .run-btn:hover { filter: brightness(1.1); }
-        .run-btn:disabled { opacity: .4; cursor: not-allowed; }
-
-        .live-log {
-            flex: 1; overflow-y: auto; padding: .5rem .75rem;
-            min-height: 150px; max-height: 400px;
-        }
-
-        .entry { margin-bottom: .4rem; line-height: 1.5; }
-        .entry-content { padding: .3rem .5rem; border-radius: .3rem; }
-
-        /* Collapsible entries — show ~3 lines, click to expand */
-        .entry.collapsible:not(.expanded) .entry-content {
-            max-height: 4.2em;
-            overflow: hidden;
-            cursor: pointer;
-        }
-        .entry.collapsible:not(.expanded)::after {
-            content: '\u25BE  more';
-            display: block;
-            text-align: center;
-            font-size: .6rem;
-            letter-spacing: .03em;
-            color: var(--text-2, #aaa);
-            cursor: pointer;
-            padding: .1rem 0;
-            opacity: .5;
-        }
-        .entry.collapsible:not(.expanded):hover::after { opacity: .8; }
-        .entry.collapsible.expanded .entry-content { cursor: pointer; }
-
-        .entry-task .entry-content {
-            background: var(--surface-3, #0f3460); font-weight: 600;
-            border-left: 2px solid var(--accent, #4cc9f0);
-        }
-        .entry-thinking .entry-content {
-            background: rgba(167, 139, 250, 0.08);
-            border-left: 2px solid var(--thinking, #a78bfa);
-            word-break: break-word; line-height: 1.5;
-        }
-        .entry-thinking p { margin: .3em 0; }
-        .entry-thinking code {
-            background: rgba(0,0,0,.2); padding: .1em .3em; border-radius: 3px;
-            font-size: .85em; font-family: 'SF Mono', Consolas, Monaco, monospace;
-        }
-        .entry-thinking pre {
-            background: rgba(0,0,0,.2); border-radius: .3rem;
-            padding: .3rem .5rem; overflow-x: auto; font-size: .8em; margin: .3em 0;
-        }
-        .entry-thinking pre code { background: none; padding: 0; }
-        .entry-tool-call .entry-content {
-            background: var(--surface-3, #0f3460);
-            border-left: 2px solid var(--warning, #f59e0b);
-        }
-        .entry-tool-call.complete .entry-content {
-            border-left-color: var(--success, #22c55e);
-        }
-        .entry-text-output .entry-content {
-            word-break: break-word;
-            border-left: 2px solid var(--text-accent, #38bdf8);
-            line-height: 1.6;
-        }
-        .entry-text-output h1, .entry-text-output h2, .entry-text-output h3 {
-            margin: .6em 0 .3em; font-size: 1.1em;
-        }
-        .entry-text-output p { margin: .4em 0; }
-        .entry-text-output code {
-            background: rgba(0,0,0,.3); padding: .1em .3em; border-radius: 3px;
-            font-size: .85em; font-family: 'SF Mono', Consolas, Monaco, monospace;
-        }
-        .entry-text-output pre {
-            background: rgba(0,0,0,.3); border-radius: .3rem;
-            padding: .4rem .6rem; overflow-x: auto; font-size: .8em; margin: .4em 0;
-        }
-        .entry-text-output pre code { background: none; padding: 0; }
-        .entry-text-output blockquote {
-            border-left: 2px solid var(--text-2, #aaa); margin: .4em 0;
-            padding: .2em .8em; opacity: .8;
-        }
-        .entry-text-output ul, .entry-text-output ol {
-            padding-left: 1.5em; margin: .3em 0;
-        }
-        .entry-text-output a { color: var(--accent, #4cc9f0); }
-        .entry-error .entry-content {
-            background: rgba(248, 113, 113, 0.1);
-            border-left: 2px solid var(--error, #f87171);
-            color: var(--error, #f87171);
-        }
-        .entry-icon { opacity: .6; margin-right: .2rem; }
-        .entry-spin { animation: spin 1s linear infinite; color: var(--warning, #fbbf24); font-size: .6rem; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .tool-json {
-            margin: .3rem 0 0; padding: .3rem .5rem;
-            background: rgba(0,0,0,.2); border-radius: .2rem;
-            font-size: .75rem; font-family: 'SF Mono', Consolas, Monaco, monospace;
-            overflow: auto; max-height: 200px;
-        }
-        .tool-result-text {
-            margin-top: .3rem; font-size: .75rem;
-            font-family: 'SF Mono', Consolas, Monaco, monospace;
-            overflow: auto; max-height: 200px;
-        }
-        ${jsonTreeCSS}
-
-        .thinking-anim::after { content: ''; animation: dots 1.5s steps(3, end) infinite; }
-        @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
-        .entry-thinking-active .entry-content:empty + .entry-content,
-        .entry-thinking-active .thinking-anim { opacity: .5; font-style: italic; }
-        .entry-thinking-active .entry-content { font-style: italic; opacity: .7; color: var(--thinking, #a78bfa); font-size: .8rem; }
-
-        .live-footer {
-            padding: .3rem .75rem; font-size: .65rem; color: var(--text-2, #aaa);
-            border-top: 1px solid var(--border, #333);
-            min-height: 1.2rem;
-        }
-    `;
 }
 
 customElements.define('ntx-agent-live', NTTAgentLive);

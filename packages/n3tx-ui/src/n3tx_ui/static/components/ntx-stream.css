@@ -1,0 +1,32 @@
+.stream-output {
+  margin-top: 0.9rem;
+  padding: 1rem 1.05rem;
+  min-height: 3rem;
+  max-height: 420px;
+  overflow-y: auto;
+  border: var(--border-width, 2px) solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 8px);
+  background: var(--panel-bg, rgba(15, 22, 38, 0.92));
+  color: var(--text-1, #d2dff2);
+  white-space: pre-wrap;
+  box-shadow: none;
+}
+
+.stream-text {
+  line-height: 1.7;
+}
+
+.stream-cursor {
+  animation: streamBlink 1s step-end infinite;
+  color: var(--accent, #3adffa);
+}
+
+.stream-error {
+  color: var(--error, #ff716c);
+  font-style: italic;
+  line-height: 1.6;
+}
+
+@keyframes streamBlink {
+  50% { opacity: 0; }
+}

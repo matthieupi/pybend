@@ -1,0 +1,32 @@
+.jt-node { display: inline; }
+
+.jt-children {
+  display: block;
+  margin-left: 3px;
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+}
+
+.jt-node.collapsed > .jt-children {
+  display: none;
+}
+
+.jt-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.jt-toggle:hover {
+  opacity: 0.8;
+}
+
+.jt-item {
+  line-height: 1.6;
+}
+
+.jt-bracket { color: var(--text-2, #91a3c1); }
+.jt-key { color: var(--accent-text, #84efff); }
+.jt-str { color: #ffe08b; }
+.jt-num { color: #b8a9ff; }
+.jt-bool { color: #ff8bd7; }
+.jt-null { color: var(--text-2, #91a3c1); font-style: italic; }

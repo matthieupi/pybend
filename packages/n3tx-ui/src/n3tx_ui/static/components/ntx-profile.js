@@ -6,6 +6,8 @@
  */
 import { permissions } from '../utils/Permissions.js';
 
+const STYLES_URL = new URL('./ntx-profile.css', import.meta.url).href;
+
 class NTTProfile extends HTMLElement {
   constructor() {
     super();
@@ -26,7 +28,7 @@ class NTTProfile extends HTMLElement {
 
     if (!user) {
       this.shadowRoot.innerHTML = `
-        <style>${STYLES}</style>
+        <link rel="stylesheet" href="${STYLES_URL}">
         <div class="profile-empty">Not authenticated</div>
       `;
       return;
@@ -39,80 +41,22 @@ class NTTProfile extends HTMLElement {
       : '';
 
     this.shadowRoot.innerHTML = `
-      <style>${STYLES}</style>
+      <link rel="stylesheet" href="${STYLES_URL}">
       <div class="profile-card">
-        <div class="avatar">${initial}</div>
-        <h2>${name}</h2>
-        <span class="email">${user.email || ''}</span>
-        ${roleBadge}
-        <p class="placeholder">Profile settings coming soon.</p>
+        <div class="profile-card-shell">
+          <div class="avatar">${initial}</div>
+          <div class="profile-copy">
+            <div class="profile-kicker">Profile</div>
+            <h2>${name}</h2>
+            <span class="email">${user.email || ''}</span>
+            ${roleBadge}
+          </div>
+          <p class="profile-note">Profile settings coming soon.</p>
+        </div>
       </div>
     `;
   }
 }
-
-const STYLES = `
-  :host {
-    display: block;
-    padding: 2rem;
-  }
-  .profile-empty {
-    text-align: center;
-    color: var(--text-2, #9ba3bd);
-    padding: 3rem;
-    font-size: 1.1rem;
-  }
-  .profile-card {
-    max-width: 400px;
-    margin: 0 auto;
-    text-align: center;
-    padding: 2rem;
-    background: var(--glass-bg, rgba(22, 26, 38, 0.6));
-    border: 1px solid var(--border, rgba(255,255,255,0.06));
-    border-radius: 1rem;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-  }
-  .avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: var(--gradient-accent, linear-gradient(135deg, #22d3c5, #6366f1));
-    color: white;
-    font-size: 1.8rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 1rem;
-  }
-  h2 {
-    margin: 0 0 0.25rem;
-    color: var(--text-0, #e8ecf4);
-    font-size: 1.4rem;
-  }
-  .email {
-    display: block;
-    color: var(--text-2, #9ba3bd);
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-  }
-  .role {
-    display: inline-block;
-    padding: 0.2rem 0.75rem;
-    border-radius: 100px;
-    background: var(--accent-dim, rgba(34,211,197,0.08));
-    color: var(--accent-text, #5eeadf);
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-  .placeholder {
-    margin-top: 1.5rem;
-    color: var(--text-3, #6b7280);
-    font-size: 0.85rem;
-    font-style: italic;
-  }
-`;
 
 customElements.define('ntx-profile', NTTProfile);
 

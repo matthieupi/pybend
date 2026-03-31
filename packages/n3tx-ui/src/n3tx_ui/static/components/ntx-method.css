@@ -1,0 +1,186 @@
+:host {
+  display: block;
+  margin: 0.9rem 0;
+  font-family: var(--font-body, Inter, sans-serif);
+}
+
+:host([layout="button"]) {
+  display: inline-block;
+  margin: 0;
+}
+
+.method-fieldset {
+  margin: 0;
+  padding: 1.2rem 1.25rem 1.1rem;
+  border: 0;
+  border-radius: var(--radius-lg, 12px);
+  background: var(--card-bg, rgba(14, 20, 35, 0.84));
+  box-shadow: none;
+}
+
+legend {
+  padding: 0 0.55rem;
+  color: var(--text-0, #ecf5ff);
+  font-family: var(--font-display, Manrope, sans-serif);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.method-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+label {
+  display: block;
+  color: var(--text-2, #91a3c1);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.8rem 0.95rem;
+  border: var(--border-width, 2px) solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 8px);
+  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
+  color: var(--text-0, #ecf5ff);
+  font: inherit;
+  box-sizing: border-box;
+  transition: border-color var(--duration-fast, 160ms) var(--ease, ease), box-shadow var(--duration-fast, 160ms) var(--ease, ease), background var(--duration-fast, 160ms) var(--ease, ease);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-3, #5f7090);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--border-accent, rgba(58, 223, 250, 0.45));
+  box-shadow: 0 0 0 var(--focus-ring-size, 2px) var(--accent-dim, rgba(58, 223, 250, 0.12));
+  background: var(--panel-bg, rgba(15, 22, 38, 0.92));
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: start;
+  padding: 0.78rem 1.2rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--gradient-accent, linear-gradient(135deg, #3adffa, #00cbe6));
+  color: var(--button-text, #04111d);
+  font-family: var(--font-display, Manrope, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--duration-fast, 160ms) var(--ease, ease), filter var(--duration-fast, 160ms) var(--ease, ease);
+}
+
+button:hover {
+  filter: brightness(1.03);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+.output {
+  margin-top: 0.35rem;
+  padding: 1rem;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 8px);
+  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
+  color: var(--text-1, #d2dff2);
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  overflow: auto;
+}
+
+.method-inline {
+  margin-top: 0.3rem;
+}
+
+.method-form-inline {
+  gap: 0.7rem;
+}
+
+.method-inline-row {
+  display: flex;
+  gap: 0.65rem;
+  align-items: stretch;
+}
+
+.method-inline-row input {
+  flex: 1;
+}
+
+.method-inline .actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.method-inline button,
+.method-inline-row button {
+  margin: 0;
+  align-self: stretch;
+}
+
+.method-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.82rem;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 8px);
+  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
+  color: var(--text-2, #91a3c1);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.method-btn:hover {
+  border-color: var(--border-accent, rgba(58, 223, 250, 0.45));
+  color: var(--accent-text, #84efff);
+  background: var(--accent-dim, rgba(58, 223, 250, 0.12));
+}
+
+.method-btn-count {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .method-inline-row {
+    flex-direction: column;
+  }
+
+  button,
+  .method-inline button,
+  .method-inline-row button {
+    width: 100%;
+    justify-content: center;
+  }
+}
