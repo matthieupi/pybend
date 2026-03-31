@@ -6,7 +6,7 @@
  *
  * Attributes:
  *   name  — Router actor address (required for addressing)
- *   hash  — Enable hash sync (presence = true)
+ *   no-hash  — Disable URL hash sync (default is on)
  */
 import { Component } from '../core/Component.js';
 import { Router, getRouter } from '../core/Router.js';
@@ -48,7 +48,7 @@ export class NTTRouter extends Component {
         if (!router) {
             const getSchema = (model) => window.NTT?.get(model)?.schema || null;
             router = new Router(name, {
-                hash: this.hasAttribute('hash'),
+                hash: !this.hasAttribute('no-hash'),
                 getSchema,
             });
         }
@@ -87,8 +87,8 @@ export class NTTRouter extends Component {
             return;
         }
 
-        // Navigation state: show chrome, mount component
-        chrome.hidden = false;
+        // Navigation state: only show chrome when there is actual back history.
+        chrome.hidden = !this.#router.canGoBack;
         chrome.querySelector('.router-title').textContent = resolved.title;
         chrome.querySelector('.back-btn').hidden = !this.#router.canGoBack;
 

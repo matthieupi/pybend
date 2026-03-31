@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../utils/Assert.js', () => ({
   default: vi.fn((caller, cond, msg) => { if (!cond) throw new Error(msg); }),
@@ -19,8 +19,19 @@ vi.mock('../../utils/Logging.js', () => ({
 }));
 
 import { NTTRouter } from '../../components/ntx-router.js';
+import { getRouter } from '../../core/Router.js';
 
 describe('ntx-router.js (NTTRouter)', () => {
+
+  beforeEach(() => {
+    window.location.hash = '';
+    document.body.innerHTML = '';
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    window.location.hash = '';
+  });
 
   describe('custom element registration', () => {
     it('should be registered as ntx-router', () => {
@@ -64,6 +75,31 @@ describe('ntx-router.js (NTTRouter)', () => {
       const sr = el.shadowRoot;
       expect(sr.querySelector('.router-chrome').hidden).toBe(true);
       expect(sr.querySelector('.router-content slot')).toBeTruthy();
+    });
+
+    it('should enable URL sync by default when mounted without hash attribute', () => {
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', 'router-default-hash');
+      document.body.appendChild(el);
+
+      const router = getRouter('router-default-hash');
+      router.NAVIGATE('Product/9');
+
+      expect(window.location.hash).toBe('#Product/9');
+    });
+
+    it('should hide router chrome when deep-linked with no back history', async () => {
+      window.location.hash = '#Product/9';
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', 'router-deeplink');
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const sr = el.shadowRoot;
+      expect(sr.querySelector('.router-chrome').hidden).toBe(true);
+      expect(sr.querySelector('.router-content ntx-item')).toBeTruthy();
     });
   });
 });

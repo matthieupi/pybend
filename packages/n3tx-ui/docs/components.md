@@ -213,4 +213,6 @@ Declarative route templates control what the sidebar navigates to:
 
 - **NTTStream binds a dynamic handler** named after the method (e.g., `this.GENERATE = (data, tx) => ...`). If the method name changes, the old handler is unbound. The handler dispatches based on `tx.meta`: stream_end -> onDone, error -> onError, else -> onChunk. For agent-style streaming with typed events (text, tool_call, done, etc.), extend `NTTStreamAgent` instead — it unwraps STREAM envelopes and dispatches to UPPERCASE handler methods (THINKING, TOOL_CALL, TEXT, DONE, etc.).
 
+- **Router URL sync is opt-out, not opt-in.** `Router()` and `<ntx-router>` synchronize with `window.location.hash` by default so navigation updates the browser URL without extra configuration. Initial deep links do not create fake back history, returning to root through browser history clears the in-app back state, and `<ntx-router>` hides its chrome when there is no back history.
+
 - **NTTModal locks body scroll** (`document.body.style.overflow = 'hidden'`) while open and restores on close via the `modal-close` event listener.

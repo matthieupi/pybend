@@ -166,14 +166,16 @@ export class Router extends Actor {
     #stack = [];
     #hashSync = false;
     #schemaAccessor = () => null;
+    #boundLocationChange = null;
 
-    constructor(addr, { hash = false, getSchema = null } = {}) {
+    constructor(addr, { hash = true, getSchema = null } = {}) {
         super(addr);
         matrix.register(this);
         this.#hashSync = hash;
         if (getSchema) this.#schemaAccessor = getSchema;
         if (hash) {
-            window.addEventListener('hashchange', () => this.#fromHash());
+            this.#boundLocationChange = () => this.#fromHash();
+            window.addEventListener('hashchange', this.#boundLocationChange);
             this.#fromHash();
         }
         routers.set(addr, this);
@@ -231,11 +233,26 @@ export class Router extends Actor {
         const hash = location.hash.slice(1);
         if (hash && hash !== this.#current) {
             const old = this.#current;
-            this.#stack.push(old);
+            if (old === null && this.#stack.length === 0) {
+                this.#current = hash;
+                this.notify('route', this.#current, old);
+                return;
+            }
+            if (this.#stack[this.#stack.length - 1] === hash) {
+                this.#stack.pop();
+            } else {
+                this.#stack.push(old);
+                if (this.#stack.length > STACK_MAX) this.#stack.shift();
+            }
             this.#current = hash;
             this.notify('route', this.#current, old);
         } else if (!hash && this.#current) {
             const old = this.#current;
+            if (this.#stack[this.#stack.length - 1] === null) {
+                this.#stack.pop();
+            } else if (this.#stack.length === 1 && this.#stack[0] === old) {
+                this.#stack.pop();
+            }
             this.#current = null;
             this.notify('route', this.#current, old);
         }

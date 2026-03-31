@@ -35,6 +35,13 @@ describe('Router.js', () => {
       expect(router.canGoBack).toBe(false);
     });
 
+    it('should default to hash sync on', () => {
+      const name = `default-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name);
+      r.NAVIGATE('Product/1');
+      expect(window.location.hash).toBe('#Product/1');
+    });
+
     it('should register in global routers map', () => {
       const name = `global-${Math.random().toString(36).slice(2)}`;
       const r = new Router(name);
@@ -212,6 +219,26 @@ describe('Router.js', () => {
       const name = `hash-${Math.random().toString(36).slice(2)}`;
       const r = new Router(name, { hash: true });
       expect(r).toBeTruthy();
+    });
+
+    it('should not create fake back history from an initial hash load', () => {
+      window.location.hash = '#Product/7';
+      const name = `initial-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, { hash: true });
+      expect(r.current).toBe('Product/7');
+      expect(r.canGoBack).toBe(false);
+    });
+
+    it('should clear back state when the browser returns to root', () => {
+      const name = `back-root-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, { hash: true });
+      r.NAVIGATE('Product/7');
+
+      window.location.hash = '';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+
+      expect(r.current).toBeNull();
+      expect(r.canGoBack).toBe(false);
     });
   });
 

@@ -63,7 +63,7 @@ Actor                          # Base actor: addr, inbox, send, children, spawn
   |
   +-- Matrix                   # Singleton root actor, message router + network gateway
   |
-  +-- Router                   # Navigation state actor (route, history stack, hash sync, Observable)
+  +-- Router                   # Navigation state actor (route, history stack, URL sync, Observable)
   |
   +-- TT (Transfer Type)       # Actor with href (remote endpoint) + watcher/notify pattern
   |     |
@@ -100,7 +100,7 @@ static/
   core/
     Actor.js                   # Actor base class + subclass() metaclass helper
     Matrix.js                  # Root actor singleton, message router
-    Router.js                  # Navigation state actor (route stack, hash sync, Observable)
+    Router.js                  # Navigation state actor (route stack, URL sync, Observable)
     TX.js                      # Transaction envelope (name, source, target, data, meta, hash)
     Observable.js              # Mixin: signal/observe/notify reactivity
     N3TX.js                     # TT, N3TX classes + prototype() DynClass factory + SSR pre-loading

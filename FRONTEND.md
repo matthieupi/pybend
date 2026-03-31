@@ -45,7 +45,7 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-core/src/n3tx_core/static/core/Matrix.js` - Message bus / root actor
 - `packages/n3tx-core/src/n3tx_core/static/core/Component.js` - Abstract HTMLElement + Actor bridge (base for every web component)
 - `packages/n3tx-core/src/n3tx_core/static/core/Observable.js` - Observer mixin
-- `packages/n3tx-core/src/n3tx_core/static/core/Router.js` - Navigation state Actor (hash sync, history stack)
+- `packages/n3tx-core/src/n3tx_core/static/core/Router.js` - Navigation state Actor (URL sync on by default, history stack)
 - `packages/n3tx-core/src/n3tx_core/static/core/Utils.js` - Core utilities
 - `packages/n3tx-core/src/n3tx_core/static/core/transport/HTTP.js` - HTTP adapter
 - `packages/n3tx-core/src/n3tx_core/static/core/transport/Socket.js` - WebSocket transport
