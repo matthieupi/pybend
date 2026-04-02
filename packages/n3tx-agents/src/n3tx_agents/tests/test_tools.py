@@ -413,6 +413,14 @@ class TestLoopDetection:
         assert 'grants_create' not in tool_names
         assert 'web_tools_scrape' in tool_names
 
+    def test_instance_caller_addr_keeps_model_namespace_tools(self, fresh_matrix, memory_storage):
+        """Instance caller addresses should not exclude class namespace tools."""
+        m, Grant, _ = setup_models(fresh_matrix, memory_storage)
+        specs = discover_tools(['grants'], m, caller_addr='grants/1')
+        tool_names = {s.tool_name for s in specs}
+        assert 'grants_update' in tool_names
+        assert 'grants_get' in tool_names
+
     def test_agent_actor_run_excluded(self, fresh_matrix, tmp_path):
         """AgentActor subclass's run method is auto-excluded from tools."""
         from n3tx_agents.actor import AgentActor

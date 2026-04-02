@@ -75,7 +75,14 @@ Unhandled messages (no matching method) produce `tx.error("Unhandled message: {n
 2. `__tablename__` attribute -- used if present
 3. Class `__name__` -- fallback
 
-Instance `_addr` defaults to `__addr__` of the class, overridable via `addr=` kwarg.
+Instance `_addr` resolution follows this order:
+1. explicit `addr=` kwarg
+2. `f"{__addr__}/{id}"` when the instance has a truthy persisted `id`
+3. class `__addr__`
+
+This means hydrated `ActorModel` records such as `Product.get(1)` identify
+themselves as `products/1`, while unsaved instances still default to the
+class namespace `products`.
 
 ### Class-Level Send Routing (3 cases)
 

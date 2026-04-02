@@ -89,6 +89,9 @@ def _resolve_llm(llm):
             "(e.g., 'ollama:llama3.1', 'anthropic:claude-sonnet-4-5-20250929') "
             "or set it via __agent__['llm'] or config.AGENT_DEFAULTS['llm']."
         )
+    if llm == 'test':
+        from pydantic_ai.models.test import TestModel
+        return TestModel(call_tools=[])
     if not isinstance(llm, str) or not llm.startswith('ollama:'):
         return llm
 

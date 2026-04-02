@@ -45,6 +45,12 @@ await Product.inbox(tx)  # dispatches via class
 await product.inbox(tx)  # dispatches via instance
 ```
 
+Instance addresses are derived automatically when possible:
+
+- explicit `addr=` wins
+- persisted instances with a truthy `id` use `"{__addr__}/{id}"`
+- unsaved instances fall back to the class namespace such as `products`
+
 Two descriptors (`actormethod` and `actorproperty`) make this
 possible. The method implementation is written once. The descriptor
 resolves whether `target` is the class or the instance. No

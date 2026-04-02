@@ -178,19 +178,16 @@ class ActorModel(Actor, ProtoModel):
                         await target.send(tx.reply(data=result))
                 elif result is not None:
                     await target.send(tx.reply(data=result))
+                elif tx.name == 'LIFECYCLE':
+                    return
                 else:
                     await target.send(tx.reply())
             else:
                 # Drop errors and responses — sending an error in response
                 # to an error creates infinite bounce loops between actors.
-                # Instead, log and bubble up to root for correlation handling.
                 if tx.is_error or tx.name.endswith('_RESPONSE'):
                     addr = target.addr if not isinstance(target, type) else target.__addr__
-                    logger.error("[%s] Unhandled %s from %s: %s", addr, tx.name, tx.source, tx.data)
-                    root = Actor.root()
-                    if root:
-                        tx.target = root.addr
-                        await root.inbox(tx)
+                    logger.debug("[%s] Dropped unhandled %s from %s", addr, tx.name, tx.source)
                     return
                 await target.send(tx.error(f"Unhandled message: {tx.name}"))
 

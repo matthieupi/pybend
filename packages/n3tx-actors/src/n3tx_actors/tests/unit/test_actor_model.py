@@ -186,8 +186,28 @@ class TestActorProperties:
         p = _TestProduct(addr='custom/1')
         assert p.addr == 'custom/1'
 
+    def test_instance_addr_with_id_derives_entity_path(self):
+        p = _TestProduct(id=7, name='widget', price=9.99)
+        assert p.addr == 'am_products/7'
+
     def test_class_addr_for_widget(self):
         assert _TestWidget.addr == 'am_widgets'
+
+    def test_zero_id_keeps_class_addr(self):
+        p = _TestProduct(id=0, name='widget', price=9.99)
+        assert p.addr == 'am_products'
+
+    def test_storable_instance_addr_with_id_derives_entity_path(self):
+        widget = _TestWidget(id=12, label='gizmo')
+        assert widget.addr == 'am_widgets/12'
+
+    def test_manual_actor_model_with_id_uses_entity_path(self):
+        class _LocalActor(ActorModel, auto_register=False):
+            __tablename__: ClassVar[str] = 'local_items'
+            name: str = Field(default='')
+
+        item = _LocalActor(id=3, name='demo')
+        assert item.addr == 'local_items/3'
 
 
 # ===================================================================

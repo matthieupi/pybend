@@ -132,7 +132,14 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
     def __init__(self, *args, **kwargs):
         addr = kwargs.pop('addr', '')
         super().__init__(*args, **kwargs)
-        self._addr = addr or self.__class__.__addr__ or self.__class__.__name__
+        entity_id = getattr(self, 'id', None)
+        if addr:
+            self._addr = addr
+        elif entity_id:
+            base_addr = self.__class__.__addr__ or self.__class__.__name__
+            self._addr = f'{base_addr}/{entity_id}'
+        else:
+            self._addr = self.__class__.__addr__ or self.__class__.__name__
         # Default parent = class itself (mirrors JS: this.#parent = this.constructor)
         self._parent = self.__class__
 
@@ -265,12 +272,17 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
                 await target.send(tx.exception(e))
                 return
 
+            # If the function returned a TX, we can propagate it
             if isinstance(result, TX):
                 await target.send(result)
+            # If the function returns a bare dict, we send back as a reply
             elif isinstance(result, dict):
                 await target.send(tx.reply(data=result))
             elif result is not None:
                 await target.send(tx.reply(data={'result': result}))
+            # LIFECYCLE events are one-way, no response triggered
+            elif tx.name == 'LIFECYCLE':
+                return
             else:
                 await target.send(tx.reply())
         else:
