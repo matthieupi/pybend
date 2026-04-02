@@ -1,0 +1,93 @@
+:host {
+    display: block;
+}
+
+.list-field {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border, rgba(255,255,255,0.06));
+}
+
+.list-field-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.list-field-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-text, #5eeadf);
+}
+
+.list-field-count {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-0, #f0f2f8);
+    background: var(--accent-dim, rgba(34,211,197,0.12));
+    border: 1px solid rgba(34, 211, 197, 0.15);
+    border-radius: var(--radius-sm, 8px);
+    padding: 0.1rem 0.45rem;
+    min-width: 1.25rem;
+    text-align: center;
+}
+
+.list-field-item {
+    padding: 0.45rem 0;
+    margin: 0.25rem 0;
+    font-size: 0.85rem;
+    color: var(--text-0, #f0f2f8);
+    border-bottom: 1px solid var(--line, rgba(255,255,255,0.08));
+}
+
+.list-field-ref-row,
+.list-field-edit-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.75rem;
+    margin: 0.35rem 0;
+}
+
+.list-field-edit-row input,
+.list-field-edit-row textarea,
+.list-field-edit-row select {
+    width: 100%;
+    margin: 0;
+}
+
+.list-field-edit-row textarea {
+    min-height: 5rem;
+}
+
+.list-field-remove,
+.list-field-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm, 8px);
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-1, #c4c9da);
+    cursor: pointer;
+}
+
+.list-field-remove {
+    color: var(--danger, #fca5a5);
+    border-color: rgba(248, 113, 113, 0.22);
+    background: rgba(127, 29, 29, 0.18);
+}
+
+.list-field-add {
+    margin-top: 0.65rem;
+    color: var(--accent-text, #5eeadf);
+    border-color: rgba(34, 211, 197, 0.18);
+    background: rgba(34, 211, 197, 0.10);
+}

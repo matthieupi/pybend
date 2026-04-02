@@ -28,6 +28,7 @@ import { ConsoleWidget } from './ConsoleWidget.js';
 import { ReferenceWidget } from './ReferenceWidget.js';
 import { CurrencyWidget } from './CurrencyWidget.js';
 import { TextareaWidget } from './TextareaWidget.js';
+import { ListFieldWidget } from './ListFieldWidget.js';
 
 // ── Register built-in widgets ──────────────────────────────────────
 registerWidget('url', new UrlWidget());
@@ -39,3 +40,4 @@ registerWidget('console', new ConsoleWidget());
 registerWidget('reference', new ReferenceWidget());
 registerWidget('currency', new CurrencyWidget());
 registerWidget('textarea', new TextareaWidget());
+registerWidget('list', new ListFieldWidget());

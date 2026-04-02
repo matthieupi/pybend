@@ -192,16 +192,18 @@ function validationAttrs(def, isRequired = false) {
     return attrs.length ? ' ' + attrs.join(' ') : '';
 }
 
+function wrapDisplayField(label, content, { inline = false, classes = '' } = {}) {
+    const className = ['field-row', inline ? 'field-row--inline' : 'field-row--block', classes]
+        .filter(Boolean)
+        .join(' ');
+    return `<div class="${className}"><label>${label}</label>${content}</div>`;
+}
+
 function getInput(ntt, key, mode = 'display') {
     const schema = ntt.schema;
     const def = schema.properties?.[key]
-    const model = ntt.name
-    const label = def.title || key;
-    const value = ntt.value?.[key] ?? '';
-    const widget = def.ui?.widget;  // Widget hint from schema (takes priority)
-    let html = [];
+    if (!def) return '';
 
-    // Handle special cases when the type is a complex type like anyOf : [{...}, {...}, ...]
     if (def.anyOf) {
         Object.assign(def, resolveAnyOf(def));
     }
@@ -209,14 +211,24 @@ function getInput(ntt, key, mode = 'display') {
     // Protected fields are always display-only (backend-owned)
     const effectiveMode = (mode === 'edit' && (def.ui?.protected || !permissions.canEdit(def))) ? 'display' : mode;
 
+    if (def.type === 'array') {
+        return getListInput(ntt, key, effectiveMode);
+    }
+
+    const model = ntt.name
+    const label = def.title || key;
+    const value = ntt.value?.[key] ?? '';
+    const widget = def.ui?.widget;  // Widget hint from schema (takes priority)
+    let html = [];
+    const showLabel = key !== 'name' && key !== 'id';
+
     // ── Widget dispatch (takes priority over type-based rendering) ──
     const _wr = getWidgetForField(def);
     if (_wr.widget && def.ui?.widget) {
-        // Add label (same rules as non-widget fields)
-        if (key !== 'name' && key !== 'id')
-            html.push(`<label class="${model} ${model}-form-item">${label}</label>`);
-
         if (effectiveMode === 'edit' || effectiveMode === 'create') {
+            if (showLabel) {
+                html.push(`<label class="${model} ${model}-form-item">${label}</label>`);
+            }
             const widgetEl = _wr.widget.edit(value, _wr.config, def, (newVal) => {
                 // Propagate data-key/data-type so handleInputChange can process it
                 const synthEvent = { target: { dataset: { key, type: def.type || 'string' }, value: newVal } };
@@ -241,14 +253,22 @@ function getInput(ntt, key, mode = 'display') {
             wrapper.dataset.value = key;
             wrapper.dataset.widgetType = def.ui.widget;
             wrapper.appendChild(widgetEl);
-            html.push(wrapper.outerHTML);
+            if (showLabel) {
+                const inlineWidget = def.ui.widget === 'currency';
+                html.push(wrapDisplayField(label, wrapper.outerHTML, {
+                    inline: inlineWidget,
+                    classes: inlineWidget ? 'field-row--numeric' : '',
+                }));
+            } else {
+                html.push(wrapper.outerHTML);
+            }
         }
         return html.join('');
     }
 
     const type = def.type || 'string';
 
-    if (key !== 'name' && key !== 'id' && type !== 'array')
+    if (showLabel && effectiveMode === 'edit')
         html.push(`<label class="${model} ${model}-form-item">${label}</label>`);
 
     if (effectiveMode === 'edit') {
@@ -270,7 +290,7 @@ function getInput(ntt, key, mode = 'display') {
             html.push(`<input type="checkbox" id="${key}" data-key="${key}" data-type="${type}" ${value ? 'checked' : ''}${v}>`);
         } else if (type === 'string') {
             html.push(`<input type="text" id="${key}" data-key="${key}" data-type="${type}" value="${value}"${v}>`);
-        } else if (type === 'number') {
+        } else if (type === 'number' || type === 'integer') {
             html.push(`<input type="number" id="${key}" data-key="${key}" data-type="${type}" value="${value}"${v}>`);
         } else if (type === 'selfref') {
             html.push(`<input type="number" id="${key}" data-key="${key}" data-type="selfref" value="${value || ''}" placeholder="Parent ID (optional)"${v}>`);
@@ -285,13 +305,16 @@ function getInput(ntt, key, mode = 'display') {
     } else {
         // Enum fields → styled pill
         if (def.enum) {
-            html.push(`<span class="enum-pill" data-value="${key}" data-status="${value}">${value}</span>`);
+            const enumHtml = `<span class="enum-pill" data-value="${key}" data-status="${value}">${value}</span>`;
+            html.push(showLabel ? wrapDisplayField(label, enumHtml, { inline: true }) : enumHtml);
         // Widget hint takes priority for display rendering too
         } else if (widget === 'currency') {
             const formatted = typeof value === 'number' ? `$${value.toFixed(2)}` : value;
-            html.push(`<div class="currency-display" data-value="${key}">${formatted}</div>`);
+            const valueHtml = `<div class="currency-display" data-value="${key}">${formatted}</div>`;
+            html.push(showLabel ? wrapDisplayField(label, valueHtml, { inline: true, classes: 'field-row--numeric' }) : valueHtml);
         } else if (widget === 'textarea') {
-            html.push(`<div class="text-block" data-value="${key}">${value}</div>`);
+            const valueHtml = `<div class="text-block" data-value="${key}">${value}</div>`;
+            html.push(showLabel ? wrapDisplayField(label, valueHtml) : valueHtml);
         } else if (type === '$ref' || def?.$ref) {
             // Render as interactive component if value is an href or object with $id
             let refUrl = null;
@@ -307,18 +330,26 @@ function getInput(ntt, key, mode = 'display') {
                 if (refModel && defs[refModel]?.ui?.renderer?.item) {
                     childTag = defs[refModel].ui.renderer.item;
                 }
-                html.push(`<div class="ref-field" data-value="${key}"><${childTag} ref="${refUrl}" display="sm"${refModel ? ` data-model="${refModel}"` : ''}></${childTag}></div>`);
+                const valueHtml = `<div class="ref-field" data-value="${key}"><${childTag} ref="${refUrl}" display="sm"${refModel ? ` data-model="${refModel}"` : ''}></${childTag}></div>`;
+                html.push(showLabel ? wrapDisplayField(label, valueHtml) : valueHtml);
             } else {
-                html.push(`<div data-value="${key}">${formatRefDisplay(def, value)}</div>`);
+                const valueHtml = `<div data-value="${key}">${formatRefDisplay(def, value)}</div>`;
+                html.push(showLabel ? wrapDisplayField(label, valueHtml) : valueHtml);
             }
         } else if (type === 'selfref') {
-            html.push(`<div data-value="${key}">${value ? `[Parent: #${value}]` : '(top-level)'}</div>`);
+            const valueHtml = `<div data-value="${key}">${value ? `[Parent: #${value}]` : '(top-level)'}</div>`;
+            html.push(showLabel ? wrapDisplayField(label, valueHtml, { inline: true }) : valueHtml);
         } else if (type === 'array') {
             html.push(getListInput(ntt, key, mode));
         } else if (type === 'object') {
-            html.push(`<div class="object-display" data-value="${key}">${formatObjectDisplay(value)}</div>`);
+            const valueHtml = `<div class="object-display" data-value="${key}">${formatObjectDisplay(value)}</div>`;
+            html.push(showLabel ? wrapDisplayField(label, valueHtml) : valueHtml);
+        } else if (type === 'number' || type === 'integer') {
+            const valueHtml = `<div class="number-display" data-value="${key}">${value}</div>`;
+            html.push(showLabel ? wrapDisplayField(label, valueHtml, { inline: true, classes: 'field-row--numeric' }) : valueHtml);
         } else {
-            html.push(`<div data-value="${key}">${value}</div>`);
+            const valueHtml = `<div class="text-display" data-value="${key}">${value}</div>`;
+            html.push(showLabel ? wrapDisplayField(label, valueHtml, { inline: true }) : valueHtml);
         }
     }
 
@@ -326,92 +357,22 @@ function getInput(ntt, key, mode = 'display') {
 }
 
 function getListInput(ntt, key, mode = 'display') {
-    const VISIBLE_COUNT = 2;
     const def = ntt.schema.properties?.[key];
-    const items = def.items || {};
-    const rawValue = ntt.value?.[key] || [];
-    const defs = ntt.schema?.$defs || {};
-    let html = [];
+    const listFieldSchema = {
+        ...def,
+        __fieldKey: key,
+        ui: { ...(def?.ui || {}), widget: 'list' },
+    };
+    const { widget, config } = getWidgetForField(listFieldSchema);
+    if (!widget) return '';
 
-    // Normalize: populated wrapper {data: [...], meta: {...}} → plain array
-    let value = rawValue;
-    if (!Array.isArray(value) && value && typeof value === 'object' && Array.isArray(value.data)) {
-        value = value.data;
-    }
-
-    // Extract model name from $ref in items schema
-    let modelName = null;
-    if (items.$ref) {
-        modelName = items.$ref.split('/').pop();
-    } else if (items.anyOf) {
-        const refEntry = items.anyOf.find(a => a.$ref);
-        if (refEntry) modelName = refEntry.$ref.split('/').pop();
-    }
-
-    // Resolve child component tag from referenced model's renderer hints
-    let childTag = 'ntx-item';
-    if (modelName && defs[modelName]?.ui?.renderer?.item) {
-        childTag = defs[modelName].ui.renderer.item;
-    }
-
-    const count = Array.isArray(value) ? value.length : 0;
-
-    html.push(`<div class="list-field" data-model="${modelName || ''}" data-value="${key}">`);
-    html.push(`<div class="list-field-header">`);
-    html.push(`<span class="list-field-label">${def.title || modelName || key}</span>`);
-    html.push(`<span class="list-field-count">${count}</span>`);
-    html.push(`</div>`);
-
-    if (Array.isArray(value)) {
-        if (modelName) {
-            // Reference array — render as <ntx-item> components
-            value.forEach((item, i) => {
-                const ref = typeof item === 'string' ? item : (item?.$id || null);
-                if (ref) {
-                    if (i === VISIBLE_COUNT) {
-                        html.push(`<div class="nested-collapsed">`);
-                    }
-                    html.push(`<${childTag} ref="${ref}" display="sm" data-model="${modelName}"></${childTag}>`);
-                }
-            });
-            if (count > VISIBLE_COUNT) {
-                html.push(`</div>`);
-                html.push(`<button type="button" class="show-more-btn">Show ${count - VISIBLE_COUNT} more</button>`);
-            }
-        } else {
-            // Simple value array (strings, numbers) — render as plain list items
-            value.forEach((item, i) => {
-                if (i === VISIBLE_COUNT) {
-                    html.push(`<div class="nested-collapsed">`);
-                }
-                html.push(`<div class="list-field-item">${item}</div>`);
-            });
-            if (count > VISIBLE_COUNT) {
-                html.push(`</div>`);
-                html.push(`<button type="button" class="show-more-btn">Show ${count - VISIBLE_COUNT} more</button>`);
-            }
-        }
-    }
-
-    // Ref picker for adding existing / creating new items in edit mode
-    if (mode === 'edit' && modelName) {
-        const parentSchema = ntt.schema || {};
-        const parentTable = parentSchema.__tablename__ || '';
-        const parentModel = parentSchema.__name__ || '';
-        const parentId = ntt.value?.id || '';
-        const childTable = defs[modelName]?.__tablename__ || modelName.toLowerCase() + 's';
-        html.push(`<ntx-ref-picker
-            field="${key}"
-            model="${modelName}"
-            parent-model="${parentModel}"
-            parent-table="${parentTable}"
-            parent-id="${parentId}"
-            child-table="${childTable}">
-        </ntx-ref-picker>`);
-    }
-
-    html.push(`</div>`);
-    return html.join('');
+    const wrapper = document.createElement('div');
+    const value = ntt.value?.[key] ?? [];
+    const widgetEl = mode === 'edit'
+        ? widget.edit(value, config, listFieldSchema, () => {}, ntt)
+        : widget.display(value, config, listFieldSchema, ntt);
+    wrapper.appendChild(widgetEl);
+    return wrapper.innerHTML;
 }
 
 function getArrayInput(ntt, def, key, mode = 'display') {
@@ -537,10 +498,19 @@ function validateForm(ntt) {
         if (def?.ui?.display === false) continue;
         if (def?.ui?.protected) continue;
         if (def?.readOnly) continue;
-        // Skip array and object types (complex fields)
-        if (def?.type === 'array' || def?.type === 'object') continue;
+        // Skip object types (complex fields)
+        if (def?.type === 'object') continue;
 
         const val = value[key];
+
+        if (def?.type === 'array') {
+            const arr = Array.isArray(val) ? val : [];
+            if (required.has(key) && arr.length === 0) {
+                errors.push({ field: key, message: `${def.title || key} is required` });
+                continue;
+            }
+            continue;
+        }
 
         // Required check
         if (required.has(key) && (val === undefined || val === null || val === '')) {

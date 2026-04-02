@@ -33,7 +33,8 @@ getForm(ntt, mode, attachedMethods)
         |     Wraps in .widget-display-wrapper or .widget-edit-wrapper
         |
         +-- Type dispatch fallback:
-              string -> input[text], number -> input[number],
+              string -> input[text] / inline label-value display,
+              number/integer -> input[number] / bold single-line inline display,
               boolean -> checkbox, array -> getListInput(),
               $ref -> child component, enum -> select/pill,
               object -> textarea/kv-display, selfref -> parent ID
@@ -144,7 +145,11 @@ Formidable receives these as `attachedMethods` and injects them after the target
 
 - **Header fields (`name`, `title`, `id`, `description`) are filtered from the main field list** by `_getLayout()` and rendered separately by `getHeader()`. If your model has no `name` or `title` field, the header falls back to `schema.name`. The `id` field is always hidden.
 
-- **Protected fields use effectiveMode.** Even in edit mode, fields with `ui.protected: true` or where `permissions.canEdit()` returns false are rendered as display-only. The mode is downgraded per-field, not globally.
+- **Display-mode field rows are split into inline and block layouts.** Plain text, enum, selfref, and numeric values render in a two-column row with a fixed-width label column so values line up across the page. Long labels wrap inside that column. Textarea, object, ref, and array-style content stay block-stacked under their labels.
+
+- **Array fields now route through the dedicated list-field widget.** `Formidable.getListInput()` delegates array rendering to `<ntx-list-field>`, which owns display/edit UI and `$ref` picker integration. Scalar arrays stage edits locally inside the widget. `$ref` arrays persist membership changes immediately through join/unjoin requests, because generic entity `UPDATE` does not store collection fields.
+
+- **Protected fields use effectiveMode.** Even in edit mode, fields with `ui.protected: true` or where `permissions.canEdit()` returns false are rendered as display-only. The mode is downgraded per-field, not globally, including array/list fields.
 
 - **anyOf resolution.** When a field has `anyOf` (Pydantic optional types), `resolveAnyOf()` strips the null type and uses the remaining definition. If multiple non-null types exist, it throws -- this is a schema design issue, not a form bug.
 

@@ -146,4 +146,23 @@ describe('ListElement (via NTTList)', () => {
       expect(child.getAttribute('select-target')).toBeTruthy();
     });
   });
+
+  describe('header icons', () => {
+    it('should render schema ui.icon in the list header', () => {
+      const el = document.createElement('ntx-list');
+      el.model = 'Grant';
+      el.schema = { __name__: 'Grant', ui: { icon: '💸' }, access: {} };
+      el.value = [];
+      Object.defineProperty(el, 'proto', {
+        value: { _paginationMeta: null },
+        configurable: true,
+      });
+
+      el.render();
+
+      const icon = el.shadowRoot.querySelector('.list-title-wrap ntx-icon');
+      expect(icon).not.toBeNull();
+      expect(icon.getAttribute('value')).toBe('💸');
+    });
+  });
 });

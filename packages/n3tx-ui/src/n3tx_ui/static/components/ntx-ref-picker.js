@@ -56,6 +56,7 @@ export class NTTRefPicker extends HTMLElement {
   get parentTable() { return this.getAttribute('parent-table'); }
   get parentId()    { return this.getAttribute('parent-id'); }
   get childTable()  { return this.getAttribute('child-table') || (this.modelName?.toLowerCase() + 's'); }
+  get deferSave()   { return this.getAttribute('defer-save') === 'true'; }
 
   /** Collect current refs from the parent ntx-item to filter duplicates. */
   get currentRefs() {
@@ -218,15 +219,17 @@ export class NTTRefPicker extends HTMLElement {
   // ── Actions ──
 
   _addRef(id, entity) {
-    const url = `${config.API_URL}/${this.parentTable}/${this.parentId}/${this.childTable}`;
-    const DC = NTT.get(this.modelName);
-    if (DC) {
-      DC.send(new TX({
-        name: 'CREATE',
-        target: url,
-        data: entity,
-        meta: { inbox: '_response_' }
-      }));
+    if (!this.deferSave) {
+      const url = `${config.API_URL}/${this.parentTable}/${this.parentId}/${this.childTable}`;
+      const DC = NTT.get(this.modelName);
+      if (DC) {
+        DC.send(new TX({
+          name: 'CREATE',
+          target: url,
+          data: entity,
+          meta: { inbox: '_response_' }
+        }));
+      }
     }
 
     // Optimistic update on parent

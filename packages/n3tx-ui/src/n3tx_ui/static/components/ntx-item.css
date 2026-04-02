@@ -432,13 +432,64 @@ label {
     color: var(--text-3, #555e78);
 }
 
+.field-row {
+    --field-label-width: min(30rem, 38%);
+    --field-label-width: 24rem;
+    --field-label-width: 45%;
+}
+
+.field-row > label {
+    margin-top: 0.9rem;
+}
+
+.field-row--inline {
+    display: grid;
+    grid-template-columns: minmax(0, var(--field-label-width)) minmax(0, 1fr);
+    column-gap: 1rem;
+    align-items: start;
+}
+
+.field-row--inline > label {
+}
+
+.field-row--inline > [data-value],
+.field-row--inline > .widget-display-wrapper {
+    min-width: 0;
+    padding: 0.9rem 0 0;
+    line-height: 1.5;
+}
+
+.field-row--block > label {
+    margin-bottom: 0.3rem;
+}
+
 /* ── Field values (display mode) ── */
 label + div {
     font-size: 0.9rem;
     color: var(--text-1, #c4c9da);
     padding: 0.2rem 0 0.75rem;
-    border-bottom: 1px solid var(--line, rgba(255,255,255,0.08));
     line-height: 1.5;
+}
+
+.field-row--inline > div,
+.field-row--inline > .widget-display-wrapper {
+    font-size: 0.9rem;
+    color: var(--text-1, #c4c9da);
+}
+
+.number-display,
+.currency-display {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.text-display {
+    white-space: normal;
+}
+
+.field-row--inline .widget-display-wrapper {
+    display: flex;
+    align-items: baseline;
 }
 
 /* ── Inputs (edit mode) ── */
@@ -494,7 +545,7 @@ fieldset.ntx-group {
     border: 0;
     border-top: 1px solid var(--line, rgba(255,255,255,0.08));
     border-radius: 0;
-    padding: 1rem 0 0.75rem;
+    padding: 1rem 0 0.75rem 0.5rem;
     margin: 0.75rem 0 0;
     box-shadow: none;
 }
@@ -505,7 +556,8 @@ fieldset.ntx-group legend {
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-3, #555e78);
-    padding: 0 0.4rem;
+    padding: 0 0.4rem 0 0;
+    margin-left: -0.5rem;
 }
 
 /* ── ListRef / nested items ── */
@@ -552,6 +604,56 @@ fieldset.ntx-group legend {
 /* Nested items */
 .list-field ntx-item {
     margin: 0.25rem 0;
+}
+
+.list-field-ref-row,
+.list-field-edit-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.75rem;
+    margin: 0.35rem 0;
+}
+
+.list-field-edit-row input,
+.list-field-edit-row textarea,
+.list-field-edit-row select {
+    width: 100%;
+    margin: 0;
+}
+
+.list-field-edit-row textarea {
+    min-height: 5rem;
+}
+
+.list-field-remove,
+.list-field-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm, 8px);
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-1, #c4c9da);
+    cursor: pointer;
+}
+
+.list-field-remove {
+    color: var(--danger, #fca5a5);
+    border-color: rgba(248, 113, 113, 0.22);
+    background: rgba(127, 29, 29, 0.18);
+}
+
+.list-field-add {
+    margin-top: 0.65rem;
+    color: var(--accent-text, #5eeadf);
+    border-color: rgba(34, 211, 197, 0.18);
+    background: rgba(34, 211, 197, 0.10);
 }
 
 /* Plain value list items (string/number arrays without $ref) */
