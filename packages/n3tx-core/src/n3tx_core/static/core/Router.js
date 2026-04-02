@@ -5,7 +5,7 @@
  * No DOM, no view management — that's ntx-router's job.
  *
  * TX Handlers:
- *   NAVIGATE(data) — push route onto stack, update hash, notify observers
+ *   NAVIGATE(data) — push route onto stack, or reset stack for base routes, update hash, notify observers
  *   BACK(data)     — pop route from stack, update hash, notify observers
  *
  * Observable property: 'route' — fires (newRoute, oldRoute) on change.
@@ -192,13 +192,20 @@ export class Router extends Actor {
     // ── TX Handlers ──
 
     NAVIGATE(data, tx) {
-        if (typeof data !== 'string' || !data) return;
-        if (data === this.#current) return;
+        const route = typeof data === 'string' ? data : data?.route;
+        if (typeof route !== 'string' || !route) return;
+
+        const reset = tx?.meta?.reset === true || data?.reset === true;
+        if (route === this.#current && !reset) return;
 
         const old = this.#current;
-        this.#stack.push(old);
-        if (this.#stack.length > STACK_MAX) this.#stack.shift();
-        this.#current = data;
+        if (reset) {
+            this.#stack = [];
+        } else {
+            this.#stack.push(old);
+            if (this.#stack.length > STACK_MAX) this.#stack.shift();
+        }
+        this.#current = route;
         if (this.#hashSync) this.#toHash();
         this.notify('route', this.#current, old);
     }
@@ -214,7 +221,10 @@ export class Router extends Actor {
     // ── Imperative API (sugar over TX handlers) ──
 
     /** Navigate to a route string. */
-    navigate(route) { this.NAVIGATE(route); }
+    navigate(route, options = {}) { this.NAVIGATE({ route, ...options }); }
+
+    /** Navigate to a route and clear prior history. */
+    reset(route) { this.NAVIGATE({ route, reset: true }); }
 
     /** Go back to the previous route. */
     back() { this.BACK(); }

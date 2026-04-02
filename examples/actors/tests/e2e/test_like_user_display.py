@@ -1,4 +1,4 @@
-"""Playwright test: likes on product cards should render the user via ntx-user, not raw text."""
+"""Playwright test: favorites on product cards should render the user via ntx-user, not raw text."""
 from playwright.sync_api import sync_playwright
 import json
 
@@ -32,18 +32,18 @@ def _wait_for_product_items(page, timeout=10000):
     }""", timeout=timeout)
 
 
-def _like_first_product(page):
-    """Click the like button on the first product and wait for the response."""
+def _favorite_first_product(page):
+    """Click the favorite button on the first product and wait for the response."""
     page.evaluate("""() => {
         const lists = document.querySelectorAll('ntx-list');
         for (const list of lists) {
             const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
             for (const item of items) {
-                // Find the like method button
+                // Find the favorite method button
                 const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
                 for (const m of methods) {
-                    if (m.getAttribute('method') === 'like') {
-                        const btn = m.shadowRoot?.querySelector('button[type="submit"]');
+                    if (m.getAttribute('method') === 'favorite') {
+                        const btn = m.shadowRoot?.querySelector('.method-btn');
                         if (btn) { btn.click(); return true; }
                     }
                 }
@@ -54,8 +54,8 @@ def _like_first_product(page):
     page.wait_for_timeout(2000)
 
 
-def test_like_user_renders_as_ntx_user():
-    """After liking a product, the likes section should render users via ntx-user, not raw text/URLs."""
+def test_favorite_user_renders_as_ntx_user():
+    """After favoriting a product, the favorites section should render users via ntx-user, not raw text/URLs."""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 800})
@@ -65,8 +65,8 @@ def test_like_user_renders_as_ntx_user():
         page.reload()
         _wait_for_product_items(page)
 
-        # Like the first product
-        _like_first_product(page)
+        # Favorite the first product
+        _favorite_first_product(page)
 
         # Navigate to the product detail by clicking on it
         page.evaluate("""() => {
@@ -92,7 +92,7 @@ def test_like_user_renders_as_ntx_user():
             const info = {
                 ntxUserElements: 0,
                 rawUrlTexts: [],
-                likeTexts: [],
+                favoriteTexts: [],
             };
 
             // Check all shadow roots recursively for ntx-user or raw URL text
@@ -108,8 +108,8 @@ def test_like_user_renders_as_ntx_user():
                     if (text.match(/https?:\/\/.*\/users\/\d+/)) {
                         info.rawUrlTexts.push(text);
                     }
-                    if (text === 'Like' || text.match(/^Like\s/)) {
-                        info.likeTexts.push(text);
+                    if (text === 'Favorite' || text.match(/^Favorite\s/)) {
+                        info.favoriteTexts.push(text);
                     }
                 }
 
@@ -123,24 +123,24 @@ def test_like_user_renders_as_ntx_user():
             return info;
         }""")
 
-        print(f"\nLike display inspection: {json.dumps(result, indent=2)}")
+        print(f"\nFavorite display inspection: {json.dumps(result, indent=2)}")
 
-        # Also check the API response directly for likes data
+        # Also check the API response directly for favorites data
         api_result = page.evaluate("""async () => {
             const resp = await fetch(location.origin + '/products?limit=5&offset=0');
             const data = await resp.json();
             const products = data.data || [];
             const result = { products: [] };
             for (const p of products.slice(0, 2)) {
-                const likes = p.likes?.data || p.likes || [];
+                const favorites = p.favorites?.data || p.favorites || [];
                 result.products.push({
                     name: p.name,
-                    likes: likes.slice(0, 3),
+                    favorites: favorites.slice(0, 3),
                 });
             }
             return result;
         }""")
-        print(f"\nAPI likes data: {json.dumps(api_result, indent=2)}")
+        print(f"\nAPI favorites data: {json.dumps(api_result, indent=2)}")
 
         # Also check the schema for Like to verify $ref
         schema_result = page.evaluate("""async () => {
@@ -163,4 +163,4 @@ def test_like_user_renders_as_ntx_user():
 
 
 if __name__ == '__main__':
-    test_like_user_renders_as_ntx_user()
+    test_favorite_user_renders_as_ntx_user()

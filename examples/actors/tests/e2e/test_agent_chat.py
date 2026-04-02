@@ -11,6 +11,14 @@ from playwright.sync_api import sync_playwright
 BASE = "http://127.0.0.1:5000"  # Patched by conftest
 
 
+def _unwrap_stream_event(event):
+    """Unwrap actor-style STREAM envelopes down to the inner event payload."""
+    data = event
+    while isinstance(data, dict) and data.get('name') == 'STREAM' and isinstance(data.get('data'), dict):
+        data = data['data']
+    return data
+
+
 @pytest.fixture(scope="module")
 def browser():
     with sync_playwright() as p:
@@ -34,6 +42,8 @@ def authed_page(browser, e2e_server):
     base = e2e_server
     ctx = browser.new_context()
     p = ctx.new_page()
+    p.goto(f"{base}/")
+    p.wait_for_load_state("networkidle")
     # Log in via API and set JWT
     result = p.evaluate("""async (base) => {
         const resp = await fetch(`${base}/users/login`, {
@@ -43,7 +53,8 @@ def authed_page(browser, e2e_server):
         });
         if (!resp.ok) return { error: resp.status };
         const data = await resp.json();
-        const token = data.data ? data.data.token : data.token;
+        const payload = data.data || data.result || data;
+        const token = payload.token || (payload.data && payload.data.token);
         localStorage.setItem('jwtToken', token);
         return { ok: true, token: token };
     }""", base)
@@ -177,7 +188,8 @@ class TestAgentHTTPPipeline:
                 body: JSON.stringify({ email: 'alice@example.com', password: 'alice123' }),
             });
             const data = await resp.json();
-            const token = data.data ? data.data.token : data.token;
+            const payload = data.data || data.result || data;
+            const token = payload.token || (payload.data && payload.data.token);
             localStorage.setItem('jwtToken', token);
             return token;
         }""", base)
@@ -228,14 +240,16 @@ class TestAgentHTTPPipeline:
         chunk_events = [e for e in events if e['type'] == 'chunk']
         done_sentinel = [e for e in events if e['type'] == 'done']
 
+        inner_events = [_unwrap_stream_event(e['data']) for e in chunk_events]
+
         # text chunk should have data.name='text'
-        text_chunks = [e for e in chunk_events if e['data'].get('name') == 'text']
+        text_chunks = [e for e in inner_events if e.get('name') == 'text']
         assert len(text_chunks) >= 1, f"No text chunks. Events: {events}"
 
         # done chunk should have data.name='done' with answer
-        done_chunks = [e for e in chunk_events if e['data'].get('name') == 'done']
+        done_chunks = [e for e in inner_events if e.get('name') == 'done']
         assert len(done_chunks) >= 1, f"No done chunk. Events: {events}"
-        assert 'answer' in done_chunks[0]['data'].get('data', {}), f"Done chunk missing answer: {done_chunks[0]}"
+        assert 'answer' in done_chunks[0].get('data', {}), f"Done chunk missing answer: {done_chunks[0]}"
 
         # SSE stream should end with event:done sentinel
         assert len(done_sentinel) == 1, f"Expected 1 done sentinel, got {len(done_sentinel)}"

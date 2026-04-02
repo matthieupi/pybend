@@ -20,6 +20,8 @@ import TX from '../core/TX.js';
 
 export class NTTRow extends NTTItem {
 
+  get usesCustomEditLayout() { return true; }
+
   /** AbortController for row-level event listeners. */
   #rowAC = null;
 

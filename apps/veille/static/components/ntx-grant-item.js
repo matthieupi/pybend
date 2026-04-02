@@ -176,7 +176,6 @@ class NTXGrantItem extends NTTItem {
         // Description
         if (g.description) {
             html.push(`<div class="grant-section">
-                <span class="grant-label">Description</span>
                 <div class="grant-description">${this.#esc(g.description)}</div>
             </div>`);
         }

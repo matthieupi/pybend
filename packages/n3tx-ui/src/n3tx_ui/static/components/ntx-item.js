@@ -27,6 +27,9 @@ export class NTTItem extends NTTElement {
 
   mode = 'display';
 
+  /** Custom display components usually inherit the base edit form. */
+  get usesCustomEditLayout() { return false; }
+
   /** Snapshot of value before edit — used by cancelEdit() to revert without saving. */
   #editSnapshot = null;
 
@@ -203,10 +206,10 @@ export class NTTItem extends NTTElement {
     let newValue;
     if (type === 'boolean' || el.type === 'checkbox') {
       newValue = el.checked;
-    } else if (type === 'number') {
+    } else if (type === 'number' || type === 'integer') {
       if (el.value.trim() === '') { newValue = null; }
       else {
-        const num = parseFloat(el.value);
+        const num = type === 'integer' ? parseInt(el.value, 10) : parseFloat(el.value);
         newValue = isNaN(num) ? null : num;
       }
     } else if (type === 'object') {
@@ -445,6 +448,11 @@ export class NTTItem extends NTTElement {
     return this.md();
   }
 
+  /** Base edit form renderer used as the default fallback for subclasses. */
+  renderEditForm() {
+    return NTTItem.prototype.md.call(this);
+  }
+
 
   /** ─────────────────────────────────────────── **/
   /**         Surgical DOM Update                  **/
@@ -593,7 +601,10 @@ export class NTTItem extends NTTElement {
     if (!this.schema || !this.value) return;
 
     const size = this.displayMode;
-    const html = (this[size] || this.md).call(this);
+    const useBaseEditForm = this.mode === 'edit' && size !== 'row' && !this.usesCustomEditLayout;
+    const html = useBaseEditForm
+      ? this.renderEditForm()
+      : (this[size] || this.md).call(this);
 
     // Error banner — persistent, dismissible, appears above the card content
     const errorHtml = this.error
@@ -610,7 +621,7 @@ export class NTTItem extends NTTElement {
 
     // When editing in compact sizes, sm() delegates to md() for the full form.
     // Match the card layout so CSS styles apply correctly.
-    const layoutSize = (this.mode === 'edit' && (size === 'sm' || size === 'xs')) ? 'md' : size;
+    const layoutSize = (this.mode === 'edit' && (size === 'sm' || size === 'xs' || useBaseEditForm)) ? 'md' : size;
     // Check for reply indent (comments with parent_id)
     const isReply = this.value?.parent_id && this.schema?.properties?.parent_id?.type === 'selfref';
     const indentClass = isReply ? ' reply-indent' : '';
@@ -661,13 +672,11 @@ export class NTTItem extends NTTElement {
       el.addEventListener(event, e => this.handleInputChange(e), {signal});
     });
 
-    // Ref picker events (ref-added = optimistic array update)
-    this.shadowRoot.querySelectorAll('ntx-ref-picker').forEach(picker => {
-      picker.addEventListener('ref-added', (e) => {
-        const { field, ref } = e.detail;
-        const arr = Array.isArray(this.value[field]) ? [...this.value[field]] : [];
-        arr.push(ref);
-        this.value = { ...this.value, [field]: arr };
+    this.shadowRoot.querySelectorAll('ntx-list-field').forEach(field => {
+      field.addEventListener('field-change', (e) => {
+        const { field: key, value } = e.detail || {};
+        if (!key) return;
+        this.value = { ...this.value, [key]: value };
       }, {signal});
     });
 

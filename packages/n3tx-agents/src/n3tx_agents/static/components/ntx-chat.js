@@ -217,7 +217,7 @@ class NTTChat extends NTTStream {
 
     #loadInstances() {
         const tablename = this.schema?.__tablename__ || this.model?.toLowerCase() + 's';
-        const url = `/api/${tablename}`;
+        const url = `/${tablename}`;
         HTTP.get(url, (resp) => {
             this.#items = resp.data || resp || [];
             const sel = this.#els.select;

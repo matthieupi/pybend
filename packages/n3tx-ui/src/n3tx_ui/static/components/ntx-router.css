@@ -9,6 +9,11 @@
     margin-bottom: 1.15rem;
 }
 
+.router-chrome[hidden],
+.back-btn[hidden] {
+    display: none !important;
+}
+
 .router-title {
     color: var(--text-0, #eef3ff);
     font-family: var(--font-display, Manrope, sans-serif);
