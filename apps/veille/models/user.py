@@ -10,6 +10,7 @@ class User(BaseUser, ActorModel):
     __abstract__: ClassVar[bool] = False
 
     __ui__: ClassVar[dict] = {
+        'icon': '👤',
         'renderer': {
             'item': 'ntx-item',
         },

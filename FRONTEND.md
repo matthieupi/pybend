@@ -145,11 +145,21 @@ For full schema anatomy details, see `/workspace/docs/CORE.md`.
 | `properties[field].access` | `Permissions.js` → `canView()` | Field-level visibility per user role |
 | `ui.field_order` | `form.js` → `getForm()` | Controls field rendering sequence |
 | `ui.groups` | `form.js` → `renderGroupedFields()` | Wraps fields in `<fieldset>` groups |
+| `ui.icon` | `ntx-icon` + icon resolver | Shared icon rendering for model shells and method actions |
 | `ui.renderer.*` | `ntx-router.js` → `#resolveTag()` | Chooses component tag for navigation views |
 | `access` | `Permissions.js` → `canAction(access, action, resource)` | Shows/hides edit/delete buttons with resource-aware OWNER evaluation |
 | `methods` | `prototype()` + `<ntx-method>` / `<ntx-stream>` | Creates callable methods + renders action buttons |
 | `$defs` | `NTT.SCHEMA()` | Registers nested DynamicClasses |
 | `$id` / `$schema` | DynamicClass value getter | Injected into every entity instance for self-description |
+
+### Shared Icons
+
+`ui.icon` is resolved by `packages/n3tx-ui/src/n3tx_ui/static/utils/icon-resolver.js`
+and rendered by `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-icon.js`.
+Resolution order is: empty → nothing, URL/path-like string → image icon,
+registered lookup key → resolved token, otherwise raw text. Emoji tokens use a
+best-effort monochrome filter controlled with CSS variables such as
+`--icon-filter`, `--icon-opacity`, and `--icon-size`.
 
 ### Schema Propagation Lifecycle
 

@@ -576,11 +576,11 @@ Renders a form for invoking a custom method on a model or instance.
 
 | Layout | Rendering | Use Case |
 |--------|-----------|----------|
-| `fieldset` | Full form with submit button | Methods with parameters (comment) |
-| `inline` | Compact single-line input | Quick input (reply) |
+| `fieldset` | Full form with submit button | Methods with parameters |
+| `inline` | Compact input or textarea, depending on widget/schema | Quick input (comment, reply, ask) |
 | `button` | Icon + count pill, compact | Toggle actions (like, favorite) |
 
-Button layout uses an SVG icon library (heart, star, reply, default) with hover/active states. The `count-field` attribute reads the collection length from entity data, handling both populated wrappers (`{data, meta}`) and plain arrays.
+Button layout uses an SVG icon library (heart, star, reply, default) with hover/active states. The clickable control is rendered as `.method-btn`, while manual fieldset/inline submits use `button[type="submit"]`. The `count-field` attribute reads the collection length from entity data, handling both populated wrappers (`{data, meta}`) and plain arrays.
 
 ### Behavior
 
@@ -692,7 +692,7 @@ const router = new Router('main', { hash: true });
 
 | Handler | Data | Behavior |
 |---------|------|----------|
-| `NAVIGATE(data)` | `string` or `object` | Push current to stack, set new route, update hash, notify observers. |
+| `NAVIGATE(data)` | `string` or `object` | Push current to stack by default; if `data.reset` or `tx.meta.reset` is true, clear history first, then set the new route. |
 | `BACK(data)` | (ignored) | Pop stack, update hash, notify observers. |
 
 ### Observable
@@ -709,6 +709,8 @@ router.observe('route', (newRoute, oldRoute) => {
 |------|---------|-------------|
 | **String** (entity ref) | `"Product/3"` | ntx-router resolves tag from schema. Serialized to `location.hash`. |
 | **Object** (explicit spec) | `{ tag: 'ntx-list', attrs: { model: 'Comment' }, title: 'Comments' }` | ntx-router creates the exact element. No hash representation. |
+
+Sidebar and other base-page navigation can also send `tx.meta.reset = true` (or `{ route, reset: true }`) so the router treats the destination as a fresh root view. This clears the back stack, which also hides `ntx-router` chrome because `canGoBack` becomes false.
 
 ### Hash Sync
 

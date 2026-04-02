@@ -110,6 +110,11 @@ class Product(ProtoModel):
 
 `ProtoModel.schema()` produces a JSON Schema that serves as the **complete contract** between backend and frontend. It is not just a type description -- it carries behavior, permissions, UI instructions, and relationship structure.
 
+`ui.icon` is part of that contract. Models and methods can declare a single icon
+token and let the frontend decide how to render it. Accepted values are direct
+emoji, direct URL/path strings, or lookup keys resolved through the frontend's
+shared icon registry.
+
 ### Schema generation pipeline
 
 ```

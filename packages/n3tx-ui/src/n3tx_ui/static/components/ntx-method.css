@@ -28,6 +28,24 @@ legend {
   text-transform: uppercase;
 }
 
+.method-legend,
+.method-btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.method-btn-icon,
+.method-legend ntx-icon,
+button ntx-icon {
+  --icon-size: 0.95rem;
+}
+
+.method-btn-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
 .method-form {
   display: grid;
   gap: 0.8rem;

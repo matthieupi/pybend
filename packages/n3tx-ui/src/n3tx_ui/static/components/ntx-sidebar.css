@@ -123,6 +123,20 @@
     box-shadow: none;
 }
 
+.model-avatar--icon {
+    background: transparent !important;
+    color: var(--text-1, #dfe4fe);
+}
+
+.link-icon {
+    background: transparent;
+    color: var(--text-2, #a5aac2);
+}
+
+.sidebar-model-icon {
+    --icon-size: 1rem;
+}
+
 .link-icon svg {
     width: 1rem;
     height: 1rem;

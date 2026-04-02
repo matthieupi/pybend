@@ -16,6 +16,8 @@ import Logging from '../utils/Logging.js';
 import {permissions} from '../utils/Permissions.js';
 import {NTTModal} from './ntx-modal.js';
 import { Formidable } from '../generators/form.js';
+import { iconMarkup } from '../utils/icon-resolver.js';
+import './ntx-icon.js';
 
 
 export class ListElement extends Component {
@@ -274,7 +276,10 @@ export class ListElement extends Component {
     this.shadowRoot.innerHTML = `
       ${headless ? '' : `
       <div class="list-header">
-        <h1>${this.model}s</h1>
+        <div class="list-title-wrap">
+          ${iconMarkup(this.schema?.ui?.icon, { label: this.schema?.__name__ || this.model, className: 'list-title-icon' })}
+          <h1>${this.model}s</h1>
+        </div>
         <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span>
         ${canCreate ? '<button class="add-btn" title="Add new">+</button>' : ''}
       </div>`}

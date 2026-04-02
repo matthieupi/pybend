@@ -72,6 +72,26 @@ class TestSchemaOutput:
         s = Grouped.schema()
         assert s['ui']['groups'] == {'main': ['name', 'value']}
 
+    def test_model_icon_in_schema(self):
+        class WithIcon(ProtoModel):
+            __tablename__: ClassVar[str] = 'ui_with_icon'
+            __ui__ = {'icon': '📚'}
+            name: str = Field(default='')
+
+        WithIcon.invalidate_schema_cache()
+        s = WithIcon.schema()
+        assert s['ui']['icon'] == '📚'
+
+    def test_model_lookup_icon_in_schema(self):
+        class WithLookupIcon(ProtoModel):
+            __tablename__: ClassVar[str] = 'ui_with_lookup_icon'
+            __ui__ = {'icon': 'books'}
+            name: str = Field(default='')
+
+        WithLookupIcon.invalidate_schema_cache()
+        s = WithLookupIcon.schema()
+        assert s['ui']['icon'] == 'books'
+
     def test_method_ui_hints(self):
         class WithMethodUI(ProtoModel):
             __tablename__: ClassVar[str] = 'ui_method_ui'
@@ -85,6 +105,34 @@ class TestSchemaOutput:
         WithMethodUI.invalidate_schema_cache()
         s = WithMethodUI.schema()
         assert s['methods']['ping']['ui'] == {'icon': 'send'}
+
+    def test_method_emoji_icon_hints(self):
+        class WithMethodEmoji(ProtoModel):
+            __tablename__: ClassVar[str] = 'ui_method_emoji'
+            __ui__ = {'methods': {'ping': {'icon': '🔎'}}}
+            name: str = Field(default='')
+
+            @expose_route('/ping', methods=['POST'])
+            def ping(self) -> str:
+                return 'pong'
+
+        WithMethodEmoji.invalidate_schema_cache()
+        s = WithMethodEmoji.schema()
+        assert s['methods']['ping']['ui']['icon'] == '🔎'
+
+    def test_method_lookup_icon_hints(self):
+        class WithMethodLookup(ProtoModel):
+            __tablename__: ClassVar[str] = 'ui_method_lookup'
+            __ui__ = {'methods': {'ping': {'icon': 'analyze'}}}
+            name: str = Field(default='')
+
+            @expose_route('/ping', methods=['POST'])
+            def ping(self) -> str:
+                return 'pong'
+
+        WithMethodLookup.invalidate_schema_cache()
+        s = WithMethodLookup.schema()
+        assert s['methods']['ping']['ui']['icon'] == 'analyze'
 
     def test_viewable_flag_no_ui_config(self):
         class ViewableNoConfig(ProtoModel):

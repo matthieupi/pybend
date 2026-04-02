@@ -58,6 +58,7 @@ class WebTools(ActorModel):
     """
     __tablename__: ClassVar[str] = 'web_tools'
     __storable__: ClassVar[bool] = False
+    __ui__: ClassVar[dict] = {'icon': '🛠️'}
 
     @expose_route('/scrape', methods=['POST'], access=AUTHENTICATED)
     async def scrape(url: str) -> dict:

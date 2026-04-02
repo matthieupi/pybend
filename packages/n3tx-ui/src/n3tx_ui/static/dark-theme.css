@@ -171,7 +171,7 @@ body > .page > * {
 
 body > .page ntx-router {
     display: block;
-    max-width: min(100%, 84rem);
+    max-width: min(100%, 95rem);
 }
 
 @media (min-width: 961px) {

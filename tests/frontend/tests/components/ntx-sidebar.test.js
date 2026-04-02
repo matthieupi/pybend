@@ -344,6 +344,27 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
   });
 
   describe('render output', () => {
+    it('should upgrade avatars to model icons when schema ui.icon is present', async () => {
+      mockNTT.attach.mockImplementation((addr, callback) => {
+        callback({
+          _schema: { __name__: addr, ui: { icon: '📚' } },
+          observe: vi.fn(() => vi.fn()),
+        });
+        return () => {};
+      });
+
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('models', 'Product');
+      document.body.appendChild(el);
+      await Promise.resolve();
+
+      const icon = el.shadowRoot.querySelector('.model-avatar ntx-icon');
+      expect(icon).not.toBeNull();
+      expect(icon.getAttribute('value')).toBe('📚');
+
+      document.body.removeChild(el);
+    });
+
     it('should create sidebar-container', () => {
       const el = document.createElement('ntx-sidebar');
       el.setAttribute('models', 'Product');

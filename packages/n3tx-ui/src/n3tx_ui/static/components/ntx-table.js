@@ -18,6 +18,8 @@ import {ListElement} from './ListElement.js';
 import {permissions} from '../utils/Permissions.js';
 import {NTT} from '../core/NTT.js';
 import {Formidable} from '../generators/form.js';
+import { iconMarkup } from '../utils/icon-resolver.js';
+import './ntx-icon.js';
 
 
 export class NTTTable extends ListElement {
@@ -433,7 +435,10 @@ export class NTTTable extends ListElement {
     this.shadowRoot.innerHTML = `
       ${headless ? '' : `
       <div class="list-header">
-        <h1>${this.model}s</h1>
+        <div class="list-title-wrap">
+          ${iconMarkup(this.schema?.ui?.icon, { label: this.schema?.__name__ || this.model, className: 'list-title-icon' })}
+          <h1>${this.model}s</h1>
+        </div>
         <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span>
       </div>`}
       <div class="table-container" style="--table-columns: ${columnsCSS}">

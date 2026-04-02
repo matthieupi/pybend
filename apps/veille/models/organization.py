@@ -16,6 +16,7 @@ class Organization(ActorModel):
         'delete': ROLE('admin'),
     }
     __ui__: ClassVar[dict] = {
+        'icon': '🏢',
         'field_order': [
             'name', 'mission', 'activities', 'legal_status',
             'province', 'charitable_status',

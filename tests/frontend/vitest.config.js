@@ -18,6 +18,7 @@ export default defineConfig({
     alias: [
       // Core framework JS (core/, utils/, transport/, config.js)
       { find: /^(\.\.\/)+core\//, replacement: coreStatic + '/core/' },
+      { find: /^(\.\.\/)+utils\/icon-resolver\.js$/, replacement: uiStatic + '/utils/icon-resolver.js' },
       { find: /^(\.\.\/)+utils\//, replacement: coreStatic + '/utils/' },
       { find: /^(\.\.\/)+config\.js$/, replacement: coreStatic + '/config.js' },
       // UI components (components/, widgets/, generators/, vendor/)

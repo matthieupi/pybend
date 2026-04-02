@@ -26,6 +26,7 @@ class Grant(ActorModel):
         'delete': ROLE('admin'),
     }
     __ui__: ClassVar[dict] = {
+        'icon': '💸',
         'field_order': [
             'title', 'funder', 'status', 'url', 'source_url',
             'amount_min', 'amount_max', 'deadline',
@@ -42,7 +43,7 @@ class Grant(ActorModel):
         },
         'renderer': {'item': 'ntx-grant-item'},
         'methods': {
-            'analyze': {'renderer': 'ntx-grant-analyze'},
+            'analyze': {'renderer': 'ntx-grant-analyze', 'icon': '🔎'},
         },
     }
     __agent__: ClassVar[dict] = {

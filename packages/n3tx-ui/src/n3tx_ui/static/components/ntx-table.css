@@ -12,6 +12,17 @@
     margin-bottom: 1.25rem;
 }
 
+.list-title-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+}
+
+.list-title-icon {
+    --icon-size: 1.2rem;
+}
+
 .list-header h1 {
     color: var(--text-0, #eef3ff);
     font-family: var(--font-display, Manrope, sans-serif);

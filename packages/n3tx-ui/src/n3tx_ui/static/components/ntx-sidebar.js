@@ -40,6 +40,8 @@
 import { NTT } from '../core/NTT.js';
 import { matrix } from '../core/Matrix.js';
 import { buildRoute } from '../core/Router.js';
+import { iconMarkup } from '../utils/icon-resolver.js';
+import './ntx-icon.js';
 
 const SIDEBAR_CSS = new URL('./ntx-sidebar.css', import.meta.url).href;
 
@@ -118,10 +120,16 @@ class NTTSidebar extends HTMLElement {
       .filter(e => e.type === 'model' || e.type === 'item')
       .map(e => e.name);
 
+    const modelsAttr = this.getAttribute('models') || '';
+    const explicitNames = modelsAttr.split(',').map(s => s.trim()).filter(Boolean);
+    if (explicitNames.length > 0) {
+      this.#entries = explicitNames.map(name => ({ type: 'model', name }));
+      this.#models = explicitNames;
+    }
+
     // Legacy: if no children parsed, fall back to models attribute
     if (this.#entries.length === 0) {
-      const modelsAttr = this.getAttribute('models') || '';
-      const names = modelsAttr.split(',').map(s => s.trim()).filter(Boolean);
+      const names = explicitNames;
       for (const name of names) {
         this.#entries.push({ type: 'model', name });
       }
@@ -239,6 +247,16 @@ class NTTSidebar extends HTMLElement {
       if (nameEl) nameEl.textContent = displayName;
     }
 
+    const avatar = header.querySelector('.model-avatar');
+    const icon = DC._schema?.ui?.icon;
+    if (avatar) {
+      avatar.innerHTML = icon
+        ? iconMarkup(icon, { label: DC._schema?.__name__ || modelName, className: 'sidebar-model-icon' })
+        : modelName[0].toUpperCase();
+      avatar.classList.toggle('model-avatar--icon', !!icon);
+      avatar.style.background = icon ? 'transparent' : '';
+    }
+
     if (entry?.type !== 'item') {
       this.#updateModelCount(modelName);
     }
@@ -295,6 +313,7 @@ class NTTSidebar extends HTMLElement {
       source: 'sidebar',
       target: routerAddr,
       data: route,
+      meta: { reset: true },
     });
     this.close();
   }
@@ -315,6 +334,7 @@ class NTTSidebar extends HTMLElement {
       source: 'sidebar',
       target: routerAddr,
       data: itemRef,
+      meta: { reset: true },
     });
     this.close();
   }
@@ -331,6 +351,7 @@ class NTTSidebar extends HTMLElement {
       source: 'sidebar',
       target: routerAddr,
       data: route,
+      meta: { reset: true },
     });
     this.close();
   }
@@ -376,7 +397,7 @@ class NTTSidebar extends HTMLElement {
       } else if (entry.type === 'item') {
         return this.#renderItemEntry(entry.name, avatarIdx++);
       } else if (entry.type === 'link') {
-        return this.#renderLinkEntry(entry, avatarIdx++);
+        return this.#renderLinkEntry(entry);
       }
       return '';
     }).join('');
@@ -447,13 +468,11 @@ class NTTSidebar extends HTMLElement {
     `;
   }
 
-  #renderLinkEntry(entry, idx) {
-    const gradient = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
-
+  #renderLinkEntry(entry) {
     return `
       <div class="sidebar-link" data-href="${entry.href}">
         <button class="model-header">
-          <div class="link-icon" style="background: ${gradient}">${ICON_LINK}</div>
+          <div class="link-icon">${ICON_LINK}</div>
           <span class="model-name">${entry.label}</span>
         </button>
       </div>

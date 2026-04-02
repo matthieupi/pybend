@@ -278,6 +278,7 @@ describe('ntx-method.js (NTTMethod)', () => {
       const html = method.shadowRoot.innerHTML;
       expect(html).toContain('method-btn');
       expect(html).toContain('3'); // count
+      expect(method.shadowRoot.querySelector('ntx-icon')?.getAttribute('value')).toBe('heart');
     });
 
     it('should handle missing count field', () => {
@@ -312,45 +313,55 @@ describe('ntx-method.js (NTTMethod)', () => {
       expect(html).toContain('3');
     });
 
-    it('should use default icon when icon name not recognized', () => {
+    it('should degrade unknown icon names to text icons', () => {
       const method = new NTTMethod();
       method.iconName = 'unknown_icon';
       method.countField = '';
       method.label = 'Test';
       method.renderButton();
-      const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('method-btn-icon');
+      const icon = method.shadowRoot.querySelector('ntx-icon');
+      expect(icon).not.toBeNull();
+      expect(icon.shadowRoot.querySelector('.icon--text')?.textContent).toBe('unknown_icon');
     });
 
-    it('should use heart icon for heart name', () => {
+    it('should resolve heart icon through the shared registry', () => {
       const method = new NTTMethod();
       method.iconName = 'heart';
       method.countField = '';
       method.label = 'Like';
       method.renderButton();
-      const html = method.shadowRoot.innerHTML;
-      // heart SVG has a specific path
-      expect(html).toContain('20.84 4.61');
+      const icon = method.shadowRoot.querySelector('ntx-icon');
+      expect(icon.shadowRoot.querySelector('.icon--emoji')?.textContent).toBe('❤️');
     });
 
-    it('should use star icon for star name', () => {
+    it('should resolve star icon through the shared registry', () => {
       const method = new NTTMethod();
       method.iconName = 'star';
       method.countField = '';
       method.label = 'Star';
       method.renderButton();
-      const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('polygon');
+      const icon = method.shadowRoot.querySelector('ntx-icon');
+      expect(icon.shadowRoot.querySelector('.icon--emoji')?.textContent).toBe('⭐');
     });
 
-    it('should use reply icon for reply name', () => {
+    it('should resolve reply icon through the shared registry', () => {
       const method = new NTTMethod();
       method.iconName = 'reply';
       method.countField = '';
       method.label = 'Reply';
       method.renderButton();
-      const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('polyline');
+      const icon = method.shadowRoot.querySelector('ntx-icon');
+      expect(icon.shadowRoot.querySelector('.icon--emoji')?.textContent).toBe('↩️');
+    });
+
+    it('should render direct URL icons as image icons', () => {
+      const method = new NTTMethod();
+      method.iconName = '/static/icons/grant.svg';
+      method.countField = '';
+      method.label = 'Grant';
+      method.renderButton();
+      const icon = method.shadowRoot.querySelector('ntx-icon');
+      expect(icon.shadowRoot.querySelector('.icon--image')?.getAttribute('src')).toBe('/static/icons/grant.svg');
     });
 
     it('should show 0 count when countField value is not an array or object', () => {
@@ -388,7 +399,22 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.renderFieldset();
       const html = method.shadowRoot.innerHTML;
       expect(html).toContain('<fieldset');
-      expect(html).toContain('<legend>Comment</legend>');
+      expect(html).toContain('<legend>');
+      expect(html).toContain('Comment');
+    });
+
+    it('should render icon inside the fieldset legend when configured', () => {
+      const method = new NTTMethod();
+      method.iconName = '📚';
+      method.schema = { parameters: {} };
+      method.proto = { schema: { $defs: {} } };
+      method.label = 'Library';
+      method.mode = 'manual';
+      method.buttonLabel = 'Run';
+      method.renderFieldset();
+      const icon = method.shadowRoot.querySelector('legend ntx-icon');
+      expect(icon).not.toBeNull();
+      expect(icon.getAttribute('value')).toBe('📚');
     });
 
     it('should render submit button in manual mode', () => {
@@ -583,6 +609,21 @@ describe('ntx-method.js (NTTMethod)', () => {
       expect(html).toContain('method-inline-row');
       expect(html).toContain('placeholder="Search..."');
       expect(html).toContain('name="q"');
+    });
+
+    it('should render icon inside inline submit buttons', () => {
+      const method = new NTTMethod();
+      method.schema = { parameters: { q: { type: 'string', title: 'Query' } } };
+      method.proto = { schema: { $defs: {} } };
+      method.buttonLabel = 'Go';
+      method.placeholderText = 'Search...';
+      method.widgetOverride = '';
+      method.iconName = '🔎';
+      method.value = {};
+      method.renderInline();
+      const icon = method.shadowRoot.querySelector('.method-inline-row button ntx-icon');
+      expect(icon).not.toBeNull();
+      expect(icon.getAttribute('value')).toBe('🔎');
     });
 
     it('should render textarea when widgetOverride is textarea', () => {

@@ -2,18 +2,37 @@
 import { Component } from '../core/Component.js';
 import { NTT } from '../core/NTT.js';
 import Logging from '../utils/Logging.js';
-
-// SVG icons for button layout
-const ICONS = {
-  heart: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
-  star: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
-  reply: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>`,
-  default: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`,
-};
+import { iconMarkup } from '../utils/icon-resolver.js';
+import './ntx-icon.js';
 
 export class NTTMethod extends Component {
+  static baseStyles = `
+    fieldset {
+      min-width: 0;
+    }
+
+    input {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+  `;
+  static inlineStyles = 'method-inline method-form-inline';
+  static buttonStyles = 'method-btn method-btn-icon';
+
   constructor() {
     super();  // Component handles shadow DOM, addr, Matrix registration
+    Object.defineProperty(this, 'schema', {
+      value: null,
+      writable: true,
+      configurable: true,
+    });
     this.value = {};
     this.ntt = null;
     this.methodSchema = null;
@@ -82,6 +101,8 @@ export class NTTMethod extends Component {
     const methodSchema = this.proto?.schema?.methods?.[this.method];
     if (!methodSchema) return Logging.error(`[ntx-method] Method schema not found`, this.method);
     this.methodSchema = methodSchema;
+    this.iconName = this.iconName || this.methodSchema?.ui?.icon || '';
+    this.countField = this.countField || this.methodSchema?.ui?.count_field || '';
 
     this.render();
   }
@@ -132,7 +153,8 @@ export class NTTMethod extends Component {
   }
 
   render() {
-    if (!this.methodSchema) return;  // Not loaded yet
+    const schema = this.methodSchema || this.schema;
+    if (!schema) return;  // Not loaded yet
     if (this.layout === 'inline') return this.renderInline();
     if (this.layout === 'button') return this.renderButton();
     return this.renderFieldset();
@@ -140,7 +162,10 @@ export class NTTMethod extends Component {
 
   /** Button layout: compact icon + count pill. */
   renderButton() {
-    const icon = ICONS[this.iconName] || ICONS.default;
+    const icon = iconMarkup(this.iconName, {
+      label: this.label,
+      className: 'method-icon',
+    });
     let count = '';
     if (this.countField) {
       const val = this.ntt?.value ?? this.getRootNode()?.host?.value;
@@ -157,7 +182,7 @@ export class NTTMethod extends Component {
 
     this.shadowRoot.innerHTML = `
       <button class="method-btn" title="${this.label}">
-        <span class="method-btn-icon">${icon}</span>
+        ${icon ? `<span class="method-btn-icon">${icon}</span>` : ''}
         ${count !== '' ? `<span class="method-btn-count">${count}</span>` : ''}
       </button>
     `;
@@ -170,7 +195,8 @@ export class NTTMethod extends Component {
 
   /** Default fieldset layout (existing behavior). */
   renderFieldset() {
-    const fields = Object.entries(this.methodSchema.parameters || {});
+    const schema = this.methodSchema || this.schema || {};
+    const fields = Object.entries(schema.parameters || {});
     const defs = this.proto?.schema?.$defs || {};
     const formInputs = fields.map(([key, def]) => {
       if (def.type === 'selfref') {
@@ -203,10 +229,12 @@ export class NTTMethod extends Component {
 
     this.shadowRoot.innerHTML = `
       <fieldset class="method-fieldset">
-        <legend>${this.label}</legend>
+        <legend>
+          <span class="method-legend">${this.#buttonContent(this.label)}</span>
+        </legend>
         <form class="method-form">
           ${formInputs}
-          ${this.mode === 'manual' ? `<button type="submit">${this.buttonLabel}</button>` : ''}
+          ${this.mode === 'manual' ? `<button type="submit">${this.#buttonContent(this.buttonLabel)}</button>` : ''}
         </form>
         ${output}
       </fieldset>
@@ -217,7 +245,8 @@ export class NTTMethod extends Component {
 
   /** Inline layout: no fieldset, no legend, no labels. Compact textarea/input + button. */
   renderInline() {
-    const fields = Object.entries(this.methodSchema.parameters || {});
+    const schema = this.methodSchema || this.schema || {};
+    const fields = Object.entries(schema.parameters || {});
     const defs = this.proto?.schema?.$defs || {};
     const placeholder = this.placeholderText;
     const useTextarea = this.widgetOverride === 'textarea';
@@ -240,7 +269,7 @@ export class NTTMethod extends Component {
             } else {
               formInputs = `<div class="method-inline-row">
                 <input name="${key}.${fk}" type="text" value="${this.value?.[key]?.[fk] || ''}" placeholder="${placeholder}" />
-                <button type="submit">${this.buttonLabel}</button>
+                <button type="submit">${this.#buttonContent(this.buttonLabel)}</button>
               </div>`;
             }
           } else {
@@ -257,7 +286,7 @@ export class NTTMethod extends Component {
         } else {
             formInputs = `<div class="method-inline-row">
               <input name="${key}" type="${def.type || 'text'}" value="${this.value[key] || ''}" placeholder="${placeholder}" />
-              <button type="submit">${this.buttonLabel}</button>
+              <button type="submit">${this.#buttonContent(this.buttonLabel)}</button>
             </div>`;
         }
       }
@@ -272,7 +301,7 @@ export class NTTMethod extends Component {
     const needsExternalButton = useTextarea || fields.length > 1 ||
       (fields.length === 1 && fields[0][1].type === '$ref' && !formInputs.includes('method-inline-row'));
     const buttonHtml = needsExternalButton
-      ? `<div class="actions"><button type="submit">${this.buttonLabel}</button></div>`
+      ? `<div class="actions"><button type="submit">${this.#buttonContent(this.buttonLabel)}</button></div>`
       : '';
 
     this.shadowRoot.innerHTML = `
@@ -300,6 +329,16 @@ export class NTTMethod extends Component {
         this.callMethod();
       };
     }
+  }
+
+  #buttonContent(text) {
+    const icon = iconMarkup(this.iconName, {
+      label: this.label || text,
+      className: 'method-icon',
+    });
+    if (!icon) return text || '';
+    const label = text ? `<span class="method-btn-label">${text}</span>` : '';
+    return `${icon}${label}`;
   }
 
 }

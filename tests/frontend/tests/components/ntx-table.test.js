@@ -73,6 +73,20 @@ describe('ntx-table.js (NTTTable)', () => {
     permissions.canView.mockImplementation(() => true);
   });
 
+  describe('header icons', () => {
+    it('should render schema ui.icon in the table header', () => {
+      const { el } = createTable({
+        ...grantSchema,
+        ui: { ...grantSchema.ui, icon: '💸' },
+      });
+      el.render();
+
+      const icon = el.shadowRoot.querySelector('.list-title-wrap ntx-icon');
+      expect(icon).not.toBeNull();
+      expect(icon.getAttribute('value')).toBe('💸');
+    });
+  });
+
 
   /* ────────────────────────────────────────────── */
   /*   Inline Create: Column Filtering               */
