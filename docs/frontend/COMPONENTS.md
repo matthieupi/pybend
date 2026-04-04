@@ -659,6 +659,22 @@ Simple page wrapper that mounts `<ntx-list model="ProductLike">` at the `#@favor
 
 Navigation bar component with auth status display, login/logout, and navigation links. Authenticated users see a "Favorites" nav link (`topbar-nav` CSS block with hover transitions).
 
+Theme controls are no longer hardcoded into the component. `ntx-topbar` exposes a manual `slot="user-menu"` insertion point inside the authenticated dropdown so pages can place `<ntx-theme-button slot="user-menu"></ntx-theme-button>` explicitly.
+
+## NTTSidebar
+
+**File:** `components/ntx-sidebar.js`
+**Tag:** `<ntx-sidebar>`
+
+Model navigation shell with route templates, collapsible model groups, and a manual footer insertion point. Shell pages can place `<ntx-theme-button slot="footer"></ntx-theme-button>` at the bottom of the sidebar; the component does not auto-render theme UI from config.
+
+## NTTThemeButton
+
+**File:** `components/ntx-theme-button.js`
+**Tag:** `<ntx-theme-button>`
+
+Reusable theme switcher that reads `window.NTX_THEME_CONFIG.themes`, shows the current theme, cycles to the next configured theme, and re-renders on the global `theme-change` event so multiple button instances stay synchronized.
+
 ---
 
 ## Router

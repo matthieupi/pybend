@@ -12,6 +12,7 @@ Relevant docs:
 - `/workspace/docs/frontend/MESSAGE_PROTOCOL.md` — Message protocol
 - `packages/n3tx-ui/docs/components.md` — Component hierarchy and lifecycle
 - `packages/n3tx-ui/docs/formidable.md` — Form generator internals
+- `packages/n3tx-ui/docs/styling.md` — Theme architecture, token contract, and frontend theme verification
 - `packages/n3tx-ui/docs/widgets.md` — Widget system (JS side)
 
 ## Frontend Architecture (Vanilla JS Web Components)
@@ -45,7 +46,7 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-core/src/n3tx_core/static/core/Matrix.js` - Message bus / root actor
 - `packages/n3tx-core/src/n3tx_core/static/core/Component.js` - Abstract HTMLElement + Actor bridge (base for every web component)
 - `packages/n3tx-core/src/n3tx_core/static/core/Observable.js` - Observer mixin
-- `packages/n3tx-core/src/n3tx_core/static/core/Router.js` - Navigation state Actor (URL sync on by default, history stack)
+- `packages/n3tx-core/src/n3tx_core/static/core/Router.js` - Navigation state Actor (URL sync on by default, history stack, empty-string home route support)
 - `packages/n3tx-core/src/n3tx_core/static/core/Utils.js` - Core utilities
 - `packages/n3tx-core/src/n3tx_core/static/core/transport/HTTP.js` - HTTP adapter
 - `packages/n3tx-core/src/n3tx_core/static/core/transport/Socket.js` - WebSocket transport
@@ -67,6 +68,7 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-ref-picker.js` - Reference field picker
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.js` - Model navigation sidebar
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js` - Header/nav bar
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-theme-button.js` - Manual theme-cycle control for shell slots
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-profile.js` - User profile page
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-user.js` - User display
 
@@ -77,8 +79,12 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-ui/src/n3tx_ui/static/widgets/Widget.js` - JS base Widget class with display/edit/list methods
 - `packages/n3tx-ui/src/n3tx_ui/static/widgets/registry.js` - JS registry: `registerWidget()`, `getWidgetForField()`
 - `packages/n3tx-ui/src/n3tx_ui/static/widgets/index.js` - Loader: imports all built-ins, registers them
-- `packages/n3tx-ui/src/n3tx_ui/static/widgets/*.js` - Built-in widgets (Url, Email, Date, Markdown, Console, Reference, Currency, Textarea)
+- `packages/n3tx-ui/src/n3tx_ui/static/widgets/*.js` - Built-in widgets (Url, Email, Date, Markdown, Console, Reference, Currency, Textarea, Bool)
 - `packages/n3tx-ui/src/n3tx_ui/static/widgets/widgets.css` - Widget-specific styles
+
+Boolean fields now auto-resolve to the built-in `bool` widget even without an
+explicit `ui.widget` schema hint, so display and edit modes both render a
+checkbox.
 
 ### Agent UI (n3tx-agents)
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js` - NTTStreamAgent: rich agent output (entries, markdown, tool cards). Extends NTTStream.
@@ -86,11 +92,59 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Agent chat panel (extends NTTStream)
 
 ### Themes & Default HTML (n3tx-ui)
+- `packages/n3tx-ui/src/n3tx_ui/static/theme-base.css` - Shared structural theme base (global selectors and layout chrome)
 - `packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` - Dark theme
 - `packages/n3tx-ui/src/n3tx_ui/static/light-theme.css` - Light theme
 - `packages/n3tx-ui/src/n3tx_ui/static/index.html` - Default app entry point (example apps override this)
 - `packages/n3tx-ui/src/n3tx_ui/static/login.html` - Default login page
 - `packages/n3tx-ui/src/n3tx_ui/static/register.html` - Default register page
+
+For the full theme contract and verification workflow, see `packages/n3tx-ui/docs/styling.md`.
+
+First-party pages now use a static theme contract:
+
+```html
+<link rel="stylesheet" href="./theme-base.css" />
+<link rel="stylesheet" href="./dark-theme.css" />
+<link rel="stylesheet" href="./light-theme.css" />
+<script>
+  window.NTX_THEME_CONFIG = { themes: ['dark', 'light'] };
+</script>
+<script type="module" src="./utils/theme.js"></script>
+```
+
+`theme.js` reads `window.NTX_THEME_CONFIG.themes` to determine the runtime cycling order and applies the persisted theme through `document.documentElement.dataset.theme` before first paint.
+
+`dark-theme.css` and `light-theme.css` are token-only entrypoints; they no longer import shared structural selectors or expose legacy theme variable aliases.
+
+Canonical theme state now lives in these runtime files:
+
+- `packages/n3tx-core/src/n3tx_core/static/utils/theme.js` - persisted theme selection, configured theme order, `theme-change` dispatch
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-theme-button.js` - reusable manual theme switcher
+
+`ntx-topbar` and `ntx-sidebar` now expose manual shell placement points for theme controls:
+
+- `<ntx-theme-button slot="user-menu"></ntx-theme-button>` renders inside the authenticated topbar dropdown.
+- `<ntx-theme-button slot="footer"></ntx-theme-button>` renders at the bottom of the sidebar.
+
+The shell components do not auto-render theme controls from config; pages place them explicitly.
+
+Major first-party framework styles now read canonical theme tokens directly in `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.css`, `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.css`, and `packages/n3tx-ui/src/n3tx_ui/static/auth.css`. Status treatments in those surfaces use the canonical `--ntx-status-*` token family.
+
+Veille and the shipped examples now follow the same canonical token contract too, including `apps/veille/static/veille.css`, `apps/veille/static/components/ntx-run-output.css`, `apps/veille/static/components/ntx-run-report.css`, the example login/register pages, and the first-party example shells under `examples/`.
+
+Logged-out pages still honor the persisted theme but do not render `<ntx-theme-button>`.
+
+## Frontend Test Environment
+
+Frontend verification now has two layers:
+
+- `cd /workspace/tests/frontend && npx vitest run` - JS unit tests for runtime, components, and helpers
+- `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js` - browser verification against the seeded `examples/core` app
+
+The Playwright harness boots `examples/core` as the test app, seeds an isolated SQLite database in `global-setup.js`, and cleans it up in `global-teardown.js`. The harness also passes `PYTHONPATH` so package source trees resolve without installation.
+
+For local execution in this workspace, the Python web dependencies used by the Playwright server live in `/workspace/.venv-e2e`. The harness auto-detects that venv and falls back to `python3` if it is absent.
 
 ## Frontend Split Rationale
 
@@ -145,6 +199,8 @@ For full schema anatomy details, see `/workspace/docs/CORE.md`.
 | `properties[field].access` | `Permissions.js` → `canView()` | Field-level visibility per user role |
 | `ui.field_order` | `form.js` → `getForm()` | Controls field rendering sequence |
 | `ui.groups` | `form.js` → `renderGroupedFields()` | Wraps fields in `<fieldset>` groups |
+| `ui.description` | `ListElement.render()` | Optional collection intro text under the header title |
+| `ui.create_label` | `ListElement.render()` | Optional labeled collection create button |
 | `ui.icon` | `ntx-icon` + icon resolver | Shared icon rendering for model shells and method actions |
 | `ui.renderer.*` | `ntx-router.js` → `#resolveTag()` | Chooses component tag for navigation views |
 | `access` | `Permissions.js` → `canAction(access, action, resource)` | Shows/hides edit/delete buttons with resource-aware OWNER evaluation |

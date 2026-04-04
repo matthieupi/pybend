@@ -46,7 +46,7 @@ Component (n3tx-core: shadow DOM, addr, ref, model, proto, define(), scheduleRen
   |     Layouts: fieldset (default), inline, button
   |     Loads method schema, renders input form, calls entity method
   |     Retains a small static style contract (`baseStyles`) for source-level overflow assertions
-  |     Button layout renders `.method-btn`; inline layout may render `textarea` when the schema/widget requests it
+|     Button layout renders `.method-btn`; add `show-label` when a button-layout method should expose visible label text instead of icon-only chrome. Inline layout may render `textarea` when the schema/widget requests it
   |     Icons: shared `ui.icon` tokens rendered through <ntx-icon>
   |     |
   |     +-- NTTStream (ntx-stream.js)     -- <ntx-stream>
@@ -168,8 +168,10 @@ class ListElement extends Component {
 | `allow-create` | Show the create button (permission-gated) |
 
 List and table headers render `schema.ui.icon` beside the collection title when
-present. Sidebar model avatars do the same and fall back to initials when no
-icon is declared.
+present. `schema.ui.description` adds intro copy under that title, and
+`schema.ui.create_label` switches the default `+` create affordance to a labeled
+header button. Sidebar model avatars do the same and fall back to initials when
+no icon is declared.
 
 ## Usage Patterns
 
@@ -215,14 +217,44 @@ Declarative route templates control what the sidebar navigates to:
 <ntx-sidebar router="main">
     <ntx-table model="Grant" allow-create></ntx-table>
     <ntx-list model="Source"></ntx-list>
+    <ntx-theme-button slot="footer"></ntx-theme-button>
 </ntx-sidebar>
 ```
+
+When a sidebar has both `brand` and `router`, clicking the rendered brand copy
+returns the bound router to its home slot by dispatching a reset navigation with
+the empty home route (`buildRoute({ type: 'home' })`).
+
+### Manual shell theme controls
+
+Shell pages place the reusable theme control explicitly:
+
+```html
+<ntx-topbar>
+    <ntx-theme-button slot="user-menu"></ntx-theme-button>
+</ntx-topbar>
+
+<ntx-sidebar router="main">
+    <ntx-list model="Product"></ntx-list>
+    <ntx-theme-button slot="footer"></ntx-theme-button>
+</ntx-sidebar>
+```
+
+`ntx-topbar` exposes `slot="user-menu"` inside the authenticated dropdown, and `ntx-sidebar` exposes `slot="footer"` at the bottom of the shell. Neither component auto-renders theme UI.
+
+Additional theme-control rules:
+
+- multiple `<ntx-theme-button>` instances stay synchronized through the global `theme-change` event
+- logged-out pages should not render the button; they only honor the persisted theme
+- the button cycles through `window.NTX_THEME_CONFIG.themes` order rather than hardcoded dark/light branching
 
 ## Gotchas
 
 - **NTTElement value setter has a deepEqual guard** that skips re-render if the new value is semantically identical to the previous one. This prevents infinite loops from signal subscriptions but means the initial set (from constructor default `{}`) must bypass the guard. The guard only activates after `_rendered` is true.
 
 - **Custom `NTTItem` subclasses get edit fallback by default.** In edit mode, `NTTItem.render()` uses the base Formidable form unless the subclass opts into custom edit layout with `usesCustomEditLayout`. This prevents display-only custom cards from swallowing edit mode.
+- **Custom item visuals belong with the subclass, not the framework shell.** If an app defines `ntx-grant-item` or similar, add any model-specific CSS through the subclass `styles` getter so `ntx-item.css` stays generic.
+- **Default `md` item cards are borderless and shadow-only on hover.** The shared `ntx-item.css` card shell uses no visible border and does not translate upward on hover; visual emphasis comes from the shadow ramp.
 - **NTTItem.sm() delegates to md() in edit mode.** If you override sm() but not md(), editing in sm context will use the default md() form. Override md() only when you also intend to own edit rendering.
 
 - **ListElement.definedCallback() deduplicates READ calls.** If another list instance for the same model already triggered a READ, `proto._listReadPending` is true and the second list skips the request. Both lists get notified when the READ completes via the UPDATE observable.

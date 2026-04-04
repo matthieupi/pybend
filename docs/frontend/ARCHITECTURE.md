@@ -124,12 +124,18 @@ static/
   generators/
     form.js                    # Formidable: schema-driven HTML/form generator
                                #   field ordering, groups, widgets, validation, relationship rendering
+  theme-base.css               # Shared structural theme selectors
+  dark-theme.css               # Dark token entrypoint
+  light-theme.css              # Light token entrypoint
   utils/
     Assert.js                  # assert(), caution(), inform() with configurable trigger level
     Logging.js                 # Logging with caller detection, styled console output
+    theme.js                   # Persisted theme selection + configured theme cycling
     Snippets.js, DateFormat.js, str_utils.js  # General utilities
   docs/                        # This documentation
 ```
+
+The theme runtime is page-configured: first-party pages statically link `theme-base.css` plus the theme entrypoints, then provide `window.NTX_THEME_CONFIG = { themes: [...] }` before loading `utils/theme.js`. Shell theme controls are manual — pages place `<ntx-theme-button slot="user-menu">` and `<ntx-theme-button slot="footer">` explicitly where needed.
 
 ---
 

@@ -80,6 +80,11 @@ hasWidget(name)                        // Check if registered
 | `reference` | ReferenceWidget | Clickable entity link | `input[text]` | No |
 | `currency` | CurrencyWidget | `$X,XXX.XX` formatted | `input[number]` with symbol prefix | Number + bounds |
 | `textarea` | TextareaWidget | Block text `<div>` | `<textarea>` | No |
+| `bool` | BoolWidget | Disabled checkbox | Checkbox | No |
+
+Boolean fields automatically use the built-in `bool` widget even when the schema
+does not explicitly set `ui.widget`. That keeps booleans visually consistent
+between display and edit modes.
 
 ## Usage Patterns
 

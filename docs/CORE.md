@@ -157,6 +157,8 @@ GET /Product -> JSON Schema
 | `properties[f].access` | `Permissions.js` | Field-level visibility per role |
 | `ui.field_order` | `form.js` | Field rendering order |
 | `ui.groups` | `form.js` | Fieldset grouping |
+| `ui.description` | `ListElement.render()` | Optional collection intro copy under the list title |
+| `ui.create_label` | `ListElement.render()` | Optional labeled create button for collection headers |
 | `ui.renderer.*` | `ntx-router.js` | Component tag for navigation views |
 | `access` | `Permissions.js` | Show/hide edit/delete buttons (resource-aware OWNER) |
 | `methods` | `prototype()` + `<ntx-method>` | Callable methods + action buttons |
