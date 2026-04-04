@@ -34,6 +34,8 @@ def authed_page(browser, e2e_server):
     base = e2e_server
     ctx = browser.new_context()
     p = ctx.new_page()
+    p.goto(f"{base}/")
+    p.wait_for_load_state("networkidle")
     result = p.evaluate("""async (base) => {
         const resp = await fetch(`${base}/users/login`, {
             method: 'POST',
@@ -68,7 +70,9 @@ def test_agent_id(browser, e2e_server):
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: 'alice@example.com', password: 'alice123' }),
         });
-        const { token } = await loginResp.json();
+        const loginData = await loginResp.json();
+        const token = loginData.data ? loginData.data.token : loginData.token;
+        if (!token) return { error: 'missing-token', body: loginData };
 
         // Create a simple test agent
         const agentResp = await fetch(`${base}/agents`, {
@@ -146,7 +150,7 @@ class TestAgentRunHTTPPipeline:
             const [base, agentId] = args;
             const token = localStorage.getItem('jwtToken');
 
-            const resp = await fetch(`${base}/agents/${agentId}/run`, {
+            const resp = await fetch(`${base}/agents/${agentId}/agentic`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -177,7 +181,7 @@ class TestAgentRunHTTPPipeline:
 
         result = page.evaluate("""async (args) => {
             const [base, agentId] = args;
-            const resp = await fetch(`${base}/agents/${agentId}/run`, {
+            const resp = await fetch(`${base}/agents/${agentId}/agentic`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ task: 'hello' }),

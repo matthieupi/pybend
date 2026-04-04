@@ -28,12 +28,12 @@ import config
 # Set N3TX_TEST_MODE=1 to enable (used by e2e test conftest)
 if os.environ.get('N3TX_TEST_MODE'):
     from pydantic_ai.models.test import TestModel
-    from n3tx.core import config as _fw_config
+    from n3tx_core import config as _fw_config
     _fw_config.AGENT_DEFAULTS['llm'] = TestModel()
 
-from n3tx.core.app import create_app
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.agents.tool_model import AgentTool
+from n3tx_core.app import create_app
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_agents.tool_model import AgentTool
 from models import User, Conversation, Message
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')

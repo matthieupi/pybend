@@ -6,7 +6,7 @@ send_message WebSocket handler.
 """
 import json
 import pytest
-from models import Conversation, Message
+from examples.chat.models import Conversation, Message
 
 
 def _parse_sse(text):

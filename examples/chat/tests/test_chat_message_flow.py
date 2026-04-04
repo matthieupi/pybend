@@ -18,7 +18,7 @@ import json
 import pytest
 from unittest.mock import patch, AsyncMock
 
-from models import Conversation, Message
+from examples.chat.models import Conversation, Message
 
 
 def _parse_sse(text):
@@ -51,11 +51,11 @@ class TestLLMConfigBridge:
         The Conversation.chat() method should pass the configured LLM to
         agentic_stream() so the right model is used.
         """
-        import config
+        from examples.chat import config
         expected_llm = config.DEFAULT_LLM  # 'ollama:qwen3.5:9b'
 
         # The LLM used should match the app's config, not the framework default
-        from n3tx.core import config as fw_config
+        from n3tx_core import config as fw_config
         framework_default = fw_config.AGENT_DEFAULTS.get('llm')
 
         # Verify the framework default is different from the app's config

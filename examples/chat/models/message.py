@@ -16,8 +16,8 @@ from typing import ClassVar, Literal, Optional
 
 from pydantic import Field, TypeAdapter, model_validator
 
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.authorize import ANYONE, AUTHENTICATED, ROLE
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.authorize import ANYONE, AUTHENTICATED, ROLE
 
 logger = logging.getLogger('n3tx.chat')
 
@@ -81,7 +81,7 @@ class Message(ActorModel):
         return d
 
     @classmethod
-    def from_model_message(cls, msg, user_owner: int = None) -> 'Message':
+    def from_model_message(cls, msg, user_owner: Optional[int] = None) -> 'Message':
         """Convert a pydantic-ai ModelMessage to our Message.
 
         Args:

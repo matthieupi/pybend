@@ -11,6 +11,7 @@ import os
 import sys
 import types
 import tempfile
+import importlib
 import pytest
 
 _tests = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +25,8 @@ if _tests not in sys.path:
     sys.path.insert(0, _tests)
 if _example not in sys.path:
     sys.path.insert(0, _example)
+if _workspace not in sys.path:
+    sys.path.insert(0, _workspace)
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
@@ -38,20 +41,35 @@ for name, path in _namespace_shims.items():
         m.__package__ = name
         sys.modules[name] = m
 
-import config
+for name in [
+    'config', 'main', 'models',
+    'models.user', 'models.grant', 'models.source', 'models.web_tools',
+]:
+    sys.modules.pop(name, None)
+
+config = importlib.import_module('examples.grants.config')
+models = importlib.import_module('examples.grants.models')
+sys.modules['config'] = config
+sys.modules['models'] = models
+sys.modules['models.user'] = importlib.import_module('examples.grants.models.user')
+sys.modules['models.grant'] = importlib.import_module('examples.grants.models.grant')
+sys.modules['models.source'] = importlib.import_module('examples.grants.models.source')
+sys.modules['models.web_tools'] = importlib.import_module('examples.grants.models.web_tools')
+
 from n3tx_core import config as n3tx_config
 from n3tx_core import authorize
 authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 os.environ["GENERATE_DOCS"] = "false"
-from main import app  # noqa: triggers model registration
+app = importlib.import_module('examples.grants.main').app
+sys.modules['main'] = sys.modules['examples.grants.main']
 
 # Ensure integration tests run with DEBUG=False (test business behavior, not debug envelopes).
 n3tx_config.DEBUG = False
 
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.utils.registrar import registered_models
-from models import User, Grant, Source, WebTools
+from examples.grants.models import User, Grant, Source, WebTools
 from n3tx_agents.actor import AgentActor
 from n3tx_agents.tool_model import AgentTool
 from n3tx_core.authorize import create_token
@@ -154,10 +172,10 @@ def _seed_agent():
 def test_db():
     db_fd, db_path = tempfile.mkstemp(suffix='_test_grants.db')
     original_db = config.SQLITE_DB_FILE
-    config.SQLITE_DB_FILE = db_path
+    setattr(config, 'SQLITE_DB_FILE', db_path)
     _setup_test_db(db_path)
     yield db_path
-    config.SQLITE_DB_FILE = original_db
+    setattr(config, 'SQLITE_DB_FILE', original_db)
     try:
         os.close(db_fd)
     except OSError:

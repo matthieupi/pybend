@@ -1,7 +1,7 @@
 """Local deployment config for the chat example."""
 import os
 
-from n3tx.core import config as _fw
+from n3tx_core import config as _fw
 
 HOST = os.environ.get("N3TX_HOST", "0.0.0.0")
 PORT = int(os.environ.get("N3TX_PORT", "5000"))

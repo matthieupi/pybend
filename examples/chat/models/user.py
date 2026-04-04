@@ -2,8 +2,8 @@ from __future__ import annotations
 from typing import ClassVar, Optional
 from pydantic import Field
 
-from n3tx.core.models.actor_model import ActorModel
-from n3tx.core.models.base_user import BaseUser
+from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.models.base_user import BaseUser
 
 
 class User(BaseUser, ActorModel):

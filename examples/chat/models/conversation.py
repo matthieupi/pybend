@@ -19,10 +19,10 @@ from typing import ClassVar, Optional
 
 from pydantic import Field
 
-from n3tx.core.agents.actor import AgentActor
-from n3tx.core.models.ref import ListRef
-from n3tx.core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
-from n3tx.core.utils.decorators import expose_route
+from n3tx_agents.actor import AgentActor
+from n3tx_core.models.ref import ListRef
+from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx_core.utils.decorators import expose_route
 
 from .message import Message
 from .user import User
@@ -93,14 +93,19 @@ class Conversation(AgentActor):
         return history
 
     @expose_route('/chat', methods=['POST'], stream=True, access=AUTHENTICATED)
-    async def chat(self, content: str, user: User = None):
+    async def chat(self, content: str, user: Optional[User] = None):
         """Stream a chat response via SSE using the N3TX agent system."""
         conv = self.__class__.get(self.id)
-        if conv.user_owner and user and conv.user_owner != user.id:
+        user_id = None
+        if isinstance(user, dict):
+            user_id = user.get('id')
+        elif user is not None:
+            user_id = user.id
+
+        if conv.user_owner and user_id and conv.user_owner != user_id:
             raise Exception("Access denied")
 
         msg_cls = conv._get_message_model()
-        user_id = user.id if user else None
 
         # Always store the user message before streaming — it should persist
         # regardless of whether the LLM responds successfully.

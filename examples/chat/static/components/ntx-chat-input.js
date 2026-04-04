@@ -13,6 +13,8 @@ import HTTP from '../core/transport/HTTP.js';
 export class NTTChatInput extends NTTStream {
 
   #conversationRef = null;
+  #streaming = false;
+  #chunks = [];
 
   get styles() { return new URL('./ntx-chat-input.css', import.meta.url).href; }
 

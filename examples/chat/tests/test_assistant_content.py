@@ -15,7 +15,7 @@ is used as fallback.
 import json
 import pytest
 from unittest.mock import patch, AsyncMock
-from models import Conversation, Message
+from examples.chat.models import Conversation, Message
 
 
 def _parse_sse(text):
@@ -148,7 +148,7 @@ class TestGetOutputFallback:
                 'meta': {'stream': True, 'stream_end': True, 'seq': 2},
             }
 
-        from n3tx.core.agents.mixin import AgentMixin
+        from n3tx_agents.mixin import AgentMixin
         with patch.object(AgentMixin, 'agentic_stream', mock_agentic_stream):
             resp = client.post(
                 f"/conversations/{conv.id}/chat",
@@ -195,7 +195,7 @@ class TestGetOutputFallback:
                 'meta': {'stream': True, 'stream_end': True, 'seq': 1},
             }
 
-        from n3tx.core.agents.mixin import AgentMixin
+        from n3tx_agents.mixin import AgentMixin
         with patch.object(AgentMixin, 'agentic_stream', mock_agentic_stream):
             resp = client.post(
                 f"/conversations/{conv.id}/chat",
@@ -232,7 +232,7 @@ class TestGetOutputFallback:
                 'meta': {'stream': True, 'stream_end': True, 'seq': 0},
             }
 
-        from n3tx.core.agents.mixin import AgentMixin
+        from n3tx_agents.mixin import AgentMixin
         with patch.object(AgentMixin, 'agentic_stream', mock_agentic_stream):
             resp = client.post(
                 f"/conversations/{conv.id}/chat",

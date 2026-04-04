@@ -12,9 +12,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import config
-from n3tx.core.storage.sqlite_storage import SQLiteStorage
-from n3tx.core.utils.registrar import register_model
-from n3tx.core.models.proto_model import generate_join_model
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.registrar import register_model
+from n3tx_core.models.proto_model import generate_join_model
 from models import User, Conversation, Message
 
 logger = logging.getLogger('n3tx.seed')

@@ -5,7 +5,7 @@ from pydantic import Field
 from helpers import auth_header
 from n3tx_actors.actor import Actor
 from n3tx_actors.models.actor_model import ActorModel
-from models import Grant
+from examples.grants.models import Grant
 
 
 def test_delete_grant_does_not_emit_lifecycle_response_errors(client, alice_token, seed_data, caplog):

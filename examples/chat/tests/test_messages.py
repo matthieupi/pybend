@@ -1,7 +1,7 @@
 """Tests for Message model and pydantic-ai round-trip conversion."""
 import json
 import pytest
-from models import Message
+from examples.chat.models import Message
 
 
 class TestMessageModel:
