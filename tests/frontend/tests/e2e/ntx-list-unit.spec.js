@@ -16,7 +16,7 @@ test.describe('ntx-list — Basic Rendering', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
   });
 
@@ -25,7 +25,7 @@ test.describe('ntx-list — Basic Rendering', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const header = await page.locator('ntx-list').evaluate((el) => {
+    const header = await page.locator('#product-list').evaluate((el) => {
       return el.shadowRoot?.querySelector('.list-header h1')?.textContent || '';
     });
     expect(header).toContain('Product');
@@ -36,7 +36,7 @@ test.describe('ntx-list — Basic Rendering', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const count = await page.locator('ntx-list').evaluate((el) => {
+    const count = await page.locator('#product-list').evaluate((el) => {
       return el.shadowRoot?.querySelector('.list-count')?.textContent || '';
     });
     expect(count.length).toBeGreaterThan(0);
@@ -49,7 +49,7 @@ test.describe('ntx-list — Basic Rendering', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const itemCount = await page.locator('ntx-list').evaluate((el) => {
+    const itemCount = await page.locator('#product-list').evaluate((el) => {
       const grid = el.shadowRoot?.querySelector('.list-grid');
       return grid ? grid.querySelectorAll('ntx-item').length : 0;
     });
@@ -61,7 +61,7 @@ test.describe('ntx-list — Basic Rendering', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const displays = await page.locator('ntx-list').evaluate((el) => {
+    const displays = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => item.getAttribute('display') || '');
@@ -81,7 +81,7 @@ test.describe('ntx-list — Item Display Content', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const name = await page.locator('ntx-list').evaluate((el) => {
+    const name = await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return '';
       const nameEl = item.shadowRoot.querySelector('[data-value="name"]') ||
@@ -96,7 +96,7 @@ test.describe('ntx-list — Item Display Content', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const hasPrice = await page.locator('ntx-list').evaluate((el) => {
+    const hasPrice = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return false;
       for (const item of items) {
@@ -113,7 +113,7 @@ test.describe('ntx-list — Item Display Content', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const cardDisplays = await page.locator('ntx-list').evaluate((el) => {
+    const cardDisplays = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => {
@@ -132,7 +132,7 @@ test.describe('ntx-list — Item Display Content', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const displays = await page.locator('ntx-list').evaluate((el) => {
+    const displays = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => {
@@ -152,7 +152,7 @@ test.describe('ntx-list — Item Display Content', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const names = await page.locator('ntx-list').evaluate((el) => {
+    const names = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => {
@@ -174,7 +174,7 @@ test.describe('ntx-list — Click-to-Navigate', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    await page.locator('ntx-list').evaluate((el) => {
+    await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
       if (item?.shadowRoot) {
         item.shadowRoot.querySelector('.card')?.click();
@@ -194,7 +194,7 @@ test.describe('ntx-list — Click-to-Navigate', () => {
     let fullNavigation = false;
     page.on('load', () => { fullNavigation = true; });
 
-    await page.locator('ntx-list').evaluate((el) => {
+    await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
       if (item?.shadowRoot) {
         item.shadowRoot.querySelector('.card')?.click();
@@ -211,7 +211,7 @@ test.describe('ntx-list — Click-to-Navigate', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    await page.locator('ntx-list').evaluate((el) => {
+    await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
       if (item?.shadowRoot) {
         item.shadowRoot.querySelector('.card')?.click();
@@ -234,7 +234,7 @@ test.describe('ntx-list — Structure', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const structure = await page.locator('ntx-list').evaluate((el) => {
+    const structure = await page.locator('#product-list').evaluate((el) => {
       const sr = el.shadowRoot;
       return {
         hasHeader: !!sr?.querySelector('.list-header'),
@@ -253,7 +253,7 @@ test.describe('ntx-list — Structure', () => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
 
-    const model = await page.locator('ntx-list').evaluate((el) => {
+    const model = await page.locator('#product-list').evaluate((el) => {
       return el.getAttribute('model') || '';
     });
     expect(model).toBe('Product');
@@ -264,7 +264,7 @@ test.describe('ntx-list — Structure', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const selectTargets = await page.locator('ntx-list').evaluate((el) => {
+    const selectTargets = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => item.getAttribute('select-target') || '');
@@ -279,7 +279,7 @@ test.describe('ntx-list — Structure', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const refs = await page.locator('ntx-list').evaluate((el) => {
+    const refs = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => item.getAttribute('data-value') || '');
@@ -293,7 +293,7 @@ test.describe('ntx-list — Structure', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const { countText, renderedCount } = await page.locator('ntx-list').evaluate((el) => {
+    const { countText, renderedCount } = await page.locator('#product-list').evaluate((el) => {
       const sr = el.shadowRoot;
       const countText = sr?.querySelector('.list-count')?.textContent || '';
       const items = sr?.querySelectorAll('.list-grid ntx-item');
@@ -324,7 +324,7 @@ test.describe('ntx-list — Responsive Breakpoints', () => {
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(2000);
 
-      const visible = await page.locator('ntx-list').evaluate((el) => {
+      const visible = await page.locator('#product-list').evaluate((el) => {
         const sr = el.shadowRoot;
         return {
           hasGrid: !!sr?.querySelector('.list-grid'),

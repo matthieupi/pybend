@@ -13,7 +13,7 @@ test.describe('Responsive Display', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
 
     const itemCount = await list.evaluate((el) => {
@@ -29,7 +29,7 @@ test.describe('Responsive Display', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const itemCount = await page.locator('ntx-list').evaluate((el) => {
+    const itemCount = await page.locator('#product-list').evaluate((el) => {
       const grid = el.shadowRoot?.querySelector('.list-grid');
       return grid ? grid.children.length : 0;
     });
@@ -42,7 +42,7 @@ test.describe('Responsive Display', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const itemCount = await page.locator('ntx-list').evaluate((el) => {
+    const itemCount = await page.locator('#product-list').evaluate((el) => {
       const grid = el.shadowRoot?.querySelector('.list-grid');
       return grid ? grid.children.length : 0;
     });
@@ -78,7 +78,7 @@ test.describe('Responsive Display', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const displays = await page.locator('ntx-list').evaluate((list) => {
+    const displays = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => {
@@ -123,7 +123,7 @@ test.describe('Responsive Display', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const childDisplays = await page.locator('ntx-list').evaluate((list) => {
+    const childDisplays = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => {

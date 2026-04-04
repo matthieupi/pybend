@@ -127,11 +127,11 @@ describe('Toast.js', () => {
 
   describe('style injection', () => {
 
-    it('should inject a <style> element into <head>', () => {
+    it('should inject a stylesheet link into <head>', () => {
       showToast('Style test');
-      const styles = document.querySelectorAll('style');
-      const hasToastStyle = Array.from(styles).some(s =>
-        s.textContent.includes('.ntx-toast')
+      const links = document.querySelectorAll('link[rel="stylesheet"]');
+      const hasToastStyle = Array.from(links).some((link) =>
+        link.getAttribute('href')?.includes('Toast.css')
       );
       expect(hasToastStyle).toBe(true);
     });
@@ -139,9 +139,9 @@ describe('Toast.js', () => {
     it('should only inject styles once', () => {
       showToast('First');
       showToast('Second');
-      const styles = document.querySelectorAll('style');
-      const toastStyles = Array.from(styles).filter(s =>
-        s.textContent.includes('.ntx-toast')
+      const links = document.querySelectorAll('link[rel="stylesheet"]');
+      const toastStyles = Array.from(links).filter((link) =>
+        link.getAttribute('href')?.includes('Toast.css')
       );
       expect(toastStyles.length).toBe(1);
     });

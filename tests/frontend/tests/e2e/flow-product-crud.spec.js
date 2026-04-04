@@ -71,7 +71,7 @@ test.describe('Product CRUD — Create via API', () => {
     await page.reload({ waitUntil: 'networkidle' });
     await page.waitForTimeout(3000);
 
-    const names = await page.locator('ntx-list').evaluate((list) => {
+    const names = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items) return [];
       return Array.from(items).map(item => {

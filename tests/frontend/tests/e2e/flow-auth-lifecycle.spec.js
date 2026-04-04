@@ -196,7 +196,7 @@ test.describe('Auth Lifecycle — Session Persistence', () => {
       await page.reload({ waitUntil: 'networkidle' });
       await page.waitForTimeout(2000);
 
-      const hasItems = await page.locator('ntx-list').evaluate((list) => {
+      const hasItems = await page.locator('#product-list').evaluate((list) => {
         const grid = list.shadowRoot?.querySelector('.list-grid');
         return grid ? grid.children.length > 0 : false;
       });
@@ -243,7 +243,7 @@ test.describe('Auth Lifecycle — Logout Flow', () => {
     await page.waitForTimeout(2000);
 
     // Products should still load (read is public)
-    const hasItems = await page.locator('ntx-list').evaluate((list) => {
+    const hasItems = await page.locator('#product-list').evaluate((list) => {
       const grid = list.shadowRoot?.querySelector('.list-grid');
       return grid ? grid.children.length > 0 : false;
     });

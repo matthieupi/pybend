@@ -191,7 +191,7 @@ test.describe('Favorite — UI Button', () => {
     await loginAs(page, 'alice');
     await page.waitForTimeout(2000);
 
-    const hasFavInList = await page.locator('ntx-list').evaluate((list) => {
+    const hasFavInList = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return false;
       const first = items[0];

@@ -20,9 +20,9 @@ test.describe('Visual Regression', () => {
       const root = document.documentElement;
       const style = getComputedStyle(root);
       const vars = [
-        '--surface-0', '--surface-1', '--surface-2',
-        '--text-0', '--text-1', '--text-2',
-        '--accent', '--border',
+        '--ntx-color-page', '--ntx-color-surface-1', '--ntx-color-surface-2',
+        '--ntx-color-text-strong', '--ntx-color-text', '--ntx-color-text-muted',
+        '--ntx-color-accent', '--ntx-border-default',
       ];
       const broken = [];
       for (const v of vars) {
@@ -45,7 +45,7 @@ test.describe('Visual Regression', () => {
 
     const surfaceValue = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
-        .getPropertyValue('--surface-0').trim();
+        .getPropertyValue('--ntx-color-page').trim();
     });
 
     // Dark surface should be defined and non-empty
@@ -63,7 +63,7 @@ test.describe('Visual Regression', () => {
 
     const surfaceValue = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
-        .getPropertyValue('--surface-0').trim();
+        .getPropertyValue('--ntx-color-page').trim();
     });
 
     expect(surfaceValue.length).toBeGreaterThan(0);
@@ -77,7 +77,7 @@ test.describe('Visual Regression', () => {
 
     const accent = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
-        .getPropertyValue('--accent').trim();
+        .getPropertyValue('--ntx-color-accent').trim();
     });
 
     expect(accent.length).toBeGreaterThan(0);
@@ -106,7 +106,7 @@ test.describe('Visual Regression', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const displays = await page.locator('ntx-list').evaluate((list) => {
+    const displays = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => {
@@ -129,7 +129,7 @@ test.describe('Visual Regression', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const displays = await page.locator('ntx-list').evaluate((list) => {
+    const displays = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => {
@@ -171,7 +171,7 @@ test.describe('Visual Regression', () => {
 
     const borderVal = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
-        .getPropertyValue('--border').trim();
+        .getPropertyValue('--ntx-border-default').trim();
     });
 
     expect(borderVal.length).toBeGreaterThan(0);
@@ -242,7 +242,7 @@ test.describe('Visual Regression', () => {
 
     const darkText = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
-        .getPropertyValue('--text-0').trim();
+        .getPropertyValue('--ntx-color-text-strong').trim();
     });
 
     // Light theme text
@@ -251,7 +251,7 @@ test.describe('Visual Regression', () => {
 
     const lightText = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
-        .getPropertyValue('--text-0').trim();
+        .getPropertyValue('--ntx-color-text-strong').trim();
     });
 
     expect(darkText.length).toBeGreaterThan(0);

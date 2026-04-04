@@ -1,5 +1,16 @@
 // @ts-check
 import { defineConfig } from '@playwright/test';
+import { existsSync } from 'fs';
+
+const PYTHONPATH = [
+  '/workspace/packages/n3tx-core/src',
+  '/workspace/packages/n3tx-ui/src',
+  '/workspace/packages/n3tx-actors/src',
+  '/workspace/packages/n3tx-agents/src',
+].join(':');
+const PYTHON_BIN = existsSync('/workspace/.venv-e2e/bin/python')
+  ? '/workspace/.venv-e2e/bin/python'
+  : 'python3';
 
 export default defineConfig({
   testDir: '.',
@@ -31,7 +42,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'cd /workspace/example_api && python3 main.py',
+    command: `${PYTHON_BIN} main.py`,
+    cwd: '/workspace/examples/core',
+    env: {
+      ...process.env,
+      PYTHONPATH,
+    },
     url: 'http://localhost:5000/Product',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,

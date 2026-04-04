@@ -48,7 +48,7 @@ test.describe('ntx-item — SM (Compact Row) Display', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const smInfo = await page.locator('ntx-list').evaluate((el) => {
+    const smInfo = await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return null;
       const card = item.shadowRoot.querySelector('.card');
@@ -72,7 +72,7 @@ test.describe('ntx-item — SM (Compact Row) Display', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const hasPrice = await page.locator('ntx-list').evaluate((el) => {
+    const hasPrice = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return false;
       for (const item of items) {
@@ -92,7 +92,7 @@ test.describe('ntx-item — SM (Compact Row) Display', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const cursor = await page.locator('ntx-list').evaluate((el) => {
+    const cursor = await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return '';
       const card = item.shadowRoot.querySelector('.card');
@@ -431,7 +431,7 @@ test.describe('ntx-item — Edge Cases', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const hasStagger = await page.locator('ntx-list').evaluate((el) => {
+    const hasStagger = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return false;
       // Check the second item has a non-zero stagger delay

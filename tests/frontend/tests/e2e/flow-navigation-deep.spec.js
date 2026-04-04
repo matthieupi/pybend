@@ -18,7 +18,7 @@ test.describe('Navigation — List to Detail to Back', () => {
     await page.waitForTimeout(2000);
 
     // Click first product
-    await page.locator('ntx-list').evaluate((list) => {
+    await page.locator('#product-list').evaluate((list) => {
       const firstItem = list.shadowRoot?.querySelector('ntx-item');
       firstItem?.shadowRoot?.querySelector('.card')?.click();
     });

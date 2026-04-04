@@ -157,7 +157,7 @@ test.describe('accessibility — ARIA & Semantics', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const hasGrid = await page.locator('ntx-list').evaluate((el) => {
+    const hasGrid = await page.locator('#product-list').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.list-grid');
     });
     expect(hasGrid).toBe(true);
@@ -331,7 +331,7 @@ test.describe('accessibility — Screen Reader Support', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const headingText = await page.locator('ntx-list').evaluate((el) => {
+    const headingText = await page.locator('#product-list').evaluate((el) => {
       const h = el.shadowRoot?.querySelector('h1, h2, h3');
       return h?.textContent?.trim() || '';
     });

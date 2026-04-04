@@ -103,7 +103,7 @@ test.describe('ntx-method — Product Favorite Button', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const hasFavInList = await page.locator('ntx-list').evaluate((el) => {
+    const hasFavInList = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return false;
       for (const item of items) {

@@ -13,7 +13,7 @@ test.describe('Product Detail Navigation', () => {
     await page.waitForTimeout(2000);
 
     // Click the first product item
-    await page.locator('ntx-list').evaluate((list) => {
+    await page.locator('#product-list').evaluate((list) => {
       const firstItem = list.shadowRoot?.querySelector('ntx-item');
       if (firstItem?.shadowRoot) {
         const card = firstItem.shadowRoot.querySelector('.card');
@@ -33,7 +33,7 @@ test.describe('Product Detail Navigation', () => {
     await page.waitForTimeout(2000);
 
     // Navigate to detail
-    await page.locator('ntx-list').evaluate((list) => {
+    await page.locator('#product-list').evaluate((list) => {
       const firstItem = list.shadowRoot?.querySelector('ntx-item');
       if (firstItem?.shadowRoot) {
         firstItem.shadowRoot.querySelector('.card')?.click();

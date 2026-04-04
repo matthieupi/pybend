@@ -13,7 +13,7 @@ test.describe('Likes', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const hasLikeMethod = await page.locator('ntx-list').evaluate((list) => {
+    const hasLikeMethod = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return false;
       const first = items[0];

@@ -1,15 +1,24 @@
 /**
  * Playwright global setup — creates and seeds an isolated test database.
  *
- * Sets NTT_SQLITE_DB to a temp file so the server launched by
+ * Sets N3TX_SQLITE_DB to a temp file so the server launched by
  * playwright.config.js never touches the production database.
  */
 import { execSync } from 'child_process';
-import { mkdtempSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-const EXAMPLE_DIR = '/workspace/example_api';
+const EXAMPLE_DIR = '/workspace/examples/core';
+const PYTHONPATH = [
+  '/workspace/packages/n3tx-core/src',
+  '/workspace/packages/n3tx-ui/src',
+  '/workspace/packages/n3tx-actors/src',
+  '/workspace/packages/n3tx-agents/src',
+].join(':');
+const PYTHON_BIN = existsSync('/workspace/.venv-e2e/bin/python')
+  ? '/workspace/.venv-e2e/bin/python'
+  : 'python3';
 
 export default async function globalSetup() {
   // Create a temp directory for the E2E test database
@@ -17,7 +26,7 @@ export default async function globalSetup() {
   const dbPath = join(dir, 'test.db');
 
   // Store paths so globalTeardown can clean up and webServer can use them
-  process.env.NTT_SQLITE_DB = dbPath;
+  process.env.N3TX_SQLITE_DB = dbPath;
   process.env.__NTT_E2E_TMPDIR = dir;
 
   // Write a marker file so the webServer process (separate process) picks up
@@ -30,8 +39,12 @@ export default async function globalSetup() {
   // Seed the test database by running the seed script with the test DB
   console.log(`[E2E setup] Creating test DB: ${dbPath}`);
   execSync(
-    `cd ${EXAMPLE_DIR} && NTT_SQLITE_DB="${dbPath}" python3 seed.py`,
-    { stdio: 'pipe', timeout: 30000 }
+    `cd ${EXAMPLE_DIR} && N3TX_SQLITE_DB="${dbPath}" ${PYTHON_BIN} seed.py`,
+    {
+      stdio: 'pipe',
+      timeout: 30000,
+      env: { ...process.env, PYTHONPATH, N3TX_SQLITE_DB: dbPath },
+    }
   );
   console.log('[E2E setup] Test DB seeded successfully');
 }

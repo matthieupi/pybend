@@ -89,7 +89,7 @@ test.describe('ntx-router — Back Navigation', () => {
     await page.waitForTimeout(2000);
 
     // Navigate to detail by clicking an item
-    await page.locator('ntx-list').evaluate((el) => {
+    await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
       if (item?.shadowRoot) {
         item.shadowRoot.querySelector('.card')?.click();

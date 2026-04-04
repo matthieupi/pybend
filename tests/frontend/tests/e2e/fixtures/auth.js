@@ -25,10 +25,11 @@ export async function getToken(request, email, password) {
     data: { email, password },
   });
   const json = await resp.json();
-  if (!json.token) {
+  const token = json.token || json.data?.token;
+  if (!token) {
     throw new Error(`Login failed for ${email}: ${JSON.stringify(json)}`);
   }
-  return json.token;
+  return token;
 }
 
 /**

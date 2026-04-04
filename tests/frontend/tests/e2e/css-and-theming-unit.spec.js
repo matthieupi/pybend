@@ -12,7 +12,7 @@ const APP_URL = '/';
 
 test.describe('css-and-theming — CSS Variable Resolution', () => {
 
-  test('--surface-0 through --surface-2 resolve to non-empty values', async ({ page }) => {
+  test('page and surface tokens resolve to non-empty values', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
@@ -20,9 +20,9 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
     const vars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
       return {
-        s0: style.getPropertyValue('--surface-0').trim(),
-        s1: style.getPropertyValue('--surface-1').trim(),
-        s2: style.getPropertyValue('--surface-2').trim(),
+        s0: style.getPropertyValue('--ntx-color-page').trim(),
+        s1: style.getPropertyValue('--ntx-color-surface-1').trim(),
+        s2: style.getPropertyValue('--ntx-color-surface-2').trim(),
       };
     });
     expect(vars.s0.length).toBeGreaterThan(0);
@@ -30,7 +30,7 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
     expect(vars.s2.length).toBeGreaterThan(0);
   });
 
-  test('--text-0 through --text-2 resolve to non-empty values', async ({ page }) => {
+  test('text tokens resolve to non-empty values', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
@@ -38,9 +38,9 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
     const vars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
       return {
-        t0: style.getPropertyValue('--text-0').trim(),
-        t1: style.getPropertyValue('--text-1').trim(),
-        t2: style.getPropertyValue('--text-2').trim(),
+        t0: style.getPropertyValue('--ntx-color-text-strong').trim(),
+        t1: style.getPropertyValue('--ntx-color-text').trim(),
+        t2: style.getPropertyValue('--ntx-color-text-muted').trim(),
       };
     });
     expect(vars.t0.length).toBeGreaterThan(0);
@@ -48,31 +48,31 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
     expect(vars.t2.length).toBeGreaterThan(0);
   });
 
-  test('--accent resolves to a color value', async ({ page }) => {
+  test('accent token resolves to a color value', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 
     const accent = await page.evaluate(() => {
-      return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      return getComputedStyle(document.documentElement).getPropertyValue('--ntx-color-accent').trim();
     });
     expect(accent.length).toBeGreaterThan(0);
     // Should be a hex or rgb color
     expect(accent).toMatch(/(#[0-9a-f]{3,8}|rgb)/i);
   });
 
-  test('--border resolves to a color value', async ({ page }) => {
+  test('border token resolves to a color value', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 
     const border = await page.evaluate(() => {
-      return getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+      return getComputedStyle(document.documentElement).getPropertyValue('--ntx-border-default').trim();
     });
     expect(border.length).toBeGreaterThan(0);
   });
 
-  test('--radius-sm and --radius-md resolve to pixel values', async ({ page }) => {
+  test('radius tokens resolve to pixel values', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
@@ -80,8 +80,8 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
     const vars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
       return {
-        sm: style.getPropertyValue('--radius-sm').trim(),
-        md: style.getPropertyValue('--radius-md').trim(),
+        sm: style.getPropertyValue('--ntx-radius-sm').trim(),
+        md: style.getPropertyValue('--ntx-radius-md').trim(),
       };
     });
     expect(vars.sm).toMatch(/\d+px/);
@@ -95,9 +95,9 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
 
     const brokenVars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
-      const critical = ['--surface-0', '--surface-1', '--surface-2',
-                        '--text-0', '--text-1', '--text-2',
-                        '--accent', '--border'];
+      const critical = ['--ntx-color-page', '--ntx-color-surface-1', '--ntx-color-surface-2',
+                        '--ntx-color-text-strong', '--ntx-color-text', '--ntx-color-text-muted',
+                        '--ntx-color-accent', '--ntx-border-default'];
       const broken = [];
       for (const v of critical) {
         const val = style.getPropertyValue(v).trim();
@@ -112,7 +112,7 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
 
 test.describe('css-and-theming — Dark Theme', () => {
 
-  test('default theme is dark (--surface-0 is a dark color)', async ({ page }) => {
+  test('default theme is dark (--ntx-color-page is a dark color)', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
@@ -137,7 +137,7 @@ test.describe('css-and-theming — Dark Theme', () => {
     }
   });
 
-  test('dark theme --text-0 is a light color (for contrast)', async ({ page }) => {
+  test('dark theme text token is a light color (for contrast)', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
     await page.evaluate(() => { localStorage.removeItem('ntx-theme'); });
@@ -159,7 +159,7 @@ test.describe('css-and-theming — Dark Theme', () => {
 
 test.describe('css-and-theming — Light Theme', () => {
 
-  test('light theme --surface-0 is a light color', async ({ page }) => {
+  test('light theme page token is a light color', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
 
@@ -182,7 +182,7 @@ test.describe('css-and-theming — Light Theme', () => {
     }
   });
 
-  test('light theme --text-0 is a dark color (for contrast)', async ({ page }) => {
+  test('light theme text token is a dark color (for contrast)', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
 
@@ -203,7 +203,7 @@ test.describe('css-and-theming — Light Theme', () => {
     }
   });
 
-  test('dark and light surface-0 are different', async ({ page }) => {
+  test('dark and light page tokens are different', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
 
@@ -294,7 +294,7 @@ test.describe('css-and-theming — Component-Level Styles', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const radius = await page.locator('ntx-list').evaluate((el) => {
+    const radius = await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return '';
       const card = item.shadowRoot.querySelector('.card');
@@ -309,7 +309,7 @@ test.describe('css-and-theming — Component-Level Styles', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const cursor = await page.locator('ntx-list').evaluate((el) => {
+    const cursor = await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return '';
       const card = item.shadowRoot.querySelector('.card');
@@ -351,7 +351,7 @@ test.describe('css-and-theming — Responsive Breakpoints', () => {
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(2000);
 
-      const gridInfo = await page.locator('ntx-list').evaluate((el) => {
+      const gridInfo = await page.locator('#product-list').evaluate((el) => {
         const grid = el.shadowRoot?.querySelector('.list-grid');
         if (!grid) return { hasGrid: false };
         const items = grid.querySelectorAll('ntx-item');
@@ -504,7 +504,7 @@ test.describe('css-and-theming — Edge Cases', () => {
     await page.waitForTimeout(2000);
 
     // Count items before toggle
-    const beforeCount = await page.locator('ntx-list').evaluate((el) => {
+    const beforeCount = await page.locator('#product-list').evaluate((el) => {
       return el.shadowRoot?.querySelectorAll('ntx-item').length || 0;
     });
 
@@ -517,7 +517,7 @@ test.describe('css-and-theming — Edge Cases', () => {
     await page.waitForTimeout(500);
 
     // Count items after toggle
-    const afterCount = await page.locator('ntx-list').evaluate((el) => {
+    const afterCount = await page.locator('#product-list').evaluate((el) => {
       return el.shadowRoot?.querySelectorAll('ntx-item').length || 0;
     });
 

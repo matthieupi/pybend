@@ -24,7 +24,7 @@ test.describe('Page Load & Bootstrap', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for ntx-list to have items
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
 
     // Wait for shadow DOM content
@@ -98,9 +98,9 @@ test.describe('Page Load & Bootstrap', () => {
     const vars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
       return {
-        surface0: style.getPropertyValue('--surface-0').trim(),
-        text0: style.getPropertyValue('--text-0').trim(),
-        accent: style.getPropertyValue('--accent').trim(),
+        surface0: style.getPropertyValue('--ntx-color-page').trim(),
+        text0: style.getPropertyValue('--ntx-color-text-strong').trim(),
+        accent: style.getPropertyValue('--ntx-color-accent').trim(),
       };
     });
 
@@ -129,7 +129,7 @@ test.describe('Page Load & Bootstrap', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const header = await page.locator('ntx-list').evaluate((el) => {
+    const header = await page.locator('#product-list').evaluate((el) => {
       const h1 = el.shadowRoot?.querySelector('.list-header h1');
       return h1?.textContent || '';
     });
@@ -142,7 +142,7 @@ test.describe('Page Load & Bootstrap', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const count = await page.locator('ntx-list').evaluate((el) => {
+    const count = await page.locator('#product-list').evaluate((el) => {
       const badge = el.shadowRoot?.querySelector('.list-count');
       return badge?.textContent || '';
     });

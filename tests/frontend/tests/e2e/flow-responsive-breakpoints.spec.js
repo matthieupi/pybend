@@ -18,7 +18,7 @@ test.describe('Responsive — Mobile (360x640)', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
 
     const itemCount = await list.evaluate((el) => {
@@ -34,7 +34,7 @@ test.describe('Responsive — Mobile (360x640)', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    await page.locator('ntx-list').evaluate((list) => {
+    await page.locator('#product-list').evaluate((list) => {
       const firstItem = list.shadowRoot?.querySelector('ntx-item');
       firstItem?.shadowRoot?.querySelector('.card')?.click();
     });
@@ -99,7 +99,7 @@ test.describe('Responsive — Tablet (768x1024)', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
 
     const itemCount = await list.evaluate((el) => {
@@ -114,7 +114,7 @@ test.describe('Responsive — Tablet (768x1024)', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    await page.locator('ntx-list').evaluate((list) => {
+    await page.locator('#product-list').evaluate((list) => {
       const firstItem = list.shadowRoot?.querySelector('ntx-item');
       firstItem?.shadowRoot?.querySelector('.card')?.click();
     });
@@ -153,7 +153,7 @@ test.describe('Responsive — Desktop (1280x720)', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
   });
 
@@ -218,7 +218,7 @@ test.describe('Responsive — Widescreen (1920x1080)', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
   });
 
@@ -277,7 +277,7 @@ test.describe('Responsive — Viewport Resize During Use', () => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.waitForTimeout(1000);
 
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
   });
 
@@ -321,7 +321,7 @@ test.describe('Responsive — Display Mode Transitions', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const displays = await page.locator('ntx-list').evaluate((list) => {
+    const displays = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return [];
       return Array.from(items).map(item => {

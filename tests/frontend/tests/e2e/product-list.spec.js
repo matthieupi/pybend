@@ -13,7 +13,7 @@ test.describe('Product List', () => {
     await page.waitForTimeout(2000);
 
     // Get the first ntx-item inside the list and check its content
-    const firstItemContent = await page.locator('ntx-list').evaluate((list) => {
+    const firstItemContent = await page.locator('#product-list').evaluate((list) => {
       const grid = list.shadowRoot?.querySelector('.list-grid');
       const firstItem = grid?.querySelector('ntx-item');
       if (!firstItem?.shadowRoot) return null;
@@ -33,7 +33,7 @@ test.describe('Product List', () => {
     await page.waitForTimeout(2000);
 
     // At 480px, the list should still be visible
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
   });
 
@@ -43,7 +43,7 @@ test.describe('Product List', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
   });
 
@@ -53,7 +53,7 @@ test.describe('Product List', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const list = page.locator('ntx-list');
+    const list = page.locator('#product-list');
     await expect(list).toBeVisible();
   });
 
@@ -62,7 +62,7 @@ test.describe('Product List', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const names = await page.locator('ntx-list').evaluate((list) => {
+    const names = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items) return [];
       return Array.from(items).map(item => {
@@ -82,7 +82,7 @@ test.describe('Product List', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    const hasGrid = await page.locator('ntx-list').evaluate((el) => {
+    const hasGrid = await page.locator('#product-list').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.list-grid');
     });
     expect(hasGrid).toBe(true);
