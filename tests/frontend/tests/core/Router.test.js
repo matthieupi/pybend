@@ -116,8 +116,22 @@ describe('Router.js', () => {
       router.NAVIGATE(42);
       router.NAVIGATE(null);
       router.NAVIGATE(undefined);
-      router.NAVIGATE('');
       expect(cb).not.toHaveBeenCalled();
+    });
+
+    it('should allow navigating home with an empty route', () => {
+      router.NAVIGATE('Product/1');
+      router.NAVIGATE('');
+      expect(router.current).toBeNull();
+      expect(router.canGoBack).toBe(true);
+    });
+
+    it('should reset directly to home when reset metadata is present', () => {
+      router.NAVIGATE('A');
+      router.NAVIGATE('B');
+      router.NAVIGATE('', { meta: { reset: true } });
+      expect(router.current).toBeNull();
+      expect(router.canGoBack).toBe(false);
     });
   });
 

@@ -36,7 +36,12 @@ export class NTTItem extends NTTElement {
   /** AbortController for event listeners — aborted on each re-render to prevent accumulation. */
   #eventAC = null;
 
-  get styles() { return new URL('./ntx-item.css', import.meta.url).href; }
+  get styles() {
+    return [
+      new URL('./ntx-item.css', import.meta.url).href,
+      new URL('../widgets/widgets.css', import.meta.url).href,
+    ];
+  }
 
   prerender() {
     if (!this.schema?.__name__) {
@@ -315,7 +320,7 @@ export class NTTItem extends NTTElement {
         continue;  // Skip plain-text fallback for $ref fields (avoid [object Object])
       }
       const _wr = getWidgetForField(def);
-      const display = (_wr.widget && def?.ui?.widget)
+      const display = _wr.widget
         ? _wr.widget.list(val, _wr.config, def)
         : val;
       smFields.push(`<span class="sm-field" data-value="${key}">${display}</span>`);

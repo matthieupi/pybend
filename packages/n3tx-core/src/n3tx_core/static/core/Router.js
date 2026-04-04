@@ -5,7 +5,7 @@
  * No DOM, no view management — that's ntx-router's job.
  *
  * TX Handlers:
- *   NAVIGATE(data) — push route onto stack, or reset stack for base routes, update hash, notify observers
+ *   NAVIGATE(data) — push route onto stack, or reset stack for base routes/home, update hash, notify observers
  *   BACK(data)     — pop route from stack, update hash, notify observers
  *
  * Observable property: 'route' — fires (newRoute, oldRoute) on change.
@@ -193,10 +193,11 @@ export class Router extends Actor {
 
     NAVIGATE(data, tx) {
         const route = typeof data === 'string' ? data : data?.route;
-        if (typeof route !== 'string' || !route) return;
+        if (typeof route !== 'string') return;
+        const next = route || null;
 
         const reset = tx?.meta?.reset === true || data?.reset === true;
-        if (route === this.#current && !reset) return;
+        if (next === this.#current && !reset) return;
 
         const old = this.#current;
         if (reset) {
@@ -205,7 +206,7 @@ export class Router extends Actor {
             this.#stack.push(old);
             if (this.#stack.length > STACK_MAX) this.#stack.shift();
         }
-        this.#current = route;
+        this.#current = next;
         if (this.#hashSync) this.#toHash();
         this.notify('route', this.#current, old);
     }

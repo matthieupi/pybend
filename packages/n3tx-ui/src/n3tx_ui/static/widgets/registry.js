@@ -32,9 +32,12 @@ export function getWidgetForField(fieldSchema) {
     const ui = fieldSchema?.ui || {};
     const name = ui.widget;
     if (name && _widgets[name]) {
-        return { widget: _widgets[name], config: ui.config || {} };
+        return { widget: _widgets[name], config: ui.config || {}, name };
     }
-    return { widget: null, config: {} };
+    if (fieldSchema?.type === 'boolean' && _widgets.bool) {
+        return { widget: _widgets.bool, config: {}, name: 'bool' };
+    }
+    return { widget: null, config: {}, name: null };
 }
 
 /**

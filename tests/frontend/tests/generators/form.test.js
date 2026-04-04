@@ -138,6 +138,21 @@ describe('form.js (Formidable)', () => {
       expect(html).toContain('type="checkbox"');
     });
 
+    it('should keep boolean edit checkboxes checked when the value is true', () => {
+      const html = Formidable.getInput(makeNtt({ active: true }), 'active', 'edit');
+      expect(html).toContain('type="checkbox"');
+      expect(html).toContain('widget-bool');
+      expect(html).toContain('checked');
+    });
+
+    it('should keep boolean display checkboxes checked when the value is true', () => {
+      const html = Formidable.getInput(makeNtt({ active: true }), 'active', 'display');
+      expect(html).toContain('type="checkbox"');
+      expect(html).toContain('widget-bool');
+      expect(html).toContain('checked');
+      expect(html).toContain('aria-disabled="true"');
+    });
+
     it('should render textarea for textarea widget', () => {
       const html = Formidable.getInput(makeNtt(), 'description', 'edit');
       expect(html).toContain('<textarea');

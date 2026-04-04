@@ -224,7 +224,7 @@ function getInput(ntt, key, mode = 'display') {
 
     // ── Widget dispatch (takes priority over type-based rendering) ──
     const _wr = getWidgetForField(def);
-    if (_wr.widget && def.ui?.widget) {
+    if (_wr.widget) {
         if (effectiveMode === 'edit' || effectiveMode === 'create') {
             if (showLabel) {
                 html.push(`<label class="${model} ${model}-form-item">${label}</label>`);
@@ -243,7 +243,7 @@ function getInput(ntt, key, mode = 'display') {
             const wrapper = document.createElement('div');
             wrapper.className = 'widget-edit-wrapper';
             wrapper.dataset.key = key;
-            wrapper.dataset.widgetType = def.ui.widget;
+            wrapper.dataset.widgetType = _wr.name || '';
             wrapper.appendChild(widgetEl);
             html.push(wrapper.outerHTML);
         } else {
@@ -251,13 +251,13 @@ function getInput(ntt, key, mode = 'display') {
             const wrapper = document.createElement('div');
             wrapper.className = 'widget-display-wrapper';
             wrapper.dataset.value = key;
-            wrapper.dataset.widgetType = def.ui.widget;
+            wrapper.dataset.widgetType = _wr.name || '';
             wrapper.appendChild(widgetEl);
             if (showLabel) {
-                const inlineWidget = def.ui.widget === 'currency';
+                const inlineWidget = _wr.name === 'currency' || _wr.name === 'bool';
                 html.push(wrapDisplayField(label, wrapper.outerHTML, {
                     inline: inlineWidget,
-                    classes: inlineWidget ? 'field-row--numeric' : '',
+                    classes: _wr.name === 'currency' ? 'field-row--numeric' : '',
                 }));
             } else {
                 html.push(wrapper.outerHTML);
@@ -470,7 +470,7 @@ function formatObjectDisplay(value) {
  */
 function formatDisplayValue(def, key, value) {
     const _wr = getWidgetForField(def);
-    if (_wr.widget && def?.ui?.widget) {
+    if (_wr.widget) {
         return _wr.widget.list(value, _wr.config, def);
     }
     const type = def?.type || 'string';
@@ -563,7 +563,7 @@ function validateForm(ntt) {
 
         // Widget validation
         const _wr = getWidgetForField(def);
-        if (_wr.widget && def?.ui?.widget) {
+        if (_wr.widget) {
             const widgetError = _wr.widget.validate(val, _wr.config, def);
             if (widgetError) {
                 errors.push({ field: key, message: widgetError });

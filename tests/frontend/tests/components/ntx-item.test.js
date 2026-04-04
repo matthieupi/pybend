@@ -246,6 +246,54 @@ describe('ntx-item.js (NTTItem)', () => {
       expect(html).toContain('ntx-user');
       expect(html).toContain('display="xs"');
     });
+
+    it('should show checked boolean fields in detail display when true', () => {
+      const schema = {
+        ...productSchema,
+        properties: {
+          ...productSchema.properties,
+          active: { type: 'boolean', title: 'Active' },
+        },
+        ui: { field_order: ['name', 'active', 'price', 'description'] },
+      };
+      const el = createItem(schema, {
+        id: 1,
+        name: 'Test Product',
+        active: true,
+        price: 29.99,
+        description: 'desc',
+      });
+
+      const html = el.md();
+
+      expect(html).toContain('type="checkbox"');
+      expect(html).toContain('widget-bool');
+      expect(html).toContain('checked');
+    });
+
+    it('should keep checked boolean fields checked when entering edit mode', () => {
+      const schema = {
+        ...productSchema,
+        properties: {
+          ...productSchema.properties,
+          active: { type: 'boolean', title: 'Active' },
+        },
+        ui: { field_order: ['name', 'active', 'price', 'description'] },
+      };
+      const el = createItem(schema, {
+        id: 1,
+        name: 'Test Product',
+        active: true,
+        price: 29.99,
+        description: 'desc',
+      }, { mode: 'edit' });
+
+      const html = el.md();
+
+      expect(html).toContain('type="checkbox"');
+      expect(html).toContain('widget-bool');
+      expect(html).toContain('checked');
+    });
   });
 
   describe('#smFields() — field filtering (via sm())', () => {
@@ -966,32 +1014,36 @@ describe('ntx-item.js (NTTItem)', () => {
     });
 
     it('should toggle from display to edit when permitted', () => {
+      const el = createItem(
+        { __name__: 'Product', access: { update: { rule: 'anyone' } }, properties: {}, ui: {}, methods: {} },
+        { id: 1 },
+      );
       const renderSpy = vi.fn();
-      const ctx = {
-        schema: { __name__: 'Product', access: { update: { rule: 'anyone' } } },
-        value: { id: 1 },
-        mode: 'display',
-        save: vi.fn(),
-        render: renderSpy,
-      };
-      NTTItem.prototype.toggleMode.call(ctx);
-      expect(ctx.mode).toBe('edit');
+      el.render = renderSpy;
+      el.save = vi.fn();
+
+      el.toggleMode();
+
+      expect(el.mode).toBe('edit');
       expect(renderSpy).toHaveBeenCalled();
     });
 
     it('should toggle from edit to display and call save()', () => {
+      const el = createItem(
+        { __name__: 'Product', access: { update: { rule: 'anyone' } }, properties: {}, ui: {}, methods: {} },
+        { id: 1 },
+      );
       const saveSpy = vi.fn();
       const renderSpy = vi.fn();
-      const ctx = {
-        schema: { __name__: 'Product', access: { update: { rule: 'anyone' } } },
-        value: { id: 1 },
-        mode: 'edit',
-        save: saveSpy,
-        render: renderSpy,
-      };
-      NTTItem.prototype.toggleMode.call(ctx);
+      el.mode = 'edit';
+      el.save = saveSpy;
+      el.render = renderSpy;
+      vi.spyOn(Formidable, 'validateForm').mockReturnValueOnce([]);
+
+      el.toggleMode();
+
       expect(saveSpy).toHaveBeenCalled();
-      expect(ctx.mode).toBe('display');
+      expect(el.mode).toBe('display');
     });
   });
 
