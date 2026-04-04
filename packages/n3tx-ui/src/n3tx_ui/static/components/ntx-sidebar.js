@@ -25,6 +25,7 @@
  *     <ntx-list  model="Source"></ntx-list>                 <!-- model: expandable list -->
  *     <ntx-item  model="Organization"></ntx-item>           <!-- item: singleton nav -->
  *     <a href="#settings">Settings</a>                      <!-- link: hash navigation -->
+ *     <ntx-theme-button slot="footer"></ntx-theme-button>   <!-- footer: manual shell action -->
  *   </ntx-sidebar>
  *
  *   Clicking "Grant" → router opens <ntx-table model="Grant" allow-create>
@@ -42,6 +43,7 @@ import { matrix } from '../core/Matrix.js';
 import { buildRoute } from '../core/Router.js';
 import { iconMarkup } from '../utils/icon-resolver.js';
 import './ntx-icon.js';
+import './ntx-theme-button.js';
 
 const SIDEBAR_CSS = new URL('./ntx-sidebar.css', import.meta.url).href;
 
@@ -356,6 +358,20 @@ class NTTSidebar extends HTMLElement {
     this.close();
   }
 
+  #navigateHome() {
+    const routerAddr = this.getAttribute('router');
+    if (!routerAddr) return;
+
+    matrix.dispatch({
+      name: 'NAVIGATE',
+      source: 'sidebar',
+      target: routerAddr,
+      data: buildRoute({ type: 'home' }),
+      meta: { reset: true },
+    });
+    this.close();
+  }
+
   // ── Section expand/collapse ──
 
   #toggleSection(modelName) {
@@ -388,6 +404,14 @@ class NTTSidebar extends HTMLElement {
 
   // ── Render ──
 
+  get #brand() {
+    return this.getAttribute('brand') || '';
+  }
+
+  get #subtitle() {
+    return this.getAttribute('subtitle') || '';
+  }
+
   #render() {
     let avatarIdx = 0;
 
@@ -404,26 +428,43 @@ class NTTSidebar extends HTMLElement {
 
     const container = document.createElement('div');
     container.className = 'sidebar-container';
-    container.innerHTML = `
-      <div class="sidebar-overlay"></div>
-      <nav class="sidebar">
+    const headerHtml = this.#brand
+      ? `
+        <div class="sidebar-brand">
+          <div class="sidebar-brand-copy${this.getAttribute('router') ? ' sidebar-brand-copy--clickable' : ''}">
+            <div class="sidebar-brand-title">${this.#brand}</div>
+            ${this.#subtitle ? `<div class="sidebar-brand-subtitle">${this.#subtitle}</div>` : ''}
+          </div>
+          <button class="sidebar-close" aria-label="Close sidebar">${ICON_CLOSE}</button>
+        </div>`
+      : `
         <div class="sidebar-header">
           <span class="sidebar-title">Models</span>
           <button class="sidebar-close" aria-label="Close sidebar">${ICON_CLOSE}</button>
-        </div>
+        </div>`;
+    container.innerHTML = `
+      <div class="sidebar-overlay"></div>
+      <nav class="sidebar">
+        ${headerHtml}
         <div class="sidebar-models">
           ${sectionsHtml}
+        </div>
+        <div class="sidebar-footer" hidden>
+          <slot name="footer"></slot>
         </div>
       </nav>
     `;
 
     this.shadowRoot.replaceChildren(this.#link, container);
+    this.#syncFooterSlot();
 
     // Bind events
     this.shadowRoot.querySelector('.sidebar-overlay')
       ?.addEventListener('click', () => this.close());
     this.shadowRoot.querySelector('.sidebar-close')
       ?.addEventListener('click', () => this.close());
+    this.shadowRoot.querySelector('.sidebar-brand-copy--clickable')
+      ?.addEventListener('click', () => this.#navigateHome());
 
     // Bind entry-specific events
     for (const entry of this.#entries) {
@@ -435,6 +476,20 @@ class NTTSidebar extends HTMLElement {
         this.#bindLinkEvents(entry);
       }
     }
+  }
+
+  #syncFooterSlot() {
+    const slot = this.shadowRoot.querySelector('slot[name="footer"]');
+    const footer = this.shadowRoot.querySelector('.sidebar-footer');
+
+    if (!slot || !footer) return;
+
+    const update = () => {
+      footer.hidden = slot.assignedElements({ flatten: true }).length === 0;
+    };
+
+    slot.addEventListener('slotchange', update);
+    update();
   }
 
   #renderModelEntry(modelName, idx) {

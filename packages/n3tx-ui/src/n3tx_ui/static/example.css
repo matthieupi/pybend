@@ -9,20 +9,20 @@
 .framework-info {
   margin-bottom: 1.75rem;
   padding: 1.75rem;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-xl, 24px);
-  background: linear-gradient(180deg, var(--card-bg, rgba(14, 20, 35, 0.86)), var(--panel-bg-strong, rgba(10, 16, 29, 0.94)));
-  box-shadow: var(--shadow-lg, 0 28px 70px rgba(0, 0, 0, 0.24));
+  border: 1px solid var(--ntx-border-default, rgba(255, 255, 255, 0.08));
+  border-radius: var(--ntx-radius-xl, 24px);
+  background: linear-gradient(180deg, var(--ntx-card-bg, rgba(14, 20, 35, 0.86)), var(--ntx-panel-strong-bg, rgba(10, 16, 29, 0.94)));
+  box-shadow: var(--ntx-shadow-lg, 0 28px 70px rgba(0, 0, 0, 0.24));
 }
 
 .framework-info h1,
 .example-card h3 {
-  font-family: var(--font-display, Manrope, sans-serif);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
 }
 
 .framework-info h1 {
   margin-bottom: 0.35rem;
-  color: var(--text-0, #ecf5ff);
+  color: var(--ntx-color-text-strong, #ecf5ff);
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 800;
   letter-spacing: -0.05em;
@@ -36,7 +36,7 @@
 .auth-muted,
 .status-item,
 .form-group label {
-  color: var(--text-2, #91a3c1);
+  color: var(--ntx-color-text-muted, #91a3c1);
 }
 
 .examples-grid {
@@ -51,10 +51,10 @@
 
 .example-card,
 .status-bar {
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-lg, 18px);
-  background: var(--card-bg, rgba(14, 20, 35, 0.86));
-  box-shadow: var(--shadow-sm, 0 18px 48px rgba(0, 0, 0, 0.18));
+  border: 1px solid var(--ntx-border-default, rgba(255, 255, 255, 0.08));
+  border-radius: var(--ntx-radius-lg, 18px);
+  background: var(--ntx-card-bg, rgba(14, 20, 35, 0.86));
+  box-shadow: var(--ntx-shadow-sm, 0 18px 48px rgba(0, 0, 0, 0.18));
 }
 
 .example-card {
@@ -63,7 +63,7 @@
 
 .example-card h3 {
   margin-bottom: 0.25rem;
-  color: var(--text-0, #ecf5ff);
+  color: var(--ntx-color-text-strong, #ecf5ff);
   font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -76,7 +76,7 @@
 .form-group label {
   display: block;
   margin-bottom: 0.4rem;
-  font-family: var(--font-display, Manrope, sans-serif);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -103,8 +103,8 @@
 .ntx-instance,
 .event-log,
 .registrar-viewer {
-  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  background: var(--ntx-panel-strong-bg, rgba(10, 16, 29, 0.88));
+  border: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
   border-radius: 16px;
 }
 
@@ -119,7 +119,7 @@
 }
 
 .muted-note {
-  color: var(--text-muted, var(--text-3, #6f758b));
+  color: var(--ntx-color-text-muted, var(--ntx-color-text-subtle, #6f758b));
 }
 
 .schema-display,
@@ -128,7 +128,7 @@
 .event-log,
 .registrar-key,
 .status-value {
-  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-family: var(--ntx-font-mono, "JetBrains Mono", monospace);
 }
 
 .schema-display,
@@ -145,8 +145,8 @@
 }
 
 .ptt-active {
-  border-color: rgba(110, 249, 226, 0.25);
-  background: rgba(110, 249, 226, 0.08);
+  border-color: var(--ntx-status-success-border, rgba(110, 249, 226, 0.25));
+  background: var(--ntx-status-success-bg, rgba(110, 249, 226, 0.08));
 }
 
 .registrar-entry {
@@ -155,11 +155,11 @@
   gap: 0.75rem;
   align-items: center;
   border-radius: 14px;
-  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
+  background: var(--ntx-panel-strong-bg, rgba(10, 16, 29, 0.88));
 }
 
 .registrar-key {
-  color: var(--accent-text, #84efff);
+  color: var(--ntx-color-accent-text, #84efff);
 }
 
 .event-entry {
@@ -170,11 +170,11 @@
   max-width: 100%;
 }
 
-.event-create { background: rgba(110, 249, 226, 0.12); }
-.event-read { background: rgba(58, 223, 250, 0.12); }
-.event-update { background: rgba(255, 190, 99, 0.12); }
-.event-delete { background: rgba(255, 113, 108, 0.12); }
-.event-schema { background: rgba(194, 177, 255, 0.12); }
+.event-create { background: var(--ntx-status-success-bg, rgba(110, 249, 226, 0.12)); }
+.event-read { background: var(--ntx-status-accent-bg, rgba(58, 223, 250, 0.12)); }
+.event-update { background: var(--ntx-status-warning-bg, rgba(255, 190, 99, 0.12)); }
+.event-delete { background: var(--ntx-status-error-bg, rgba(255, 113, 108, 0.12)); }
+.event-schema { background: var(--ntx-status-neutral-bg, rgba(194, 177, 255, 0.12)); }
 
 .status-bar {
   display: grid;
@@ -191,7 +191,7 @@
 }
 
 .status-value {
-  color: var(--text-0, #ecf5ff);
+  color: var(--ntx-color-text-strong, #ecf5ff);
 }
 
 .success-message,
@@ -213,15 +213,15 @@
 }
 
 .success-message {
-  background: rgba(110, 249, 226, 0.1);
-  border: 1px solid rgba(110, 249, 226, 0.18);
-  color: var(--success, #6ef9e2);
+  background: var(--ntx-status-success-bg, rgba(110, 249, 226, 0.1));
+  border: 1px solid var(--ntx-status-success-border, rgba(110, 249, 226, 0.18));
+  color: var(--ntx-status-success-fg, #6ef9e2);
 }
 
 .error-message {
-  background: rgba(255, 113, 108, 0.1);
-  border: 1px solid rgba(255, 113, 108, 0.18);
-  color: var(--error, #ff716c);
+  background: var(--ntx-status-error-bg, rgba(255, 113, 108, 0.1));
+  border: 1px solid var(--ntx-status-error-border, rgba(255, 113, 108, 0.18));
+  color: var(--ntx-status-error-fg, #ff716c);
 }
 
 @media (max-width: 980px) {

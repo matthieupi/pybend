@@ -12,8 +12,8 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at top right, var(--accent-dim, rgba(58, 223, 250, 0.12)), transparent 28%),
-    radial-gradient(circle at bottom left, var(--warm-dim, rgba(255, 184, 102, 0.12)), transparent 30%);
+    radial-gradient(circle at top right, var(--ntx-status-accent-bg, rgba(58, 223, 250, 0.12)), transparent 28%),
+    radial-gradient(circle at bottom left, var(--ntx-status-warning-bg, rgba(255, 184, 102, 0.12)), transparent 30%);
   pointer-events: none;
 }
 
@@ -22,10 +22,10 @@
   z-index: 1;
   width: min(100%, 29rem);
   padding: clamp(1.6rem, 4vw, 2.6rem);
-  border: 0;
-  border-radius: var(--radius-xl, 16px);
-  background: var(--card-bg, rgba(14, 20, 35, 0.88));
-  box-shadow: none;
+  border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+  border-radius: var(--ntx-radius-xl, 16px);
+  background: var(--ntx-card-bg, #ffffff);
+  box-shadow: var(--ntx-shadow-sm, 0 8px 20px rgba(25, 28, 29, 0.05));
   overflow: hidden;
 }
 
@@ -53,8 +53,8 @@
 
 .auth-header h1 {
   margin-bottom: 0.45rem;
-  color: var(--text-0, #ecf5ff);
-  font-family: var(--font-display, Manrope, sans-serif);
+  color: var(--ntx-color-accent-strong, #00464a);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: clamp(2rem, 5vw, 2.75rem);
   font-weight: 800;
   letter-spacing: -0.06em;
@@ -62,7 +62,7 @@
 }
 
 .auth-header p {
-  color: var(--text-2, #91a3c1);
+  color: var(--ntx-color-text-muted, #5f6a6b);
   font-size: 0.96rem;
   line-height: 1.55;
 }
@@ -74,8 +74,8 @@
 .form-group label {
   display: block;
   margin-bottom: 0.42rem;
-  color: var(--text-2, #91a3c1);
-  font-family: var(--font-display, Manrope, sans-serif);
+  color: var(--ntx-color-text-muted, #5f6a6b);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -95,15 +95,15 @@
   justify-content: center;
   padding: 0 1rem;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm, 8px);
-  background: var(--gradient-accent, linear-gradient(135deg, #3adffa, #00cbe6));
-  color: var(--button-text, #04111d);
-  font-family: var(--font-display, Manrope, sans-serif);
+  border-radius: 0.9rem;
+  background: var(--ntx-button-primary-bg, linear-gradient(135deg, #00464a, #006064));
+  color: var(--ntx-button-primary-fg, #ffffff);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  box-shadow: none;
+  box-shadow: var(--ntx-shadow-accent-md, 0 16px 36px rgba(20, 105, 109, 0.12));
 }
 
 .auth-btn:hover {
@@ -112,13 +112,13 @@
 
 .auth-link {
   margin-top: 1.2rem;
-  color: var(--text-2, #91a3c1);
+  color: var(--ntx-color-text-muted, #5f6a6b);
   font-size: 0.92rem;
   text-align: left;
 }
 
 .auth-link a {
-  color: var(--accent-text, #84efff);
+  color: var(--ntx-color-accent-text, #0d666b);
   font-weight: 700;
   text-decoration: none;
 }
@@ -131,10 +131,10 @@
   display: none;
   margin-bottom: 1rem;
   padding: 0.85rem 0.95rem;
-  border: 1px solid rgba(255, 139, 135, 0.24);
-  border-radius: var(--radius-sm, 8px);
-  background: rgba(255, 139, 135, 0.12);
-  color: var(--error, #ff716c);
+  border: 1px solid var(--ntx-status-error-border, rgba(186, 26, 26, 0.16));
+  border-radius: var(--ntx-radius-sm, 8px);
+  background: var(--ntx-status-error-bg, rgba(186, 26, 26, 0.1));
+  color: var(--ntx-color-error, #ba1a1a);
   font-size: 0.84rem;
 }
 

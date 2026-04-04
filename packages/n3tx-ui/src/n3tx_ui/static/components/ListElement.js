@@ -272,16 +272,25 @@ export class ListElement extends Component {
     const headless = this.hasAttribute('headless');
     const canCreate = !headless && this.hasAttribute('allow-create') &&
                       permissions.canAction(this.schema?.access, 'create');
+    const description = this.schema?.ui?.description || '';
+    const createLabel = this.schema?.ui?.create_label || '';
+    const addBtnClass = createLabel ? 'add-btn add-btn--text' : 'add-btn';
+    const addBtnTitle = createLabel || 'Add new';
+    const addBtnContent = createLabel
+      ? `<span class="add-btn-plus">+</span><span class="add-btn-label">${createLabel}</span>`
+      : '+';
 
     this.shadowRoot.innerHTML = `
       ${headless ? '' : `
       <div class="list-header">
-        <div class="list-title-wrap">
-          ${iconMarkup(this.schema?.ui?.icon, { label: this.schema?.__name__ || this.model, className: 'list-title-icon' })}
-          <h1>${this.model}s</h1>
+        <div class="list-heading">
+          <div class="list-title-wrap">
+            ${iconMarkup(this.schema?.ui?.icon, { label: this.schema?.__name__ || this.model, className: 'list-title-icon' })}
+            <h1>${this.model}s <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span></h1>
+          </div>
+          ${description ? `<p class="list-description">${description}</p>` : ''}
         </div>
-        <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span>
-        ${canCreate ? '<button class="add-btn" title="Add new">+</button>' : ''}
+        ${canCreate ? `<button class="${addBtnClass}" title="${addBtnTitle}">${addBtnContent}</button>` : ''}
       </div>`}
       <div class="list-grid"></div>
       ${hasMore ? '<button class="load-more-btn">Load More</button>' : ''}

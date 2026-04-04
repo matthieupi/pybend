@@ -437,9 +437,8 @@ export class NTTTable extends ListElement {
       <div class="list-header">
         <div class="list-title-wrap">
           ${iconMarkup(this.schema?.ui?.icon, { label: this.schema?.__name__ || this.model, className: 'list-title-icon' })}
-          <h1>${this.model}s</h1>
+          <h1>${this.model}s <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span></h1>
         </div>
-        <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span>
       </div>`}
       <div class="table-container" style="--table-columns: ${columnsCSS}">
         <div class="table-header" style="grid-template-columns: ${fullColumns}">

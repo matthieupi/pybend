@@ -11,11 +11,11 @@
 
 .profile-empty {
     padding: 3rem 2rem;
-    border: 1px dashed var(--line, rgba(255, 255, 255, 0.08));
-    border-radius: var(--radius-xl, 16px);
+    border: 1px dashed var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
+    border-radius: var(--ntx-radius-xl, 16px);
   text-align: center;
-  color: var(--text-2, #91a3c1);
-  background: var(--panel-bg, rgba(15, 22, 38, 0.9));
+  color: var(--ntx-color-text-muted, #91a3c1);
+  background: var(--ntx-panel-bg, rgba(15, 22, 38, 0.9));
 }
 
 .profile-card-shell {
@@ -23,8 +23,8 @@
   gap: 1.25rem;
   padding: clamp(1.5rem, 4vw, 2.5rem);
     border: 0;
-    border-radius: var(--radius-xl, 16px);
-    background: var(--card-bg, rgba(14, 20, 35, 0.84));
+    border-radius: var(--ntx-radius-xl, 16px);
+    background: var(--ntx-card-bg, rgba(14, 20, 35, 0.84));
     box-shadow: none;
 }
 
@@ -33,10 +33,10 @@
   height: 74px;
   display: grid;
   place-items: center;
-    border-radius: var(--radius-lg, 12px);
-  background: var(--gradient-accent, linear-gradient(135deg, #3adffa, #00cbe6));
-  color: var(--button-text, #04111d);
-  font-family: var(--font-display, Manrope, sans-serif);
+    border-radius: var(--ntx-radius-lg, 12px);
+  background: var(--ntx-button-primary-bg, linear-gradient(135deg, #3adffa, #00cbe6));
+  color: var(--ntx-button-primary-fg, #04111d);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: 1.65rem;
   font-weight: 900;
     box-shadow: none;
@@ -48,7 +48,7 @@
 }
 
 .profile-kicker {
-  color: var(--text-2, #91a3c1);
+  color: var(--ntx-color-text-muted, #91a3c1);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -57,15 +57,15 @@
 
 h2 {
   margin: 0;
-  color: var(--text-0, #ecf5ff);
-  font-family: var(--font-display, Manrope, sans-serif);
+  color: var(--ntx-color-text-strong, #ecf5ff);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: clamp(1.8rem, 4vw, 2.8rem);
   font-weight: 800;
   letter-spacing: -0.04em;
 }
 
 .email {
-  color: var(--text-1, #d2dff2);
+  color: var(--ntx-color-text, #d2dff2);
   font-size: 0.98rem;
 }
 
@@ -75,9 +75,9 @@ h2 {
   width: fit-content;
   margin-top: 0.25rem;
   padding: 0.38rem 0.75rem;
-    border-radius: var(--radius-sm, 8px);
-  background: var(--accent-dim, rgba(58, 223, 250, 0.12));
-  color: var(--accent-text, #84efff);
+    border-radius: var(--ntx-radius-sm, 8px);
+  background: var(--ntx-status-accent-bg, rgba(58, 223, 250, 0.12));
+  color: var(--ntx-color-accent-text, #84efff);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -86,8 +86,8 @@ h2 {
 
 .profile-note {
   padding-top: 1rem;
-  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.08));
-  color: var(--text-2, #91a3c1);
+  border-top: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
+  color: var(--ntx-color-text-muted, #91a3c1);
   font-size: 0.88rem;
 }
 

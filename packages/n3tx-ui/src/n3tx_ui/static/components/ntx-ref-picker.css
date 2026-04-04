@@ -13,32 +13,32 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.55rem 0.9rem;
-  border: var(--border-width, 2px) solid var(--line, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-sm, 8px);
-  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
-  color: var(--accent-text, #84efff);
-  font-family: var(--font-display, Manrope, sans-serif);
+  border: var(--ntx-border-width, 2px) solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--ntx-radius-sm, 8px);
+  background: var(--ntx-panel-strong-bg, rgba(10, 16, 29, 0.88));
+  color: var(--ntx-color-accent-text, #84efff);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: border-color var(--duration-fast, 160ms) var(--ease, ease), background var(--duration-fast, 160ms) var(--ease, ease);
+  transition: border-color var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease), background var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease);
 }
 
 .add-btn:hover {
-  border-color: var(--border-accent, rgba(58, 223, 250, 0.45));
-  background: var(--accent-dim, rgba(58, 223, 250, 0.12));
+  border-color: var(--ntx-border-interactive, rgba(58, 223, 250, 0.45));
+  background: var(--ntx-status-accent-bg, rgba(58, 223, 250, 0.12));
 }
 
 .picker-dropdown,
 .inline-create {
   margin-top: 0.75rem;
-  border: var(--border-width, 2px) solid var(--border, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-lg, 12px);
-  background: var(--card-bg, rgba(14, 20, 35, 0.9));
+  border: var(--ntx-border-width, 2px) solid var(--ntx-border-default, rgba(255, 255, 255, 0.08));
+  border-radius: var(--ntx-radius-lg, 12px);
+  background: var(--ntx-card-bg, rgba(14, 20, 35, 0.9));
   box-shadow: none;
-  animation: refPickerFade 180ms var(--ease, ease) both;
+  animation: refPickerFade 180ms var(--ntx-ease, ease) both;
 }
 
 .picker-dropdown {
@@ -57,10 +57,10 @@
   width: 100%;
   min-width: 0;
   padding: 0.82rem 0.95rem;
-  border: var(--border-width, 2px) solid var(--line, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-sm, 8px);
-  background: var(--panel-bg, rgba(15, 22, 38, 0.92));
-  color: var(--text-0, #ecf5ff);
+  border: var(--ntx-border-width, 2px) solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--ntx-radius-sm, 8px);
+  background: var(--ntx-panel-bg, rgba(15, 22, 38, 0.92));
+  color: var(--ntx-color-text-strong, #ecf5ff);
   font: inherit;
   box-sizing: border-box;
 }
@@ -70,8 +70,8 @@
 .inline-create-body textarea:focus,
 .inline-create-body select:focus {
   outline: none;
-  border-color: var(--border-accent, rgba(58, 223, 250, 0.45));
-  box-shadow: 0 0 0 var(--focus-ring-size, 2px) var(--accent-dim, rgba(58, 223, 250, 0.12));
+  border-color: var(--ntx-border-interactive, rgba(58, 223, 250, 0.45));
+  box-shadow: 0 0 0 2px var(--ntx-focus-ring, rgba(58, 223, 250, 0.12));
 }
 
 .picker-options {
@@ -84,23 +84,23 @@
 .picker-option,
 .picker-empty {
   padding: 0.8rem 0.9rem;
-  border-radius: var(--radius-sm, 8px);
+  border-radius: var(--ntx-radius-sm, 8px);
   font-size: 0.86rem;
 }
 
 .picker-option {
-  color: var(--text-1, #d2dff2);
+  color: var(--ntx-color-text, #d2dff2);
   cursor: pointer;
-  transition: background var(--duration-fast, 160ms) var(--ease, ease), color var(--duration-fast, 160ms) var(--ease, ease);
+  transition: background var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease), color var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease);
 }
 
 .picker-option:hover {
-  background: var(--accent-dim, rgba(58, 223, 250, 0.12));
-  color: var(--text-0, #ecf5ff);
+  background: var(--ntx-status-accent-bg, rgba(58, 223, 250, 0.12));
+  color: var(--ntx-color-text-strong, #ecf5ff);
 }
 
 .picker-empty {
-  color: var(--text-2, #91a3c1);
+  color: var(--ntx-color-text-muted, #91a3c1);
   font-style: italic;
   text-align: center;
 }
@@ -108,7 +108,7 @@
 .picker-create-btn,
 .inline-create-cancel,
 .inline-create-submit {
-  font-family: var(--font-display, Manrope, sans-serif);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -118,9 +118,9 @@
 .picker-create-btn {
   padding: 0.85rem 0.95rem 0.3rem;
   border: none;
-  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-top: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
   background: transparent;
-  color: var(--accent-text, #84efff);
+  color: var(--ntx-color-accent-text, #84efff);
   text-align: left;
   cursor: pointer;
 }
@@ -131,8 +131,8 @@
 
 .inline-create-header {
   margin-bottom: 0.85rem;
-  color: var(--text-0, #ecf5ff);
-  font-family: var(--font-display, Manrope, sans-serif);
+  color: var(--ntx-color-text-strong, #ecf5ff);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: 0.84rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -147,7 +147,7 @@
 .inline-create-body label {
   display: block;
   margin: 0.9rem 0 0.3rem;
-  color: var(--text-2, #91a3c1);
+  color: var(--ntx-color-text-muted, #91a3c1);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -160,26 +160,26 @@
   gap: 0.55rem;
   margin-top: 1rem;
   padding-top: 0.9rem;
-  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-top: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
 }
 
 .inline-create-cancel,
 .inline-create-submit {
   padding: 0.72rem 0.95rem;
-  border-radius: var(--radius-sm, 8px);
+  border-radius: var(--ntx-radius-sm, 8px);
   cursor: pointer;
 }
 
 .inline-create-cancel {
-  border: var(--border-width, 2px) solid var(--line, rgba(255, 255, 255, 0.08));
-  background: var(--panel-bg, rgba(15, 22, 38, 0.92));
-  color: var(--text-1, #d2dff2);
+  border: var(--ntx-border-width, 2px) solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
+  background: var(--ntx-panel-bg, rgba(15, 22, 38, 0.92));
+  color: var(--ntx-color-text, #d2dff2);
 }
 
 .inline-create-submit {
   border: 1px solid transparent;
-  background: var(--gradient-accent, linear-gradient(135deg, #3adffa, #00cbe6));
-  color: var(--button-text, #04111d);
+  background: var(--ntx-button-primary-bg, linear-gradient(135deg, #3adffa, #00cbe6));
+  color: var(--ntx-button-primary-fg, #04111d);
 }
 
 @keyframes refPickerFade {

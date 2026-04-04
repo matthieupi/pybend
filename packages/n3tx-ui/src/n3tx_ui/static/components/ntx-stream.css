@@ -4,10 +4,10 @@
   min-height: 3rem;
   max-height: 420px;
   overflow-y: auto;
-  border: var(--border-width, 2px) solid var(--line, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-sm, 8px);
-  background: var(--panel-bg, rgba(15, 22, 38, 0.92));
-  color: var(--text-1, #d2dff2);
+  border: var(--ntx-border-width, 2px) solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--ntx-radius-sm, 8px);
+  background: var(--ntx-panel-bg, rgba(15, 22, 38, 0.92));
+  color: var(--ntx-color-text, #d2dff2);
   white-space: pre-wrap;
   box-shadow: none;
 }
@@ -18,11 +18,11 @@
 
 .stream-cursor {
   animation: streamBlink 1s step-end infinite;
-  color: var(--accent, #3adffa);
+  color: var(--ntx-color-accent, #3adffa);
 }
 
 .stream-error {
-  color: var(--error, #ff716c);
+  color: var(--ntx-status-error-fg, #ff716c);
   font-style: italic;
   line-height: 1.6;
 }

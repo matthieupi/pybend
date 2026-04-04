@@ -1,7 +1,7 @@
 :host {
   display: block;
-  margin: 0.9rem 0;
-  font-family: var(--font-body, Inter, sans-serif);
+  margin: 1rem 0;
+  font-family: var(--ntx-font-body, Inter, sans-serif);
 }
 
 :host([layout="button"]) {
@@ -11,18 +11,18 @@
 
 .method-fieldset {
   margin: 0;
-  padding: 1.2rem 1.25rem 1.1rem;
-  border: 0;
-  border-radius: var(--radius-lg, 12px);
-  background: var(--card-bg, rgba(14, 20, 35, 0.84));
-  box-shadow: none;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+  border-radius: var(--ntx-radius-lg, 16px);
+  background: var(--ntx-card-bg, #ffffff);
+  box-shadow: var(--ntx-shadow-sm, 0 8px 20px rgba(25, 28, 29, 0.05));
 }
 
 legend {
   padding: 0 0.55rem;
-  color: var(--text-0, #ecf5ff);
-  font-family: var(--font-display, Manrope, sans-serif);
-  font-size: 0.8rem;
+  color: var(--ntx-color-accent-strong, #00464a);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
+  font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -53,8 +53,8 @@ button ntx-icon {
 
 label {
   display: block;
-  color: var(--text-2, #91a3c1);
-  font-size: 0.72rem;
+  color: var(--ntx-color-text-muted, #5f6a6b);
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -65,14 +65,14 @@ textarea,
 select {
   width: 100%;
   min-width: 0;
-  padding: 0.8rem 0.95rem;
-  border: var(--border-width, 2px) solid var(--border, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-sm, 8px);
-  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
-  color: var(--text-0, #ecf5ff);
+  padding: 0.82rem 0.95rem;
+  border: 1px solid var(--ntx-input-border, rgba(190, 200, 201, 0.95));
+  border-radius: var(--ntx-radius-sm, 10px);
+  background: var(--ntx-input-bg, #f2f4f5);
+  color: var(--ntx-input-fg, #191c1d);
   font: inherit;
   box-sizing: border-box;
-  transition: border-color var(--duration-fast, 160ms) var(--ease, ease), box-shadow var(--duration-fast, 160ms) var(--ease, ease), background var(--duration-fast, 160ms) var(--ease, ease);
+  transition: border-color var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease), box-shadow var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease), background var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease);
 }
 
 textarea {
@@ -82,16 +82,16 @@ textarea {
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--text-3, #5f7090);
+  color: var(--ntx-input-placeholder, #8b9597);
 }
 
 input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--border-accent, rgba(58, 223, 250, 0.45));
-  box-shadow: 0 0 0 var(--focus-ring-size, 2px) var(--accent-dim, rgba(58, 223, 250, 0.12));
-  background: var(--panel-bg, rgba(15, 22, 38, 0.92));
+  border-color: var(--ntx-input-focus-border, rgba(20, 105, 109, 0.35));
+  box-shadow: 0 0 0 2px var(--ntx-input-focus-ring, rgba(20, 105, 109, 0.14));
+  background: var(--ntx-color-surface-1, #ffffff);
 }
 
 button {
@@ -99,18 +99,19 @@ button {
   align-items: center;
   gap: 0.5rem;
   justify-self: start;
-  padding: 0.78rem 1.2rem;
+  padding: 0.82rem 1.2rem;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm, 8px);
-  background: var(--gradient-accent, linear-gradient(135deg, #3adffa, #00cbe6));
-  color: var(--button-text, #04111d);
-  font-family: var(--font-display, Manrope, sans-serif);
-  font-size: 0.78rem;
-  font-weight: 800;
+  border-radius: 0.9rem;
+  background: var(--ntx-button-primary-bg, linear-gradient(135deg, #00464a, #006064));
+  color: var(--ntx-button-primary-fg, #ffffff);
+  font-family: var(--ntx-font-body, Inter, sans-serif);
+  font-size: 0.7rem;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background var(--duration-fast, 160ms) var(--ease, ease), filter var(--duration-fast, 160ms) var(--ease, ease);
+  box-shadow: var(--ntx-shadow-accent-md, 0 16px 36px rgba(20, 105, 109, 0.12));
+  transition: background var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease), filter var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease), box-shadow var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease);
 }
 
 button:hover {
@@ -124,11 +125,11 @@ button:active {
 .output {
   margin-top: 0.35rem;
   padding: 1rem;
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-sm, 8px);
-  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
-  color: var(--text-1, #d2dff2);
-  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  border: 1px solid var(--ntx-line-subtle, rgba(190, 200, 201, 0.7));
+  border-radius: var(--ntx-radius-sm, 10px);
+  background: var(--ntx-color-surface-2, #f2f4f5);
+  color: var(--ntx-color-text, #344041);
+  font-family: var(--ntx-font-mono, "JetBrains Mono", monospace);
   font-size: 0.78rem;
   line-height: 1.65;
   overflow: auto;
@@ -166,28 +167,57 @@ button:active {
 .method-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.82rem;
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-sm, 8px);
-  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
-  color: var(--text-2, #91a3c1);
-  font-size: 0.72rem;
+  justify-content: center;
+  width: var(--ntx-method-button-width, auto);
+  min-height: var(--ntx-method-button-height, auto);
+  gap: var(--ntx-method-button-gap, 0.45rem);
+  padding: var(--ntx-method-button-padding, 0.6rem 0.92rem);
+  border: 1px solid var(--ntx-method-button-border, var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85)));
+  border-radius: var(--ntx-method-button-radius, 999px);
+  background: var(--ntx-method-button-bg, var(--ntx-button-secondary-bg, #ffffff));
+  color: var(--ntx-method-button-fg, var(--ntx-color-text, #344041));
+  font-size: var(--ntx-method-button-font-size, 0.68rem);
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: var(--ntx-method-button-letter-spacing, 0.1em);
+  text-transform: var(--ntx-method-button-text-transform, uppercase);
   line-height: 1;
-  box-shadow: none;
+  box-shadow: var(--ntx-method-button-shadow, var(--ntx-shadow-xs, 0 1px 2px rgba(25, 28, 29, 0.04)));
 }
 
 .method-btn:hover {
-  border-color: var(--border-accent, rgba(58, 223, 250, 0.45));
-  color: var(--accent-text, #84efff);
-  background: var(--accent-dim, rgba(58, 223, 250, 0.12));
+  border-color: var(--ntx-method-button-hover-border, var(--ntx-border-interactive, rgba(20, 105, 109, 0.28)));
+  color: var(--ntx-method-button-hover-fg, var(--ntx-color-accent-strong, #00464a));
+  background: var(--ntx-method-button-hover-bg, var(--ntx-button-secondary-hover-bg, #f2f4f5));
+  box-shadow: var(--ntx-method-button-hover-shadow, var(--ntx-method-button-shadow, var(--ntx-shadow-xs, 0 1px 2px rgba(25, 28, 29, 0.04))));
 }
 
+.method-btn--labeled {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 1.15rem;
+  border-color: transparent;
+  border-radius: 0.38rem;
+  background: var(--ntx-button-primary-bg, linear-gradient(135deg, #00464a, #006064));
+  color: var(--ntx-button-primary-fg, #ffffff);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  box-shadow: none;
+}
+
+.method-btn--labeled:hover {
+  border-color: transparent;
+  background: var(--ntx-button-primary-hover-bg, linear-gradient(135deg, #0c575b 0%, #0b6d72 100%));
+  color: var(--ntx-button-primary-fg, #ffffff);
+  box-shadow: 0 8px 20px rgba(25, 28, 29, 0.08);
+}
+
+.method-btn-text,
 .method-btn-count {
   font-variant-numeric: tabular-nums;
+}
+
+.method-btn-text {
+  line-height: 1;
 }
 
 @media (max-width: 640px) {

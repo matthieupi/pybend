@@ -341,6 +341,22 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
 
       document.body.removeChild(el);
     });
+
+    it('should preserve footer-slotted children for manual shell placement', () => {
+      const el = document.createElement('ntx-sidebar');
+      const footer = document.createElement('ntx-theme-button');
+      footer.setAttribute('slot', 'footer');
+      el.appendChild(footer);
+
+      document.body.appendChild(el);
+
+      expect(footer.hidden).toBe(false);
+      const slot = el.shadowRoot.querySelector('slot[name="footer"]');
+      expect(slot).toBeTruthy();
+      expect(slot.assignedElements()).toContain(footer);
+
+      document.body.removeChild(el);
+    });
   });
 
   describe('render output', () => {

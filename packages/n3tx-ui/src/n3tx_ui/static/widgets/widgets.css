@@ -2,7 +2,7 @@
 
 /* URL Widget */
 .widget-url-link {
-    color: var(--accent-text, #84efff);
+    color: var(--ntx-color-accent-text, #84efff);
     text-decoration: none;
     word-break: break-all;
 }
@@ -12,7 +12,7 @@
 
 /* Email Widget */
 .widget-email-link {
-    color: var(--accent-text, #84efff);
+    color: var(--ntx-color-accent-text, #84efff);
     text-decoration: none;
 }
 .widget-email-link:hover {
@@ -42,16 +42,16 @@
     margin: 0.5em 0;
 }
 .widget-markdown code {
-    background: var(--bg-tertiary, rgba(0,0,0,0.1));
+    background: var(--ntx-color-surface-3, rgba(0,0,0,0.1));
     padding: 0.15em 0.4em;
     border-radius: 4px;
     font-size: 0.9em;
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 .widget-markdown pre {
-    background: var(--bg-tertiary, #1e1e2e);
-    border: 1px solid var(--border-color, #333);
-    border-radius: var(--radius-sm, 8px);
+    background: var(--ntx-color-surface-3, #1e1e2e);
+    border: 1px solid var(--ntx-border-default, #333);
+    border-radius: var(--ntx-radius-sm, 8px);
     padding: 12px;
     overflow-x: auto;
     font-size: 0.85em;
@@ -62,10 +62,10 @@
     border-radius: 0;
 }
 .widget-markdown blockquote {
-    border-left: 3px solid var(--accent, #3adffa);
+    border-left: 3px solid var(--ntx-color-accent, #3adffa);
     margin: 0.5em 0;
     padding: 0.3em 1em;
-    color: var(--text-secondary, #999);
+    color: var(--ntx-color-text-muted, #999);
 }
 .widget-markdown ul,
 .widget-markdown ol {
@@ -73,7 +73,7 @@
     margin: 0.5em 0;
 }
 .widget-markdown a {
-    color: var(--accent-text, #84efff);
+    color: var(--ntx-color-accent-text, #84efff);
 }
 
 /* Markdown Editor (side-by-side) */
@@ -89,22 +89,22 @@
     resize: vertical;
 }
 .widget-markdown-preview {
-    border: 1px solid var(--border-color, #333);
-    border-radius: var(--radius-sm, 8px);
+    border: 1px solid var(--ntx-border-default, #333);
+    border-radius: var(--ntx-radius-sm, 8px);
     padding: 12px;
     overflow-y: auto;
     max-height: 400px;
-    background: var(--bg-secondary, #1a1a2e);
+    background: var(--ntx-color-surface-2, #1a1a2e);
 }
 
 /* Console Widget */
 .widget-console {
-    background: var(--bg-tertiary, #0d0d14);
-    color: var(--text-primary, #e0e0e0);
+    background: var(--ntx-color-surface-3, #0d0d14);
+    color: var(--ntx-color-text-strong, #e0e0e0);
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
     font-size: 0.85em;
-    border: 1px solid var(--border-color, #333);
-    border-radius: var(--radius-sm, 8px);
+    border: 1px solid var(--ntx-border-default, #333);
+    border-radius: var(--ntx-radius-sm, 8px);
     padding: 12px;
     overflow-x: auto;
     white-space: pre-wrap;
@@ -115,19 +115,19 @@
 .widget-console-textarea {
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
     font-size: 0.85em;
-    background: var(--bg-tertiary, #0d0d14);
-    color: var(--text-primary, #e0e0e0);
-    border: 1px solid var(--border-color, #333);
-    border-radius: var(--radius-sm, 8px);
+    background: var(--ntx-color-surface-3, #0d0d14);
+    color: var(--ntx-color-text-strong, #e0e0e0);
+    border: 1px solid var(--ntx-border-default, #333);
+    border-radius: var(--ntx-radius-sm, 8px);
     resize: vertical;
     cursor: default;
 }
 
 /* Reference Widget */
 .widget-reference-link {
-    color: var(--accent-text, #84efff);
+    color: var(--ntx-color-accent-text, #84efff);
     text-decoration: none;
-    border-bottom: 1px dotted var(--accent-text, #84efff);
+    border-bottom: 1px dotted var(--ntx-color-accent-text, #84efff);
 }
 .widget-reference-link:hover {
     text-decoration: none;
@@ -139,6 +139,20 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* Boolean Widget */
+.widget-bool {
+    accent-color: var(--ntx-status-neutral-fg, #7c8599);
+}
+
+.widget-bool:checked {
+    accent-color: var(--ntx-status-success-fg, #6ef9e2);
+}
+
+.widget-bool--readonly {
+    pointer-events: none;
+    cursor: default;
+}
+
 /* Enum Pill (display mode for Literal/enum fields) */
 .enum-pill {
     display: inline-block;
@@ -147,10 +161,10 @@
     letter-spacing: 0.04em;
     text-transform: capitalize;
     padding: 0.15rem 0.6rem;
-    border-radius: var(--radius-sm, 8px);
-    background: var(--accent-dim, rgba(58, 223, 250, 0.12));
-    color: var(--accent-text, #84efff);
-    border: 1px solid var(--border-accent, rgba(58, 223, 250, 0.35));
+    border-radius: var(--ntx-radius-sm, 8px);
+    background: var(--ntx-status-accent-bg, rgba(58, 223, 250, 0.12));
+    color: var(--ntx-color-accent-text, #84efff);
+    border: 1px solid var(--ntx-border-interactive, rgba(58, 223, 250, 0.35));
 }
 
 /* Widget Wrappers (form.js integration) */

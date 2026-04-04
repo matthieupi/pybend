@@ -4,7 +4,7 @@
   display: block;
   margin-left: 3px;
   padding-left: 0.9rem;
-  border-left: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-left: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
 }
 
 .jt-node.collapsed > .jt-children {
@@ -24,9 +24,9 @@
   line-height: 1.6;
 }
 
-.jt-bracket { color: var(--text-2, #91a3c1); }
-.jt-key { color: var(--accent-text, #84efff); }
+.jt-bracket { color: var(--ntx-color-text-muted, #91a3c1); }
+.jt-key { color: var(--ntx-color-accent-text, #84efff); }
 .jt-str { color: #ffe08b; }
 .jt-num { color: #b8a9ff; }
 .jt-bool { color: #ff8bd7; }
-.jt-null { color: var(--text-2, #91a3c1); font-style: italic; }
+.jt-null { color: var(--ntx-color-text-muted, #91a3c1); font-style: italic; }

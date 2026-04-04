@@ -46,7 +46,7 @@ export class NTTMethod extends Component {
   static get observedAttributes() {
     return ['model', 'method', 'uuid', 'mode', 'label', 'forward',
             'layout', 'placeholder', 'button-label', 'widget',
-            'icon', 'count-field'];
+            'icon', 'count-field', 'show-label'];
   }
 
   connectedCallback() {
@@ -76,6 +76,7 @@ export class NTTMethod extends Component {
     this.widgetOverride = this.getAttribute('widget') || '';
     this.iconName = this.getAttribute('icon') || '';
     this.countField = this.getAttribute('count-field') || '';
+    this.showLabel = this.hasAttribute('show-label');
 
     if (modelName) this.model = modelName;
 
@@ -179,10 +180,13 @@ export class NTTMethod extends Component {
         count = 0;
       }
     }
+    const visibleLabel = this.showLabel ? (this.buttonLabel || this.label || this.method) : '';
+    const buttonClass = this.showLabel ? 'method-btn method-btn--labeled' : 'method-btn';
 
     this.shadowRoot.innerHTML = `
-      <button class="method-btn" title="${this.label}">
+      <button class="${buttonClass}" title="${this.label}">
         ${icon ? `<span class="method-btn-icon">${icon}</span>` : ''}
+        ${visibleLabel ? `<span class="method-btn-text">${visibleLabel}</span>` : ''}
         ${count !== '' ? `<span class="method-btn-count">${count}</span>` : ''}
       </button>
     `;

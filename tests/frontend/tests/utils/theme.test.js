@@ -6,8 +6,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 describe('theme.js', () => {
 
   beforeEach(() => {
+    vi.resetModules();
     window.localStorage.removeItem('ntx-theme');
     document.documentElement.dataset.theme = '';
+    delete window.NTX_THEME_CONFIG;
   });
 
   // Use dynamic import to get fresh module exports.
@@ -68,5 +70,32 @@ describe('theme.js', () => {
     window.localStorage.setItem('ntx-theme', 'dark');
     toggleTheme();
     expect(document.documentElement.dataset.theme).toBe('light');
+  });
+
+  it('getConfiguredThemes() should read page-provided theme order', async () => {
+    window.NTX_THEME_CONFIG = { themes: ['dark', 'light', 'industrial'] };
+    const { getConfiguredThemes, hasThemeConfig } = await import('../../utils/theme.js');
+    expect(hasThemeConfig()).toBe(true);
+    expect(getConfiguredThemes()).toEqual(['dark', 'light', 'industrial']);
+  });
+
+  it('toggleTheme() should cycle through configured themes in order', async () => {
+    window.NTX_THEME_CONFIG = { themes: ['dark', 'industrial', 'light'] };
+    const { toggleTheme, getTheme } = await import('../../utils/theme.js');
+
+    window.localStorage.setItem('ntx-theme', 'dark');
+    toggleTheme();
+    expect(getTheme()).toBe('industrial');
+
+    toggleTheme();
+    expect(getTheme()).toBe('light');
+  });
+
+  it('toggleTheme() should fall back to first configured theme when current theme is not listed', async () => {
+    window.NTX_THEME_CONFIG = { themes: ['industrial', 'dark'] };
+    const { toggleTheme, getTheme } = await import('../../utils/theme.js');
+    window.localStorage.setItem('ntx-theme', 'light');
+    toggleTheme();
+    expect(getTheme()).toBe('industrial');
   });
 });

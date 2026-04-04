@@ -14,26 +14,26 @@
 .backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(7, 13, 31, 0.56);
+    background: var(--ntx-backdrop-scrim, rgba(7, 13, 31, 0.56));
 }
 
 .modal-panel {
     position: relative;
-    width: min(100%, 38rem);
-    max-height: calc(100vh - 3rem);
+    width: min(100%, calc(100% - 10rem));
+    max-height: calc(100vh - 5rem);
     overflow-y: auto;
-    border: var(--border-width, 2px) solid var(--border, rgba(255, 255, 255, 0.08));
-    border-radius: var(--radius-xl, 16px);
-    background: var(--card-bg, rgba(17, 25, 46, 0.94));
-    box-shadow: var(--shadow-xl, 0 48px 96px rgba(3, 8, 24, 0.42));
-    animation: modalSlideIn 220ms var(--ease, ease) both;
+    border: var(--ntx-border-width, 2px) solid var(--ntx-border-default, rgba(255, 255, 255, 0.08));
+    border-radius: var(--ntx-radius-xl, 16px);
+    background: var(--ntx-card-bg, rgba(17, 25, 46, 0.94));
+    box-shadow: var(--ntx-shadow-xl, 0 48px 96px rgba(3, 8, 24, 0.42));
+    animation: modalSlideIn 220ms var(--ntx-ease, ease) both;
 }
 
 .modal-panel::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: var(--glass-gradient, linear-gradient(180deg, rgba(255,255,255,0.04), transparent));
+    background: var(--ntx-glass-gradient, linear-gradient(180deg, rgba(255,255,255,0.04), transparent));
     pointer-events: none;
 }
 
@@ -49,13 +49,13 @@
     align-items: center;
     gap: 0.75rem;
     padding: 1.15rem 1.35rem;
-    border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+    border-bottom: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
 }
 
 .modal-title {
     flex: 1;
-    color: var(--text-0, #eef3ff);
-    font-family: var(--font-display, Manrope, sans-serif);
+    color: var(--ntx-color-text-strong, #eef3ff);
+    font-family: var(--ntx-font-display, Manrope, sans-serif);
     font-size: 1.15rem;
     font-weight: 800;
     letter-spacing: -0.04em;
@@ -65,9 +65,9 @@
     width: 2.15rem;
     height: 2.15rem;
     padding: 0;
-    border: var(--border-width, 2px) solid var(--border, rgba(255, 255, 255, 0.08));
-    border-radius: var(--radius-sm, 8px);
-    background: var(--panel-bg, rgba(17, 25, 46, 0.88));
+    border: var(--ntx-border-width, 2px) solid var(--ntx-border-default, rgba(255, 255, 255, 0.08));
+    border-radius: var(--ntx-radius-sm, 8px);
+    background: var(--ntx-panel-bg, rgba(17, 25, 46, 0.88));
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a5aac2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: center;
@@ -83,14 +83,14 @@
     justify-content: flex-end;
     gap: 0.65rem;
     padding: 1rem 1.35rem 1.25rem;
-    border-top: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+    border-top: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
 }
 
 .modal-footer button {
     min-height: 2.7rem;
     padding: 0 1.15rem;
-    border-radius: var(--radius-sm, 8px);
-    font-family: var(--font-display, Manrope, sans-serif);
+    border-radius: var(--ntx-radius-sm, 8px);
+    font-family: var(--ntx-font-display, Manrope, sans-serif);
     font-size: 0.7rem;
     font-weight: 800;
     letter-spacing: 0.14em;
@@ -100,14 +100,14 @@
 
 .modal-submit {
     border: 1px solid transparent;
-    background: var(--gradient-accent, linear-gradient(135deg, #3adffa, #00cbe6));
-    color: var(--button-text, #04111d);
+    background: var(--ntx-button-primary-bg, linear-gradient(135deg, #3adffa, #00cbe6));
+    color: var(--ntx-button-primary-fg, #04111d);
 }
 
 .modal-cancel {
-    border: var(--border-width, 2px) solid var(--border, rgba(255, 255, 255, 0.08));
-    background: var(--panel-bg, rgba(17, 25, 46, 0.88));
-    color: var(--text-1, #dfe4fe);
+    border: var(--ntx-border-width, 2px) solid var(--ntx-border-default, rgba(255, 255, 255, 0.08));
+    background: var(--ntx-panel-bg, rgba(17, 25, 46, 0.88));
+    color: var(--ntx-color-text, #dfe4fe);
 }
 
 :host(.closing) {

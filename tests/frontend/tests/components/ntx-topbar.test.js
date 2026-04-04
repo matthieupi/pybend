@@ -1,13 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../config.js', () => ({
   config: {
-    LOGGING: 3, LOGEVENTS: false, DEBUG: false,
+    LOGGING: 3,
+    LOGEVENTS: false,
+    DEBUG: false,
     API_URL: 'http://localhost:5000',
   }
-}));
-vi.mock('../../utils/Logging.js', () => ({
-  default: { warn: vi.fn(), error: vi.fn(), debug: vi.fn(), dev: vi.fn(), log: vi.fn(), init: vi.fn(), event: vi.fn() }
 }));
 
 const mockPermissions = {
@@ -16,283 +15,139 @@ const mockPermissions = {
   role: 'anonymous',
   init: vi.fn(() => Promise.resolve(null)),
 };
+
 vi.mock('../../utils/Permissions.js', () => ({
   permissions: mockPermissions,
 }));
 
 const mockTheme = {
   getTheme: vi.fn(() => 'dark'),
+  getConfiguredThemes: vi.fn(() => ['dark', 'light']),
+  getNextTheme: vi.fn(() => 'light'),
+  hasThemeConfig: vi.fn(() => true),
+  setTheme: vi.fn(),
   toggleTheme: vi.fn(),
 };
+
 vi.mock('../../utils/theme.js', () => mockTheme);
 
-// Import after mocks
 await import('../../components/ntx-topbar.js');
-const { permissions } = await import('../../utils/Permissions.js');
 
-describe('ntx-topbar.js (NTTTopbar)', () => {
+describe('ntx-topbar.js', () => {
+  const originalLocation = window.location;
 
   beforeEach(() => {
     mockPermissions.user = null;
     mockPermissions.authenticated = false;
     mockPermissions.role = 'anonymous';
-    mockPermissions.init.mockImplementation(() => Promise.resolve(null));
+    mockPermissions.init.mockResolvedValue(null);
+
     mockTheme.getTheme.mockReturnValue('dark');
-    mockTheme.toggleTheme.mockClear();
-  });
+    mockTheme.getConfiguredThemes.mockReturnValue(['dark', 'light']);
+    mockTheme.getNextTheme.mockReturnValue('light');
+    mockTheme.toggleTheme.mockReset();
 
-  describe('custom element registration', () => {
-    it('should be registered as ntx-topbar', () => {
-      const Ctor = customElements.get('ntx-topbar');
-      expect(Ctor).toBeTruthy();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ name: 'Test App', version: '1.2.3' }),
     });
   });
 
-  describe('constructor', () => {
-    it('should create shadow DOM', () => {
-      const el = document.createElement('ntx-topbar');
-      expect(el.shadowRoot).toBeTruthy();
-    });
-
-    it('should contain stylesheet link', () => {
-      const el = document.createElement('ntx-topbar');
-      const link = el.shadowRoot.querySelector('link');
-      expect(link).toBeTruthy();
-      expect(link.getAttribute('rel')).toBe('stylesheet');
-    });
+  afterEach(() => {
+    document.body.innerHTML = '';
+    window.location = originalLocation;
+    vi.restoreAllMocks();
   });
 
-  describe('render (unauthenticated)', () => {
-    it('should show sign-in link when no user', () => {
-      const el = document.createElement('ntx-topbar');
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('Sign in');
-    });
-
-    it('should render brand section with NTT', () => {
-      const el = document.createElement('ntx-topbar');
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('NTT');
-    });
-
-    it('should render brand with version tag v0.6', () => {
-      const el = document.createElement('ntx-topbar');
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('v0.6');
-    });
-
-    it('should not show favorites nav link when unauthenticated', () => {
-      const el = document.createElement('ntx-topbar');
-      const html = el.shadowRoot.innerHTML;
-      expect(html).not.toContain('Favorites');
-    });
-
-    it('should not show user pill when unauthenticated', () => {
-      const el = document.createElement('ntx-topbar');
-      const html = el.shadowRoot.innerHTML;
-      expect(html).not.toContain('user-pill');
-    });
+  it('registers the custom element', () => {
+    expect(customElements.get('ntx-topbar')).toBeTruthy();
   });
 
-  describe('render (authenticated)', () => {
-    beforeEach(() => {
-      mockPermissions.user = { name: 'Alice', email: 'alice@test.com', role: 'admin' };
-      mockPermissions.authenticated = true;
-      mockPermissions.role = 'admin';
-      mockPermissions.init.mockImplementation(() => {
-        return Promise.resolve(mockPermissions.user);
-      });
-    });
-
-    it('should show user pill after permissions resolve', async () => {
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      // Allow microtask for .then() to fire
-      await new Promise(r => setTimeout(r, 10));
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('user-pill');
-      document.body.removeChild(el);
-    });
-
-    it('should display user name', async () => {
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('Alice');
-      document.body.removeChild(el);
-    });
-
-    it('should display user email in dropdown', async () => {
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('alice@test.com');
-      document.body.removeChild(el);
-    });
-
-    it('should display user role in dropdown', async () => {
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('admin');
-      document.body.removeChild(el);
-    });
-
-    it('should show Favorites nav link when authenticated', async () => {
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('Favorites');
-      expect(html).toContain('#@favorites');
-      document.body.removeChild(el);
-    });
-
-    it('should show Profile link in dropdown', async () => {
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('Profile');
-      expect(html).toContain('#@profile');
-      document.body.removeChild(el);
-    });
-
-    it('should show Logout button in dropdown', async () => {
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
-      const btn = el.shadowRoot.querySelector('.logout-btn');
-      expect(btn).toBeTruthy();
-      expect(btn.textContent).toContain('Logout');
-      document.body.removeChild(el);
-    });
-
-    it('should show user initial when no image', async () => {
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
-      const avatar = el.shadowRoot.querySelector('.user-avatar');
-      expect(avatar).toBeTruthy();
-      expect(avatar.textContent).toBe('A'); // initial of "Alice"
-      document.body.removeChild(el);
-    });
-
-    it('should use email prefix as display name when name is missing', async () => {
-      mockPermissions.user = { email: 'bob@test.com', role: 'user' };
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
-      const html = el.shadowRoot.innerHTML;
-      expect(html).toContain('bob');
-      document.body.removeChild(el);
-    });
+  it('creates a shadow root with stylesheet link', () => {
+    const el = document.createElement('ntx-topbar');
+    expect(el.shadowRoot).toBeTruthy();
+    const link = el.shadowRoot.querySelector('link');
+    expect(link).toBeTruthy();
+    expect(link.getAttribute('href')).toContain('ntx-topbar.css');
   });
 
-  describe('logout handler', () => {
-    it('should remove jwtToken from localStorage on logout click', async () => {
-      mockPermissions.user = { name: 'Alice', email: 'alice@test.com', role: 'user' };
-      mockPermissions.authenticated = true;
-      mockPermissions.init.mockImplementation(() => Promise.resolve(mockPermissions.user));
+  it('shows sign-in state when unauthenticated', async () => {
+    const el = document.createElement('ntx-topbar');
+    document.body.appendChild(el);
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-      window.localStorage.setItem('jwtToken', 'test-token');
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
-
-      const logoutBtn = el.shadowRoot.querySelector('.logout-btn');
-      expect(logoutBtn).toBeTruthy();
-
-      // Prevent actual navigation in jsdom
-      const originalHref = Object.getOwnPropertyDescriptor(window, 'location');
-      delete window.location;
-      window.location = { href: '' };
-
-      logoutBtn.click();
-      expect(window.localStorage.getItem('jwtToken')).toBeNull();
-
-      // Restore
-      if (originalHref) Object.defineProperty(window, 'location', originalHref);
-      else window.location = { href: '' };
-      document.body.removeChild(el);
-    });
+    expect(el.shadowRoot.textContent).toContain('Sign in');
+    expect(el.shadowRoot.querySelector('.user-pill')).toBeNull();
+    expect(el.shadowRoot.querySelector('slot[name="user-menu"]')).toBeNull();
   });
 
-  describe('theme toggle', () => {
-    it('should show theme toggle button in dropdown', async () => {
-      mockPermissions.user = { name: 'Alice', email: 'alice@test.com', role: 'user' };
-      mockPermissions.authenticated = true;
-      mockPermissions.init.mockImplementation(() => Promise.resolve(mockPermissions.user));
+  it('renders user dropdown details when authenticated', async () => {
+    mockPermissions.user = { name: 'Alice', email: 'alice@test.com', role: 'admin' };
+    mockPermissions.authenticated = true;
+    mockPermissions.role = 'admin';
+    mockPermissions.init.mockResolvedValue(mockPermissions.user);
 
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
+    const el = document.createElement('ntx-topbar');
+    document.body.appendChild(el);
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-      const themeBtn = el.shadowRoot.querySelector('.theme-toggle');
-      expect(themeBtn).toBeTruthy();
-      document.body.removeChild(el);
-    });
+    expect(el.shadowRoot.textContent).toContain('Alice');
+    expect(el.shadowRoot.textContent).toContain('alice@test.com');
+    expect(el.shadowRoot.textContent).toContain('admin');
+    expect(el.shadowRoot.textContent).toContain('Profile');
+    expect(el.shadowRoot.textContent).toContain('Logout');
+    expect(el.shadowRoot.querySelector('slot[name="user-menu"]')).toBeTruthy();
+    expect(el.shadowRoot.querySelector('.theme-toggle')).toBeNull();
+  });
 
-    it('should call toggleTheme when theme button is clicked', async () => {
-      mockPermissions.user = { name: 'Alice', email: 'alice@test.com', role: 'user' };
-      mockPermissions.authenticated = true;
-      mockPermissions.init.mockImplementation(() => Promise.resolve(mockPermissions.user));
+  it('assigns slotted nav content to the nav slot', async () => {
+    const el = document.createElement('ntx-topbar');
+    const navLink = document.createElement('a');
+    navLink.slot = 'nav';
+    navLink.textContent = 'Dashboard';
+    el.appendChild(navLink);
 
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
+    document.body.appendChild(el);
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-      const themeBtn = el.shadowRoot.querySelector('.theme-toggle');
-      themeBtn.click();
-      expect(mockTheme.toggleTheme).toHaveBeenCalled();
-      document.body.removeChild(el);
-    });
+    const slot = el.shadowRoot.querySelector('slot[name="nav"]');
+    expect(slot).toBeTruthy();
+    expect(slot.assignedElements()).toContain(navLink);
+  });
 
-    it('should show "Light mode" label when current theme is dark', async () => {
-      mockTheme.getTheme.mockReturnValue('dark');
-      mockPermissions.user = { name: 'Alice', email: 'alice@test.com', role: 'user' };
-      mockPermissions.authenticated = true;
-      mockPermissions.init.mockImplementation(() => Promise.resolve(mockPermissions.user));
+  it('assigns slotted user-menu content when authenticated', async () => {
+    mockPermissions.user = { name: 'Alice', email: 'alice@test.com', role: 'admin' };
+    mockPermissions.authenticated = true;
+    mockPermissions.role = 'admin';
+    mockPermissions.init.mockResolvedValue(mockPermissions.user);
 
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
+    const el = document.createElement('ntx-topbar');
+    const themeButton = document.createElement('ntx-theme-button');
+    themeButton.slot = 'user-menu';
+    el.appendChild(themeButton);
 
-      const themeBtn = el.shadowRoot.querySelector('.theme-toggle');
-      expect(themeBtn.textContent).toContain('Light mode');
-      document.body.removeChild(el);
-    });
+    document.body.appendChild(el);
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    it('should show "Dark mode" label when current theme is light', async () => {
-      mockTheme.getTheme.mockReturnValue('light');
-      mockPermissions.user = { name: 'Alice', email: 'alice@test.com', role: 'user' };
-      mockPermissions.authenticated = true;
-      mockPermissions.init.mockImplementation(() => Promise.resolve(mockPermissions.user));
+    const slot = el.shadowRoot.querySelector('slot[name="user-menu"]');
+    expect(slot).toBeTruthy();
+    expect(slot.assignedElements()).toContain(themeButton);
+  });
 
-      const el = document.createElement('ntx-topbar');
-      document.body.appendChild(el);
-      await mockPermissions.init();
-      await new Promise(r => setTimeout(r, 10));
+  it('logs out by clearing the JWT token', async () => {
+    mockPermissions.user = { name: 'Alice', email: 'alice@test.com', role: 'user' };
+    mockPermissions.authenticated = true;
+    mockPermissions.init.mockResolvedValue(mockPermissions.user);
+    window.localStorage.setItem('jwtToken', 'token');
+    window.location = { href: '' };
 
-      const themeBtn = el.shadowRoot.querySelector('.theme-toggle');
-      expect(themeBtn.textContent).toContain('Dark mode');
-      document.body.removeChild(el);
-    });
+    const el = document.createElement('ntx-topbar');
+    document.body.appendChild(el);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    el.shadowRoot.querySelector('.logout-btn').click();
+
+    expect(window.localStorage.getItem('jwtToken')).toBeNull();
+    expect(window.location.href).toBe('/login.html');
   });
 });

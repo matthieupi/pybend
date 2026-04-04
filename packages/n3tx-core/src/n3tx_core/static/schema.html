@@ -4,15 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>NTTTX Kitchen Sink</title>
+  <link rel="stylesheet" href="./theme-base.css" />
   <link rel="stylesheet" href="./dark-theme.css" />
   <link rel="stylesheet" href="./light-theme.css" />
   <link rel="stylesheet" href="./schema.css" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <script>
+    window.NTX_THEME_CONFIG = { themes: ['dark', 'light'] };
+  </script>
   <script type="module" src="./utils/theme.js"></script>
 </head>
 <body>
 
-  <ntx-topbar></ntx-topbar>
+  <ntx-topbar>
+    <ntx-theme-button slot="user-menu"></ntx-theme-button>
+  </ntx-topbar>
 
   <div class="page">
 

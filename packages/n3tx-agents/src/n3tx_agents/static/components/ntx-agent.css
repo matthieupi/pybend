@@ -15,8 +15,8 @@
 
 .agent-name,
 .agent-hero-name {
-  color: var(--text-0, #ecf5ff);
-  font-family: var(--font-display, Manrope, sans-serif);
+  color: var(--ntx-color-text-strong, #ecf5ff);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-weight: 800;
   letter-spacing: -0.04em;
 }
@@ -44,8 +44,8 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.38rem 0.7rem;
-  border-radius: var(--radius-sm, 8px);
-  font-family: var(--font-display, Manrope, sans-serif);
+  border-radius: var(--ntx-radius-sm, 8px);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -54,16 +54,16 @@
 }
 
 .badge-provider {
-  background: var(--accent-dim, rgba(58, 223, 250, 0.12));
-  color: var(--accent-text, #84efff);
+  background: var(--ntx-status-accent-bg, rgba(58, 223, 250, 0.12));
+  color: var(--ntx-color-accent-text, #84efff);
 }
 
 .badge-model,
 .badge-tools,
 .tool-chip {
-  background: var(--panel-bg-strong, rgba(10, 16, 29, 0.88));
-  color: var(--text-2, #91a3c1);
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  background: var(--ntx-panel-strong-bg, rgba(10, 16, 29, 0.88));
+  color: var(--ntx-color-text-muted, #91a3c1);
+  border: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
 }
 
 .agent-prompt,
@@ -74,8 +74,8 @@
 
 .section-label {
   margin-bottom: 0.45rem;
-  color: var(--text-2, #91a3c1);
-  font-family: var(--font-display, Manrope, sans-serif);
+  color: var(--ntx-color-text-muted, #91a3c1);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -84,10 +84,10 @@
 
 .agent-prompt-text {
   padding: 0.95rem 1rem;
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-md, 10px);
-  background: var(--surface-2, rgba(15, 22, 38, 0.92));
-  color: var(--text-1, #d2dff2);
+  border: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--ntx-radius-md, 10px);
+  background: var(--ntx-color-surface-2, rgba(15, 22, 38, 0.92));
+  color: var(--ntx-color-text, #d2dff2);
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.7;
@@ -111,7 +111,7 @@
 
 .agent-no-tools,
 .agent-no-constraints {
-  color: var(--text-2, #91a3c1);
+  color: var(--ntx-color-text-muted, #91a3c1);
   font-style: italic;
 }
 
@@ -123,8 +123,8 @@
   align-items: center;
   gap: 0.9rem;
   min-height: 96px;
-  border-radius: var(--radius-lg, 18px) var(--radius-lg, 18px) 0 0;
-  background: var(--agent-hero-bg, linear-gradient(135deg, #18354a, #0d1f2f));
+  border-radius: var(--ntx-radius-lg, 18px) var(--ntx-radius-lg, 18px) 0 0;
+  background: var(--ntx-agent-hero-bg, linear-gradient(135deg, #18354a, #0d1f2f));
   overflow: hidden;
 }
 
@@ -154,12 +154,12 @@
 }
 
 .badge-provider-hero {
-  background: var(--agent-provider-dim, rgba(58, 223, 250, 0.18));
-  color: var(--agent-provider-accent, #84efff);
+  background: var(--ntx-agent-provider-dim, rgba(58, 223, 250, 0.18));
+  color: var(--ntx-agent-provider-accent, #84efff);
 }
 
 .badge-tools-hero {
-  color: var(--agent-provider-accent, #84efff);
+  color: var(--ntx-agent-provider-accent, #84efff);
 }
 
 .agent-xl-cols {
@@ -185,9 +185,9 @@
   width: 100%;
   border-collapse: collapse;
   overflow: hidden;
-  border-radius: var(--radius-md, 10px);
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
-  background: var(--surface-2, rgba(15, 22, 38, 0.92));
+  border-radius: var(--ntx-radius-md, 10px);
+  border: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
+  background: var(--ntx-color-surface-2, rgba(15, 22, 38, 0.92));
 }
 
 .kv-key,
@@ -199,22 +199,22 @@
 
 .kv-key {
   width: 40%;
-  color: var(--agent-provider-accent, var(--accent-text, #84efff));
+  color: var(--ntx-agent-provider-accent, var(--ntx-color-accent-text, #84efff));
   font-weight: 700;
 }
 
 .kv-val {
-  color: var(--text-1, #d2dff2);
+  color: var(--ntx-color-text, #d2dff2);
   word-break: break-word;
 }
 
 .agent-kv-table tr + tr td {
-  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-top: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
 }
 
 .agent-activity-section {
   padding-top: 1rem;
-  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-top: 1px solid var(--ntx-line-subtle, rgba(255, 255, 255, 0.08));
 }
 
 ntx-agent-live {

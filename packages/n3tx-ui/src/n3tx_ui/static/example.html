@@ -5,8 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NTTTX Framework - Demo</title>
+    <link rel="stylesheet" href="./theme-base.css">
     <link rel="stylesheet" href="./dark-theme.css">
+    <link rel="stylesheet" href="./light-theme.css">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <script>
+        window.NTX_THEME_CONFIG = { themes: ['dark', 'light'] };
+    </script>
+    <script type="module" src="./utils/theme.js"></script>
     <style>
         .demo-section {
             margin-bottom: 30px;
@@ -20,7 +26,7 @@
             display: block;
             margin-bottom: 5px;
             font-weight: 500;
-            color: var(--text-secondary);
+            color: var(--ntx-color-text-muted);
         }
 
         .form-row {
@@ -34,14 +40,14 @@
         }
 
         .schema-display {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
+            background: var(--ntx-color-surface-3);
+            border: 1px solid var(--ntx-border-default);
             border-radius: 10px;
             padding: 16px;
             margin-top: 12px;
             font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
             font-size: 0.8rem;
-            color: var(--text-secondary);
+            color: var(--ntx-color-text-muted);
             white-space: pre-wrap;
             max-height: 200px;
             overflow-y: auto;
@@ -54,26 +60,26 @@
         }
 
         .success-message {
-            background: rgba(16, 185, 129, 0.1);
-            color: #6ee7b7;
-            border: 1px solid var(--accent-success);
+            background: var(--ntx-status-success-bg);
+            color: var(--ntx-status-success-fg);
+            border: 1px solid var(--ntx-status-success-border);
             border-radius: 8px;
             padding: 12px;
             margin-top: 15px;
         }
 
         .error-message {
-            background: rgba(239, 68, 68, 0.1);
-            color: #fca5a5;
-            border: 1px solid var(--accent-error);
+            background: var(--ntx-status-error-bg);
+            color: var(--ntx-status-error-fg);
+            border: 1px solid var(--ntx-status-error-border);
             border-radius: 8px;
             padding: 12px;
             margin-top: 15px;
         }
 
         .ptt-instance {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--ntx-color-surface-2);
+            border: 1px solid var(--ntx-border-default);
             border-radius: 8px;
             padding: 12px;
             margin: 8px 0;
@@ -82,13 +88,13 @@
         }
 
         .ptt-active {
-            border-left: 3px solid var(--accent-success);
-            background: rgba(16, 185, 129, 0.05);
+            border-left: 3px solid var(--ntx-status-success-fg);
+            background: var(--ntx-status-success-bg);
         }
 
         .ntx-instance {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
+            background: var(--ntx-color-surface-3);
+            border: 1px solid var(--ntx-border-default);
             border-radius: 8px;
             padding: 12px;
             margin: 8px 0;
@@ -102,8 +108,8 @@
         }
 
         .event-log {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
+            background: var(--ntx-color-surface-3);
+            border: 1px solid var(--ntx-border-default);
             border-radius: 8px;
             padding: 12px;
             max-height: 200px;
@@ -118,11 +124,11 @@
             border-radius: 4px;
         }
 
-        .event-create { background: rgba(16, 185, 129, 0.1); }
-        .event-read { background: rgba(99, 102, 241, 0.1); }
-        .event-update { background: rgba(245, 158, 11, 0.1); }
-        .event-delete { background: rgba(239, 68, 68, 0.1); }
-        .event-schema { background: rgba(139, 92, 246, 0.1); }
+        .event-create { background: var(--ntx-status-success-bg); }
+        .event-read { background: var(--ntx-status-accent-bg); }
+        .event-update { background: var(--ntx-status-warning-bg); }
+        .event-delete { background: var(--ntx-status-error-bg); }
+        .event-schema { background: var(--ntx-status-neutral-bg); }
 
         .registrar-entry {
             display: flex;
@@ -131,18 +137,18 @@
             padding: 8px;
             border-radius: 6px;
             margin: 4px 0;
-            background: var(--bg-secondary);
-            border-left: 3px solid var(--accent-primary);
+            background: var(--ntx-color-surface-2);
+            border-left: 3px solid var(--ntx-color-accent);
         }
 
         .registrar-key {
             font-weight: bold;
-            color: var(--accent-primary);
+            color: var(--ntx-color-accent);
         }
 
         .registrar-type {
             font-size: 0.8rem;
-            color: var(--text-muted);
+            color: var(--ntx-color-text-muted);
         }
     </style>
 </head>
@@ -178,7 +184,7 @@
                 <p>Create and manage entities through NTT instances</p>
 
                 <div id="entity-form-container">
-                    <p style="color: var(--text-muted);">Discover a PTT first to see the management interface</p>
+                    <p style="color: var(--ntx-color-text-muted);">Discover a PTT first to see the management interface</p>
                 </div>
 
                 <div id="creation-message"></div>
@@ -424,7 +430,7 @@
             const $container = document.getElementById('entity-form-container');
 
             if (!schema.properties) {
-                $container.innerHTML = '<p style="color: var(--text-muted);">No properties found in schema</p>';
+                $container.innerHTML = '<p style="color: var(--ntx-color-text-muted);">No properties found in schema</p>';
                 return;
             }
 
@@ -580,7 +586,7 @@
             updateStatus('registrar-count', `${registrarCount} entries`);
 
             if (registrarCount === 0) {
-                $viewer.innerHTML = '<p style="color: var(--text-muted);">No entries in registrar</p>';
+                $viewer.innerHTML = '<p style="color: var(--ntx-color-text-muted);">No entries in registrar</p>';
                 return;
             }
 
@@ -645,7 +651,7 @@
             const $viewer = document.getElementById('instances-viewer');
 
             if (activeInstances.size === 0) {
-                $viewer.innerHTML = '<p style="color: var(--text-muted);">No active instances</p>';
+                $viewer.innerHTML = '<p style="color: var(--ntx-color-text-muted);">No active instances</p>';
                 return;
             }
 

@@ -86,17 +86,17 @@ export const jsonTreeCSS = `
     .jt-children {
         display: block;
         padding-left: 1rem;
-        border-left: 1px solid var(--border, rgba(255,255,255,0.08));
+        border-left: 1px solid var(--ntx-border-default, rgba(255,255,255,0.08));
         margin-left: 2px;
     }
     .jt-node.collapsed > .jt-children { display: none; }
     .jt-toggle { cursor: pointer; user-select: none; }
     .jt-toggle:hover { opacity: 0.8; }
     .jt-item { line-height: 1.5; }
-    .jt-bracket { color: var(--text-3, #555e78); }
-    .jt-key { color: var(--accent-text, #5eeadf); }
+    .jt-bracket { color: var(--ntx-color-text-subtle, #555e78); }
+    .jt-key { color: var(--ntx-color-accent-text, #5eeadf); }
     .jt-str { color: #f1fa8c; }
     .jt-num { color: #bd93f9; }
     .jt-bool { color: #ff79c6; }
-    .jt-null { color: var(--text-3, #555e78); font-style: italic; }
+    .jt-null { color: var(--ntx-color-text-subtle, #555e78); font-style: italic; }
 `;

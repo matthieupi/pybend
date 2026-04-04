@@ -2,7 +2,7 @@
 
 :host {
     display: block;
-    animation: staggerIn 0.4s var(--ease, cubic-bezier(0.4, 0, 0.2, 1)) both;
+    animation: staggerIn 0.4s var(--ntx-ease, cubic-bezier(0.4, 0, 0.2, 1)) both;
     animation-delay: var(--stagger-delay, 0ms);
 }
 
@@ -20,7 +20,7 @@
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+    border: 1px solid var(--ntx-glass-border, rgba(255,255,255,0.09));
 }
 
 /* xs — smaller avatar */
@@ -35,21 +35,21 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.4rem 0.75rem;
-    border-radius: var(--radius-sm, 8px);
-    background: var(--panel-bg, rgba(14, 16, 24, 0.55));
+    border-radius: var(--ntx-radius-sm, 8px);
+    background: var(--ntx-panel-bg, rgba(14, 16, 24, 0.55));
     border: 0;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
 }
 
 .card[data-display="sm"]:hover {
-    background: var(--panel-bg, rgba(20, 24, 36, 0.70));
+    background: var(--ntx-panel-bg, rgba(20, 24, 36, 0.70));
 }
 
 .card[data-display="sm"] .sm-name {
     font-size: 0.85rem;
     font-weight: 500;
-    color: var(--text-1, #c4c9da);
+    color: var(--ntx-color-text, #c4c9da);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

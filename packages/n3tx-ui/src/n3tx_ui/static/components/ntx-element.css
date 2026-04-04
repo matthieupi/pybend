@@ -8,14 +8,14 @@
 .loading-state {
     text-align: center;
     padding: 2rem;
-    color: var(--text-2, #8891ab);
+    color: var(--ntx-color-text-muted, #8891ab);
 }
 
 .loading-spinner {
     width: 1.5rem;
     height: 1.5rem;
-    border: 2px solid var(--border, rgba(255,255,255,0.06));
-    border-top-color: var(--accent, #22d3c5);
+    border: 2px solid var(--ntx-border-default, rgba(255,255,255,0.06));
+    border-top-color: var(--ntx-status-accent-fg, #22d3c5);
     border-radius: 50%;
     animation: spin 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     margin: 0 auto 0.75rem;
@@ -28,10 +28,10 @@
 .error-state {
     text-align: center;
     padding: 1.5rem;
-    color: var(--error, #f87171);
-    background: rgba(248, 113, 113, 0.06);
-    border: 1px solid rgba(248, 113, 113, 0.12);
-    border-radius: var(--radius-md, 10px);
+    color: var(--ntx-status-error-fg, #f87171);
+    background: var(--ntx-status-error-bg, rgba(248, 113, 113, 0.06));
+    border: 1px solid var(--ntx-status-error-border, rgba(248, 113, 113, 0.12));
+    border-radius: var(--ntx-radius-md, 10px);
     margin: 0.75rem;
     font-size: 0.85rem;
 }
@@ -39,12 +39,12 @@
 .empty-state {
     text-align: center;
     padding: 2rem;
-    color: var(--text-3, #555e78);
+    color: var(--ntx-color-text-subtle, #555e78);
     font-size: 0.85rem;
 }
 
 .ntx-dirty {
-    border-left: 3px solid var(--warning, #fbbf24);
+    border-left: 3px solid var(--ntx-status-warning-fg, #fbbf24);
 }
 
 .ntx-committing {
@@ -62,7 +62,7 @@
     height: 1.25rem;
     margin: -0.625rem;
     border: 2px solid transparent;
-    border-top-color: var(--accent, #22d3c5);
+    border-top-color: var(--ntx-status-accent-fg, #22d3c5);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
