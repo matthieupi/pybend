@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Pygentic</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./theme-base.css">
     <link rel="stylesheet" href="./dark-theme.css">
     <link rel="stylesheet" href="./light-theme.css">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
@@ -17,7 +18,10 @@
     <link rel="preload" href="./components/ntx-user.css" as="style">
     <link rel="preload" href="./widgets/widgets.css" as="style">
     <script src="./vendor/marked.min.js"></script>
-    <script src="./vendor/ansi_up.min.js"></script>
+    <script type="module">
+        import { AnsiUp } from './vendor/ansi_up.min.js';
+        window.AnsiUp = AnsiUp;
+    </script>
     <link rel="modulepreload" href="./config.js">
     <link rel="modulepreload" href="./utils/Assert.js">
     <link rel="modulepreload" href="./utils/Logging.js">
@@ -54,15 +58,21 @@
     <link rel="modulepreload" href="./widgets/Widget.js">
     <link rel="modulepreload" href="./widgets/registry.js">
     <link rel="modulepreload" href="./widgets/index.js">
+    <script>
+        window.NTX_THEME_CONFIG = { themes: ['dark', 'light'] };
+    </script>
     <script type="module" src="./utils/theme.js"></script>
 </head>
 <body>
 
-    <ntx-topbar brand="Pygentic" version="0.10.0" logo="PG"></ntx-topbar>
+    <ntx-topbar brand="Pygentic" version="0.10.0" logo="PG">
+        <ntx-theme-button slot="user-menu"></ntx-theme-button>
+    </ntx-topbar>
     <ntx-sidebar router="main">
         <ntx-list model="Task" allow-create></ntx-list>
         <ntx-list model="AgentActor" item-tag="ntx-agent"></ntx-list>
         <ntx-table model="Memory"></ntx-table>
+        <ntx-theme-button slot="footer"></ntx-theme-button>
     </ntx-sidebar>
 
     <div class="page">

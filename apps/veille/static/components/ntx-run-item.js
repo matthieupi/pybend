@@ -17,6 +17,14 @@ import { NTTItem } from './ntx-item.js';
 
 class NTXRunItem extends NTTItem {
 
+    get styles() {
+        const base = super.styles;
+        return [
+            ...(Array.isArray(base) ? base : [base]),
+            new URL('./ntx-run-item.css', import.meta.url).href,
+        ];
+    }
+
     md() {
         const r = this.value;
         if (!r || !r.id) return super.md();
@@ -69,25 +77,25 @@ class NTXRunItem extends NTTItem {
             html.push(`<div class="run-error">${this.#esc(r.error)}</div>`);
         }
 
-        // Report link for completed runs
+        const actions = [];
         if (r.status === 'complete') {
-            html.push(`<div class="run-actions">
-                <a class="run-report-link" href="#report/${r.id}">View Report</a>
-            </div>`);
+            actions.push(`<a class="run-report-link" href="#report/${r.id}">View Report</a>`);
         }
 
-        // Standalone methods (execute button etc.)
         const methods = schema.methods || {};
         for (const [name, def] of Object.entries(methods)) {
             const tag = def.ui?.renderer || (def.stream ? 'ntx-stream' : 'ntx-method');
             const label = def.title || name;
-            html.push(`<${tag}
+            actions.push(`<${tag}
                 model="${schema.__name__}"
                 uuid="${r.id}"
                 method="${name}"
-                layout="${def.ui?.layout || 'fieldset'}"
+                layout="${def.ui?.layout || 'button'}"
                 label="${label}">
             </${tag}>`);
+        }
+        if (actions.length) {
+            html.push(`<div class="run-actions">${actions.join('')}</div>`);
         }
 
         return html.join('');

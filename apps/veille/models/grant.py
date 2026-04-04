@@ -27,6 +27,8 @@ class Grant(ActorModel):
     }
     __ui__: ClassVar[dict] = {
         'icon': '💸',
+        'description': 'Monitoring active opportunities and upcoming deadlines for the editorial pipeline.',
+        'create_label': 'Add Opportunity',
         'field_order': [
             'title', 'funder', 'status', 'url', 'source_url',
             'amount_min', 'amount_max', 'deadline',

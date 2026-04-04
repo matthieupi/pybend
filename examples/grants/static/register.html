@@ -4,9 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Register — Grant Watcher</title>
+  <link rel="stylesheet" href="./theme-base.css" />
   <link rel="stylesheet" href="./dark-theme.css" />
   <link rel="stylesheet" href="./light-theme.css" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <script>
+    window.NTX_THEME_CONFIG = { themes: ['dark', 'light'] };
+  </script>
   <script type="module" src="./utils/theme.js"></script>
   <style>
     .auth-page {
@@ -22,15 +26,15 @@
     .auth-card {
       width: 100%;
       max-width: 400px;
-      background: var(--glass-bg);
-      background-image: var(--glass-gradient);
-      backdrop-filter: blur(var(--glass-blur-lg, 28px)) saturate(1.2);
-      -webkit-backdrop-filter: blur(var(--glass-blur-lg, 28px)) saturate(1.2);
-      border: 1px solid var(--glass-border);
-      border-top-color: var(--light-highlight);
-      border-radius: var(--radius-xl);
+      background: var(--ntx-card-bg);
+      background-image: none;
+      backdrop-filter: blur(28px) saturate(1.2);
+      -webkit-backdrop-filter: blur(28px) saturate(1.2);
+      border: 1px solid var(--ntx-border-default);
+      border-top-color: var(--ntx-border-default, transparent);
+      border-radius: var(--ntx-radius-xl);
       padding: 2.5rem;
-      box-shadow: var(--shadow-xl);
+      box-shadow: var(--ntx-shadow-xl);
     }
 
     .auth-header {
@@ -44,7 +48,7 @@
     }
 
     .auth-header p {
-      color: var(--text-2);
+      color: var(--ntx-color-text-muted);
       font-size: 0.875rem;
     }
 
@@ -56,7 +60,7 @@
       display: block;
       font-size: 0.8rem;
       font-weight: 500;
-      color: var(--text-2);
+      color: var(--ntx-color-text-muted);
       margin-bottom: 0.4rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -77,11 +81,11 @@
       text-align: center;
       margin-top: 1.5rem;
       font-size: 0.85rem;
-      color: var(--text-2);
+      color: var(--ntx-color-text-muted);
     }
 
     .auth-link a {
-      color: var(--accent-text);
+      color: var(--ntx-color-accent-text);
       text-decoration: none;
     }
 
@@ -90,11 +94,11 @@
     }
 
     .auth-error {
-      background: rgba(248, 113, 113, 0.1);
-      border: 1px solid rgba(248, 113, 113, 0.2);
-      color: var(--error);
+      background: var(--ntx-status-error-bg);
+      border: 1px solid var(--ntx-status-error-border);
+      color: var(--ntx-status-error-fg);
       padding: 0.6rem 0.85rem;
-      border-radius: var(--radius-sm);
+      border-radius: var(--ntx-radius-sm);
       font-size: 0.825rem;
       margin-bottom: 1rem;
       display: none;

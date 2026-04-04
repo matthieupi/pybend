@@ -8,8 +8,8 @@
 
 .chat-header {
   padding: 14px 20px;
-  border-bottom: 1px solid var(--border, #333);
-  background: var(--surface-1, #1a1a1a);
+  border-bottom: 1px solid var(--ntx-border-default, #333);
+  background: var(--ntx-color-surface-1, #1a1a1a);
   font-weight: 600;
   font-size: 15px;
   display: flex;
@@ -18,13 +18,13 @@
   flex-shrink: 0;
 }
 
-.chat-title { color: var(--text-0, #e0e0e0); }
+.chat-title { color: var(--ntx-color-text-strong, #e0e0e0); }
 
 .model-badge {
   font-size: 11px;
   font-weight: 400;
-  color: var(--text-3, #666);
-  background: var(--surface-3, #333);
+  color: var(--ntx-color-text-subtle, #666);
+  background: var(--ntx-color-surface-3, #333);
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -43,7 +43,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-3, #666);
+  color: var(--ntx-color-text-subtle, #666);
   font-size: 15px;
 }
 
@@ -59,16 +59,16 @@
 
 .chat-bubble.user {
   align-self: flex-end;
-  background: var(--accent-dim, #1a3a4a);
-  color: var(--accent-text, #e0f0f0);
+  background: var(--ntx-status-accent-bg, #1a3a4a);
+  color: var(--ntx-color-accent-text, #e0f0f0);
   border-bottom-right-radius: 2px;
   white-space: pre-wrap;
 }
 
 .chat-bubble.assistant {
   align-self: flex-start;
-  background: var(--surface-2, #2a2a2a);
-  color: var(--text-0, #e0e0e0);
+  background: var(--ntx-color-surface-2, #2a2a2a);
+  color: var(--ntx-color-text-strong, #e0e0e0);
   border-bottom-left-radius: 2px;
 }
 
@@ -76,13 +76,13 @@
 .chat-bubble.assistant p { margin: 0 0 0.5em 0; }
 .chat-bubble.assistant p:last-child { margin-bottom: 0; }
 .chat-bubble.assistant code {
-  background: var(--surface-3, #333);
+  background: var(--ntx-color-surface-3, #333);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 0.9em;
 }
 .chat-bubble.assistant pre {
-  background: var(--surface-3, #333);
+  background: var(--ntx-color-surface-3, #333);
   padding: 8px 12px;
   border-radius: 6px;
   overflow-x: auto;
@@ -100,12 +100,12 @@
 /* Streaming cursor */
 .stream-cursor {
   animation: blink 1s step-end infinite;
-  color: var(--accent, #1a9e94);
+  color: var(--ntx-color-accent, #1a9e94);
 }
 @keyframes blink { 50% { opacity: 0; } }
 
 /* Stream error */
 .stream-error {
-  color: var(--error, #e74c3c);
+  color: var(--ntx-color-error, #e74c3c);
   font-style: italic;
 }

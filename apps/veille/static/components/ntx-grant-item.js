@@ -11,7 +11,23 @@
  */
 import { NTTItem } from './ntx-item.js';
 
+const OPEN_ICON = `
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M14 5H19V10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M19 5L10 14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M19 14V19H5V5H10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+`;
+
 class NTXGrantItem extends NTTItem {
+
+    get styles() {
+        const base = super.styles;
+        return [
+            ...(Array.isArray(base) ? base : [base]),
+            new URL('./ntx-grant-item.css', import.meta.url).href,
+        ];
+    }
 
     md() {
         const g = this.value;
@@ -20,82 +36,67 @@ class NTXGrantItem extends NTTItem {
         const schema = this.schema;
         const score = g.admissibility_score != null
             ? `${Math.round(g.admissibility_score * 100)}%` : 'N/A';
+        const amount = this.#formatAmount(g.amount_min, g.amount_max);
         const statusClass = this.#statusClass(g.status);
         const scoreClass = this.#scoreClass(g.admissibility_score);
+        const reasoningPreview = this.#previewReasoning(g.admissibility_reasoning);
 
         const html = [];
 
-        // Action buttons
-        html.push(`<div class="card-actions">
-            <button class="edit-btn mode-display" title="Edit"></button>
+        html.push(`<div class="grant-header">
+            <span class="grant-status ${statusClass}">${this.#esc(g.status || 'new')}</span>
+            <a class="grant-open-link" href="#analyze/${g.id}" title="View details" aria-label="View details">
+                ${OPEN_ICON}
+            </a>
         </div>`);
 
-        // Grant header
-        html.push(`
-            <div class="grant-header">
-                <h3 class="grant-title">${this.#esc(g.title)}</h3>
-                <span class="grant-status ${statusClass}">${this.#esc(g.status || 'new')}</span>
-            </div>
-        `);
+        html.push(`<h3 class="grant-title">${this.#esc(g.title)}</h3>`);
 
-        // Info grid
         html.push('<div class="grant-info-grid">');
-        if (g.funder) {
-            html.push(`<div class="grant-field">
-                <span class="grant-label">Funder</span>
-                <span class="grant-value">${this.#esc(g.funder)}</span>
-            </div>`);
-        }
         html.push(`<div class="grant-field">
+            <span class="grant-label">Funder</span>
+            <span class="grant-value grant-value--truncate">${this.#esc(g.funder || '—')}</span>
+        </div>`);
+        html.push(`<div class="grant-field grant-field--align-end">
             <span class="grant-label">Score</span>
             <span class="grant-value grant-score ${scoreClass}">${score}</span>
         </div>`);
-        if (g.deadline) {
-            html.push(`<div class="grant-field">
-                <span class="grant-label">Deadline</span>
-                <span class="grant-value">${this.#esc(g.deadline)}</span>
-            </div>`);
-        }
-        if (g.amount_min != null || g.amount_max != null) {
-            const amt = g.amount_min != null && g.amount_max != null
-                ? `$${g.amount_min.toLocaleString()} – $${g.amount_max.toLocaleString()}`
-                : g.amount_min != null ? `$${g.amount_min.toLocaleString()}+`
-                : `Up to $${g.amount_max.toLocaleString()}`;
-            html.push(`<div class="grant-field">
-                <span class="grant-label">Amount</span>
-                <span class="grant-value">${amt}</span>
-            </div>`);
-        }
+        html.push(`<div class="grant-field">
+            <span class="grant-label">Deadline</span>
+            <span class="grant-value">${this.#esc(g.deadline || '—')}</span>
+        </div>`);
+        html.push(`<div class="grant-field grant-field--align-end">
+            <span class="grant-label">Amount</span>
+            <span class="grant-value grant-value--amount">${this.#esc(amount)}</span>
+        </div>`);
         html.push('</div>');
 
-        // URL
-        if (g.url) {
-            html.push(`<div class="grant-url">
-                <a href="${this.#esc(g.url)}" target="_blank" rel="noopener">${this.#esc(g.url)}</a>
-            </div>`);
-        }
-
-        // Justification (truncated)
-        if (g.admissibility_reasoning) {
+        if (reasoningPreview) {
             html.push(`<div class="grant-justification">
                 <span class="grant-label">Analysis</span>
-                <div class="grant-justification-text">${this.#esc(g.admissibility_reasoning)}</div>
+                <div class="grant-justification-text">${this.#esc(reasoningPreview)}</div>
             </div>`);
         }
 
-        // Standalone methods (analyze button etc.)
         const methods = schema.methods || {};
-        for (const [name, def] of Object.entries(methods)) {
+        const methodHtml = Object.entries(methods).map(([name, def]) => {
             const tag = def.ui?.renderer || (def.stream ? 'ntx-stream' : 'ntx-method');
             const label = def.title || name;
-            html.push(`<${tag}
+            return `<${tag}
                 model="${schema.__name__}"
                 uuid="${g.id}"
                 method="${name}"
-                layout="${def.ui?.layout || 'fieldset'}"
-                label="${label}">
-            </${tag}>`);
-        }
+                layout="button"
+                label="${label}"
+                button-label="Run"
+                show-label>
+            </${tag}>`;
+        }).join('');
+
+        html.push(`<div class="grant-actions">
+            ${methodHtml}
+            <a class="grant-details-link" href="#analyze/${g.id}">Details</a>
+        </div>`);
 
         return html.join('');
     }
@@ -222,16 +223,19 @@ class NTXGrantItem extends NTTItem {
 
         // Standalone methods (analyze button etc.)
         const methods = schema.methods || {};
-        for (const [name, def] of Object.entries(methods)) {
+        const methodHtml = Object.entries(methods).map(([name, def]) => {
             const tag = def.ui?.renderer || (def.stream ? 'ntx-stream' : 'ntx-method');
             const label = def.title || name;
-            html.push(`<${tag}
+            return `<${tag}
                 model="${schema.__name__}"
                 uuid="${g.id}"
                 method="${name}"
-                layout="${def.ui?.layout || 'fieldset'}"
+                layout="${def.ui?.layout || 'button'}"
                 label="${label}">
-            </${tag}>`);
+            </${tag}>`;
+        }).join('');
+        if (methodHtml) {
+            html.push(`<div class="grant-actions">${methodHtml}</div>`);
         }
 
         return html.join('');
@@ -275,6 +279,26 @@ class NTXGrantItem extends NTTItem {
         if (score >= 0.7) return 'score-high';
         if (score >= 0.4) return 'score-mid';
         return 'score-low';
+    }
+
+    #formatAmount(min, max) {
+        if (min != null && max != null) {
+            return `$${min.toLocaleString()} - $${max.toLocaleString()}`;
+        }
+        if (min != null) {
+            return `$${min.toLocaleString()}+`;
+        }
+        if (max != null) {
+            return `Up to $${max.toLocaleString()}`;
+        }
+        return '—';
+    }
+
+    #previewReasoning(reasoning) {
+        if (!reasoning) return '';
+        const text = String(reasoning).replace(/\s+/g, ' ').trim();
+        if (text.length <= 220) return text;
+        return `${text.slice(0, 217).trimEnd()}...`;
     }
 
     #esc(t) {

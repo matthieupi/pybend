@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <title>Veille - Grant Monitoring</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL,GRAD,opsz@300,1,0,24">
+    <link rel="stylesheet" href="./theme-base.css">
     <link rel="stylesheet" href="./dark-theme.css">
     <link rel="stylesheet" href="./light-theme.css">
+    <link rel="stylesheet" href="./industrial-theme.css">
     <link rel="stylesheet" href="./veille.css">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <link rel="preload" href="./components/ntx-item.css" as="style">
@@ -37,6 +40,7 @@
     <link rel="modulepreload" href="./components/ntx-item.js">
     <link rel="modulepreload" href="./components/ntx-list.js">
     <link rel="modulepreload" href="./components/ntx-router.js">
+    <link rel="modulepreload" href="./components/ntx-topbar.js?shell-layout-1">
     <link rel="modulepreload" href="./components/ntx-method.js">
     <link rel="modulepreload" href="./components/ntx-modal.js">
     <link rel="modulepreload" href="./components/ntx-sidebar.js">
@@ -53,14 +57,38 @@
     <link rel="modulepreload" href="./widgets/Widget.js">
     <link rel="modulepreload" href="./widgets/registry.js">
     <link rel="modulepreload" href="./widgets/index.js">
+    <script>
+        window.NTX_THEME_CONFIG = { themes: ['industrial', 'light', 'dark'] };
+    </script>
     <script type="module" src="./utils/theme.js"></script>
 </head>
 <body class="veille-app">
-    <ntx-topbar></ntx-topbar>
-    <ntx-sidebar router="main">
+    <ntx-topbar hide-brand>
+        <div slot="nav" class="veille-topbar-shell">
+            <label class="veille-topbar-search" aria-label="Search industrial intelligence">
+                <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                <input type="search" id="veille-search" placeholder="Search industrial intelligence..." />
+            </label>
+            <div class="veille-topbar-actions" aria-label="Quick actions">
+                <button type="button" class="veille-topbar-icon" data-route="" aria-label="Open intelligence board">
+                    <span class="material-symbols-outlined" aria-hidden="true">analytics</span>
+                </button>
+                <button type="button" class="veille-topbar-icon" data-route="sources" aria-label="Open source registry">
+                    <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+                </button>
+            </div>
+        </div>
+        <ntx-theme-button slot="user-menu"></ntx-theme-button>
+    </ntx-topbar>
+    <ntx-sidebar router="main" brand="Veille" subtitle="Industrial Intel">
         <ntx-table model="Source" allow-create></ntx-table>
         <ntx-list model="Grant" allow-create></ntx-list>
         <ntx-item model="Organization"></ntx-item>
+        <button slot="footer" type="button" class="veille-shell-cta" data-route="">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span>
+            <span>New Pipeline</span>
+        </button>
+        <ntx-theme-button slot="footer"></ntx-theme-button>
     </ntx-sidebar>
 
     <div class="page">
@@ -77,10 +105,17 @@
                     <div class="upload-status" id="upload-status"></div>
                 </div>
             </div>
+            <div id="grant-panel" style="display:none">
+                <ntx-list model="Grant" id="grant-list" allow-create></ntx-list>
+            </div>
             <ntx-grant-analyze id="analyze-panel" model="Grant" method="analyze" style="display:none"></ntx-grant-analyze>
             <ntx-run-report id="report-panel" style="display:none"></ntx-run-report>
         </ntx-router>
     </div>
+
+    <button id="veille-fab" class="veille-fab" type="button" aria-label="Jump to dashboard controls">
+        <span class="material-symbols-outlined" aria-hidden="true">bolt</span>
+    </button>
 
     <script type="module">
         import Logging from './utils/Logging.js';
@@ -92,7 +127,7 @@
         import './components/ntx-item.js';
         import './components/ntx-list.js';
         import './components/ntx-router.js';
-        import './components/ntx-topbar.js';
+        import './components/ntx-topbar.js?shell-layout-1';
         import './components/ntx-sidebar.js';
         import './components/ntx-stream.js';
         import './components/ntx-stream-agent.js';
@@ -114,7 +149,7 @@
         // Simple hash-based routing
         function handleRoute() {
             const hash = window.location.hash.replace('#', '') || '';
-            const panels = ['run-panel', 'source-panel',
+            const panels = ['run-panel', 'source-panel', 'grant-panel',
                             'analyze-panel', 'report-panel'];
             panels.forEach(id => {
                 const el = document.getElementById(id);
@@ -123,6 +158,8 @@
 
             if (hash === 'sources') {
                 document.getElementById('source-panel').style.display = 'block';
+            } else if (hash === 'grants') {
+                document.getElementById('grant-panel').style.display = 'block';
             } else if (hash.startsWith('analyze/')) {
                 const grantId = hash.split('/')[1];
                 const el = document.getElementById('analyze-panel');
@@ -138,13 +175,42 @@
                     el.style.display = 'block';
                 }
             } else {
-                // Default: show runs (homepage)
                 document.getElementById('run-panel').style.display = 'block';
             }
         }
 
+        document.querySelectorAll('[data-route]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const route = button.getAttribute('data-route');
+                if (route === '') {
+                    matrix.dispatch({
+                        name: 'NAVIGATE',
+                        source: 'veille-shell',
+                        target: 'main',
+                        data: '',
+                        meta: { reset: true },
+                    });
+                    return;
+                }
+                window.location.hash = route ?? 'runs';
+            });
+        });
+
+        document.getElementById('veille-fab')?.addEventListener('click', () => {
+            window.location.hash = 'runs';
+            requestAnimationFrame(() => {
+                document.getElementById('run-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                document.querySelector('#run-panel .run-url-input')?.focus();
+            });
+        });
+
+        document.getElementById('veille-search')?.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            window.location.hash = 'grants';
+        });
+
         window.addEventListener('hashchange', handleRoute);
-        // Run once on load
         handleRoute();
     </script>
 

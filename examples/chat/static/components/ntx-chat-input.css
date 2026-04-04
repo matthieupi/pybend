@@ -4,8 +4,8 @@
 
 .input-area {
   padding: 14px 20px;
-  border-top: 1px solid var(--border, #333);
-  background: var(--surface-1, #1a1a1a);
+  border-top: 1px solid var(--ntx-border-default, #333);
+  background: var(--ntx-color-surface-1, #1a1a1a);
   display: flex;
   gap: 10px;
   align-items: flex-end;
@@ -14,9 +14,9 @@
 .input-area textarea {
   flex: 1;
   resize: none;
-  background: var(--surface-2, #222);
-  color: var(--text-0, #e0e0e0);
-  border: 1px solid var(--border, #333);
+  background: var(--ntx-color-surface-2, #222);
+  color: var(--ntx-color-text-strong, #e0e0e0);
+  border: 1px solid var(--ntx-border-default, #333);
   border-radius: 8px;
   padding: 10px 14px;
   font-family: inherit;
@@ -29,11 +29,11 @@
 
 .input-area textarea:focus {
   outline: none;
-  border-color: var(--border-accent, #1a9e94);
+  border-color: var(--ntx-border-interactive, #1a9e94);
 }
 
 .input-area textarea::placeholder {
-  color: var(--text-3, #666);
+  color: var(--ntx-color-text-subtle, #666);
 }
 
 .input-area textarea:disabled {
@@ -41,8 +41,8 @@
 }
 
 .btn-send {
-  background: var(--accent, #1a9e94);
-  color: var(--surface-0, #111);
+  background: var(--ntx-color-accent, #1a9e94);
+  color: var(--ntx-color-page, #111);
   border: none;
   border-radius: 8px;
   padding: 10px 18px;

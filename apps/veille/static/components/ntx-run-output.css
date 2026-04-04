@@ -2,35 +2,35 @@
     display: grid;
     gap: 0.55rem;
     margin-bottom: 1rem;
-    padding: 0.95rem 1rem;
-    border: 0;
-    border-radius: var(--radius-lg, 12px);
-    background: var(--card-bg, rgba(17, 25, 46, 0.94));
-    box-shadow: none;
+    padding: 1rem 1.05rem;
+    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    border-radius: var(--ntx-radius-lg, 16px);
+    background: var(--ntx-card-bg, #ffffff);
+    box-shadow: var(--ntx-shadow-sm, 0 8px 20px rgba(25, 28, 29, 0.05));
 }
 
 .ro-progress-bar {
     width: 100%;
     height: 8px;
     overflow: hidden;
-    border-radius: var(--radius-sm, 8px);
-    background: var(--surface-3, rgba(23, 31, 54, 0.82));
+    border-radius: 999px;
+    background: var(--ntx-color-surface-3, #eceeef);
 }
 
 .ro-progress-fill {
     height: 100%;
-    background: var(--gradient-accent, linear-gradient(135deg, #3adffa, #00cbe6));
-    transition: width 240ms var(--ease, ease);
+    background: var(--ntx-button-primary-bg, linear-gradient(135deg, #00464a, #006064));
+    transition: width 240ms var(--ntx-ease, ease);
 }
 
 .ro-progress-done .ro-progress-fill {
-    background: linear-gradient(135deg, var(--success, #6ef9e2), var(--accent, #3adffa));
+    background: linear-gradient(135deg, var(--ntx-color-success, #2d7d4b), var(--ntx-color-accent, #14696d));
 }
 
 .ro-progress-label {
-    color: var(--text-2, #a5aac2);
-    font-family: var(--font-display, Manrope, sans-serif);
-    font-size: 0.66rem;
+    color: var(--ntx-color-text-muted, #5f6a6b);
+    font-family: var(--ntx-font-display, Manrope, sans-serif);
+    font-size: 0.62rem;
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -44,19 +44,15 @@
 .ro-source-card,
 .ro-analysis-card {
     overflow: hidden;
-    border: 0;
-    border-radius: var(--radius-lg, 12px);
-    background: var(--card-bg, rgba(17, 25, 46, 0.94));
-    box-shadow: none;
+    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    border-radius: var(--ntx-radius-lg, 16px);
+    background: var(--ntx-card-bg, #ffffff);
+    box-shadow: var(--ntx-shadow-sm, 0 8px 20px rgba(25, 28, 29, 0.05));
 }
 
 .ro-source-active {
-    background: var(--panel-bg, rgba(17, 25, 46, 0.94));
-    box-shadow: none;
-}
-
-.ro-source-done {
-    background: var(--card-bg, rgba(17, 25, 46, 0.94));
+    border-color: var(--ntx-status-accent-border, rgba(20, 105, 109, 0.16));
+    box-shadow: var(--ntx-shadow-md, 0 18px 42px rgba(25, 28, 29, 0.08));
 }
 
 .ro-source-header,
@@ -65,28 +61,28 @@
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 0.7rem;
-    padding: 0.9rem 1rem;
-    background: var(--surface-2, rgba(17, 25, 46, 0.88));
+    padding: 0.95rem 1rem;
+    background: var(--ntx-color-surface-2, #f2f4f5);
     cursor: pointer;
 }
 
 .ro-source-header:hover,
 .ro-analysis-header:hover {
-    background: var(--surface-3, rgba(23, 31, 54, 0.82));
+    background: var(--ntx-color-surface-3, #eceeef);
 }
 
 .ro-source-spinner {
     width: 1rem;
     height: 1rem;
     display: inline-block;
-    border: 2px solid var(--accent, #3adffa);
+    border: 2px solid var(--ntx-color-accent, #14696d);
     border-top-color: transparent;
     border-radius: 999px;
     animation: roSpin 800ms linear infinite;
 }
 
 .ro-source-check {
-    color: var(--success, #6ef9e2);
+    color: var(--ntx-color-success, #2d7d4b);
     font-size: 0.95rem;
     font-weight: 700;
 }
@@ -97,15 +93,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--text-0, #eef3ff);
-    font-family: var(--font-display, Manrope, sans-serif);
-    font-size: 0.88rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    color: var(--ntx-color-accent-strong, #00464a);
+    font-family: var(--ntx-font-display, Manrope, sans-serif);
+    font-size: 0.92rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
 }
 
 .ro-source-url {
-    color: var(--text-2, #a5aac2);
+    color: var(--ntx-color-text-muted, #5f6a6b);
     font-size: 0.72rem;
     white-space: nowrap;
     overflow: hidden;
@@ -119,24 +115,26 @@
     justify-content: center;
     min-height: 1.45rem;
     padding: 0 0.55rem;
-    border-radius: var(--radius-sm, 8px);
-    font-family: var(--font-display, Manrope, sans-serif);
-    font-size: 0.62rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-family: var(--ntx-font-display, Manrope, sans-serif);
+    font-size: 0.58rem;
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
 }
 
 .ro-source-count {
-    color: var(--success, #6ef9e2);
-    background: rgba(110, 249, 226, 0.14);
+    color: var(--ntx-status-success-fg, #2d7d4b);
+    background: var(--ntx-status-success-bg, rgba(45, 125, 75, 0.1));
+    border-color: var(--ntx-status-success-border, rgba(45, 125, 75, 0.16));
 }
 
 .ro-source-agent {
     max-height: 0;
     overflow: hidden;
-    transition: max-height 280ms var(--ease, ease);
-    background: rgba(255, 255, 255, 0.01);
+    transition: max-height 280ms var(--ntx-ease, ease);
+    background: var(--ntx-panel-strong-bg, #f8fafb);
 }
 
 .ro-source-agent.ro-agent-open {
@@ -169,13 +167,13 @@
     display: inline-flex;
     align-items: center;
     max-width: 18rem;
-    padding: 0.32rem 0.66rem;
-    border-radius: var(--radius-sm, 8px);
-    background: var(--accent-dim, rgba(58, 223, 250, 0.12));
-    border: 0;
-    color: var(--accent-text, #84efff);
-    font-family: var(--font-display, Manrope, sans-serif);
-    font-size: 0.62rem;
+    padding: 0.38rem 0.72rem;
+    border-radius: 999px;
+    background: var(--ntx-status-accent-bg, rgba(20, 105, 109, 0.08));
+    border: 1px solid var(--ntx-status-accent-border, rgba(20, 105, 109, 0.12));
+    color: var(--ntx-status-accent-fg, #00464a);
+    font-family: var(--ntx-font-display, Manrope, sans-serif);
+    font-size: 0.58rem;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -185,9 +183,9 @@
 }
 
 .ro-divider {
-    padding: 0.35rem 0.25rem;
-    color: var(--text-2, #a5aac2);
-    font-family: var(--font-display, Manrope, sans-serif);
+    padding: 0.45rem 0.25rem;
+    color: var(--ntx-color-text-muted, #5f6a6b);
+    font-family: var(--ntx-font-display, Manrope, sans-serif);
     font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.16em;
@@ -195,46 +193,50 @@
 }
 
 .ro-analysis-status {
-    color: var(--text-2, #a5aac2);
+    color: var(--ntx-color-text-muted, #5f6a6b);
 }
 
 .ro-status-running {
-    color: var(--warning, #ffb866);
+    color: var(--ntx-status-warning-fg, #8d5b16);
     animation: roPulse 1s ease infinite;
 }
 
 .ro-status-done {
-    color: var(--success, #6ef9e2);
+    color: var(--ntx-status-success-fg, #2d7d4b);
 }
 
 .ro-status-failed {
-    color: var(--error, #ff8b87);
+    color: var(--ntx-status-error-fg, #ba1a1a);
 }
 
 .ro-badge-admissible {
-    background: rgba(110, 249, 226, 0.14);
-    color: var(--success, #6ef9e2);
+    background: var(--ntx-status-success-bg, rgba(45, 125, 75, 0.1));
+    color: var(--ntx-status-success-fg, #2d7d4b);
+    border-color: var(--ntx-status-success-border, rgba(45, 125, 75, 0.16));
 }
 
 .ro-badge-partial {
-    background: rgba(255, 184, 102, 0.14);
-    color: var(--warning, #ffb866);
+    background: var(--ntx-status-warning-bg, rgba(181, 106, 17, 0.12));
+    color: var(--ntx-status-warning-fg, #8d5b16);
+    border-color: var(--ntx-status-warning-border, rgba(181, 106, 17, 0.18));
 }
 
 .ro-badge-non,
 .ro-badge-failed {
-    background: rgba(255, 139, 135, 0.14);
-    color: var(--error, #ff8b87);
+    background: var(--ntx-status-error-bg, rgba(186, 26, 26, 0.1));
+    color: var(--ntx-status-error-fg, #ba1a1a);
+    border-color: var(--ntx-status-error-border, rgba(186, 26, 26, 0.16));
 }
 
 .ro-badge-done {
-    background: var(--accent-dim, rgba(58, 223, 250, 0.12));
-    color: var(--accent-text, #84efff);
+    background: var(--ntx-status-accent-bg, rgba(20, 105, 109, 0.08));
+    color: var(--ntx-status-accent-fg, #00464a);
+    border-color: var(--ntx-status-accent-border, rgba(20, 105, 109, 0.12));
 }
 
 .ro-analysis-body {
     overflow: hidden;
-    transition: max-height 280ms var(--ease, ease), padding 280ms var(--ease, ease);
+    transition: max-height 280ms var(--ntx-ease, ease), padding 280ms var(--ntx-ease, ease);
 }
 
 .ro-analysis-body.ro-collapsed {
@@ -249,10 +251,10 @@
 
 .ro-error {
     padding: 0.9rem 1rem;
-    border: 1px solid rgba(255, 139, 135, 0.24);
-    border-radius: var(--radius-md, 10px);
-    background: rgba(255, 139, 135, 0.12);
-    color: var(--error, #ff8b87);
+    border: 1px solid var(--ntx-status-error-border, rgba(186, 26, 26, 0.16));
+    border-radius: var(--ntx-radius-md, 12px);
+    background: var(--ntx-status-error-bg, rgba(186, 26, 26, 0.1));
+    color: var(--ntx-status-error-fg, #ba1a1a);
 }
 
 @media (max-width: 720px) {
