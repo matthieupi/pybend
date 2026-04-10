@@ -72,6 +72,11 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-profile.js` - User profile page
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-user.js` - User display
 
+Pages that expose the topbar's built-in `#@profile` entry must import
+`./components/ntx-profile.js` in their shell bootstrap. The router resolves the
+route automatically, but custom elements still need explicit registration at app
+load time.
+
 ### Form Generator (n3tx-ui)
 - `packages/n3tx-ui/src/n3tx_ui/static/generators/form.js` - Formidable: schema-driven form generator
 

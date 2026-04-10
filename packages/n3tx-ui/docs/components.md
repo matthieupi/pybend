@@ -61,6 +61,10 @@ Component (n3tx-core: shadow DOM, addr, ref, model, proto, define(), scheduleRen
 
 Standalone (no Component base): `NTTModal`, `NTTRefPicker`, `NTTTopbar`, `NTTSidebar`, `NTTProfile`.
 
+When an app shell uses `ntx-topbar`'s built-in `#@profile` menu entry, the page
+must import `./components/ntx-profile.js` during bootstrap so the router can
+mount a registered `<ntx-profile>` element instead of an empty unknown tag.
+
 `NTTListField` (`ntx-list-field.js`) is the dedicated array-field surface used by Formidable. It owns scalar-array edit rows, staged `$ref` link add/remove behavior, and `field-change` events back to the parent item.
 
 `NTTSidebar` supports `brand`, `subtitle`, and optional `brand-logo` attributes so app shells can place a custom mark in the sidebar brand section without forking the component.
