@@ -21,6 +21,8 @@ const OPEN_ICON = `
 
 class NTXGrantItem extends NTTItem {
 
+    #reasoningExpanded = false;
+
     get styles() {
         const base = super.styles;
         return [
@@ -217,7 +219,8 @@ class NTXGrantItem extends NTTItem {
         if (g.admissibility_reasoning) {
             html.push(`<div class="grant-justification">
                 <span class="grant-label">Analysis</span>
-                <div class="grant-justification-text">${this.#esc(g.admissibility_reasoning)}</div>
+                <div class="grant-justification-text widget-markdown${this.#reasoningExpanded ? ' is-expanded' : ''}">${this.#renderMarkdown(g.admissibility_reasoning)}</div>
+                <button type="button" class="grant-expand-btn" hidden>${this.#reasoningExpanded ? 'Show less' : 'Show more'}</button>
             </div>`);
         }
 
@@ -239,6 +242,22 @@ class NTXGrantItem extends NTTItem {
         }
 
         return html.join('');
+    }
+
+    lg_mounted() {
+        const reasoning = this.shadowRoot.querySelector('.grant-justification-text');
+        const button = this.shadowRoot.querySelector('.grant-expand-btn');
+        if (!reasoning || !button) return;
+
+        const expandable = reasoning.scrollHeight > reasoning.clientHeight + 4;
+        button.hidden = !expandable;
+        if (!expandable) return;
+
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.#reasoningExpanded = !this.#reasoningExpanded;
+            this.render();
+        });
     }
 
     sm() {
@@ -299,6 +318,14 @@ class NTXGrantItem extends NTTItem {
         const text = String(reasoning).replace(/\s+/g, ' ').trim();
         if (text.length <= 220) return text;
         return `${text.slice(0, 217).trimEnd()}...`;
+    }
+
+    #renderMarkdown(markdown) {
+        if (!markdown) return '';
+        if (typeof marked !== 'undefined' && marked.parse) {
+            return marked.parse(String(markdown));
+        }
+        return `<pre>${this.#esc(markdown)}</pre>`;
     }
 
     #esc(t) {

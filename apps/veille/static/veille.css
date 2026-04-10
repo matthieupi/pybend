@@ -38,7 +38,7 @@ body.veille-app .veille-topbar-shell {
 body.veille-app .veille-topbar-search {
     flex: 1 1 auto;
     min-width: 0;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 0.7rem;
     padding: 0 0.9rem;
@@ -49,10 +49,10 @@ body.veille-app .veille-topbar-search {
     color: var(--ntx-color-text-subtle);
 }
 
-body.veille-app .veille-topbar-search .material-symbols-outlined {
+body.veille-app .veille-topbar-search ntx-icon {
     flex-shrink: 0;
-    font-size: 1.1rem;
     opacity: 0.78;
+    --icon-size: 1.1rem;
 }
 
 body.veille-app .veille-topbar-search input {
@@ -81,9 +81,9 @@ body.veille-app .veille-topbar-icon {
     display: inline-grid;
     place-items: center;
     padding: 0;
-    border: 1px solid transparent;
+    border: 1px solid var(--ntx-line-subtle);
     border-radius: 999px;
-    background: transparent;
+    background: var(--ntx-panel-strong-bg);
     color: var(--ntx-color-text-subtle);
     cursor: pointer;
     transition:
@@ -96,6 +96,10 @@ body.veille-app .veille-topbar-icon:hover {
     color: var(--ntx-color-accent-strong);
     background: var(--ntx-color-surface-3);
     border-color: var(--ntx-line-subtle);
+}
+
+body.veille-app .veille-topbar-icon ntx-icon {
+    --icon-size: 0.94rem;
 }
 
 body.veille-app .veille-shell-cta {
@@ -120,6 +124,10 @@ body.veille-app .veille-shell-cta {
 body.veille-app .veille-shell-cta:hover {
     filter: brightness(1.03);
     color: var(--ntx-button-primary-fg);
+}
+
+body.veille-app .veille-shell-cta ntx-icon {
+    --icon-size: 0.95rem;
 }
 
 body.veille-app ntx-theme-button[slot="footer"] {
@@ -297,9 +305,14 @@ body.veille-app .dashboard-chart-head {
     margin-bottom: 1rem;
 }
 
-body.veille-app .dashboard-chart-head .material-symbols-outlined,
+body.veille-app .dashboard-chart-head ntx-icon,
 body.veille-app .dashboard-insight-icon {
     color: var(--ntx-color-text-subtle);
+}
+
+body.veille-app .dashboard-chart-head ntx-icon,
+body.veille-app .dashboard-insight-icon {
+    --icon-size: 1.05rem;
 }
 
 body.veille-app .dashboard-chart-bars {
@@ -375,6 +388,11 @@ body.veille-app .dashboard-insight-link:hover {
     color: var(--ntx-color-accent-strong);
 }
 
+body.veille-app .dashboard-inline-link ntx-icon,
+body.veille-app .dashboard-opportunity-link ntx-icon {
+    --icon-size: 0.92rem;
+}
+
 body.veille-app .dashboard-opportunity-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -410,13 +428,17 @@ body.veille-app .dashboard-opportunity-top {
 }
 
 body.veille-app .dashboard-opportunity-icon {
-    width: 3rem;
-    height: 3rem;
+    width: 2.85rem;
+    height: 2.85rem;
     display: inline-grid;
     place-items: center;
-    border-radius: 0.3rem;
+    border-radius: 999px;
     background: var(--ntx-color-surface-3);
     color: var(--ntx-color-accent-strong);
+}
+
+body.veille-app .dashboard-opportunity-icon ntx-icon {
+    --icon-size: 1.12rem;
 }
 
 body.veille-app .dashboard-opportunity-score {
@@ -603,8 +625,9 @@ body.veille-app .dashboard-insight-copy {
 }
 
 body.veille-app .dashboard-insight-icon {
-    font-size: 2.1rem;
+    --icon-size: 2.1rem;
     color: var(--ntx-color-success);
+    opacity: 0.92;
 }
 
 body.veille-app .dashboard-empty-card {
@@ -619,9 +642,9 @@ body.veille-app .dashboard-empty-card {
     text-align: center;
 }
 
-body.veille-app .dashboard-empty-card .material-symbols-outlined {
-    font-size: 2.4rem;
+body.veille-app .dashboard-empty-card ntx-icon {
     color: var(--ntx-color-text-subtle);
+    --icon-size: 2.4rem;
 }
 
 body.veille-app .run-launcher-row,
@@ -822,6 +845,10 @@ body.veille-app .veille-fab {
 body.veille-app .veille-fab:hover {
     transform: translateY(-2px) scale(1.02);
     filter: brightness(1.04);
+}
+
+body.veille-app .veille-fab ntx-icon {
+    --icon-size: 1.1rem;
 }
 
 @media (max-width: 1200px) {

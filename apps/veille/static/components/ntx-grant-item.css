@@ -10,12 +10,22 @@
 
 .grant-title {
     font-family: var(--ntx-font-display, Manrope, sans-serif);
-    font-size: 1.02rem;
+    font-size: 1.04rem;
     font-weight: 800;
     color: var(--ntx-color-accent-strong, #00464a);
     margin: 0 0 1.35rem;
     line-height: 1.18;
-    min-height: 3.6rem;
+    min-height: 3.7rem;
+}
+
+.card[data-display="lg"] .grant-title {
+    font-size: 1.22rem;
+    min-height: 0;
+}
+
+.card[data-display="xl"] .grant-title {
+    font-size: 1.38rem;
+    min-height: 0;
 }
 
 .grant-status {
@@ -147,10 +157,29 @@
     font-size: 0.84rem;
     color: var(--ntx-color-text, #344041);
     line-height: 1.72;
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    -webkit-box-orient: vertical;
+    max-height: calc(1.72em * 32);
     overflow: hidden;
+}
+
+.grant-justification-text.is-expanded {
+    max-height: none;
+}
+
+.grant-expand-btn {
+    margin-top: 0.8rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ntx-color-accent-text, #0d666b);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.grant-expand-btn:hover {
+    text-decoration: underline;
 }
 
 .grant-urls {

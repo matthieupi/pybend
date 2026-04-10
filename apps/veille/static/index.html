@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Veille - Grant Monitoring</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL,GRAD,opsz@300,1,0,24">
     <link rel="stylesheet" href="./theme-base.css">
     <link rel="stylesheet" href="./dark-theme.css">
     <link rel="stylesheet" href="./light-theme.css">
@@ -35,6 +34,7 @@
     <link rel="modulepreload" href="./core/NTT.js">
     <link rel="modulepreload" href="./core/transport/HTTP.js">
     <link rel="modulepreload" href="./core/transport/NetworkAdapter.js">
+    <link rel="modulepreload" href="./components/ntx-icon.js">
     <link rel="modulepreload" href="./components/NTTElement.js">
     <link rel="modulepreload" href="./components/ListElement.js">
     <link rel="modulepreload" href="./components/ntx-item.js">
@@ -57,36 +57,37 @@
     <link rel="modulepreload" href="./widgets/Widget.js">
     <link rel="modulepreload" href="./widgets/registry.js">
     <link rel="modulepreload" href="./widgets/index.js">
+    <link rel="modulepreload" href="./utils/veille-icons.js">
     <script>
         window.NTX_THEME_CONFIG = { themes: ['industrial', 'light', 'dark'] };
     </script>
     <script type="module" src="./utils/theme.js"></script>
 </head>
-<body class="veille-app">
-    <ntx-topbar hide-brand>
-        <div slot="nav" class="veille-topbar-shell">
-            <label class="veille-topbar-search" aria-label="Search industrial intelligence">
-                <span class="material-symbols-outlined" aria-hidden="true">search</span>
-                <input type="search" id="veille-search" placeholder="Search industrial intelligence..." />
-            </label>
-            <div class="veille-topbar-actions" aria-label="Quick actions">
-                <button type="button" class="veille-topbar-icon" data-route="" aria-label="Open intelligence board">
-                    <span class="material-symbols-outlined" aria-hidden="true">analytics</span>
-                </button>
-                <button type="button" class="veille-topbar-icon" data-route="sources" aria-label="Open source registry">
-                    <span class="material-symbols-outlined" aria-hidden="true">settings</span>
-                </button>
+    <body class="veille-app">
+        <ntx-topbar hide-brand>
+            <div slot="nav" class="veille-topbar-shell">
+                <label class="veille-topbar-search" aria-label="Search industrial intelligence">
+                    <ntx-icon value="veille-search" decorative></ntx-icon>
+                    <input type="search" id="veille-search" placeholder="Search industrial intelligence..." />
+                </label>
+                <div class="veille-topbar-actions" aria-label="Quick actions">
+                    <button type="button" class="veille-topbar-icon" data-route="" aria-label="Open intelligence board">
+                        <ntx-icon value="veille-dashboard" decorative></ntx-icon>
+                    </button>
+                    <button type="button" class="veille-topbar-icon" data-route="sources" aria-label="Open source registry">
+                        <ntx-icon value="veille-registry" decorative></ntx-icon>
+                    </button>
+                </div>
             </div>
-        </div>
-        <ntx-theme-button slot="user-menu"></ntx-theme-button>
-    </ntx-topbar>
-    <ntx-sidebar router="main" brand="Veille" subtitle="Industrial Intel">
-        <ntx-table model="Source" allow-create></ntx-table>
-        <ntx-list model="Grant" allow-create></ntx-list>
-        <ntx-item model="Organization"></ntx-item>
-        <button slot="footer" type="button" class="veille-shell-cta" data-route="">
-            <span class="material-symbols-outlined" aria-hidden="true">add</span>
-            <span>New Pipeline</span>
+            <ntx-theme-button slot="user-menu"></ntx-theme-button>
+        </ntx-topbar>
+        <ntx-sidebar router="main" brand="Veille" subtitle="Industrial Intel" brand-logo="./veille-logo.svg">
+            <ntx-table model="Source" allow-create></ntx-table>
+            <ntx-list model="Grant" allow-create></ntx-list>
+            <ntx-item model="Organization"></ntx-item>
+            <button slot="footer" type="button" class="veille-shell-cta" data-route="">
+                <ntx-icon value="veille-new-pipeline" decorative></ntx-icon>
+                <span>New Pipeline</span>
         </button>
         <ntx-theme-button slot="footer"></ntx-theme-button>
     </ntx-sidebar>
@@ -114,10 +115,11 @@
     </div>
 
     <button id="veille-fab" class="veille-fab" type="button" aria-label="Jump to dashboard controls">
-        <span class="material-symbols-outlined" aria-hidden="true">bolt</span>
+        <ntx-icon value="veille-bolt" decorative></ntx-icon>
     </button>
 
     <script type="module">
+        import './utils/veille-icons.js';
         import Logging from './utils/Logging.js';
         Logging.init("Loading Veille v1.0...");
 

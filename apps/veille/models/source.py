@@ -16,7 +16,7 @@ class Source(ActorModel):
         'delete': ROLE('admin'),
     }
     __ui__: ClassVar[dict] = {
-        'icon': '📰',
+        'icon': 'veille-source',
         'field_order': [
             'name', 'url', 'description', 'language',
             'scraping_notes', 'agent_discovered', 'active',

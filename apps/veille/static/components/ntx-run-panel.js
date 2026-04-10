@@ -38,7 +38,7 @@ class NTXRunPanel extends HTMLElement {
                                 <p class="run-metric-label">Grant Pipeline Health</p>
                                 <p class="dashboard-chart-copy">Success probability distribution by sector</p>
                             </div>
-                            <span class="material-symbols-outlined" aria-hidden="true">equalizer</span>
+                            <ntx-icon value="veille-chart" decorative></ntx-icon>
                         </div>
                         <div class="dashboard-chart-bars" data-chart-bars></div>
                     </article>
@@ -68,7 +68,7 @@ class NTXRunPanel extends HTMLElement {
                         </div>
                         <a class="dashboard-inline-link" href="#grants">
                             View all intelligence
-                            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+                            <ntx-icon value="veille-arrow-right" decorative></ntx-icon>
                         </a>
                     </div>
                     <div class="dashboard-opportunity-grid" data-dashboard-grants></div>
@@ -87,7 +87,7 @@ class NTXRunPanel extends HTMLElement {
                     <aside class="dashboard-insight-card">
                         <div class="dashboard-insight-art"></div>
                         <div class="dashboard-insight-copy">
-                            <span class="material-symbols-outlined dashboard-insight-icon" aria-hidden="true">insights</span>
+                            <ntx-icon class="dashboard-insight-icon" value="veille-insight" decorative></ntx-icon>
                             <h3>Strategic Forecast</h3>
                             <p>
                                 Based on the latest crawl and analysis waves, infrastructure and advanced manufacturing
@@ -254,7 +254,7 @@ class NTXRunPanel extends HTMLElement {
         if (!grants.length) {
             grid.innerHTML = `
                 <article class="dashboard-empty-card">
-                    <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                    <ntx-icon value="veille-empty" decorative></ntx-icon>
                     <h4>No opportunities indexed yet</h4>
                     <p>Launch a run to populate the dashboard with live industrial funding intelligence.</p>
                 </article>
@@ -272,7 +272,7 @@ class NTXRunPanel extends HTMLElement {
                     <div class="dashboard-opportunity-inner">
                         <div class="dashboard-opportunity-top">
                             <div class="dashboard-opportunity-icon">
-                                <span class="material-symbols-outlined" aria-hidden="true">${this.#opportunityIcon(grant)}</span>
+                                <ntx-icon value="${this.#esc(this.#opportunityIcon(grant))}" decorative></ntx-icon>
                             </div>
                             <div class="dashboard-opportunity-score">
                                 <span class="dashboard-opportunity-badge">${this.#esc(this.#badgeLabel(grant))}</span>
@@ -292,7 +292,7 @@ class NTXRunPanel extends HTMLElement {
                                 <strong>${this.#esc(this.#formatAmount(grant.amount_min, grant.amount_max))}</strong>
                             </div>
                             <a class="dashboard-opportunity-link" href="#analyze/${grant.id}" aria-label="Open ${this.#esc(grant.title || 'grant')}">
-                                <span class="material-symbols-outlined" aria-hidden="true">north_east</span>
+                                <ntx-icon value="veille-open" decorative></ntx-icon>
                             </a>
                         </div>
                     </div>
@@ -429,10 +429,10 @@ class NTXRunPanel extends HTMLElement {
 
     #opportunityIcon(grant) {
         const text = `${grant.title || ''} ${grant.funder || ''}`.toLowerCase();
-        if (/(energy|carbon|climate|green|capture)/.test(text)) return 'energy_savings_leaf';
-        if (/(robot|digital|automation|sensor|data|ai|twin)/.test(text)) return 'robot_2';
-        if (/(steel|factory|manufactur|industrial|infrastructure)/.test(text)) return 'factory';
-        return 'precision_manufacturing';
+        if (/(energy|carbon|climate|green|capture)/.test(text)) return 'veille-sector-energy';
+        if (/(robot|digital|automation|sensor|data|ai|twin)/.test(text)) return 'veille-sector-digital';
+        if (/(steel|factory|manufactur|industrial|infrastructure)/.test(text)) return 'veille-sector-industrial';
+        return 'veille-sector-default';
     }
 
     #formatAmount(min, max) {

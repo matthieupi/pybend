@@ -26,7 +26,7 @@ class Grant(ActorModel):
         'delete': ROLE('admin'),
     }
     __ui__: ClassVar[dict] = {
-        'icon': '💸',
+        'icon': 'veille-grant',
         'description': 'Monitoring active opportunities and upcoming deadlines for the editorial pipeline.',
         'create_label': 'Add Opportunity',
         'field_order': [
@@ -45,7 +45,7 @@ class Grant(ActorModel):
         },
         'renderer': {'item': 'ntx-grant-item'},
         'methods': {
-            'analyze': {'renderer': 'ntx-grant-analyze', 'icon': '🔎'},
+            'analyze': {'renderer': 'ntx-grant-analyze', 'icon': 'veille-analyze'},
         },
     }
     __agent__: ClassVar[dict] = {

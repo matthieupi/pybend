@@ -123,7 +123,7 @@ class Run(ActorModel):
         'delete': ROLE('admin'),
     }
     __ui__: ClassVar[dict] = {
-        'icon': '⚙️',
+        'icon': 'veille-run',
         'field_order': [
             'status', 'type', 'started_at', 'completed_at',
             'grants_found', 'sources_covered', 'adhoc_url', 'error',
@@ -136,8 +136,8 @@ class Run(ActorModel):
         },
         'renderer': {'item': 'ntx-run-item'},
         'methods': {
-            'execute': {'renderer': 'ntx-run-output', 'icon': '▶️'},
-            'adhoc': {'renderer': 'ntx-run-output', 'icon': '🧪'},
+            'execute': {'renderer': 'ntx-run-output', 'icon': 'veille-execute'},
+            'adhoc': {'renderer': 'ntx-run-output', 'icon': 'veille-adhoc'},
         },
     }
 
