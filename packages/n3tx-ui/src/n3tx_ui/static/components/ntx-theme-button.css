@@ -2,6 +2,10 @@
     display: block;
 }
 
+:host([slot="footer"]) {
+    width: 100%;
+}
+
 .theme-button {
     width: 100%;
     display: grid;
@@ -72,6 +76,12 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+:host([slot="footer"]) .theme-button__description {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .theme-button__value {

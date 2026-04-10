@@ -20,7 +20,9 @@ describe('ntx-icon.js', () => {
     el.setAttribute('value', 'star');
     document.body.appendChild(el);
 
-    expect(el.shadowRoot.querySelector('.icon--emoji')?.textContent).toBe('⭐');
+    const html = el.shadowRoot.innerHTML;
+    expect(html).toContain('icon--svg');
+    expect(html).toContain('<polygon');
 
     document.body.removeChild(el);
   });

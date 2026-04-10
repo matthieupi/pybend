@@ -331,7 +331,7 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.label = 'Like';
       method.renderButton();
       const icon = method.shadowRoot.querySelector('ntx-icon');
-      expect(icon.shadowRoot.querySelector('.icon--emoji')?.textContent).toBe('❤️');
+      expect(icon.shadowRoot.querySelector('.icon--svg path')).not.toBeNull();
     });
 
     it('should resolve star icon through the shared registry', () => {
@@ -341,7 +341,7 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.label = 'Star';
       method.renderButton();
       const icon = method.shadowRoot.querySelector('ntx-icon');
-      expect(icon.shadowRoot.querySelector('.icon--emoji')?.textContent).toBe('⭐');
+      expect(icon.shadowRoot.querySelector('.icon--svg polygon')).not.toBeNull();
     });
 
     it('should resolve reply icon through the shared registry', () => {
@@ -351,7 +351,7 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.label = 'Reply';
       method.renderButton();
       const icon = method.shadowRoot.querySelector('ntx-icon');
-      expect(icon.shadowRoot.querySelector('.icon--emoji')?.textContent).toBe('↩️');
+      expect(icon.shadowRoot.querySelector('.icon--svg polyline')).not.toBeNull();
     });
 
     it('should render direct URL icons as image icons', () => {

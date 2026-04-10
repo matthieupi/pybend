@@ -35,6 +35,11 @@ const STYLES = `
     object-fit: contain;
   }
 
+  .icon--svg {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+
   .icon--text {
     min-inline-size: max-content;
     font-size: calc(var(--icon-size) * 0.72);
@@ -82,6 +87,8 @@ class NTTIcon extends HTMLElement {
     let body = '';
     if (resolved?.kind === 'image') {
       body = `<img class="icon icon--image" src="${escapeAttr(resolved.value)}" alt="${decorative ? '' : escapeAttr(label)}" title="${escapeAttr(title)}" />`;
+    } else if (resolved?.kind === 'svg') {
+      body = `<svg class="icon icon--svg" xmlns="http://www.w3.org/2000/svg" viewBox="${escapeAttr(resolved.viewBox || '0 0 24 24')}" fill="${escapeAttr(resolved.fill || 'none')}" stroke="${escapeAttr(resolved.stroke || 'currentColor')}" stroke-width="${escapeAttr(resolved.strokeWidth || '2')}" stroke-linecap="${escapeAttr(resolved.strokeLinecap || 'round')}" stroke-linejoin="${escapeAttr(resolved.strokeLinejoin || 'round')}"${decorative ? ' aria-hidden="true"' : ` role="img" aria-label="${escapeAttr(label)}"`} title="${escapeAttr(title)}">${resolved.value}</svg>`;
     } else if (resolved?.kind === 'emoji') {
       body = `<span class="icon icon--emoji"${decorative ? ' aria-hidden="true"' : ` role="img" aria-label="${escapeAttr(label)}"`} title="${escapeAttr(title)}">${escapeHtml(resolved.value)}</span>`;
     } else if (resolved?.kind === 'text') {

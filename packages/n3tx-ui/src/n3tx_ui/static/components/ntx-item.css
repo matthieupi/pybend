@@ -410,13 +410,21 @@
 
 /* ── Typography inside cards ── */
 h2 {
-    font-size: 1.2rem;
+    font-size: 1.24rem;
     font-weight: 800;
     color: var(--ntx-color-accent-strong, #00464a);
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.4rem;
     padding-right: 2.5rem;
     letter-spacing: -0.04em;
-    line-height: 1.15;
+    line-height: 1.2;
+}
+
+.card[data-display="lg"] h2 {
+    font-size: 1.44rem;
+}
+
+.card[data-display="xl"] h2 {
+    font-size: 1.64rem;
 }
 
 h4 {
@@ -500,27 +508,35 @@ label + div {
 }
 
 /* ── Inputs (edit mode) ── */
-input, textarea {
+input,
+textarea,
+select {
     width: 100%;
     box-sizing: border-box;
-    padding: 0.55rem 0.75rem;
+    padding: 0.55rem 0 0.45rem;
     font-size: 0.875rem;
     font-family: inherit;
     color: var(--ntx-input-fg, #191c1d);
-    background: var(--ntx-input-bg, #f2f4f5);
-    border: 1px solid var(--ntx-input-border, rgba(190, 200, 201, 0.95));
-    border-radius: var(--ntx-radius-sm, 10px);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--ntx-input-border, rgba(190, 200, 201, 0.95));
+    border-radius: 0;
     outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s, color 0.2s;
 }
 
-input:focus, textarea:focus {
-    border-color: var(--ntx-input-focus-border, rgba(20, 105, 109, 0.35));
-    box-shadow: 0 0 0 2px var(--ntx-input-focus-ring, rgba(20, 105, 109, 0.14));
+input:focus,
+textarea:focus,
+select:focus {
+    border-bottom-color: var(--ntx-input-focus-border, rgba(20, 105, 109, 0.35));
+    box-shadow: none;
 }
 
 input[type="checkbox"] {
     width: auto;
+    padding: 0;
+    background: transparent;
+    border: 0;
     accent-color: var(--ntx-color-accent, #14696d);
 }
 
@@ -530,17 +546,19 @@ textarea {
 }
 
 /* ── Name input in edit mode ── */
-input[data-key="name"] {
+input[data-key="name"],
+input[data-key="title"] {
     font-size: 1.2rem;
     font-weight: 800;
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0 0.45rem;
     background: transparent;
     border-color: transparent;
     border-bottom: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
     border-radius: 0;
 }
 
-input[data-key="name"]:focus {
+input[data-key="name"]:focus,
+input[data-key="title"]:focus {
     border-color: transparent;
     border-bottom-color: var(--ntx-color-accent, #14696d);
     box-shadow: none;

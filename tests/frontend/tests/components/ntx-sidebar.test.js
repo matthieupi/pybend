@@ -106,6 +106,10 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
     mockNTT.attach.mockImplementation((addr, callback) => () => {});
   });
 
+  afterEach(() => {
+    history.replaceState(null, '', location.pathname + location.search);
+  });
+
   describe('custom element registration', () => {
     it('should be registered as ntx-sidebar', () => {
       const Ctor = customElements.get('ntx-sidebar');
@@ -541,6 +545,40 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
       const records = el.shadowRoot.querySelector('.model-records');
       expect(records).toBeTruthy();
       expect(records.childElementCount).toBe(0); // Empty initially
+
+      document.body.removeChild(el);
+    });
+
+    it('should mark the current model route as selected from the hash', () => {
+      window.location.hash = '#Product';
+
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('models', 'Product,User');
+      document.body.appendChild(el);
+
+      const section = el.shadowRoot.querySelector('.model-section[data-model="Product"]');
+      const header = section.querySelector('.model-header');
+      expect(section.classList.contains('model-section--selected')).toBe(true);
+      expect(header.getAttribute('aria-current')).toBe('page');
+
+      document.body.removeChild(el);
+    });
+
+    it('should mark matching app links as selected on hashchange', () => {
+      const el = document.createElement('ntx-sidebar');
+      const link = document.createElement('a');
+      link.setAttribute('href', '#settings');
+      link.textContent = 'Settings';
+      el.appendChild(link);
+      document.body.appendChild(el);
+
+      window.location.hash = '#@settings';
+      window.dispatchEvent(new Event('hashchange'));
+
+      const linkEl = el.shadowRoot.querySelector('.sidebar-link[data-href="#settings"]');
+      const header = linkEl.querySelector('.model-header');
+      expect(linkEl.classList.contains('sidebar-link--selected')).toBe(true);
+      expect(header.getAttribute('aria-current')).toBe('page');
 
       document.body.removeChild(el);
     });

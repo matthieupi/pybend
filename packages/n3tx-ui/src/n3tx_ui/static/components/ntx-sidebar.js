@@ -40,7 +40,7 @@
  */
 import { NTT } from '../core/NTT.js';
 import { matrix } from '../core/Matrix.js';
-import { buildRoute } from '../core/Router.js';
+import { buildRoute, getRouter, parseRoute } from '../core/Router.js';
 import { iconMarkup } from '../utils/icon-resolver.js';
 import './ntx-icon.js';
 import './ntx-theme-button.js';
@@ -75,6 +75,7 @@ class NTTSidebar extends HTMLElement {
   #itemNames = {};          // modelName → display name (for item entries)
   #expanded = new Set();    // expanded model names
   #unsubs = [];             // cleanup callbacks
+  #routerUnsub = null;
 
   constructor() {
     super();
@@ -140,6 +141,9 @@ class NTTSidebar extends HTMLElement {
 
     this.#render();
     this.#bootstrapModels();
+    this.#applyActiveRoute(this.#getCurrentRoute());
+    this.#bindRouterState();
+    queueMicrotask(() => this.#bindRouterState());
 
     // Listen for toggle events from topbar
     this._onToggle = () => this.toggle();
@@ -152,6 +156,7 @@ class NTTSidebar extends HTMLElement {
     // Auto-close on navigation
     this._onNavigate = () => {
       if (this.hasAttribute('open')) this.close();
+      this.#applyActiveRoute(this.#getCurrentRoute());
     };
     window.addEventListener('hashchange', this._onNavigate);
   }
@@ -160,6 +165,8 @@ class NTTSidebar extends HTMLElement {
     document.removeEventListener('sidebar-toggle', this._onToggle);
     document.removeEventListener('keydown', this._onKeydown);
     window.removeEventListener('hashchange', this._onNavigate);
+    this.#routerUnsub?.();
+    this.#routerUnsub = null;
     for (const unsub of this.#unsubs) unsub();
     this.#unsubs = [];
   }
@@ -275,6 +282,71 @@ class NTTSidebar extends HTMLElement {
     countEl.textContent = total !== '' ? String(total) : '';
   }
 
+  #bindRouterState() {
+    this.#routerUnsub?.();
+    this.#routerUnsub = null;
+
+    const routerAddr = this.getAttribute('router');
+    if (!routerAddr) return;
+
+    const router = getRouter(routerAddr);
+    if (!router?.observe) return;
+
+    this.#applyActiveRoute(typeof router.current === 'string' ? router.current : this.#getCurrentRoute());
+    this.#routerUnsub = router.observe('route', (route) => {
+      this.#applyActiveRoute(route || '');
+    });
+  }
+
+  #getCurrentRoute() {
+    const hashRoute = window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1)
+      : '';
+    if (hashRoute) return hashRoute;
+
+    const routerAddr = this.getAttribute('router');
+    const router = routerAddr ? getRouter(routerAddr) : null;
+    return typeof router?.current === 'string' ? router.current : '';
+  }
+
+  #clearActiveRoute() {
+    this.shadowRoot.querySelectorAll('.model-section--selected')
+      .forEach((section) => section.classList.remove('model-section--selected'));
+    this.shadowRoot.querySelectorAll('.sidebar-link--selected')
+      .forEach((link) => link.classList.remove('sidebar-link--selected'));
+    this.shadowRoot.querySelectorAll('.model-header[aria-current="page"]')
+      .forEach((header) => header.removeAttribute('aria-current'));
+  }
+
+  #applyActiveRoute(route = '') {
+    if (!this.shadowRoot) return;
+
+    this.#clearActiveRoute();
+
+    const parsed = parseRoute(route);
+    if (!parsed || parsed.type === 'home') return;
+
+    if (parsed.type === 'app') {
+      const activeLink = [...this.shadowRoot.querySelectorAll('.sidebar-link')].find((linkEl) => {
+        const href = linkEl.getAttribute('data-href') || '';
+        return href.startsWith('#') ? href.slice(1) === parsed.app : href === route;
+      });
+      if (!activeLink) return;
+
+      activeLink.classList.add('sidebar-link--selected');
+      activeLink.querySelector('.model-header')?.setAttribute('aria-current', 'page');
+      return;
+    }
+
+    const activeSection = this.shadowRoot.querySelector(
+      `.model-section[data-model="${parsed.model}"]`
+    );
+    if (!activeSection) return;
+
+    activeSection.classList.add('model-section--selected');
+    activeSection.querySelector('.model-header')?.setAttribute('aria-current', 'page');
+  }
+
   // ── Navigation ──
 
   // View attribute → component tag mapping
@@ -317,6 +389,7 @@ class NTTSidebar extends HTMLElement {
       data: route,
       meta: { reset: true },
     });
+    this.#applyActiveRoute(route);
     this.close();
   }
 
@@ -338,6 +411,7 @@ class NTTSidebar extends HTMLElement {
       data: itemRef,
       meta: { reset: true },
     });
+    this.#applyActiveRoute(itemRef);
     this.close();
   }
 
@@ -355,6 +429,7 @@ class NTTSidebar extends HTMLElement {
       data: route,
       meta: { reset: true },
     });
+    this.#applyActiveRoute(route);
     this.close();
   }
 
@@ -369,6 +444,7 @@ class NTTSidebar extends HTMLElement {
       data: buildRoute({ type: 'home' }),
       meta: { reset: true },
     });
+    this.#applyActiveRoute('');
     this.close();
   }
 
@@ -412,6 +488,10 @@ class NTTSidebar extends HTMLElement {
     return this.getAttribute('subtitle') || '';
   }
 
+  get #brandLogo() {
+    return this.getAttribute('brand-logo') || '';
+  }
+
   #render() {
     let avatarIdx = 0;
 
@@ -432,8 +512,11 @@ class NTTSidebar extends HTMLElement {
       ? `
         <div class="sidebar-brand">
           <div class="sidebar-brand-copy${this.getAttribute('router') ? ' sidebar-brand-copy--clickable' : ''}">
+            ${this.#brandLogo ? `<img class="sidebar-brand-logo" src="${this.#brandLogo}" alt="${this.#brand} logo">` : ''}
+            <div class="sidebar-brand-text">
             <div class="sidebar-brand-title">${this.#brand}</div>
             ${this.#subtitle ? `<div class="sidebar-brand-subtitle">${this.#subtitle}</div>` : ''}
+            </div>
           </div>
           <button class="sidebar-close" aria-label="Close sidebar">${ICON_CLOSE}</button>
         </div>`

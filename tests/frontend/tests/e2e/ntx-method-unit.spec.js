@@ -35,9 +35,8 @@ test.describe('ntx-method — Product Favorite Button', () => {
       if (!item?.shadowRoot) return false;
       const method = item.shadowRoot.querySelector('ntx-method[method="favorite"]');
       if (!method?.shadowRoot) return false;
-      const icon = method.shadowRoot.querySelector('.method-btn-icon');
-      // star SVG has a <polygon> element
-      return !!icon?.querySelector('svg polygon');
+      const icon = method.shadowRoot.querySelector('ntx-icon');
+      return !!icon?.shadowRoot?.querySelector('svg polygon');
     });
     expect(hasStarSvg).toBe(true);
   });
@@ -94,7 +93,7 @@ test.describe('ntx-method — Product Favorite Button', () => {
         display: s.display,
       };
     });
-    expect(style.borderRadius).toBe('100px'); // pill shape
+    expect(parseFloat(style.borderRadius)).toBeGreaterThanOrEqual(100);
     expect(style.display).toContain('flex');
   });
 
@@ -292,7 +291,7 @@ test.describe('ntx-method — Edge Cases', () => {
         hasBtn: !!method.shadowRoot.querySelector('.method-btn'),
         hasIcon: !!method.shadowRoot.querySelector('.method-btn-icon'),
         hasCount: !!method.shadowRoot.querySelector('.method-btn-count'),
-        hasStyle: !!method.shadowRoot.querySelector('style'),
+        hasStyle: !!(method.shadowRoot.querySelector('style') || method.shadowRoot.querySelector('link[rel="stylesheet"]') || method.shadowRoot.adoptedStyleSheets?.length),
       };
     });
     expect(structure.hasBtn).toBe(true);
