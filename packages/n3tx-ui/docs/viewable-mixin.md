@@ -76,7 +76,7 @@ All keys are optional. The entire dict is copied into `schema['ui']`.
 |-----|------|-------------|
 | `field_order` | `list[str]` | Field render order (Formidable) |
 | `groups` | `dict[str, list[str]]` | Named fieldset groupings |
-| `icon` | `str` | Shared icon token: emoji, URL/path, or lookup key |
+| `icon` | `str` | Shared icon token: inline-SVG lookup key, emoji, or URL/path |
 | `methods` | `dict[str, dict]` | Per-method UI hints (see below) |
 | `renderer` | `dict` | Override component tags: `{'item': 'ntx-item', 'list': 'ntx-list'}` |
 | `populate` | `dict` | Schema hydration hints: `{'depth': 2}` |
@@ -111,10 +111,10 @@ These are emitted as `schema['methods'][name]['ui']` for the frontend to read.
 `ui.icon` is a universal contract shared by model shells and method actions.
 Accepted values are direct emoji (`'📚'`), direct asset URLs/paths
 (`'/static/icons/books.svg'`), or lookup keys (`'books'`). The frontend
-resolves lookup keys through a shared registry, renders URLs as image icons,
-and otherwise falls back to the raw text token. Emoji rendering uses a
-best-effort monochrome filter so icons stay theme-aware without changing the
-schema shape.
+resolves lookup keys through a shared registry, typically to inline SVG,
+renders URLs as image icons, and otherwise falls back to the raw text token.
+Emoji rendering uses a best-effort monochrome filter so icons stay theme-aware
+without changing the schema shape.
 
 ## Schema Output
 

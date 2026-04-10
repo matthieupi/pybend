@@ -61,12 +61,15 @@ Component (n3tx-core: shadow DOM, addr, ref, model, proto, define(), scheduleRen
 
 Standalone (no Component base): `NTTModal`, `NTTRefPicker`, `NTTTopbar`, `NTTSidebar`, `NTTProfile`.
 
-`NTTListField` (`ntx-list-field.js`) is the dedicated array-field surface used by Formidable. It owns scalar-array edit rows, immediate `$ref` link/unlink persistence, and field-change events back to the parent item.
+`NTTListField` (`ntx-list-field.js`) is the dedicated array-field surface used by Formidable. It owns scalar-array edit rows, staged `$ref` link add/remove behavior, and `field-change` events back to the parent item.
+
+`NTTSidebar` supports `brand`, `subtitle`, and optional `brand-logo` attributes so app shells can place a custom mark in the sidebar brand section without forking the component.
 
 `NTTIcon` (`ntx-icon.js`) is the shared icon surface used by method buttons,
 sidebar avatars, and collection headers. It resolves icon tokens through
-`static/utils/icon-resolver.js` and supports emoji, image URLs/paths, and
-lookup keys registered at runtime with `registerIcons({...})`.
+`static/utils/icon-resolver.js` and supports inline SVG lookup entries,
+emoji, image URLs/paths, and custom lookup keys registered at runtime with
+`registerIcons({...})`.
 
 **Agent components** (n3tx-agents, extend `NTTStream` from n3tx-ui):
 
@@ -240,7 +243,7 @@ Shell pages place the reusable theme control explicitly:
 </ntx-sidebar>
 ```
 
-`ntx-topbar` exposes `slot="user-menu"` inside the authenticated dropdown, and `ntx-sidebar` exposes `slot="footer"` at the bottom of the shell. Neither component auto-renders theme UI.
+`ntx-topbar` exposes `slot="user-menu"` inside the authenticated dropdown, and `ntx-sidebar` exposes `slot="footer"` at the bottom of the shell. Neither component auto-renders theme UI. Sidebar labels now render in uppercase, the footer action stretches to the full available width, and route-matched entries receive a persistent selected state separate from hover and accordion expansion.
 
 Additional theme-control rules:
 

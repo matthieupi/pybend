@@ -212,10 +212,20 @@ For full schema anatomy details, see `/workspace/docs/CORE.md`.
 
 `ui.icon` is resolved by `packages/n3tx-ui/src/n3tx_ui/static/utils/icon-resolver.js`
 and rendered by `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-icon.js`.
-Resolution order is: empty → nothing, URL/path-like string → image icon,
-registered lookup key → resolved token, otherwise raw text. Emoji tokens use a
-best-effort monochrome filter controlled with CSS variables such as
-`--icon-filter`, `--icon-opacity`, and `--icon-size`.
+Resolution order is: empty → nothing, registered lookup key → inline SVG or
+other registered token, URL/path-like string → image icon, emoji → emoji icon,
+otherwise raw text. Emoji tokens use a best-effort monochrome filter
+controlled with CSS variables such as `--icon-filter`, `--icon-opacity`, and
+`--icon-size`.
+
+Apps can register their own icon packs at startup with `registerIcons({...})`.
+Veille does this in `apps/veille/static/utils/veille-icons.js` before importing
+its shell components, so model `__ui__.icon` tokens and app-shell `<ntx-icon>`
+usage both resolve through the shared registry.
+
+`ntx-topbar`'s built-in chrome icons are separate from that registry. Profile,
+logout, chevron, and hamburger are inline SVG constants defined directly in
+`packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js`.
 
 ### Schema Propagation Lifecycle
 

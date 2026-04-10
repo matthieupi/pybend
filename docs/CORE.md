@@ -113,7 +113,7 @@ class Product(ProtoModel):
 `ui.icon` is part of that contract. Models and methods can declare a single icon
 token and let the frontend decide how to render it. Accepted values are direct
 emoji, direct URL/path strings, or lookup keys resolved through the frontend's
-shared icon registry.
+shared icon registry (typically to inline SVG, with image and text fallbacks).
 
 ### Schema generation pipeline
 

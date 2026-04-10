@@ -568,7 +568,7 @@ Renders a form for invoking a custom method on a model or instance.
 
 | Attribute | Description |
 |-----------|-------------|
-| `icon` | SVG icon name (`heart`, `star`, `reply`, or default). |
+| `icon` | Shared icon token (`heart`, `star`, `reply`, URL/path, emoji, or custom lookup key). |
 | `count-field` | Entity field name whose collection length is shown as a count pill. |
 | `layout` | Rendering layout: `fieldset` (default), `inline`, or `button`. |
 
@@ -580,7 +580,7 @@ Renders a form for invoking a custom method on a model or instance.
 | `inline` | Compact input or textarea, depending on widget/schema | Quick input (comment, reply, ask) |
 | `button` | Icon + count pill, compact | Toggle actions (like, favorite) |
 
-Button layout uses an SVG icon library (heart, star, reply, default) with hover/active states. The clickable control is rendered as `.method-btn`, while manual fieldset/inline submits use `button[type="submit"]`. The `count-field` attribute reads the collection length from entity data, handling both populated wrappers (`{data, meta}`) and plain arrays.
+Button layout uses the shared icon resolver, which maps built-in lookup tokens like `heart`, `star`, and `reply` to inline SVG and still accepts direct URL/path and emoji values. The clickable control is rendered as `.method-btn`, while manual fieldset/inline submits use `button[type="submit"]`. The `count-field` attribute reads the collection length from entity data, handling both populated wrappers (`{data, meta}`) and plain arrays.
 
 ### Behavior
 
@@ -666,7 +666,7 @@ Theme controls are no longer hardcoded into the component. `ntx-topbar` exposes 
 **File:** `components/ntx-sidebar.js`
 **Tag:** `<ntx-sidebar>`
 
-Model navigation shell with route templates, collapsible model groups, and a manual footer insertion point. Shell pages can place `<ntx-theme-button slot="footer"></ntx-theme-button>` at the bottom of the sidebar; the component does not auto-render theme UI from config.
+Model navigation shell with route templates, collapsible model groups, and a manual footer insertion point. Shell pages can place `<ntx-theme-button slot="footer"></ntx-theme-button>` at the bottom of the sidebar; the component does not auto-render theme UI from config. Sidebar labels render in uppercase, footer actions stretch to the full slot width, and the shell now applies a distinct selected treatment for the route that matches the active page.
 
 ## NTTThemeButton
 
