@@ -146,6 +146,44 @@ async function clickAnalytics(page) {
   await page.locator('.veille-topbar-icon').first().click();
 }
 
+async function openProfileFromTopbar(page) {
+  await page.locator('ntx-topbar').evaluate((el) => {
+    const root = el.shadowRoot;
+    const link = [...root.querySelectorAll('a.dropdown-item')]
+      .find((node) => node.textContent.trim() === 'Profile');
+    if (!link) throw new Error('Missing profile link');
+    link.click();
+  });
+}
+
+async function profileState(page) {
+  return page.locator('ntx-router').evaluate((el) => {
+    const content = el.shadowRoot?.querySelector('.router-content');
+    const profile = content?.querySelector('ntx-profile');
+    const root = profile?.shadowRoot;
+    const text = root?.textContent?.replace(/\s+/g, ' ').trim() || '';
+    return {
+      mounted: !!profile,
+      registered: !!customElements.get('ntx-profile'),
+      hasShadowRoot: !!root,
+      hasCard: !!root?.querySelector('.profile-card'),
+      text,
+      email: root?.querySelector('.email')?.textContent?.trim() || '',
+      role: root?.querySelector('.role')?.textContent?.trim() || '',
+    };
+  });
+}
+
+async function waitForProfile(page, timeoutMs = 10000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const state = await profileState(page);
+    if (state.hasCard) return state;
+    await delay(200);
+  }
+  assert.equal((await profileState(page)).hasCard, true, 'expected profile card to render');
+}
+
 test.before(async () => {
   await startServer();
 });
@@ -283,6 +321,62 @@ test('topbar analytics action returns to the index page', async () => {
     await waitForRouteSignature(page, home);
 
     assert.deepEqual(errors, []);
+  } finally {
+    await page.close();
+  }
+});
+
+test('direct profile route renders the shared profile page', async () => {
+  const page = await newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(String(error)));
+
+  try {
+    await login(page);
+    await page.evaluate(() => { window.location.hash = '#@profile'; });
+    const state = await waitForProfile(page);
+
+    assert.deepEqual(errors, []);
+    assert.equal(state.registered, true, 'expected ntx-profile to be registered');
+    assert.equal(state.mounted, true, 'expected router to mount ntx-profile');
+    assert.equal(state.hasShadowRoot, true, 'expected ntx-profile to render with shadow DOM');
+  } finally {
+    await page.close();
+  }
+});
+
+test('topbar profile action opens the profile page', async () => {
+  const page = await newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(String(error)));
+
+  try {
+    await login(page);
+    await openProfileFromTopbar(page);
+    const state = await waitForProfile(page);
+
+    assert.deepEqual(errors, []);
+    assert.equal(new URL(page.url()).hash, '#@profile');
+    assert.equal(state.hasCard, true, 'expected profile card to render from topbar navigation');
+  } finally {
+    await page.close();
+  }
+});
+
+test('profile page shows authenticated user identity', async () => {
+  const page = await newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(String(error)));
+
+  try {
+    await login(page);
+    await page.evaluate(() => { window.location.hash = '#@profile'; });
+    const state = await waitForProfile(page);
+
+    assert.deepEqual(errors, []);
+    assert.match(state.text, /admin/i);
+    assert.match(state.email, /admin@veille\.local/i);
+    assert.match(state.role, /admin/i);
   } finally {
     await page.close();
   }
