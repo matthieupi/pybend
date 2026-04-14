@@ -4,20 +4,15 @@
  * Handles the data lifecycle for a collection of entities:
  *   - On define: subscribes to the DynamicClass and triggers a READ
  *   - Receives address arrays via UPDATE handler
- *   - Renders by stamping one child element per address
+ *   - Manages selection and pagination state
+ *   - Provides child-stamping helpers for concrete renderers
  *
- * Override get childTag() to change which element is stamped per item.
- * Override render() for fully custom collection rendering.
- * The built-in NTTList (ntx-list.js) provides a zero-config default.
+ * Override render()/update() to build a concrete collection UI.
+ * The built-in NTTList (ntx-list.js) provides the default grid list renderer.
  */
 import {Component} from '../core/Component.js';
 import TX from '../core/TX.js';
 import Logging from '../utils/Logging.js';
-import {permissions} from '../utils/Permissions.js';
-import {NTTModal} from './ntx-modal.js';
-import { Formidable } from '../generators/form.js';
-import { iconMarkup } from '../utils/icon-resolver.js';
-import './ntx-icon.js';
 
 
 export class ListElement extends Component {
@@ -129,46 +124,6 @@ export class ListElement extends Component {
 
 
   /** ─────────────────────────────────────────── **/
-  /**         Create (Modal)                       **/
-  /** ─────────────────────────────────────────── **/
-
-  /** Open a modal with a create form for this entity type. */
-  openCreateModal() {
-    const modal = NTTModal.open({
-      title: `New ${this.schema.__name__}`,
-      submitLabel: 'Create',
-    });
-
-    // Stamp an ntx-item in create/edit mode inside the modal body
-    const el = document.createElement(this.childTag);
-    el.setAttribute('display', 'md');
-    el.setAttribute('create-mode', '');
-    el.mode = 'edit';
-    el.schema = this.schema;
-    el.value = {};
-    modal.body.appendChild(el);
-
-    modal.onSubmit = () => {
-      if (!el.value || typeof el.value !== 'object') return;
-      // Client-side validation before sending
-      const errors = Formidable.validateForm(el);
-      if (errors.length > 0) {
-        if (el.showFieldErrors) el.showFieldErrors(errors);
-        return;
-      }
-      // Strip null/NaN values before sending to avoid invalid payloads
-      const data = {};
-      for (const [k, v] of Object.entries(el.value)) {
-        if (v != null && !(typeof v === 'number' && isNaN(v))) data[k] = v;
-      }
-      if (Object.keys(data).length === 0) return;
-      this.proto.call('CREATE', data, { inbox: 'CREATE' });
-      modal.close('submit');
-    };
-  }
-
-
-  /** ─────────────────────────────────────────── **/
   /**         Child Element Resolution             **/
   /** ─────────────────────────────────────────── **/
 
@@ -219,97 +174,7 @@ export class ListElement extends Component {
   /**         Surgical DOM Update                  **/
   /** ─────────────────────────────────────────── **/
 
-  /** Patch list DOM in-place: remove deletions, append additions. Returns false → full render(). */
   update(prev, next) {
-    if (!Array.isArray(prev) || !Array.isArray(next)) return false;
-    const grid = this.shadowRoot?.querySelector('.list-grid');
-    if (!grid) return false;
-
-    const prevSet = new Set(prev);
-    const nextSet = new Set(next);
-
-    // Deletions: remove children whose addr is no longer in list
-    const deletions = prev.filter(addr => !nextSet.has(addr));
-    for (const addr of deletions) {
-      const el = grid.querySelector(`[data-value="${addr}"]`);
-      if (el) el.remove();
-    }
-
-    // Additions: batch into a fragment so we only trigger one reflow
-    const additions = next.filter(addr => !prevSet.has(addr));
-    if (additions.length > 0) {
-      const fragment = document.createDocumentFragment();
-      for (const addr of additions) {
-        const child = this.createChild(addr);
-        child.setAttribute('data-value', addr);
-        fragment.appendChild(child);
-      }
-      grid.appendChild(fragment);
-    }
-
-    // Update count
-    const countEl = this.shadowRoot.querySelector('.list-count');
-    if (countEl) {
-      const meta = this.proto?._paginationMeta;
-      const total = meta?.total ?? next.length;
-      countEl.textContent = `${next.length}${meta ? ` / ${total}` : ''}`;
-    }
-
-    return true;
-  }
-
-
-  /** ─────────────────────────────────────────── **/
-  /**         Default Render                       **/
-  /** ─────────────────────────────────────────── **/
-
-  render() {
-    if (!this.schema || !Array.isArray(this.value)) return;
-
-    const meta = this.proto?._paginationMeta;
-    const total = meta?.total ?? this.value.length;
-    const hasMore = meta?.has_more ?? false;
-    const headless = this.hasAttribute('headless');
-    const canCreate = !headless && this.hasAttribute('allow-create') &&
-                      permissions.canAction(this.schema?.access, 'create');
-    const description = this.schema?.ui?.description || '';
-    const createLabel = this.schema?.ui?.create_label || '';
-    const addBtnClass = createLabel ? 'add-btn add-btn--text' : 'add-btn';
-    const addBtnTitle = createLabel || 'Add new';
-    const addBtnContent = createLabel
-      ? `<span class="add-btn-plus">+</span><span class="add-btn-label">${createLabel}</span>`
-      : '+';
-
-    this.shadowRoot.innerHTML = `
-      ${headless ? '' : `
-      <div class="list-header">
-        <div class="list-heading">
-          <div class="list-title-wrap">
-            ${iconMarkup(this.schema?.ui?.icon, { label: this.schema?.__name__ || this.model, className: 'list-title-icon' })}
-            <h1>${this.model}s <span class="list-count">${this.value.length}${meta ? ` / ${total}` : ''}</span></h1>
-          </div>
-          ${description ? `<p class="list-description">${description}</p>` : ''}
-        </div>
-        ${canCreate ? `<button class="${addBtnClass}" title="${addBtnTitle}">${addBtnContent}</button>` : ''}
-      </div>`}
-      <div class="list-grid"></div>
-      ${hasMore ? '<button class="load-more-btn">Load More</button>' : ''}
-    `;
-
-    // Batch all child elements into a DocumentFragment first so the browser
-    // only performs a single reflow when the fragment is appended to the grid.
-    const grid = this.shadowRoot.querySelector('.list-grid');
-    const fragment = document.createDocumentFragment();
-    this.value.forEach((addr, i) => {
-      const child = this.createChild(addr);
-      child.setAttribute('data-value', addr);
-      child.style.setProperty('--stagger-delay', `${i * 50}ms`);
-      fragment.appendChild(child);
-    });
-    grid.appendChild(fragment);
-
-    // Bind events
-    this.shadowRoot.querySelector('.load-more-btn')?.addEventListener('click', () => this.loadMore());
-    this.shadowRoot.querySelector('.add-btn')?.addEventListener('click', () => this.openCreateModal());
+    return false;
   }
 }

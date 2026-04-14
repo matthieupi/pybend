@@ -112,9 +112,9 @@ static/
       Socket.js                # WebSocket client with heartbeat, reconnect, message queue
   components/
     NTTElement.js              # Single entity base (UPDATE, DESCRIBE, READ, save, auto-render)
-    ListElement.js             # Collection base (subscribe, UPDATE, SELECT, childTag, createChild, render)
+    ListElement.js             # Collection lifecycle base (subscribe, UPDATE, SELECT, childTag, createChild)
     ntx-item.js                # NTTItem: built-in default entity (Formidable + edit toggle + SELECT click)
-    ntx-list.js                # NTTList: built-in default collection (19 lines, styles only)
+    ntx-list.js                # NTTList: built-in default collection renderer (header, grid, create modal, packed layout)
     ntx-router.js              # NTTRouter: generic view container ("mini browser")
     ntx-router.css             # Router chrome styles (back button, title, content area)
     ntx-method.js              # NTTMethod: renders method invocation form

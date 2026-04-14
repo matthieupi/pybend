@@ -27,6 +27,8 @@ vi.mock('../../utils/Permissions.js', () => ({
 import { NTTList } from '../../components/ntx-list.js';
 import { ListElement } from '../../components/ListElement.js';
 
+const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
 describe('ntx-list.js (NTTList)', () => {
   it('should be registered as ntx-list custom element', () => {
     expect(customElements.get('ntx-list')).toBe(NTTList);
@@ -45,6 +47,21 @@ describe('ntx-list.js (NTTList)', () => {
 
   it('should extend ListElement', () => {
     expect(NTTList.prototype instanceof ListElement).toBe(true);
+  });
+
+  it('should own the default list render implementation', () => {
+    const desc = Object.getOwnPropertyDescriptor(NTTList.prototype, 'render');
+    expect(desc).toBeTruthy();
+  });
+
+  it('should own the default surgical update implementation', () => {
+    const desc = Object.getOwnPropertyDescriptor(NTTList.prototype, 'update');
+    expect(desc).toBeTruthy();
+  });
+
+  it('should own the default modal create flow', () => {
+    const desc = Object.getOwnPropertyDescriptor(NTTList.prototype, 'openCreateModal');
+    expect(desc).toBeTruthy();
   });
 });
 
@@ -163,6 +180,52 @@ describe('ListElement (via NTTList)', () => {
       const icon = el.shadowRoot.querySelector('.list-title-wrap ntx-icon');
       expect(icon).not.toBeNull();
       expect(icon.getAttribute('value')).toBe('💸');
+    });
+  });
+
+  describe('packed layout', () => {
+    it('should assign row spans for wide card children', async () => {
+      const el = document.createElement('ntx-list');
+      el.model = 'Demo';
+      el.schema = { __name__: 'Demo', ui: {}, access: {} };
+      el.value = ['alpha', 'beta'];
+      el.setAttribute('item-display', 'card');
+      document.body.appendChild(el);
+
+      el.render();
+
+      const grid = el.shadowRoot.querySelector('.list-grid');
+      const children = Array.from(grid.children);
+      const heights = [120, 260];
+
+      children.forEach((child, index) => {
+        Object.defineProperty(child, 'getBoundingClientRect', {
+          configurable: true,
+          value: () => ({ height: heights[index] }),
+        });
+      });
+
+      await nextFrame();
+
+      expect(grid.classList.contains('list-grid--packed')).toBe(true);
+      expect(children[0].style.gridRowEnd).toBe('span 15');
+      expect(children[1].style.gridRowEnd).toBe('span 33');
+
+      document.body.removeChild(el);
+    });
+
+    it('should stay disabled for sidebar dropdown lists', () => {
+      const el = document.createElement('ntx-list');
+      el.model = 'Demo';
+      el.schema = { __name__: 'Demo', ui: {}, access: {} };
+      el.value = ['alpha'];
+      el.setAttribute('item-display', 'card');
+      el.setAttribute('sidebar-dropdown', '');
+
+      el.render();
+
+      const grid = el.shadowRoot.querySelector('.list-grid');
+      expect(grid.classList.contains('list-grid--packed')).toBe(false);
     });
   });
 });

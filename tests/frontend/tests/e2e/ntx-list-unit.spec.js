@@ -336,3 +336,105 @@ test.describe('ntx-list — Responsive Breakpoints', () => {
     });
   }
 });
+
+
+test.describe('ntx-list — Packed Card Layout', () => {
+
+  test('wide card lists pack uneven heights without changing DOM order', async ({ page }) => {
+    await page.goto(APP_URL);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(500);
+
+    const layout = await page.evaluate(async () => {
+      if (!customElements.get('test-height-card')) {
+        class TestHeightCard extends HTMLElement {
+          static get observedAttributes() {
+            return ['ref'];
+          }
+
+          constructor() {
+            super();
+            this.attachShadow({ mode: 'open' });
+          }
+
+          connectedCallback() {
+            this.render();
+          }
+
+          attributeChangedCallback() {
+            this.render();
+          }
+
+          render() {
+            const ref = this.getAttribute('ref') || 'a';
+            const heights = { a: 340, b: 120, c: 150, d: 110 };
+            const height = heights[ref] || 120;
+            this.shadowRoot.innerHTML = `
+              <style>
+                :host { display: block; }
+                .card {
+                  height: ${height}px;
+                  border-radius: 14px;
+                  background: linear-gradient(180deg, #f5f7f7 0%, #e4ecec 100%);
+                  border: 1px solid rgba(0, 70, 74, 0.12);
+                  box-sizing: border-box;
+                }
+              </style>
+              <div class="card"></div>
+            `;
+          }
+        }
+
+        customElements.define('test-height-card', TestHeightCard);
+      }
+
+      const host = document.createElement('section');
+      host.innerHTML = `
+        <ntx-list id="packed-layout-test" model="Demo" display="xl">
+          <template item-template>
+            <test-height-card></test-height-card>
+          </template>
+        </ntx-list>
+      `;
+      document.body.appendChild(host);
+
+      const list = host.querySelector('#packed-layout-test');
+      list.style.display = 'block';
+      list.style.width = '960px';
+      list.schema = { __name__: 'Demo', access: {}, ui: {} };
+      list.value = ['a', 'b', 'c', 'd'];
+      list.render();
+
+      await new Promise((resolve) => setTimeout(resolve, 120));
+
+      const grid = list.shadowRoot.querySelector('.list-grid');
+      const packedClass = grid.classList.contains('list-grid--packed');
+      const items = Array.from(grid.children).map((child) => {
+        const rect = child.getBoundingClientRect();
+        return {
+          ref: child.getAttribute('ref'),
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
+        };
+      });
+
+      host.remove();
+
+      return {
+        refs: items.map((item) => item.ref),
+        packedClass,
+        items,
+      };
+    });
+
+    expect(layout.packedClass).toBe(true);
+    expect(layout.refs).toEqual(['a', 'b', 'c', 'd']);
+    expect(layout.items).toHaveLength(4);
+
+    const [first, second, third] = layout.items;
+    expect(Math.abs(first.top - second.top)).toBeLessThan(4);
+    expect(Math.abs(third.left - second.left)).toBeLessThan(4);
+    expect(third.top).toBeLessThan(first.bottom - 40);
+  });
+});

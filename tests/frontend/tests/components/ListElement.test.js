@@ -69,6 +69,22 @@ describe('ListElement.js', () => {
     });
   });
 
+  describe('default renderer boundary', () => {
+    it('should not own the default list render implementation', () => {
+      const desc = Object.getOwnPropertyDescriptor(ListElement.prototype, 'render');
+      expect(desc).toBeUndefined();
+    });
+
+    it('should not own the default modal create flow', () => {
+      const desc = Object.getOwnPropertyDescriptor(ListElement.prototype, 'openCreateModal');
+      expect(desc).toBeUndefined();
+    });
+
+    it('should default update() to full render fallback', () => {
+      expect(ListElement.prototype.update([], [])).toBe(false);
+    });
+  });
+
   describe('append(data)', () => {
     it('should be a function on prototype', () => {
       expect(typeof ListElement.prototype.append).toBe('function');

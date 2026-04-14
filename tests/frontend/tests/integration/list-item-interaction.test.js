@@ -60,8 +60,8 @@ describe('List + Item Interaction', () => {
       expect(Component.normalizeDisplay('unknown')).toBeNull();
     });
 
-    it('SIZES constant has all 5 sizes', () => {
-      expect(Component.SIZES).toEqual(['xs', 'sm', 'md', 'lg', 'xl']);
+    it('SIZES constant has all supported sizes', () => {
+      expect(Component.SIZES).toEqual(['xs', 'sm', 'md', 'lg', 'xl', 'row']);
     });
   });
 
@@ -75,6 +75,7 @@ describe('List + Item Interaction', () => {
         md: 'sm',
         sm: 'xs',
         xs: 'xs',
+        row: 'row',
       });
     });
   });

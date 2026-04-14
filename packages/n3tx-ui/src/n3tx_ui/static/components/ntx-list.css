@@ -3,6 +3,7 @@
 :host {
     display: block;
     animation: fadeIn 260ms var(--ntx-ease, ease) both;
+    --ntx-list-packed-row-size: 8px;
 }
 
 .list-header {
@@ -68,11 +69,20 @@
     align-items: start;
 }
 
+.list-grid.list-grid--packed {
+    grid-auto-flow: row;
+    grid-auto-rows: var(--ntx-list-packed-row-size, 8px);
+}
+
 :host([headless]) .list-grid,
 :host([display="sm"]) .list-grid,
 :host([display="xs"]) .list-grid {
     grid-template-columns: 1fr;
     gap: 0.55rem;
+}
+
+:host([sidebar-dropdown]) .list-grid {
+    gap: 0;
 }
 
 .load-more-btn,
