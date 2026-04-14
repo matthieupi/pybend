@@ -4,7 +4,7 @@
  * Extends NTTItem with grant-specific rendering:
  * - Score color coding (high/mid/low)
  * - Status pills (admissible/inadmissible/new/analyzing)
- * - Justification truncation
+ * - Detailed analysis stays in the full detail view
  * - Funder, deadline, amount display
  *
  * Wired via Grant.__ui__['renderer']['item'] = 'ntx-grant-item'
@@ -41,8 +41,6 @@ class NTXGrantItem extends NTTItem {
         const amount = this.#formatAmount(g.amount_min, g.amount_max);
         const statusClass = this.#statusClass(g.status);
         const scoreClass = this.#scoreClass(g.admissibility_score);
-        const reasoningPreview = this.#previewReasoning(g.admissibility_reasoning);
-
         const html = [];
 
         html.push(`<div class="grant-header">
@@ -72,13 +70,6 @@ class NTXGrantItem extends NTTItem {
             <span class="grant-value grant-value--amount">${this.#esc(amount)}</span>
         </div>`);
         html.push('</div>');
-
-        if (reasoningPreview) {
-            html.push(`<div class="grant-justification">
-                <span class="grant-label">Analysis</span>
-                <div class="grant-justification-text">${this.#esc(reasoningPreview)}</div>
-            </div>`);
-        }
 
         const methods = schema.methods || {};
         const methodHtml = Object.entries(methods).map(([name, def]) => {
@@ -311,13 +302,6 @@ class NTXGrantItem extends NTTItem {
             return `Up to $${max.toLocaleString()}`;
         }
         return '—';
-    }
-
-    #previewReasoning(reasoning) {
-        if (!reasoning) return '';
-        const text = String(reasoning).replace(/\s+/g, ' ').trim();
-        if (text.length <= 220) return text;
-        return `${text.slice(0, 217).trimEnd()}...`;
     }
 
     #renderMarkdown(markdown) {

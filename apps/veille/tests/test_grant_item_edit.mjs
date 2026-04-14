@@ -7,6 +7,9 @@ import { JSDOM } from 'jsdom';
 const CORE_STATIC = '/workspace/packages/n3tx-core/src/n3tx_core/static';
 const UI_STATIC = '/workspace/packages/n3tx-ui/src/n3tx_ui/static';
 const CUSTOM_ITEM = '/workspace/apps/veille/static/components/ntx-grant-item.js';
+const CUSTOM_ITEM_CSS = '/workspace/apps/veille/static/components/ntx-grant-item.css';
+const CUSTOM_RUN_ITEM = '/workspace/apps/veille/static/components/ntx-run-item.js';
+const CUSTOM_RUN_ITEM_CSS = '/workspace/apps/veille/static/components/ntx-run-item.css';
 const TEMP_LINKS = [];
 
 async function ensureTestImports() {
@@ -161,12 +164,18 @@ async function initEnvironment() {
     const { permissions } = await import(`${UI_STATIC}/utils/Permissions.js`);
 
     const itemModuleUrl = pathToFileURL(`${UI_STATIC}/components/ntx-item.js`).href;
+    const grantItemCssUrl = pathToFileURL(CUSTOM_ITEM_CSS).href;
+    const runItemCssUrl = pathToFileURL(CUSTOM_RUN_ITEM_CSS).href;
     const source = await readFile(CUSTOM_ITEM, 'utf8');
-    const patched = source.replace("'./ntx-item.js'", `'${itemModuleUrl}'`);
+    const patched = source
+      .replace("'./ntx-item.js'", `'${itemModuleUrl}'`)
+      .replace("new URL('./ntx-grant-item.css', import.meta.url).href", `'${grantItemCssUrl}'`);
     await import(`data:text/javascript;charset=utf-8,${encodeURIComponent(patched)}`);
 
-    const runItemSource = await readFile('/workspace/apps/veille/static/components/ntx-run-item.js', 'utf8');
-    const patchedRunItem = runItemSource.replace("'./ntx-item.js'", `'${itemModuleUrl}'`);
+    const runItemSource = await readFile(CUSTOM_RUN_ITEM, 'utf8');
+    const patchedRunItem = runItemSource
+      .replace("'./ntx-item.js'", `'${itemModuleUrl}'`)
+      .replace("new URL('./ntx-run-item.css', import.meta.url).href", `'${runItemCssUrl}'`);
     await import(`data:text/javascript;charset=utf-8,${encodeURIComponent(patchedRunItem)}`);
 
     boot = { dom, permissions, Formidable };
@@ -226,6 +235,14 @@ test('custom veille grant item hides display-only grant chrome in edit mode', as
   assert.equal(item.mode, 'edit');
   assert.equal(!!item.shadowRoot.querySelector('.grant-info-grid'), false);
   assert.equal(!!item.shadowRoot.querySelector('.grant-header'), false);
+});
+
+test('custom veille grant item omits analysis in default md display', async () => {
+  const { item } = await setupCustomGrantItem();
+
+  assert.equal(item.displayMode, 'md');
+  assert.equal(!!item.shadowRoot.querySelector('.grant-justification'), false);
+  assert.equal(item.shadowRoot.textContent.includes('Strong match.'), false);
 });
 
 test('custom veille grant item save sends edited values', async () => {

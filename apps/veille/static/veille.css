@@ -81,21 +81,19 @@ body.veille-app .veille-topbar-icon {
     display: inline-grid;
     place-items: center;
     padding: 0;
-    border: 1px solid var(--ntx-line-subtle);
+    border: 0;
     border-radius: 999px;
     background: var(--ntx-panel-strong-bg);
     color: var(--ntx-color-text-subtle);
     cursor: pointer;
     transition:
         color var(--ntx-duration-fast) var(--ntx-ease),
-        background var(--ntx-duration-fast) var(--ntx-ease),
-        border-color var(--ntx-duration-fast) var(--ntx-ease);
+        background var(--ntx-duration-fast) var(--ntx-ease);
 }
 
 body.veille-app .veille-topbar-icon:hover {
     color: var(--ntx-color-accent-strong);
     background: var(--ntx-color-surface-3);
-    border-color: var(--ntx-line-subtle);
 }
 
 body.veille-app .veille-topbar-icon ntx-icon {
@@ -110,7 +108,8 @@ body.veille-app .veille-shell-cta {
     min-height: 2.9rem;
     margin-bottom: 0.8rem;
     padding: 0 1rem;
-    border-radius: 0.4rem;
+    border: 0;
+    border-radius: 0;
     background: var(--ntx-button-primary-bg);
     color: var(--ntx-button-primary-fg);
     font-family: var(--ntx-font-display);
@@ -132,6 +131,9 @@ body.veille-app .veille-shell-cta ntx-icon {
 
 body.veille-app ntx-theme-button[slot="footer"] {
     display: block;
+    --ntx-radius-lg: 0;
+    --ntx-radius-md: 0;
+    --ntx-radius-sm: 0;
 }
 
 body.veille-app #source-panel,
