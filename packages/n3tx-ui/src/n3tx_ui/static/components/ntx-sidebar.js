@@ -43,6 +43,7 @@ import { matrix } from '../core/Matrix.js';
 import { buildRoute, getRouter, parseRoute } from '../core/Router.js';
 import { iconMarkup } from '../utils/icon-resolver.js';
 import './ntx-icon.js';
+import './ntx-sidebar-link-item.js';
 import './ntx-theme-button.js';
 
 const SIDEBAR_CSS = new URL('./ntx-sidebar.css', import.meta.url).href;
@@ -472,7 +473,11 @@ class NTTSidebar extends HTMLElement {
     const list = document.createElement('ntx-list');
     list.setAttribute('model', modelName);
     list.setAttribute('display', 'sm');
+    list.setAttribute('item-tag', 'ntx-sidebar-link-item');
+    list.setAttribute('item-display', 'sm');
+    list.setAttribute('sidebar-dropdown', '');
     list.setAttribute('headless', '');
+    list.style.setProperty('--ntx-sidebar-record-indent', '3.48rem');
     const routerAttr = this.getAttribute('router');
     if (routerAttr) list.setAttribute('router', routerAttr);
     records.appendChild(list);

@@ -549,6 +549,23 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
       document.body.removeChild(el);
     });
 
+    it('should create lazy record list with sidebar link item renderer', () => {
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('models', 'Product');
+      document.body.appendChild(el);
+
+      const header = el.shadowRoot.querySelector('.model-header');
+      header.click();
+
+      const list = el.shadowRoot.querySelector('.model-records ntx-list');
+      expect(list).toBeTruthy();
+      expect(list.getAttribute('item-tag')).toBe('ntx-sidebar-link-item');
+      expect(list.getAttribute('item-display')).toBe('sm');
+      expect(list.hasAttribute('sidebar-dropdown')).toBe(true);
+
+      document.body.removeChild(el);
+    });
+
     it('should mark the current model route as selected from the hash', () => {
       window.location.hash = '#Product';
 
