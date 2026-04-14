@@ -14,6 +14,8 @@
  *   Child elements with a `model` attribute serve as declarative route templates.
  *   Clicking the model name in the sidebar navigates to the component tag and
  *   attributes specified by the template element.  Children are hidden on connect.
+ *   Use `sidebar-label="..."` on a template child to override the label shown
+ *   in the sidebar without changing the mounted route/view.
  *
  *   When children are present and no `models` attribute is set, the model list
  *   is derived from the children (in DOM order).
@@ -22,6 +24,7 @@
  *
  *   <ntx-sidebar router="main">
  *     <ntx-table model="Grant" allow-create></ntx-table>   <!-- model: expandable list -->
+ *     <ntx-list model="AgentActor" sidebar-label="Agents"></ntx-list>
  *     <ntx-list  model="Source"></ntx-list>                 <!-- model: expandable list -->
  *     <ntx-item  model="Organization"></ntx-item>           <!-- item: singleton nav -->
  *     <a href="#settings">Settings</a>                      <!-- link: hash navigation -->
@@ -91,12 +94,13 @@ class NTTSidebar extends HTMLElement {
   connectedCallback() {
     // Scan ALL direct children in DOM order
     const children = [...this.children];
-    const SKIP = new Set(['model', 'slot', 'class', 'style', 'id', 'display']);
+    const SKIP = new Set(['model', 'slot', 'class', 'style', 'id', 'display', 'sidebar-label']);
 
     for (const child of children) {
       if (child.hasAttribute('model')) {
         const modelName = child.getAttribute('model');
         const tag = child.tagName.toLowerCase();
+        const sidebarLabel = child.getAttribute('sidebar-label') || '';
         const attrs = {};
         for (const attr of child.attributes) {
           if (!SKIP.has(attr.name)) attrs[attr.name] = attr.value;
@@ -104,9 +108,9 @@ class NTTSidebar extends HTMLElement {
         this.#routeTemplates.set(modelName, { tag, attrs });
 
         if (tag === 'ntx-item') {
-          this.#entries.push({ type: 'item', name: modelName });
+          this.#entries.push({ type: 'item', name: modelName, label: sidebarLabel || modelName });
         } else {
-          this.#entries.push({ type: 'model', name: modelName });
+          this.#entries.push({ type: 'model', name: modelName, label: sidebarLabel || modelName });
         }
         child.hidden = true;
       } else if (child.tagName === 'A' && child.hasAttribute('href')) {
@@ -222,15 +226,16 @@ class NTTSidebar extends HTMLElement {
       if (!resp.ok) return;
       const result = await resp.json();
       const data = result.data || result;
-      if (data.length > 0) {
-        const item = data[0];
-        const id = item.id || item.$id?.split('/').pop();
-        if (id) {
-          this.#itemRefs[modelName] = `${modelName}/${id}`;
-          const displayName = item.name || item.title || modelName;
-          this.#itemNames[modelName] = displayName;
+        if (data.length > 0) {
+          const item = data[0];
+          const id = item.id || item.$id?.split('/').pop();
+          if (id) {
+            this.#itemRefs[modelName] = `${modelName}/${id}`;
+            const entry = this.#entries.find((e) => e.name === modelName);
+            const displayName = entry?.label || item.name || item.title || modelName;
+            this.#itemNames[modelName] = displayName;
 
-          // Update the name in the sidebar
+            // Update the name in the sidebar
           const nameEl = this.shadowRoot.querySelector(
             `.model-section[data-model="${modelName}"] .model-name`
           );
@@ -252,7 +257,7 @@ class NTTSidebar extends HTMLElement {
     const entry = this.#entries.find(e => e.name === modelName);
     // For item entries, don't overwrite with schema name — wait for fetchItemRef
     if (entry?.type !== 'item') {
-      const displayName = DC._schema?.__name__ || modelName;
+      const displayName = entry?.label || DC._schema?.title || DC._schema?.__name__ || modelName;
       const nameEl = header.querySelector('.model-name');
       if (nameEl) nameEl.textContent = displayName;
     }
@@ -502,9 +507,9 @@ class NTTSidebar extends HTMLElement {
 
     const sectionsHtml = this.#entries.map((entry) => {
       if (entry.type === 'model') {
-        return this.#renderModelEntry(entry.name, avatarIdx++);
+        return this.#renderModelEntry(entry, avatarIdx++);
       } else if (entry.type === 'item') {
-        return this.#renderItemEntry(entry.name, avatarIdx++);
+        return this.#renderItemEntry(entry, avatarIdx++);
       } else if (entry.type === 'link') {
         return this.#renderLinkEntry(entry);
       }
@@ -580,7 +585,8 @@ class NTTSidebar extends HTMLElement {
     update();
   }
 
-  #renderModelEntry(modelName, idx) {
+  #renderModelEntry(entry, idx) {
+    const modelName = entry.name;
     const initial = modelName[0].toUpperCase();
     const gradient = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
 
@@ -588,7 +594,7 @@ class NTTSidebar extends HTMLElement {
       <div class="model-section" data-model="${modelName}">
         <button class="model-header">
           <div class="model-avatar" style="background: ${gradient}">${initial}</div>
-          <span class="model-name">${modelName}</span>
+          <span class="model-name">${entry.label || modelName}</span>
           <span class="model-count"></span>
           <span class="model-chevron">${CHEVRON_RIGHT}</span>
         </button>
@@ -597,7 +603,8 @@ class NTTSidebar extends HTMLElement {
     `;
   }
 
-  #renderItemEntry(modelName, idx) {
+  #renderItemEntry(entry, idx) {
+    const modelName = entry.name;
     const initial = modelName[0].toUpperCase();
     const gradient = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
 
@@ -605,7 +612,7 @@ class NTTSidebar extends HTMLElement {
       <div class="model-section model-section--item" data-model="${modelName}">
         <button class="model-header">
           <div class="model-avatar" style="background: ${gradient}">${initial}</div>
-          <span class="model-name">${modelName}</span>
+          <span class="model-name">${entry.label || modelName}</span>
         </button>
       </div>
     `;

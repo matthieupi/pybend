@@ -361,6 +361,23 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
 
       document.body.removeChild(el);
     });
+
+    it('should render sidebar-label overrides for model templates', () => {
+      const el = document.createElement('ntx-sidebar');
+
+      const child = document.createElement('ntx-list');
+      child.setAttribute('model', 'AgentActor');
+      child.setAttribute('sidebar-label', 'Agents');
+      el.appendChild(child);
+
+      document.body.appendChild(el);
+
+      const name = el.shadowRoot.querySelector('.model-name');
+      expect(name).toBeTruthy();
+      expect(name.textContent).toBe('Agents');
+
+      document.body.removeChild(el);
+    });
   });
 
   describe('render output', () => {
@@ -381,6 +398,30 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
       const icon = el.shadowRoot.querySelector('.model-avatar ntx-icon');
       expect(icon).not.toBeNull();
       expect(icon.getAttribute('value')).toBe('📚');
+
+      document.body.removeChild(el);
+    });
+
+    it('should keep sidebar-label overrides after schema bootstrap', async () => {
+      mockNTT.attach.mockImplementation((addr, callback) => {
+        callback({
+          _schema: { __name__: 'AgentActor', title: 'AgentActor' },
+          observe: vi.fn(() => vi.fn()),
+        });
+        return () => {};
+      });
+
+      const el = document.createElement('ntx-sidebar');
+      const child = document.createElement('ntx-list');
+      child.setAttribute('model', 'AgentActor');
+      child.setAttribute('sidebar-label', 'Agents');
+      el.appendChild(child);
+      document.body.appendChild(el);
+      await Promise.resolve();
+
+      const name = el.shadowRoot.querySelector('.model-name');
+      expect(name).toBeTruthy();
+      expect(name.textContent).toBe('Agents');
 
       document.body.removeChild(el);
     });
