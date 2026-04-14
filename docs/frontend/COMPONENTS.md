@@ -270,6 +270,7 @@ customElements.define('product-card', ProductCard);
 **Tag:** Not registered (abstract base — use `NTTList` or extend directly)
 
 Collection base class. Handles the data lifecycle for a list of entities.
+Concrete subclasses such as `NTTList` own the DOM/rendering policy.
 
 ### Constructor
 
@@ -290,12 +291,12 @@ constructor() {
 4. Backend responds with paginated data → DynClass.READ detects {data, meta} shape
    → stores _paginationMeta → creates instances → notifies watchers
 5. ListElement.UPDATE(["Product/1", "Product/2", ...])
-6. render() stamps child elements per address + "Load More" button if has_more
+6. The concrete renderer (for example `NTTList.render()`) decides how to stamp the collection UI
 ```
 
 ### Pagination
 
-ListElement requests paginated data automatically. The initial `definedCallback()` sends `READ` with `{limit: 20, offset: 0}`. The `render()` method reads `this.proto._paginationMeta` to display count/total in the header and a "Load More" button when `has_more` is true.
+ListElement requests paginated data automatically. The initial `definedCallback()` sends `READ` with `{limit: 20, offset: 0}`. Concrete renderers can then read `this.proto._paginationMeta` to display count/total and a "Load More" affordance when `has_more` is true.
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -310,7 +311,7 @@ ListElement requests paginated data automatically. The initial `definedCallback(
 
 | Handler | Trigger | Behavior |
 |---------|---------|----------|
-| `UPDATE(data)` | DynamicClass watcher notification | Expects array of addresses. Sets value, renders. |
+| `UPDATE(data)` | DynamicClass watcher notification | Expects array of addresses. Sets value, then uses `update()` or render fallback. |
 
 ### Child Resolution Chain
 
@@ -326,20 +327,20 @@ When rendering children, `createChild(addr)` resolves the child element to stamp
 
 ### Size Cascade
 
-Children automatically receive a display size based on their parent's current size. This prevents cards-within-cards — a list at `md` renders its children as `xs` pills.
+Children automatically receive a display size based on their parent's current size. This prevents cards-within-cards — a list at `md` renders its children as compact `sm` rows instead of nested cards.
 
 | Parent Size | Child Size |
 |-------------|------------|
 | `xl` | `md` |
 | `lg` | `sm` |
-| `md` | `xs` |
+| `md` | `sm` |
 | `sm` | `xs` |
 | `xs` | `xs` |
 
 Override with the `item-display` attribute:
 
 ```html
-<!-- Auto cascade (parent md → children xs) -->
+<!-- Auto cascade (parent md → children sm) -->
 <ntx-list model="Product"></ntx-list>
 
 <!-- Force children to sm regardless of parent size -->
@@ -350,6 +351,13 @@ Override with the `item-display` attribute:
 ```
 
 The `childDisplay` getter resolves: `item-display` attribute > `SIZE_CASCADE[this.displayMode]`.
+
+When `childDisplay` resolves to `md`, `NTTList` also enables a packed card
+grid: it keeps CSS grid source ordering, but measures each child host and sets
+`grid-row-end: span N` against a small `grid-auto-rows` unit. That lets later
+cards rise into open space below shorter siblings without switching to
+column-major masonry. Compact/sidebar lists keep the normal one-row-per-track
+flow.
 
 ### Selection API
 
@@ -376,6 +384,15 @@ When a child item sends a `SELECT` TX to the list:
 ```
 
 Children receive a `select-target` attribute (set automatically by `createChild()`) pointing back to the list's address.
+
+## NTTList
+
+**File:** `components/ntx-list.js`
+**Tag:** `ntx-list`
+
+Default grid renderer built on top of `ListElement`. It owns the standard list
+header/count UI, create modal flow, load-more button wiring, and packed card
+layout for wide card lists.
 
 ### Default Render
 
@@ -415,6 +432,9 @@ import './product-card.js';
 class ProductGrid extends ListElement {
   get styles() { return new URL('./product-grid.css', import.meta.url).href; }
   get childTag() { return 'product-card'; }
+  render() {
+    // Custom collection renderer goes here.
+  }
 }
 customElements.define('product-grid', ProductGrid);
 ```
@@ -436,7 +456,7 @@ Or via HTML composition:
 **File:** `components/ntx-item.js`
 **Tag:** `<ntx-item>`
 
-Built-in zero-config single entity component. Extends NTTElement with adaptive size rendering, Formidable auto-rendering, edit/display toggle, and method buttons.
+Built-in zero-config single entity component. Extends NTTElement with adaptive size rendering, Formidable auto-rendering, edit/display toggle, and method buttons. The shared detail-card shell (`md`/`lg`/`xl`) is borderless; emphasis comes from spacing and shadow rather than an outer stroke.
 
 ### Usage
 
@@ -657,7 +677,7 @@ Simple page wrapper that mounts `<ntx-list model="ProductLike">` at the `#@favor
 **File:** `components/ntx-topbar.js`
 **Tag:** `<ntx-topbar>`
 
-Navigation bar component with auth status display, login/logout, and navigation links. Authenticated users see a "Favorites" nav link (`topbar-nav` CSS block with hover transitions).
+Navigation bar component with auth status display, login/logout, and navigation links. Authenticated users see a "Favorites" nav link (`topbar-nav` CSS block with hover transitions). Icon controls and the authenticated user menu now use borderless surface chrome.
 
 Theme controls are no longer hardcoded into the component. `ntx-topbar` exposes a manual `slot="user-menu"` insertion point inside the authenticated dropdown so pages can place `<ntx-theme-button slot="user-menu"></ntx-theme-button>` explicitly.
 
@@ -666,7 +686,9 @@ Theme controls are no longer hardcoded into the component. `ntx-topbar` exposes 
 **File:** `components/ntx-sidebar.js`
 **Tag:** `<ntx-sidebar>`
 
-Model navigation shell with route templates, collapsible model groups, and a manual footer insertion point. Shell pages can place `<ntx-theme-button slot="footer"></ntx-theme-button>` at the bottom of the sidebar; the component does not auto-render theme UI from config. Sidebar labels render in uppercase, footer actions stretch to the full slot width, and the shell now applies a distinct selected treatment for the route that matches the active page.
+Model navigation shell with route templates, collapsible model groups, and a manual footer insertion point. Shell pages can place `<ntx-theme-button slot="footer"></ntx-theme-button>` at the bottom of the sidebar; the component does not auto-render theme UI from config. Sidebar labels render in uppercase, footer actions stretch to the full slot width by default, and the shell now applies a distinct selected treatment for the route that matches the active page. That selected treatment is driven by a full-height left accent rail rather than an accent border around the whole row. Expanded model groups lazy-mount a headless `ntx-list` that forces `item-display="sm"` and stamps the sidebar-only `ntx-sidebar-link-item` child renderer so dropdown records are real internal anchors (`#Model/id`) instead of pill-style compact items. Those anchors expose truncated labels through a lightweight custom tooltip after a roughly `220ms` hover/focus delay, with a slightly enlarged trigger hitbox. Dropdown record labels render slightly smaller than top-level model rows, use the full available row width before truncating, and model counts are styled as plain inline metadata rather than badge chips.
+The sidebar-specific list also removes inter-item gaps for those dropdown rows and gives them a bit more vertical breathing room while keeping them aligned to the parent model name text rather than the avatar/icon column.
+Route-template children can set `sidebar-label="..."` when the nav copy should differ from the raw model/schema name, such as showing `Agents` for `AgentActor`.
 
 ## NTTThemeButton
 

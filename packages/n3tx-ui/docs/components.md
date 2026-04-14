@@ -32,12 +32,12 @@ Component (n3tx-core: shadow DOM, addr, ref, model, proto, define(), scheduleRen
   |
   +-- ListElement (ListElement.js)        -- Collection base
   |     Message handlers: UPDATE, SELECT
-  |     Methods: loadMore(), openCreateModal(), createChild(addr)
+  |     Methods: loadMore(), createChild(addr)
   |     Selection API: select/deselect/toggle/clearSelection
   |     Pagination: #pageSize=20, #offset tracking
   |     |
   |     +-- NTTList (ntx-list.js)         -- <ntx-list>
-  |     |     Default grid list, stamps childTag per entity
+  |     |     Default grid renderer, modal create flow, packed card layout
   |     |
   |     +-- NTTTable (ntx-table.js)       -- <ntx-table>
   |           Table with header sort, inline create row, stamps ntx-row
@@ -68,6 +68,8 @@ mount a registered `<ntx-profile>` element instead of an empty unknown tag.
 `NTTListField` (`ntx-list-field.js`) is the dedicated array-field surface used by Formidable. It owns scalar-array edit rows, staged `$ref` link add/remove behavior, and `field-change` events back to the parent item.
 
 `NTTSidebar` supports `brand`, `subtitle`, and optional `brand-logo` attributes so app shells can place a custom mark in the sidebar brand section without forking the component.
+Template children can also declare `sidebar-label="..."` to override the nav
+label shown in the sidebar without changing the mounted view or route params.
 
 `NTTIcon` (`ntx-icon.js`) is the shared icon surface used by method buttons,
 sidebar avatars, and collection headers. It resolves icon tokens through
@@ -144,11 +146,13 @@ class ListElement extends Component {
     get childTag();               // Tag for stamped children. Default: 'ntx-item'.
     get childDisplay();           // Display mode for children. Cascades from parent.
     createChild(addr);            // Create child element. Checks <template item-template>.
-    update(prev, next);           // Surgical list patch (add/remove children).
+    update(prev, next);           // Returns false by default → full render fallback.
     render();                     // Override for custom collection rendering.
-    openCreateModal();            // Opens NTTModal with create form.
 }
 ```
+
+`ListElement` is the collection lifecycle base. The default list UI now lives in
+`NTTList`, mirroring the `NTTElement` → `NTTItem` split on the single-entity side.
 
 ### NTTItem key attributes
 
@@ -171,14 +175,20 @@ class ListElement extends Component {
 | `router` | Router actor address for SELECT navigation |
 | `item-tag` | Override child tag (default from schema) |
 | `item-display` | Override child display mode |
-| `headless` | Hide the header (title + count) |
-| `allow-create` | Show the create button (permission-gated) |
+| `headless` | Hide the `ntx-list` header (title + count) |
+| `allow-create` | Show the `ntx-list` create button (permission-gated) |
 
 List and table headers render `schema.ui.icon` beside the collection title when
 present. `schema.ui.description` adds intro copy under that title, and
 `schema.ui.create_label` switches the default `+` create affordance to a labeled
 header button. Sidebar model avatars do the same and fall back to initials when
 no icon is declared.
+
+Wide `ntx-list` instances whose children resolve to `display="md"` now use a
+packed grid: the DOM order stays unchanged, but card hosts get measured and
+assigned `grid-row-end` spans so shorter cards no longer reserve the tallest
+row height. Compact/sidebar lists (`sm`/`xs` children or `sidebar-dropdown`)
+stay on the old single-row flow.
 
 ## Usage Patterns
 
@@ -223,6 +233,7 @@ Declarative route templates control what the sidebar navigates to:
 ```html
 <ntx-sidebar router="main">
     <ntx-table model="Grant" allow-create></ntx-table>
+    <ntx-list model="AgentActor" sidebar-label="Agents"></ntx-list>
     <ntx-list model="Source"></ntx-list>
     <ntx-theme-button slot="footer"></ntx-theme-button>
 </ntx-sidebar>
@@ -231,6 +242,21 @@ Declarative route templates control what the sidebar navigates to:
 When a sidebar has both `brand` and `router`, clicking the rendered brand copy
 returns the bound router to its home slot by dispatching a reset navigation with
 the empty home route (`buildRoute({ type: 'home' })`).
+
+Expanded model groups now lazy-mount a headless `ntx-list` that forces
+`item-display="sm"` and uses the sidebar-only `ntx-sidebar-link-item` renderer.
+That renderer outputs a real internal `<a href="#Model/id">...</a>` for each
+record so dropdown entries behave like proper links instead of compact pills.
+The full label is also exposed through a lightweight delayed hover/focus
+tooltip when the row text is actually truncated. The trigger hitbox extends
+slightly beyond the label itself, the delay is tuned to about `220ms`, dropdown
+record labels intentionally render a step smaller than top-level model rows,
+the rows sit flush with no inter-item gap, use slightly roomier vertical padding,
+align to the model-name text column, and use the full remaining row width before
+ellipsis appears,
+and model counts now read as plain inline metadata rather than badge chrome.
+The renderer carries its own stylesheet so sidebar-only row chrome stays out of
+the shared `ntx-item.css` shell.
 
 ### Manual shell theme controls
 
@@ -247,7 +273,7 @@ Shell pages place the reusable theme control explicitly:
 </ntx-sidebar>
 ```
 
-`ntx-topbar` exposes `slot="user-menu"` inside the authenticated dropdown, and `ntx-sidebar` exposes `slot="footer"` at the bottom of the shell. Neither component auto-renders theme UI. Sidebar labels now render in uppercase, the footer action stretches to the full available width, and route-matched entries receive a persistent selected state separate from hover and accordion expansion.
+`ntx-topbar` exposes `slot="user-menu"` inside the authenticated dropdown, and `ntx-sidebar` exposes `slot="footer"` at the bottom of the shell. Neither component auto-renders theme UI. Sidebar labels now render in uppercase, footer actions stretch to the full available width by default, and route-matched entries receive a persistent selected state separate from hover and accordion expansion. The selected accent now reads as a full-height left rail, while expanded/selected rows no longer rely on an accent border around the rest of the card.
 
 Additional theme-control rules:
 
@@ -261,7 +287,8 @@ Additional theme-control rules:
 
 - **Custom `NTTItem` subclasses get edit fallback by default.** In edit mode, `NTTItem.render()` uses the base Formidable form unless the subclass opts into custom edit layout with `usesCustomEditLayout`. This prevents display-only custom cards from swallowing edit mode.
 - **Custom item visuals belong with the subclass, not the framework shell.** If an app defines `ntx-grant-item` or similar, add any model-specific CSS through the subclass `styles` getter so `ntx-item.css` stays generic.
-- **Default `md` item cards are borderless and shadow-only on hover.** The shared `ntx-item.css` card shell uses no visible border and does not translate upward on hover; visual emphasis comes from the shadow ramp.
+- **Detail title uppercasing is display-only.** Shared item and grant titles only uppercase in `lg`/`xl` detail views via CSS; `xs`/`sm`/`md` preserve the underlying `name` and `title` casing.
+- **Default detail cards are borderless and shadow-only on hover.** The shared `ntx-item.css` `md`/`lg`/`xl` shells use no visible outer border and do not translate upward on hover; visual emphasis comes from the shadow ramp.
 - **NTTItem.sm() delegates to md() in edit mode.** If you override sm() but not md(), editing in sm context will use the default md() form. Override md() only when you also intend to own edit rendering.
 
 - **ListElement.definedCallback() deduplicates READ calls.** If another list instance for the same model already triggered a READ, `proto._listReadPending` is true and the second list skips the request. Both lists get notified when the READ completes via the UPDATE observable.

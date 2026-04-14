@@ -77,6 +77,12 @@ The primary framework CSS surfaces now consume canonical tokens directly:
 
 These files should reference canonical `--ntx-*` tokens for layout, surfaces, typography, borders, interactions, and status styling. Repeated state treatments such as success, warning, error, and accent badges should prefer the `--ntx-status-*` family.
 
+Current first-party chrome also prefers borderless outer shells for primary surfaces:
+
+- topbar icon controls and the authenticated user menu rely on fill + shadow rather than visible strokes
+- table containers keep their internal row/header dividers but drop the outer table border
+- `ntx-item` detail shells (`md`/`lg`/`xl`) rely on background, spacing, and shadow instead of card borders
+
 Veille and the shipped example surfaces now follow the same contract as well:
 
 - `apps/veille/static/veille.css`

@@ -56,9 +56,9 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 
 ### Visual Components (n3tx-ui)
 - `packages/n3tx-ui/src/n3tx_ui/static/components/NTTElement.js` - Abstract single-entity base (extends Component, adds forms, edit mode, modals)
-- `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js` - Abstract collection base (extends Component, adds pagination, filtering)
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js` - Abstract collection lifecycle base (selection, pagination, child stamping)
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js` - Item component: size methods (xs-xl), render dispatch, edit toggle
-- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.js` - List component
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.js` - Default list renderer (header, grid, modal create, packed cards)
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.js` - Table component
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-row.js` - Table row component
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js` - Method call button
@@ -67,6 +67,7 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-modal.js` - Modal overlay
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-ref-picker.js` - Reference field picker
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.js` - Model navigation sidebar
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar-link-item.js` - Sidebar dropdown record link renderer
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.js` - Header/nav bar
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-theme-button.js` - Manual theme-cycle control for shell slots
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-profile.js` - User profile page
@@ -131,6 +132,26 @@ Canonical theme state now lives in these runtime files:
 
 - `<ntx-theme-button slot="user-menu"></ntx-theme-button>` renders inside the authenticated topbar dropdown.
 - `<ntx-theme-button slot="footer"></ntx-theme-button>` renders at the bottom of the sidebar.
+
+Expanded sidebar model groups now lazy-mount a headless `ntx-list` with
+`item-display="sm"` and the dedicated `ntx-sidebar-link-item` child renderer,
+so record dropdown entries render as real internal anchors instead of pill-mode
+`ntx-item` badges. That renderer also owns the truncated-label tooltip behavior:
+it uses a slightly enlarged hover target and a short custom delay instead of the
+browser-native `title` timing, and only shows when the label truly overflows the
+available row width. Its sidebar-specific row chrome lives in
+`packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar-link-item.css` so
+`packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.css` stays generic.
+Sidebar route-template children can set `sidebar-label="..."` to override the
+displayed nav copy without changing the routed model/view, which is the intended
+way to surface human-facing labels like `Agents` for `AgentActor`.
+
+Standard wide `ntx-list` card views now pack uneven card heights more tightly.
+`ListElement` keeps CSS grid source ordering, but when children resolve to
+`display="md"` it measures each child host with `ResizeObserver` and applies a
+small `grid-row-end` span so later cards can rise into gaps left by shorter
+neighbors. Sidebar dropdowns and compact lists stay on the existing strict
+single-track flow.
 
 The shell components do not auto-render theme controls from config; pages place them explicitly.
 
@@ -204,8 +225,8 @@ For full schema anatomy details, see `/workspace/docs/CORE.md`.
 | `properties[field].access` | `Permissions.js` → `canView()` | Field-level visibility per user role |
 | `ui.field_order` | `form.js` → `getForm()` | Controls field rendering sequence |
 | `ui.groups` | `form.js` → `renderGroupedFields()` | Wraps fields in `<fieldset>` groups |
-| `ui.description` | `ListElement.render()` | Optional collection intro text under the header title |
-| `ui.create_label` | `ListElement.render()` | Optional labeled collection create button |
+| `ui.description` | `NTTList.render()` | Optional collection intro text under the header title |
+| `ui.create_label` | `NTTList.render()` | Optional labeled collection create button |
 | `ui.icon` | `ntx-icon` + icon resolver | Shared icon rendering for model shells and method actions |
 | `ui.renderer.*` | `ntx-router.js` → `#resolveTag()` | Chooses component tag for navigation views |
 | `access` | `Permissions.js` → `canAction(access, action, resource)` | Shows/hides edit/delete buttons with resource-aware OWNER evaluation |
