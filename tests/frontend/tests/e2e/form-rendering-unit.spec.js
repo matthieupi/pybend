@@ -80,6 +80,27 @@ test.describe('form-rendering — Field Type Rendering (Display Mode)', () => {
     expect(nameInfo.text.length).toBeGreaterThan(0);
   });
 
+  test('detail header uses uppercase text-transform in large detail view only', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.goto(`${APP_URL}#Product/1`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
+
+    const detailInfo = await page.locator('ntx-router').evaluate((r) => {
+      const item = r.shadowRoot?.querySelector('ntx-item');
+      if (!item?.shadowRoot) return {};
+      const card = item.shadowRoot.querySelector('.card');
+      const h2 = item.shadowRoot.querySelector('h2[data-value="name"]');
+      return {
+        display: card?.dataset?.display || '',
+        textTransform: h2 ? getComputedStyle(h2).textTransform : '',
+      };
+    });
+
+    expect(['lg', 'xl']).toContain(detailInfo.display);
+    expect(detailInfo.textTransform).toBe('uppercase');
+  });
+
   test('display mode shows values as divs (not inputs)', async ({ page }) => {
     // Ensure anonymous state (no auth → no edit mode)
     await page.goto(APP_URL);

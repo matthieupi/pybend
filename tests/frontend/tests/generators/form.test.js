@@ -115,6 +115,13 @@ describe('form.js (Formidable)', () => {
       expect(html).toContain('Test Product');
     });
 
+    it('should preserve the rendered header text without mutating the source value', () => {
+      const ntt = makeNtt({ name: 'lower case title' });
+      const html = Formidable.getForm(ntt, 'display');
+      expect(html).toContain('lower case title');
+      expect(ntt.value.name).toBe('lower case title');
+    });
+
     it('should render input + textarea in edit mode', () => {
       const html = Formidable.getForm(makeNtt(), 'edit');
       expect(html).toContain('data-key="name"');
@@ -375,6 +382,13 @@ describe('form.js (Formidable)', () => {
     it('should use title as header key in display mode', () => {
       const html = Formidable.getForm(makeGrantNtt(), 'display');
       expect(html).toContain('data-value="title"');
+    });
+
+    it('should preserve displayed title headers without mutating grant data', () => {
+      const ntt = makeGrantNtt({ title: 'nsf computer science grant' });
+      const html = Formidable.getForm(ntt, 'display');
+      expect(html).toContain('nsf computer science grant');
+      expect(ntt.value.title).toBe('nsf computer science grant');
     });
 
     it('should use title as header key in edit mode', () => {

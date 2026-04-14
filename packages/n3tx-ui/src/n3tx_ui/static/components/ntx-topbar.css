@@ -43,7 +43,7 @@
     align-items: center;
     justify-content: center;
     padding: 0;
-    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    border: 0;
     border-radius: var(--ntx-radius-sm, 10px);
     background: var(--ntx-button-secondary-bg, #ffffff);
     color: var(--ntx-color-text, #344041);
@@ -53,7 +53,6 @@
 
 .sidebar-toggle:hover {
     background: var(--ntx-button-secondary-hover-bg, #f2f4f5);
-    border-color: var(--ntx-border-interactive, rgba(20, 105, 109, 0.28));
 }
 
 .topbar-brand {
@@ -156,7 +155,7 @@
     align-items: center;
     justify-content: center;
     padding: 0 1rem;
-    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    border: 0;
     background: var(--ntx-button-secondary-bg, #ffffff);
     color: var(--ntx-color-text, #344041);
     font-family: var(--ntx-font-body, Inter, sans-serif);
@@ -186,7 +185,6 @@
 }
 
 .user-pill:hover {
-    border-color: var(--ntx-border-interactive, rgba(20, 105, 109, 0.28));
     box-shadow: var(--ntx-shadow-sm, 0 8px 20px rgba(25, 28, 29, 0.05));
 }
 
@@ -206,7 +204,7 @@
 
 img.user-avatar {
     object-fit: cover;
-    border: 1px solid var(--ntx-line-subtle, rgba(190, 200, 201, 0.7));
+    border: 0;
 }
 
 .user-name {
@@ -235,7 +233,7 @@ img.user-avatar {
     right: 0;
     min-width: 14rem;
     padding: 0.45rem;
-    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    border: 0;
     border-radius: var(--ntx-radius-lg, 16px);
     background: var(--ntx-card-bg, #ffffff);
     box-shadow: var(--ntx-shadow-lg, 0 24px 58px rgba(25, 28, 29, 0.12));

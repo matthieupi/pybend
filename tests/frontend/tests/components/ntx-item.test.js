@@ -149,6 +149,16 @@ describe('ntx-item.js (NTTItem)', () => {
       expect(html).toContain('My Title');
     });
 
+    it('should preserve displayed title text without mutating the value', () => {
+      const ctx = {
+        value: { title: 'lower case title' },
+        schema: { __name__: 'Article' }
+      };
+      const html = NTTItem.prototype.xs.call(ctx);
+      expect(html).toContain('lower case title');
+      expect(ctx.value.title).toBe('lower case title');
+    });
+
     it('should fallback to schema name when no name/title', () => {
       const ctx = {
         value: {},
@@ -168,6 +178,15 @@ describe('ntx-item.js (NTTItem)', () => {
       expect(html).toContain('sm-name');
       expect(html).toContain('Test Product');
       expect(html).toContain('$29.99');
+    });
+
+    it('should preserve the rendered identity text without changing source data', () => {
+      const el = createItem(productSchema, {
+        id: 1, name: 'lower case title', price: 29.99, description: 'desc',
+      });
+      const html = el.sm();
+      expect(html).toContain('lower case title');
+      expect(el.value.name).toBe('lower case title');
     });
 
     it('should render method buttons with button layout', () => {

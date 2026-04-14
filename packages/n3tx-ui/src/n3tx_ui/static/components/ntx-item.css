@@ -232,13 +232,12 @@
     border-radius: var(--ntx-radius-lg, 16px);
     padding: 1.5rem;
     cursor: pointer;
-    box-shadow: var(--ntx-card-shadow, 0 8px 24px rgba(25, 28, 29, 0.06));
     transition: background 0.2s, box-shadow 0.2s;
 }
 
 .card[data-display="md"]:hover {
     background: var(--ntx-card-hover-bg, #ffffff);
-    box-shadow: var(--ntx-card-hover-shadow, 0 14px 28px rgba(25, 28, 29, 0.08));
+    box-shadow: var(--ntx-card-hover-shadow, 0 10px 18px rgba(25, 28, 29, 0.08));
     transform: none;
 }
 
@@ -251,17 +250,15 @@
     position: relative;
     overflow: hidden;
     background: var(--ntx-card-bg, #ffffff);
-    border: 1px solid rgba(190, 200, 201, 0.72);
+    border: 0;
     border-radius: var(--ntx-radius-lg, 16px);
     padding: 2rem 2.25rem 1.5rem;
-    box-shadow: var(--ntx-shadow-sm, 0 8px 20px rgba(25, 28, 29, 0.05));
-    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    transition: background 0.2s, box-shadow 0.2s;
 }
 
 .card[data-display="lg"]:hover {
     background: var(--ntx-card-hover-bg, #ffffff);
-    border-color: rgba(20, 105, 109, 0.12);
-    box-shadow: var(--ntx-shadow-md, 0 18px 42px rgba(25, 28, 29, 0.08));
+    box-shadow: var(--ntx-shadow-md, 0 12px 24px rgba(25, 28, 29, 0.08));
     transform: none;
 }
 
@@ -274,17 +271,15 @@
     position: relative;
     overflow: hidden;
     background: var(--ntx-card-bg, #ffffff);
-    border: 1px solid rgba(190, 200, 201, 0.72);
+    border: 0;
     border-radius: var(--ntx-radius-lg, 16px);
     padding: 2.5rem 3rem 2rem;
-    box-shadow: var(--ntx-shadow-sm, 0 8px 20px rgba(25, 28, 29, 0.05));
-    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    transition: background 0.2s, box-shadow 0.2s;
 }
 
 .card[data-display="xl"]:hover {
     background: var(--ntx-card-hover-bg, #ffffff);
-    border-color: rgba(20, 105, 109, 0.12);
-    box-shadow: var(--ntx-shadow-md, 0 18px 42px rgba(25, 28, 29, 0.08));
+    box-shadow: var(--ntx-shadow-md, 0 14px 24px rgba(25, 28, 29, 0.08));
     transform: none;
 }
 
@@ -419,12 +414,10 @@ h2 {
     line-height: 1.2;
 }
 
-.card[data-display="lg"] h2 {
-    font-size: 1.44rem;
-}
-
+.card[data-display="lg"] h2,
 .card[data-display="xl"] h2 {
-    font-size: 1.64rem;
+    font-size: 2.1em;
+    text-transform: uppercase;
 }
 
 h4 {
