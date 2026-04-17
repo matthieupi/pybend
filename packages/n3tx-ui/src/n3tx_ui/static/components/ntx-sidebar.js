@@ -108,9 +108,9 @@ class NTTSidebar extends HTMLElement {
         this.#routeTemplates.set(modelName, { tag, attrs });
 
         if (tag === 'ntx-item') {
-          this.#entries.push({ type: 'item', name: modelName, label: sidebarLabel || modelName });
+          this.#entries.push({ type: 'item', name: modelName, label: sidebarLabel || '' });
         } else {
-          this.#entries.push({ type: 'model', name: modelName, label: sidebarLabel || modelName });
+          this.#entries.push({ type: 'model', name: modelName, label: sidebarLabel || '' });
         }
         child.hidden = true;
       } else if (child.tagName === 'A' && child.hasAttribute('href')) {
@@ -226,16 +226,16 @@ class NTTSidebar extends HTMLElement {
       if (!resp.ok) return;
       const result = await resp.json();
       const data = result.data || result;
-        if (data.length > 0) {
-          const item = data[0];
-          const id = item.id || item.$id?.split('/').pop();
-          if (id) {
-            this.#itemRefs[modelName] = `${modelName}/${id}`;
-            const entry = this.#entries.find((e) => e.name === modelName);
-            const displayName = entry?.label || item.name || item.title || modelName;
-            this.#itemNames[modelName] = displayName;
+      if (data.length > 0) {
+        const item = data[0];
+        const id = item.id || item.$id?.split('/').pop();
+        if (id) {
+          this.#itemRefs[modelName] = `${modelName}/${id}`;
+          const entry = this.#entries.find((e) => e.name === modelName);
+          const displayName = entry?.label || item.name || item.title || modelName;
+          this.#itemNames[modelName] = displayName;
 
-            // Update the name in the sidebar
+          // Update the name in the sidebar
           const nameEl = this.shadowRoot.querySelector(
             `.model-section[data-model="${modelName}"] .model-name`
           );
