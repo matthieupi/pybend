@@ -10,6 +10,7 @@
  * Wired via Grant.__ui__['renderer']['item'] = 'ntx-grant-item'
  */
 import { NTTItem } from './ntx-item.js';
+import { permissions } from '../utils/Permissions.js';
 
 const OPEN_ICON = `
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -33,7 +34,7 @@ class NTXGrantItem extends NTTItem {
 
     md() {
         const g = this.value;
-        if (!g || !g.id) return super.md();
+        if (!g || !g.id || this.mode === 'edit') return super.md();
 
         const schema = this.schema;
         const score = g.admissibility_score != null
@@ -42,6 +43,8 @@ class NTXGrantItem extends NTTItem {
         const statusClass = this.#statusClass(g.status);
         const scoreClass = this.#scoreClass(g.admissibility_score);
         const html = [];
+
+        html.push(this.#renderCardActions());
 
         html.push(`<div class="grant-header">
             <span class="grant-status ${statusClass}">${this.#esc(g.status || 'new')}</span>
@@ -71,6 +74,14 @@ class NTXGrantItem extends NTTItem {
         </div>`);
         html.push('</div>');
 
+        const reasoningPreview = this.#analysisPreview(g.admissibility_reasoning);
+        if (reasoningPreview) {
+            html.push(`<div class="grant-analysis-preview">
+                <span class="grant-label">Analysis</span>
+                <div class="grant-analysis-preview-text">${this.#esc(reasoningPreview)}</div>
+            </div>`);
+        }
+
         const methods = schema.methods || {};
         const methodHtml = Object.entries(methods).map(([name, def]) => {
             const tag = def.ui?.renderer || (def.stream ? 'ntx-stream' : 'ntx-method');
@@ -96,7 +107,7 @@ class NTXGrantItem extends NTTItem {
 
     lg() {
         const g = this.value;
-        if (!g || !g.id) return super.lg();
+        if (!g || !g.id || this.mode === 'edit') return super.md();
 
         const schema = this.schema;
         const score = g.admissibility_score != null
@@ -106,10 +117,7 @@ class NTXGrantItem extends NTTItem {
 
         const html = [];
 
-        // Action buttons
-        html.push(`<div class="card-actions">
-            <button class="edit-btn mode-display" title="Edit"></button>
-        </div>`);
+        html.push(this.#renderCardActions());
 
         // Grant header
         html.push(`
@@ -253,7 +261,7 @@ class NTXGrantItem extends NTTItem {
 
     sm() {
         const g = this.value;
-        if (!g || !g.id) return super.sm();
+        if (!g || !g.id || this.mode === 'edit') return super.sm();
 
         const score = g.admissibility_score != null
             ? `${Math.round(g.admissibility_score * 100)}%` : '';
@@ -302,6 +310,34 @@ class NTXGrantItem extends NTTItem {
             return `Up to $${max.toLocaleString()}`;
         }
         return '—';
+    }
+
+    #renderCardActions() {
+        const canUpdate = permissions.canAction(this.schema?.access, 'update', this.value);
+        const canDelete = permissions.canAction(this.schema?.access, 'delete', this.value);
+        if (!canUpdate && !canDelete) return '';
+
+        const buttons = [];
+        if (canDelete) {
+            buttons.push('<button class="delete-btn" title="Delete"></button>');
+        }
+        if (canUpdate) {
+            const modeClass = this.mode === 'edit' ? 'mode-edit' : 'mode-display';
+            buttons.push(`<button class="edit-btn ${modeClass}" title="${this.mode === 'edit' ? 'Save' : 'Edit'}"></button>`);
+        }
+        return `<div class="card-actions">${buttons.join('')}</div>`;
+    }
+
+    #analysisPreview(markdown) {
+        const plain = String(markdown ?? '')
+            .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+            .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+            .replace(/[`*_>#]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!plain) return '';
+        if (plain.length <= 180) return plain;
+        return `${plain.slice(0, 177).trimEnd()}...`;
     }
 
     #renderMarkdown(markdown) {

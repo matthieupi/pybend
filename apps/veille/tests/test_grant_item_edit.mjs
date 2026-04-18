@@ -164,11 +164,13 @@ async function initEnvironment() {
     const { permissions } = await import(`${UI_STATIC}/utils/Permissions.js`);
 
     const itemModuleUrl = pathToFileURL(`${UI_STATIC}/components/ntx-item.js`).href;
+    const permissionsModuleUrl = pathToFileURL(`${CORE_STATIC}/utils/Permissions.js`).href;
     const grantItemCssUrl = pathToFileURL(CUSTOM_ITEM_CSS).href;
     const runItemCssUrl = pathToFileURL(CUSTOM_RUN_ITEM_CSS).href;
     const source = await readFile(CUSTOM_ITEM, 'utf8');
     const patched = source
       .replace("'./ntx-item.js'", `'${itemModuleUrl}'`)
+      .replace("'../utils/Permissions.js'", `'${permissionsModuleUrl}'`)
       .replace("new URL('./ntx-grant-item.css', import.meta.url).href", `'${grantItemCssUrl}'`);
     await import(`data:text/javascript;charset=utf-8,${encodeURIComponent(patched)}`);
 
@@ -237,12 +239,12 @@ test('custom veille grant item hides display-only grant chrome in edit mode', as
   assert.equal(!!item.shadowRoot.querySelector('.grant-header'), false);
 });
 
-test('custom veille grant item omits analysis in default md display', async () => {
+test('custom veille grant item restores analysis preview in default md display', async () => {
   const { item } = await setupCustomGrantItem();
 
   assert.equal(item.displayMode, 'md');
-  assert.equal(!!item.shadowRoot.querySelector('.grant-justification'), false);
-  assert.equal(item.shadowRoot.textContent.includes('Strong match.'), false);
+  assert.ok(item.shadowRoot.querySelector('.grant-analysis-preview'));
+  assert.equal(item.shadowRoot.textContent.includes('Strong match.'), true);
 });
 
 test('custom veille grant item save sends edited values', async () => {

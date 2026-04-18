@@ -150,6 +150,23 @@
     background: transparent;
 }
 
+.grant-analysis-preview {
+    margin: 0.1rem 0 0.4rem;
+    padding: 0.85rem 0 0;
+    border-top: 1px solid rgba(242, 244, 245, 0.9);
+}
+
+.grant-analysis-preview-text {
+    margin-top: 0.45rem;
+    color: var(--ntx-color-text, #344041);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .grant-justification-text {
     font-size: 0.84rem;
     color: var(--ntx-color-text, #344041);
