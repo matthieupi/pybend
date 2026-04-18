@@ -93,6 +93,8 @@ explicit `ui.widget` schema hint, so display and edit modes both render a
 checkbox.
 
 ### Agent UI (n3tx-agents)
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agents.js` - Hybrid agents list surface. Extends NTTList, combines stored AgentActor rows with app-supplied built-in workflow entries.
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js` - Purpose-built `AgentActor` entity component. Extends NTTItem and embeds `ntx-agent-live` for rich list/detail views.
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js` - NTTStreamAgent: rich agent output (entries, markdown, tool cards). Extends NTTStream.
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` - Real-time agent activity view (extends NTTStream)
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Agent chat panel (extends NTTStream)
@@ -133,18 +135,23 @@ Canonical theme state now lives in these runtime files:
 - `<ntx-theme-button slot="user-menu"></ntx-theme-button>` renders inside the authenticated topbar dropdown.
 - `<ntx-theme-button slot="footer"></ntx-theme-button>` renders at the bottom of the sidebar.
 
-Expanded sidebar model groups now lazy-mount a headless `ntx-list` with
-`item-display="sm"` and the dedicated `ntx-sidebar-link-item` child renderer,
-so record dropdown entries render as real internal anchors instead of pill-mode
-`ntx-item` badges. That renderer also owns the truncated-label tooltip behavior:
-it uses a slightly enlarged hover target and a short custom delay instead of the
-browser-native `title` timing, and only shows when the label truly overflows the
-available row width. Its sidebar-specific row chrome lives in
+Expanded sidebar model groups now mount the declared route-template tag when a
+model section expands, except `ntx-table`, which still falls back to the compact
+headless `ntx-list` dropdown shell. Plain dropdown lists still force `item-display="sm"` plus the
+dedicated `ntx-sidebar-link-item` child renderer so record entries render as
+real internal anchors instead of pill-mode `ntx-item` badges. That renderer
+also owns the truncated-label tooltip behavior: it uses a slightly enlarged
+hover target and a short custom delay instead of the browser-native `title`
+timing, and only shows when the label truly overflows the available row width.
+Its sidebar-specific row chrome lives in
 `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar-link-item.css` so
 `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.css` stays generic.
 Sidebar route-template children can set `sidebar-label="..."` to override the
 displayed nav copy without changing the routed model/view, which is the intended
-way to surface human-facing labels like `Agents` for `AgentActor`.
+way to surface human-facing labels like `Agents` for `AgentActor`. Custom list
+tags such as `ntx-agents` receive the same `model`, `router`, `headless`, and
+`sidebar-dropdown` attrs so app-specific dropdown views can stay compact
+without forking the sidebar.
 
 Standard wide `ntx-list` card views now pack uneven card heights more tightly.
 `ListElement` keeps CSS grid source ordering, but when children resolve to

@@ -646,6 +646,21 @@ Use `<ntx-stream>` instead of `<ntx-method>` when the backend method is marked w
 
 ---
 
+## Agent Components
+
+Agent-specific entity and streaming components live in `n3tx-agents` and layer
+on top of the core `NTTItem` / `NTTStream` abstractions:
+
+- **`<ntx-agent>`** — Purpose-built `AgentActor` renderer. Extends `NTTItem`,
+  keeps Formidable edit mode, and adds prompt/tool/activity sections for list
+  and detail views. `AgentActor.__ui__.renderer.item` and `.detail` point here.
+- **`<ntx-agents>`** — Hybrid agents collection surface. Extends `NTTList`,
+  keeps the normal stored `AgentActor` list flow, and can also render app-
+  supplied built-in workflow entries from `window.NTX_AGENT_CATALOGS[catalog]`.
+- **`<ntx-agent-live>`** — Real-time agent activity monitor. Extends
+  `NTTStream` with structured agent event rendering.
+- **`<ntx-chat>`** — Floating conversational agent panel.
+
 ## NTTUser
 
 **File:** `components/ntx-user.js`
@@ -686,8 +701,8 @@ Theme controls are no longer hardcoded into the component. `ntx-topbar` exposes 
 **File:** `components/ntx-sidebar.js`
 **Tag:** `<ntx-sidebar>`
 
-Model navigation shell with route templates, collapsible model groups, and a manual footer insertion point. Shell pages can place `<ntx-theme-button slot="footer"></ntx-theme-button>` at the bottom of the sidebar; the component does not auto-render theme UI from config. Sidebar labels render in uppercase, footer actions stretch to the full slot width by default, and the shell now applies a distinct selected treatment for the route that matches the active page. That selected treatment is driven by a full-height left accent rail rather than an accent border around the whole row. Expanded model groups lazy-mount a headless `ntx-list` that forces `item-display="sm"` and stamps the sidebar-only `ntx-sidebar-link-item` child renderer so dropdown records are real internal anchors (`#Model/id`) instead of pill-style compact items. Those anchors expose truncated labels through a lightweight custom tooltip after a roughly `220ms` hover/focus delay, with a slightly enlarged trigger hitbox. Dropdown record labels render slightly smaller than top-level model rows, use the full available row width before truncating, and model counts are styled as plain inline metadata rather than badge chips.
-The sidebar-specific list also removes inter-item gaps for those dropdown rows and gives them a bit more vertical breathing room while keeping them aligned to the parent model name text rather than the avatar/icon column.
+Model navigation shell with route templates, collapsible model groups, and a manual footer insertion point. Shell pages can place `<ntx-theme-button slot="footer"></ntx-theme-button>` at the bottom of the sidebar; the component does not auto-render theme UI from config. Sidebar labels render in uppercase, footer actions stretch to the full slot width by default, and the shell now applies a distinct selected treatment for the route that matches the active page. That selected treatment is driven by a full-height left accent rail rather than an accent border around the whole row. Expanded model groups now mount the declared route-template tag for that model when it is a list-style custom surface, while `ntx-table` still falls back to the compact headless `ntx-list` dropdown shell. Plain dropdown lists still force `item-display="sm"` and stamp the sidebar-only `ntx-sidebar-link-item` child renderer so dropdown records are real internal anchors (`#Model/id`) instead of pill-style compact items. Those anchors expose truncated labels through a lightweight custom tooltip after a roughly `220ms` hover/focus delay, with a slightly enlarged trigger hitbox. Dropdown record labels render slightly smaller than top-level model rows, use the full available row width before truncating, and model counts are styled as plain inline metadata rather than badge chips.
+The sidebar-specific fallback list also removes inter-item gaps for those dropdown rows and gives them a bit more vertical breathing room while keeping them aligned to the parent model name text rather than the avatar/icon column. Custom list tags such as `ntx-agents` receive `headless`, `sidebar-dropdown`, `model`, and `router` attrs so they can implement their own compact dropdown rendering without rewriting the sidebar.
 Route-template children can set `sidebar-label="..."` when the nav copy should differ from the raw model/schema name, such as showing `Agents` for `AgentActor`.
 
 ## NTTThemeButton

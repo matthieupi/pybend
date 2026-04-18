@@ -14,6 +14,18 @@ records, and CRUD lifecycle. Does not cover AgentMixin methods in general
 AgentActor is a standard storable ActorModel with `__agent__ = True`.
 Its config lives in DB fields, not code. Agents are data.
 
+On the frontend, `AgentActor.__ui__.renderer` defaults both `item` and
+`detail` to `ntx-agent`, so routed agent lists render custom agent cards and
+agent detail routes mount the same rich component automatically once the shell
+imports `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js`.
+
+Apps that need a broader agents surface can also opt into
+`packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agents.js`. That
+component extends `NTTList`, keeps the normal stored `AgentActor` collection
+flow, and can merge those real DB rows with app-supplied built-in workflow
+entries from `window.NTX_AGENT_CATALOGS[catalog]`. Those built-ins are launch
+cards, not fake `AgentActor` records.
+
 ```
 AgentActor (DB record)
     |

@@ -77,7 +77,23 @@ sidebar avatars, and collection headers. It resolves icon tokens through
 emoji, image URLs/paths, and custom lookup keys registered at runtime with
 `registerIcons({...})`.
 
-**Agent components** (n3tx-agents, extend `NTTStream` from n3tx-ui):
+**Agent components** (n3tx-agents):
+
+```
+NTTList (ntx-list.js)
+  |
+  +-- NtxAgents (ntx-agents.js)            -- <ntx-agents> hybrid AgentActor list
+        Renders stored AgentActor rows plus app-provided built-in workflow
+        launchers from window.NTX_AGENT_CATALOGS[catalog].
+```
+
+```
+NTTItem (ntx-item.js)
+  |
+  +-- NtxAgent (ntx-agent.js)              -- <ntx-agent> rich AgentActor entity card
+        Uses AgentActor schema renderer hints for list/detail routes and embeds
+        <ntx-agent-live> for activity in display mode.
+```
 
 ```
 NTTStream (ntx-stream.js)                -- TX-based streaming with cancel()
@@ -233,7 +249,7 @@ Declarative route templates control what the sidebar navigates to:
 ```html
 <ntx-sidebar router="main">
     <ntx-table model="Grant" allow-create></ntx-table>
-    <ntx-list model="AgentActor" sidebar-label="Agents"></ntx-list>
+    <ntx-agents model="AgentActor" sidebar-label="Agents" catalog="veille"></ntx-agents>
     <ntx-list model="Source"></ntx-list>
     <ntx-theme-button slot="footer"></ntx-theme-button>
 </ntx-sidebar>
@@ -243,20 +259,26 @@ When a sidebar has both `brand` and `router`, clicking the rendered brand copy
 returns the bound router to its home slot by dispatching a reset navigation with
 the empty home route (`buildRoute({ type: 'home' })`).
 
-Expanded model groups now lazy-mount a headless `ntx-list` that forces
-`item-display="sm"` and uses the sidebar-only `ntx-sidebar-link-item` renderer.
-That renderer outputs a real internal `<a href="#Model/id">...</a>` for each
-record so dropdown entries behave like proper links instead of compact pills.
-The full label is also exposed through a lightweight delayed hover/focus
-tooltip when the row text is actually truncated. The trigger hitbox extends
-slightly beyond the label itself, the delay is tuned to about `220ms`, dropdown
-record labels intentionally render a step smaller than top-level model rows,
-the rows sit flush with no inter-item gap, use slightly roomier vertical padding,
-align to the model-name text column, and use the full remaining row width before
-ellipsis appears,
-and model counts now read as plain inline metadata rather than badge chrome.
-The renderer carries its own stylesheet so sidebar-only row chrome stays out of
-the shared `ntx-item.css` shell.
+Expanded model groups now mount the declared route-template tag for that model
+when it is a list-style custom surface. `ntx-table` route templates still fall
+back to a headless `ntx-list` for the compact dropdown shell. Plain dropdown
+lists still force `item-display="sm"` and use the
+sidebar-only `ntx-sidebar-link-item` renderer. That renderer outputs a real
+internal `<a href="#Model/id">...</a>` for each record so dropdown entries
+behave like proper links instead of compact pills. The full label is also
+exposed through a lightweight delayed hover/focus tooltip when the row text is
+actually truncated. The trigger hitbox extends slightly beyond the label
+itself, the delay is tuned to about `220ms`, dropdown record labels
+intentionally render a step smaller than top-level model rows, the rows sit
+flush with no inter-item gap, use slightly roomier vertical padding, align to
+the model-name text column, and use the full remaining row width before
+ellipsis appears, and model counts now read as plain inline metadata rather
+than badge chrome. The renderer carries its own stylesheet so sidebar-only row
+chrome stays out of the shared `ntx-item.css` shell.
+
+Custom list tags such as `<ntx-agents>` receive the model name, sidebar router,
+`headless`, and `sidebar-dropdown` attrs so they can implement compact hybrid
+dropdown views without rewriting the sidebar.
 
 ### Manual shell theme controls
 

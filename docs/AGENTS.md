@@ -558,6 +558,32 @@ class MyComponent extends NTTStreamAgent {
 
 **UPPERCASE convention**: All methods that handle TX messages are UPPERCASE. This mirrors the backend actor handler pattern and visually separates inbox handlers from internal component logic (lowercase/camelCase).
 
+### Frontend: `ntx-agent`
+
+**File**: `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js`
+
+`ntx-agent` is the default `AgentActor` entity renderer for both list rows and
+detail views. `AgentActor.__ui__.renderer` points `item` and `detail` at this
+component, so any shell that loads `ntx-agent.js` automatically gets the custom
+agent UI when navigating to `AgentActor` routes.
+
+It extends `NTTItem`, keeps Formidable edit mode via `super.md()`, and adds
+agent-specific display sections for prompt preview, tool chips, provider/model
+badges, and an embedded `ntx-agent-live` activity panel.
+
+### Frontend: `ntx-agents`
+
+**File**: `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agents.js`
+
+`ntx-agents` is the hybrid agents collection surface for apps that need more
+than raw `AgentActor` CRUD rows. It extends `NTTList`, keeps the normal stored
+collection flow for real `AgentActor` records, and can also render app-provided
+built-in workflow entries from `window.NTX_AGENT_CATALOGS[catalog]`.
+
+Those built-ins are workflow launchers, not fake database records: they carry
+their own copy, icons, and navigation targets while stored entries still render
+through the normal `ntx-agent` child flow.
+
 ### Concrete Streaming Components
 
 `<ntx-agent-live>` and `<ntx-chat>` extend `NTTStream` directly:
