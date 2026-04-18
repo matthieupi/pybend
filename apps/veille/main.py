@@ -14,6 +14,8 @@ import n3tx_agents  # noqa: F401, E402
 
 from n3tx_core.app import create_app  # noqa: E402
 from n3tx_core.storage.sqlite_storage import SQLiteStorage  # noqa: E402
+from n3tx_agents.actor import AgentActor  # noqa: E402
+from n3tx_agents.tool_model import AgentTool  # noqa: E402
 from models import User, Organization, Source, Grant, Run, WebTools  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
@@ -24,7 +26,8 @@ DB_PATH = os.path.join(_HERE, config.SQLITE_DB_FILE)
 
 storage = SQLiteStorage(DB_PATH)
 app = create_app(
-    models=[User, Organization, Source, Grant, Run, WebTools],
+    models=[User, Organization, Source, Grant, Run, WebTools, AgentTool, AgentActor],
+    join_models=[(AgentActor, AgentTool)],
     storage=storage,
     routing='actor',
     jwt_secret=config.JWT_SECRET,

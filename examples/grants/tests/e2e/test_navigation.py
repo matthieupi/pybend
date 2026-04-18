@@ -222,3 +222,57 @@ def test_sidebar_item_navigates():
         assert after["routerTitle"] == "Grant", "Router title should be 'Grant'"
 
         browser.close()
+
+
+def test_agents_sidebar_route_uses_ntx_agent():
+    """The Agents sidebar route should render AgentActor rows with ntx-agent."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 1280, "height": 800})
+        page.goto(BASE)
+        _login(page)
+        page.reload()
+        _wait_for_items(page)
+
+        page.evaluate("""() => {
+            const sidebar = document.querySelector('ntx-sidebar');
+            const agentsLink = sidebar.shadowRoot.querySelector(
+                '.model-section[data-model="AgentActor"] .model-name'
+            );
+            agentsLink.click();
+        }""")
+
+        page.wait_for_function("""() => {
+            const router = document.querySelector('ntx-router');
+            const list = router?.shadowRoot?.querySelector('.router-content ntx-list');
+            const grid = list?.shadowRoot?.querySelector('.list-grid');
+            return !!grid?.querySelector('ntx-agent');
+        }""", timeout=10000)
+
+        state = page.evaluate("""() => {
+            const router = document.querySelector('ntx-router');
+            const list = router?.shadowRoot?.querySelector('.router-content ntx-list');
+            const grid = list?.shadowRoot?.querySelector('.list-grid');
+            const agent = grid?.querySelector('ntx-agent');
+            return {
+                hash: location.hash,
+                routerTitle: router?.shadowRoot?.querySelector('.router-title')?.textContent,
+                listTag: list?.tagName?.toLowerCase(),
+                agentTag: agent?.tagName?.toLowerCase(),
+                agentRef: agent?.getAttribute('ref'),
+                agentHasValue: !!agent?.value && Object.keys(agent.value).length > 0,
+            };
+        }""")
+
+        assert state["hash"] == "#AgentActor", \
+            f"Hash should be #AgentActor after Agents navigation, got {state['hash']}"
+        assert state["routerTitle"] == "AgentActor", \
+            f"Router title should be AgentActor, got {state['routerTitle']}"
+        assert state["listTag"] == "ntx-list", \
+            f"Agents route should mount ntx-list, got {state['listTag']}"
+        assert state["agentTag"] == "ntx-agent", \
+            f"Agent rows should mount ntx-agent, got {state['agentTag']}"
+        assert state["agentRef"] is not None, "Rendered ntx-agent should be bound to an agent ref"
+        assert state["agentHasValue"], "Rendered ntx-agent should have loaded data"
+
+        browser.close()

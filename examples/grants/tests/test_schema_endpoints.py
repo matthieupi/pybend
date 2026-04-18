@@ -29,6 +29,8 @@ class TestSchemaEndpoints:
         assert resp.status_code == 200
         schema = resp.json()
         assert schema["__name__"] == "AgentActor"
+        assert schema["ui"]["renderer"]["item"] == "ntx-agent"
+        assert schema["ui"]["renderer"]["detail"] == "ntx-agent"
         assert "agent" in schema
         assert schema["agent"]["enabled"] is True
         assert "agentic" in schema.get("methods", {})

@@ -44,8 +44,11 @@
     <link rel="modulepreload" href="./components/ntx-method.js">
     <link rel="modulepreload" href="./components/ntx-modal.js">
     <link rel="modulepreload" href="./components/ntx-sidebar.js">
+    <link rel="modulepreload" href="./components/ntx-agents.js">
     <link rel="modulepreload" href="./components/ntx-stream.js">
     <link rel="modulepreload" href="./components/ntx-stream-agent.js">
+    <link rel="modulepreload" href="./components/ntx-agent-live.js">
+    <link rel="modulepreload" href="./components/ntx-agent.js">
     <link rel="modulepreload" href="./components/ntx-table.js">
     <link rel="modulepreload" href="./components/ntx-grant-item.js">
     <link rel="modulepreload" href="./components/ntx-grant-analyze.js">
@@ -60,6 +63,30 @@
     <link rel="modulepreload" href="./utils/veille-icons.js">
     <script>
         window.NTX_THEME_CONFIG = { themes: ['industrial', 'light', 'dark'] };
+    </script>
+    <script>
+        window.NTX_AGENT_CATALOGS = {
+            veille: [
+                {
+                    id: 'pipeline',
+                    title: 'Pipeline Agent',
+                    summary: 'Runs the source-to-grant pipeline and monitors the operational board.',
+                    icon: 'veille-execute',
+                    route: '',
+                    cta: 'Open Pipeline',
+                    kind: 'built-in',
+                },
+                {
+                    id: 'grant-analysis',
+                    title: 'Grant Analysis Agent',
+                    summary: 'Explains admissibility inside the Grants workflow instead of as a standalone record.',
+                    icon: 'veille-analyze',
+                    route: 'grants',
+                    cta: 'Open Grants',
+                    kind: 'built-in',
+                },
+            ],
+        };
     </script>
     <script type="module" src="./utils/theme.js"></script>
 </head>
@@ -84,6 +111,7 @@
         <ntx-sidebar router="main" brand="Veille" subtitle="Industrial Intel" brand-logo="./veille-logo.svg">
             <ntx-table model="Source" allow-create></ntx-table>
             <ntx-list model="Grant" allow-create></ntx-list>
+            <ntx-agents model="AgentActor" sidebar-label="Agents" catalog="veille" title="Agents"></ntx-agents>
             <ntx-item model="Organization"></ntx-item>
             <button slot="footer" type="button" class="veille-shell-cta" data-route="">
                 <ntx-icon value="veille-new-pipeline" decorative></ntx-icon>
@@ -131,9 +159,11 @@
         import './components/ntx-router.js';
         import './components/ntx-topbar.js?shell-layout-1';
         import './components/ntx-sidebar.js';
+        import './components/ntx-agents.js';
         import './components/ntx-profile.js';
         import './components/ntx-stream.js';
         import './components/ntx-stream-agent.js';
+        import './components/ntx-agent.js';
         import './components/ntx-table.js';
         import './components/ntx-grant-item.js';
         import './components/ntx-grant-analyze.js';
