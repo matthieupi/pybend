@@ -607,6 +607,59 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
       document.body.removeChild(el);
     });
 
+    it('should expand custom model templates into their declared tag instead of forcing ntx-list', () => {
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('router', 'main');
+
+      const child = document.createElement('ntx-agents');
+      child.setAttribute('model', 'AgentActor');
+      child.setAttribute('catalog', 'veille');
+      el.appendChild(child);
+
+      document.body.appendChild(el);
+
+      const header = el.shadowRoot.querySelector('.model-header');
+      header.click();
+
+      const list = el.shadowRoot.querySelector('.model-records ntx-agents');
+      expect(list).toBeTruthy();
+      expect(list.getAttribute('catalog')).toBe('veille');
+      expect(list.getAttribute('model')).toBe('AgentActor');
+      expect(list.getAttribute('router')).toBe('main');
+      expect(list.hasAttribute('headless')).toBe(true);
+      expect(list.hasAttribute('sidebar-dropdown')).toBe(true);
+      expect(el.shadowRoot.querySelector('.model-records ntx-list')).toBeNull();
+
+      document.body.removeChild(el);
+    });
+
+    it('should keep ntx-table route templates on the compact ntx-list dropdown fallback', () => {
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('router', 'main');
+
+      const child = document.createElement('ntx-table');
+      child.setAttribute('model', 'Source');
+      child.setAttribute('allow-create', '');
+      el.appendChild(child);
+
+      document.body.appendChild(el);
+
+      const header = el.shadowRoot.querySelector('.model-header');
+      header.click();
+
+      const list = el.shadowRoot.querySelector('.model-records ntx-list');
+      expect(list).toBeTruthy();
+      expect(list.getAttribute('model')).toBe('Source');
+      expect(list.getAttribute('router')).toBe('main');
+      expect(list.getAttribute('item-tag')).toBe('ntx-sidebar-link-item');
+      expect(list.getAttribute('item-display')).toBe('sm');
+      expect(list.hasAttribute('headless')).toBe(true);
+      expect(list.hasAttribute('sidebar-dropdown')).toBe(true);
+      expect(el.shadowRoot.querySelector('.model-records ntx-table')).toBeNull();
+
+      document.body.removeChild(el);
+    });
+
     it('should mark the current model route as selected from the hash', () => {
       window.location.hash = '#Product';
 

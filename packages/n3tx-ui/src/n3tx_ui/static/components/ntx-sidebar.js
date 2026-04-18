@@ -475,16 +475,29 @@ class NTTSidebar extends HTMLElement {
     const records = section.querySelector('.model-records');
     if (!records || records.childElementCount > 0) return;
 
-    const list = document.createElement('ntx-list');
+    const template = this.#routeTemplates.get(modelName);
+    const templateTag = template?.tag || 'ntx-list';
+    const usesCustomDropdownTag = templateTag !== 'ntx-list' && templateTag !== 'ntx-table';
+    const tag = usesCustomDropdownTag ? templateTag : 'ntx-list';
+    const list = document.createElement(tag);
+    if (usesCustomDropdownTag) {
+      for (const [key, value] of Object.entries(template?.attrs || {})) {
+        list.setAttribute(key, value);
+      }
+    }
     list.setAttribute('model', modelName);
-    list.setAttribute('display', 'sm');
-    list.setAttribute('item-tag', 'ntx-sidebar-link-item');
-    list.setAttribute('item-display', 'sm');
     list.setAttribute('sidebar-dropdown', '');
     list.setAttribute('headless', '');
-    list.style.setProperty('--ntx-sidebar-record-indent', '3.48rem');
     const routerAttr = this.getAttribute('router');
     if (routerAttr) list.setAttribute('router', routerAttr);
+    if (!list.hasAttribute('display')) list.setAttribute('display', 'sm');
+    list.style.setProperty('--ntx-sidebar-record-indent', '3.48rem');
+
+    if (tag === 'ntx-list') {
+      list.setAttribute('item-tag', 'ntx-sidebar-link-item');
+      list.setAttribute('item-display', 'sm');
+    }
+
     records.appendChild(list);
   }
 

@@ -1,0 +1,190 @@
+:host {
+  display: block;
+}
+
+.agents-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.agents-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.agents-section--stored {
+  min-height: 0;
+}
+
+.agents-section-header {
+  color: var(--ntx-color-text-muted, #5f6a6b);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.agents-builtins,
+.agents-stored-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.agents-builtins {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.agent-launch-card,
+.agent-launch-link {
+  width: 100%;
+  border: 1px solid var(--ntx-line-subtle, rgba(20, 105, 109, 0.14));
+  border-radius: var(--ntx-radius-md, 12px);
+  background: var(--ntx-panel-bg, rgba(255, 255, 255, 0.96));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease),
+    border-color var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease),
+    box-shadow var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease);
+}
+
+.agent-launch-card:hover,
+.agent-launch-card:focus-visible,
+.agent-launch-link:hover,
+.agent-launch-link:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--ntx-border-interactive, rgba(20, 105, 109, 0.28));
+  box-shadow: 0 14px 28px rgba(20, 35, 38, 0.08);
+}
+
+.agent-launch-card:focus-visible,
+.agent-launch-link:focus-visible {
+  outline: 2px solid var(--ntx-border-interactive, rgba(20, 105, 109, 0.28));
+  outline-offset: 2px;
+}
+
+.agent-launch-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.agent-launch-card-top,
+.agent-launch-link-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.agent-launch-kind,
+.agent-launch-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.agent-launch-kind {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: var(--ntx-status-accent-bg, rgba(20, 105, 109, 0.1));
+  color: var(--ntx-status-accent-fg, #00464a);
+}
+
+.agent-launch-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: var(--ntx-status-accent-bg, rgba(20, 105, 109, 0.1));
+  color: var(--ntx-color-accent-text, #0d666b);
+}
+
+.agent-launch-icon--empty {
+  background: transparent;
+}
+
+.agent-launch-title {
+  color: var(--ntx-color-text-strong, #191c1d);
+  font-family: var(--ntx-font-display, Manrope, sans-serif);
+  font-size: 0.96rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.agent-launch-summary {
+  color: var(--ntx-color-text, #344041);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.agent-launch-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+}
+
+.agent-launch-link-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.agent-launch-link .agent-launch-title,
+.agent-launch-link .agent-launch-summary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-launch-link .agent-launch-title {
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.agent-launch-link .agent-launch-summary {
+  font-size: 0.74rem;
+  color: var(--ntx-color-text-muted, #5f6a6b);
+  white-space: nowrap;
+}
+
+.agents-empty {
+  padding: 0.9rem 1rem;
+  border: 1px dashed var(--ntx-line-subtle, rgba(20, 105, 109, 0.2));
+  border-radius: var(--ntx-radius-md, 12px);
+  color: var(--ntx-color-text-muted, #5f6a6b);
+  font-size: 0.84rem;
+}
+
+:host([sidebar-dropdown]) .agents-shell {
+  gap: 0.55rem;
+}
+
+:host([sidebar-dropdown]) .agents-section {
+  gap: 0.45rem;
+}
+
+:host([sidebar-dropdown]) .agents-builtins,
+:host([sidebar-dropdown]) .agents-stored-list {
+  gap: 0.4rem;
+}
+
+:host([sidebar-dropdown]) .agents-empty {
+  padding: 0.75rem 0.9rem;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 640px) {
+  .agents-builtins {
+    grid-template-columns: 1fr;
+  }
+}

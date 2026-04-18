@@ -21,13 +21,17 @@ export default defineConfig({
       { find: /^(\.\.\/)+utils\/icon-resolver\.js$/, replacement: uiStatic + '/utils/icon-resolver.js' },
       { find: /^(\.\.\/)+utils\//, replacement: coreStatic + '/utils/' },
       { find: /^(\.\.\/)+config\.js$/, replacement: coreStatic + '/config.js' },
+      // Cross-package static imports used by n3tx-agents components
+      { find: /^\.\/ntx-item\.js$/, replacement: uiStatic + '/components/ntx-item.js' },
+      { find: /^\.\/ntx-list\.js$/, replacement: uiStatic + '/components/ntx-list.js' },
+      { find: /^\.\/ntx-stream\.js$/, replacement: uiStatic + '/components/ntx-stream.js' },
+      { find: /^\.\/ntx-sidebar-link-item\.js$/, replacement: uiStatic + '/components/ntx-sidebar-link-item.js' },
+      { find: /^\.\/ntx-icon\.js$/, replacement: uiStatic + '/components/ntx-icon.js' },
       // UI components (components/, widgets/, generators/, vendor/)
       { find: /^(\.\.\/)+components\//, replacement: uiStatic + '/components/' },
       { find: /^(\.\.\/)+widgets\//, replacement: uiStatic + '/widgets/' },
       { find: /^(\.\.\/)+generators\//, replacement: uiStatic + '/generators/' },
       { find: /^(\.\.\/)+vendor\//, replacement: uiStatic + '/vendor/' },
-      // Agent components
-      { find: /^(\.\.\/)+components\/ntx-chat\.js$/, replacement: agentsStatic + '/components/ntx-chat.js' },
     ]
   }
 });
