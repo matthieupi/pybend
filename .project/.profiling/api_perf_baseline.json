@@ -1,0 +1,1513 @@
+{
+  "label": "baseline",
+  "timestamp": "2026-02-28 15:16:13",
+  "tiers": [
+    "empty",
+    "small",
+    "medium",
+    "large",
+    "full"
+  ],
+  "summary": {
+    "grand_total_ms": 2127.02,
+    "grand_ops": 162,
+    "grand_errors": 0,
+    "tiers": {
+      "empty": {
+        "ops": 14,
+        "total_ms": 78.26,
+        "avg_ms": 5.59,
+        "db_records": 0,
+        "errors": 0
+      },
+      "small": {
+        "ops": 37,
+        "total_ms": 397.89,
+        "avg_ms": 10.75,
+        "db_records": 36,
+        "errors": 0
+      },
+      "medium": {
+        "ops": 37,
+        "total_ms": 469.76,
+        "avg_ms": 12.7,
+        "db_records": 197,
+        "errors": 0
+      },
+      "large": {
+        "ops": 37,
+        "total_ms": 514.6,
+        "avg_ms": 13.91,
+        "db_records": 433,
+        "errors": 0
+      },
+      "full": {
+        "ops": 37,
+        "total_ms": 666.51,
+        "avg_ms": 18.01,
+        "db_records": 2042,
+        "errors": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "name": "schema_Product_cold",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 27.85,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.66,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm2",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.49,
+      "error": false
+    },
+    {
+      "name": "schema_User_cold",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 7.84,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 5.78,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm2",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 3.58,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_10",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/products?limit=10&depth=0",
+      "status": 200,
+      "duration_ms": 2.89,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_25",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/products?limit=25&depth=0",
+      "status": 200,
+      "duration_ms": 3.54,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_10",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/products?limit=10&depth=1",
+      "status": 200,
+      "duration_ms": 2.18,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_25",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/products?limit=25&depth=1",
+      "status": 200,
+      "duration_ms": 3.18,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_10",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/products?limit=10&depth=2",
+      "status": 200,
+      "duration_ms": 2.18,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_25",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/products?limit=25&depth=2",
+      "status": 200,
+      "duration_ms": 1.98,
+      "error": false
+    },
+    {
+      "name": "list_products_all",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/products?limit=100",
+      "status": 200,
+      "duration_ms": 2.05,
+      "error": false
+    },
+    {
+      "name": "list_users",
+      "tier": "empty",
+      "method": "GET",
+      "url": "/users",
+      "status": 200,
+      "duration_ms": 2.06,
+      "error": false
+    },
+    {
+      "name": "schema_Product_cold",
+      "tier": "small",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.07,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm",
+      "tier": "small",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 7.16,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm2",
+      "tier": "small",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.02,
+      "error": false
+    },
+    {
+      "name": "schema_User_cold",
+      "tier": "small",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 8.21,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm",
+      "tier": "small",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 7.68,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm2",
+      "tier": "small",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 3.59,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_10",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products?limit=10&depth=0",
+      "status": 200,
+      "duration_ms": 3.84,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_25",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products?limit=25&depth=0",
+      "status": 200,
+      "duration_ms": 2.23,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_10",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products?limit=10&depth=1",
+      "status": 200,
+      "duration_ms": 5.04,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_25",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products?limit=25&depth=1",
+      "status": 200,
+      "duration_ms": 5.26,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_10",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products?limit=10&depth=2",
+      "status": 200,
+      "duration_ms": 7.07,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_25",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products?limit=25&depth=2",
+      "status": 200,
+      "duration_ms": 7.62,
+      "error": false
+    },
+    {
+      "name": "list_products_all",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products?limit=100",
+      "status": 200,
+      "duration_ms": 7.0,
+      "error": false
+    },
+    {
+      "name": "list_users",
+      "tier": "small",
+      "method": "GET",
+      "url": "/users",
+      "status": 200,
+      "duration_ms": 3.09,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d0",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/1?depth=0",
+      "status": 200,
+      "duration_ms": 2.22,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d0",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/2?depth=0",
+      "status": 200,
+      "duration_ms": 1.81,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d0",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/3?depth=0",
+      "status": 200,
+      "duration_ms": 2.07,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d1",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/1?depth=1",
+      "status": 200,
+      "duration_ms": 2.67,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d1",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/2?depth=1",
+      "status": 200,
+      "duration_ms": 2.79,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d1",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/3?depth=1",
+      "status": 200,
+      "duration_ms": 3.26,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d2",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/1?depth=2",
+      "status": 200,
+      "duration_ms": 3.72,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d2",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/2?depth=2",
+      "status": 200,
+      "duration_ms": 3.64,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d2",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/3?depth=2",
+      "status": 200,
+      "duration_ms": 4.2,
+      "error": false
+    },
+    {
+      "name": "get_user_1",
+      "tier": "small",
+      "method": "GET",
+      "url": "/users/1",
+      "status": 200,
+      "duration_ms": 3.04,
+      "error": false
+    },
+    {
+      "name": "get_product_1_comments",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/1/comments",
+      "status": 200,
+      "duration_ms": 2.65,
+      "error": false
+    },
+    {
+      "name": "get_product_2_comments",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/2/comments",
+      "status": 200,
+      "duration_ms": 2.8,
+      "error": false
+    },
+    {
+      "name": "get_product_1_favorites",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/1/favorites",
+      "status": 200,
+      "duration_ms": 2.5,
+      "error": false
+    },
+    {
+      "name": "get_product_2_favorites",
+      "tier": "small",
+      "method": "GET",
+      "url": "/products/2/favorites",
+      "status": 200,
+      "duration_ms": 2.34,
+      "error": false
+    },
+    {
+      "name": "login",
+      "tier": "small",
+      "method": "POST",
+      "url": "/users/login",
+      "status": 200,
+      "duration_ms": 184.1,
+      "error": false
+    },
+    {
+      "name": "create_product_1",
+      "tier": "small",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 26.61,
+      "error": false
+    },
+    {
+      "name": "create_product_2",
+      "tier": "small",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 12.32,
+      "error": false
+    },
+    {
+      "name": "create_product_3",
+      "tier": "small",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 8.8,
+      "error": false
+    },
+    {
+      "name": "comment_on_product_1",
+      "tier": "small",
+      "method": "POST",
+      "url": "/products/1/comment",
+      "status": 200,
+      "duration_ms": 9.09,
+      "error": false
+    },
+    {
+      "name": "comment_on_product_2",
+      "tier": "small",
+      "method": "POST",
+      "url": "/products/2/comment",
+      "status": 200,
+      "duration_ms": 8.94,
+      "error": false
+    },
+    {
+      "name": "favorite_product_1",
+      "tier": "small",
+      "method": "POST",
+      "url": "/products/1/favorite",
+      "status": 200,
+      "duration_ms": 9.38,
+      "error": false
+    },
+    {
+      "name": "favorite_product_2",
+      "tier": "small",
+      "method": "POST",
+      "url": "/products/2/favorite",
+      "status": 200,
+      "duration_ms": 9.41,
+      "error": false
+    },
+    {
+      "name": "favorite_product_3",
+      "tier": "small",
+      "method": "POST",
+      "url": "/products/3/favorite",
+      "status": 200,
+      "duration_ms": 9.65,
+      "error": false
+    },
+    {
+      "name": "schema_Product_cold",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 5.63,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 7.07,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm2",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.81,
+      "error": false
+    },
+    {
+      "name": "schema_User_cold",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 8.31,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 9.01,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm2",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 4.01,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_10",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products?limit=10&depth=0",
+      "status": 200,
+      "duration_ms": 4.21,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_25",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products?limit=25&depth=0",
+      "status": 200,
+      "duration_ms": 3.95,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_10",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products?limit=10&depth=1",
+      "status": 200,
+      "duration_ms": 8.67,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_25",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products?limit=25&depth=1",
+      "status": 200,
+      "duration_ms": 10.81,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_10",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products?limit=10&depth=2",
+      "status": 200,
+      "duration_ms": 19.35,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_25",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products?limit=25&depth=2",
+      "status": 200,
+      "duration_ms": 22.65,
+      "error": false
+    },
+    {
+      "name": "list_products_all",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products?limit=100",
+      "status": 200,
+      "duration_ms": 7.4,
+      "error": false
+    },
+    {
+      "name": "list_users",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/users",
+      "status": 200,
+      "duration_ms": 2.97,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d0",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/1?depth=0",
+      "status": 200,
+      "duration_ms": 2.57,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d0",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/2?depth=0",
+      "status": 200,
+      "duration_ms": 1.79,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d0",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/3?depth=0",
+      "status": 200,
+      "duration_ms": 1.86,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d1",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/1?depth=1",
+      "status": 200,
+      "duration_ms": 3.62,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d1",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/2?depth=1",
+      "status": 200,
+      "duration_ms": 3.61,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d1",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/3?depth=1",
+      "status": 200,
+      "duration_ms": 3.54,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d2",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/1?depth=2",
+      "status": 200,
+      "duration_ms": 4.67,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d2",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/2?depth=2",
+      "status": 200,
+      "duration_ms": 4.34,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d2",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/3?depth=2",
+      "status": 200,
+      "duration_ms": 5.27,
+      "error": false
+    },
+    {
+      "name": "get_user_1",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/users/1",
+      "status": 200,
+      "duration_ms": 3.46,
+      "error": false
+    },
+    {
+      "name": "get_product_1_comments",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/1/comments",
+      "status": 200,
+      "duration_ms": 4.44,
+      "error": false
+    },
+    {
+      "name": "get_product_2_comments",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/2/comments",
+      "status": 200,
+      "duration_ms": 3.54,
+      "error": false
+    },
+    {
+      "name": "get_product_1_favorites",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/1/favorites",
+      "status": 200,
+      "duration_ms": 6.32,
+      "error": false
+    },
+    {
+      "name": "get_product_2_favorites",
+      "tier": "medium",
+      "method": "GET",
+      "url": "/products/2/favorites",
+      "status": 200,
+      "duration_ms": 4.6,
+      "error": false
+    },
+    {
+      "name": "login",
+      "tier": "medium",
+      "method": "POST",
+      "url": "/users/login",
+      "status": 200,
+      "duration_ms": 193.01,
+      "error": false
+    },
+    {
+      "name": "create_product_1",
+      "tier": "medium",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 26.82,
+      "error": false
+    },
+    {
+      "name": "create_product_2",
+      "tier": "medium",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 12.3,
+      "error": false
+    },
+    {
+      "name": "create_product_3",
+      "tier": "medium",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 11.83,
+      "error": false
+    },
+    {
+      "name": "comment_on_product_1",
+      "tier": "medium",
+      "method": "POST",
+      "url": "/products/1/comment",
+      "status": 200,
+      "duration_ms": 11.36,
+      "error": false
+    },
+    {
+      "name": "comment_on_product_2",
+      "tier": "medium",
+      "method": "POST",
+      "url": "/products/2/comment",
+      "status": 200,
+      "duration_ms": 10.7,
+      "error": false
+    },
+    {
+      "name": "favorite_product_1",
+      "tier": "medium",
+      "method": "POST",
+      "url": "/products/1/favorite",
+      "status": 200,
+      "duration_ms": 10.42,
+      "error": false
+    },
+    {
+      "name": "favorite_product_2",
+      "tier": "medium",
+      "method": "POST",
+      "url": "/products/2/favorite",
+      "status": 200,
+      "duration_ms": 9.58,
+      "error": false
+    },
+    {
+      "name": "favorite_product_3",
+      "tier": "medium",
+      "method": "POST",
+      "url": "/products/3/favorite",
+      "status": 200,
+      "duration_ms": 9.26,
+      "error": false
+    },
+    {
+      "name": "schema_Product_cold",
+      "tier": "large",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 5.7,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm",
+      "tier": "large",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.09,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm2",
+      "tier": "large",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.69,
+      "error": false
+    },
+    {
+      "name": "schema_User_cold",
+      "tier": "large",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 8.37,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm",
+      "tier": "large",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 7.28,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm2",
+      "tier": "large",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 3.64,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_10",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products?limit=10&depth=0",
+      "status": 200,
+      "duration_ms": 4.31,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_25",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products?limit=25&depth=0",
+      "status": 200,
+      "duration_ms": 5.33,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_10",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products?limit=10&depth=1",
+      "status": 200,
+      "duration_ms": 9.41,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_25",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products?limit=25&depth=1",
+      "status": 200,
+      "duration_ms": 19.19,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_10",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products?limit=10&depth=2",
+      "status": 200,
+      "duration_ms": 21.05,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_25",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products?limit=25&depth=2",
+      "status": 200,
+      "duration_ms": 50.54,
+      "error": false
+    },
+    {
+      "name": "list_products_all",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products?limit=100",
+      "status": 200,
+      "duration_ms": 9.61,
+      "error": false
+    },
+    {
+      "name": "list_users",
+      "tier": "large",
+      "method": "GET",
+      "url": "/users",
+      "status": 200,
+      "duration_ms": 4.22,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d0",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/1?depth=0",
+      "status": 200,
+      "duration_ms": 3.32,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d0",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/2?depth=0",
+      "status": 200,
+      "duration_ms": 2.64,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d0",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/3?depth=0",
+      "status": 200,
+      "duration_ms": 2.49,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d1",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/1?depth=1",
+      "status": 200,
+      "duration_ms": 2.97,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d1",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/2?depth=1",
+      "status": 200,
+      "duration_ms": 3.39,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d1",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/3?depth=1",
+      "status": 200,
+      "duration_ms": 4.85,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d2",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/1?depth=2",
+      "status": 200,
+      "duration_ms": 8.76,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d2",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/2?depth=2",
+      "status": 200,
+      "duration_ms": 5.67,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d2",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/3?depth=2",
+      "status": 200,
+      "duration_ms": 5.05,
+      "error": false
+    },
+    {
+      "name": "get_user_1",
+      "tier": "large",
+      "method": "GET",
+      "url": "/users/1",
+      "status": 200,
+      "duration_ms": 3.45,
+      "error": false
+    },
+    {
+      "name": "get_product_1_comments",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/1/comments",
+      "status": 200,
+      "duration_ms": 4.18,
+      "error": false
+    },
+    {
+      "name": "get_product_2_comments",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/2/comments",
+      "status": 200,
+      "duration_ms": 5.11,
+      "error": false
+    },
+    {
+      "name": "get_product_1_favorites",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/1/favorites",
+      "status": 200,
+      "duration_ms": 3.86,
+      "error": false
+    },
+    {
+      "name": "get_product_2_favorites",
+      "tier": "large",
+      "method": "GET",
+      "url": "/products/2/favorites",
+      "status": 200,
+      "duration_ms": 3.11,
+      "error": false
+    },
+    {
+      "name": "login",
+      "tier": "large",
+      "method": "POST",
+      "url": "/users/login",
+      "status": 200,
+      "duration_ms": 188.49,
+      "error": false
+    },
+    {
+      "name": "create_product_1",
+      "tier": "large",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 28.94,
+      "error": false
+    },
+    {
+      "name": "create_product_2",
+      "tier": "large",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 19.18,
+      "error": false
+    },
+    {
+      "name": "create_product_3",
+      "tier": "large",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 9.82,
+      "error": false
+    },
+    {
+      "name": "comment_on_product_1",
+      "tier": "large",
+      "method": "POST",
+      "url": "/products/1/comment",
+      "status": 200,
+      "duration_ms": 9.72,
+      "error": false
+    },
+    {
+      "name": "comment_on_product_2",
+      "tier": "large",
+      "method": "POST",
+      "url": "/products/2/comment",
+      "status": 200,
+      "duration_ms": 9.38,
+      "error": false
+    },
+    {
+      "name": "favorite_product_1",
+      "tier": "large",
+      "method": "POST",
+      "url": "/products/1/favorite",
+      "status": 200,
+      "duration_ms": 9.46,
+      "error": false
+    },
+    {
+      "name": "favorite_product_2",
+      "tier": "large",
+      "method": "POST",
+      "url": "/products/2/favorite",
+      "status": 200,
+      "duration_ms": 9.89,
+      "error": false
+    },
+    {
+      "name": "favorite_product_3",
+      "tier": "large",
+      "method": "POST",
+      "url": "/products/3/favorite",
+      "status": 200,
+      "duration_ms": 9.44,
+      "error": false
+    },
+    {
+      "name": "schema_Product_cold",
+      "tier": "full",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.05,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm",
+      "tier": "full",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.56,
+      "error": false
+    },
+    {
+      "name": "schema_Product_warm2",
+      "tier": "full",
+      "method": "GET",
+      "url": "/Product",
+      "status": 200,
+      "duration_ms": 6.65,
+      "error": false
+    },
+    {
+      "name": "schema_User_cold",
+      "tier": "full",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 9.3,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm",
+      "tier": "full",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 8.46,
+      "error": false
+    },
+    {
+      "name": "schema_User_warm2",
+      "tier": "full",
+      "method": "GET",
+      "url": "/User",
+      "status": 200,
+      "duration_ms": 4.97,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_10",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products?limit=10&depth=0",
+      "status": 200,
+      "duration_ms": 4.83,
+      "error": false
+    },
+    {
+      "name": "list_products_d0_limit_25",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products?limit=25&depth=0",
+      "status": 200,
+      "duration_ms": 6.42,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_10",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products?limit=10&depth=1",
+      "status": 200,
+      "duration_ms": 17.11,
+      "error": false
+    },
+    {
+      "name": "list_products_d1_limit_25",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products?limit=25&depth=1",
+      "status": 200,
+      "duration_ms": 39.09,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_10",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products?limit=10&depth=2",
+      "status": 200,
+      "duration_ms": 41.25,
+      "error": false
+    },
+    {
+      "name": "list_products_d2_limit_25",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products?limit=25&depth=2",
+      "status": 200,
+      "duration_ms": 99.03,
+      "error": false
+    },
+    {
+      "name": "list_products_all",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products?limit=100",
+      "status": 200,
+      "duration_ms": 19.08,
+      "error": false
+    },
+    {
+      "name": "list_users",
+      "tier": "full",
+      "method": "GET",
+      "url": "/users",
+      "status": 200,
+      "duration_ms": 5.54,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d0",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/1?depth=0",
+      "status": 200,
+      "duration_ms": 3.71,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d0",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/2?depth=0",
+      "status": 200,
+      "duration_ms": 2.91,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d0",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/3?depth=0",
+      "status": 200,
+      "duration_ms": 3.2,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d1",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/1?depth=1",
+      "status": 200,
+      "duration_ms": 4.31,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d1",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/2?depth=1",
+      "status": 200,
+      "duration_ms": 5.65,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d1",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/3?depth=1",
+      "status": 200,
+      "duration_ms": 4.8,
+      "error": false
+    },
+    {
+      "name": "get_product_1_d2",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/1?depth=2",
+      "status": 200,
+      "duration_ms": 6.84,
+      "error": false
+    },
+    {
+      "name": "get_product_2_d2",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/2?depth=2",
+      "status": 200,
+      "duration_ms": 8.48,
+      "error": false
+    },
+    {
+      "name": "get_product_3_d2",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/3?depth=2",
+      "status": 200,
+      "duration_ms": 8.27,
+      "error": false
+    },
+    {
+      "name": "get_user_1",
+      "tier": "full",
+      "method": "GET",
+      "url": "/users/1",
+      "status": 200,
+      "duration_ms": 4.16,
+      "error": false
+    },
+    {
+      "name": "get_product_1_comments",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/1/comments",
+      "status": 200,
+      "duration_ms": 11.91,
+      "error": false
+    },
+    {
+      "name": "get_product_2_comments",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/2/comments",
+      "status": 200,
+      "duration_ms": 13.1,
+      "error": false
+    },
+    {
+      "name": "get_product_1_favorites",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/1/favorites",
+      "status": 200,
+      "duration_ms": 6.1,
+      "error": false
+    },
+    {
+      "name": "get_product_2_favorites",
+      "tier": "full",
+      "method": "GET",
+      "url": "/products/2/favorites",
+      "status": 200,
+      "duration_ms": 5.65,
+      "error": false
+    },
+    {
+      "name": "login",
+      "tier": "full",
+      "method": "POST",
+      "url": "/users/login",
+      "status": 200,
+      "duration_ms": 197.66,
+      "error": false
+    },
+    {
+      "name": "create_product_1",
+      "tier": "full",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 26.84,
+      "error": false
+    },
+    {
+      "name": "create_product_2",
+      "tier": "full",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 19.98,
+      "error": false
+    },
+    {
+      "name": "create_product_3",
+      "tier": "full",
+      "method": "POST",
+      "url": "/products",
+      "status": 201,
+      "duration_ms": 10.35,
+      "error": false
+    },
+    {
+      "name": "comment_on_product_1",
+      "tier": "full",
+      "method": "POST",
+      "url": "/products/1/comment",
+      "status": 200,
+      "duration_ms": 9.76,
+      "error": false
+    },
+    {
+      "name": "comment_on_product_2",
+      "tier": "full",
+      "method": "POST",
+      "url": "/products/2/comment",
+      "status": 200,
+      "duration_ms": 9.08,
+      "error": false
+    },
+    {
+      "name": "favorite_product_1",
+      "tier": "full",
+      "method": "POST",
+      "url": "/products/1/favorite",
+      "status": 200,
+      "duration_ms": 9.89,
+      "error": false
+    },
+    {
+      "name": "favorite_product_2",
+      "tier": "full",
+      "method": "POST",
+      "url": "/products/2/favorite",
+      "status": 200,
+      "duration_ms": 9.6,
+      "error": false
+    },
+    {
+      "name": "favorite_product_3",
+      "tier": "full",
+      "method": "POST",
+      "url": "/products/3/favorite",
+      "status": 200,
+      "duration_ms": 9.92,
+      "error": false
+    }
+  ]
+}

@@ -1,0 +1,1957 @@
+
+========================================================================
+GET /Product  ->  200  (24.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:20  Samples:  24
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.024     CPU time: 0.024
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.024 Handle._run  asyncio/events.py:86
+├─ 0.021 coro  starlette/middleware/base.py:136
+│     [24 frames hidden]  starlette, fastapi, anyio
+│        0.018 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.018 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.018 Product.schema  pybend/core/models/proto_model.py:197
+│              ├─ 0.007 Product.referenced_json_schema  pybend/core/models/proto_model.py:319
+│              │  └─ 0.007 Product.model_json_schema  pydantic/main.py:413
+│              │        [19 frames hidden]  pydantic
+│              │           0.003 new_handler_func  pydantic/json_schema.py:520
+│              │           └─ 0.003 Product.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │              └─ 0.003 Product.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                    [36 frames hidden]  pydantic
+│              │                       0.001 new_handler_func  pydantic/json_schema.py:520
+│              │                       └─ 0.001 Comment.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │                          └─ 0.001 Comment.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                                [26 frames hidden]  pydantic
+│              │           0.002 new_handler_func  pydantic/json_schema.py:520
+│              │           └─ 0.002 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │              └─ 0.002 User.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                    [33 frames hidden]  pydantic
+│              │                       0.001 new_handler_func  pydantic/json_schema.py:520
+│              │                       └─ 0.001 Like.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │                          └─ 0.001 Like.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                                [20 frames hidden]  pydantic
+│              ├─ 0.006 Product.model_json_schema  pydantic/main.py:413
+│              │     [13 frames hidden]  pydantic, copy
+│              │        0.004 new_handler_func  pydantic/json_schema.py:520
+│              │        └─ 0.004 Product.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │           └─ 0.004 Product.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                 [45 frames hidden]  pydantic, typing, <built-in>
+│              │                    0.001 new_handler_func  pydantic/json_schema.py:520
+│              │                    └─ 0.001 Comment.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │                       └─ 0.001 Comment.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                             [35 frames hidden]  pydantic
+│              ├─ 0.002 collect_all_referenced_models  pybend/core/utils/introspection.py:62
+│              │  ├─ 0.001 Product.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:139
+│              │  │  └─ 0.001 ModelMetaclass.__dir__  pydantic/_internal/_model_construction.py:278
+│              │  │     └─ 0.001 Product.__dir__  <built-in>
+│              │  └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:62
+│              │     └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:62
+│              │        └─ 0.001 User.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:139
+│              │           └─ 0.001 pydantic_schema_for_type  pybend/core/utils/introspection.py:14
+│              │              └─ 0.001 BaseModel.__subclasscheck__  <frozen abc>:121
+│              ├─ 0.001 Product.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:139
+│              │  └─ 0.001 callable  <built-in>
+│              ├─ 0.001 [self]  pybend/core/models/proto_model.py
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [8 frames hidden]  copy
+└─ 0.003 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.003 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.003 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.003 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+                  [9 frames hidden]  anyio, importlib, dataclasses, <built...
+
+
+
+========================================================================
+GET /Product  ->  200  (5.2ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:41  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.003 coro  starlette/middleware/base.py:136
+│     [15 frames hidden]  starlette, fastapi
+│        0.002 jsonable_encoder  fastapi/encoders.py:102
+│        ├─ 0.001 is_dataclass  dataclasses.py:1294
+│        └─ 0.001 [self]  fastapi/encoders.py
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.001 Product.schema  pybend/core/models/proto_model.py:197
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [9 frames hidden]  copy
+│                       0.001 deepcopy  copy.py:118
+└─ 0.001 [self]  asyncio/events.py
+
+
+
+========================================================================
+GET /Product  ->  200  (4.5ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:41  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+└─ 0.004 coro  starlette/middleware/base.py:136
+      [16 frames hidden]  starlette, fastapi
+         0.004 APIRouter.__call__  starlette/routing.py:710
+         │  0.002 jsonable_encoder  fastapi/encoders.py:102
+         │  └─ 0.001 [self]  fastapi/encoders.py
+         │     0.001 ModelMetaclass.__instancecheck__  pydantic/_internal/_model_construction.py:248
+         │  0.001 run_endpoint_function  fastapi/routing.py:204
+         │  └─ 0.001 get_model_schema  pybend/core/api/routes_fastapi.py:169
+         │     └─ 0.001 Product.schema  pybend/core/models/proto_model.py:197
+         │        └─ 0.001 deepcopy  copy.py:118
+         │              [5 frames hidden]  copy
+         │                 0.001 deepcopy  copy.py:118
+         └─ 0.001 [self]  starlette/routing.py
+
+
+
+========================================================================
+GET /Product  ->  200  (4.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:41  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.004     CPU time: 0.004
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.004 coro  starlette/middleware/base.py:136
+│     [22 frames hidden]  starlette, fastapi, anyio
+│        0.002 jsonable_encoder  fastapi/encoders.py:102
+│        │  0.001 jsonable_encoder  fastapi/encoders.py:102
+│        └─ 0.001 [self]  fastapi/encoders.py
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.001 Product.schema  pybend/core/models/proto_model.py:197
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [5 frames hidden]  copy
+│                       0.001 deepcopy  copy.py:118
+│        0.001 Event.wait  asyncio/locks.py:199
+│        └─ 0.001 [await]  asyncio/locks.py
+└─ 0.000 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.000 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.000 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.000 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+                  [2 frames hidden]  anyio, typing
+
+
+
+========================================================================
+GET /User  ->  200  (5.8ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:41  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.005 Handle._run  asyncio/events.py:86
+└─ 0.005 coro  starlette/middleware/base.py:136
+      [9 frames hidden]  starlette, fastapi
+         0.005 APIRoute.handle  starlette/routing.py:279
+         │  0.004 run_endpoint_function  fastapi/routing.py:204
+         │  └─ 0.004 get_model_schema  pybend/core/api/routes_fastapi.py:169
+         │     └─ 0.004 User.schema  pybend/core/models/proto_model.py:197
+         │        ├─ 0.002 User.model_json_schema  pydantic/main.py:413
+         │        │     [8 frames hidden]  pydantic
+         │        │        0.001 _DefinitionsRemapping.remap_json_schema  pydantic/json_schema.py:207
+         │        │        0.001 new_handler_func  pydantic/json_schema.py:520
+         │        │        └─ 0.001 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+         │        │           └─ 0.001 User.__get_pydantic_json_schema__  pydantic/main.py:628
+         │        │                 [19 frames hidden]  pydantic
+         │        ├─ 0.001 User.referenced_json_schema  pybend/core/models/proto_model.py:319
+         │        │  └─ 0.001 User.model_json_schema  pydantic/main.py:413
+         │        │        [4 frames hidden]  pydantic
+         │        │           0.001 new_handler_func  pydantic/json_schema.py:520
+         │        │           └─ 0.001 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+         │        │              └─ 0.001 User.__get_pydantic_json_schema__  pydantic/main.py:628
+         │        │                    [28 frames hidden]  pydantic, <frozen _collections_abc>
+         │        │                       0.001 _Environ.__getitem__  <frozen os>:680
+         │        └─ 0.001 deepcopy  copy.py:118
+         │              [7 frames hidden]  copy
+         │                 0.001 deepcopy  copy.py:118
+         └─ 0.001 [self]  starlette/routing.py
+
+
+
+========================================================================
+GET /User  ->  200  (2.2ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:41  Samples:  3
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 _UnixSelectorEventLoop._run_once  asyncio/base_events.py:1910
+├─ 0.001 Handle._run  asyncio/events.py:86
+│     [22 frames hidden]  starlette, fastapi, uvicorn
+│        0.001 isinstance  <built-in>
+│        0.000 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+│        └─ 0.000 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+│           └─ 0.000 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+│              └─ 0.000 JWTAuthMiddleware.dispatch  pybend/core/api/backend.py:92
+│                 └─ 0.000 URL.path  starlette/datastructures.py:78
+│                    └─ 0.000 URL.components  starlette/datastructures.py:64
+└─ 0.001 [self]  asyncio/base_events.py
+
+
+
+========================================================================
+GET /User  ->  200  (2.2ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:41  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+├─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+│     [3 frames hidden]  uvicorn, fastapi, starlette
+│        0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+│        └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+│           └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+│              └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+│                 └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+│                    └─ 0.001 _send  starlette/middleware/errors.py:157
+│                          [2 frames hidden]  uvicorn, asyncio
+│                             0.001 socket.send  <built-in>
+└─ 0.001 coro  starlette/middleware/base.py:136
+      [15 frames hidden]  starlette, fastapi
+         0.001 isinstance  <built-in>
+
+
+
+========================================================================
+GET /products  ->  200  (4.1ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:42  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.004     CPU time: 0.004
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.002 coro  starlette/middleware/base.py:136
+│     [10 frames hidden]  starlette, fastapi
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.002 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.002 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 ├─ 0.001 Cursor.execute  <built-in>
+│                 └─ 0.001 [self]  pybend/core/storage/sqlite_storage.py
+├─ 0.001 task_done  anyio/_backends/_asyncio.py:805
+└─ 0.001 _UnixSelectorEventLoop.call_soon  asyncio/base_events.py:785
+   └─ 0.001 _UnixSelectorEventLoop._call_soon  asyncio/base_events.py:814
+
+
+
+========================================================================
+GET /products  ->  200  (4.2ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:42  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.004     CPU time: 0.004
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+└─ 0.004 coro  starlette/middleware/base.py:136
+      [16 frames hidden]  starlette, fastapi
+         0.002 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+            └─ 0.002 Product.list  pybend/core/models/storable_mixin.py:91
+               └─ 0.002 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+                  ├─ 0.001 Product.__init__  pybend/core/models/proto_model.py:96
+                  │  └─ 0.001 SchemaValidator.validate_python  <built-in>
+                  └─ 0.001 _validate_identifier  pybend/core/storage/sqlite_storage.py:20
+                     └─ 0.001 match  re/__init__.py:164
+                           [2 frames hidden]  re, <built-in>
+         0.001 jsonable_encoder  fastapi/encoders.py:102
+         0.001 sender  starlette/_exception_handler.py:34
+
+
+
+========================================================================
+GET /products  ->  200  (5.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:42  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.003 coro  starlette/middleware/base.py:136
+│     [17 frames hidden]  starlette, fastapi
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.002 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.002 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 └─ 0.002 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:275
+│                    ├─ 0.001 _validate_identifier  pybend/core/storage/sqlite_storage.py:20
+│                    │  └─ 0.001 match  re/__init__.py:164
+│                    │     └─ 0.001 _compile  re/__init__.py:280
+│                    └─ 0.001 Cursor.fetchall  <built-in>
+│        0.001 jsonable_encoder  fastapi/encoders.py:102
+└─ 0.001 [self]  asyncio/events.py
+
+
+
+========================================================================
+GET /products  ->  200  (8.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:42  Samples:  9
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.008     CPU time: 0.008
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.008 Handle._run  asyncio/events.py:86
+├─ 0.007 coro  starlette/middleware/base.py:136
+│     [20 frames hidden]  starlette, fastapi, <built-in>, datac...
+│        0.004 jsonable_encoder  fastapi/encoders.py:102
+│        └─ 0.002 [self]  fastapi/encoders.py
+│        0.003 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.003 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.003 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.003 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 ├─ 0.002 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:275
+│                 │  ├─ 0.001 Cursor.execute  <built-in>
+│                 │  └─ 0.001 get_list_fields  pybend/core/utils/introspection.py:138
+│                 │     └─ 0.001 _unwrap_listref  pybend/core/utils/introspection.py:121
+│                 │        └─ 0.001 hasattr  <built-in>
+│                 └─ 0.001 Cursor.execute  <built-in>
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                           [3 frames hidden]  uvicorn, asyncio, <built-in>
+
+
+
+========================================================================
+GET /products  ->  200  (8.5ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:42  Samples:  9
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.009     CPU time: 0.008
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.008 Handle._run  asyncio/events.py:86
+├─ 0.007 coro  starlette/middleware/base.py:136
+│     [25 frames hidden]  starlette, fastapi, dataclasses, <bui...
+│        0.004 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.004 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.004 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.004 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 ├─ 0.003 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:275
+│                 │  └─ 0.003 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:275
+│                 │     ├─ 0.002 User.__init__  pybend/core/models/proto_model.py:96
+│                 │     │  └─ 0.002 SchemaValidator.validate_python  <built-in>
+│                 │     └─ 0.001 [self]  pybend/core/storage/sqlite_storage.py
+│                 └─ 0.001 [self]  pybend/core/storage/sqlite_storage.py
+├─ 0.001 [self]  asyncio/events.py
+└─ 0.000 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.000 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.000 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.000 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.000 JWTAuthMiddleware.dispatch  pybend/core/api/backend.py:92
+                  └─ 0.000 _CachedRequest.state  starlette/requests.py:172
+
+
+
+========================================================================
+GET /products  ->  200  (9.5ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:42  Samples:  10
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.010     CPU time: 0.010
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.009 Handle._run  asyncio/events.py:86
+├─ 0.008 coro  starlette/middleware/base.py:136
+│     [23 frames hidden]  starlette, fastapi, <built-in>, datac...
+│        0.004 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.004 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.004 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.004 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 ├─ 0.003 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:275
+│                 │  ├─ 0.001 Cursor.execute  <built-in>
+│                 │  ├─ 0.001 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:275
+│                 │  │  └─ 0.001 get_ref_fields  pybend/core/utils/introspection.py:181
+│                 │  │     └─ 0.001 get_origin  typing.py:2310
+│                 │  └─ 0.001 [self]  pybend/core/storage/sqlite_storage.py
+│                 └─ 0.001 Cursor.fetchall  <built-in>
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+
+
+
+========================================================================
+GET /products  ->  200  (3.9ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:42  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.004     CPU time: 0.004
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.003 Handle._run  asyncio/events.py:86
+├─ 0.003 coro  starlette/middleware/base.py:136
+│     [18 frames hidden]  starlette, fastapi, json
+│        0.001 JSONEncoder.iterencode  json/encoder.py:205
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.001 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 └─ 0.001 dict.get  <built-in>
+│        0.001 jsonable_encoder  fastapi/encoders.py:102
+└─ 0.000 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.000 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.000 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.000 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.000 JWTAuthMiddleware.dispatch  pybend/core/api/backend.py:92
+
+
+
+========================================================================
+GET /users  ->  200  (2.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:51:42  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 NoneType._run  asyncio/events.py:86
+├─ 0.001 [self]  asyncio/events.py
+└─ 0.001 coro  starlette/middleware/base.py:136
+      [10 frames hidden]  starlette, fastapi
+         0.001 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+            └─ 0.001 User.list  pybend/core/models/storable_mixin.py:91
+               └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+                  └─ 0.001 decorating_function  functools.py:518
+                     └─ 0.001 update_wrapper  functools.py:35
+                        └─ 0.001 getattr  <built-in>
+
+
+
+========================================================================
+GET /Product  ->  200  (26.1ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:03:44  Samples:  26
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.026     CPU time: 0.026
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.025 Handle._run  asyncio/events.py:86
+├─ 0.021 coro  starlette/middleware/base.py:136
+│     [18 frames hidden]  starlette, fastapi
+│        0.019 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.019 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.019 Product.schema  pybend/core/models/proto_model.py:197
+│              ├─ 0.009 Product.referenced_json_schema  pybend/core/models/proto_model.py:319
+│              │  └─ 0.009 Product.model_json_schema  pydantic/main.py:413
+│              │        [27 frames hidden]  pydantic, typing, collections
+│              │           0.002 new_handler_func  pydantic/json_schema.py:520
+│              │           └─ 0.002 Product.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │              └─ 0.002 Product.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                    [34 frames hidden]  pydantic, <built-in>
+│              │                       0.001 new_handler_func  pydantic/json_schema.py:520
+│              │                       └─ 0.001 Comment.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │                          └─ 0.001 Comment.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                                [27 frames hidden]  pydantic
+│              │           0.001 new_handler_func  pydantic/json_schema.py:520
+│              │           └─ 0.001 Comment.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │              └─ 0.001 Comment.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                    [13 frames hidden]  pydantic
+│              ├─ 0.006 Product.model_json_schema  pydantic/main.py:413
+│              │     [14 frames hidden]  pydantic
+│              │        0.004 new_handler_func  pydantic/json_schema.py:520
+│              │        └─ 0.004 Like.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │           └─ 0.004 Like.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                 [46 frames hidden]  pydantic, re, enum
+│              │                    0.002 new_handler_func  pydantic/json_schema.py:520
+│              │                    └─ 0.002 Comment.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │                       └─ 0.002 Comment.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                             [30 frames hidden]  pydantic
+│              ├─ 0.002 deepcopy  copy.py:118
+│              │     [9 frames hidden]  copy
+│              └─ 0.002 collect_all_referenced_models  pybend/core/utils/introspection.py:62
+│                 ├─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:62
+│                 │  └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:62
+│                 │     └─ 0.001 User.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:139
+│                 │        └─ 0.001 record_model_type  pybend/core/utils/introspection.py:47
+│                 │           └─ 0.001 get_origin  typing.py:2310
+│                 │              └─ 0.001 isinstance  <built-in>
+│                 └─ 0.001 Product.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:139
+│                    └─ 0.001 getattr  <built-in>
+└─ 0.004 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.004 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.004 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.004 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+                  [11 frames hidden]  anyio, importlib, <built-in>, datacla...
+                     0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                     └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                        └─ 0.001 _send  starlette/middleware/errors.py:157
+                              [11 frames hidden]  uvicorn, logging, copy
+
+
+
+========================================================================
+GET /Product  ->  200  (6.2ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:07  Samples:  6
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.006 Handle._run  asyncio/events.py:86
+├─ 0.005 coro  starlette/middleware/base.py:136
+│     [17 frames hidden]  starlette, fastapi, dataclasses
+│        0.002 jsonable_encoder  fastapi/encoders.py:102
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.002 Product.schema  pybend/core/models/proto_model.py:197
+│              └─ 0.002 deepcopy  copy.py:118
+│                    [11 frames hidden]  copy
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                           [2 frames hidden]  uvicorn
+
+
+
+========================================================================
+GET /Product  ->  200  (5.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:07  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.005 Handle._run  asyncio/events.py:86
+├─ 0.004 coro  starlette/middleware/base.py:136
+│     [16 frames hidden]  starlette, fastapi
+│        0.003 jsonable_encoder  fastapi/encoders.py:102
+│        │  0.001 isinstance  <built-in>
+│        ├─ 0.001 is_dataclass  dataclasses.py:1294
+│        └─ 0.001 [self]  fastapi/encoders.py
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.001 Product.schema  pybend/core/models/proto_model.py:197
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [9 frames hidden]  copy
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+
+
+
+========================================================================
+GET /Product  ->  200  (4.6ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:07  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.003 coro  starlette/middleware/base.py:136
+│     [16 frames hidden]  starlette, fastapi
+│        0.002 jsonable_encoder  fastapi/encoders.py:102
+│        └─ 0.001 [self]  fastapi/encoders.py
+│           0.001 isinstance  <built-in>
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.001 Product.schema  pybend/core/models/proto_model.py:197
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [9 frames hidden]  copy
+│                       0.001 deepcopy  copy.py:118
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                           [9 frames hidden]  uvicorn, logging
+                              0.001 AccessFormatter.formatMessage  uvicorn/logging.py:97
+
+
+
+========================================================================
+GET /User  ->  200  (6.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:07  Samples:  6
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.005 Handle._run  asyncio/events.py:86
+└─ 0.005 coro  starlette/middleware/base.py:136
+      [15 frames hidden]  starlette, fastapi, <built-in>
+         0.004 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.004 get_model_schema  pybend/core/api/routes_fastapi.py:169
+            └─ 0.004 User.schema  pybend/core/models/proto_model.py:197
+               ├─ 0.002 User.model_json_schema  pydantic/main.py:413
+               │     [4 frames hidden]  pydantic
+               │        0.002 new_handler_func  pydantic/json_schema.py:520
+               │        └─ 0.002 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+               │           └─ 0.002 User.__get_pydantic_json_schema__  pydantic/main.py:628
+               │                 [28 frames hidden]  pydantic, <built-in>
+               │                    0.001 GenerateJsonSchema.int_schema  pydantic/json_schema.py:591
+               ├─ 0.001 _is_self_ref  pybend/core/utils/introspection.py:206
+               └─ 0.001 User.referenced_json_schema  pybend/core/models/proto_model.py:319
+                  └─ 0.001 User.model_json_schema  pydantic/main.py:413
+                        [4 frames hidden]  pydantic
+                           0.001 new_handler_func  pydantic/json_schema.py:520
+                           └─ 0.001 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+                              └─ 0.001 User.__get_pydantic_json_schema__  pydantic/main.py:628
+                                    [13 frames hidden]  pydantic
+
+
+
+========================================================================
+GET /User  ->  200  (2.1ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:07  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+├─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+│     [3 frames hidden]  uvicorn, fastapi, starlette
+│        0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+│        └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+│           └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+│              └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+│                 └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+│                    └─ 0.001 _send  starlette/middleware/errors.py:157
+│                          [2 frames hidden]  uvicorn, asyncio
+│                             0.001 socket.send  <built-in>
+└─ 0.001 coro  starlette/middleware/base.py:136
+      [14 frames hidden]  starlette, fastapi
+         0.001 jsonable_encoder  fastapi/encoders.py:102
+
+
+
+========================================================================
+GET /User  ->  200  (2.1ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:07  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+├─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+│     [3 frames hidden]  uvicorn, fastapi, starlette
+│        0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+│        └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+│           └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+│              └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+│                 └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+│                    └─ 0.001 _send  starlette/middleware/errors.py:157
+│                          [4 frames hidden]  uvicorn, h11
+│                             0.001 Response.__init__  h11/_events.py:137
+└─ 0.001 coro  starlette/middleware/base.py:136
+      [11 frames hidden]  starlette, fastapi
+         0.001 jsonable_encoder  fastapi/encoders.py:102
+
+
+
+========================================================================
+GET /products  ->  200  (4.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:09  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.004     CPU time: 0.004
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.003 coro  starlette/middleware/base.py:136
+│     [18 frames hidden]  starlette, fastapi, json
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.001 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 └─ 0.001 Cursor.execute  <built-in>
+│        0.001 JSONEncoder.iterencode  json/encoder.py:205
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                           [2 frames hidden]  uvicorn, asyncio
+                              0.001 socket.send  <built-in>
+
+
+
+========================================================================
+GET /products  ->  200  (3.9ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:09  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.004     CPU time: 0.004
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.003 coro  starlette/middleware/base.py:136
+│     [13 frames hidden]  starlette, fastapi
+│        0.003 app  fastapi/routing.py:240
+│        ├─ 0.001 [self]  fastapi/routing.py
+│        │  0.001 jsonable_encoder  fastapi/encoders.py:102
+│        └─ 0.001 run_endpoint_function  fastapi/routing.py:204
+│           └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│              └─ 0.001 Product.list  pybend/core/models/storable_mixin.py:91
+│                 └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                    └─ 0.001 decorating_function  functools.py:518
+│                       └─ 0.001 update_wrapper  functools.py:35
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 _remove  _weakrefset.py:39
+
+
+
+========================================================================
+GET /products  ->  200  (6.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:09  Samples:  6
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.006 Handle._run  asyncio/events.py:86
+├─ 0.005 coro  starlette/middleware/base.py:136
+│     [18 frames hidden]  starlette, fastapi, <built-in>
+│        0.003 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.003 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.003 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.003 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 ├─ 0.002 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:286
+│                 │  ├─ 0.001 ProductLike.model_dump  pybend/core/models/proto_model.py:117
+│                 │  └─ 0.001 Cursor.execute  <built-in>
+│                 └─ 0.001 Cursor.execute  <built-in>
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+                  [2 frames hidden]  anyio
+
+
+
+========================================================================
+GET /products  ->  200  (8.2ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:09  Samples:  9
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.008     CPU time: 0.008
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.008 Handle._run  asyncio/events.py:86
+├─ 0.007 coro  starlette/middleware/base.py:136
+│     [19 frames hidden]  starlette, fastapi
+│        0.004 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.004 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.004 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.004 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 ├─ 0.003 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:286
+│                 │  └─ 0.003 get_ref_fields  pybend/core/utils/introspection.py:181
+│                 │     ├─ 0.002 [self]  pybend/core/utils/introspection.py
+│                 │     └─ 0.001 BaseModel.__subclasscheck__  <frozen abc>:121
+│                 │        └─ 0.001 _abc_subclasscheck  <built-in>
+│                 └─ 0.001 Cursor.execute  <built-in>
+└─ 0.001 [self]  asyncio/events.py
+
+
+
+========================================================================
+GET /products  ->  200  (8.7ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:09  Samples:  8
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.009     CPU time: 0.009
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.008 Handle._run  asyncio/events.py:86
+├─ 0.007 coro  starlette/middleware/base.py:136
+│     [20 frames hidden]  starlette, fastapi
+│        0.005 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.005 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.005 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.005 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 ├─ 0.004 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:286
+│                 │  ├─ 0.002 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:286
+│                 │  │  ├─ 0.001 get_list_fields  pybend/core/utils/introspection.py:138
+│                 │  │  └─ 0.001 [self]  pybend/core/storage/sqlite_storage.py
+│                 │  ├─ 0.001 get_ref_fields  pybend/core/utils/introspection.py:181
+│                 │  └─ 0.001 get_list_fields  pybend/core/utils/introspection.py:138
+│                 │     └─ 0.001 _unwrap_listref  pybend/core/utils/introspection.py:121
+│                 └─ 0.001 Cursor.execute  <built-in>
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 JWTAuthMiddleware.dispatch  pybend/core/api/backend.py:92
+                  └─ 0.001 call_next  starlette/middleware/base.py:109
+                        [4 frames hidden]  anyio, asyncio
+
+
+
+========================================================================
+GET /products  ->  200  (10.6ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:09  Samples:  11
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.011     CPU time: 0.011
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.010 Handle._run  asyncio/events.py:86
+└─ 0.010 coro  starlette/middleware/base.py:136
+      [33 frames hidden]  starlette, fastapi, <built-in>, pydan...
+         0.005 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.005 list_all_instances  pybend/core/api/routes_fastapi.py:93
+            └─ 0.005 Product.list  pybend/core/models/storable_mixin.py:91
+               └─ 0.005 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+                  ├─ 0.004 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:286
+                  │  ├─ 0.002 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:286
+                  │  │  ├─ 0.001 Cursor.execute  <built-in>
+                  │  │  └─ 0.001 get_ref_fields  pybend/core/utils/introspection.py:181
+                  │  │     └─ 0.001 _is_self_ref  pybend/core/utils/introspection.py:206
+                  │  ├─ 0.001 [self]  pybend/core/storage/sqlite_storage.py
+                  │  └─ 0.001 get_list_fields  pybend/core/utils/introspection.py:138
+                  └─ 0.001 Product.__init__  pybend/core/models/proto_model.py:96
+                     └─ 0.001 Product.__setattr__  pydantic/main.py:813
+
+
+
+========================================================================
+GET /products  ->  200  (4.8ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:09  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.003 coro  starlette/middleware/base.py:136
+│     [23 frames hidden]  starlette, fastapi, pydantic, typing
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.002 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.002 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+│                 ├─ 0.001 Product.__init__  pybend/core/models/proto_model.py:96
+│                 │  └─ 0.001 Product.__setattr__  pydantic/main.py:813
+│                 │     └─ 0.001 is_valid_field_name  pydantic/_internal/_fields.py:339
+│                 └─ 0.001 [self]  pybend/core/storage/sqlite_storage.py
+│        0.001 ModelMetaclass.__instancecheck__  pydantic/_internal/_model_construction.py:248
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+                  [3 frames hidden]  starlette, anyio
+                     0.001 MemoryObjectReceiveStream.receive  anyio/streams/memory.py:114
+
+
+
+========================================================================
+GET /users  ->  200  (2.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 13:04:09  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+└─ 0.002 coro  starlette/middleware/base.py:136
+      [18 frames hidden]  starlette, fastapi, anyio
+         0.001 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+            └─ 0.001 User.list  pybend/core/models/storable_mixin.py:91
+               └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:85
+                  └─ 0.001 Cursor.execute  <built-in>
+         0.001 Event.__init__  asyncio/locks.py:166
+
+
+
+========================================================================
+GET /Product  ->  200  (24.6ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:45  Samples:  24
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.025     CPU time: 0.025
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.024 Handle._run  asyncio/events.py:86
+├─ 0.020 coro  starlette/middleware/base.py:136
+│     [21 frames hidden]  starlette, fastapi, <built-in>
+│        0.017 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.017 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.017 Product.schema  pybend/core/models/proto_model.py:197
+│              ├─ 0.007 Product.referenced_json_schema  pybend/core/models/proto_model.py:319
+│              │  └─ 0.007 Product.model_json_schema  pydantic/main.py:413
+│              │        [14 frames hidden]  pydantic
+│              │           0.003 new_handler_func  pydantic/json_schema.py:520
+│              │           └─ 0.003 Product.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │              └─ 0.003 Product.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                    [45 frames hidden]  pydantic, <built-in>
+│              │                       0.001 new_handler_func  pydantic/json_schema.py:520
+│              │                       └─ 0.001 Comment.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │                          └─ 0.001 Comment.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                                [28 frames hidden]  pydantic
+│              │           0.002 new_handler_func  pydantic/json_schema.py:520
+│              │           └─ 0.002 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │              └─ 0.002 User.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                    [31 frames hidden]  pydantic, <built-in>
+│              ├─ 0.006 Product.model_json_schema  pydantic/main.py:413
+│              │     [17 frames hidden]  pydantic
+│              │        0.005 new_handler_func  pydantic/json_schema.py:520
+│              │        └─ 0.005 Product.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │           └─ 0.005 Product.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                 [45 frames hidden]  pydantic, <frozen _collections_abc>, ...
+│              │                    0.001 new_handler_func  pydantic/json_schema.py:520
+│              │                    └─ 0.001 Comment.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │                       └─ 0.001 Comment.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                             [30 frames hidden]  pydantic, contextlib
+│              ├─ 0.002 User.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:139
+│              │  ├─ 0.001 hasattr  <built-in>
+│              │  └─ 0.001 callable  <built-in>
+│              ├─ 0.001 deepcopy  copy.py:118
+│              │     [2 frames hidden]  copy
+│              └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│                 └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│                    └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│                       └─ 0.001 User.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:139
+│                          └─ 0.001 pydantic_schema_for_type  pybend/core/utils/introspection.py:15
+│                             └─ 0.001 BaseModel.__subclasscheck__  <frozen abc>:121
+│                                └─ 0.001 BaseBackend.__subclasscheck__  <frozen abc>:121
+├─ 0.003 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+│     [3 frames hidden]  uvicorn, fastapi, starlette
+│        0.003 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+│        └─ 0.003 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+│           └─ 0.003 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+│                 [16 frames hidden]  anyio, importlib, dataclasses, inspec...
+└─ 0.001 _UnixSelectorEventLoop.call_soon  asyncio/base_events.py:785
+
+
+
+========================================================================
+GET /Product  ->  200  (5.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:53  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.005 Handle._run  asyncio/events.py:86
+├─ 0.004 coro  starlette/middleware/base.py:136
+│     [14 frames hidden]  starlette, fastapi
+│        0.001 jsonable_encoder  fastapi/encoders.py:102
+│        0.001 isinstance  <built-in>
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.002 Product.schema  pybend/core/models/proto_model.py:197
+│              └─ 0.002 deepcopy  copy.py:118
+│                    [15 frames hidden]  copy, <built-in>
+│                       0.002 _deepcopy_dict  copy.py:217
+│                       └─ 0.001 [self]  copy.py
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                           [13 frames hidden]  uvicorn, logging, copy
+                              0.001 dict.update  <built-in>
+
+
+
+========================================================================
+GET /Product  ->  200  (4.3ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:53  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.004     CPU time: 0.004
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+└─ 0.004 coro  starlette/middleware/base.py:136
+      [21 frames hidden]  starlette, fastapi, anyio
+         0.001 ModelMetaclass.__instancecheck__  pydantic/_internal/_model_construction.py:248
+         0.001 jsonable_encoder  fastapi/encoders.py:102
+         0.001 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.001 get_model_schema  pybend/core/api/routes_fastapi.py:169
+            └─ 0.001 Product.schema  pybend/core/models/proto_model.py:197
+               └─ 0.001 deepcopy  copy.py:118
+                     [10 frames hidden]  copy
+                        0.001 _deepcopy_dict  copy.py:217
+         0.001 Event.wait  anyio/_backends/_asyncio.py:1785
+
+
+
+========================================================================
+GET /Product  ->  200  (5.8ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:53  Samples:  6
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.006 _UnixSelectorEventLoop._run_once  asyncio/base_events.py:1910
+├─ 0.005 Handle._run  asyncio/events.py:86
+│     [23 frames hidden]  starlette, fastapi, dataclasses, <bui...
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.002 Product.schema  pybend/core/models/proto_model.py:197
+│              └─ 0.002 deepcopy  copy.py:118
+│                    [10 frames hidden]  copy, <built-in>
+└─ 0.001 _UnixSelectorEventLoop.time  asyncio/base_events.py:734
+
+
+
+========================================================================
+GET /User  ->  200  (7.1ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:53  Samples:  7
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.007     CPU time: 0.007
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.007 Handle._run  asyncio/events.py:86
+├─ 0.006 coro  starlette/middleware/base.py:136
+│     [13 frames hidden]  starlette, fastapi
+│        0.005 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.005 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.005 User.schema  pybend/core/models/proto_model.py:197
+│              ├─ 0.002 User.referenced_json_schema  pybend/core/models/proto_model.py:319
+│              │  └─ 0.002 User.model_json_schema  pydantic/main.py:413
+│              │        [4 frames hidden]  pydantic
+│              │           0.002 new_handler_func  pydantic/json_schema.py:520
+│              │           └─ 0.002 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │              └─ 0.002 User.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                    [30 frames hidden]  pydantic
+│              ├─ 0.002 User.model_json_schema  pydantic/main.py:413
+│              │     [7 frames hidden]  pydantic
+│              │        0.001 new_handler_func  pydantic/json_schema.py:520
+│              │        └─ 0.001 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:341
+│              │           └─ 0.001 User.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                 [12 frames hidden]  pydantic
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [9 frames hidden]  copy
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+                  [2 frames hidden]  anyio
+
+
+
+========================================================================
+GET /User  ->  200  (2.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:53  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.001 Handle._run  asyncio/events.py:86
+└─ 0.001 coro  starlette/middleware/base.py:136
+      [17 frames hidden]  starlette, fastapi
+         0.001 jsonable_encoder  fastapi/encoders.py:102
+         0.000 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.000 get_model_schema  pybend/core/api/routes_fastapi.py:169
+            └─ 0.000 User.schema  pybend/core/models/proto_model.py:197
+               └─ 0.000 deepcopy  copy.py:118
+                     [2 frames hidden]  copy
+                        0.000 _deepcopy_dict  copy.py:217
+
+
+
+========================================================================
+GET /User  ->  200  (2.1ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:53  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+└─ 0.002 coro  starlette/middleware/base.py:136
+      [15 frames hidden]  starlette, fastapi
+         0.001 [self]  starlette/middleware/base.py
+         0.001 isinstance  <built-in>
+
+
+
+========================================================================
+GET /products  ->  200  (3.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:55  Samples:  3
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.003     CPU time: 0.003
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.003 Handle._run  asyncio/events.py:86
+├─ 0.002 coro  starlette/middleware/base.py:136
+│     [15 frames hidden]  starlette, fastapi
+│        0.001 is_dataclass  dataclasses.py:1294
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.001 _build_context  pybend/core/api/routes_fastapi.py:25
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 Profiler.stop  pyinstrument/profiler.py:171
+
+
+
+========================================================================
+GET /products  ->  200  (4.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:55  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.004     CPU time: 0.004
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.003 Handle._run  asyncio/events.py:86
+├─ 0.002 coro  starlette/middleware/base.py:136
+│     [16 frames hidden]  starlette, fastapi
+│        0.001 isinstance  <built-in>
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.001 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+│                 └─ 0.001 _GeneratorContextManager.__exit__  contextlib.py:141
+│                    └─ 0.001 next  <built-in>
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                        └─ 0.001 RequestResponseCycle.send  uvicorn/protocols/http/h11_impl.py:447
+                           └─ 0.001 _SelectorSocketTransport.write  asyncio/selector_events.py:1055
+
+
+
+========================================================================
+GET /products  ->  200  (4.2ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:55  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.004     CPU time: 0.004
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.003 Handle._run  asyncio/events.py:86
+└─ 0.003 coro  starlette/middleware/base.py:136
+      [20 frames hidden]  starlette, fastapi
+         0.001 is_dataclass  dataclasses.py:1294
+         0.001 isinstance  <built-in>
+         0.001 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+            └─ 0.001 Product.list  pybend/core/models/storable_mixin.py:91
+               └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+                  └─ 0.001 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+                     └─ 0.001 ProductComment.__init__  pybend/core/models/proto_model.py:96
+
+
+
+========================================================================
+GET /products  ->  200  (6.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:55  Samples:  6
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.006 Handle._run  asyncio/events.py:86
+├─ 0.005 coro  starlette/middleware/base.py:136
+│     [22 frames hidden]  starlette, fastapi, dataclasses, <bui...
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.002 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.002 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+│                 ├─ 0.001 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+│                 │  └─ 0.001 ProductComment.__init__  pybend/core/models/proto_model.py:96
+│                 └─ 0.001 Cursor.execute  <built-in>
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+
+
+
+========================================================================
+GET /products  ->  200  (5.9ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:55  Samples:  6
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.005 Handle._run  asyncio/events.py:86
+├─ 0.004 coro  starlette/middleware/base.py:136
+│     [22 frames hidden]  starlette, fastapi, pydantic
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           ├─ 0.001 _serialize  pybend/core/api/routes_fastapi.py:34
+│           │  └─ 0.001 Product.model_dump  pybend/core/models/proto_model.py:117
+│           │     └─ 0.001 Product.model_dump  pydantic/main.py:309
+│           │        └─ 0.001 SchemaSerializer.to_python  <built-in>
+│           ├─ 0.001 Product.list  pybend/core/models/storable_mixin.py:91
+│           │  └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+│           │     └─ 0.001 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+│           │        └─ 0.001 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+│           │           └─ 0.001 User.model_dump  pybend/core/models/proto_model.py:117
+│           └─ 0.000 _build_context  pybend/core/api/routes_fastapi.py:25
+│              └─ 0.000 AccessContext.__init__  <string>:2
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                           [5 frames hidden]  uvicorn, h11, <built-in>
+
+
+
+========================================================================
+GET /products  ->  200  (7.6ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:55  Samples:  8
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.008     CPU time: 0.008
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.007 Handle._run  asyncio/events.py:86
+├─ 0.006 coro  starlette/middleware/base.py:136
+│     [22 frames hidden]  starlette, fastapi, dataclasses, <bui...
+│        0.004 jsonable_encoder  fastapi/encoders.py:102
+│        └─ 0.002 [self]  fastapi/encoders.py
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.002 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.002 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+│                 ├─ 0.001 [self]  pybend/core/storage/sqlite_storage.py
+│                 └─ 0.001 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+│                    └─ 0.001 ProductComment.model_dump  pybend/core/models/proto_model.py:117
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                           [6 frames hidden]  uvicorn, logging, <built-in>
+
+
+
+========================================================================
+GET /products  ->  200  (2.9ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:55  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.003     CPU time: 0.003
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+└─ 0.002 coro  starlette/middleware/base.py:136
+      [14 frames hidden]  starlette, fastapi
+         0.001 str.startswith  <built-in>
+         0.001 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+            └─ 0.001 _serialize  pybend/core/api/routes_fastapi.py:34
+               └─ 0.001 Product.model_dump  pybend/core/models/proto_model.py:117
+                  └─ 0.001 Product.model_dump  pydantic/main.py:309
+                     └─ 0.001 SchemaSerializer.to_python  <built-in>
+
+
+
+========================================================================
+GET /users  ->  200  (2.3ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 14:01:55  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+└─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+   ├─ 0.001 JWTAuthMiddleware.dispatch  pybend/core/api/backend.py:92
+   │  └─ 0.001 call_next  starlette/middleware/base.py:109
+   │        [2 frames hidden]  anyio
+   │           0.001 AsyncIOBackend.checkpoint  anyio/_backends/_asyncio.py:2356
+   └─ 0.000 [self]  starlette/middleware/base.py
+
+
+
+========================================================================
+GET /Product  ->  200  (27.6ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:15  Samples:  27
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.028     CPU time: 0.028
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.027 Handle._run  asyncio/events.py:86
+├─ 0.023 coro  starlette/middleware/base.py:136
+│     [20 frames hidden]  starlette, fastapi, pydantic
+│        0.020 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.020 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.020 Product.schema  pybend/core/models/proto_model.py:198
+│              ├─ 0.019 Product.run_pipeline  pybend/core/models/proto_schema.py:105
+│              │  ├─ 0.010 Product.defs  pybend/core/models/proto_schema.py:173
+│              │  │  ├─ 0.008 Product.referenced_json_schema  pybend/core/models/proto_model.py:215
+│              │  │  │  └─ 0.008 Product.model_json_schema  pydantic/main.py:413
+│              │  │  │        [24 frames hidden]  pydantic, copy, <built-in>
+│              │  │  │           0.003 new_handler_func  pydantic/json_schema.py:520
+│              │  │  │           └─ 0.003 Product.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:237
+│              │  │  │              └─ 0.003 Product.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │  │  │                    [43 frames hidden]  pydantic, <built-in>
+│              │  │  │                       0.002 new_handler_func  pydantic/json_schema.py:520
+│              │  │  │                       └─ 0.002 Comment.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:237
+│              │  │  │                          └─ 0.002 Comment.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │  │  │                                [31 frames hidden]  pydantic, <built-in>
+│              │  │  │           0.002 new_handler_func  pydantic/json_schema.py:520
+│              │  │  │           └─ 0.002 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:237
+│              │  │  │              └─ 0.002 User.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │  │  │                    [26 frames hidden]  pydantic
+│              │  │  ├─ 0.001 User.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:140
+│              │  │  │  └─ 0.001 get_type_hints  typing.py:2186
+│              │  │  └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│              │  │     └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│              │  │        └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│              │  │           └─ 0.001 User.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:140
+│              │  │              └─ 0.001 pydantic_schema_for_type  pybend/core/utils/introspection.py:15
+│              │  │                 └─ 0.001 BaseModel.__subclasscheck__  <frozen abc>:121
+│              │  │                       [3 frames hidden]  <frozen abc>
+│              │  ├─ 0.006 Product.base  pybend/core/models/proto_schema.py:146
+│              │  │  └─ 0.006 Product.model_json_schema  pydantic/main.py:413
+│              │  │        [18 frames hidden]  pydantic
+│              │  │           0.005 new_handler_func  pydantic/json_schema.py:520
+│              │  │           └─ 0.005 Like.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:237
+│              │  │              ├─ 0.004 Product.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │  │              │     [40 frames hidden]  pydantic
+│              │  │              │        0.001 new_handler_func  pydantic/json_schema.py:520
+│              │  │              │        └─ 0.001 Comment.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:237
+│              │  │              │           └─ 0.001 Comment.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │  │              │                 [19 frames hidden]  pydantic
+│              │  │              └─ 0.001 get_origin  typing.py:2310
+│              │  ├─ 0.001 Product.access  pybend/core/models/proto_schema.py:203
+│              │  │  └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│              │  │     └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│              │  │        └─ 0.001 Comment.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:140
+│              │  │           └─ 0.001 signature  inspect.py:3308
+│              │  │                 [3 frames hidden]  inspect
+│              │  ├─ 0.001 Product.methods  pybend/core/models/proto_schema.py:167
+│              │  │  └─ 0.001 Product.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:140
+│              │  │     └─ 0.001 get_type_hints  typing.py:2186
+│              │  │        └─ 0.001 ForwardRef.__init__  typing.py:885
+│              │  └─ 0.001 Product.ui  pybend/core/models/proto_schema.py:215
+│              │     └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│              │        └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│              │           └─ 0.001 collect_all_referenced_models  pybend/core/utils/introspection.py:63
+│              │              └─ 0.001 User.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:140
+│              │                 └─ 0.001 record_model_type  pybend/core/utils/introspection.py:48
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [7 frames hidden]  copy
+└─ 0.004 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.004 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.004 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.004 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+                  [10 frames hidden]  anyio, importlib, dataclasses, <built...
+                     0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                     └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                        └─ 0.001 _send  starlette/middleware/errors.py:157
+                              [3 frames hidden]  uvicorn, asyncio, <built-in>
+
+
+
+========================================================================
+GET /Product  ->  200  (5.1ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:23  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 _UnixSelectorEventLoop._run_once  asyncio/base_events.py:1910
+├─ 0.004 Handle._run  asyncio/events.py:86
+│     [22 frames hidden]  starlette, fastapi, uvicorn
+│        0.002 jsonable_encoder  fastapi/encoders.py:102
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.001 Product.schema  pybend/core/models/proto_model.py:198
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [10 frames hidden]  copy
+│                       0.001 _deepcopy_dict  copy.py:217
+│        0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+│        └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+│           └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+│              └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+│                 └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+│                    └─ 0.001 _send  starlette/middleware/errors.py:157
+│                          [3 frames hidden]  uvicorn, logging
+│                             0.001 Logger.makeRecord  logging/__init__.py:1645
+└─ 0.000 [self]  asyncio/base_events.py
+
+
+
+========================================================================
+GET /Product  ->  200  (4.7ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:23  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.005 Handle._run  asyncio/events.py:86
+├─ 0.004 coro  starlette/middleware/base.py:136
+│     [15 frames hidden]  starlette, fastapi
+│        0.002 jsonable_encoder  fastapi/encoders.py:102
+│        └─ 0.001 [self]  fastapi/encoders.py
+│           0.001 jsonable_encoder  fastapi/encoders.py:102
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.002 Product.schema  pybend/core/models/proto_model.py:198
+│              └─ 0.002 deepcopy  copy.py:118
+│                    [13 frames hidden]  copy, <built-in>
+│                       0.002 _deepcopy_dict  copy.py:217
+│                       └─ 0.001 [self]  copy.py
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 Profiler.stop  pyinstrument/profiler.py:171
+               └─ 0.001 StackSampler.unsubscribe  pyinstrument/stack_sampler.py:100
+
+
+
+========================================================================
+GET /Product  ->  200  (4.5ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:23  Samples:  4
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.003 coro  starlette/middleware/base.py:136
+│     [16 frames hidden]  starlette, fastapi
+│        0.001 jsonable_encoder  fastapi/encoders.py:102
+│        0.001 is_dataclass  dataclasses.py:1294
+│        0.001 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.001 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.001 Product.schema  pybend/core/models/proto_model.py:198
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [10 frames hidden]  copy
+└─ 0.001 [self]  asyncio/events.py
+
+
+
+========================================================================
+GET /User  ->  200  (6.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:23  Samples:  6
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.006 Handle._run  asyncio/events.py:86
+├─ 0.005 coro  starlette/middleware/base.py:136
+│     [10 frames hidden]  starlette, fastapi
+│        0.005 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.005 get_model_schema  pybend/core/api/routes_fastapi.py:169
+│           └─ 0.005 User.schema  pybend/core/models/proto_model.py:198
+│              ├─ 0.004 User.run_pipeline  pybend/core/models/proto_schema.py:105
+│              │  ├─ 0.002 User.defs  pybend/core/models/proto_schema.py:173
+│              │  │  ├─ 0.001 User.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:140
+│              │  │  │  └─ 0.001 get_type_hints  typing.py:2186
+│              │  │  └─ 0.001 User.referenced_json_schema  pybend/core/models/proto_model.py:215
+│              │  │     └─ 0.001 User.model_json_schema  pydantic/main.py:413
+│              │  │           [4 frames hidden]  pydantic
+│              │  │              0.001 new_handler_func  pydantic/json_schema.py:520
+│              │  │              └─ 0.001 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:237
+│              │  │                 └─ 0.001 User.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │  │                       [29 frames hidden]  pydantic, <frozen _collections_abc>, ...
+│              │  ├─ 0.001 User.methods  pybend/core/models/proto_schema.py:167
+│              │  │  └─ 0.001 User.__pybend_methods_json_signature__  pybend/core/models/proto_model.py:140
+│              │  │     └─ 0.001 ModelMetaclass.__dir__  pydantic/_internal/_model_construction.py:278
+│              │  │        └─ 0.001 list.remove  <built-in>
+│              │  └─ 0.001 User.base  pybend/core/models/proto_schema.py:146
+│              │     └─ 0.001 User.model_json_schema  pydantic/main.py:413
+│              │           [4 frames hidden]  pydantic
+│              │              0.001 new_handler_func  pydantic/json_schema.py:520
+│              │              └─ 0.001 User.__get_pydantic_json_schema__  pybend/core/models/proto_model.py:237
+│              │                 └─ 0.001 User.__get_pydantic_json_schema__  pydantic/main.py:628
+│              │                       [12 frames hidden]  pydantic
+│              └─ 0.001 deepcopy  copy.py:118
+│                    [10 frames hidden]  copy
+└─ 0.001 [self]  asyncio/events.py
+
+
+
+========================================================================
+GET /User  ->  200  (5.1ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:23  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.005     CPU time: 0.005
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+├─ 0.002 coro  starlette/middleware/base.py:136
+│     [18 frames hidden]  starlette, fastapi, <frozen abc>, <bu...
+│        0.002 jsonable_encoder  fastapi/encoders.py:102
+│        └─ 0.001 [self]  fastapi/encoders.py
+│           0.001 jsonable_encoder  fastapi/encoders.py:102
+└─ 0.002 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.002 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.002 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.002 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               ├─ 0.001 [self]  starlette/middleware/base.py
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                           [5 frames hidden]  uvicorn, asyncio
+                              0.001 TimerHandle.__init__  asyncio/events.py:36
+
+
+
+========================================================================
+GET /User  ->  200  (2.5ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:23  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.003     CPU time: 0.003
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+├─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+│     [3 frames hidden]  uvicorn, fastapi, starlette
+│        0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+│        └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+│           └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+│              └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+│                 └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+│                    └─ 0.001 _send  starlette/middleware/errors.py:157
+│                          [10 frames hidden]  uvicorn, logging
+│                             0.001 AccessFormatter.formatMessage  uvicorn/logging.py:55
+└─ 0.001 coro  starlette/middleware/base.py:136
+      [15 frames hidden]  starlette, fastapi
+         0.001 list.append  <built-in>
+
+
+
+========================================================================
+GET /x  ->  404  (2.4ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:24  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.001 Handle._run  asyncio/events.py:86
+├─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+│     [3 frames hidden]  uvicorn, fastapi, starlette
+│        0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+│        └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+│           └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+│              └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+│                 └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+│                    └─ 0.001 _send  starlette/middleware/errors.py:157
+│                          [5 frames hidden]  uvicorn, logging
+│                             0.001 StreamHandler.handle  logging/__init__.py:1011
+└─ 0.000 coro  starlette/middleware/base.py:136
+      [8 frames hidden]  starlette
+         0.000 run_sync  anyio/to_thread.py:25
+
+
+
+========================================================================
+GET /products  ->  200  (3.3ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:25  Samples:  3
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.003     CPU time: 0.003
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+├─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+│     [4 frames hidden]  uvicorn, fastapi, starlette
+│        0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+│        └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+│           └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+│              └─ 0.001 JWTAuthMiddleware.dispatch  pybend/core/api/backend.py:92
+│                 └─ 0.001 call_next  starlette/middleware/base.py:109
+│                       [2 frames hidden]  anyio
+│                          0.001 AsyncIOBackend.create_event  anyio/_backends/_asyncio.py:2421
+└─ 0.001 coro  starlette/middleware/base.py:136
+      [10 frames hidden]  starlette, fastapi
+         0.001 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+            └─ 0.001 Product.list  pybend/core/models/storable_mixin.py:91
+               └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+                  └─ 0.001 _validate_identifier  pybend/core/storage/sqlite_storage.py:22
+                     └─ 0.001 match  re/__init__.py:164
+                        └─ 0.001 Pattern.match  <built-in>
+
+
+
+========================================================================
+GET /products  ->  200  (3.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:25  Samples:  3
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.003     CPU time: 0.003
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+├─ 0.001 coro  starlette/middleware/base.py:136
+│     [22 frames hidden]  starlette, fastapi, pydantic, typing
+│        0.001 jsonable_encoder  fastapi/encoders.py:102
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                           [13 frames hidden]  uvicorn, logging
+                              0.001 PercentStyle._format  logging/__init__.py:455
+
+
+
+========================================================================
+GET /products  ->  200  (5.5ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:25  Samples:  5
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.004 Handle._run  asyncio/events.py:86
+└─ 0.004 coro  starlette/middleware/base.py:136
+      [25 frames hidden]  starlette, fastapi, pydantic, typing,...
+         0.002 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+            ├─ 0.001 Product.list  pybend/core/models/storable_mixin.py:91
+            │  └─ 0.001 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+            │     └─ 0.001 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+            │        └─ 0.001 ProductComment.model_dump  pybend/core/models/proto_model.py:118
+            │           └─ 0.001 ProductComment.model_dump  pydantic/main.py:309
+            └─ 0.001 _serialize  pybend/core/api/routes_fastapi.py:34
+               └─ 0.001 Product.model_dump  pybend/core/models/proto_model.py:118
+                  └─ 0.001 Product.model_dump  pydantic/main.py:309
+                     └─ 0.001 SchemaSerializer.to_python  <built-in>
+         0.001 isinstance  <built-in>
+         0.001 isinstance  <built-in>
+
+
+
+========================================================================
+GET /products  ->  200  (6.5ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:25  Samples:  6
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.006     CPU time: 0.006
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.006 Handle._run  asyncio/events.py:86
+├─ 0.005 coro  starlette/middleware/base.py:136
+│     [21 frames hidden]  starlette, fastapi, <built-in>
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.002 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.002 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+│                 ├─ 0.001 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+│                 │  └─ 0.001 Cursor.execute  <built-in>
+│                 └─ 0.001 Product.__init__  pybend/core/models/proto_model.py:97
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 JWTAuthMiddleware.dispatch  pybend/core/api/backend.py:92
+                  └─ 0.001 call_next  starlette/middleware/base.py:109
+                        [4 frames hidden]  anyio
+
+
+
+========================================================================
+GET /products  ->  200  (7.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:25  Samples:  7
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.007     CPU time: 0.007
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.007 Handle._run  asyncio/events.py:86
+├─ 0.006 coro  starlette/middleware/base.py:136
+│     [22 frames hidden]  starlette, fastapi, pydantic, <built-in>
+│        0.002 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.002 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           └─ 0.002 Product.list  pybend/core/models/storable_mixin.py:91
+│              └─ 0.002 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+│                 └─ 0.002 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+│                    ├─ 0.001 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+│                    │  └─ 0.001 Cursor.execute  <built-in>
+│                    └─ 0.001 ProductComment.__init__  pybend/core/models/proto_model.py:97
+└─ 0.001 [self]  asyncio/events.py
+
+
+
+========================================================================
+GET /products  ->  200  (9.3ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:25  Samples:  10
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.009     CPU time: 0.009
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.009 Handle._run  asyncio/events.py:86
+├─ 0.008 coro  starlette/middleware/base.py:136
+│     [20 frames hidden]  starlette, fastapi, dataclasses
+│        0.004 jsonable_encoder  fastapi/encoders.py:102
+│        └─ 0.002 [self]  fastapi/encoders.py
+│        0.003 run_endpoint_function  fastapi/routing.py:204
+│        └─ 0.003 list_all_instances  pybend/core/api/routes_fastapi.py:93
+│           ├─ 0.002 Product.list  pybend/core/models/storable_mixin.py:91
+│           │  └─ 0.002 SQLiteStorage.list  pybend/core/storage/sqlite_storage.py:124
+│           │     └─ 0.002 SQLiteStorage._populate_fields  pybend/core/storage/sqlite_storage.py:320
+│           │        ├─ 0.001 getattr  <built-in>
+│           │        └─ 0.001 ProductComment.__init__  pybend/core/models/proto_model.py:97
+│           └─ 0.001 _serialize  pybend/core/api/routes_fastapi.py:34
+│              └─ 0.001 Product.model_dump  pybend/core/models/proto_model.py:118
+│                 └─ 0.001 Product.model_dump  pydantic/main.py:309
+│                    └─ 0.001 SchemaSerializer.to_python  <built-in>
+└─ 0.001 RequestResponseCycle.run_asgi  uvicorn/protocols/http/h11_impl.py:401
+      [3 frames hidden]  uvicorn, fastapi, starlette
+         0.001 ServerErrorMiddleware.__call__  starlette/middleware/errors.py:150
+         └─ 0.001 ProfilingMiddleware.__call__  pybend/core/tests/profiling/middleware.py:35
+            └─ 0.001 JWTAuthMiddleware.__call__  starlette/middleware/base.py:98
+               └─ 0.001 _StreamingResponse.__call__  starlette/middleware/base.py:205
+                  └─ 0.001 send_wrapper  pybend/core/tests/profiling/middleware.py:48
+                     └─ 0.001 _send  starlette/middleware/errors.py:157
+                        └─ 0.001 RequestResponseCycle.send  uvicorn/protocols/http/h11_impl.py:447
+
+
+
+========================================================================
+GET /products  ->  200  (3.0ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:25  Samples:  3
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.003     CPU time: 0.003
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 Handle._run  asyncio/events.py:86
+└─ 0.002 coro  starlette/middleware/base.py:136
+      [29 frames hidden]  starlette, fastapi, anyio
+         0.001 isinstance  <built-in>
+         0.001 current_async_library  sniffio/_impl.py:25
+
+
+
+========================================================================
+GET /users  ->  200  (2.3ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:25  Samples:  2
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.002 NoneType._run  asyncio/events.py:86
+├─ 0.001 [self]  asyncio/events.py
+└─ 0.001 coro  starlette/middleware/base.py:136
+      [10 frames hidden]  starlette, fastapi
+         0.001 run_endpoint_function  fastapi/routing.py:204
+         └─ 0.001 list_all_instances  pybend/core/api/routes_fastapi.py:93
+            └─ 0.001 _serialize  pybend/core/api/routes_fastapi.py:34
+               └─ 0.001 User.model_dump  pybend/core/models/proto_model.py:118
+                  └─ 0.001 User.model_dump  pydantic/main.py:309
+                     └─ 0.001 SchemaSerializer.to_python  <built-in>
+
+
+
+========================================================================
+GET /x  ->  404  (2.1ms)
+========================================================================
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 15:16:26  Samples:  1
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 0.002     CPU time: 0.002
+/   _/                      v5.1.2
+
+Profile at /code/pystack/pybend/src/pybend/example/../../pybend/core/tests/profiling/middleware.py:57
+
+0.001 Handle._run  asyncio/events.py:86
+
+
