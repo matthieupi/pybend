@@ -332,7 +332,7 @@ Documentation lives at three levels:
 
 The `docs/` directory is for **human and agent consumption** — authoritative reference. The per-package `docs/` directories are for **deep dives** into specific subsystems. The CLAUDE/BACKEND/FRONTEND files are **agent-specific** context for LLM assistants working on the codebase.
 
-`.traces/` contains development artifacts written by and for agents — research, plans, vision docs, audit reports.
+`.project/` contains development artifacts written by and for agents — research, plans, vision docs, audit reports.
 
 ## Example Applications
 
