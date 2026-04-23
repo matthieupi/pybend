@@ -411,20 +411,31 @@ class Run(ActorModel):
         ]
         if notes:
             lines.append(f"Scraping notes: {notes}")
+        if sid:
+            fetch_steps = [
+                f"1. Call sources_fetch with id={sid} to fetch and persist the latest source content.",
+                "2. Read the returned source.scraped_content. If it is empty or clearly incomplete,",
+                f"   call sources_fetch again with id={sid} and use_js=true.",
+                "3. Identify grants or funding programs from the fetched content.",
+            ]
+        else:
+            fetch_steps = [
+                "1. Use web_tools_scrape to fetch the page. If empty, try web_tools_scrape_js.",
+                "2. Read the content. Identify grants or funding programs.",
+            ]
         lines += [
             "",
             "Steps:",
-            "1. Use web_tools_scrape to fetch the page. If empty, try web_tools_scrape_js.",
-            "2. Read the content. Identify grants or funding programs.",
-            "3. For each grant found:",
+            *fetch_steps,
+            "4. For each grant found:",
             "   a. Call web_tools_check_duplicate with the grant URL.",
             f"   b. If NOT duplicate, call grants_create. Set run_id={self.id}"
             + (f", source_id={sid}" if sid else "") + ".",
             "   c. Extract: title, funder, url, source_url, description, amount_min/max,",
             "      deadline, eligibility_criteria, required_documents, application_process, language.",
-            "4. If you find links to OTHER grant portals/directories,",
+            "5. If you find links to OTHER grant portals/directories,",
             "   call sources_create (set agent_discovered=true, active=true).",
-            "5. Follow detail links for full grant information.",
+            "6. Follow detail links for full grant information using web_tools_scrape or web_tools_scrape_js.",
         ]
         return '\n'.join(lines)
 
