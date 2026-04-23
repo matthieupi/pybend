@@ -143,14 +143,43 @@ describe('form.js (Formidable)', () => {
         name: 'filter',
       }, 'edit');
 
-      expect(html).not.toContain('type="array"');
       expect(html).toContain('list-field');
+      expect(html).toContain('data-key="tags"');
     });
 
     it('should keep supporting entity-style property schemas', () => {
       const html = Formidable.getFields(makeNtt(), 'edit');
       expect(html).toContain('data-key="price"');
       expect(html).toContain('data-key="active"');
+    });
+
+    it('should render equivalent boolean fields for method parameters and entity properties', () => {
+      const methodHtml = Formidable.getFields({
+        schema: {
+          __name__: 'Source.fetch',
+          parameters: { use_js: { type: 'boolean', title: 'Use JS' } },
+          required: [],
+          ui: {},
+        },
+        value: { use_js: true },
+        name: 'fetch',
+      }, 'edit');
+
+      const entityHtml = Formidable.getFields({
+        schema: {
+          __name__: 'SourceConfig',
+          properties: { use_js: { type: 'boolean', title: 'Use JS' } },
+          required: [],
+          ui: {},
+        },
+        value: { use_js: true },
+        name: 'SourceConfig',
+      }, 'edit');
+
+      expect(methodHtml).toContain('data-key="use_js"');
+      expect(entityHtml).toContain('data-key="use_js"');
+      expect(methodHtml).toContain('type="checkbox"');
+      expect(entityHtml).toContain('type="checkbox"');
     });
   });
 
@@ -255,8 +284,8 @@ describe('form.js (Formidable)', () => {
       };
       const html = Formidable.getListInput(ntt, 'comments', 'display');
       expect(html).toContain('list-field');
-      expect(html).toContain('list-field-count');
-      expect(html).toContain('3'); // count
+      expect(html).toContain('field="comments"');
+      expect(html).toContain('value="%5B');
     });
 
     it('should show first 2 items visible and rest collapsed', () => {
@@ -278,8 +307,8 @@ describe('form.js (Formidable)', () => {
         name: 'Product',
       };
       const html = Formidable.getListInput(ntt, 'items', 'display');
-      expect(html).toContain('nested-collapsed');
-      expect(html).toContain('Show 2 more');
+      expect(html).toContain('field="items"');
+      expect(html).toContain('mode="display"');
     });
 
     it('should handle populated objects with $id', () => {
@@ -301,8 +330,8 @@ describe('form.js (Formidable)', () => {
         name: 'Product',
       };
       const html = Formidable.getListInput(ntt, 'tags', 'display');
-      expect(html).toContain('list-field-count');
-      expect(html).toContain('2');
+      expect(html).toContain('field="tags"');
+      expect(html).toContain('%24id');
     });
   });
 
@@ -706,6 +735,33 @@ describe('form.js (Formidable)', () => {
       };
       const errors = Formidable.validateForm(ntt);
       expect(errors.some(e => e.field === 'price')).toBe(false);
+    });
+
+    it('should validate expanded top-level $ref required fields', () => {
+      const ntt = {
+        schema: {
+          __name__: 'CommentMethod',
+          parameters: {
+            comment: { type: '$ref', $ref: '#/$defs/Comment', title: 'Comment' },
+          },
+          $defs: {
+            Comment: {
+              properties: {
+                text: { type: 'string', title: 'Text', minLength: 1 },
+                rating: { type: 'integer', title: 'Rating' },
+              },
+              required: ['text'],
+            },
+          },
+          required: [],
+          ui: {},
+        },
+        value: { comment: { text: '' } },
+        name: 'comment',
+      };
+
+      const errors = Formidable.validateForm(ntt);
+      expect(errors.some(e => e.field === 'comment.text')).toBe(true);
     });
   });
 

@@ -10,22 +10,97 @@ import '../components/ntx-ref-picker.js';
   const _layoutCache = new Map();
   const _headerFieldSet = new Set(['name', 'title', 'id', 'description']);
 
+  function decodeAttributeJson(value, fallback) {
+      if (!value) return fallback;
+      try {
+          return JSON.parse(decodeURIComponent(value));
+      } catch {
+          return fallback;
+      }
+  }
+
+  function getValueByPath(value, path) {
+      if (!path) return value;
+      return String(path).split('.').reduce((acc, part) => (acc == null ? undefined : acc[part]), value);
+  }
+
+  function normalizeSchema(schema = {}) {
+      if (schema?.__normalized_form_schema) return schema;
+
+      const rawFields = schema?.properties || schema?.parameters || {};
+      const defs = schema?.$defs || {};
+      const isMethodSchema = !!(schema?.parameters && !schema?.properties);
+      const normalizedFields = {};
+      const normalizedRequired = [];
+      const requiredSet = new Set(schema?.required || []);
+
+      for (const [key, rawDef] of Object.entries(rawFields)) {
+          const def = rawDef?.anyOf ? { ...rawDef, ...resolveAnyOf(rawDef) } : { ...rawDef };
+          if (isMethodSchema && (def.type === '$ref' || def?.$ref)) {
+              const refName = (def.$ref || '').replace('#/$defs/', '');
+              const refSchema = defs?.[refName] || {};
+              const refFields = getFieldDefs(refSchema);
+              const refRequired = getRequiredFields(refSchema);
+              const renderKeys = refRequired.length ? refRequired : Object.keys(refFields);
+
+              if (!renderKeys.length) {
+                  normalizedFields[key] = def;
+                  if (requiredSet.has(key)) normalizedRequired.push(key);
+                  continue;
+              }
+
+              renderKeys.forEach((subKey) => {
+                  const nestedKey = `${key}.${subKey}`;
+                  const nestedDef = refFields[subKey] || {};
+                  normalizedFields[nestedKey] = {
+                      ...nestedDef,
+                      ui: {
+                          ...(nestedDef.ui || {}),
+                          placeholder: nestedDef?.ui?.placeholder || nestedDef?.title || subKey,
+                      },
+                  };
+                  if (refRequired.includes(subKey)) normalizedRequired.push(nestedKey);
+              });
+              continue;
+          }
+
+          normalizedFields[key] = def;
+          if (requiredSet.has(key)) normalizedRequired.push(key);
+      }
+
+      return {
+          ...schema,
+          properties: normalizedFields,
+          required: normalizedRequired,
+          __formKind: isMethodSchema ? 'method' : 'entity',
+          __normalized_form_schema: true,
+      };
+  }
+
+  function normalizeNTT(ntt = {}) {
+      return {
+          ...ntt,
+          schema: normalizeSchema(ntt.schema || {}),
+      };
+  }
+
   function getFieldDefs(schema) {
-      return schema?.properties || schema?.parameters || {};
+      return normalizeSchema(schema)?.properties || {};
   }
 
   function getRequiredFields(schema) {
-      return schema?.required || [];
+      return normalizeSchema(schema)?.required || [];
   }
 
   function _getLayout(schema, mode) {
-      const cacheKey = `${schema.__name__ || schema.title || ''}:${mode}:${permissions.role}`;
+      const normalized = normalizeSchema(schema);
+      const cacheKey = `${normalized.__name__ || normalized.title || ''}:${normalized.__formKind || 'entity'}:${mode}:${permissions.role}`;
       const cached = _layoutCache.get(cacheKey);
       if (cached) return cached;
 
-      const fields = getFieldDefs(schema);
-      const ui = schema.ui || {};
-      const isMethodSchema = !!(schema?.parameters && !schema?.properties);
+      const fields = getFieldDefs(normalized);
+      const ui = normalized.ui || {};
+      const isMethodSchema = normalized.__formKind === 'method';
 
       // O(n) field order with Set (was O(n²) with Array.includes)
       const fieldOrder = ui.field_order
@@ -65,21 +140,23 @@ import '../components/ntx-ref-picker.js';
 
 
   function getForm(ntt, mode="display", attachedMethods = {}) {
-      let $header = getHeader(ntt, mode);
+      const normalized = normalizeNTT(ntt);
+      let $header = getHeader(normalized, mode);
 
-      const $fields = getFields(ntt, mode, attachedMethods);
+      const $fields = getFields(normalized, mode, attachedMethods);
       return $header.concat($fields).join('');
   }
 
   function getFields(ntt, mode="display", attachedMethods = {}) {
-      const { renderableFields, groups } = _getLayout(ntt.schema, mode);
+      const normalized = normalizeNTT(ntt);
+      const { renderableFields, groups } = _getLayout(normalized.schema, mode);
 
       if (groups && typeof groups === 'object') {
-          return renderGroupedFields(ntt, renderableFields, groups, mode, attachedMethods);
+          return renderGroupedFields(normalized, renderableFields, groups, mode, attachedMethods);
       }
 
       return renderableFields.map(key => {
-          let html = getInput(ntt, key, mode);
+          let html = getInput(normalized, key, mode);
           if (mode !== 'edit') {
               for (const [methodName, methodDef] of Object.entries(attachedMethods)) {
                   if (methodDef.ui?.attach_to === key) {
@@ -159,7 +236,10 @@ import '../components/ntx-ref-picker.js';
       const val = ntt.value || {};
       // Determine which field provides the heading (title takes priority over name)
       const nameKey = ('title' in val) ? 'title' : 'name';
-      const name = val[nameKey] || schema.name || 'Unnamed';
+      const rawName = val[nameKey];
+      const name = mode === 'edit'
+          ? (rawName ?? '')
+          : (rawName || schema.name || 'Unnamed');
       const desc = val.description || '';
 
       let headerHtml = [];
@@ -208,14 +288,11 @@ function wrapDisplayField(label, content, { inline = false, classes = '' } = {})
 }
 
 function getInput(ntt, key, mode = 'display') {
+    ntt = normalizeNTT(ntt);
     const schema = ntt.schema;
     const fields = getFieldDefs(schema);
     const def = fields?.[key]
     if (!def) return '';
-
-    if (def.anyOf) {
-        Object.assign(def, resolveAnyOf(def));
-    }
 
     // Protected fields are always display-only (backend-owned)
     const effectiveMode = (mode === 'edit' && (def.ui?.protected || !permissions.canEdit(def))) ? 'display' : mode;
@@ -224,45 +301,17 @@ function getInput(ntt, key, mode = 'display') {
         return getListInput(ntt, key, effectiveMode);
     }
 
-    if ((def.type === '$ref' || def?.$ref) && effectiveMode === 'edit') {
-        const refName = (def.$ref || '').replace('#/$defs/', '');
-        const refSchema = schema?.$defs?.[refName] || {};
-        const refFields = getFieldDefs(refSchema);
-        const required = getRequiredFields(refSchema);
-        if (!Object.keys(refFields).length) {
-            return `<label>${def.title || key} (unresolved)</label>`;
-        }
-        const renderKeys = required.length ? required : Object.keys(refFields);
-        return renderKeys.map((subKey) => {
-            const nestedKey = `${key}.${subKey}`;
-            const nestedDef = {
-                ...refFields[subKey],
-                ui: {
-                    ...(refFields[subKey]?.ui || {}),
-                    placeholder: refFields[subKey]?.ui?.placeholder || refFields[subKey]?.title || subKey,
-                },
-            };
-            const nestedSchema = {
-                ...ntt.schema,
-                properties: {
-                    [nestedKey]: nestedDef,
-                },
-                parameters: undefined,
-                required: required.includes(subKey) ? [nestedKey] : [],
-            };
-            const nestedValue = {
-                [nestedKey]: ntt.value?.[key]?.[subKey] ?? '',
-            };
-            return getInput({ ...ntt, schema: nestedSchema, value: nestedValue }, nestedKey, effectiveMode);
-        }).join('');
+    if ((def.type === '$ref' || def?.$ref) && effectiveMode === 'edit' && !schema?.$defs?.[(def.$ref || '').replace('#/$defs/', '')]) {
+        return `<label>${def.title || key} (unresolved)</label>`;
     }
+
 
     const model = ntt.name
     const label = def.title || key;
-    const value = ntt.value?.[key] ?? '';
+    const value = getValueByPath(ntt.value, key) ?? '';
     const widget = def.ui?.widget;  // Widget hint from schema (takes priority)
     let html = [];
-    const isMethodSchema = !!(schema?.parameters && !schema?.properties);
+    const isMethodSchema = schema?.__formKind === 'method';
     const defaultShowLabel = isMethodSchema ? true : (key !== 'name' && key !== 'id');
     const showLabel = def.ui?.label === false ? false : defaultShowLabel;
 
@@ -401,6 +450,7 @@ function getInput(ntt, key, mode = 'display') {
 }
 
 function getListInput(ntt, key, mode = 'display') {
+    ntt = normalizeNTT(ntt);
     const def = getFieldDefs(ntt.schema)?.[key];
     const listFieldSchema = {
         ...def,
@@ -415,6 +465,7 @@ function getListInput(ntt, key, mode = 'display') {
     const widgetEl = mode === 'edit'
         ? widget.edit(value, config, listFieldSchema, () => {}, ntt)
         : widget.display(value, config, listFieldSchema, ntt);
+    widgetEl.dataset.key = key;
     wrapper.appendChild(widgetEl);
     return wrapper.innerHTML;
 }
@@ -530,10 +581,11 @@ function formatDisplayValue(def, key, value) {
  * Returns [{field, message}] — empty array means valid.
  */
 function validateForm(ntt) {
-    const schema = ntt.schema || {};
+    const normalized = normalizeNTT(ntt);
+    const schema = normalized.schema || {};
     const props = getFieldDefs(schema);
     const required = new Set(getRequiredFields(schema));
-    const value = ntt.value || {};
+    const value = normalized.value || {};
     const errors = [];
 
     for (const key of Object.keys(props)) {
@@ -545,7 +597,7 @@ function validateForm(ntt) {
         // Skip object types (complex fields)
         if (def?.type === 'object') continue;
 
-        const val = value[key];
+        const val = getValueByPath(value, key);
 
         if (def?.type === 'array') {
             const arr = Array.isArray(val) ? val : [];
@@ -618,7 +670,78 @@ function validateForm(ntt) {
     return errors;
 }
 
+function readFieldValue(el) {
+    const target = el.classList?.contains('widget-edit-wrapper') ? (el.querySelector('[data-key], input, textarea, select, ntx-list-field') || el) : el;
+
+    if (!target) return undefined;
+    if (target.tagName === 'NTX-LIST-FIELD') {
+        return decodeAttributeJson(target.getAttribute('value'), []);
+    }
+
+    const dataType = target.dataset?.type || target.getAttribute('type') || 'string';
+    if (target.type === 'checkbox') return !!target.checked;
+    if (dataType === 'number' || dataType === 'integer') {
+        return target.value === '' ? '' : Number(target.value);
+    }
+    if (dataType === 'object') {
+        try {
+            return target.value ? JSON.parse(target.value) : {};
+        } catch {
+            return target.value;
+        }
+    }
+    return target.value;
+}
+
+function assignPath(target, path, value) {
+    const parts = String(path).split('.');
+    let cursor = target;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+        const part = parts[i];
+        if (!cursor[part] || typeof cursor[part] !== 'object' || Array.isArray(cursor[part])) {
+            cursor[part] = {};
+        }
+        cursor = cursor[part];
+    }
+    cursor[parts[parts.length - 1]] = value;
+}
+
+function readFormValue(root, ntt) {
+    const normalized = normalizeNTT(ntt);
+    if (!root?.querySelector) {
+        return structuredClone(normalized.value || {});
+    }
+    const result = {};
+    for (const key of Object.keys(getFieldDefs(normalized.schema))) {
+        const el = root.querySelector(`[data-key="${key}"]`);
+        if (!el) continue;
+        assignPath(result, key, readFieldValue(el));
+    }
+    return result;
+}
+
+function clearFieldErrors(root) {
+    root.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+    root.querySelectorAll('.error-message').forEach(el => el.remove());
+}
+
+function showFieldErrors(root, errors) {
+    clearFieldErrors(root);
+    for (const { field, message } of errors) {
+        const target = root.querySelector(`[data-key="${field}"]`);
+        if (!target) continue;
+        const wrapper = target.closest('.widget-edit-wrapper');
+        const highlightEl = wrapper || target;
+        highlightEl.classList.add('field-error');
+        const msg = document.createElement('span');
+        msg.className = 'error-message';
+        msg.textContent = message;
+        highlightEl.insertAdjacentElement('afterend', msg);
+    }
+}
+
 export const Formidable = {
+    normalizeSchema,
     validationAttrs,
     refInput,
     getForm,
@@ -629,6 +752,9 @@ export const Formidable = {
     renderGroupedFields,
     formatDisplayValue,
     validateForm,
+    readFormValue,
+    clearFieldErrors,
+    showFieldErrors,
     /** Clear layout cache (call on login/logout to refresh permission-dependent layouts). */
     clearCache() { _layoutCache.clear(); }
 }

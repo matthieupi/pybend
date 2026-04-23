@@ -4,7 +4,12 @@ import { NTT } from '../core/NTT.js';
 import { Formidable } from '../generators/form.js';
 import Logging from '../utils/Logging.js';
 import { iconMarkup } from '../utils/icon-resolver.js';
+import { permissions } from '../utils/Permissions.js';
 import './ntx-icon.js';
+
+function humanizeMethodName(name = '') {
+  return String(name).replace(/_/g, ' ');
+}
 
 export class NTTMethod extends Component {
   static baseStyles = `
@@ -38,6 +43,7 @@ export class NTTMethod extends Component {
     this.ntt = null;
     this.methodSchema = null;
     this.response = null;
+    this.optionalExpanded = false;
   }
 
   get styles() {
@@ -82,10 +88,15 @@ export class NTTMethod extends Component {
     const caller = this.ntt || this.proto;
     if (!caller?.call) return;
 
-    const nextValue = this.collectFormValue();
-    const formLike = this.#formLike(nextValue);
-    const errors = Formidable.validateForm(formLike);
-    if (errors.length > 0) return;
+    const formLike = this.#formLike();
+    const nextValue = this.#hasRenderedInputs()
+      ? Formidable.readFormValue(this.shadowRoot, formLike)
+      : { ...(this.value || {}) };
+    const errors = Formidable.validateForm({ ...formLike, value: nextValue });
+    if (errors.length > 0) {
+      Formidable.showFieldErrors(this.shadowRoot, errors);
+      return;
+    }
     this.value = nextValue;
 
     // Use entity/prototype call() which sets meta.inbox='_response_'
@@ -110,6 +121,7 @@ export class NTTMethod extends Component {
     if (this.layout === 'inline') {
       this.value = {};
       this.response = null;
+      this.optionalExpanded = false;
       this.render();
     } else {
       this.render();
@@ -172,9 +184,13 @@ export class NTTMethod extends Component {
 
   /** Bind input listeners and form submit. */
   #bindInputs() {
+    this.#bindActionButtons();
     this.shadowRoot.querySelectorAll('input, textarea, select').forEach(el => {
       el.addEventListener('input', e => this.handleInput(e));
       el.addEventListener('change', e => this.handleInput(e));
+    });
+    this.shadowRoot.querySelectorAll('ntx-list-field').forEach(el => {
+      el.addEventListener('field-change', e => this.handleInput(e));
     });
 
     const form = this.shadowRoot.querySelector('form');
@@ -201,7 +217,7 @@ export class NTTMethod extends Component {
     this.method = this.getAttribute('method');
     this.uuid = this.getAttribute('uuid');
     this.mode = this.getAttribute('mode') || 'manual';
-    this.label = this.getAttribute('label') || this.method;
+    this.label = this.getAttribute('label') || humanizeMethodName(this.method);
     this.forward = this.getAttribute('forward');
     this.layout = this.getAttribute('layout') || 'fieldset';
     this.placeholderText = this.getAttribute('placeholder') || '';
@@ -210,6 +226,7 @@ export class NTTMethod extends Component {
     this.iconName = this.getAttribute('icon') || '';
     this.countField = this.getAttribute('count-field') || '';
     this.showLabel = this.hasAttribute('show-label');
+    this.optionalExpanded = false;
     if (modelName) this.model = modelName;
   }
 
@@ -261,10 +278,11 @@ export class NTTMethod extends Component {
 
   #renderFormShell({ inline = false } = {}) {
     const mode = this.mode || 'manual';
-    const compactInline = inline && this.#isCompactInlineMethod();
-    const formInputs = compactInline
-      ? this.#renderCompactInlineBody()
-      : Formidable.getFields(this.#formLike(undefined, { inline }), 'edit');
+    const { primaryFields, optionalFields } = this.#partitionFields();
+    const hasPrimary = primaryFields.length > 0;
+    const hasOptional = optionalFields.length > 0;
+    const collapsedActionOnly = !hasPrimary && hasOptional && !this.optionalExpanded;
+    const compactInline = inline && !this.optionalExpanded && this.#isCompactInlineMethod(primaryFields);
     const submitButton = mode === 'manual'
       ? `<button type="submit">${this.#buttonContent(this.buttonLabel)}</button>`
       : '';
@@ -272,13 +290,59 @@ export class NTTMethod extends Component {
       ? `<pre class="output">${JSON.stringify(this.response, null, 2)}</pre>`
       : '';
 
+    if (collapsedActionOnly) {
+      const actionButton = `<button type="button" class="method-btn method-btn--labeled" data-action="call-method">${this.#buttonContent(this.#displayLabel())}</button>`;
+      const toggleButton = this.#optionalToggleButton();
+
+      if (inline) {
+        this.shadowRoot.innerHTML = `
+          <div class="method-inline method-collapsed-actions">
+            ${actionButton}
+            ${toggleButton}
+          </div>
+        `;
+      } else {
+        this.shadowRoot.innerHTML = `
+          <fieldset class="method-fieldset">
+            <legend>
+              <span class="method-legend">${this.#buttonContent(this.#displayLabel())}</span>
+            </legend>
+            <div class="method-collapsed-actions">
+              ${actionButton}
+              ${toggleButton}
+            </div>
+            ${output}
+          </fieldset>
+        `;
+      }
+
+      this.#bindInputs();
+      return;
+    }
+
+    const primaryHtml = compactInline
+      ? this.#renderCompactInlineBody(primaryFields)
+      : this.#renderFields(primaryFields, { inline });
+    const optionalHtml = this.optionalExpanded
+      ? this.#renderFields(optionalFields, { inline })
+      : '';
+    const optionalToggle = hasOptional ? `
+      <div class="method-optional-toggle-row">
+        ${this.#optionalToggleButton()}
+      </div>
+    ` : '';
+    const optionalPanel = hasOptional && this.optionalExpanded
+      ? `<div class="method-optional-panel">${optionalHtml}</div>`
+      : '';
+
     if (inline) {
       const actionHtml = compactInline ? '' : (submitButton ? `<div class="actions">${submitButton}</div>` : '');
       this.shadowRoot.innerHTML = `
         <div class="method-inline">
           <form class="method-form method-form-inline">
-            ${compactInline ? formInputs + submitButton : formInputs + actionHtml}
+            ${compactInline ? primaryHtml + submitButton : primaryHtml + optionalToggle + optionalPanel + actionHtml}
           </form>
+          ${compactInline ? optionalToggle + optionalPanel : ''}
         </div>
       `;
     } else {
@@ -288,7 +352,9 @@ export class NTTMethod extends Component {
             <span class="method-legend">${this.#buttonContent(this.label)}</span>
           </legend>
           <form class="method-form">
-            ${formInputs}
+            ${primaryHtml}
+            ${optionalToggle}
+            ${optionalPanel}
             ${submitButton}
           </form>
           ${output}
@@ -299,19 +365,94 @@ export class NTTMethod extends Component {
     this.#bindInputs();
   }
 
-  #isCompactInlineMethod() {
-    const entries = Object.entries((this.methodSchema || this.schema || {})?.parameters || {});
-    if (entries.length !== 1) return false;
+  #isCompactInlineMethod(keys = []) {
+    if (keys.length !== 1) return false;
+    if (String(keys[0]).includes('.')) return false;
     if (this.widgetOverride === 'textarea') return false;
-    const [, def] = entries[0];
+    const def = this.#normalizedMethodSchema()?.properties?.[keys[0]] || {};
     const type = def?.type || 'string';
     return !def?.$ref && type !== 'array' && type !== 'object';
   }
 
-  #renderCompactInlineBody() {
-    const [key] = Object.keys((this.methodSchema || this.schema || {})?.parameters || {});
-    const inputHtml = Formidable.getInput(this.#formLike(undefined, { inline: true, compact: true }), key, 'edit');
+  #renderCompactInlineBody(keys = []) {
+    const [key] = keys;
+    const inputHtml = Formidable.getInput(this.#renderFormLike({ inline: true, compact: true }), key, 'edit');
     return `<div class="method-inline-row">${inputHtml}</div>`;
+  }
+
+  #renderFields(keys = [], { inline = false } = {}) {
+    if (!keys.length) return '';
+    const formLike = this.#renderFormLike({ inline });
+    return keys.map((key) => Formidable.getInput(formLike, key, 'edit')).join('');
+  }
+
+  #renderFormLike({ inline = false, compact = false } = {}) {
+    const rawSchema = this.methodSchema || this.schema || {};
+    const normalized = this.#normalizedMethodSchema();
+    const rawFieldCount = Object.keys(rawSchema.parameters || rawSchema.properties || {}).length;
+    const properties = Object.fromEntries(Object.entries(normalized.properties || {}).map(([key, def]) => {
+      const ui = { ...(def.ui || {}) };
+      const keyFallback = String(key).split('.').pop();
+      if (inline) {
+        ui.placeholder = this.placeholderText || ui.placeholder || def.title || keyFallback;
+      }
+      if (compact) {
+        ui.label = false;
+      }
+      if (this.widgetOverride === 'textarea' && rawFieldCount === 1) {
+        ui.widget = 'textarea';
+      }
+      return [key, { ...def, ui }];
+    }));
+
+    return {
+      schema: {
+        ...normalized,
+        properties,
+      },
+      value: this.value,
+      name: this.method || this.#displayLabel() || 'method',
+    };
+  }
+
+  #normalizedMethodSchema() {
+    return Formidable.normalizeSchema(this.#formLike().schema || {});
+  }
+
+  #partitionFields() {
+    const normalized = this.#normalizedMethodSchema();
+    const fields = normalized?.properties || {};
+    const ui = normalized?.ui || {};
+    const explicitOrder = Array.isArray(ui.field_order) ? ui.field_order.filter((key) => key in fields) : [];
+    const ordered = [...explicitOrder];
+    for (const key of Object.keys(fields)) {
+      if (!ordered.includes(key)) ordered.push(key);
+    }
+    const renderable = ordered.filter((key) => {
+      const def = fields[key];
+      if (def?.ui?.display === false) return false;
+      if (def?.ui?.protected) return false;
+      if (!permissions.canView(def)) return false;
+      return true;
+    });
+    const required = new Set(normalized?.required || []);
+    return {
+      primaryFields: renderable.filter((key) => required.has(key)),
+      optionalFields: renderable.filter((key) => !required.has(key)),
+    };
+  }
+
+  #optionalToggleButton() {
+    const text = this.optionalExpanded ? 'Hide options' : 'Show options';
+    return `<button type="button" class="method-optional-toggle" data-action="toggle-optional">${text}</button>`;
+  }
+
+  #displayLabel() {
+    return this.label || humanizeMethodName(this.method);
+  }
+
+  #hasRenderedInputs() {
+    return !!this.shadowRoot.querySelector('[data-key], ntx-list-field');
   }
 
   #formLike(value = this.value, { inline = false, compact = false } = {}) {
@@ -321,7 +462,7 @@ export class NTTMethod extends Component {
     const fields = Object.fromEntries(Object.entries(schema.parameters || schema.properties || {}).map(([key, def]) => {
       const ui = { ...(def.ui || {}) };
       if (inline) {
-        ui.placeholder = ui.placeholder || this.placeholderText || def.title || key;
+        ui.placeholder = this.placeholderText || ui.placeholder || def.title || key;
       }
       if (compact) {
         ui.label = false;
@@ -340,54 +481,27 @@ export class NTTMethod extends Component {
         $defs: schema.$defs || this.proto?.schema?.$defs || {},
       },
       value,
-      name: this.method || this.label || 'method',
+      name: this.method || this.#displayLabel() || 'method',
     };
   }
 
-  collectFormValue() {
-    const form = this.shadowRoot.querySelector('form');
-    if (!form) return { ...this.value };
-
-    const result = {};
-    const elements = form.querySelectorAll('[data-key], [name]');
-    elements.forEach((el) => {
-      const path = el.dataset?.key || el.getAttribute('name');
-      if (!path) return;
-
-      if (el.closest('[data-key]') && el !== el.closest('[data-key]') && !el.dataset?.key) {
-        return;
-      }
-
-      let value;
-      const dataType = el.dataset?.type || el.getAttribute('type') || 'string';
-      if (el.type === 'checkbox') value = !!el.checked;
-      else if (dataType === 'number' || dataType === 'integer') value = el.value === '' ? '' : Number(el.value);
-      else if (dataType === 'object') {
-        try {
-          value = el.value ? JSON.parse(el.value) : {};
-        } catch {
-          value = el.value;
-        }
-      } else {
-        value = el.value;
-      }
-
-      this.#assignPath(result, path, value);
+  #bindActionButtons() {
+    this.shadowRoot.querySelectorAll('[data-action="toggle-optional"]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.optionalExpanded = !this.optionalExpanded;
+        this.render();
+      });
     });
-    return result;
-  }
 
-  #assignPath(target, path, value) {
-    const parts = String(path).split('.');
-    let cursor = target;
-    for (let i = 0; i < parts.length - 1; i += 1) {
-      const part = parts[i];
-      if (!cursor[part] || typeof cursor[part] !== 'object' || Array.isArray(cursor[part])) {
-        cursor[part] = {};
-      }
-      cursor = cursor[part];
-    }
-    cursor[parts[parts.length - 1]] = value;
+    this.shadowRoot.querySelectorAll('[data-action="call-method"]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.callMethod();
+      });
+    });
   }
 
 }

@@ -87,6 +87,7 @@ describe('ntx-item.js (NTTItem)', () => {
     permissions.canAction.mockImplementation(() => true);
     permissions.canView.mockImplementation(() => true);
     permissions.canEdit.mockImplementation(() => true);
+    Formidable.clearCache();
   });
 
   describe('class definition', () => {
@@ -1371,6 +1372,39 @@ describe('ntx-item.js (NTTItem)', () => {
   });
 
   describe('toggleMode() with client-side validation', () => {
+    it('should validate against the current edit form values before save', () => {
+      const schema = {
+        __name__: 'Source',
+        properties: {
+          name: { type: 'string', title: 'Name', minLength: 1 },
+          url: { type: 'string', title: 'URL', ui: { widget: 'url' } },
+        },
+        required: ['name', 'url'],
+        ui: { field_order: ['name', 'url'] },
+        access: {},
+        methods: {},
+      };
+      const el = createItem(schema, { id: 1 });
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+      el.mode = 'edit';
+      el.render();
+      el.save = vi.fn();
+
+      const nameInput = el.shadowRoot.querySelector('input[data-key="name"]');
+      const urlInput = el.shadowRoot.querySelector('.widget-edit-wrapper[data-key="url"] input');
+      nameInput.value = 'Example Source';
+      urlInput.value = 'https://example.com';
+
+      el.toggleMode();
+
+      expect(el.save).toHaveBeenCalled();
+      expect(el.mode).toBe('display');
+      expect(el.value).toMatchObject({
+        name: 'Example Source',
+        url: 'https://example.com',
+      });
+    });
+
     it('should stay in edit mode when validation fails', () => {
       const schema = {
         __name__: 'Product',

@@ -133,12 +133,19 @@ export class NTTItem extends NTTElement {
     if (!permissions.canAction(this.schema?.access, 'update', this.value)) return;
     const isEdit = this.mode === 'edit';
     if (isEdit) {
+      const nextValue = Formidable.readFormValue(this.shadowRoot, this);
       // Client-side validation before save
-      const errors = Formidable.validateForm(this);
+      const errors = Formidable.validateForm({
+        schema: this.schema,
+        value: nextValue,
+        ref: this.ref,
+        name: this.name,
+      });
       if (errors.length > 0) {
-        this.showFieldErrors(errors);
+        Formidable.showFieldErrors(this.shadowRoot, errors);
         return;
       }
+      this.value = nextValue;
       this.save();
       this.#editSnapshot = null;
     } else {
@@ -169,7 +176,7 @@ export class NTTItem extends NTTElement {
     this.mode = 'edit';
     this.render();
     // Show field errors on next frame (after render commits DOM)
-    requestAnimationFrame(() => this.showFieldErrors(errors));
+    requestAnimationFrame(() => Formidable.showFieldErrors(this.shadowRoot, errors));
   }
 
   /**
@@ -177,27 +184,7 @@ export class NTTItem extends NTTElement {
    * Clears previous errors before showing new ones.
    */
   showFieldErrors(errors) {
-    const root = this.shadowRoot;
-    // Clear previous
-    root.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
-    root.querySelectorAll('.error-message').forEach(el => el.remove());
-
-    for (const { field, message } of errors) {
-      // Find the input by data-key or widget wrapper by data-key
-      const target = root.querySelector(`[data-key="${field}"]`);
-      if (!target) continue;
-
-      // If target is inside a widget wrapper, highlight the wrapper
-      const wrapper = target.closest('.widget-edit-wrapper');
-      const highlightEl = wrapper || target;
-      highlightEl.classList.add('field-error');
-
-      // Insert error message after the highlighted element
-      const msg = document.createElement('span');
-      msg.className = 'error-message';
-      msg.textContent = message;
-      highlightEl.insertAdjacentElement('afterend', msg);
-    }
+    Formidable.showFieldErrors(this.shadowRoot, errors);
   }
 
   /** ── Input change handler ── **/
@@ -827,7 +814,8 @@ export class NTTItem extends NTTElement {
   /** Build HTML for standalone method buttons (those without ui.attach_to). */
   #standaloneMethodsHtml(methods) {
     return Object.entries(methods).map(([name, def]) => {
-      const label = def.title || name;
+      const humanized = String(name).replace(/_/g, ' ');
+      const label = def.title || humanized;
       const ui = def.ui || {};
       const tag = def.ui?.renderer || (def.stream ? 'ntx-stream' : 'ntx-method');
       return `
@@ -836,6 +824,9 @@ export class NTTItem extends NTTElement {
           uuid="${this.value?.id || ''}"
           method="${name}"
           layout="${ui.layout || 'fieldset'}"
+          placeholder="${ui.placeholder || ''}"
+          button-label="${ui.button_label || 'Run'}"
+          widget="${ui.widget || ''}"
           icon="${ui.icon || ''}"
           count-field="${ui.count_field || ''}"
           label="${label}">

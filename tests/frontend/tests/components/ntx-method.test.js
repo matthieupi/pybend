@@ -185,6 +185,68 @@ describe('ntx-method.js (NTTMethod)', () => {
       expect(payload).toEqual({ a: 1 });
       expect(payload).not.toBe(method.value);
     });
+
+    it('should block submit and show field errors for invalid expanded $ref params', () => {
+      const callMock = vi.fn();
+      const method = new NTTMethod();
+      method.proto = { call: callMock, schema: { $defs: {} } };
+      method.method = 'comment';
+      method.layout = 'fieldset';
+      method.label = 'Comment';
+      method.mode = 'manual';
+      method.buttonLabel = 'Submit';
+      method.schema = {
+        scope: 'classmethod',
+        parameters: {
+          comment: { type: '$ref', $ref: '#/$defs/Comment', title: 'Comment' },
+        },
+        $defs: {
+          Comment: {
+            properties: {
+              text: { type: 'string', title: 'Text', minLength: 1 },
+            },
+            required: ['text'],
+          },
+        },
+      };
+
+      method.renderFieldset();
+      const input = method.shadowRoot.querySelector('[data-key="comment.text"]');
+      if (input) input.value = '';
+
+      method.callMethod();
+
+      expect(callMock).not.toHaveBeenCalled();
+      expect(method.shadowRoot.querySelector('.field-error, .error-message')).not.toBeNull();
+    });
+
+    it('should submit updated array values from ntx-list-field inputs', () => {
+      const callMock = vi.fn();
+      const method = new NTTMethod();
+      method.proto = { call: callMock, schema: { $defs: {} } };
+      method.method = 'filter';
+      method.layout = 'fieldset';
+      method.label = 'Filter';
+      method.mode = 'manual';
+      method.buttonLabel = 'Run';
+      method.schema = {
+        scope: 'classmethod',
+        parameters: {
+          tags: { type: 'array', title: 'Tags', items: { type: 'string' } },
+        },
+        required: ['tags'],
+      };
+      method.value = { tags: ['grant'] };
+
+      method.renderFieldset();
+      const listField = method.shadowRoot.querySelector('ntx-list-field[data-key="tags"]');
+      expect(listField).not.toBeNull();
+      listField.setAttribute('value', encodeURIComponent(JSON.stringify(['grant', 'canada'])));
+
+      method.callMethod();
+
+      expect(callMock).toHaveBeenCalledWith('filter', { tags: ['grant', 'canada'] }, { inbox: '_response_' });
+    });
   });
 
   describe('render()', () => {
@@ -389,7 +451,7 @@ describe('ntx-method.js (NTTMethod)', () => {
 
     it('should render submit button in manual mode', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { text: { type: 'string', title: 'Text' } } };
+      method.schema = { parameters: { text: { type: 'string', title: 'Text' } }, required: ['text'] };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Comment';
       method.mode = 'manual';
@@ -401,7 +463,7 @@ describe('ntx-method.js (NTTMethod)', () => {
 
     it('should not render submit button in auto mode', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { text: { type: 'string', title: 'Text' } } };
+      method.schema = { parameters: { text: { type: 'string', title: 'Text' } }, required: ['text'] };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Search';
       method.mode = 'auto';
@@ -413,7 +475,7 @@ describe('ntx-method.js (NTTMethod)', () => {
 
     it('should render inputs for string parameters', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { name: { type: 'string', title: 'Name' } } };
+      method.schema = { parameters: { name: { type: 'string', title: 'Name' } }, required: ['name'] };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Test';
       method.mode = 'manual';
@@ -428,7 +490,7 @@ describe('ntx-method.js (NTTMethod)', () => {
 
     it('should render boolean parameters as checkboxes', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { use_js: { type: 'boolean', title: 'Use JS' } } };
+      method.schema = { parameters: { use_js: { type: 'boolean', title: 'Use JS' } }, required: ['use_js'] };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Fetch';
       method.mode = 'manual';
@@ -446,7 +508,8 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.schema = {
         parameters: {
           tags: { type: 'array', title: 'Tags', items: { type: 'string' } }
-        }
+        },
+        required: ['tags'],
       };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Filter';
@@ -455,13 +518,13 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.value = { tags: ['a', 'b'] };
       method.renderFieldset();
       const html = method.shadowRoot.innerHTML;
-      expect(html).not.toContain('type="array"');
       expect(html).toContain('list-field');
+      expect(html).toContain('data-key="tags"');
     });
 
     it('should render number input for number parameters', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { count: { type: 'number', title: 'Count' } } };
+      method.schema = { parameters: { count: { type: 'number', title: 'Count' } }, required: ['count'] };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Test';
       method.mode = 'manual';
@@ -475,7 +538,8 @@ describe('ntx-method.js (NTTMethod)', () => {
     it('should render selfref parameter as number input with placeholder', () => {
       const method = new NTTMethod();
       method.schema = {
-        parameters: { parent_id: { type: 'selfref', title: 'Parent' } }
+        parameters: { parent_id: { type: 'selfref', title: 'Parent' } },
+        required: ['parent_id'],
       };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Test';
@@ -528,7 +592,8 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.schema = {
         parameters: {
           item: { type: '$ref', $ref: '#/$defs/Missing', title: 'Item' }
-        }
+        },
+        required: ['item'],
       };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Test';
@@ -569,7 +634,7 @@ describe('ntx-method.js (NTTMethod)', () => {
 
     it('should use key as label fallback when title is missing', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { myParam: { type: 'string' } } };
+      method.schema = { parameters: { myParam: { type: 'string' } }, required: ['myParam'] };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Test';
       method.mode = 'manual';
@@ -584,7 +649,7 @@ describe('ntx-method.js (NTTMethod)', () => {
   describe('renderInline()', () => {
     it('should render inline container with form', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { q: { type: 'string', title: 'Query' } } };
+      method.schema = { parameters: { q: { type: 'string', title: 'Query' } }, required: ['q'] };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Search';
       method.mode = 'manual';
@@ -600,7 +665,7 @@ describe('ntx-method.js (NTTMethod)', () => {
 
     it('should render single simple param as input + button row', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { q: { type: 'string', title: 'Query' } } };
+      method.schema = { parameters: { q: { type: 'string', title: 'Query' } }, required: ['q'] };
       method.proto = { schema: { $defs: {} } };
       method.buttonLabel = 'Go';
       method.placeholderText = 'Search...';
@@ -630,7 +695,7 @@ describe('ntx-method.js (NTTMethod)', () => {
 
     it('should render textarea when widgetOverride is textarea', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { text: { type: 'string', title: 'Text' } } };
+      method.schema = { parameters: { text: { type: 'string', title: 'Text' } }, required: ['text'] };
       method.proto = { schema: { $defs: {} } };
       method.buttonLabel = 'Post';
       method.placeholderText = 'Write something...';
@@ -648,7 +713,8 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.schema = {
         parameters: {
           comment: { type: '$ref', $ref: '#/$defs/Comment' }
-        }
+        },
+        required: ['comment'],
       };
       method.proto = {
         schema: {
@@ -678,7 +744,8 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.schema = {
         parameters: {
           comment: { type: '$ref', $ref: '#/$defs/Comment' }
-        }
+        },
+        required: ['comment'],
       };
       method.proto = {
         schema: {
@@ -741,7 +808,8 @@ describe('ntx-method.js (NTTMethod)', () => {
         parameters: {
           name: { type: 'string', title: 'Name' },
           age: { type: 'number', title: 'Age' },
-        }
+        },
+        required: ['name', 'age'],
       };
       method.proto = { schema: { $defs: {} } };
       method.buttonLabel = 'Submit';
@@ -758,7 +826,7 @@ describe('ntx-method.js (NTTMethod)', () => {
 
     it('should show external submit button for textarea layout', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { text: { type: 'string' } } };
+      method.schema = { parameters: { text: { type: 'string' } }, required: ['text'] };
       method.proto = { schema: { $defs: {} } };
       method.buttonLabel = 'Post';
       method.placeholderText = '';
@@ -776,7 +844,8 @@ describe('ntx-method.js (NTTMethod)', () => {
         parameters: {
           a: { type: 'string', title: 'A' },
           b: { type: 'string', title: 'B' },
-        }
+        },
+        required: ['a', 'b'],
       };
       method.proto = { schema: { $defs: {} } };
       method.buttonLabel = 'Go';
@@ -834,7 +903,7 @@ describe('ntx-method.js (NTTMethod)', () => {
   describe('form submission', () => {
     it('should call callMethod on form submit in fieldset layout', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { q: { type: 'string' } } };
+      method.schema = { parameters: { q: { type: 'string' } }, required: ['q'] };
       method.proto = { schema: { $defs: {} } };
       method.label = 'Test';
       method.mode = 'manual';
@@ -849,7 +918,7 @@ describe('ntx-method.js (NTTMethod)', () => {
 
     it('should call callMethod on form submit in inline layout', () => {
       const method = new NTTMethod();
-      method.schema = { parameters: { q: { type: 'string' } } };
+      method.schema = { parameters: { q: { type: 'string' } }, required: ['q'] };
       method.proto = { schema: { $defs: {} } };
       method.buttonLabel = 'Go';
       method.placeholderText = '';
