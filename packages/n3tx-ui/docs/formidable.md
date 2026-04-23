@@ -22,6 +22,10 @@ getForm(ntt, mode, attachedMethods)
   |
   +-- getHeader(ntt, mode)         -- h2/input for name/title + description
   |
+  +-- getFields(ntt, mode, attachedMethods)
+  |     Headerless field/body renderer
+  |     Accepts both schema.properties and schema.parameters
+  |
   +-- renderGroupedFields(...)     -- if schema.ui.groups defined
   |     Wraps fields in <fieldset> with <legend>
   |     Injects attached methods after their target field
@@ -48,6 +52,12 @@ export const Formidable = {
     getForm(ntt, mode = 'display', attachedMethods = {})
     // ntt: { schema, value, ref?, name? }
     // mode: 'display' | 'edit'
+    // Returns: HTML string
+
+    // Generate fields only (no header)
+    getFields(ntt, mode = 'display', attachedMethods = {})
+    // Accepts both entity schemas (schema.properties)
+    // and method schemas (schema.parameters)
     // Returns: HTML string
 
     // Generate single field
@@ -111,6 +121,29 @@ class MyComponent extends NTTElement {
 }
 ```
 
+### Method parameter rendering
+
+`getFields()` is the intended entrypoint for rendering method inputs inside
+components like `<ntx-method>`. It accepts method schemas directly:
+
+```javascript
+const html = Formidable.getFields({
+    schema: {
+        __name__: 'Source.fetch',
+        parameters: {
+            use_js: { type: 'boolean', title: 'Use JS' },
+        },
+        required: [],
+        $defs: {},
+    },
+    value: { use_js: false },
+    name: 'fetch',
+}, 'edit');
+```
+
+This reuses the same schema-aware rendering path as entity forms, so boolean,
+array, enum, and widget-backed method params render consistently.
+
 ### Validation before save
 
 ```javascript
@@ -144,6 +177,8 @@ Formidable receives these as `attachedMethods` and injects them after the target
 - **Layout cache is keyed by `schema.__name__:mode:permissions.role`.** This means the same schema renders differently for different roles (admin sees more fields). Call `Formidable.clearCache()` when the user logs in or out.
 
 - **Header fields (`name`, `title`, `id`, `description`) are filtered from the main field list** by `_getLayout()` and rendered separately by `getHeader()`. If your model has no `name` or `title` field, the header falls back to `schema.name`. The `id` field is always hidden.
+
+- **Method schemas are treated differently from entity schemas for layout.** When a schema uses `parameters` instead of `properties`, `getFields()` renders all method params directly and does not apply the entity header-field filtering for `name`, `title`, `id`, or `description`.
 
 - **Display-mode field rows are split into inline and block layouts.** Plain text, enum, selfref, and numeric values render in a two-column row with a fixed-width label column so values line up across the page. Long labels wrap inside that column. Textarea, object, ref, and array-style content stay block-stacked under their labels.
 
