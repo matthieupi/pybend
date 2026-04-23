@@ -20,11 +20,16 @@ _getLayout(schema, mode)          -- cached per schema+mode+role
   v
 getForm(ntt, mode, attachedMethods)
   |
+  +-- normalizeSchema(schema)
+  |     Canonicalizes entity and method schemas into one properties-based shape
+  |     Expands top-level method $ref params into dotted editable fields
+  |
   +-- getHeader(ntt, mode)         -- h2/input for name/title + description
   |
   +-- getFields(ntt, mode, attachedMethods)
   |     Headerless field/body renderer
   |     Accepts both schema.properties and schema.parameters
+  |     Internally operates on normalized schema.properties
   |
   +-- renderGroupedFields(...)     -- if schema.ui.groups defined
   |     Wraps fields in <fieldset> with <legend>
@@ -48,6 +53,10 @@ getForm(ntt, mode, attachedMethods)
 
 ```javascript
 export const Formidable = {
+    // Normalize entity/method schema into canonical properties shape
+    normalizeSchema(schema)
+    // Returns normalized schema with __formKind metadata
+
     // Generate complete form HTML
     getForm(ntt, mode = 'display', attachedMethods = {})
     // ntt: { schema, value, ref?, name? }
@@ -80,6 +89,14 @@ export const Formidable = {
     validateForm(ntt)
     // ntt: { schema, value }
     // Returns: [{field, message}] -- empty = valid
+
+    // Read current form values from a rendered root using data-key fields
+    readFormValue(root, ntt)
+    // Supports native inputs, widget wrappers, and ntx-list-field values
+
+    // Shared field error utilities
+    clearFieldErrors(root)
+    showFieldErrors(root, errors)
 
     // Build HTML5 validation attribute string
     validationAttrs(def, isRequired = false)
@@ -144,6 +161,17 @@ const html = Formidable.getFields({
 This reuses the same schema-aware rendering path as entity forms, so boolean,
 array, enum, and widget-backed method params render consistently.
 
+Top-level method `$ref` params are normalized before rendering. For a method
+param like:
+
+```javascript
+comment: { type: '$ref', $ref: '#/$defs/Comment' }
+```
+
+Formidable expands the referenced required fields into dotted keys like
+`comment.text`. If the referenced schema has no `required` list, all referenced
+fields are expanded.
+
 ### Validation before save
 
 ```javascript
@@ -180,6 +208,14 @@ Formidable receives these as `attachedMethods` and injects them after the target
 
 - **Method schemas are treated differently from entity schemas for layout.** When a schema uses `parameters` instead of `properties`, `getFields()` renders all method params directly and does not apply the entity header-field filtering for `name`, `title`, `id`, or `description`.
 
+- **Method schemas are normalized once at the boundary.** Public callers may pass `schema.parameters`, but Formidable converts method forms into a canonical `schema.properties` shape internally. Layout differences remain semantic (`__formKind: 'method'`) rather than structural.
+
+- **Method validation now matches expanded `$ref` rendering.** If a method param is expanded into dotted keys like `comment.text`, validation and field-error highlighting use those same dotted field paths.
+
+- **Shared form reading supports custom list fields.** `readFormValue()` understands `<ntx-list-field>` in addition to native form controls, so rendered method arrays and submitted payloads stay in sync.
+
+- **Form reading is root-based, not `<form>`-tag-based.** `readFormValue()` walks any rendered root for `[data-key]` fields, including `ntx-item` edit views that do not wrap their controls in a literal `<form>`. This keeps client-side validation aligned with the values currently shown in Formidable-rendered edit UIs.
+
 - **Display-mode field rows are split into inline and block layouts.** Plain text, enum, selfref, and numeric values render in a two-column row with a fixed-width label column so values line up across the page. Long labels wrap inside that column. Textarea, object, ref, and array-style content stay block-stacked under their labels.
 
 - **Edit-mode inputs use an underline treatment.** Formidable's default edit controls use a lighter single bottom border instead of a full outlined box, so edit mode reads as active without overpowering the item layout. Array/list fields follow the same treatment through `<ntx-list-field>`.
@@ -193,3 +229,5 @@ Formidable receives these as `attachedMethods` and injects them after the target
 - **getListInput uses a VISIBLE_COUNT of 2.** Arrays show the first 2 items inline, then collapse the rest into a `.nested-collapsed` div with a "Show N more" button. This matches NTTItem's surgical update logic which expects this DOM structure.
 
 - **Widget wrappers stamp `data-key` and `data-type`** on the editable element so that `handleInputChange()` in NTTItem can process widget-produced inputs identically to plain inputs.
+
+- **Edit headers preserve empty required values.** In edit mode, header fields like `name` and `title` render their raw value instead of falling back to display placeholders such as `Unnamed`, so required validation reflects the real entity state.
