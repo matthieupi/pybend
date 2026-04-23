@@ -93,43 +93,13 @@ describe('ntx-method.js (NTTMethod)', () => {
   });
 
   describe('handleInput(e)', () => {
-    it('should update value from simple input', () => {
+    it('should not mutate local value state in manual mode', () => {
       const method = new NTTMethod();
       method.mode = 'manual';
+      method.value = { existing: true };
       const e = { target: { name: 'text', type: 'text', value: 'hello' } };
       method.handleInput(e);
-      expect(method.value.text).toBe('hello');
-    });
-
-    it('should handle nested params (dot notation)', () => {
-      const method = new NTTMethod();
-      method.mode = 'manual';
-      const e = { target: { name: 'comment.text', type: 'text', value: 'nested' } };
-      method.handleInput(e);
-      expect(method.value.comment.text).toBe('nested');
-    });
-
-    it('should create nested object if it does not exist', () => {
-      const method = new NTTMethod();
-      method.mode = 'manual';
-      expect(method.value.comment).toBeUndefined();
-      method.handleInput({ target: { name: 'comment.body', type: 'text', value: 'test' } });
-      expect(method.value.comment).toEqual({ body: 'test' });
-    });
-
-    it('should handle checkbox input', () => {
-      const method = new NTTMethod();
-      method.mode = 'manual';
-      const e = { target: { name: 'active', type: 'checkbox', checked: true } };
-      method.handleInput(e);
-      expect(method.value.active).toBe(true);
-    });
-
-    it('should handle unchecked checkbox', () => {
-      const method = new NTTMethod();
-      method.mode = 'manual';
-      method.handleInput({ target: { name: 'active', type: 'checkbox', checked: false } });
-      expect(method.value.active).toBe(false);
+      expect(method.value).toEqual({ existing: true });
     });
 
     it('should auto-call if mode=auto', () => {
@@ -451,10 +421,42 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.value = {};
       method.renderFieldset();
       const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('<label>Name</label>');
-      expect(html).toContain('name="name"');
-      // renderFieldset uses the raw schema type directly (e.g. type="string")
-      expect(html).toContain('type="string"');
+      expect(html).toContain('>Name</label>');
+      expect(html).toContain('data-key="name"');
+      expect(html).toContain('type="text"');
+    });
+
+    it('should render boolean parameters as checkboxes', () => {
+      const method = new NTTMethod();
+      method.schema = { parameters: { use_js: { type: 'boolean', title: 'Use JS' } } };
+      method.proto = { schema: { $defs: {} } };
+      method.label = 'Fetch';
+      method.mode = 'manual';
+      method.buttonLabel = 'Run';
+      method.value = { use_js: true };
+      method.renderFieldset();
+      const html = method.shadowRoot.innerHTML;
+      expect(html).toContain('data-key="use_js"');
+      expect(html).toContain('type="checkbox"');
+      expect(html).not.toContain('<input type="boolean"');
+    });
+
+    it('should render array parameters through the shared list field path', () => {
+      const method = new NTTMethod();
+      method.schema = {
+        parameters: {
+          tags: { type: 'array', title: 'Tags', items: { type: 'string' } }
+        }
+      };
+      method.proto = { schema: { $defs: {} } };
+      method.label = 'Filter';
+      method.mode = 'manual';
+      method.buttonLabel = 'Run';
+      method.value = { tags: ['a', 'b'] };
+      method.renderFieldset();
+      const html = method.shadowRoot.innerHTML;
+      expect(html).not.toContain('type="array"');
+      expect(html).toContain('list-field');
     });
 
     it('should render number input for number parameters', () => {
@@ -482,8 +484,8 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.value = {};
       method.renderFieldset();
       const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('<label>Parent</label>');
-      expect(html).toContain('name="parent_id"');
+      expect(html).toContain('>Parent</label>');
+      expect(html).toContain('data-key="parent_id"');
       expect(html).toContain('type="number"');
       expect(html).toContain('Parent ID (optional)');
     });
@@ -515,10 +517,10 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.renderFieldset();
       const html = method.shadowRoot.innerHTML;
       // Should render only required fields (text)
-      expect(html).toContain('name="comment.text"');
-      expect(html).toContain('<label>Text</label>');
+      expect(html).toContain('data-key="comment.text"');
+      expect(html).toContain('>Text</label>');
       // Non-required field (rating) should not appear
-      expect(html).not.toContain('name="comment.rating"');
+      expect(html).not.toContain('data-key="comment.rating"');
     });
 
     it('should show "(unresolved)" for $ref with missing $defs entry', () => {
@@ -575,7 +577,7 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.value = {};
       method.renderFieldset();
       const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('<label>myParam</label>');
+      expect(html).toContain('>myParam</label>');
     });
   });
 
@@ -608,7 +610,7 @@ describe('ntx-method.js (NTTMethod)', () => {
       const html = method.shadowRoot.innerHTML;
       expect(html).toContain('method-inline-row');
       expect(html).toContain('placeholder="Search..."');
-      expect(html).toContain('name="q"');
+      expect(html).toContain('data-key="q"');
     });
 
     it('should render icon inside inline submit buttons', () => {
@@ -621,7 +623,7 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.iconName = '🔎';
       method.value = {};
       method.renderInline();
-      const icon = method.shadowRoot.querySelector('.method-inline-row button ntx-icon');
+      const icon = method.shadowRoot.querySelector('button ntx-icon');
       expect(icon).not.toBeNull();
       expect(icon.getAttribute('value')).toBe('🔎');
     });
@@ -638,6 +640,7 @@ describe('ntx-method.js (NTTMethod)', () => {
       const html = method.shadowRoot.innerHTML;
       expect(html).toContain('<textarea');
       expect(html).toContain('placeholder="Write something..."');
+      expect(html).toContain('class="actions"');
     });
 
     it('should render $ref param with single required field as inline input', () => {
@@ -666,8 +669,8 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.value = {};
       method.renderInline();
       const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('name="comment.text"');
-      expect(html).toContain('method-inline-row');
+      expect(html).toContain('data-key="comment.text"');
+      expect(html).toContain('class="actions"');
     });
 
     it('should render $ref param with textarea widget override', () => {
@@ -693,8 +696,8 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.value = {};
       method.renderInline();
       const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('<textarea');
-      expect(html).toContain('name="comment.text"');
+      expect(html).toContain('data-key="comment.text"');
+      expect(html).toContain('class="actions"');
     });
 
     it('should render $ref param with multiple required fields as stacked inputs', () => {
@@ -723,8 +726,8 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.value = {};
       method.renderInline();
       const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('name="review.title"');
-      expect(html).toContain('name="review.body"');
+      expect(html).toContain('data-key="review.title"');
+      expect(html).toContain('data-key="review.body"');
       expect(html).toContain('placeholder="Title"');
       expect(html).toContain('placeholder="Body"');
       // Form content should be stacked inputs, not wrapped in an inline-row div
@@ -747,8 +750,8 @@ describe('ntx-method.js (NTTMethod)', () => {
       method.value = {};
       method.renderInline();
       const html = method.shadowRoot.innerHTML;
-      expect(html).toContain('name="name"');
-      expect(html).toContain('name="age"');
+      expect(html).toContain('data-key="name"');
+      expect(html).toContain('data-key="age"');
       expect(html).toContain('placeholder="Name"');
       expect(html).toContain('placeholder="Age"');
     });

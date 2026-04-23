@@ -108,6 +108,52 @@ describe('form.js (Formidable)', () => {
     });
   });
 
+  describe('getFields(ntt, mode, attachedMethods)', () => {
+    it('should render method-style boolean parameters as checkboxes', () => {
+      const html = Formidable.getFields({
+        schema: {
+          __name__: 'Source.fetch',
+          parameters: {
+            use_js: { type: 'boolean', title: 'Use JS' },
+          },
+          required: [],
+          ui: {},
+        },
+        value: { use_js: true },
+        name: 'fetch',
+      }, 'edit');
+
+      expect(html).toContain('data-key="use_js"');
+      expect(html).toContain('type="checkbox"');
+      expect(html).not.toContain('<input type="boolean"');
+      expect(html).toContain('checked');
+    });
+
+    it('should render method-style array parameters through the list field path', () => {
+      const html = Formidable.getFields({
+        schema: {
+          __name__: 'Search.filter',
+          parameters: {
+            tags: { type: 'array', title: 'Tags', items: { type: 'string' } },
+          },
+          required: [],
+          ui: {},
+        },
+        value: { tags: ['grant', 'canada'] },
+        name: 'filter',
+      }, 'edit');
+
+      expect(html).not.toContain('type="array"');
+      expect(html).toContain('list-field');
+    });
+
+    it('should keep supporting entity-style property schemas', () => {
+      const html = Formidable.getFields(makeNtt(), 'edit');
+      expect(html).toContain('data-key="price"');
+      expect(html).toContain('data-key="active"');
+    });
+  });
+
   describe('getHeader(ntt, mode)', () => {
     it('should render h2 + h4 in display mode', () => {
       const html = Formidable.getForm(makeNtt(), 'display');

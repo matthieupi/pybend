@@ -1,6 +1,7 @@
 // components/ntx-method.js
 import { Component } from '../core/Component.js';
 import { NTT } from '../core/NTT.js';
+import { Formidable } from '../generators/form.js';
 import Logging from '../utils/Logging.js';
 import { iconMarkup } from '../utils/icon-resolver.js';
 import './ntx-icon.js';
@@ -64,66 +65,28 @@ export class NTTMethod extends Component {
   }
 
   async load() {
-    const modelName = this.getAttribute('model');
-    this.method = this.getAttribute('method');
-    this.uuid = this.getAttribute('uuid');
-    this.mode = this.getAttribute('mode') || 'manual';
-    this.label = this.getAttribute('label') || this.method;
-    this.forward = this.getAttribute('forward');
-    this.layout = this.getAttribute('layout') || 'fieldset';
-    this.placeholderText = this.getAttribute('placeholder') || '';
-    this.buttonLabel = this.getAttribute('button-label') || 'Run';
-    this.widgetOverride = this.getAttribute('widget') || '';
-    this.iconName = this.getAttribute('icon') || '';
-    this.countField = this.getAttribute('count-field') || '';
-    this.showLabel = this.hasAttribute('show-label');
-
-    if (modelName) this.model = modelName;
-
-    const proto = NTT.get(this.model);
-    if (!proto) return Logging.error(`[ntx-method] Model not found`, this.model);
-    // Set proto through Component's define()
-    if (proto !== this.proto) this.define(proto);
-
-    // Unsubscribe from previous entity if switching
-    if (this._unsub) { this._unsub(); this._unsub = null; }
-
-    if (this.uuid) {
-      this.ntt = NTT.get(this.model + '/' + this.uuid);
-      if (!this.ntt) return Logging.error(`[ntx-method] Instance not found`, this.uuid);
-
-      // For button layouts with a count field, subscribe to entity value
-      // changes so the count badge updates after pull() completes.
-      if (this.layout === 'button' && this.countField && this.ntt.signal) {
-        this._unsub = this.ntt.signal(() => this.render(), true);
-      }
-    }
-
-    const methodSchema = this.proto?.schema?.methods?.[this.method];
-    if (!methodSchema) return Logging.error(`[ntx-method] Method schema not found`, this.method);
-    this.methodSchema = methodSchema;
-    this.iconName = this.iconName || this.methodSchema?.ui?.icon || '';
-    this.countField = this.countField || this.methodSchema?.ui?.count_field || '';
-
+    this.#readAttrs();
+    if (!this.#resolveProto()) return;
+    this.#clearSubscription();
+    if (!this.#resolveInstance()) return;
+    if (!this.#resolveMethodSchema()) return;
+    this.#setupCountSubscription();
     this.render();
   }
 
   handleInput(e) {
-    const name = e.target.name;
-    let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    if (name.includes('.')) {
-      const [param, field] = name.split('.');
-      if (!this.value[param]) this.value[param] = {};
-      this.value[param][field] = val;
-    } else {
-      this.value[name] = val;
-    }
     if (this.mode === 'auto') this.callMethod();
   }
 
   callMethod() {
     const caller = this.ntt || this.proto;
     if (!caller?.call) return;
+
+    const nextValue = this.collectFormValue();
+    const formLike = this.#formLike(nextValue);
+    const errors = Formidable.validateForm(formLike);
+    if (errors.length > 0) return;
+    this.value = nextValue;
 
     // Use entity/prototype call() which sets meta.inbox='_response_'
     // so the reply routes back to _response_() → pull() → UI refresh.
@@ -147,7 +110,7 @@ export class NTTMethod extends Component {
     if (this.layout === 'inline') {
       this.value = {};
       this.response = null;
-      this.shadowRoot.querySelectorAll('input, textarea').forEach(el => { el.value = ''; });
+      this.render();
     } else {
       this.render();
     }
@@ -199,131 +162,19 @@ export class NTTMethod extends Component {
 
   /** Default fieldset layout (existing behavior). */
   renderFieldset() {
-    const schema = this.methodSchema || this.schema || {};
-    const fields = Object.entries(schema.parameters || {});
-    const defs = this.proto?.schema?.$defs || {};
-    const formInputs = fields.map(([key, def]) => {
-      if (def.type === 'selfref') {
-        return `
-          <label>${def.title || key}</label>
-          <input name="${key}" type="number" value="${this.value[key] || ''}" placeholder="Parent ID (optional)" />
-        `;
-      }
-      if (def.type === '$ref' && def.$ref) {
-        const refName = def.$ref.replace('#/$defs/', '');
-        const refSchema = defs[refName];
-        if (!refSchema?.properties) return `<label>${key} (unresolved)</label>`;
-        const required = refSchema.required || [];
-        return Object.entries(refSchema.properties)
-          .filter(([k]) => required.includes(k))
-          .map(([k, p]) => `
-            <label>${p.title || k}</label>
-            <input name="${key}.${k}" type="${p.type === 'number' ? 'number' : 'text'}" value="${this.value?.[key]?.[k] || ''}" />
-          `).join('');
-      }
-      return `
-        <label>${def.title || key}</label>
-        <input name="${key}" type="${def.type || 'text'}" value="${this.value[key] || ''}" />
-      `;
-    }).join('');
-
-    const output = this.response
-      ? `<pre class="output">${JSON.stringify(this.response, null, 2)}</pre>`
-      : '';
-
-    this.shadowRoot.innerHTML = `
-      <fieldset class="method-fieldset">
-        <legend>
-          <span class="method-legend">${this.#buttonContent(this.label)}</span>
-        </legend>
-        <form class="method-form">
-          ${formInputs}
-          ${this.mode === 'manual' ? `<button type="submit">${this.#buttonContent(this.buttonLabel)}</button>` : ''}
-        </form>
-        ${output}
-      </fieldset>
-    `;
-
-    this.#bindInputs();
+    this.#renderFormShell({ inline: false });
   }
 
   /** Inline layout: no fieldset, no legend, no labels. Compact textarea/input + button. */
   renderInline() {
-    const schema = this.methodSchema || this.schema || {};
-    const fields = Object.entries(schema.parameters || {});
-    const defs = this.proto?.schema?.$defs || {};
-    const placeholder = this.placeholderText;
-    const useTextarea = this.widgetOverride === 'textarea';
-    let formInputs = '';
-
-    // Build inputs — for $ref params, render only required fields from referenced schema
-    if (fields.length === 1) {
-      const [key, def] = fields[0];
-      if (def.type === '$ref' && def.$ref) {
-        const refName = def.$ref.replace('#/$defs/', '');
-        const refSchema = defs[refName];
-        if (refSchema?.properties) {
-          const required = refSchema.required || [];
-          const reqFields = Object.entries(refSchema.properties).filter(([k]) => required.includes(k));
-          if (reqFields.length === 1 || useTextarea) {
-            // Single required field or textarea mode: render one input
-            const [fk] = reqFields[0];
-            if (useTextarea) {
-              formInputs = `<textarea name="${key}.${fk}" placeholder="${placeholder}">${this.value?.[key]?.[fk] || ''}</textarea>`;
-            } else {
-              formInputs = `<div class="method-inline-row">
-                <input name="${key}.${fk}" type="text" value="${this.value?.[key]?.[fk] || ''}" placeholder="${placeholder}" />
-                <button type="submit">${this.#buttonContent(this.buttonLabel)}</button>
-              </div>`;
-            }
-          } else {
-            // Multiple required fields: stacked inputs with placeholders
-            formInputs = reqFields.map(([fk, fp]) =>
-              `<input name="${key}.${fk}" type="${fp.type === 'number' ? 'number' : 'text'}" value="${this.value?.[key]?.[fk] || ''}" placeholder="${fp.title || fk}" />`
-            ).join('');
-          }
-        }
-      } else {
-        // Simple param
-        if (useTextarea) {
-          formInputs = `<textarea name="${key}" placeholder="${placeholder}">${this.value[key] || ''}</textarea>`;
-        } else {
-            formInputs = `<div class="method-inline-row">
-              <input name="${key}" type="${def.type || 'text'}" value="${this.value[key] || ''}" placeholder="${placeholder}" />
-              <button type="submit">${this.#buttonContent(this.buttonLabel)}</button>
-            </div>`;
-        }
-      }
-    } else {
-      // Multiple params: stacked
-      formInputs = fields.map(([key, def]) =>
-        `<input name="${key}" type="${def.type || 'text'}" value="${this.value[key] || ''}" placeholder="${def.title || key}" />`
-      ).join('');
-    }
-
-    // For textarea or multi-field, put button below
-    const needsExternalButton = useTextarea || fields.length > 1 ||
-      (fields.length === 1 && fields[0][1].type === '$ref' && !formInputs.includes('method-inline-row'));
-    const buttonHtml = needsExternalButton
-      ? `<div class="actions"><button type="submit">${this.#buttonContent(this.buttonLabel)}</button></div>`
-      : '';
-
-    this.shadowRoot.innerHTML = `
-      <div class="method-inline">
-        <form class="method-form method-form-inline">
-          ${formInputs}
-          ${buttonHtml}
-        </form>
-      </div>
-    `;
-
-    this.#bindInputs();
+    this.#renderFormShell({ inline: true });
   }
 
   /** Bind input listeners and form submit. */
   #bindInputs() {
-    this.shadowRoot.querySelectorAll('input, textarea').forEach(el => {
+    this.shadowRoot.querySelectorAll('input, textarea, select').forEach(el => {
       el.addEventListener('input', e => this.handleInput(e));
+      el.addEventListener('change', e => this.handleInput(e));
     });
 
     const form = this.shadowRoot.querySelector('form');
@@ -343,6 +194,200 @@ export class NTTMethod extends Component {
     if (!icon) return text || '';
     const label = text ? `<span class="method-btn-label">${text}</span>` : '';
     return `${icon}${label}`;
+  }
+
+  #readAttrs() {
+    const modelName = this.getAttribute('model');
+    this.method = this.getAttribute('method');
+    this.uuid = this.getAttribute('uuid');
+    this.mode = this.getAttribute('mode') || 'manual';
+    this.label = this.getAttribute('label') || this.method;
+    this.forward = this.getAttribute('forward');
+    this.layout = this.getAttribute('layout') || 'fieldset';
+    this.placeholderText = this.getAttribute('placeholder') || '';
+    this.buttonLabel = this.getAttribute('button-label') || 'Run';
+    this.widgetOverride = this.getAttribute('widget') || '';
+    this.iconName = this.getAttribute('icon') || '';
+    this.countField = this.getAttribute('count-field') || '';
+    this.showLabel = this.hasAttribute('show-label');
+    if (modelName) this.model = modelName;
+  }
+
+  #resolveProto() {
+    const proto = NTT.get(this.model);
+    if (!proto) {
+      Logging.error(`[ntx-method] Model not found`, this.model);
+      return false;
+    }
+    if (proto !== this.proto) this.define(proto);
+    return true;
+  }
+
+  #clearSubscription() {
+    if (this._unsub) {
+      this._unsub();
+      this._unsub = null;
+    }
+  }
+
+  #resolveInstance() {
+    this.ntt = null;
+    if (!this.uuid) return true;
+    this.ntt = NTT.get(this.model + '/' + this.uuid);
+    if (!this.ntt) {
+      Logging.error(`[ntx-method] Instance not found`, this.uuid);
+      return false;
+    }
+    return true;
+  }
+
+  #resolveMethodSchema() {
+    const methodSchema = this.proto?.schema?.methods?.[this.method];
+    if (!methodSchema) {
+      Logging.error(`[ntx-method] Method schema not found`, this.method);
+      return false;
+    }
+    this.methodSchema = methodSchema;
+    this.iconName = this.iconName || methodSchema?.ui?.icon || '';
+    this.countField = this.countField || methodSchema?.ui?.count_field || '';
+    return true;
+  }
+
+  #setupCountSubscription() {
+    if (this.layout === 'button' && this.countField && this.ntt?.signal) {
+      this._unsub = this.ntt.signal(() => this.render(), true);
+    }
+  }
+
+  #renderFormShell({ inline = false } = {}) {
+    const mode = this.mode || 'manual';
+    const compactInline = inline && this.#isCompactInlineMethod();
+    const formInputs = compactInline
+      ? this.#renderCompactInlineBody()
+      : Formidable.getFields(this.#formLike(undefined, { inline }), 'edit');
+    const submitButton = mode === 'manual'
+      ? `<button type="submit">${this.#buttonContent(this.buttonLabel)}</button>`
+      : '';
+    const output = !inline && this.response
+      ? `<pre class="output">${JSON.stringify(this.response, null, 2)}</pre>`
+      : '';
+
+    if (inline) {
+      const actionHtml = compactInline ? '' : (submitButton ? `<div class="actions">${submitButton}</div>` : '');
+      this.shadowRoot.innerHTML = `
+        <div class="method-inline">
+          <form class="method-form method-form-inline">
+            ${compactInline ? formInputs + submitButton : formInputs + actionHtml}
+          </form>
+        </div>
+      `;
+    } else {
+      this.shadowRoot.innerHTML = `
+        <fieldset class="method-fieldset">
+          <legend>
+            <span class="method-legend">${this.#buttonContent(this.label)}</span>
+          </legend>
+          <form class="method-form">
+            ${formInputs}
+            ${submitButton}
+          </form>
+          ${output}
+        </fieldset>
+      `;
+    }
+
+    this.#bindInputs();
+  }
+
+  #isCompactInlineMethod() {
+    const entries = Object.entries((this.methodSchema || this.schema || {})?.parameters || {});
+    if (entries.length !== 1) return false;
+    if (this.widgetOverride === 'textarea') return false;
+    const [, def] = entries[0];
+    const type = def?.type || 'string';
+    return !def?.$ref && type !== 'array' && type !== 'object';
+  }
+
+  #renderCompactInlineBody() {
+    const [key] = Object.keys((this.methodSchema || this.schema || {})?.parameters || {});
+    const inputHtml = Formidable.getInput(this.#formLike(undefined, { inline: true, compact: true }), key, 'edit');
+    return `<div class="method-inline-row">${inputHtml}</div>`;
+  }
+
+  #formLike(value = this.value, { inline = false, compact = false } = {}) {
+    const schema = this.methodSchema || this.schema || {};
+    const paramKeys = Object.keys(schema.parameters || schema.properties || {}).join(',');
+    const schemaName = schema.__name__ || `${this.model || 'method'}.${this.method || this.label || 'call'}:${paramKeys}`;
+    const fields = Object.fromEntries(Object.entries(schema.parameters || schema.properties || {}).map(([key, def]) => {
+      const ui = { ...(def.ui || {}) };
+      if (inline) {
+        ui.placeholder = ui.placeholder || this.placeholderText || def.title || key;
+      }
+      if (compact) {
+        ui.label = false;
+      }
+      if (this.widgetOverride === 'textarea' && Object.keys(schema.parameters || {}).length === 1) {
+        ui.widget = 'textarea';
+      }
+      return [key, { ...def, ui }];
+    }));
+    return {
+      schema: {
+        ...schema,
+        __name__: schemaName,
+        parameters: schema.parameters ? fields : undefined,
+        properties: schema.properties ? fields : undefined,
+        $defs: schema.$defs || this.proto?.schema?.$defs || {},
+      },
+      value,
+      name: this.method || this.label || 'method',
+    };
+  }
+
+  collectFormValue() {
+    const form = this.shadowRoot.querySelector('form');
+    if (!form) return { ...this.value };
+
+    const result = {};
+    const elements = form.querySelectorAll('[data-key], [name]');
+    elements.forEach((el) => {
+      const path = el.dataset?.key || el.getAttribute('name');
+      if (!path) return;
+
+      if (el.closest('[data-key]') && el !== el.closest('[data-key]') && !el.dataset?.key) {
+        return;
+      }
+
+      let value;
+      const dataType = el.dataset?.type || el.getAttribute('type') || 'string';
+      if (el.type === 'checkbox') value = !!el.checked;
+      else if (dataType === 'number' || dataType === 'integer') value = el.value === '' ? '' : Number(el.value);
+      else if (dataType === 'object') {
+        try {
+          value = el.value ? JSON.parse(el.value) : {};
+        } catch {
+          value = el.value;
+        }
+      } else {
+        value = el.value;
+      }
+
+      this.#assignPath(result, path, value);
+    });
+    return result;
+  }
+
+  #assignPath(target, path, value) {
+    const parts = String(path).split('.');
+    let cursor = target;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      const part = parts[i];
+      if (!cursor[part] || typeof cursor[part] !== 'object' || Array.isArray(cursor[part])) {
+        cursor[part] = {};
+      }
+      cursor = cursor[part];
+    }
+    cursor[parts[parts.length - 1]] = value;
   }
 
 }

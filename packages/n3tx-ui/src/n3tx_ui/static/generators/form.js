@@ -10,13 +10,22 @@ import '../components/ntx-ref-picker.js';
   const _layoutCache = new Map();
   const _headerFieldSet = new Set(['name', 'title', 'id', 'description']);
 
+  function getFieldDefs(schema) {
+      return schema?.properties || schema?.parameters || {};
+  }
+
+  function getRequiredFields(schema) {
+      return schema?.required || [];
+  }
+
   function _getLayout(schema, mode) {
       const cacheKey = `${schema.__name__ || schema.title || ''}:${mode}:${permissions.role}`;
       const cached = _layoutCache.get(cacheKey);
       if (cached) return cached;
 
-      const fields = schema.properties || {};
+      const fields = getFieldDefs(schema);
       const ui = schema.ui || {};
+      const isMethodSchema = !!(schema?.parameters && !schema?.properties);
 
       // O(n) field order with Set (was O(n²) with Array.includes)
       const fieldOrder = ui.field_order
@@ -29,7 +38,7 @@ import '../components/ntx-ref-picker.js';
 
       // Filter renderable fields — permission checks run once per schema, not per item
       const renderableFields = fieldOrder.filter(key => {
-          if (_headerFieldSet.has(key)) return false;
+          if (!isMethodSchema && _headerFieldSet.has(key)) return false;
           const def = fields[key];
           if (def?.ui?.display === false) return false;
           if (mode === 'edit' && def?.ui?.protected) return false;
@@ -56,31 +65,30 @@ import '../components/ntx-ref-picker.js';
 
 
   function getForm(ntt, mode="display", attachedMethods = {}) {
-      const { renderableFields, groups } = _getLayout(ntt.schema, mode);
-
       let $header = getHeader(ntt, mode);
 
-      // Render with groups if schema.ui.groups is defined
-      let $fields;
+      const $fields = getFields(ntt, mode, attachedMethods);
+      return $header.concat($fields).join('');
+  }
+
+  function getFields(ntt, mode="display", attachedMethods = {}) {
+      const { renderableFields, groups } = _getLayout(ntt.schema, mode);
+
       if (groups && typeof groups === 'object') {
-          $fields = renderGroupedFields(ntt, renderableFields, groups, mode, attachedMethods);
-      } else {
-          // Ungrouped: render fields, then append attached methods after their target field
-          let fieldsHtml = renderableFields.map(key => {
-              let html = getInput(ntt, key, mode);
-              if (mode !== 'edit') {
-                  for (const [methodName, methodDef] of Object.entries(attachedMethods)) {
-                      if (methodDef.ui?.attach_to === key) {
-                          html += renderAttachedMethod(ntt, methodName, methodDef);
-                      }
-                  }
-              }
-              return html;
-          }).join('');
-          $fields = fieldsHtml;
+          return renderGroupedFields(ntt, renderableFields, groups, mode, attachedMethods);
       }
 
-      return $header.concat($fields).join('');
+      return renderableFields.map(key => {
+          let html = getInput(ntt, key, mode);
+          if (mode !== 'edit') {
+              for (const [methodName, methodDef] of Object.entries(attachedMethods)) {
+                  if (methodDef.ui?.attach_to === key) {
+                      html += renderAttachedMethod(ntt, methodName, methodDef);
+                  }
+              }
+          }
+          return html;
+      }).join('');
   }
 
   /**
@@ -201,7 +209,8 @@ function wrapDisplayField(label, content, { inline = false, classes = '' } = {})
 
 function getInput(ntt, key, mode = 'display') {
     const schema = ntt.schema;
-    const def = schema.properties?.[key]
+    const fields = getFieldDefs(schema);
+    const def = fields?.[key]
     if (!def) return '';
 
     if (def.anyOf) {
@@ -215,12 +224,47 @@ function getInput(ntt, key, mode = 'display') {
         return getListInput(ntt, key, effectiveMode);
     }
 
+    if ((def.type === '$ref' || def?.$ref) && effectiveMode === 'edit') {
+        const refName = (def.$ref || '').replace('#/$defs/', '');
+        const refSchema = schema?.$defs?.[refName] || {};
+        const refFields = getFieldDefs(refSchema);
+        const required = getRequiredFields(refSchema);
+        if (!Object.keys(refFields).length) {
+            return `<label>${def.title || key} (unresolved)</label>`;
+        }
+        const renderKeys = required.length ? required : Object.keys(refFields);
+        return renderKeys.map((subKey) => {
+            const nestedKey = `${key}.${subKey}`;
+            const nestedDef = {
+                ...refFields[subKey],
+                ui: {
+                    ...(refFields[subKey]?.ui || {}),
+                    placeholder: refFields[subKey]?.ui?.placeholder || refFields[subKey]?.title || subKey,
+                },
+            };
+            const nestedSchema = {
+                ...ntt.schema,
+                properties: {
+                    [nestedKey]: nestedDef,
+                },
+                parameters: undefined,
+                required: required.includes(subKey) ? [nestedKey] : [],
+            };
+            const nestedValue = {
+                [nestedKey]: ntt.value?.[key]?.[subKey] ?? '',
+            };
+            return getInput({ ...ntt, schema: nestedSchema, value: nestedValue }, nestedKey, effectiveMode);
+        }).join('');
+    }
+
     const model = ntt.name
     const label = def.title || key;
     const value = ntt.value?.[key] ?? '';
     const widget = def.ui?.widget;  // Widget hint from schema (takes priority)
     let html = [];
-    const showLabel = key !== 'name' && key !== 'id';
+    const isMethodSchema = !!(schema?.parameters && !schema?.properties);
+    const defaultShowLabel = isMethodSchema ? true : (key !== 'name' && key !== 'id');
+    const showLabel = def.ui?.label === false ? false : defaultShowLabel;
 
     // ── Widget dispatch (takes priority over type-based rendering) ──
     const _wr = getWidgetForField(def);
@@ -357,7 +401,7 @@ function getInput(ntt, key, mode = 'display') {
 }
 
 function getListInput(ntt, key, mode = 'display') {
-    const def = ntt.schema.properties?.[key];
+    const def = getFieldDefs(ntt.schema)?.[key];
     const listFieldSchema = {
         ...def,
         __fieldKey: key,
@@ -487,8 +531,8 @@ function formatDisplayValue(def, key, value) {
  */
 function validateForm(ntt) {
     const schema = ntt.schema || {};
-    const props = schema.properties || {};
-    const required = new Set(schema.required || []);
+    const props = getFieldDefs(schema);
+    const required = new Set(getRequiredFields(schema));
     const value = ntt.value || {};
     const errors = [];
 
@@ -578,6 +622,7 @@ export const Formidable = {
     validationAttrs,
     refInput,
     getForm,
+    getFields,
     getInput,
     getListInput,
     getArrayInput,
