@@ -234,7 +234,7 @@ export class NTTStreamAgent extends NTTStream {
     #scrollToBottom() {
         const el = this.#output();
         // Only auto-scroll if user is at the very bottom (within 10px)
-        const atBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 10;
+        const atBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 100;
         if (atBottom) {
             el.scrollTop = el.scrollHeight;
         }
