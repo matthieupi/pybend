@@ -108,6 +108,13 @@ class TestBuildMeta:
         meta = _build_meta({}, 'App', '1.0', 'http://localhost:5000')
         assert meta['models'] == {}
 
+    def test_app_meta_included(self):
+        meta = _build_meta(
+            {}, 'App', '1.0', 'http://localhost:5000',
+            app_meta={'featured_agents': [{'system_key': 'assistant'}]},
+        )
+        assert meta['app']['featured_agents'][0]['system_key'] == 'assistant'
+
     def test_multiple_models(self):
         models = {
             'products': _make_model('Product', 'products'),

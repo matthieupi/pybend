@@ -86,6 +86,10 @@ class AgentActor(ActorModel):
         'renderer': {'item': 'ntx-agent', 'detail': 'ntx-agent'},
     }
 
+    system_key: str = Field(
+        default='',
+        description='Stable machine identity for framework-provisioned app agents',
+    )
     name: str = Field(min_length=1, max_length=200)
     prompt: str = Field(default='')
     tools: ListRef[AgentTool] = Field(default=[])
@@ -134,7 +138,7 @@ class AgentActor(ActorModel):
         return tool_addrs
 
     @expose_route('/agentic', methods=['POST'])
-    async def agentic(self, task: str, **kwargs) -> str:
+    async def agentic(self, task: str, thread_id: int = 0, **kwargs) -> str:
         """Execute the agent's reasoning loop.
 
         Override — resolves tools from DB instead of __agent__ config.
@@ -144,13 +148,16 @@ class AgentActor(ActorModel):
 
         Args:
             task: The user task / query to execute.
-            **kwargs: Override llm, constraints, user, thread_id, result_type.
+            thread_id: Existing conversation thread to continue. If omitted,
+                a new thread is created automatically.
+            **kwargs: Override llm, constraints, user, result_type.
 
         Returns:
             JSON string with {answer, usage, messages, message_count}.
         """
         from n3tx_agents.mixin import AgentMixin
         tool_addrs = self._resolve_tool_addrs()
+        thread_id = thread_id or None
         # Call the mixin's run engine directly via the descriptor's
         # underlying function, bypassing the MRO override on self.
         run_fn = AgentMixin.__dict__['run'].fn
@@ -162,7 +169,7 @@ class AgentActor(ActorModel):
             llm=kwargs.get('llm', self.llm),
             constraints={**self.constraints, **kwargs.get('constraints', {})},
             user=kwargs.get('user'),
-            thread_id=kwargs.get('thread_id'),
+            thread_id=thread_id,
             result_type=kwargs.get('result_type'),
         )
         return json.dumps(result, default=str)
@@ -173,7 +180,7 @@ class AgentActor(ActorModel):
                       'tool_result': ToolResultEvent, 'thinking': ThinkingChunk,
                       'done': DoneChunk,
                   })
-    async def agentic_stream(self, task: str, **kwargs):
+    async def agentic_stream(self, task: str, thread_id: int = 0, **kwargs):
         """Streaming agent execution — resolves tools from DB.
 
         Override — same as agentic() but yields TX-aligned stream chunks.
@@ -182,13 +189,16 @@ class AgentActor(ActorModel):
 
         Args:
             task: The user task / query to execute.
-            **kwargs: Override llm, constraints, user, thread_id, result_type.
+            thread_id: Existing conversation thread to continue. If omitted,
+                a new thread is created automatically.
+            **kwargs: Override llm, constraints, user, result_type.
 
         Yields:
             TX-aligned dicts: text, tool_call, tool_result, thinking, done, error.
         """
         from n3tx_agents.mixin import AgentMixin
         tool_addrs = self._resolve_tool_addrs()
+        thread_id = thread_id or None
         run_stream_fn = AgentMixin.__dict__['run_stream'].fn
         async for chunk in run_stream_fn(
             self,
@@ -198,7 +208,7 @@ class AgentActor(ActorModel):
             llm=kwargs.get('llm', self.llm),
             constraints={**self.constraints, **kwargs.get('constraints', {})},
             user=kwargs.get('user'),
-            thread_id=kwargs.get('thread_id'),
+            thread_id=thread_id,
             result_type=kwargs.get('result_type'),
         ):
             yield chunk

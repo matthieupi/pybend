@@ -22,6 +22,7 @@ from .tool_model import AgentTool
 from .deps import AgentDeps
 from .tools import ToolSpec, discover_tools, make_tool
 from .thread import Thread
+from .app_agent import provision_app_agent
 
 # Register schema extension (side-effect import)
 from . import schema_ext as _schema_ext  # noqa: F401
@@ -30,4 +31,5 @@ __all__ = [
     'AgentMixin', 'AgentActor', 'AgentTool', 'AgentDeps',
     'ToolSpec', 'discover_tools', 'make_tool',
     'Thread',
+    'provision_app_agent',
 ]

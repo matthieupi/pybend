@@ -15,10 +15,11 @@ create_app() / N3TXApp.build()
   2. Prepare model registrations (pure -- no side effects)
   3. Generate join models
   4. Apply registrations (storage, tables, migrations, global dicts)
-  5. Create FastAPIBackend (JWT middleware, CORS, SSR)
-  6. Register routes (direct or actor)
-  7. Mount discovery endpoints (/_meta, /.well-known/agent.json)
-  8. Mount static files (framework + app)
+  5. Provision app assistant (optional, if app_agent=...)
+  6. Create FastAPIBackend (JWT middleware, CORS, SSR)
+  7. Register routes (direct or actor)
+  8. Mount discovery endpoints (/_meta, /.well-known/agent.json)
+  9. Mount static files (framework + app)
   |
   v
 FastAPI app (ASGI)
@@ -43,6 +44,7 @@ app = create_app(
     cors_origins=['https://myapp.com'],
     debug=False,
     ssr=None,                         # None | True | False | 'off'|'schema'|'bundle'|'full'
+    app_agent=None,                  # Optional framework-provisioned Assistant config
     name='MyApp',
     version='1.0.0',
     description='A product catalog',
@@ -58,6 +60,7 @@ builder = N3TXApp(
     storage="sqlite:///app.db",
     routing='direct',
     debug=True,
+    app_agent=None,
 )
 builder.model(Product)
 builder.model(User)
@@ -139,6 +142,34 @@ Automatically mounted by `build()`:
 
 - `GET /_meta` -- Model registry, capabilities, health status
 - `GET /.well-known/agent.json` -- A2A Agent Card for agent discovery
+
+### Optional App Assistant Provisioning
+
+`create_app()` and `N3TXApp` accept an optional `app_agent` dict that can
+provision a static `AgentActor` during bootstrap. This is additive: existing
+seed scripts and runtime-created agents continue to work unchanged.
+
+```python
+app = create_app(
+    models=[Grant, Source, AgentTool, AgentActor],
+    join_models=[(AgentActor, AgentTool)],
+    storage="sqlite:///app.db",
+    app_agent={
+        "key": "assistant",
+        "name": "Assistant",
+        "prompt": "Help operators understand the system.",
+        "llm": "ollama:qwen3.5:9b",
+        "constraints": {"max_iterations": 12},
+        "tools": [
+            {"target": "grants", "description": "Grant CRUD"},
+            {"target": "sources", "description": "Source management"},
+        ],
+    },
+)
+```
+
+Bootstrap looks up the agent by `system_key` first, then falls back to `name`
+for compatibility. Tool links are reconciled idempotently on each startup.
 
 ### Static File Resolution
 

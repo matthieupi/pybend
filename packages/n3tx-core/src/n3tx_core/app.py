@@ -105,6 +105,8 @@ class N3TXApp:
         cors_origins: Optional[List[str]] = None,
         debug: bool = None,
         ssr: Union[bool, str, None] = None,
+        app_agent: Optional[dict] = None,
+        app_meta: Optional[dict] = None,
     ):
         """
         Args:
@@ -127,6 +129,9 @@ class N3TXApp:
                 - ``True``: shorthand for ``"schema"`` (backward compat)
                 - ``False``: shorthand for ``"off"``
                 - A string: ``"off"``, ``"schema"``, ``"bundle"``, ``"full"``
+            app_agent: Optional dict describing a framework-provisioned static
+                app assistant. Requires ``n3tx-agents`` models to be registered.
+            app_meta: Optional app-specific metadata exposed via ``/_meta``.
         """
         setup_logging()
         self._storage = _resolve_storage(storage)
@@ -139,6 +144,8 @@ class N3TXApp:
         if self._debug:
             config.configure(debug=True)
         self._ssr_mode = _resolve_ssr(ssr)
+        self._app_agent = app_agent
+        self._app_meta = app_meta or {}
 
         self._models: List[Tuple[Type, Optional[AbstractStorage]]] = []
         self._join_pairs: List[Tuple[Type, Type]] = []
@@ -219,6 +226,10 @@ class N3TXApp:
         for result in preparations:
             apply_registration(result)
 
+        if self._app_agent:
+            from n3tx_agents.app_agent import provision_app_agent
+            provision_app_agent(self._app_agent, registered_models)
+
         # 5. Create FastAPIBackend instance
         backend = FastAPIBackend(
             name=name,
@@ -275,6 +286,7 @@ class N3TXApp:
             version=version,
             base_url=base_url,
             description=description,
+            app_meta=self._app_meta,
         ))
 
         # 7. Return the FastAPI app instance
@@ -297,6 +309,8 @@ def create_app(
     cors_origins=None,
     debug=None,
     ssr=None,
+    app_agent=None,
+    app_meta=None,
     name="N3TX",
     version="1.0.0",
     description="",
@@ -319,6 +333,9 @@ def create_app(
         cors_origins: Allowed CORS origins.
         debug: Enable debug mode.
         ssr: SSR mode (``None``, ``True``, ``False``, or a mode string).
+        app_agent: Optional dict describing a framework-provisioned static
+            app assistant.
+        app_meta: Optional app-specific metadata exposed via ``/_meta``.
         name: Application name (appears in OpenAPI docs).
         version: Application version string.
         description: Application description.
@@ -335,6 +352,8 @@ def create_app(
         cors_origins=cors_origins,
         debug=debug,
         ssr=ssr,
+        app_agent=app_agent,
+        app_meta=app_meta,
     )
     for m in (models or []):
         builder.model(m)

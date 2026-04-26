@@ -27,7 +27,8 @@ from n3tx_core import config
 
 
 def _build_meta(registered_models: dict, name: str, version: str,
-                base_url: str, capabilities: Optional[dict] = None) -> dict:
+                base_url: str, capabilities: Optional[dict] = None,
+                app_meta: Optional[dict] = None) -> dict:
     """Build the /_meta response from the model registry."""
     models = {}
     for tablename, model_cls in registered_models.items():
@@ -69,7 +70,7 @@ def _build_meta(registered_models: dict, name: str, version: str,
     if capabilities:
         caps.update(capabilities)
 
-    return {
+    data = {
         'name': name,
         'version': version,
         'base_url': base_url,
@@ -77,6 +78,9 @@ def _build_meta(registered_models: dict, name: str, version: str,
         'capabilities': caps,
         'debug': config.DEBUG,
     }
+    if app_meta:
+        data['app'] = app_meta
+    return data
 
 
 def _build_agent_card(registered_models: dict, name: str, version: str,
@@ -142,6 +146,7 @@ def create_discovery_routes(
     base_url: str = '',
     description: str = '',
     capabilities: Optional[dict] = None,
+    app_meta: Optional[dict] = None,
 ):
     """Create FastAPI routes for service and agent discovery.
 
@@ -158,7 +163,7 @@ def create_discovery_routes(
     async def meta():
         """Service metadata — model registry, capabilities, health."""
         data = _build_meta(
-            registered_models, name, version, base_url, capabilities,
+            registered_models, name, version, base_url, capabilities, app_meta,
         )
         return JSONResponse(data)
 

@@ -14,6 +14,33 @@ SSR = os.environ.get("N3TX_SSR", "full")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://172.20.0.1:11434")
 DEFAULT_LLM = os.environ.get("N3TX_CHAT_LLM", "ollama:qwen3.5:9b")
 
+APP_AGENT = {
+    "key": "assistant",
+    "name": "Assistant",
+    "prompt": (
+        "You are Veille's assistant. Help operators understand sources, grants, "
+        "runs, and organization context. Be concise, practical, and action-oriented."
+    ),
+    "llm": DEFAULT_LLM,
+    "constraints": {"max_iterations": 12},
+    "tools": [
+        {"target": "grants", "description": "Grant CRUD operations"},
+        {"target": "sources", "description": "Source listing and management"},
+        {"target": "web_tools", "description": "Web scraping utilities"},
+        {"target": "organizations", "description": "Organization profile access"},
+    ],
+    "featured": True,
+}
+
+FEATURED_AGENTS = [
+    {"system_key": "assistant"},
+    {"name": "Veille Scout"},
+]
+
+APP_META = {
+    "featured_agents": FEATURED_AGENTS,
+}
+
 if not os.environ.get("N3TX_AGENT_DEFAULTS"):
     os.environ["N3TX_AGENT_DEFAULTS"] = '{"llm": "ollama:qwen3.5:9b"}'
 

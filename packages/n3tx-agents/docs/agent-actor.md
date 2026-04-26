@@ -74,11 +74,16 @@ shape of each event type.
 
 | Field | Type | Default | Storage |
 |-------|------|---------|---------|
+| `system_key` | str | `''` | TEXT |
 | `name` | str | required | TEXT |
 | `prompt` | str | `''` | TEXT |
 | `llm` | str | `'ollama:llama3.1'` | TEXT |
 | `constraints` | dict | `{}` | TEXT (JSON serialized) |
 | `tools` | ListRef[AgentTool] | `[]` | FK join table |
+
+`system_key` is a stable machine identifier for framework-provisioned app
+agents. It allows bootstrap code to create or update a static Assistant
+idempotently across reloads and restarts without relying on the display name.
 
 ### `AgentTool` (tool reference model)
 

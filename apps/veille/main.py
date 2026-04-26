@@ -15,6 +15,7 @@ import n3tx_agents  # noqa: F401, E402
 from n3tx_core.app import create_app  # noqa: E402
 from n3tx_core.storage.sqlite_storage import SQLiteStorage  # noqa: E402
 from n3tx_agents.actor import AgentActor  # noqa: E402
+from n3tx_agents.thread import Thread  # noqa: E402
 from n3tx_agents.tool_model import AgentTool  # noqa: E402
 from models import User, Organization, Source, Grant, Run, WebTools  # noqa: E402
 
@@ -26,13 +27,15 @@ DB_PATH = os.path.join(_HERE, config.SQLITE_DB_FILE)
 
 storage = SQLiteStorage(DB_PATH)
 app = create_app(
-    models=[User, Organization, Source, Grant, Run, WebTools, AgentTool, AgentActor],
+    models=[User, Organization, Source, Grant, Run, WebTools, AgentTool, AgentActor, Thread],
     join_models=[(AgentActor, AgentTool)],
     storage=storage,
     routing='actor',
     jwt_secret=config.JWT_SECRET,
     static_dir=os.path.join(_HERE, 'static'),
     ssr='full',
+    app_agent=config.APP_AGENT,
+    app_meta=config.APP_META,
     name='Veille',
     version='1.0.0',
     description='Agentic grant monitoring for non-profits',
