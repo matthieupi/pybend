@@ -323,12 +323,15 @@ class TestRunWithThread:
 
     @pytest.mark.asyncio
     async def test_no_thread_id_no_thread(self, fresh_matrix, tmp_path):
-        """run() without thread_id works as before — no thread created."""
+        """run() without thread_id creates a new thread automatically."""
         from pydantic_ai.models.test import TestModel
 
         storage = SQLiteStorage(str(tmp_path / 'test.db'))
+        register_model(Thread, storage=storage)
         register_model(SimpleAgent, storage=storage)
+        _register_actor(Thread)
         _register_actor(SimpleAgent)
+        storage.create_table(Thread)
 
         agent = SimpleAgent(addr='simple_agents/1')
         result = await agent.run(
@@ -337,7 +340,57 @@ class TestRunWithThread:
             tools=[], llm=TestModel(call_tools=[]),
         )
         assert 'answer' in result
-        assert 'thread_id' not in result
+        assert result.get('thread_id') is not None
+
+    @pytest.mark.asyncio
+    async def test_run_without_thread_id_creates_and_returns_thread_id(self, fresh_matrix, tmp_path):
+        """run() provisions a thread automatically when thread_id is absent."""
+        from pydantic_ai.models.test import TestModel
+
+        storage = SQLiteStorage(str(tmp_path / 'test.db'))
+        register_model(Thread, storage=storage)
+        register_model(SimpleAgent, storage=storage)
+        _register_actor(Thread)
+        _register_actor(SimpleAgent)
+        storage.create_table(Thread)
+
+        agent = SimpleAgent(addr='simple_agents/1')
+        result = await agent.run(
+            task='Test',
+            prompt='Test.',
+            tools=[],
+            llm=TestModel(call_tools=[]),
+            user={'user_id': 1, 'role': 'user'},
+        )
+
+        assert 'thread_id' in result
+        created = Thread.get(result['thread_id'])
+        assert created.agent_addr == 'simple_agents/1'
+        assert len(created.messages) > 0
+
+    @pytest.mark.asyncio
+    async def test_rejects_thread_from_other_agent(self, fresh_matrix, tmp_path):
+        """run() rejects a thread that belongs to a different agent address."""
+        from pydantic_ai.models.test import TestModel
+
+        storage = SQLiteStorage(str(tmp_path / 'test.db'))
+        register_model(Thread, storage=storage)
+        register_model(SimpleAgent, storage=storage)
+        _register_actor(Thread)
+        _register_actor(SimpleAgent)
+        storage.create_table(Thread)
+
+        thread = Thread.create(Thread(agent_addr='other_agents/1', user_owner=1))
+        agent = SimpleAgent(addr='simple_agents/1')
+        with pytest.raises(RuntimeError, match='belongs to'):
+            await agent.run(
+                task='Test',
+                prompt='Test.',
+                tools=[],
+                llm=TestModel(call_tools=[]),
+                thread_id=thread.id,
+                user={'user_id': 1, 'role': 'user'},
+            )
 
 
 # ── Integration with agentic() ───────────────────────────────────
@@ -404,3 +457,115 @@ class TestRunStreamWithThread:
         done_chunks = [c for c in chunks if c.get('name') == 'done']
         assert len(done_chunks) == 1
         assert done_chunks[0]['data'].get('thread_id') == thread.id
+
+    @pytest.mark.asyncio
+    async def test_stream_without_thread_id_returns_thread_id(self, fresh_matrix, tmp_path):
+        """run_stream() provisions a thread automatically when thread_id is absent."""
+        from pydantic_ai.models.test import TestModel
+
+        storage = SQLiteStorage(str(tmp_path / 'test.db'))
+        register_model(Thread, storage=storage)
+        register_model(SimpleAgent, storage=storage)
+        _register_actor(Thread)
+        _register_actor(SimpleAgent)
+        storage.create_table(Thread)
+
+        agent = SimpleAgent(addr='simple_agents/1')
+        chunks = []
+        async for chunk in agent.run_stream(
+            task='Hello',
+            prompt='You are helpful.',
+            tools=[], llm=TestModel(call_tools=[]),
+            user={'user_id': 1, 'role': 'user'},
+        ):
+            chunks.append(chunk)
+
+        done_chunk = [c for c in chunks if c.get('name') == 'done'][0]
+        thread_id = done_chunk['data'].get('thread_id')
+        assert thread_id is not None
+        updated = Thread.get(thread_id)
+        assert updated.agent_addr == 'simple_agents/1'
+        assert len(updated.messages) > 0
+
+    @pytest.mark.asyncio
+    async def test_second_stream_turn_reuses_created_thread(self, fresh_matrix, tmp_path):
+        """A follow-up streamed turn can reuse the returned thread_id."""
+        from pydantic_ai.models.test import TestModel
+
+        storage = SQLiteStorage(str(tmp_path / 'test.db'))
+        register_model(Thread, storage=storage)
+        register_model(SimpleAgent, storage=storage)
+        _register_actor(Thread)
+        _register_actor(SimpleAgent)
+        storage.create_table(Thread)
+
+        agent = SimpleAgent(addr='simple_agents/1')
+
+        first_chunks = []
+        async for chunk in agent.run_stream(
+            task='Hello',
+            prompt='You are helpful.',
+            tools=[], llm=TestModel(call_tools=[]),
+            user={'user_id': 1, 'role': 'user'},
+        ):
+            first_chunks.append(chunk)
+
+        first_done = [c for c in first_chunks if c.get('name') == 'done'][0]
+        thread_id = first_done['data'].get('thread_id')
+        assert thread_id is not None
+
+        second_chunks = []
+        async for chunk in agent.run_stream(
+            task='What did I just ask you?',
+            prompt='You are helpful.',
+            tools=[], llm=TestModel(call_tools=[]),
+            thread_id=thread_id,
+            user={'user_id': 1, 'role': 'user'},
+        ):
+            second_chunks.append(chunk)
+
+        second_done = [c for c in second_chunks if c.get('name') == 'done'][0]
+        assert second_done['data'].get('thread_id') == thread_id
+
+        updated = Thread.get(thread_id)
+        assert updated.agent_addr == 'simple_agents/1'
+        assert len(updated.messages) >= 4
+
+    @pytest.mark.asyncio
+    async def test_reused_stream_thread_grows_history(self, fresh_matrix, tmp_path):
+        """Reusing a streamed thread appends to the same persisted history."""
+        from pydantic_ai.models.test import TestModel
+
+        storage = SQLiteStorage(str(tmp_path / 'test.db'))
+        register_model(Thread, storage=storage)
+        register_model(SimpleAgent, storage=storage)
+        _register_actor(Thread)
+        _register_actor(SimpleAgent)
+        storage.create_table(Thread)
+
+        agent = SimpleAgent(addr='simple_agents/1')
+
+        first_chunks = []
+        async for chunk in agent.run_stream(
+            task='Hello',
+            prompt='You are helpful.',
+            tools=[], llm=TestModel(call_tools=[]),
+            user={'user_id': 1, 'role': 'user'},
+        ):
+            first_chunks.append(chunk)
+
+        thread_id = [c for c in first_chunks if c.get('name') == 'done'][0]['data'].get('thread_id')
+        before = Thread.get(thread_id)
+        before_count = len(before.messages)
+
+        async for _chunk in agent.run_stream(
+            task='And again',
+            prompt='You are helpful.',
+            tools=[], llm=TestModel(call_tools=[]),
+            thread_id=thread_id,
+            user={'user_id': 1, 'role': 'user'},
+        ):
+            pass
+
+        after = Thread.get(thread_id)
+        assert len(after.messages) > before_count

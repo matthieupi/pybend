@@ -59,7 +59,7 @@ Returns actor addresses for tool discovery. Same result for class and instance.
 Policy layer. Resolves config, delegates to `run()`.
 
 **kwargs accepted**: `prompt`, `tools`, `llm`, `constraints`, `user`,
-`thread_id`, `result_type`.
+`thread_id`, `create_thread`, `result_type`.
 
 **Config cascade**: `config.AGENT_DEFAULTS` < `__agent__` dict < kwargs.
 The `tools` kwarg uses `in` check (passing `tools=[]` is valid and means
@@ -81,6 +81,7 @@ Engine. No config resolution. Receives fully resolved params.
 | `user` | dict | JWT user context (injected into tool TX meta) |
 | `constraints` | dict | `{"max_iterations": N}` maps to UsageLimits |
 | `thread_id` | int | Thread ID for persistent conversation history |
+| `create_thread` | bool | Create a new `Thread` automatically when no `thread_id` is provided |
 | `result_type` | type | Pydantic model for structured output |
 | `**kwargs` | | Override `llm` (LLM model string or pydantic-ai Model) |
 
@@ -104,7 +105,7 @@ Streaming engine. Same params as `run()`. Yields TX-aligned chunks:
 | Tool Call | `"tool_call"` | `{"tool": "...", "args": {...}, "call_id": "..."}` | `{"stream": true, "seq": N}` |
 | Tool Result | `"tool_result"` | `{"tool": "...", "result": "...", "call_id": "..."}` | `{"stream": true, "seq": N}` |
 | Thinking | `"thinking"` | `{"text": "..."}` | `{"stream": true, "seq": N}` |
-| Done | `"done"` | `{"answer": "...", "usage": {...}, "tool_calls": N}` | `{"stream_end": true, "seq": N}` |
+| Done | `"done"` | `{"answer": "...", "usage": {...}, "tool_calls": N, "thread_id": id?}` | `{"stream_end": true, "seq": N}` |
 | Error | `"error"` | `{"message": "...", "code": 500}` | `{"error": true, "seq": N}` |
 
 Errors are caught and yielded as error chunks rather than raised.
@@ -134,6 +135,24 @@ result2 = await product.agentic(
     thread_id=thread.id,
 )
 ```
+
+### Auto-create a thread from chat UI
+
+```python
+result = await agent.run(
+    task='Hello',
+    prompt='You are helpful.',
+    tools=[],
+    create_thread=True,
+    user={'user_id': 1, 'role': 'user'},
+)
+
+thread_id = result['thread_id']
+```
+
+When `create_thread=True`, `run()` / `run_stream()` create a new `Thread`,
+validate later reuse against the current agent address, and return the
+resulting `thread_id` so the frontend can continue the conversation.
 
 ### Structured output
 

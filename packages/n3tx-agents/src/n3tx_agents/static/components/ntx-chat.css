@@ -1,11 +1,15 @@
 :host {
+  display: block;
+  font-family: var(--ntx-font-body, Inter, sans-serif);
+  font-size: 0.875rem;
+  min-width: 0;
+}
+
+:host([data-size="xs"]) {
   position: fixed;
   right: 1.5rem;
   bottom: 1.5rem;
   z-index: 9000;
-  display: block;
-  font-family: var(--ntx-font-body, Inter, sans-serif);
-  font-size: 0.875rem;
 }
 
 .chat-tab {
@@ -17,7 +21,6 @@
   border-radius: var(--ntx-radius-lg, 12px);
   background: linear-gradient(135deg, var(--ntx-color-accent, #3adffa), var(--ntx-color-accent-strong, #00cbe6));
   color: var(--ntx-button-primary-fg, #04111d);
-  box-shadow: none;
   cursor: pointer;
   transition: filter var(--ntx-duration-fast, 160ms) var(--ntx-ease, ease);
 }
@@ -26,23 +29,28 @@
   filter: brightness(1.03);
 }
 
-.chat-tab.hidden {
+.chat-tab.hidden,
+.panel-close.hidden,
+.panel-controls.hidden {
   display: none;
 }
 
 .panel {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: min(420px, calc(100vw - 2rem));
-  max-height: min(620px, calc(100vh - 4rem));
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow: hidden;
   border: var(--ntx-border-width, 2px) solid var(--ntx-border-default, rgba(255, 255, 255, 0.08));
   border-radius: var(--ntx-radius-xl, 16px);
   background: var(--ntx-panel-bg, rgba(15, 22, 38, 0.96));
   box-shadow: var(--ntx-shadow-lg, 0 40px 110px rgba(0, 0, 0, 0.35));
+}
+
+:host([data-size="xs"]) .panel {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: min(420px, calc(100vw - 2rem));
+  max-height: min(620px, calc(100vh - 4rem));
   transform: translateY(14px) scale(0.97);
   transform-origin: bottom right;
   opacity: 0;
@@ -50,10 +58,27 @@
   transition: transform var(--ntx-duration-normal, 240ms) var(--ntx-ease, ease), opacity var(--ntx-duration-normal, 240ms) var(--ntx-ease, ease);
 }
 
-.panel.open {
+:host([data-size="xs"]) .panel.open {
   transform: translateY(0) scale(1);
   opacity: 1;
   pointer-events: auto;
+}
+
+:host([data-size="sm"]) .panel,
+:host([data-size="md"]) .panel,
+:host([data-size="lg"]) .panel,
+:host([data-size="xl"]) .panel {
+  position: relative;
+  width: 100%;
+  min-height: 24rem;
+  max-height: min(34rem, calc(100vh - 16rem));
+}
+
+:host([data-size="sm"]) .chat-tab,
+:host([data-size="md"]) .chat-tab,
+:host([data-size="lg"]) .chat-tab,
+:host([data-size="xl"]) .chat-tab {
+  display: none;
 }
 
 .panel-header,
@@ -120,8 +145,8 @@ textarea:focus {
 }
 
 .chat-messages {
-  min-height: 220px;
-  max-height: 340px;
+  min-height: 0;
+  max-height: min(22rem, calc(100vh - 24rem));
   overflow-y: auto;
   padding: 1rem;
   display: grid;
@@ -161,9 +186,20 @@ textarea:focus {
   word-break: break-word;
 }
 
-.msg-system .msg-text {
+.assistant-events {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.assistant-events .agent-output {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.assistant-events .stream-footer {
   color: var(--ntx-color-text-muted, #91a3c1);
-  font-style: italic;
+  font-size: 0.72rem;
 }
 
 .chat-input {
@@ -198,60 +234,8 @@ textarea {
   cursor: not-allowed;
 }
 
-.tool-card {
-  margin: 0.25rem 0 0.6rem;
-  padding: 0.8rem 0.9rem;
-  border-left: 2px solid var(--ntx-color-accent, #3adffa);
-  border-radius: var(--ntx-radius-sm, 8px);
-  background: var(--ntx-panel-strong-bg, rgba(10, 16, 29, 0.88));
-}
-
-.tool-header {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: var(--ntx-color-text-strong, #ecf5ff);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.tool-icon,
-.msg-thinking,
-.msg-stats {
-  color: var(--ntx-color-text-muted, #91a3c1);
-}
-
-.tool-result,
-.msg-thinking,
-.msg-stats {
-  margin-top: 0.35rem;
-  font-size: 0.75rem;
-}
-
-.cursor {
-  color: var(--ntx-color-accent, #3adffa);
-  animation: chatBlink 1s step-end infinite;
-}
-
-.tool-spin {
-  animation: chatSpin 1s linear infinite;
-}
-
-.thinking-dots::after {
-  content: '';
-  animation: chatDots 1.5s steps(3, end) infinite;
-}
-
-@keyframes chatBlink { 50% { opacity: 0; } }
-@keyframes chatSpin { to { transform: rotate(360deg); } }
-@keyframes chatDots {
-  0% { content: '.'; }
-  33% { content: '..'; }
-  66% { content: '...'; }
-}
-
 @media (max-width: 640px) {
-  :host {
+  :host([data-size="xs"]) {
     right: 0.75rem;
     bottom: 0.75rem;
   }

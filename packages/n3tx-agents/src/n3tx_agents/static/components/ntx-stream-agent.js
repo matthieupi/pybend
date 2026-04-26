@@ -9,205 +9,218 @@ export class NTTStreamAgent extends NTTStream {
         return [...inherited, new URL('./ntx-stream-agent.css', import.meta.url).href];
     }
 
-    #toolCards = new Map();
-    #textBuf = '';
-    #textRendered = 0;
-    #textTimer = null;
-    #thinkBuf = '';
-    #thinkRendered = 0;
-    #thinkTimer = null;
-    #outputEl = null;
-
-    // ── UPPERCASE handlers ──
+    _toolCards = new Map();
+    _textBuf = '';
+    _textRendered = 0;
+    _textTimer = null;
+    _thinkBuf = '';
+    _thinkRendered = 0;
+    _thinkTimer = null;
+    _outputEl = null;
 
     THINKING(data, meta) {
         const text = data?.text || '';
-        if (!text) { this.#setThinking(true); return; }
+        if (!text) {
+            this.setThinkingState(true);
+            return;
+        }
 
-        this.#thinkBuf += text;
-        let entry = this.#output().querySelector('.entry-thinking-active');
+        this._thinkBuf += text;
+        let entry = this.getAgentOutputElement().querySelector('.entry-thinking-active');
         if (!entry) {
-            entry = this.#addEntry('thinking', '');
+            entry = this.addAgentEntry('thinking', '');
             entry.classList.add('entry-thinking-active');
         }
-        this.#scheduleRender(entry, 'think');
+        this.scheduleAgentRender(entry, 'think');
     }
 
     TOOL_CALL(data, meta) {
-        this.#setThinking(false);
-        // Normalize: args may arrive as JSON string from some LLM providers
+        this.setThinkingState(false);
         if (typeof data.args === 'string') {
             try { data.args = JSON.parse(data.args); } catch { data.args = { raw: data.args }; }
         }
-        const argsHtml = data.args && Object.keys(data.args).length
-            ? `<div class="tool-json">${this.#esc(JSON.stringify(data.args, null, 2))}</div>` : '';
-        const entry = this.#addEntry('tool-call',
-            `<span class="entry-icon">\u2699</span> Calling <strong>${this.#esc(data.tool)}</strong>${argsHtml}`);
+        const argsHtml = this.renderAgentToolArgs(data.args);
+        const entry = this.addAgentEntry('tool-call',
+            `<span class="entry-icon">⚙</span> Calling <strong>${this.escapeAgentHtml(data.tool || 'Tool')}</strong>${argsHtml}`);
         const spinner = document.createElement('span');
         spinner.className = 'entry-spin';
-        spinner.textContent = ' \u25CF';
+        spinner.textContent = ' ●';
         entry.querySelector('.entry-content').appendChild(spinner);
         if (argsHtml) entry.classList.add('collapsible');
-        if (data.call_id) this.#toolCards.set(data.call_id, entry);
+        if (data.call_id) this._toolCards.set(data.call_id, entry);
+        this.scrollAgentToBottom();
     }
 
     TOOL_RESULT(data, meta) {
-        const card = data.call_id && this.#toolCards.get(data.call_id);
+        const card = data.call_id && this._toolCards.get(data.call_id);
+        const resultHtml = this.renderAgentToolResult(data.result);
         if (card) {
             card.querySelector('.entry-spin')?.remove();
             card.classList.add('complete');
-            const resultDiv = document.createElement('div');
-            resultDiv.className = 'tool-result-text';
-            const resultStr = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2);
-            resultDiv.textContent = resultStr.slice(0, 500);
-            card.querySelector('.entry-content').appendChild(resultDiv);
+            if (resultHtml) {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'tool-result-text';
+                resultDiv.innerHTML = resultHtml;
+                card.querySelector('.entry-content').appendChild(resultDiv);
+            }
         } else {
-            this.#addEntry('tool-result',
-                `<span class="entry-icon">\u2714</span> ${this.#esc(data.tool || 'Tool')}: result received`);
+            this.addAgentEntry('tool-result',
+                `<span class="entry-icon">✔</span> ${this.escapeAgentHtml(data.tool || 'Tool')}: result received`);
         }
+        this.scrollAgentToBottom();
     }
 
     TEXT(data, meta) {
-        this.#setThinking(false);
-        this.#textBuf += (data?.text || '');
+        this.setThinkingState(false);
+        this._textBuf += (data?.text || '');
 
-        let entry = this.#output().querySelector('.entry-text-output');
+        let entry = this.getAgentOutputElement().querySelector('.entry-text-output');
         if (!entry) {
-            entry = this.#addEntry('text-output', '');
+            entry = this.addAgentEntry('text-output', '');
             entry.querySelector('.entry-content').classList.add('entry-text-output-content');
             entry.classList.add('entry-text-output');
         }
-        this.#scheduleRender(entry, 'text');
+        this.scheduleAgentRender(entry, 'text');
     }
 
     DONE(data, meta) {
-        this.#setThinking(false);
-        this.#flushRender();
+        this.setThinkingState(false);
+        this.flushAgentRender();
         const usage = data?.usage;
-        if (usage) {
-            let footer = this.#output().querySelector('.stream-footer');
-            if (!footer) {
-                footer = document.createElement('div');
-                footer.className = 'stream-footer';
-                this.#output().appendChild(footer);
+        const footer = this.getAgentFooterElement();
+        if (usage && footer) {
+            let footerEl = footer.querySelector('.stream-footer');
+            if (!footerEl) {
+                footerEl = document.createElement('div');
+                footerEl.className = 'stream-footer';
+                footer.appendChild(footerEl);
             }
-            footer.innerHTML =
+            footerEl.innerHTML =
                 `<span>Tokens: ${usage.input_tokens || 0} in / ${usage.output_tokens || 0} out</span>` +
                 (data.tool_calls ? ` &middot; <span>${data.tool_calls} tool calls</span>` : '');
         }
-        this.#scrollToBottom();
+        this.scrollAgentToBottom();
     }
 
     STREAM_END(data) {
-        this.#setThinking(false);
-        this.#flushRender();
-        // Refresh parent entity
+        this.setThinkingState(false);
+        this.flushAgentRender();
         if (this.ntt?.pull) this.ntt.pull();
     }
 
     STREAM_ERROR(data) {
-        this.#setThinking(false);
-        this.#flushRender();
+        this.setThinkingState(false);
+        this.flushAgentRender();
         const msg = (typeof data === 'string') ? data
             : data?.message || data?.detail || data?.error || 'Stream error';
-        this.#addEntry('error', `Error: ${this.#esc(msg)}`);
+        this.addAgentEntry('error', `Error: ${this.escapeAgentHtml(msg)}`);
         showToast(msg, 'error');
     }
 
-    // ── Rendering ──
-
     render() {
         super.render();
-        // Replace NTTStream's simple output with our rich output container
-        let el = this.shadowRoot.querySelector('.stream-output');
+        const el = this.shadowRoot.querySelector('.stream-output');
         if (el) el.remove();
     }
 
     callMethod() {
-        this.#toolCards.clear();
-        this.#textBuf = ''; this.#textRendered = 0; clearTimeout(this.#textTimer);
-        this.#thinkBuf = ''; this.#thinkRendered = 0; clearTimeout(this.#thinkTimer);
-        this.#outputEl = null;
+        this.resetAgentRenderState();
+        this.prepareAgentOutput();
         super.callMethod();
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
-        clearTimeout(this.#textTimer);
-        clearTimeout(this.#thinkTimer);
+        clearTimeout(this._textTimer);
+        clearTimeout(this._thinkTimer);
     }
 
-    // ── Internal helpers ──
-
-    /** Get or create the output container for agent entries */
-    #output() {
-        if (this.#outputEl) return this.#outputEl;
+    getAgentOutputElement() {
+        if (this._outputEl?.isConnected) return this._outputEl;
         let el = this.shadowRoot.querySelector('.agent-output');
         if (!el) {
             el = document.createElement('div');
             el.className = 'agent-output';
             this.shadowRoot.appendChild(el);
-
-            // Click-to-expand/collapse on collapsible entries (event delegation)
-            el.addEventListener('click', (e) => {
-                const entry = e.target.closest('.entry.collapsible');
-                if (entry) entry.classList.toggle('expanded');
-            });
         }
-        this.#outputEl = el;
+        this._bindAgentOutput(el);
+        this._outputEl = el;
         return el;
     }
 
-    #addEntry(type, html) {
+    getAgentFooterElement() {
+        return this.getAgentOutputElement();
+    }
+
+    prepareAgentOutput() {
+        const output = this.getAgentOutputElement();
+        if (output) output.innerHTML = '';
+        const footer = this.getAgentFooterElement();
+        if (footer && footer !== output) footer.innerHTML = '';
+    }
+
+    resetAgentRenderState() {
+        this._toolCards.clear();
+        this._textBuf = '';
+        this._textRendered = 0;
+        clearTimeout(this._textTimer);
+        this._thinkBuf = '';
+        this._thinkRendered = 0;
+        clearTimeout(this._thinkTimer);
+        this._outputEl = null;
+    }
+
+    addAgentEntry(type, html) {
         const el = document.createElement('div');
         el.className = `entry entry-${type}`;
         el.innerHTML = `<div class="entry-content">${html}</div>`;
-        this.#output().appendChild(el);
-        this.#scrollToBottom();
+        this.getAgentOutputElement().appendChild(el);
+        this.scrollAgentToBottom();
         return el;
     }
 
-    #setThinking(on) {
-        const output = this.#output();
+    setThinkingState(on) {
+        const output = this.getAgentOutputElement();
         let el = output.querySelector('.entry-thinking-active');
         if (on && !el) {
-            el = this.#addEntry('thinking', '<span class="thinking-anim">Thinking</span>');
+            el = this.addAgentEntry('thinking', '<span class="thinking-anim">Thinking</span>');
             el.classList.add('entry-thinking-active');
         } else if (!on && el) {
             const content = el.querySelector('.entry-content');
             if (content?.querySelector('.thinking-anim')) {
                 el.remove();
             } else {
-                clearTimeout(this.#thinkTimer);
-                this.#renderMd(el, 'think');
+                clearTimeout(this._thinkTimer);
+                this.renderAgentMarkdown(el, 'think');
                 el.classList.remove('entry-thinking-active');
                 el.classList.add('collapsible');
-                this.#thinkBuf = ''; this.#thinkRendered = 0;
+                this._thinkBuf = '';
+                this._thinkRendered = 0;
             }
         }
     }
 
-    #scheduleRender(entry, kind) {
-        const buf = kind === 'text' ? this.#textBuf : this.#thinkBuf;
-        const rendered = kind === 'text' ? this.#textRendered : this.#thinkRendered;
+    scheduleAgentRender(entry, kind) {
+        const buf = kind === 'text' ? this._textBuf : this._thinkBuf;
+        const rendered = kind === 'text' ? this._textRendered : this._thinkRendered;
         const fresh = buf.slice(rendered);
         const hasNewline = fresh.includes('\n');
 
         if (kind === 'text') {
-            clearTimeout(this.#textTimer);
-            if (hasNewline) this.#renderMd(entry, kind);
-            else this.#textTimer = setTimeout(() => this.#renderMd(entry, kind), 300);
+            clearTimeout(this._textTimer);
+            if (hasNewline) this.renderAgentMarkdown(entry, kind);
+            else this._textTimer = setTimeout(() => this.renderAgentMarkdown(entry, kind), 300);
         } else {
-            clearTimeout(this.#thinkTimer);
-            if (hasNewline) this.#renderMd(entry, kind);
-            else this.#thinkTimer = setTimeout(() => this.#renderMd(entry, kind), 300);
+            clearTimeout(this._thinkTimer);
+            if (hasNewline) this.renderAgentMarkdown(entry, kind);
+            else this._thinkTimer = setTimeout(() => this.renderAgentMarkdown(entry, kind), 300);
         }
-        this.#scrollToBottom();
+        this.scrollAgentToBottom();
     }
 
-    #renderMd(entry, kind) {
+    renderAgentMarkdown(entry, kind) {
         if (!entry) return;
-        const buf = kind === 'text' ? this.#textBuf : this.#thinkBuf;
+        const buf = kind === 'text' ? this._textBuf : this._thinkBuf;
         if (!buf) return;
         const content = entry.querySelector('.entry-text-output-content')
             || entry.querySelector('.entry-content');
@@ -216,32 +229,52 @@ export class NTTStreamAgent extends NTTStream {
         } else {
             content.textContent = buf;
         }
-        if (kind === 'text') this.#textRendered = buf.length;
-        else this.#thinkRendered = buf.length;
-        this.#scrollToBottom();
+        if (kind === 'text') this._textRendered = buf.length;
+        else this._thinkRendered = buf.length;
+        this.scrollAgentToBottom();
     }
 
-    #flushRender() {
-        clearTimeout(this.#textTimer);
-        clearTimeout(this.#thinkTimer);
-        const output = this.#output();
+    flushAgentRender() {
+        clearTimeout(this._textTimer);
+        clearTimeout(this._thinkTimer);
+        const output = this.getAgentOutputElement();
         const textEntry = output.querySelector('.entry-text-output');
-        if (textEntry) this.#renderMd(textEntry, 'text');
+        if (textEntry) this.renderAgentMarkdown(textEntry, 'text');
         const thinkEntry = output.querySelector('.entry-thinking-active');
-        if (thinkEntry) this.#renderMd(thinkEntry, 'think');
+        if (thinkEntry) this.renderAgentMarkdown(thinkEntry, 'think');
     }
 
-    #scrollToBottom() {
-        const el = this.#output();
-        // Only auto-scroll if user is at the very bottom (within 10px)
+    renderAgentToolArgs(args) {
+        if (!args || (typeof args === 'object' && !Object.keys(args).length)) return '';
+        const argsStr = typeof args === 'string' ? args : JSON.stringify(args, null, 2);
+        return `<div class="tool-json">${this.escapeAgentHtml(argsStr)}</div>`;
+    }
+
+    renderAgentToolResult(result) {
+        const resultStr = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+        return this.escapeAgentHtml((resultStr || '').slice(0, 500));
+    }
+
+    scrollAgentToBottom() {
+        const el = this.getAgentOutputElement();
         const atBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 100;
-        if (atBottom) {
-            el.scrollTop = el.scrollHeight;
-        }
+        if (atBottom) el.scrollTop = el.scrollHeight;
     }
 
-    #esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    escapeAgentHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text || '';
+        return d.innerHTML;
+    }
 
+    _bindAgentOutput(el) {
+        if (el.dataset.boundAgentOutput === 'true') return;
+        el.dataset.boundAgentOutput = 'true';
+        el.addEventListener('click', (e) => {
+            const entry = e.target.closest('.entry.collapsible');
+            if (entry) entry.classList.toggle('expanded');
+        });
+    }
 }
 
 customElements.define('ntx-stream-agent', NTTStreamAgent);

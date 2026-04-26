@@ -140,6 +140,102 @@ def _build_instance_text(target) -> str:
     return f'\n\nCurrent instance (id={instance_id}):\n{data_str}'
 
 
+def _agent_scope(agent_addr: str, cls=None) -> str:
+    if isinstance(agent_addr, str) and agent_addr:
+        return agent_addr.split('/', 1)[0]
+    if cls is not None:
+        return getattr(cls, '__tablename__', cls.__name__)
+    return ''
+
+
+def _thread_matches_agent(thread_data: dict, agent_addr: str, cls=None) -> bool:
+    thread_agent = (thread_data or {}).get('agent_addr', '')
+    if not thread_agent:
+        return True
+    scope = _agent_scope(agent_addr, cls=cls)
+    return thread_agent == agent_addr or thread_agent == scope
+
+
+async def _get_thread(root, thread_id, user=None):
+    thread_tx = TX(
+        name='get', source=root.addr, target='threads',
+        data={'id': thread_id},
+        meta={'user': user} if user else {},
+    )
+    thread_resp = await root.request(thread_tx)
+    if thread_resp.is_error:
+        raise RuntimeError(
+            f"Thread {thread_id} not found or access denied: "
+            f"{thread_resp.data.get('message', 'unknown error')}"
+        )
+    return thread_resp.data
+
+
+async def _create_thread(root, agent_addr: str, user=None, cls=None):
+    payload = {
+        'agent_addr': agent_addr or _agent_scope(agent_addr, cls=cls),
+        'messages': [],
+    }
+    if isinstance(user, dict) and user.get('user_id') is not None:
+        payload['user_owner'] = user['user_id']
+
+    create_tx = TX(
+        name='create', source=root.addr, target='threads',
+        data=payload,
+        meta={'user': user} if user else {},
+    )
+    create_resp = await root.request(create_tx)
+    if create_resp.is_error:
+        raise RuntimeError(
+            "Failed to create thread: "
+            f"{create_resp.data.get('message', 'unknown error')}"
+        )
+    return create_resp.data
+
+
+async def _load_or_create_thread(root, agent_addr: str, user=None,
+                                 thread_id=None, cls=None):
+    thread_data = None
+    if thread_id is not None:
+        thread_data = await _get_thread(root, thread_id, user=user)
+        if not _thread_matches_agent(thread_data, agent_addr, cls=cls):
+            raise RuntimeError(
+                f"Thread {thread_id} belongs to {thread_data.get('agent_addr', 'another agent')}, "
+                f"not {agent_addr or _agent_scope(agent_addr, cls=cls)}"
+            )
+    else:
+        thread_data = await _create_thread(root, agent_addr, user=user, cls=cls)
+        thread_id = thread_data.get('id')
+
+    message_history = None
+    if thread_data is not None:
+        message_history = Thread.to_history(thread_data.get('messages', []))
+
+    return thread_data, thread_id, message_history
+
+
+async def _update_thread(root, thread_id, all_messages, user=None, source='', target=''):
+    update_tx = TX(
+        name='update', source=root.addr, target='threads',
+        data={
+            'id': thread_id,
+            'messages': Thread.from_history(
+                all_messages,
+                source=source,
+                target=target,
+            ),
+        },
+        meta={'user': user} if user else {},
+    )
+    update_resp = await root.request(update_tx)
+    if update_resp.is_error:
+        logger.warning(
+            "Failed to update thread %s: %s",
+            thread_id,
+            update_resp.data.get('message', 'unknown'),
+        )
+
+
 # ── AgentMixin ────────────────────────────────────────────────────
 
 class AgentMixin:
@@ -326,22 +422,13 @@ class AgentMixin:
             )
 
         # ── Thread: pre-run read ──
-        message_history = None
-        if thread_id is not None:
-            thread_tx = TX(
-                name='get', source=root.addr, target='threads',
-                data={'id': thread_id},
-                meta={'user': user} if user else {},
-            )
-            thread_resp = await root.request(thread_tx)
-            if thread_resp.is_error:
-                raise RuntimeError(
-                    f"Thread {thread_id} not found or access denied: "
-                    f"{thread_resp.data.get('message', 'unknown error')}"
-                )
-            message_history = Thread.to_history(
-                thread_resp.data.get('messages', [])
-            )
+        _, thread_id, message_history = await _load_or_create_thread(
+            root=root,
+            agent_addr=agent_addr,
+            user=user,
+            thread_id=thread_id,
+            cls=cls,
+        )
 
         # ── Discover tools from actor addresses ──
         tool_specs = discover_tools(tools, root, caller_addr=agent_addr)
@@ -389,25 +476,14 @@ class AgentMixin:
 
         # ── Thread: post-run update ──
         if thread_id is not None:
-            update_tx = TX(
-                name='update', source=root.addr, target='threads',
-                data={
-                    'id': thread_id,
-                    'messages': Thread.from_history(
-                        all_messages,
-                        source=root.addr,
-                        target=agent_addr,
-                    ),
-                },
-                meta={'user': user} if user else {},
+            await _update_thread(
+                root=root,
+                thread_id=thread_id,
+                all_messages=all_messages,
+                user=user,
+                source=root.addr,
+                target=agent_addr,
             )
-            update_resp = await root.request(update_tx)
-            if update_resp.is_error:
-                logger.warning(
-                    "Failed to update thread %s: %s",
-                    thread_id,
-                    update_resp.data.get('message', 'unknown'),
-                )
 
         result_dict = {
             'answer': result.output,
@@ -508,22 +584,13 @@ class AgentMixin:
         seq = 0
         try:
             # ── Thread: pre-run read ──
-            message_history = None
-            if thread_id is not None:
-                thread_tx = TX(
-                    name='get', source=root.addr, target='threads',
-                    data={'id': thread_id},
-                    meta={'user': user} if user else {},
-                )
-                thread_resp = await root.request(thread_tx)
-                if thread_resp.is_error:
-                    raise RuntimeError(
-                        f"Thread {thread_id} not found or access denied: "
-                        f"{thread_resp.data.get('message', 'unknown error')}"
-                    )
-                message_history = Thread.to_history(
-                    thread_resp.data.get('messages', [])
-                )
+            _, thread_id, message_history = await _load_or_create_thread(
+                root=root,
+                agent_addr=agent_addr,
+                user=user,
+                thread_id=thread_id,
+                cls=cls,
+            )
 
             tool_specs = discover_tools(tools, root, caller_addr=agent_addr)
             ai_tools = [make_tool(spec) for spec in tool_specs]
@@ -643,25 +710,14 @@ class AgentMixin:
 
                 # ── Thread: post-stream update ──
                 if thread_id is not None:
-                    update_tx = TX(
-                        name='update', source=root.addr, target='threads',
-                        data={
-                            'id': thread_id,
-                            'messages': Thread.from_history(
-                                all_messages,
-                                source=root.addr,
-                                target=agent_addr,
-                            ),
-                        },
-                        meta={'user': user} if user else {},
+                    await _update_thread(
+                        root=root,
+                        thread_id=thread_id,
+                        all_messages=all_messages,
+                        user=user,
+                        source=root.addr,
+                        target=agent_addr,
                     )
-                    update_resp = await root.request(update_tx)
-                    if update_resp.is_error:
-                        logger.warning(
-                            "Failed to update thread %s: %s",
-                            thread_id,
-                            update_resp.data.get('message', 'unknown'),
-                        )
 
                 done_data = {
                     'answer': str(output),
