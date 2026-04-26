@@ -43,9 +43,12 @@ Component (n3tx-core: shadow DOM, addr, ref, model, proto, define(), scheduleRen
   |           Table with header sort, inline create row, stamps ntx-row
   |
   +-- NTTMethod (ntx-method.js)           -- <ntx-method>
-  |     Layouts: fieldset (default), inline, button
-  |     Loads method schema, renders input form, calls entity method
-  |     Retains a small static style contract (`baseStyles`) for source-level overflow assertions
+|     Layouts: fieldset (default), inline, button
+|     Loads method schema, renders input form, calls entity method
+|     Required params render by default; optional/defaulted params hide behind
+|     a local disclosure, and zero-visible-param methods collapse to a labeled
+|     primary action button with expandable options
+|     Retains a small static style contract (`baseStyles`) for source-level overflow assertions
 |     Button layout renders `.method-btn`; add `show-label` when a button-layout method should expose visible label text instead of icon-only chrome. Inline layout may render `textarea` when the schema/widget requests it
   |     Icons: shared `ui.icon` tokens rendered through <ntx-icon>
   |     |

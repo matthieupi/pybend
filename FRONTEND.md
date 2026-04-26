@@ -62,7 +62,7 @@ form.js (n3tx-ui)        Formidable generator - builds forms from schema propert
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.js` - Table component
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-row.js` - Table row component
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js` - Method call button
-- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js` - Streaming method output (extends ntx-method)
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-stream.js` - Streaming method output (extends ntx-method). The fallback plain response box is opt-in via `show-output`; rich consumers like `ntx-chat` and `ntx-agent-live` should leave it off to avoid duplicate reply rendering.
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-router.js` - Generic view container (loads any component via Router)
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-modal.js` - Modal overlay
 - `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-ref-picker.js` - Reference field picker
@@ -94,10 +94,10 @@ checkbox.
 
 ### Agent UI (n3tx-agents)
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agents.js` - Hybrid agents list surface. Extends NTTList, combines stored AgentActor rows with app-supplied built-in workflow entries.
-- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js` - Purpose-built `AgentActor` entity component. Extends NTTItem and embeds `ntx-agent-live` for rich list/detail views.
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js` - Purpose-built `AgentActor` entity component. Extends NTTItem and embeds `ntx-chat` plus `ntx-agent-live` for rich detail views.
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-stream-agent.js` - NTTStreamAgent: rich agent output (entries, markdown, tool cards). Extends NTTStream.
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` - Real-time agent activity view (extends NTTStream)
-- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Agent chat panel (extends NTTStream)
+- `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Threaded agent chat shell. Extends `NTTStreamAgent`, uses `create_thread` / `thread_id`, and switches between `xs` launcher mode and `sm+` inline mode from container size.
 
 ### Themes & Default HTML (n3tx-ui)
 - `packages/n3tx-ui/src/n3tx_ui/static/theme-base.css` - Shared structural theme base (global selectors and layout chrome)
@@ -152,6 +152,9 @@ way to surface human-facing labels like `Agents` for `AgentActor`. Custom list
 tags such as `ntx-agents` receive the same `model`, `router`, `headless`, and
 `sidebar-dropdown` attrs so app-specific dropdown views can stay compact
 without forking the sidebar.
+Plain sidebar links follow router semantics too: `href="#"` navigates to the
+router home route (empty route, no hash), while `href="#profile"` maps to the
+app route `@profile`.
 
 Standard wide `ntx-list` card views now pack uneven card heights more tightly.
 `ListElement` keeps CSS grid source ordering, but when children resolve to
@@ -174,6 +177,7 @@ Frontend verification now has two layers:
 
 - `cd /workspace/tests/frontend && npx vitest run` - JS unit tests for runtime, components, and helpers
 - `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js` - browser verification against the seeded `examples/core` app
+- `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/veille.playwright.config.js` - Veille browser verification, including Assistant chat with deterministic `N3TX_CHAT_LLM=test`
 
 The Playwright harness boots `examples/core` as the test app, seeds an isolated SQLite database in `global-setup.js`, and cleans it up in `global-teardown.js`. The harness also passes `PYTHONPATH` so package source trees resolve without installation.
 

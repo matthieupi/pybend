@@ -94,6 +94,14 @@ vi.mock('../../core/NTT.js', () => ({
   NTT: mockNTT
 }));
 
+const mockMatrix = {
+  dispatch: vi.fn(),
+  register: vi.fn(),
+};
+vi.mock('../../core/Matrix.js', () => ({
+  matrix: mockMatrix,
+}));
+
 // Import after mocks
 await import('../../components/ntx-sidebar.js');
 
@@ -102,6 +110,7 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
   beforeEach(() => {
     mockNTT.attach.mockClear();
     mockNTT.get.mockClear();
+    mockMatrix.dispatch.mockClear();
     // Reset mock implementation
     mockNTT.attach.mockImplementation((addr, callback) => () => {});
   });
@@ -690,6 +699,28 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
       const header = linkEl.querySelector('.model-header');
       expect(linkEl.classList.contains('sidebar-link--selected')).toBe(true);
       expect(header.getAttribute('aria-current')).toBe('page');
+
+      document.body.removeChild(el);
+    });
+
+    it('should treat bare hash links as router home', () => {
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('router', 'main');
+      const link = document.createElement('a');
+      link.setAttribute('href', '#');
+      link.textContent = 'Dashboard';
+      el.appendChild(link);
+      document.body.appendChild(el);
+
+      const linkEl = el.shadowRoot.querySelector('.sidebar-link[data-href="#"] .model-header');
+      linkEl.click();
+
+      expect(mockMatrix.dispatch).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'NAVIGATE',
+        target: 'main',
+        data: '',
+        meta: { reset: true },
+      }));
 
       document.body.removeChild(el);
     });

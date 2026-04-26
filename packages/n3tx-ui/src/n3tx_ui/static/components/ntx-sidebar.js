@@ -425,8 +425,12 @@ class NTTSidebar extends HTMLElement {
     const routerAddr = this.getAttribute('router');
     if (!routerAddr) return;
 
-    // Convert hash links to @appRoutes
-    const route = href.startsWith('#') ? '@' + href.slice(1) : href;
+    // Convert hash links to router routes. Bare '#' means home.
+    const route = href === '#'
+      ? ''
+      : href.startsWith('#')
+        ? '@' + href.slice(1)
+        : href;
 
     matrix.dispatch({
       name: 'NAVIGATE',

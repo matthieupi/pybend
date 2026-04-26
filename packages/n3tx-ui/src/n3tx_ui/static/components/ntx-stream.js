@@ -4,6 +4,10 @@ import { showToast } from '../utils/Toast.js';
 
 export class NTTStream extends NTTMethod {
 
+    static get observedAttributes() {
+        return [...super.observedAttributes, 'show-output'];
+    }
+
     get styles() {
         const parent = super.styles;
         const inherited = Array.isArray(parent) ? parent : parent ? [parent] : [];
@@ -21,6 +25,10 @@ export class NTTStream extends NTTMethod {
         super();
     }
 
+    get showOutput() {
+        return this.hasAttribute('show-output');
+    }
+
     // ── STREAM inbox handler ──
     // All stream chunks route here via dynamic alias.
     // Dispatches to UPPERCASE sub-handlers by event name.
@@ -28,15 +36,28 @@ export class NTTStream extends NTTMethod {
     STREAM(data, tx) {
         if (this.#cancelled) return;
         if (tx?.meta?.error)      return this.STREAM_ERROR(data);
+
+        const wrapped = data?.name === 'STREAM' ? data.data : null;
+        const wrappedMeta = wrapped?.meta || {};
+        if (wrappedMeta.error) return this.STREAM_ERROR(wrapped.data ?? wrapped);
+        if (wrappedMeta.stream_end) {
+            const wrappedName = wrapped?.name?.toUpperCase();
+            const wrappedData = wrapped?.data ?? wrapped;
+            if (wrappedName === 'DONE' && typeof this.DONE === 'function') {
+                this.DONE(wrappedData, wrappedMeta);
+            }
+            return this.STREAM_END(wrappedData);
+        }
         if (tx?.meta?.stream_end) return this.STREAM_END(data);
 
         // Typed event dispatch: {name: 'thinking', data: {text: '...'}} → this.THINKING({text: '...'})
-        const name = data?.name?.toUpperCase();
+        const payload = wrapped || data;
+        const name = payload?.name?.toUpperCase();
         if (name && typeof this[name] === 'function') {
-            this[name](data.data, data.meta);
+            this[name](payload.data, payload.meta);
         } else {
             // Untyped fallback — treat entire chunk as text
-            this.TEXT(data);
+            this.TEXT(payload);
         }
     }
 
@@ -107,6 +128,10 @@ export class NTTStream extends NTTMethod {
     }
 
     #renderOutput() {
+        if (!this.showOutput) {
+            this.shadowRoot.querySelector('.stream-output')?.remove();
+            return;
+        }
         let el = this.shadowRoot.querySelector('.stream-output');
         if (!el) {
             el = document.createElement('div');
@@ -125,6 +150,10 @@ export class NTTStream extends NTTMethod {
         this.#textBuf = '';
         this.#streaming = false;
         this.response = null;
+        if (!this.showOutput) {
+            this.shadowRoot?.querySelector('.stream-output')?.remove();
+            return;
+        }
         const el = this.shadowRoot?.querySelector('.stream-output');
         if (el) el.innerHTML = '';
     }

@@ -139,6 +139,12 @@ button:active {
   margin-top: 0.3rem;
 }
 
+.method-collapsed-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
 .method-form-inline {
   gap: 0.7rem;
 }
@@ -162,6 +168,31 @@ button:active {
 .method-inline-row button {
   margin: 0;
   align-self: stretch;
+}
+
+.method-optional-toggle-row {
+  display: flex;
+}
+
+.method-optional-toggle {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ntx-color-accent-strong, #00464a);
+  box-shadow: none;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+}
+
+.method-optional-toggle:hover {
+  background: transparent;
+  color: var(--ntx-color-accent-strong, #00464a);
+  box-shadow: none;
+}
+
+.method-optional-panel {
+  display: grid;
+  gap: 0.8rem;
 }
 
 .method-btn {
