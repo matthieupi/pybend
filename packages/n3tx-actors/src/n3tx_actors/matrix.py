@@ -145,6 +145,36 @@ class Matrix(Actor):
                 f"Request to {tx.target} timed out after {timeout}s", code=504
             )
 
+    async def stream(self, tx: TX, timeout: float = 120.0):
+        """Send TX and yield correlated stream chunks.
+
+        Internal streaming twin of request(). Uses an asyncio.Queue keyed by
+        the outbound TX uuid and yields correlated replies until stream_end or
+        error.
+        """
+        tx.source = tx.source or self.addr
+        queue = asyncio.Queue()
+        self._pending[tx.uuid] = queue
+
+        send_task = asyncio.create_task(self.send(tx))
+
+        try:
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(queue.get(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    yield tx.error(
+                        f"Stream to {tx.target} timed out after {timeout}s", code=504
+                    )
+                    return
+                yield chunk
+                if chunk.is_error or chunk.meta.get('stream_end'):
+                    return
+        finally:
+            self._pending.pop(tx.uuid, None)
+            if not send_task.done():
+                send_task.cancel()
+
     def register_adapter(self, adapter: Any):
         """Add a protocol adapter (HTTP, WS, MCP, AP...)."""
         self._adapters.append(adapter)

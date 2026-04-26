@@ -38,8 +38,10 @@ Tool calls at runtime route through `_route_tool_call()`:
 LLM calls tool  ->  generated fn(ctx, params)  ->  _route_tool_call()
     |
     +-- creates TX(name=method, target=actor_addr, data=params)
-    +-- adapter.request(tx)  -- Future-based correlation
-    +-- returns JSON string of response.data
+    +-- non-stream: Matrix.request(tx)  -- Future-based correlation
+    +-- stream=True: Matrix.stream(tx)  -- Queue-based correlation
+    +-- streamed routes are consumed server-side to completion
+    +-- returns one final JSON string to the LLM
     +-- on error TX: raises ModelRetry (LLM retries)
 ```
 
@@ -58,6 +60,8 @@ LLM calls tool  ->  generated fn(ctx, params)  ->  _route_tool_call()
 - Calls `cls.schema()` on found actors
 - Storable models get 5 CRUD ToolSpecs (list, get, create, update, delete)
 - All `@expose_route` methods get a ToolSpec each
+- Streaming `@expose_route(..., stream=True)` methods stay in the tool set and
+  are marked as streaming instead of being filtered out
 - AgentActor subclasses auto-exclude `run` and `stream_run` methods
 - Missing actors log a warning and are skipped
 
@@ -71,6 +75,7 @@ class ToolSpec:
     tool_name: str      # LLM-facing name (e.g. 'products_create')
     description: str    # Human-readable description
     parameters: dict    # JSON Schema for input parameters
+    stream: bool = False
 ```
 
 Tool names follow `{tablename}_{method}` convention.
@@ -92,10 +97,18 @@ The `ctx` parameter (RunContext[AgentDeps]) is always first.
 Wraps `create_tool_function()` output in a `pydantic_ai.tools.Tool` with
 `takes_ctx=True`.
 
-### `_route_tool_call(ctx, target_addr, method_name, data) -> str`
+### `_route_tool_call(ctx, target_addr, method_name, data, stream=False) -> str`
 
-Internal. Creates a TX, sends via `adapter.request()`, returns response
-data as JSON string. On error TX, raises `pydantic_ai.ModelRetry`.
+Internal. Creates a TX, sends via `Actor.root().request()` or
+`Actor.root().stream()`, and returns response data as JSON string. On error
+TX, raises `pydantic_ai.ModelRetry`.
+
+For streaming tool methods, `_route_tool_call()` consumes the stream and
+collapses it into a single result for the LLM:
+
+- prefer a yielded `{'name': 'done', 'data': ...}` payload
+- otherwise fall back to concatenated text chunks
+- otherwise return collected event payloads
 
 ## Usage Patterns
 

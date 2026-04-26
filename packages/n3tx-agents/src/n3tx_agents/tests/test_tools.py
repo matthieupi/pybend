@@ -276,6 +276,66 @@ class TestRouteToolCall:
         with pytest.raises(ModelRetry, match="No route"):
             await _route_tool_call(ctx, 'nonexistent_actor', 'get', {'id': 1})
 
+    @pytest.mark.asyncio
+    async def test_streaming_tool_call_returns_done_payload(self, fresh_matrix):
+        from n3tx_agents.deps import AgentDeps
+
+        class StreamActor(ActorModel):
+            __tablename__ = 'stream_actor'
+            __storable__ = False
+
+            @classmethod
+            @expose_route('/analyze', methods=['POST'], stream=True)
+            async def analyze(cls, query: str):
+                yield {'name': 'text', 'data': {'text': f'Analyzing {query}'}}
+                yield {'name': 'done', 'data': {'answer': f'Final {query}', 'score': 0.9}}
+
+        class MockCtx:
+            pass
+
+        ctx = MockCtx()
+        ctx.deps = AgentDeps(user=None, agent_addr='test')
+
+        result = await _route_tool_call(
+            ctx,
+            'stream_actor',
+            'analyze',
+            {'query': 'grants'},
+            stream=True,
+        )
+
+        assert json.loads(result) == {'answer': 'Final grants', 'score': 0.9}
+
+    @pytest.mark.asyncio
+    async def test_streaming_tool_call_falls_back_to_joined_text(self, fresh_matrix):
+        from n3tx_agents.deps import AgentDeps
+
+        class StreamActor(ActorModel):
+            __tablename__ = 'stream_actor_text'
+            __storable__ = False
+
+            @classmethod
+            @expose_route('/analyze', methods=['POST'], stream=True)
+            async def analyze(cls, query: str):
+                yield {'name': 'text', 'data': {'text': 'Hello '}}
+                yield {'name': 'text', 'data': {'text': query}}
+
+        class MockCtx:
+            pass
+
+        ctx = MockCtx()
+        ctx.deps = AgentDeps(user=None, agent_addr='test')
+
+        result = await _route_tool_call(
+            ctx,
+            'stream_actor_text',
+            'analyze',
+            {'query': 'world'},
+            stream=True,
+        )
+
+        assert json.loads(result) == {'answer': 'Hello world'}
+
 
 class TestToolFunctionEdgeCases:
     """T6: Edge cases for create_tool_function."""

@@ -36,6 +36,7 @@ class ToolSpec:
     tool_name: str      # LLM-facing name (e.g., 'products_create')
     description: str    # Human-readable description
     parameters: dict    # JSON Schema for parameters
+    stream: bool = False  # Whether the tool method is backed by a stream=True route
 
 
 # ── Discovery ─────────────────────────────────────────────────────
@@ -191,6 +192,7 @@ def _method_tool_specs(addr, tablename, model_name, schema, exclude=None):
             tool_name=f'{tablename}_{method_name}',
             description=method_info.get('description', f'{model_name}.{method_name}()'),
             parameters={'type': 'object', 'properties': filtered, 'required': required},
+            stream=bool(method_info.get('stream')),
         ))
 
     return specs
@@ -198,7 +200,72 @@ def _method_tool_specs(addr, tablename, model_name, schema, exclude=None):
 
 # ── Tool function generation ──────────────────────────────────────
 
-async def _route_tool_call(ctx, target_addr: str, method_name: str, data: dict) -> str:
+def _extract_stream_text(payload: dict) -> str:
+    """Best-effort text extraction from streamed payloads."""
+    if not isinstance(payload, dict):
+        return ''
+
+    if isinstance(payload.get('text'), str):
+        return payload['text']
+    if isinstance(payload.get('chunk'), str):
+        return payload['chunk']
+    if isinstance(payload.get('answer'), str):
+        return payload['answer']
+
+    nested = payload.get('data')
+    if isinstance(nested, dict):
+        event_name = payload.get('name')
+        if event_name in {'text', 'chunk', 'done'}:
+            for key in ('text', 'chunk', 'answer'):
+                if isinstance(nested.get(key), str):
+                    return nested[key]
+    return ''
+
+
+async def _route_stream_tool_call(root, tx: TX) -> str:
+    """Consume a streaming route and collapse it into one tool result."""
+    from pydantic_ai import ModelRetry
+
+    explicit_result = None
+    events = []
+    text_parts = []
+
+    async for chunk in root.stream(tx):
+        if chunk.is_error:
+            raise ModelRetry(chunk.data.get('message', 'Tool call failed'))
+
+        payload = chunk.data
+        if not payload:
+            continue
+
+        events.append(payload)
+
+        if isinstance(payload, dict):
+            if payload.get('name') == 'error':
+                error_data = payload.get('data', {})
+                message = error_data.get('message', 'Tool call failed') if isinstance(error_data, dict) else 'Tool call failed'
+                raise ModelRetry(message)
+
+            if payload.get('name') == 'done' and isinstance(payload.get('data'), dict):
+                explicit_result = payload['data']
+                continue
+
+            text = _extract_stream_text(payload)
+            if text:
+                text_parts.append(text)
+        elif isinstance(payload, str):
+            text_parts.append(payload)
+
+    if explicit_result is not None:
+        return json.dumps(explicit_result, default=str)
+    if text_parts:
+        return json.dumps({'answer': ''.join(text_parts)}, default=str)
+    if len(events) == 1:
+        return json.dumps(events[0], default=str)
+    return json.dumps({'events': events}, default=str)
+
+
+async def _route_tool_call(ctx, target_addr: str, method_name: str, data: dict, *, stream: bool = False) -> str:
     """Route a tool call through Matrix as TX. Used by generated tool functions.
 
     Creates a TX, sends via Matrix.request() for correlation, returns
@@ -215,6 +282,8 @@ async def _route_tool_call(ctx, target_addr: str, method_name: str, data: dict) 
         data=data,
         meta=meta,
     )
+    if stream:
+        return await _route_stream_tool_call(root, tx)
     response = await root.request(tx)
     if response.is_error:
         from pydantic_ai import ModelRetry
@@ -279,7 +348,7 @@ def create_tool_function(spec: ToolSpec):
         f'async def {func_name}({params_str}) -> str:\n'
         f'    """{desc}"""\n'
         f'    {collect}\n'
-        f'    return await _route(ctx, _target, _method, _d)\n'
+        f'    return await _route(ctx, _target, _method, _d, stream=_stream)\n'
     )
 
     # Namespace: route function + closured target/method values
@@ -287,6 +356,7 @@ def create_tool_function(spec: ToolSpec):
         '_route': _route_tool_call,
         '_target': spec.actor_addr,
         '_method': spec.method_name,
+        '_stream': spec.stream,
         '_required': set(spec.parameters.get('required', [])),
     }
 

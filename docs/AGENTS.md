@@ -265,9 +265,11 @@ Each call to `run()`:
 5. Runs the Pydantic AI agent loop (`ai_agent.run(task, deps=...)`)
 6. Updates thread with conversation messages (if `thread_id` provided)
 
-Tool calls and thread operations route through `Actor.root().request()`
-(Matrix request-response) — no transient adapters needed. Matrix uses
-asyncio Futures keyed by TX uuid for concurrent correlation.
+Tool calls and thread operations route through `Actor.root()` correlation
+helpers — no transient adapters needed. Non-stream calls use
+`Actor.root().request()` with asyncio Futures keyed by TX uuid; streaming
+tool calls use `Actor.root().stream()` with queues and are collapsed
+server-side into a single final tool result for the LLM.
 
 ---
 
@@ -389,9 +391,12 @@ The generated function:
 
 1. Collects parameters into a dict
 2. Calls `_route_tool_call(ctx, target, method, data)`
-3. Which creates a TX and sends it through `adapter.request()` for correlation
-4. Returns the response as a JSON string (tool results are text for the LLM)
-5. Raises `pydantic_ai.ModelRetry` on error TXs (lets the LLM retry)
+3. Which creates a TX and sends it through `Actor.root().request()` or
+   `Actor.root().stream()` for correlation
+4. Streaming tool calls are consumed to completion server-side and collapsed
+   into one final JSON string for the LLM
+5. Returns the response as a JSON string (tool results are text for the LLM)
+6. Raises `pydantic_ai.ModelRetry` on error TXs (lets the LLM retry)
 
 #### `make_tool(spec) -> pydantic_ai.Tool`
 

@@ -109,6 +109,7 @@ Actor           Base class — unified dispatch via actormethod/actorproperty
   |
 Matrix          Root actor — message router, adapter registry
   |             Routes by first segment of target address.
+  |             Provides internal request() and stream() correlation helpers.
   |
 ActorProxy      Lightweight wrapper — gives any object the actor interface
                 Slots-based, no Pydantic overhead. Isomorphic external API.
