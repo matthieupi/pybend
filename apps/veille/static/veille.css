@@ -137,9 +137,93 @@ body.veille-app ntx-theme-button[slot="footer"] {
 }
 
 body.veille-app #source-panel,
-body.veille-app #grant-panel {
+body.veille-app #grant-panel,
+body.veille-app #agents-dashboard,
+body.veille-app #agent-panel {
     display: grid;
     gap: 1.25rem;
+}
+
+body.veille-app .agents-dashboard-shell {
+    display: grid;
+    gap: 1.5rem;
+}
+
+body.veille-app .agents-dashboard-header,
+body.veille-app .agents-dashboard-card,
+body.veille-app .agents-dashboard-empty {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--ntx-button-secondary-border);
+    border-radius: var(--ntx-radius-lg);
+    background: var(--ntx-card-bg);
+    box-shadow: var(--ntx-shadow-sm);
+}
+
+body.veille-app .agents-dashboard-header {
+    padding: 1.6rem 1.8rem;
+}
+
+body.veille-app .agents-dashboard-title {
+    margin: 0.25rem 0 0;
+    color: var(--ntx-color-accent-strong);
+    font-family: var(--ntx-font-display);
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-weight: 800;
+    letter-spacing: -0.06em;
+}
+
+body.veille-app .agents-dashboard-copy {
+    margin: 0.7rem 0 0;
+    max-width: 44rem;
+    color: var(--ntx-color-text-muted);
+}
+
+body.veille-app .agents-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 1rem;
+}
+
+body.veille-app .agents-dashboard-card {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem;
+    color: inherit;
+    text-decoration: none;
+    transition: transform var(--ntx-duration-fast) var(--ntx-ease), box-shadow var(--ntx-duration-fast) var(--ntx-ease);
+}
+
+body.veille-app .agents-dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ntx-shadow-md);
+}
+
+body.veille-app .agents-dashboard-card-head {
+    min-width: 0;
+}
+
+body.veille-app .agents-dashboard-card-copy {
+    margin: 0;
+    color: var(--ntx-color-text-muted);
+    line-height: 1.6;
+}
+
+body.veille-app .agents-dashboard-card-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: var(--ntx-color-text-subtle);
+    font-family: var(--ntx-font-display);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+body.veille-app .agents-dashboard-empty {
+    padding: 1rem 1.2rem;
+    color: var(--ntx-color-text-muted);
 }
 
 body.veille-app .run-dashboard {

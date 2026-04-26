@@ -47,8 +47,10 @@
     <link rel="modulepreload" href="./components/ntx-agents.js">
     <link rel="modulepreload" href="./components/ntx-stream.js">
     <link rel="modulepreload" href="./components/ntx-stream-agent.js">
+    <link rel="modulepreload" href="./components/ntx-chat.js">
     <link rel="modulepreload" href="./components/ntx-agent-live.js">
     <link rel="modulepreload" href="./components/ntx-agent.js">
+    <link rel="modulepreload" href="./components/ntx-agents-dashboard.js">
     <link rel="modulepreload" href="./components/ntx-table.js">
     <link rel="modulepreload" href="./components/ntx-grant-item.js">
     <link rel="modulepreload" href="./components/ntx-grant-analyze.js">
@@ -109,11 +111,12 @@
             <ntx-theme-button slot="user-menu"></ntx-theme-button>
         </ntx-topbar>
         <ntx-sidebar router="main" brand="Veille" subtitle="Industrial Intel" brand-logo="./veille-logo.svg">
+            <a href="#">DASHBOARD</a>
             <ntx-table model="Source" allow-create></ntx-table>
             <ntx-list model="Grant" allow-create></ntx-list>
             <ntx-agents model="AgentActor" sidebar-label="Agents" catalog="veille" title="Agents"></ntx-agents>
             <ntx-item model="Organization"></ntx-item>
-            <button slot="footer" type="button" class="veille-shell-cta" data-route="">
+            <button slot="footer" type="button" class="veille-shell-cta" data-route="runs">
                 <ntx-icon value="veille-new-pipeline" decorative></ntx-icon>
                 <span>New Pipeline</span>
             </button>
@@ -122,7 +125,8 @@
 
     <div class="page">
         <ntx-router name="main">
-            <ntx-run-panel id="run-panel"></ntx-run-panel>
+            <ntx-agents-dashboard id="agents-dashboard"></ntx-agents-dashboard>
+            <ntx-run-panel id="run-panel" style="display:none"></ntx-run-panel>
             <div id="source-panel" style="display:none">
                 <ntx-table model="Source" id="source-list" allow-create></ntx-table>
                 <div class="upload-section" id="upload-section">
@@ -136,6 +140,9 @@
             </div>
             <div id="grant-panel" style="display:none">
                 <ntx-list model="Grant" id="grant-list" allow-create></ntx-list>
+            </div>
+            <div id="agent-panel" style="display:none">
+                <ntx-agent model="AgentActor" id="agent-detail"></ntx-agent>
             </div>
             <ntx-grant-analyze id="analyze-panel" model="Grant" method="analyze" style="display:none"></ntx-grant-analyze>
             <ntx-run-report id="report-panel" style="display:none"></ntx-run-report>
@@ -163,7 +170,9 @@
         import './components/ntx-profile.js';
         import './components/ntx-stream.js';
         import './components/ntx-stream-agent.js';
+        import './components/ntx-chat.js';
         import './components/ntx-agent.js';
+        import './components/ntx-agents-dashboard.js';
         import './components/ntx-table.js';
         import './components/ntx-grant-item.js';
         import './components/ntx-grant-analyze.js';
@@ -180,19 +189,32 @@
         });
 
         // Simple hash-based routing
-        function handleRoute() {
-            const hash = window.location.hash.replace('#', '') || '';
-            const panels = ['run-panel', 'source-panel', 'grant-panel',
+            function handleRoute() {
+            const hash = window.location.hash.replace('#', '');
+            const panels = ['agents-dashboard', 'run-panel', 'source-panel', 'grant-panel', 'agent-panel',
                             'analyze-panel', 'report-panel'];
             panels.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
 
-            if (hash === 'sources') {
+            if (!hash) {
+                document.getElementById('agents-dashboard').style.display = 'block';
+            } else if (hash === 'runs') {
+                document.getElementById('run-panel').style.display = 'block';
+            } else if (hash === 'sources') {
                 document.getElementById('source-panel').style.display = 'block';
             } else if (hash === 'grants') {
                 document.getElementById('grant-panel').style.display = 'block';
+            } else if (hash.startsWith('AgentActor/')) {
+                const agentId = hash.split('/')[1];
+                const panel = document.getElementById('agent-panel');
+                const detail = document.getElementById('agent-detail');
+                if (panel && detail && agentId) {
+                    detail.setAttribute('ref', `AgentActor/${agentId}`);
+                    detail.setAttribute('display', 'lg');
+                    panel.style.display = 'block';
+                }
             } else if (hash.startsWith('analyze/')) {
                 const grantId = hash.split('/')[1];
                 const el = document.getElementById('analyze-panel');
@@ -208,7 +230,7 @@
                     el.style.display = 'block';
                 }
             } else {
-                document.getElementById('run-panel').style.display = 'block';
+                document.getElementById('agents-dashboard').style.display = 'block';
             }
         }
 
@@ -216,13 +238,8 @@
             button.addEventListener('click', () => {
                 const route = button.getAttribute('data-route');
                 if (route === '') {
-                    matrix.dispatch({
-                        name: 'NAVIGATE',
-                        source: 'veille-shell',
-                        target: 'main',
-                        data: '',
-                        meta: { reset: true },
-                    });
+                    history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+                    handleRoute();
                     return;
                 }
                 window.location.hash = route ?? 'runs';

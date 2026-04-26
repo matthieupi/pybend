@@ -19,6 +19,7 @@
 import { NTTItem } from './ntx-item.js';
 import { permissions } from '../utils/Permissions.js';
 import './ntx-agent-live.js';   // ensure registered
+import './ntx-chat.js';
 
 
 export class NtxAgent extends NTTItem {
@@ -83,6 +84,7 @@ export class NtxAgent extends NTTItem {
       this.renderHeader(),
       this.renderPrompt(),
       this.renderTools(),
+      this.renderChat(),
       this.renderActivity(),
     ].join('');
   }
@@ -98,6 +100,7 @@ export class NtxAgent extends NTTItem {
       this.renderHero(),
       this.renderPromptFull(),
       this.renderToolsColored(),
+      this.renderChat(),
       this.renderActivity(),
     ].join('');
   }
@@ -116,6 +119,7 @@ export class NtxAgent extends NTTItem {
         <div class="agent-xl-col">${this.renderConstraintsKV()}</div>
       </div>`,
       this.renderToolsColored(),
+      this.renderChat(),
       this.renderActivity(),
     ].join('');
   }
@@ -290,13 +294,21 @@ export class NtxAgent extends NTTItem {
       </div>`;
   }
 
+  renderChat() {
+    const ref = `${this.schema.__name__}/${this.value.id}`;
+    return `
+      <div class="agent-chat-section">
+        <div class="section-label">Chat</div>
+        <ntx-chat model="${this.schema.__name__}" ref="${ref}" method="agentic_stream"></ntx-chat>
+      </div>`;
+  }
+
   /** Embedded ntx-agent-live panel pre-scoped to this agent's ref. */
   renderActivity() {
-    const tablename = this.schema.__tablename__;
-    const ref = `${tablename}/${this.value.id}`;
+    const ref = `${this.schema.__name__}/${this.value.id}`;
     return `
       <div class="agent-activity-section">
-        <div class="section-label">Activity</div>
+        <div class="section-label">Live Activity</div>
         <ntx-agent-live model="${this.schema.__name__}" ref="${ref}" method="agentic_stream"></ntx-agent-live>
       </div>`;
   }
