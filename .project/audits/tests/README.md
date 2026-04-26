@@ -1,26 +1,50 @@
 # Test Audit Reports
 
-Generated on 2026-04-01 from a full project test run.
+Updated on 2026-04-24 from the latest full multi-suite test audit.
 
 ## Overall state
 
-- Total collected: 2881
-- Passed: 2820
-- Failed: 36
-- Errors: 19
-- Skipped: 6
+- Total collected: 4761
+- Passed: 4397
+- Failed: 328
+- Errors: 5
+- Skipped: 7
+- Not run: 24 (frontend Playwright)
 
-## Reports
+## Current report set
 
+- `./README.md`
 - `./n3tx-core.md`
 - `./n3tx-actors.md`
 - `./n3tx-agents.md`
 - `./examples-core.md`
 - `./examples-actors.md`
 - `./examples-grants.md`
+- `./full-test-failure-audit-2026-04-24.md`
+
+## Coverage in the 2026-04-24 audit
+
+- Framework backend suites
+  - `packages/n3tx-core`
+  - `packages/n3tx-actors`
+  - `packages/n3tx-agents`
+- Example applications
+  - `examples/core`
+  - `examples/actors`
+  - `examples/grants`
+- App-specific suites
+  - `apps/veille` Python tests
+  - `apps/veille` Node `.mjs` tests
+- Frontend shared suites
+  - Vitest runtime/component/integration tests
+  - Playwright browser tests
 
 ## Cross-cutting observations
 
-- Framework package suites are green after installing `pytest-asyncio`.
-- Browser-based example E2E tests are blocked by a missing system shared library: `libnspr4.so`.
-- Example application failures that are not browser-environment related are called out in the per-package reports.
+- Framework package backend suites are green.
+- The largest regression surfaces are currently:
+  - grants auth/users routing
+  - frontend transport/runtime (`Socket`, `NetworkAdapter`, `NTT`, `DynamicClass`)
+  - form/method/navigation UI contract drift
+  - Veille bool deserialization and shell navigation regressions
+- The comprehensive per-failure catalog now lives in `./full-test-failure-audit-2026-04-24.md`.
