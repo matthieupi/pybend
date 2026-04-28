@@ -6,7 +6,8 @@ import logging
 import queue
 import re
 import sqlite3
-from typing import Any, Dict, List, Type
+from types import UnionType
+from typing import Any, Dict, List, Type, get_args, get_origin, Union
 
 from pydantic import BaseModel
 
@@ -50,8 +51,37 @@ def _coerce_value(v):
     return str(v)
 
 
+def _is_bool_field(field_info) -> bool:
+    """Return True when a model field accepts bool values.
+
+    SQLite databases can contain legacy empty-string values for bool columns
+    created by older migrations or hand-written schema changes. Detecting the
+    field type lets the read path normalize only bool fields before Pydantic
+    validation, without changing ordinary string data.
+    """
+    annotation = field_info.annotation
+    if annotation is bool:
+        return True
+
+    origin = get_origin(annotation)
+    if origin in (Union, UnionType):
+        return bool in get_args(annotation)
+
+    return False
+
+
+def _deserialize_bool_fields(model_class, record):
+    """Normalize legacy empty-string bool values before model validation."""
+    for field_name, field_info in model_class.model_fields.items():
+        if not _is_bool_field(field_info):
+            continue
+        if record.get(field_name) in ('', "''"):
+            record[field_name] = False
+
+
 def _deserialize_json_fields(model_class, record):
-    """Deserialize JSON TEXT strings back to Python dicts/lists for JSON fields."""
+    """Deserialize DB strings back into model-compatible Python values."""
+    _deserialize_bool_fields(model_class, record)
     for field_name in get_json_fields(model_class):
         val = record.get(field_name)
         if isinstance(val, str):

@@ -26,7 +26,7 @@ class StorableMixin:
         """Extract all field values for storage, including Pydantic-excluded fields."""
         data = self.model_dump(exclude_unset=exclude_unset)
         # Re-add any fields marked exclude=True (hidden from API but needed in DB)
-        for name, fi in self.model_fields.items():
+        for name, fi in self.__class__.model_fields.items():
             if fi.exclude and name not in data:
                 val = getattr(self, name, None)
                 if val is not None or not exclude_unset:

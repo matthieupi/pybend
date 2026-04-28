@@ -86,7 +86,11 @@ class TestCommentLike:
         with patch('models.comment.join_models', {('Comment', 'Like'): mock_join}):
             with patch.object(Like, 'save', return_value=Like(user=1)):
                 result = c.like(user=mock_user)
-                assert result == {'action': 'liked'}
+                assert result['action'] == 'liked'
+                assert result['_field'] == 'likes'
+                assert result['id'] == 0
+                assert result['user'] == 1
+                assert 'created_at' in result
 
     def test_unlike_existing(self):
         c = Comment(id=1, name='test')
@@ -100,7 +104,7 @@ class TestCommentLike:
 
         with patch('models.comment.join_models', {('Comment', 'Like'): mock_join}):
             result = c.like(user=mock_user)
-            assert result == {'action': 'unliked'}
+            assert result == {'action': 'unliked', '_field': 'likes', 'id': 5}
             mock_join.delete.assert_called_once_with(5)
 
 

@@ -8,7 +8,7 @@ from n3tx_core.utils.registrar import registered_models
 
 from abc import ABC, abstractmethod
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger('n3tx.api')
 
@@ -24,8 +24,7 @@ class BaseBackend(ABC, BaseModel):
     app: Any = None
     registered_models: dict[str, type] = {}
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
     def __init__(self, **data: Any):
         super().__init__(**data)
@@ -412,4 +411,3 @@ class FlaskBackend(BaseBackend):
     def get_app(self):
         from asgiref.wsgi import WsgiToAsgi
         return WsgiToAsgi(self.app)
-

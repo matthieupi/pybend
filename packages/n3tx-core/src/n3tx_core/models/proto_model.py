@@ -4,7 +4,7 @@ import inspect
 import json
 import logging
 
-from pydantic import BaseModel as PydanticBaseModel, GetJsonSchemaHandler, BaseModel, Field
+from pydantic import BaseModel as PydanticBaseModel, ConfigDict, GetJsonSchemaHandler, BaseModel, Field
 from typing import Any, ClassVar, Dict, Type, get_type_hints, get_origin, get_args, Union
 
 from pydantic.json_schema import JsonSchemaValue, JsonSchemaMode, GenerateJsonSchema, DEFAULT_REF_TEMPLATE
@@ -80,12 +80,13 @@ class ProtoModel(PydanticBaseModel):
     id: int = Field(default=0)
     image: str = Field(default='')
 
-    class Config:
-        arbitrary_types_allowed = True  # allows Ref through
-        extra = 'allow'  # allows $schema/$id to pass through FastAPI response model
-        json_encoders = {
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,  # allows Ref through
+        extra='allow',  # allows $schema/$id to pass through FastAPI response model
+        json_encoders={
             Ref: lambda fk: int(fk),
-        }
+        },
+    )
 
     def __init_subclass__(cls, **kwargs):
         # Checks if the class has a 'storable' attribute, defaulting to False
@@ -348,4 +349,3 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
         owner_cls.__fk_models__[field_name] = join_model
 
     return join_model
-

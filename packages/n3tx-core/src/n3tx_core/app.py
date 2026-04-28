@@ -241,9 +241,19 @@ class N3TXApp:
 
         # 6. Register routes — direct (Level 1/2) or actor (Level 3)
         if self._routing == 'actor':
+            from n3tx_actors.actor import Actor
             from n3tx_actors.api.network_api import NetworkAPI, create_api_routes
             from n3tx_actors.api.auth_interceptor import auth_interceptor
             from n3tx_actors.matrix import matrix
+
+            # Sync Matrix children to the fully-registered model classes.
+            # Actor subclasses may have auto-registered earlier during import,
+            # but registered_models is the canonical post-bootstrap class set
+            # with storage attached. Re-registering here ensures actor routing
+            # uses those live classes instead of stale import-time ones.
+            for model_cls in registered_models.values():
+                if isinstance(model_cls, type) and issubclass(model_cls, Actor):
+                    matrix.register(model_cls)
 
             api = NetworkAPI()
             matrix.register(api)
