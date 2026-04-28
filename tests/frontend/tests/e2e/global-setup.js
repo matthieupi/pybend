@@ -4,21 +4,13 @@
  * Sets N3TX_SQLITE_DB to a temp file so the server launched by
  * playwright.config.js never touches the production database.
  */
-import { execSync } from 'child_process';
-import { existsSync, mkdtempSync, writeFileSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { PYTHON_BIN, PYTHONPATH, repoPath } from './paths.js';
 
-const EXAMPLE_DIR = '/workspace/examples/core';
-const PYTHONPATH = [
-  '/workspace/packages/n3tx-core/src',
-  '/workspace/packages/n3tx-ui/src',
-  '/workspace/packages/n3tx-actors/src',
-  '/workspace/packages/n3tx-agents/src',
-].join(':');
-const PYTHON_BIN = existsSync('/workspace/.venv-e2e/bin/python')
-  ? '/workspace/.venv-e2e/bin/python'
-  : 'python3';
+const EXAMPLE_DIR = repoPath('examples/core');
 
 export default async function globalSetup() {
   // Create a temp directory for the E2E test database
@@ -32,15 +24,18 @@ export default async function globalSetup() {
   // Write a marker file so the webServer process (separate process) picks up
   // the DB path — Playwright passes env to the webServer command automatically.
   // We also write the path to a well-known file that globalTeardown can read.
-  const markerPath = join(tmpdir(), 'ntx-e2e-dbpath.txt');
+  const runId = process.env.PLAYWRIGHT_RUN_ID || `${process.pid}-${Date.now()}`;
+  const markerPath = process.env.__NTT_E2E_MARKER || join(tmpdir(), `ntx-e2e-dbpath-${runId}.txt`);
   writeFileSync(markerPath, dbPath);
   process.env.__NTT_E2E_MARKER = markerPath;
 
   // Seed the test database by running the seed script with the test DB
   console.log(`[E2E setup] Creating test DB: ${dbPath}`);
-  execSync(
-    `cd ${EXAMPLE_DIR} && N3TX_SQLITE_DB="${dbPath}" ${PYTHON_BIN} seed.py`,
+  execFileSync(
+    PYTHON_BIN,
+    ['seed.py'],
     {
+      cwd: EXAMPLE_DIR,
       stdio: 'pipe',
       timeout: 30000,
       env: { ...process.env, PYTHONPATH, N3TX_SQLITE_DB: dbPath },

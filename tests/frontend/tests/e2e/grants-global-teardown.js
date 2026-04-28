@@ -7,7 +7,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 export default async function globalTeardown() {
-  const markerPath = join(tmpdir(), 'ntx-grants-e2e-dbpath.txt');
+  const markerPath = process.env.__NTT_E2E_MARKER || join(tmpdir(), 'ntx-grants-e2e-dbpath.txt');
   if (!existsSync(markerPath)) return;
 
   const dbPath = readFileSync(markerPath, 'utf-8').trim();

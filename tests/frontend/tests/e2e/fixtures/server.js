@@ -5,11 +5,12 @@
  * in playwright.config.js. This file provides helpers for seeding
  * and resetting test data.
  */
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { PYTHON_BIN, repoPath } from '../paths.js';
 
-const execAsync = promisify(exec);
-const EXAMPLE_DIR = '/workspace/example_api';
+const execFileAsync = promisify(execFile);
+const EXAMPLE_DIR = repoPath('examples/core');
 
 /**
  * Seed the database with test data.
@@ -17,9 +18,10 @@ const EXAMPLE_DIR = '/workspace/example_api';
  */
 export async function seedDatabase() {
   try {
-    const { stdout, stderr } = await execAsync(
-      `cd ${EXAMPLE_DIR} && python3 seed.py`,
-      { timeout: 30000 }
+    const { stdout, stderr } = await execFileAsync(
+      PYTHON_BIN,
+      ['seed.py'],
+      { cwd: EXAMPLE_DIR, timeout: 30000 }
     );
     console.log('[seed]', stdout);
     if (stderr) console.warn('[seed stderr]', stderr);
@@ -36,9 +38,10 @@ export async function seedDatabase() {
  */
 export async function resetDatabase() {
   try {
-    const { stdout } = await execAsync(
-      `cd ${EXAMPLE_DIR} && python3 seed.py --reset`,
-      { timeout: 30000 }
+    const { stdout } = await execFileAsync(
+      PYTHON_BIN,
+      ['seed.py', '--reset'],
+      { cwd: EXAMPLE_DIR, timeout: 30000 }
     );
     console.log('[reset+seed]', stdout);
   } catch (error) {

@@ -4,12 +4,13 @@
  * Creates an isolated temp database, seeds it with grants test data,
  * and stores the path so the webServer process picks it up.
  */
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { PYTHON_BIN, repoPath } from './paths.js';
 
-const GRANTS_DIR = '/workspace/example_grants';
+const GRANTS_DIR = repoPath('examples/grants');
 
 export default async function globalSetup() {
   const dir = mkdtempSync(join(tmpdir(), 'ntx-grants-e2e-'));
@@ -23,9 +24,15 @@ export default async function globalSetup() {
   process.env.__NTT_E2E_MARKER = markerPath;
 
   console.log(`[Grants E2E setup] Creating test DB: ${dbPath}`);
-  execSync(
-    `cd ${GRANTS_DIR} && NTT_SQLITE_DB="${dbPath}" python3 seed.py`,
-    { stdio: 'pipe', timeout: 30000 }
+  execFileSync(
+    PYTHON_BIN,
+    ['seed.py'],
+    {
+      cwd: GRANTS_DIR,
+      stdio: 'pipe',
+      timeout: 30000,
+      env: { ...process.env, NTT_SQLITE_DB: dbPath },
+    }
   );
   console.log('[Grants E2E setup] Test DB seeded successfully');
 }

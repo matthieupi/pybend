@@ -99,6 +99,11 @@ checkbox.
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` - Real-time agent activity view (extends NTTStream)
 - `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` - Threaded agent chat shell. Extends `NTTStreamAgent`, uses `create_thread` / `thread_id`, and switches between `xs` launcher mode and `sm+` inline mode from container size.
 
+`ntx-chat` renders each assistant turn as an in-chat `NTTStreamAgent` output
+surface. When the stream's `done` event includes usage metadata, the usage
+summary is intentionally appended as a `.stream-footer` inside the assistant
+message so the chat shell remains mounted while exposing token/tool metadata.
+
 ### Themes & Default HTML (n3tx-ui)
 - `packages/n3tx-ui/src/n3tx_ui/static/theme-base.css` - Shared structural theme base (global selectors and layout chrome)
 - `packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` - Dark theme
@@ -179,9 +184,25 @@ Frontend verification now has two layers:
 - `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js` - browser verification against the seeded `examples/core` app
 - `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/veille.playwright.config.js` - Veille browser verification, including Assistant chat with deterministic `N3TX_CHAT_LLM=test`
 
-The Playwright harness boots `examples/core` as the test app, seeds an isolated SQLite database in `global-setup.js`, and cleans it up in `global-teardown.js`. The harness also passes `PYTHONPATH` so package source trees resolve without installation.
+The Veille E2E harness seeds both the framework-provisioned `Assistant` and the
+sample `Veille Scout` agent. The dashboard contract is to render every configured
+entry from `APP_META.featured_agents`, so tests should assert the configured
+featured set rather than assuming only the Assistant card exists.
 
-For local execution in this workspace, the Python web dependencies used by the Playwright server live in `/workspace/.venv-e2e`. The harness auto-detects that venv and falls back to `python3` if it is absent.
+The Playwright harness boots `examples/core` as the default test app and uses
+`tests/e2e/start-e2e-app.js` as the `webServer.command`. That launcher creates
+and seeds an isolated SQLite database before starting the app, then writes the
+DB marker consumed by the teardown scripts. Seeding happens inside the server
+command because Playwright may start `webServer` before `globalSetup`. The
+harness also passes `PYTHONPATH` so package source trees resolve without
+installation.
+
+The E2E harness derives the repository root from
+`tests/frontend/tests/e2e/paths.js`, so checkouts do not need to live at a fixed
+path such as `/workspace`. Set `N3TX_REPO_ROOT=/path/to/n3tx` only for unusual
+symlinked or wrapped layouts. The Playwright server uses the currently active
+Python virtualenv (`$VIRTUAL_ENV/bin/python`) and falls back to `python3` when no
+virtualenv is active.
 
 ## Frontend Split Rationale
 

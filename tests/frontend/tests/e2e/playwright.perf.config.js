@@ -1,17 +1,18 @@
 // @ts-check
 import { defineConfig } from '@playwright/test';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { FRONTEND_ROOT, REPO_ROOT } from './paths.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const WORKSPACE = resolve(__dirname, '..', '..', '..', '..', '..');
-const EXAMPLE_DIR = resolve(WORKSPACE, 'src', 'n3tx', 'example');
-const PROFILING_DIR = resolve(WORKSPACE, '.traces', '.profiling');
+const PROFILING_DIR = join(REPO_ROOT, '.traces', '.profiling');
+const PERF_MARKER = process.env.__NTT_E2E_MARKER || join(tmpdir(), 'ntx-e2e-dbpath.txt');
+
+process.env.__NTT_E2E_MARKER = PERF_MARKER;
+process.env.NTT_PROFILING_DIR = process.env.NTT_PROFILING_DIR || PROFILING_DIR;
 
 export default defineConfig({
   testDir: '.',
   testMatch: 'performance.spec.js',
-  globalSetup: './perf-global-setup.js',
   globalTeardown: './global-teardown.js',
   timeout: 120000,
   expect: {
@@ -38,9 +39,15 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `cd "${EXAMPLE_DIR}" && NTT_PROFILING=1 NTT_PROFILING_DIR="${PROFILING_DIR}" NTT_PORT=5099 python3 main.py`,
+    command: 'node tests/e2e/start-e2e-app.js perf',
+    cwd: FRONTEND_ROOT,
+    env: {
+      ...process.env,
+      __NTT_E2E_MARKER: PERF_MARKER,
+      NTT_PROFILING_DIR: PROFILING_DIR,
+    },
     url: 'http://localhost:5099/Product',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: process.env.N3TX_E2E_REUSE_SERVER === '1',
     timeout: 30000,
     stdout: 'ignore',
     stderr: 'pipe',
