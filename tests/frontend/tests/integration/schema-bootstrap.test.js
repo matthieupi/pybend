@@ -76,7 +76,7 @@ describe('Schema Bootstrap Flow', () => {
     const DC = NTT.get('Product');
     const instance = new DC(makeProductData(1));
     expect(typeof instance.comment).toBe('function');
-    expect(typeof instance.like).toBe('function');
+    expect(typeof instance.favorite).toBe('function');
   });
 
   it('$defs nested schemas are registered as separate DynamicClasses', () => {
@@ -96,8 +96,8 @@ describe('Schema Bootstrap Flow', () => {
     const data2 = makeProductData(2);
     DC.READ({ data: [data1, data2], meta: { total: 2, limit: 20, offset: 0, has_more: false } });
     expect(DC.instances.size).toBe(2);
-    expect(DC.instances.has(1)).toBe(true);
-    expect(DC.instances.has(2)).toBe(true);
+    expect(DC.instances.has('1')).toBe(true);
+    expect(DC.instances.has('2')).toBe(true);
   });
 
   it('NTT.get with composite address returns instance', () => {
@@ -188,6 +188,7 @@ describe('Schema Bootstrap Flow', () => {
   it('pre-loaded schema via script tag is consumed', () => {
     // Create a script tag with schema data
     const script = document.createElement('script');
+    script.type = 'application/json';
     script.setAttribute('data-ntx-schema', 'TestModel');
     script.textContent = JSON.stringify({
       ...ProductSchema,
@@ -246,6 +247,6 @@ describe('Schema Bootstrap Flow', () => {
     const DC = NTT.get('Product');
     DC.READ(makeProductData(42));
     expect(DC.instances.size).toBe(1);
-    expect(DC.instances.has(42)).toBe(true);
+    expect(DC.instances.has('42')).toBe(true);
   });
 });

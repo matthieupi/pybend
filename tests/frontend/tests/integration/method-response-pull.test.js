@@ -1,7 +1,7 @@
 /**
  * Method Response + Pull Bug — Integration Tests
  *
- * Verifies that after a method call (like, favorite, comment):
+ * Verifies that after a method call (favorite, comment):
  *   1. The response does NOT trigger a redundant list-level GET
  *   2. Only a single pull GET is made (for the individual entity, not the list)
  *   3. The pull response updates only the specific entity via instance-level READ
@@ -40,18 +40,18 @@ beforeEach(async () => {
     if (/\/products\/\d+/.test(urlStr) && method === 'GET') {
       const id = parseInt(urlStr.match(/\/products\/(\d+)/)[1]);
       const data = makeProductData(id);
-      // After a like, the product has an updated likes array
-      data.likes = [`${API_URL}/likes/99`];
+      // After a favorite, the product has an updated favorites array
+      data.favorites = [`${API_URL}/products/${id}/favorites/99`];
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(data),
       });
     }
-    // Method call (like/favorite) response
-    if (/\/products\/\d+\//.test(urlStr) && method === 'POST') {
+    // Method call (favorite) response
+    if (/\/products\/\d+\/favorite/.test(urlStr) && method === 'POST') {
       return Promise.resolve({
         ok: true, status: 200,
-        json: () => Promise.resolve({ action: 'favorited' }),
+        json: () => Promise.resolve({ action: 'favorited', _field: 'favorites', id: 99, user: 1 }),
       });
     }
     // List fetch
@@ -240,7 +240,7 @@ describe('Entity signal behavior after _response_', () => {
     // _response_ with entity data (has id) should update + signal
     const entityData = makeProductData(1);
     entityData.name = 'Updated';
-    entityData.likes = [`${API_URL}/likes/99`];
+    entityData.favorites = [`${API_URL}/products/1/favorites/99`];
     DC.children.get('1')._response_(entityData);
     await flush(100);
 
@@ -250,7 +250,7 @@ describe('Entity signal behavior after _response_', () => {
     expect(signals['3']).toBe(0);
   });
 
-  it('_response_ with action data should NOT signal (no data change)', async () => {
+  it('_response_ with structured action data signals only the targeted instance', async () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ(makeProductListResponse(3));
@@ -260,28 +260,29 @@ describe('Entity signal behavior after _response_', () => {
     let signalCount = 0;
     instance.signal(() => { signalCount++; }, true);
 
-    // Action response (no id) → no update, no signal
-    instance._response_({ action: 'favorited' });
+    // Structured action response updates the favorites field locally.
+    instance._response_({ action: 'favorited', _field: 'favorites', id: 99, user: 1 });
     await flush(100);
 
-    expect(signalCount).toBe(0);
+    expect(signalCount).toBeGreaterThanOrEqual(1);
+    expect(instance.value?.favorites).toContain(`${API_URL}/products/1/favorites/99`);
   });
 });
 
 
 describe('Total network requests for like action', () => {
 
-  it('like action should produce exactly 1 POST, zero GETs', async () => {
+  it('favorite action should produce exactly 1 POST, zero GETs', async () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ(makeProductListResponse(3));
     await flush(50);
     global.fetch.mockClear();
 
-    // Simulate the full like action flow:
-    // ntx-method calls instance.call('like', {}, {inbox: '_response_'})
+    // Simulate the full favorite action flow:
+    // ntx-method calls instance.call('favorite', {}, {inbox: '_response_'})
     const instance = DC.children.get('1');
-    instance.call('like', {}, { inbox: '_response_' });
+    instance.call('favorite', {}, { inbox: '_response_' });
     await flush(200);
 
     // Count requests
@@ -289,7 +290,7 @@ describe('Total network requests for like action', () => {
     const pulls = countPullFetches();
     const listGets = countProductListFetches();
 
-    // Exactly 1 POST (the like action)
+    // Exactly 1 POST (the favorite action)
     expect(posts).toBe(1);
     // ZERO pull GETs — _response_ no longer calls pull()
     expect(pulls).toBe(0);

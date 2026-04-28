@@ -156,9 +156,9 @@ describe('ntx-profile.js (NTTProfile)', () => {
       document.body.appendChild(el);
       await mockPermissions.init();
       await new Promise(r => setTimeout(r, 10));
-      const placeholder = el.shadowRoot.querySelector('.placeholder');
-      expect(placeholder).toBeTruthy();
-      expect(placeholder.textContent).toContain('coming soon');
+      const note = el.shadowRoot.querySelector('.profile-note');
+      expect(note).toBeTruthy();
+      expect(note.textContent).toContain('coming soon');
       document.body.removeChild(el);
     });
   });

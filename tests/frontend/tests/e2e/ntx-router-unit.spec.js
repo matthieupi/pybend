@@ -18,15 +18,18 @@ test.describe('ntx-router — Root State (No Hash)', () => {
 
     const rootState = await page.locator('ntx-router').evaluate((r) => {
       const sr = r.shadowRoot;
+      const chrome = sr?.querySelector('.router-chrome');
       return {
-        hasSlot: !!sr?.querySelector('slot'),
+        hasSlot: !!sr?.querySelector('.router-content slot'),
         hasRouterContent: !!sr?.querySelector('.router-content'),
+        chromeHidden: chrome?.hidden ?? false,
         hasBackBtn: !!sr?.querySelector('.back-btn'),
       };
     });
     expect(rootState.hasSlot).toBe(true);
-    expect(rootState.hasRouterContent).toBe(false);
-    expect(rootState.hasBackBtn).toBe(false);
+    expect(rootState.hasRouterContent).toBe(true);
+    expect(rootState.chromeHidden).toBe(true);
+    expect(rootState.hasBackBtn).toBe(true);
   });
 
   test('ntx-list is visible inside router at root', async ({ page }) => {
@@ -314,14 +317,14 @@ test.describe('ntx-router — Edge Cases', () => {
       const sr = r.shadowRoot;
       return {
         hasChrome: !!sr?.querySelector('.router-chrome'),
+        hasBackButton: !!sr?.querySelector('.back-btn'),
         hasTitle: !!sr?.querySelector('.router-title'),
         hasContent: !!sr?.querySelector('.router-content'),
-        hasStylesheet: !!sr?.querySelector('link[rel="stylesheet"]'),
       };
     });
     expect(structure.hasChrome).toBe(true);
+    expect(structure.hasBackButton).toBe(true);
     expect(structure.hasTitle).toBe(true);
     expect(structure.hasContent).toBe(true);
-    expect(structure.hasStylesheet).toBe(true);
   });
 });

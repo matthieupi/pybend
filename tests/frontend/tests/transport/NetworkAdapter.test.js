@@ -25,8 +25,13 @@ vi.mock('../../core/transport/HTTP.js', () => ({
 }));
 vi.mock('../../core/transport/Socket.js', () => ({
   default: class FakeSocket {
-    constructor(url) { this.url = url; }
-    sendEvent(event) {}
+    constructor(url) {
+      this.url = url;
+      this.ready = true;
+      this.onmessage = null;
+      this.send = vi.fn();
+      this.connect = vi.fn();
+    }
   }
 }));
 
@@ -349,12 +354,12 @@ describe('NetworkAdapter.js', () => {
     it('should route custom method names to HTTP.post with /{target}/{method}', () => {
       const adapter = new NetworkAdapter(matrix);
       adapter.send({
-        name: 'like', source: 'actor-1', target: 'http://localhost:5000/products/1',
+        name: 'favorite', source: 'actor-1', target: 'http://localhost:5000/products/1',
         data: {}, meta: {}, id: '1', timestamp: Date.now(),
       });
       expect(HTTP.post).toHaveBeenCalled();
       const [url] = HTTP.post.mock.calls[0];
-      expect(url).toBe('http://localhost:5000/products/1/like');
+      expect(url).toBe('http://localhost:5000/products/1/favorite');
     });
 
     it('should handle case-insensitive event names', () => {
@@ -379,16 +384,27 @@ describe('NetworkAdapter.js', () => {
   });
 
   describe('send(event) — WS mode', () => {
-    it('should delegate to socket.sendEvent when in ws mode with socket available', async () => {
+    it('should delegate to socket.send when in ws mode with socket available', async () => {
       const adapter = new NetworkAdapter(matrix, '', 'ws');
       // Wait for dynamic import to resolve
       await vi.waitFor(() => expect(adapter.socket).toBeTruthy());
-      const sendEventSpy = vi.spyOn(adapter.socket, 'sendEvent');
+      const sendSpy = vi.spyOn(adapter.socket, 'send');
       adapter.send({
         name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
         data: null, meta: {}, id: '1', timestamp: Date.now(),
       });
-      expect(sendEventSpy).toHaveBeenCalled();
+      expect(adapter.socket.connect).toHaveBeenCalled();
+      expect(sendSpy).toHaveBeenCalled();
+    });
+
+    it('should dispatch websocket messages through matrix', async () => {
+      const adapter = new NetworkAdapter(matrix, '', 'ws');
+      await vi.waitFor(() => expect(adapter.socket).toBeTruthy());
+
+      const message = { name: 'UPDATE', target: 'actor-1', data: { ok: true } };
+      adapter.socket.onmessage(message);
+
+      expect(matrix.dispatch).toHaveBeenCalledWith(message);
     });
   });
 });

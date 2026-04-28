@@ -301,9 +301,7 @@ export class NTT extends TT {
      */
     static SCHEMA(data, tx) {
         const addr = data.__name__;
-        const href = data.__tablename__
-            ? `${config.API_URL}/${data.__tablename__}`
-            : `${config.API_URL}/${addr}`;
+        const href = collectionHref(data, addr);
 
         // Handle $defs (nested schemas) first — skip the main model itself.
         // Use inline $defs even when a separate fetch is in-flight (null in prototypes)
@@ -314,7 +312,7 @@ export class NTT extends TT {
                 // !NTT.#prototypes.get(key) is true for both undefined (never seen)
                 // and null (in-flight) — either way, create from inline $def
                 if (value.type === 'object' && value.properties && !NTT.#prototypes.get(key)) {
-                    const defHref = value['$id'] || `${config.API_URL}/${key}`;
+                    const defHref = collectionHref(value, key);
                     const DC = prototype(key, value, defHref);
                     NTT.#prototypes.set(key, DC);
                     NTT.#replayWaiting(key, DC);
@@ -507,17 +505,57 @@ function resolveModelName(def) {
 }
 
 /**
+ * Resolve the API base URL from a schema $id. The backend schema URL is the
+ * authority when available because it carries the deployed API origin/prefix.
+ */
+function schemaApiBase(schemaId) {
+    if (!schemaId) return config.API_URL;
+    try {
+        const url = new URL(schemaId);
+        url.pathname = url.pathname.replace(/\/[^/]*$/, '');
+        const base = url.toString().replace(/\/$/, '');
+        return base || config.API_URL;
+    } catch {
+        return config.API_URL;
+    }
+}
+
+/**
+ * Resolve a model collection href from schema metadata.
+ */
+function collectionHref(schema, addr) {
+    const base = schemaApiBase(schema?.$id);
+    const table = schema?.__tablename__ || `${addr.toLowerCase()}s`;
+    return `${base}/${table}`;
+}
+
+/**
  * Register an entity in a DynamicClass's instance cache.
  * Updates existing instances or creates new ones.
  */
 function registerInstance(DC, data) {
+    return upsertInstance(DC, data);
+}
+
+/**
+ * Create or update an entity in a DynamicClass's instance cache.
+ * DynamicClass instances are actor children, so their canonical keys are
+ * string address segments even when backend ids are numeric.
+ */
+function upsertInstance(DC, data) {
+    if (!DC || !data || data.id === undefined) return undefined;
+
+    normalizePopulated(data, DC._schema);
+
     const id = String(data.id);
-    if (DC.instances.has(id)) {
-        DC.instances.get(id).update(data);
-    } else {
-        // Constructor registers instance via Actor._register (string key)
-        new DC(data);
+    const existing = DC.instances.get(id);
+    if (existing) {
+        existing.update(data);
+        return existing;
     }
+
+    // Constructor registers instance via Actor._register (string key)
+    return new DC(data);
 }
 
 /**
@@ -616,7 +654,7 @@ function prototype(addr, schema, href) {
           }
           return {
               ...this._data,
-              "$schema": `${config.API_URL}/${this.constructor.addr}`,
+              "$schema": this.constructor._schema?.$id || `${config.API_URL}/${this.constructor.addr}`,
               "$id": this.href,
           };
       }
@@ -846,25 +884,11 @@ function prototype(addr, schema, href) {
 
         if (Array.isArray(data)) {
             for (const value of data) {
-                normalizePopulated(value, DynamicClass._schema);
-                // Use string key — Actor constructor registers with string addr
-                const id = String(value.id);
-                if (DynamicClass.instances.has(id)) {
-                    DynamicClass.instances.get(id).update(value);
-                } else {
-                    // Constructor registers instance via Actor._register (string key)
-                    new DynamicClass(value);
-                }
+                upsertInstance(DynamicClass, value);
             }
         } else if (typeof data === 'object') {
-            for (const [id, value] of Object.entries(data)) {
-                normalizePopulated(value, DynamicClass._schema);
-                // Object.entries keys are already strings
-                if (DynamicClass.instances.has(id)) {
-                    DynamicClass.instances.get(id).update(value);
-                } else {
-                    new DynamicClass(value);
-                }
+            for (const value of Object.values(data)) {
+                upsertInstance(DynamicClass, value);
             }
         }
 
@@ -924,15 +948,7 @@ function prototype(addr, schema, href) {
      * Called after a successful backend CREATE (POST) response.
      */
     DynamicClass.CREATE = function(data, tx) {
-        if (data && data.id !== undefined) {
-            const id = String(data.id);
-            if (!DynamicClass.instances.has(id)) {
-                // Constructor registers instance via Actor._register (string key)
-                new DynamicClass(data);
-            } else {
-                DynamicClass.instances.get(id).update(data);
-            }
-        }
+        upsertInstance(DynamicClass, data);
         // Re-notify watchers with updated instance list
         const childrenAddrs = [...DynamicClass.instances.keys()].map(
             id => `${DynamicClass.addr}/${id}`
@@ -1013,10 +1029,12 @@ function prototype(addr, schema, href) {
      *    Appends or removes child ref from the named array field.
      * 2. Entity data response (has id, no action):
      *    Updates this instance directly — no network pull needed.
-     * 3. Otherwise: no-op (simple action succeeded, no entity data).
+     * 3. Otherwise: pull authoritative state after simple/ambiguous success.
      */
     DynamicClass.prototype._response_ = function(data, tx) {
-        if (!data || typeof data !== 'object') return;
+        if (!data || typeof data !== 'object') {
+            return this.pull();
+        }
 
         // Case 1: Action response with field hint — update array in-place
         if (data.action && data._field && data.id !== undefined) {
@@ -1041,11 +1059,23 @@ function prototype(addr, schema, href) {
             return;
         }
 
-        // Case 2: Entity data response — update directly
+        // Case 2: Same-entity data response — update directly.
+        // Custom methods can return a different entity type (e.g. Product.comment
+        // returns a Comment). In that case, pull the original instance so the
+        // parent collection refreshes instead of corrupting this instance with
+        // another model's fields.
         if (data.id !== undefined) {
+            const responseSchema = data.$schema || data.schema;
+            const currentSchema = DynamicClass._schema?.$id || DynamicClass._schema?.__name__;
+            if (responseSchema && currentSchema && responseSchema !== currentSchema) {
+                return this.pull();
+            }
             normalizePopulated(data, DynamicClass._schema);
             this.update(data);
+            return;
         }
+
+        return this.pull();
     };
 
 

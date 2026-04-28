@@ -9,13 +9,13 @@
  *
  * Fix: _response_ should only pull when the response data isn't sufficient.
  *   - If the response contains entity data (has id), update directly (no network)
- *   - If the response is a simple action result, don't pull at all
+ *   - If the response is a structured action result with _field + id, update locally
  *   - Components that need fresh data can call pull() explicitly
  *
  * The key insight: the extra GET is wasteful because:
  *   - For entity-data responses: the data is right there in the response
- *   - For action responses ({action: 'liked'}): the count/state update can wait
- *     until the next natural data refresh, or the component can pull explicitly
+ *   - For social action responses ({action, _field, id}): the count/state update
+ *     is encoded in the response and can update locally.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ProductSchema, makeProductData, makeProductListResponse, API_URL } from './helpers/mock-schemas.js';
@@ -48,11 +48,24 @@ beforeEach(async () => {
         json: () => Promise.resolve(makeProductData(id)),
       });
     }
-    // Method POST (like, favorite, comment)
-    if (/\/products\/\d+\//.test(urlStr) && method === 'POST') {
+    // Product favorite toggle response carries enough data for local update.
+    if (/\/products\/\d+\/favorite/.test(urlStr) && method === 'POST') {
       return Promise.resolve({
         ok: true, status: 200,
-        json: () => Promise.resolve({ action: 'liked' }),
+        json: () => Promise.resolve({ action: 'favorited', _field: 'favorites', id: 99, user: 1 }),
+      });
+    }
+    // Product comment returns a child Comment entity, so Product must pull.
+    if (/\/products\/\d+\/comment/.test(urlStr) && method === 'POST') {
+      return Promise.resolve({
+        ok: true, status: 200,
+        json: () => Promise.resolve({
+          id: 99,
+          $schema: `${API_URL}/Comment`,
+          $id: `${API_URL}/products/1/comments/99`,
+          name: 'Great!',
+          description: '',
+        }),
       });
     }
     // List fetch
@@ -87,7 +100,7 @@ beforeEach(async () => {
 
 describe('_response_ should not trigger network pull for action responses', () => {
 
-  it('_response_ with action data should NOT call pull() or make any GET request', async () => {
+  it('_response_ with structured action data should NOT call pull() or make any GET request', async () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ(makeProductListResponse(3));
@@ -102,12 +115,13 @@ describe('_response_ should not trigger network pull for action responses', () =
 
     global.fetch.mockClear();
 
-    // Simulate action response (like, favorite)
-    instance._response_({ action: 'liked' });
+    // Simulate structured favorite response
+    instance._response_({ action: 'favorited', _field: 'favorites', id: 99, user: 1 });
     await flush(100);
 
-    // _response_ with non-entity data should NOT call pull()
+    // _response_ with structured action data should NOT call pull()
     expect(pullCalled).toBe(false);
+    expect(instance.value?.favorites).toContain(`${API_URL}/products/1/favorites/99`);
 
     // No network requests should have been made
     const gets = global.fetch.mock.calls.filter(([u, o]) => (o?.method || 'GET').toUpperCase() === 'GET');
@@ -134,7 +148,7 @@ describe('_response_ should not trigger network pull for action responses', () =
     // Simulate response that returns entity data (e.g., backend returns updated entity)
     const entityData = makeProductData(1);
     entityData.name = 'Updated Product';
-    entityData.likes = [`${API_URL}/likes/99`];
+    entityData.favorites = [`${API_URL}/products/1/favorites/99`];
     instance._response_(entityData);
     await flush(100);
 
@@ -178,7 +192,7 @@ describe('_response_ should not trigger network pull for action responses', () =
 
 describe('Full method call flow with fixed _response_', () => {
 
-  it('like via instance.call() should produce only 1 POST, zero GETs', async () => {
+  it('favorite via instance.call() should produce only 1 POST, zero GETs', async () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ(makeProductListResponse(3));
@@ -187,7 +201,7 @@ describe('Full method call flow with fixed _response_', () => {
     global.fetch.mockClear();
 
     const instance = DC.children.get('1');
-    instance.call('like', {}, { inbox: '_response_' });
+    instance.call('favorite', {}, { inbox: '_response_' });
     await flush(300);
 
     const allCalls = global.fetch.mock.calls.map(([url, opts]) => ({
@@ -198,15 +212,15 @@ describe('Full method call flow with fixed _response_', () => {
     const posts = allCalls.filter(c => c.method === 'POST');
     const gets = allCalls.filter(c => c.method === 'GET');
 
-    // 1 POST for the like action
+    // 1 POST for the favorite action
     expect(posts.length).toBe(1);
-    expect(posts[0].url).toContain('/products/1/like');
+    expect(posts[0].url).toContain('/products/1/favorite');
 
     // ZERO GETs — no pull after _response_
     expect(gets.length).toBe(0);
   });
 
-  it('comment via instance.call() should produce only 1 POST, zero GETs', async () => {
+  it('comment via instance.call() should pull because the method returns a child entity', async () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ(makeProductListResponse(3));
@@ -227,7 +241,7 @@ describe('Full method call flow with fixed _response_', () => {
     const gets = allCalls.filter(c => c.method === 'GET');
 
     expect(posts.length).toBe(1);
-    // Zero GETs — _response_ no longer pulls
-    expect(gets.length).toBe(0);
+    // Product.comment returns a Comment entity, so Product pulls to refresh comments.
+    expect(gets.length).toBe(1);
   });
 });

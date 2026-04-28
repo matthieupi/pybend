@@ -116,6 +116,7 @@ test.describe('Veille Assistant chat', () => {
         sendEnabled: !chat?.shadowRoot?.querySelector('.send-btn')?.disabled,
         messageCount: chat?.shadowRoot?.querySelectorAll('.msg').length || 0,
         footerCount: chat?.shadowRoot?.querySelectorAll('.stream-footer').length || 0,
+        footerText: chat?.shadowRoot?.querySelector('.stream-footer')?.textContent || '',
       };
     });
 
@@ -123,7 +124,8 @@ test.describe('Veille Assistant chat', () => {
     expect(state.hasTextarea).toBe(true);
     expect(state.sendEnabled).toBe(true);
     expect(state.messageCount).toBeGreaterThanOrEqual(2);
-    expect(state.footerCount).toBe(0);
+    expect(state.footerCount).toBe(1);
+    expect(state.footerText).toContain('Tokens:');
   });
 
   test('second reply does not unmount the chat component', async ({ page }) => {
@@ -228,7 +230,8 @@ test.describe('Veille Assistant chat', () => {
 
     await expect(page.locator('ntx-sidebar')).toContainText('DASHBOARD');
     await expect(page.locator('.agents-dashboard-card').filter({ hasText: 'Assistant' })).toBeVisible();
-    await expect(page.locator('.agents-dashboard-card')).toHaveCount(1);
+    await expect(page.locator('.agents-dashboard-card').filter({ hasText: 'Veille Scout' })).toBeVisible();
+    await expect(page.locator('.agents-dashboard-card')).toHaveCount(2);
 
     await page.locator('.agents-dashboard-card').filter({ hasText: 'Assistant' }).click();
     await page.waitForURL(/#AgentActor\/\d+/);
@@ -272,7 +275,7 @@ test.describe('Veille Assistant chat', () => {
     expect(firstTurn.messages.some((text) => text.includes('Hello assistant'))).toBe(true);
     expect(firstTurn.messages.some((text) => text.includes('success'))).toBe(true);
     expect(firstTurn.sendDisabled).toBe(false);
-    expect(streamPayloads[0]?.create_thread).toBe(true);
+    expect(streamPayloads[0]?.thread_id).toBeUndefined();
 
     const secondTurn = await detail.evaluate(async (el) => {
       const chat = el.shadowRoot.querySelector('ntx-chat');

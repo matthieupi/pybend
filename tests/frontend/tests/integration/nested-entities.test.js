@@ -41,7 +41,7 @@ describe('Nested Entities', () => {
     };
 
     DC.READ([productData]);
-    const product = DC.instances.get(1);
+    const product = DC.instances.get('1');
     expect(Array.isArray(product.value.comments)).toBe(true);
     expect(product.value.comments).toHaveLength(2);
     expect(product.value.comments[0]).toContain('/comments/1');
@@ -64,7 +64,7 @@ describe('Nested Entities', () => {
     };
 
     DC.READ([productData]);
-    const product = DC.instances.get(1);
+    const product = DC.instances.get('1');
 
     // Comments should be normalized to hrefs
     expect(Array.isArray(product.value.comments)).toBe(true);
@@ -72,8 +72,8 @@ describe('Nested Entities', () => {
     expect(typeof product.value.comments[0]).toBe('string');
 
     // Child instances should be pre-registered in Comment DynamicClass
-    expect(CommentDC.instances.has(1)).toBe(true);
-    expect(CommentDC.instances.has(2)).toBe(true);
+    expect(CommentDC.instances.has('1')).toBe(true);
+    expect(CommentDC.instances.has('2')).toBe(true);
   });
 
   it('populated single Ref normalized to href string', () => {
@@ -98,7 +98,7 @@ describe('Nested Entities', () => {
     };
 
     DC.READ([entityData]);
-    const entity = DC.instances.get(1);
+    const entity = DC.instances.get('1');
     // author should be normalized to href string
     expect(typeof entity.value.author).toBe('string');
     expect(entity.value.author).toBe(`${API_URL}/comments/1`);
@@ -115,7 +115,7 @@ describe('Nested Entities', () => {
     };
 
     CommentDC.READ([replyData]);
-    const reply = CommentDC.instances.get(3);
+    const reply = CommentDC.instances.get('3');
     expect(reply.value.parent_id).toBe(1);
   });
 
@@ -151,8 +151,8 @@ describe('Nested Entities', () => {
       target: 'Comment',
     }));
 
-    expect(CommentDC.instances.has(1)).toBe(false);
-    expect(CommentDC.instances.has(2)).toBe(true);
+    expect(CommentDC.instances.has('1')).toBe(false);
+    expect(CommentDC.instances.has('2')).toBe(true);
     CommentDC.send = originalSend;
   });
 
@@ -172,7 +172,7 @@ describe('Nested Entities', () => {
     };
 
     DC.READ([productData]);
-    const product = DC.instances.get(1);
+    const product = DC.instances.get('1');
     expect(product.value.comments).toHaveLength(2);
     expect(product.value.comments[0]).toBe(`${API_URL}/products/1/comments/1`);
     expect(product.value.comments[1]).toBe(`${API_URL}/products/1/comments/2`);
@@ -205,11 +205,11 @@ describe('Nested Entities', () => {
     DC.READ([productData]);
 
     // Comment should be registered
-    expect(CommentDC.instances.has(1)).toBe(true);
-    const comment = CommentDC.instances.get(1);
+    expect(CommentDC.instances.has('1')).toBe(true);
+    const comment = CommentDC.instances.get('1');
 
     // Comment's likes should be normalized to href array
-    if (LikeDC.instances.has(1)) {
+    if (LikeDC.instances.has('1')) {
       expect(Array.isArray(comment.value.likes)).toBe(true);
     }
   });
@@ -229,7 +229,7 @@ describe('Nested Entities', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
 
     const pullSpy = vi.spyOn(instance, 'pull');
     instance._response_({ message: 'Comment added' }, new TX({

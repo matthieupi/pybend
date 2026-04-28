@@ -106,7 +106,12 @@ export class NTTList extends ListElement {
 
     modal.onSubmit = () => {
       if (!el.value || typeof el.value !== 'object') return;
-      const errors = Formidable.validateForm(el);
+      const errors = Formidable.validateForm({
+        schema: el.schema,
+        value: el.value,
+        ref: el.ref,
+        name: el.name,
+      });
       if (errors.length > 0) {
         if (el.showFieldErrors) el.showFieldErrors(errors);
         return;

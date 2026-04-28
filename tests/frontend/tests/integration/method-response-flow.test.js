@@ -4,9 +4,9 @@
  * Unlike the unit-level tests, this test exercises the FULL actor routing
  * chain: instance.call() → Actor routing → NetworkAdapter → HTTP → reply routing.
  *
- * Bug: After clicking "like", the user sees a redundant list GET and visual
+ * Bug: After clicking "favorite", the user sees a redundant list GET and visual
  * disruption (layout shifts, image reloads). This test captures all fetch
- * calls made during the like flow to identify the source.
+ * calls made during the favorite flow to identify the source.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ProductSchema, makeProductData, makeProductListResponse, API_URL } from './helpers/mock-schemas.js';
@@ -41,17 +41,17 @@ beforeEach(async () => {
     if (/\/products\/\d+/.test(urlStr) && method === 'GET') {
       const id = parseInt(urlStr.match(/\/products\/(\d+)/)[1]);
       const data = makeProductData(id);
-      data.likes = [`${API_URL}/likes/99`];
+      data.favorites = [`${API_URL}/products/${id}/favorites/99`];
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(data),
       });
     }
-    // Method call (like/favorite) POST
-    if (/\/products\/\d+\/like/.test(urlStr) && method === 'POST') {
+    // Method call (favorite) POST
+    if (/\/products\/\d+\/favorite/.test(urlStr) && method === 'POST') {
       return Promise.resolve({
         ok: true, status: 200,
-        json: () => Promise.resolve({ action: 'liked' }),
+        json: () => Promise.resolve({ action: 'favorited', _field: 'favorites', id: 99, user: 1 }),
       });
     }
     // List fetch
@@ -108,26 +108,26 @@ function getMethodPosts() {
 }
 
 
-describe('Full like flow — network request audit', () => {
+describe('Full favorite flow — network request audit', () => {
 
-  it('should audit all network requests during like action via instance.call()', async () => {
+  it('should audit all network requests during favorite action via instance.call()', async () => {
     // Phase 1: Bootstrap
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ(makeProductListResponse(3));
     await flush(50);
 
-    // Clear fetch log — only track post-like requests
+    // Clear fetch log — only track post-favorite requests
     fetchLog = [];
     global.fetch.mockClear();
 
-    // Phase 2: Simulate like via the Actor system (full routing)
+    // Phase 2: Simulate favorite via the Actor system (full routing)
     const instance = DC.children.get('1');
     expect(instance).toBeDefined();
     expect(instance.href).toContain('/products/1');
 
     // This is what ntx-method.callMethod() does:
-    instance.call('like', {}, { inbox: '_response_' });
+    instance.call('favorite', {}, { inbox: '_response_' });
     await flush(300);
 
     // Phase 3: Audit
@@ -141,12 +141,12 @@ describe('Full like flow — network request audit', () => {
     console.log(`Posts: ${posts.length}, Pull GETs: ${pullGets.length}, List GETs: ${listGets.length}`);
 
     // Expectations:
-    expect(posts.length).toBe(1);              // 1 POST for the like action
+    expect(posts.length).toBe(1);              // 1 POST for the favorite action
     expect(pullGets.length).toBeLessThanOrEqual(1);  // At most 1 pull GET
     expect(listGets.length).toBe(0);           // ZERO list-level GETs
   });
 
-  it('should audit requests when like is called via DynamicClass.call (class-level)', async () => {
+  it('should audit requests when favorite is called via DynamicClass.call (class-level)', async () => {
     // This tests the case where the method is called on the class level
     // (e.g., when ntx-method uses proto as the caller)
     NTT.SCHEMA(ProductSchema);
@@ -160,7 +160,7 @@ describe('Full like flow — network request audit', () => {
     // Some ntx-method components use proto.call() instead of instance.call()
     // if uuid is not set. In this case, the method goes to the class href.
     // This should NOT trigger a list GET either.
-    DC.call('like', {}, { inbox: '_response_' });
+    DC.call('favorite', {}, { inbox: '_response_' });
     await flush(300);
 
     console.log('=== Fetch Log (class-level call) ===');
@@ -172,7 +172,7 @@ describe('Full like flow — network request audit', () => {
     expect(listGets.length).toBe(0);
   });
 
-  it('watcher notification count after like should be zero', async () => {
+  it('watcher notification count after favorite should be zero', async () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ(makeProductListResponse(3));
@@ -193,9 +193,9 @@ describe('Full like flow — network request audit', () => {
     fetchLog = [];
     global.fetch.mockClear();
 
-    // Like product 1 via full actor routing
+    // Favorite product 1 via full actor routing
     const instance = DC.children.get('1');
-    instance.call('like', {}, { inbox: '_response_' });
+    instance.call('favorite', {}, { inbox: '_response_' });
     await flush(300);
 
     console.log(`Watcher UPDATE notifications: ${updateCount}`);

@@ -32,18 +32,18 @@ describe('Method Execution', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
 
     const sentTxs = [];
     const originalSend = instance.constructor.send;
     instance.constructor.send = vi.fn((tx) => sentTxs.push(tx));
 
-    instance.call('like', {}, { inbox: '_response_' });
+    instance.call('favorite', {}, { inbox: '_response_' });
 
-    const likeTx = sentTxs.find(tx => tx.name === 'like');
-    expect(likeTx).toBeDefined();
-    expect(likeTx.target).toContain('/products/1');
-    expect(likeTx.meta.inbox).toBe('_response_');
+    const favoriteTx = sentTxs.find(tx => tx.name === 'favorite');
+    expect(favoriteTx).toBeDefined();
+    expect(favoriteTx.target).toContain('/products/1');
+    expect(favoriteTx.meta.inbox).toBe('_response_');
 
     instance.constructor.send = originalSend;
   });
@@ -69,7 +69,7 @@ describe('Method Execution', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
 
     const sentTxs = [];
     const originalSend = instance.constructor.send;
@@ -88,7 +88,7 @@ describe('Method Execution', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
 
     const pullSpy = vi.spyOn(instance, 'pull');
     instance._response_('Comment added', new TX({
@@ -105,7 +105,7 @@ describe('Method Execution', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
 
     const sentTxs = [];
     const originalSend = instance.constructor.send;
@@ -125,7 +125,7 @@ describe('Method Execution', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
 
     const sentTxs = [];
     const originalSend = instance.constructor.send;
@@ -146,7 +146,7 @@ describe('Method Execution', () => {
 
     // Methods from schema
     expect(typeof instance.comment).toBe('function');
-    expect(typeof instance.like).toBe('function');
+    expect(typeof instance.favorite).toBe('function');
   });
 
   it('DynamicClass labels map generated from schema titles', () => {
@@ -168,7 +168,7 @@ describe('Method Execution', () => {
 
     DC.CREATE(makeProductData(99));
 
-    expect(DC.instances.has(99)).toBe(true);
+    expect(DC.instances.has('99')).toBe(true);
     const updateTx = sentTxs.find(tx => tx.name === 'UPDATE' && tx.target === 'test-list');
     expect(updateTx).toBeDefined();
     expect(updateTx.data).toContain('Product/99');
@@ -184,22 +184,22 @@ describe('Method Execution', () => {
 
     DC.CREATE({ ...makeProductData(1), name: 'Updated via CREATE' });
     expect(DC.instances.size).toBe(firstCount);
-    expect(DC.instances.get(1).name).toBe('Updated via CREATE');
+    expect(DC.instances.get('1').name).toBe('Updated via CREATE');
   });
 
   it('call with meta.inbox routes response to correct handler', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
 
     const sentTxs = [];
     const originalSend = instance.constructor.send;
     instance.constructor.send = vi.fn((tx) => sentTxs.push(tx));
 
-    instance.call('like', {}, { inbox: '_response_' });
+    instance.call('favorite', {}, { inbox: '_response_' });
 
-    const tx = sentTxs.find(tx => tx.name === 'like');
+    const tx = sentTxs.find(tx => tx.name === 'favorite');
     expect(tx.meta.inbox).toBe('_response_');
 
     instance.constructor.send = originalSend;

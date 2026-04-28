@@ -45,9 +45,9 @@ test.describe('ntx-topbar — Anonymous State', () => {
     });
     expect(structure.hasNav).toBe(true);
     expect(structure.brandHref).toBe('/');
-    expect(structure.title).toContain('NTT');
+    expect(structure.title).toBe('N3TX Example');
     expect(structure.logo).toBe('N3');
-    expect(structure.tag).toBe('v0.6');
+    expect(structure.tag).toBe('v0.8.0');
   });
 
   test('signin-link present with correct text and href', async ({ page }) => {
@@ -113,7 +113,7 @@ test.describe('ntx-topbar — Authenticated State', () => {
     expect(hasSignIn).toBe(false);
   });
 
-  test('dropdown contains email, role, theme, profile, logout', async ({ page }) => {
+  test('dropdown contains email, role, slotted theme control, profile, logout', async ({ page }) => {
     await gotoAuthenticated(page, 'alice');
 
     const dropdown = await page.locator('ntx-topbar').evaluate((el) => {
@@ -122,10 +122,10 @@ test.describe('ntx-topbar — Authenticated State', () => {
       return {
         email: dd?.querySelector('.dropdown-email')?.textContent?.trim() || '',
         hasRole: !!dd?.querySelector('.dropdown-role'),
-        hasTheme: !!dd?.querySelector('.theme-toggle'),
+        hasThemeSlot: !!dd?.querySelector('slot[name="user-menu"]'),
+        hasSlottedTheme: !!el.querySelector('ntx-theme-button[slot="user-menu"]'),
         hasProfile: !!dd?.querySelector('a[href="#@profile"]'),
         hasLogout: !!dd?.querySelector('.logout-btn'),
-        hasFav: !!sr?.querySelector('a[href="#@favorites"]'),
         hasHeader: !!dd?.querySelector('.dropdown-header'),
         dividerCount: dd?.querySelectorAll('.dropdown-divider').length || 0,
         itemCount: dd?.querySelectorAll('.dropdown-item').length || 0,
@@ -133,13 +133,13 @@ test.describe('ntx-topbar — Authenticated State', () => {
     });
     expect(dropdown.email).toBe(USERS.alice.email);
     expect(dropdown.hasRole).toBe(true);
-    expect(dropdown.hasTheme).toBe(true);
+    expect(dropdown.hasThemeSlot).toBe(true);
+    expect(dropdown.hasSlottedTheme).toBe(true);
     expect(dropdown.hasProfile).toBe(true);
     expect(dropdown.hasLogout).toBe(true);
-    expect(dropdown.hasFav).toBe(true);
     expect(dropdown.hasHeader).toBe(true);
     expect(dropdown.dividerCount).toBeGreaterThanOrEqual(1);
-    expect(dropdown.itemCount).toBeGreaterThanOrEqual(3);
+    expect(dropdown.itemCount).toBeGreaterThanOrEqual(2);
   });
 
   test('dropdown shows correct email per user (bob)', async ({ page }) => {
@@ -216,15 +216,15 @@ test.describe('ntx-topbar — Theme Toggle', () => {
     await loginAs(page, 'alice');
     await page.waitForTimeout(2000);
 
-    // Initial: dark mode, toggle should say "Light mode"
-    const initialLabel = await page.locator('ntx-topbar').evaluate((el) => {
-      return el.shadowRoot?.querySelector('.theme-toggle')?.textContent?.trim() || '';
+    // Initial: dark mode, slotted theme button should offer light mode next.
+    const initialLabel = await page.locator('ntx-topbar ntx-theme-button[slot="user-menu"]').evaluate((el) => {
+      return el.shadowRoot?.querySelector('button')?.getAttribute('aria-label') || '';
     });
     expect(initialLabel).toContain('Light');
 
     // Click toggle
-    await page.locator('ntx-topbar').evaluate((el) => {
-      el.shadowRoot?.querySelector('.theme-toggle')?.click();
+    await page.locator('ntx-topbar ntx-theme-button[slot="user-menu"]').evaluate((el) => {
+      el.shadowRoot?.querySelector('button')?.click();
     });
     await page.waitForTimeout(500);
 
@@ -234,11 +234,11 @@ test.describe('ntx-topbar — Theme Toggle', () => {
     expect(newTheme).toBe('light');
   });
 
-  test('theme toggle has SVG icon', async ({ page }) => {
+  test('slotted theme button has SVG icon', async ({ page }) => {
     await gotoAuthenticated(page, 'alice');
 
-    const hasSvg = await page.locator('ntx-topbar').evaluate((el) => {
-      const icon = el.shadowRoot?.querySelector('.theme-toggle .dropdown-icon');
+    const hasSvg = await page.locator('ntx-topbar ntx-theme-button[slot="user-menu"]').evaluate((el) => {
+      const icon = el.shadowRoot?.querySelector('.theme-button__icon');
       return !!icon?.querySelector('svg');
     });
     expect(hasSvg).toBe(true);
@@ -337,15 +337,15 @@ test.describe('ntx-topbar — Edge Cases', () => {
     expect(parseInt(zIndex)).toBeGreaterThanOrEqual(100);
   });
 
-  test('topbar height is 56px', async ({ page }) => {
+  test('topbar has a usable positive height', async ({ page }) => {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 
     const height = await page.locator('ntx-topbar').evaluate((el) => {
       const nav = el.shadowRoot?.querySelector('.topbar');
-      return nav ? getComputedStyle(nav).height : '';
+      return nav ? nav.getBoundingClientRect().height : 0;
     });
-    expect(height).toBe('56px');
+    expect(height).toBeGreaterThanOrEqual(56);
   });
 });

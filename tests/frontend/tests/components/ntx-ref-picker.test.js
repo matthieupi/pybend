@@ -382,8 +382,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     it('should include styles', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker._render();
-      const html = picker.shadowRoot.innerHTML;
-      expect(html).toContain('<style>');
+      const stylesheet = picker.shadowRoot.querySelector('link[rel="stylesheet"]');
+      expect(stylesheet).toBeTruthy();
+      expect(stylesheet.getAttribute('href')).toContain('ntx-ref-picker.css');
     });
 
     it('should default to "Add Item" when no modelName', () => {
@@ -1152,22 +1153,14 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     });
   });
 
-  describe('static styles', () => {
-    it('should have styles defined', () => {
-      expect(NTTRefPicker.styles).toBeTruthy();
-      expect(typeof NTTRefPicker.styles).toBe('string');
-    });
+  describe('stylesheet contract', () => {
+    it('should link the component stylesheet from the shadow root', () => {
+      const picker = document.createElement('ntx-ref-picker');
+      picker._render();
 
-    it('should contain add-btn styles', () => {
-      expect(NTTRefPicker.styles).toContain('.add-btn');
-    });
-
-    it('should contain picker-dropdown styles', () => {
-      expect(NTTRefPicker.styles).toContain('.picker-dropdown');
-    });
-
-    it('should contain inline-create styles', () => {
-      expect(NTTRefPicker.styles).toContain('.inline-create');
+      const stylesheet = picker.shadowRoot.querySelector('link[rel="stylesheet"]');
+      expect(stylesheet).toBeTruthy();
+      expect(stylesheet.getAttribute('href')).toContain('ntx-ref-picker.css');
     });
   });
 });

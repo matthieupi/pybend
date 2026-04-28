@@ -32,7 +32,7 @@ vi.mock('../../utils/Logging.js', () => {
 });
 
 // Import after mocks
-await import('../../components/ntx-logs.js');
+await import('../../../../examples/core/static/components/ntx-logs.js');
 const Logging = (await import('../../utils/Logging.js')).default;
 
 describe('ntx-logs.js (NTTLogs)', () => {
@@ -175,12 +175,13 @@ describe('ntx-logs.js (NTTLogs)', () => {
   });
 
   describe('entry appending', () => {
-    it('should append an entry to the log list when error is logged', () => {
+    it('should append an entry to the log list when open and an error is logged', () => {
       const el = document.createElement('ntx-logs');
       document.body.appendChild(el);
+      el.shadowRoot.querySelector('.toggle').click();
+
       Logging.error('Test error', 'detail');
       const entries = el.shadowRoot.querySelectorAll('.entry');
-      // At least one entry should be appended (may have pre-existing entries)
       expect(entries.length).toBeGreaterThan(0);
       const lastEntry = entries[entries.length - 1];
       expect(lastEntry.classList.contains('level-error')).toBe(true);

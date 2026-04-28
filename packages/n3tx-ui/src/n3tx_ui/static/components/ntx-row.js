@@ -134,7 +134,12 @@ export class NTTRow extends NTTItem {
       // Collect values from inputs before validating
       this.#collectInputValues();
       // Client-side validation before save
-      const errors = Formidable.validateForm(this);
+      const errors = Formidable.validateForm({
+        schema: this.schema,
+        value: this.value,
+        ref: this.ref,
+        name: this.name,
+      });
       if (errors.length > 0) {
         this.#showRowErrors(errors);
         return;

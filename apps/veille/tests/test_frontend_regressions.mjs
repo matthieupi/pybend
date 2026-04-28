@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const { chromium } = await import('file:///workspace/tests/frontend/node_modules/playwright/index.mjs');
@@ -18,6 +21,8 @@ const PYTHONPATH = [
 
 let serverProcess = null;
 let browser = null;
+let dbDir = null;
+let dbPath = null;
 
 async function waitForServer(url, timeoutMs = 45000) {
   const started = Date.now();
@@ -31,29 +36,55 @@ async function waitForServer(url, timeoutMs = 45000) {
   throw new Error(`Server did not start: ${url}`);
 }
 
+async function seedTestDatabase(env) {
+  await new Promise((resolve, reject) => {
+    const seedProcess = spawn(PYTHON, ['seed.py', '--reset'], {
+      cwd: APP_DIR,
+      env,
+      stdio: 'ignore',
+    });
+    seedProcess.once('error', reject);
+    seedProcess.once('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Veille seed failed with exit code ${code}`));
+    });
+  });
+}
+
 async function startServer() {
   if (serverProcess) return;
+  dbDir = await mkdtemp(join(tmpdir(), 'veille-p4-'));
+  dbPath = join(dbDir, 'veille-test.db');
+  const env = {
+    ...process.env,
+    PYTHONPATH,
+    N3TX_PORT: String(PORT),
+    N3TX_API_URL: BASE_URL,
+    N3TX_SQLITE_DB: dbPath,
+  };
+  await seedTestDatabase(env);
   serverProcess = spawn(PYTHON, ['main.py'], {
     cwd: APP_DIR,
-    env: {
-      ...process.env,
-      PYTHONPATH,
-      N3TX_PORT: String(PORT),
-      N3TX_API_URL: BASE_URL,
-    },
+    env,
     stdio: 'ignore',
   });
   await waitForServer(`${BASE_URL}/login.html`);
 }
 
 async function stopServer() {
-  if (!serverProcess) return;
-  serverProcess.kill('SIGTERM');
-  await Promise.race([
-    new Promise((resolve) => serverProcess.once('exit', resolve)),
-    delay(10000).then(() => serverProcess.kill('SIGKILL')),
-  ]);
-  serverProcess = null;
+  if (serverProcess) {
+    serverProcess.kill('SIGTERM');
+    await Promise.race([
+      new Promise((resolve) => serverProcess.once('exit', resolve)),
+      delay(10000).then(() => serverProcess.kill('SIGKILL')),
+    ]);
+    serverProcess = null;
+  }
+  if (dbDir) {
+    await rm(dbDir, { recursive: true, force: true });
+    dbDir = null;
+    dbPath = null;
+  }
 }
 
 async function getBrowser() {

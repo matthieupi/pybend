@@ -78,6 +78,7 @@ class WebSocketMock {
   static OPEN = 1;
   static CLOSING = 2;
   static CLOSED = 3;
+  static instances = new Set();
 
   constructor(url) {
     this.url = url;
@@ -87,9 +88,20 @@ class WebSocketMock {
     this.onmessage = null;
     this.onerror = null;
     this._sent = [];
+    WebSocketMock.instances.add(this);
   }
   send(data) { this._sent.push(data); }
-  close(code, reason) { this.readyState = WebSocketMock.CLOSED; }
+  close(code, reason) {
+    this.readyState = WebSocketMock.CLOSED;
+    WebSocketMock.instances.delete(this);
+  }
+
+  static closeAll() {
+    for (const socket of Array.from(WebSocketMock.instances)) {
+      socket.close();
+    }
+    WebSocketMock.instances.clear();
+  }
 }
 global.WebSocket = WebSocketMock;
 
@@ -118,11 +130,18 @@ process.on('unhandledRejection', (reason) => {
 
 // ── Cleanup between tests ──
 beforeEach(() => {
+  _unhandledRejections.length = 0;
+
   // Clear localStorage
   Object.keys(store).forEach(k => delete store[k]);
   localStorageMock.getItem.mockClear();
   localStorageMock.setItem.mockClear();
   localStorageMock.removeItem.mockClear();
+  localStorageMock.clear.mockClear();
+  localStorageMock.key.mockClear();
+
+  // Clear browser storage backed by jsdom.
+  window.sessionStorage?.clear?.();
 
   // Clear fetch
   global.fetch.mockClear();
@@ -134,7 +153,26 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // Give pending promise callbacks a chance to surface unhandled rejections
+  // before the next test starts.
+  await Promise.resolve();
+  await new Promise(resolve => queueMicrotask(resolve));
+
+  const leakedRejection = _unhandledRejections.shift();
+  _unhandledRejections.length = 0;
+
+  // Remove neutral browser/runtime state that should not survive tests.
+  WebSocketMock.closeAll();
+  document.body.replaceChildren();
+  window.sessionStorage?.clear?.();
+
+  try {
+    vi.clearAllTimers();
+  } finally {
+    vi.useRealTimers();
+  }
+
   // Restore all mocks to prevent leaked callbacks between tests
   vi.restoreAllMocks();
 
@@ -152,4 +190,10 @@ afterEach(() => {
   window.success = vi.fn();
   window.warn = vi.fn();
   window.error = vi.fn();
+
+  if (leakedRejection) {
+    throw leakedRejection instanceof Error
+      ? leakedRejection
+      : new Error(String(leakedRejection));
+  }
 });

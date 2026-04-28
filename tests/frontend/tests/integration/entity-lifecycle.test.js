@@ -106,7 +106,7 @@ describe('Entity Lifecycle', () => {
     });
 
     DC.CREATE(makeProductData(10));
-    expect(DC.instances.has(10)).toBe(true);
+    expect(DC.instances.has('10')).toBe(true);
     expect(watcherUpdates.length).toBeGreaterThan(0);
     DC.send = originalSend;
   });
@@ -130,7 +130,7 @@ describe('Entity Lifecycle', () => {
       target: 'Product',
     }));
 
-    expect(DC.instances.has(1)).toBe(false);
+    expect(DC.instances.has('1')).toBe(false);
     expect(DC.instances.size).toBe(1);
     expect(watcherUpdates.length).toBeGreaterThan(0);
     DC.send = originalSend;
@@ -177,7 +177,7 @@ describe('Entity Lifecycle', () => {
     };
 
     DC.READ([productData]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
     // After normalization, comments should be href array
     expect(Array.isArray(instance.value.comments)).toBe(true);
     if (instance.value.comments.length > 0) {
@@ -189,10 +189,10 @@ describe('Entity Lifecycle', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const firstInstance = DC.instances.get(1);
+    const firstInstance = DC.instances.get('1');
 
     DC.READ([{ ...makeProductData(1), name: 'Updated' }]);
-    const sameInstance = DC.instances.get(1);
+    const sameInstance = DC.instances.get('1');
     expect(DC.instances.size).toBe(1);
     // Same reference — updated in place
     expect(sameInstance).toBe(firstInstance);

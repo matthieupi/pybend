@@ -105,16 +105,16 @@ export const ProductSchema = {
       items: { anyOf: [{ $ref: '#/$defs/Comment' }, { type: 'null' }] },
       default: [],
     },
-    likes: {
+    favorites: {
       type: 'array',
-      title: 'Likes',
+      title: 'Favorites',
       items: { anyOf: [{ $ref: '#/$defs/Like' }, { type: 'null' }] },
       default: [],
     },
   },
   ui: {
-    field_order: ['name', 'price', 'description', 'comments', 'likes'],
-    groups: { main: ['name', 'description', 'price'], Social: ['comments', 'likes'] },
+    field_order: ['name', 'price', 'description', 'comments', 'favorites'],
+    groups: { main: ['name', 'description', 'price'], Social: ['comments', 'favorites'] },
     renderer: { item: 'ntx-item', list: 'ntx-list' },
     populate: { depth: 1 },
   },
@@ -137,15 +137,15 @@ export const ProductSchema = {
       access: { rule: 'authenticated' },
       ui: { layout: 'inline', attach_to: 'comments', placeholder: 'Write a comment...', button_label: 'Comment' },
     },
-    like: {
-      route: '/like',
+    favorite: {
+      route: '/favorite',
       methods: ['POST'],
       scope: 'instancemethod',
-      title: 'Like',
+      title: 'Favorite',
       parameters: {},
       returns: 'string',
       access: { rule: 'authenticated' },
-      ui: { layout: 'button', icon: 'heart', count_field: 'likes' },
+      ui: { layout: 'button', icon: 'star', count_field: 'favorites', attach_to: 'favorites' },
     },
   },
   $defs: {
@@ -165,7 +165,7 @@ export function makeProductData(id = 1) {
     image: '',
     user_owner: 1,
     comments: [],
-    likes: [],
+    favorites: [],
   };
 }
 

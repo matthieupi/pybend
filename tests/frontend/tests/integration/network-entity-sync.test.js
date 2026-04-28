@@ -7,7 +7,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ProductSchema, makeProductData, makeProductListResponse, API_URL } from './helpers/mock-schemas.js';
 import { flush } from './helpers/test-env.js';
 
-let HTTP, NetworkAdapter, matrix, TX;
+let HTTP, NetworkAdapter, matrix, TX, NTT;
+
+const makeMockMatrix = () => ({
+  has: vi.fn(() => true),
+  dispatch: vi.fn(),
+});
 
 afterEach(async () => {
   await flush(10);
@@ -24,10 +29,14 @@ beforeEach(async () => {
   const netMod = await import('../../core/transport/NetworkAdapter.js');
   const matrixMod = await import('../../core/Matrix.js');
   const txMod = await import('../../core/TX.js');
+  const nttMod = await import('../../core/NTT.js');
   HTTP = httpMod.default;
   NetworkAdapter = netMod.NetworkAdapter;
   matrix = matrixMod.matrix;
   TX = txMod.default;
+  NTT = nttMod.NTT;
+
+  NTT.SCHEMA(ProductSchema);
 });
 
 describe('Network Entity Sync', () => {
@@ -159,8 +168,8 @@ describe('Network Entity Sync', () => {
   describe('NetworkAdapter', () => {
 
     it('send routes READ to HTTP.get', () => {
-      const getSpy = vi.spyOn(HTTP, 'get');
-      const adapter = new NetworkAdapter(matrix);
+      const getSpy = vi.spyOn(HTTP, 'get').mockImplementation(() => {});
+      const adapter = new NetworkAdapter(makeMockMatrix());
 
       adapter.send({
         name: 'READ',
@@ -179,8 +188,8 @@ describe('Network Entity Sync', () => {
     });
 
     it('send routes READ with query params', () => {
-      const getSpy = vi.spyOn(HTTP, 'get');
-      const adapter = new NetworkAdapter(matrix);
+      const getSpy = vi.spyOn(HTTP, 'get').mockImplementation(() => {});
+      const adapter = new NetworkAdapter(makeMockMatrix());
 
       adapter.send({
         name: 'READ',
@@ -198,9 +207,36 @@ describe('Network Entity Sync', () => {
       getSpy.mockRestore();
     });
 
-    it('send routes SCHEMA to HTTP.get', () => {
-      const getSpy = vi.spyOn(HTTP, 'get');
+    it('routes HTTP READ response through Matrix to registered Product actor', () => {
+      const response = makeProductListResponse(2);
+      const getSpy = vi.spyOn(HTTP, 'get').mockImplementation((url, onSuccess) => {
+        onSuccess(response);
+      });
       const adapter = new NetworkAdapter(matrix);
+
+      adapter.send({
+        name: 'READ',
+        source: 'Product',
+        target: `${API_URL}/products`,
+        data: {},
+        meta: {},
+      });
+
+      const DC = NTT.get('Product');
+      expect(getSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/products'),
+        expect.any(Function),
+        expect.any(Function)
+      );
+      expect(DC.instances.get('1').value.name).toBe('Test Product 1');
+      expect(DC.instances.get('2').value.name).toBe('Test Product 2');
+
+      getSpy.mockRestore();
+    });
+
+    it('send routes SCHEMA to HTTP.get', () => {
+      const getSpy = vi.spyOn(HTTP, 'get').mockImplementation(() => {});
+      const adapter = new NetworkAdapter(makeMockMatrix());
 
       adapter.send({
         name: 'SCHEMA',
@@ -219,8 +255,8 @@ describe('Network Entity Sync', () => {
     });
 
     it('send routes CREATE to HTTP.post', () => {
-      const postSpy = vi.spyOn(HTTP, 'post');
-      const adapter = new NetworkAdapter(matrix);
+      const postSpy = vi.spyOn(HTTP, 'post').mockImplementation(() => {});
+      const adapter = new NetworkAdapter(makeMockMatrix());
 
       adapter.send({
         name: 'CREATE',
@@ -235,8 +271,8 @@ describe('Network Entity Sync', () => {
     });
 
     it('send routes UPDATE to HTTP.put', () => {
-      const putSpy = vi.spyOn(HTTP, 'put');
-      const adapter = new NetworkAdapter(matrix);
+      const putSpy = vi.spyOn(HTTP, 'put').mockImplementation(() => {});
+      const adapter = new NetworkAdapter(makeMockMatrix());
 
       adapter.send({
         name: 'UPDATE',
@@ -251,8 +287,8 @@ describe('Network Entity Sync', () => {
     });
 
     it('send routes DELETE to HTTP.remove', () => {
-      const removeSpy = vi.spyOn(HTTP, 'remove');
-      const adapter = new NetworkAdapter(matrix);
+      const removeSpy = vi.spyOn(HTTP, 'remove').mockImplementation(() => {});
+      const adapter = new NetworkAdapter(makeMockMatrix());
 
       adapter.send({
         name: 'DELETE',
@@ -267,11 +303,11 @@ describe('Network Entity Sync', () => {
     });
 
     it('send routes custom method to HTTP.post with /method path', () => {
-      const postSpy = vi.spyOn(HTTP, 'post');
-      const adapter = new NetworkAdapter(matrix);
+      const postSpy = vi.spyOn(HTTP, 'post').mockImplementation(() => {});
+      const adapter = new NetworkAdapter(makeMockMatrix());
 
       adapter.send({
-        name: 'like',
+        name: 'favorite',
         source: 'Product/1',
         target: `${API_URL}/products/1`,
         data: {},
@@ -279,7 +315,7 @@ describe('Network Entity Sync', () => {
       });
 
       expect(postSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/products/1/like'),
+        expect.stringContaining('/products/1/favorite'),
         expect.anything(),
         expect.any(Function),
         expect.any(Function)

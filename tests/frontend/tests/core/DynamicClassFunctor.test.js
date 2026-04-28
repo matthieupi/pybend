@@ -88,7 +88,7 @@ describe('DynamicClass Functor Verification', () => {
     it('maps each schema property to a prototype getter', () => {
       const schemaFields = Object.keys(baseSchema.properties);
       DC.READ([{ id: 1, name: 'Test', price: 10, active: true, description: 'desc' }]);
-      const inst = DC.instances.get(1);
+      const inst = DC.instances.get('1');
       for (const field of schemaFields) {
         // Property descriptor should exist on prototype
         const desc = Object.getOwnPropertyDescriptor(DC.prototype, field);
@@ -99,14 +99,14 @@ describe('DynamicClass Functor Verification', () => {
 
     it('maps readOnly schema fields to throwing setters', () => {
       DC.READ([{ id: 2, name: 'RO', price: 5, active: false, description: 'readonly' }]);
-      const inst = DC.instances.get(2);
+      const inst = DC.instances.get('2');
       expect(() => { inst.id = 999; }).toThrow(/read-only/);
       expect(() => { inst.description = 'changed'; }).toThrow(/read-only/);
     });
 
     it('maps writable schema fields to working setters', () => {
       DC.READ([{ id: 3, name: 'Writable', price: 5, active: true, description: 'x' }]);
-      const inst = DC.instances.get(3);
+      const inst = DC.instances.get('3');
       inst.name = 'Changed';
       expect(inst.name).toBe('Changed');
       inst.price = 99;
@@ -137,19 +137,19 @@ describe('DynamicClass Functor Verification', () => {
 
     it('rejects wrong type for string field', () => {
       DC.READ([{ id: 1, name: 'Test', price: 5, active: true, description: 'x' }]);
-      const inst = DC.instances.get(1);
+      const inst = DC.instances.get('1');
       expect(() => { inst.name = 42; }).toThrow(TypeError);
     });
 
     it('rejects wrong type for number field', () => {
       DC.READ([{ id: 2, name: 'Test', price: 5, active: true, description: 'x' }]);
-      const inst = DC.instances.get(2);
+      const inst = DC.instances.get('2');
       expect(() => { inst.price = 'not-a-number'; }).toThrow(TypeError);
     });
 
     it('accepts correct types', () => {
       DC.READ([{ id: 3, name: 'Test', price: 5, active: true, description: 'x' }]);
-      const inst = DC.instances.get(3);
+      const inst = DC.instances.get('3');
       inst.name = 'valid string';
       expect(inst.name).toBe('valid string');
       inst.price = 42.5;
@@ -174,7 +174,7 @@ describe('DynamicClass Functor Verification', () => {
 
     it('maps each schema method to a callable function on instances', () => {
       DC.READ([{ id: 1, name: 'Test', price: 5, active: true, description: 'x' }]);
-      const inst = DC.instances.get(1);
+      const inst = DC.instances.get('1');
       for (const methodName of Object.keys(baseSchema.methods)) {
         expect(typeof inst[methodName]).toBe('function');
       }
@@ -182,7 +182,7 @@ describe('DynamicClass Functor Verification', () => {
 
     it('preserves method count', () => {
       DC.READ([{ id: 2, name: 'Test', price: 5, active: true, description: 'x' }]);
-      const inst = DC.instances.get(2);
+      const inst = DC.instances.get('2');
       const schemaMethods = Object.keys(baseSchema.methods);
       const instanceMethods = schemaMethods.filter(m => typeof inst[m] === 'function');
       expect(instanceMethods.length).toBe(schemaMethods.length);
@@ -256,7 +256,7 @@ describe('DynamicClass Functor Verification', () => {
 
     it('returns a new object on each access', () => {
       DC.READ([{ id: 1, name: 'Test', price: 5, active: true, description: 'x' }]);
-      const inst = DC.instances.get(1);
+      const inst = DC.instances.get('1');
       const v1 = inst.value;
       const v2 = inst.value;
       expect(v1).not.toBe(v2);
@@ -265,7 +265,7 @@ describe('DynamicClass Functor Verification', () => {
 
     it('_data does not contain $schema or $id', () => {
       DC.READ([{ id: 2, name: 'Clean', price: 3, active: false, description: 'y' }]);
-      const inst = DC.instances.get(2);
+      const inst = DC.instances.get('2');
       // Trigger getter
       const val = inst.value;
       expect(val.$schema).toBeTruthy();
@@ -277,7 +277,7 @@ describe('DynamicClass Functor Verification', () => {
 
     it('includes $schema and $id in returned value', () => {
       DC.READ([{ id: 3, name: 'Meta', price: 1, active: true, description: 'z' }]);
-      const inst = DC.instances.get(3);
+      const inst = DC.instances.get('3');
       const val = inst.value;
       expect(val.$schema).toContain('ImmutFunctor');
       expect(val.$id).toBeTruthy();

@@ -14,7 +14,6 @@ afterEach(async () => {
 });
 
 beforeEach(async () => {
-  vi.resetModules();
   global.fetch = vi.fn(() => Promise.resolve({
     ok: true, status: 200,
     json: () => Promise.resolve({}),
@@ -23,6 +22,7 @@ beforeEach(async () => {
   const formMod = await import('../../generators/form.js');
   const permMod = await import('../../utils/Permissions.js');
   Formidable = formMod.Formidable;
+  Formidable.clearCache();
   permissions = permMod.permissions;
 });
 
@@ -80,7 +80,7 @@ describe('Form Generation', () => {
     const ntt = makeNtt();
     const html = Formidable.getForm(ntt, 'display');
     expect(html).toContain('$29.99');
-    expect(html).toContain('currency-display');
+    expect(html).toContain('widget-currency');
   });
 
   it('currency widget in edit mode renders currency-input with $ symbol', () => {
@@ -156,7 +156,9 @@ describe('Form Generation', () => {
     ];
     const html = Formidable.getForm(ntt, 'display');
     expect(html).toContain('list-field');
-    expect(html).toContain('list-field-count');
+    expect(html).toContain('<ntx-list-field');
+    expect(html).toContain('field="comments"');
+    expect(html).toContain('mode="display"');
   });
 
   it('attached methods render ntx-method elements after target field', () => {
@@ -219,7 +221,7 @@ describe('Form Generation', () => {
     expect(Formidable.formatDisplayValue(def, 'name', 'hello')).toBe('hello');
   });
 
-  it('getListInput with show-more for arrays > VISIBLE_COUNT', () => {
+  it('getListInput renders the ntx-list-field boundary for arrays', () => {
     const ntt = makeNtt();
     ntt.value.comments = [
       `${API_URL}/products/1/comments/1`,
@@ -227,15 +229,17 @@ describe('Form Generation', () => {
       `${API_URL}/products/1/comments/3`,
     ];
     const html = Formidable.getListInput(ntt, 'comments', 'display');
-    expect(html).toContain('show-more-btn');
-    expect(html).toContain('nested-collapsed');
+    expect(html).toContain('<ntx-list-field');
+    expect(html).toContain('field="comments"');
+    expect(html).toContain('mode="display"');
   });
 
   it('getListInput resolves child tag from $defs renderer hints', () => {
     const ntt = makeNtt();
     ntt.value.comments = [`${API_URL}/products/1/comments/1`];
     const html = Formidable.getListInput(ntt, 'comments', 'display');
-    // Default childTag from renderer config or ntx-item
-    expect(html).toContain('ntx-item');
+    // Child components are rendered inside ntx-list-field's shadow DOM.
+    expect(html).toContain('<ntx-list-field');
+    expect(html).toContain('field="comments"');
   });
 });

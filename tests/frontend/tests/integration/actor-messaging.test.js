@@ -91,7 +91,7 @@ describe('Actor Messaging', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
     const inboxSpy = vi.spyOn(instance, 'inbox');
 
     DC.ATTACH('Product/1', new TX({
@@ -129,14 +129,14 @@ describe('Actor Messaging', () => {
 
     // Pending should have been replayed and cleared
     expect(DC._pendingAttaches.length).toBe(0);
-    expect(DC.instances.has(5)).toBe(true);
+    expect(DC.instances.has('5')).toBe(true);
   });
 
   it('NTT instance ATTACH sends DESCRIBE back to source', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
 
     const sendSpy = vi.fn();
     const originalSend = instance.constructor.send;
@@ -160,17 +160,17 @@ describe('Actor Messaging', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     DC.READ([makeProductData(1)]);
-    const instance = DC.instances.get(1);
+    const instance = DC.instances.get('1');
 
     const sendSpy = vi.fn();
     const originalSend = instance.constructor.send;
     instance.constructor.send = sendSpy;
 
-    instance.call('like', {}, {});
+    instance.call('favorite', {}, {});
 
     expect(sendSpy).toHaveBeenCalled();
     const sentTx = sendSpy.mock.calls[0][0];
-    expect(sentTx.name).toBe('like');
+    expect(sentTx.name).toBe('favorite');
     expect(sentTx.target).toContain('/products/1');
 
     instance.constructor.send = originalSend;

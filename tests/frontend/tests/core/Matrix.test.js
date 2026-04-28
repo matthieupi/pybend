@@ -70,6 +70,9 @@ describe('Matrix.js', () => {
   describe('dispatch(event)', () => {
     it('should delegate to inbox', () => {
       const inboxSpy = vi.spyOn(matrix, 'inbox');
+      const remoteSendSpy = vi
+        .spyOn(matrix.remote, 'send')
+        .mockImplementation((event) => event);
       const event = {
         name: 'SCHEMA',
         source: 'NTT',
@@ -79,6 +82,7 @@ describe('Matrix.js', () => {
       };
       matrix.dispatch(event);
       expect(inboxSpy).toHaveBeenCalledWith(event);
+      remoteSendSpy.mockRestore();
       inboxSpy.mockRestore();
     });
   });

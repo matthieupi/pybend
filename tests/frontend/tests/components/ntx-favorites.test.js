@@ -25,7 +25,7 @@ vi.mock('../../utils/Permissions.js', () => ({
 }));
 
 // Import after mocks — ntx-favorites has no named exports, just registers the custom element
-await import('../../components/ntx-favorites.js');
+await import('../../../../examples/core/static/components/ntx-favorites.js');
 
 describe('ntx-favorites.js (NTTFavorites)', () => {
 

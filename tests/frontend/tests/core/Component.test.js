@@ -71,13 +71,14 @@ describe('Component.js', () => {
   });
 
   describe('SIZES and ALIASES', () => {
-    it('should define SIZES array', () => {
-      expect(Component.SIZES).toEqual(['xs', 'sm', 'md', 'lg', 'xl']);
+    it('should define display modes including table row mode', () => {
+      expect(Component.SIZES).toEqual(['xs', 'sm', 'md', 'lg', 'xl', 'row']);
     });
 
     it('should define ALIASES map', () => {
       expect(Component.ALIASES.pill).toBe('xs');
       expect(Component.ALIASES.card).toBe('md');
+      expect(Component.ALIASES.row).toBe('row');
     });
   });
 

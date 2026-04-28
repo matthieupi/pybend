@@ -109,7 +109,7 @@ describe('NTT.js', () => {
         const inst = NTT.get('GetInst/1');
         // The instance is actually stored as string key, let's check
         // DC.children has the instance by string(id)
-        expect(DC.instances.has(1)).toBe(true);
+        expect(DC.instances.has('1')).toBe(true);
       });
 
       it('should return undefined for empty string', () => {
@@ -245,20 +245,20 @@ describe('NTT.js', () => {
 
     it('should have properties as getters/setters on prototype', () => {
       DC.READ([{ id: 99, name: 'Proto', price: 5 }]);
-      const inst = DC.instances.get(99);
+      const inst = DC.instances.get('99');
       expect(inst.name).toBe('Proto');
       expect(inst.price).toBe(5);
     });
 
     it('should throw on read-only property setter', () => {
       DC.READ([{ id: 98, name: 'RO Test', price: 5 }]);
-      const inst = DC.instances.get(98);
+      const inst = DC.instances.get('98');
       expect(() => { inst.id = 999; }).toThrow(/read-only/);
     });
 
     it('should throw TypeError on type mismatch', () => {
       DC.READ([{ id: 97, name: 'Type Test', price: 5 }]);
-      const inst = DC.instances.get(97);
+      const inst = DC.instances.get('97');
       expect(() => { inst.name = 42; }).toThrow(TypeError);
       expect(() => { inst.price = 'not a number'; }).toThrow(TypeError);
     });
@@ -317,13 +317,13 @@ describe('NTT.js', () => {
           { id: 10, name: 'A', price: 1 },
           { id: 11, name: 'B', price: 2 },
         ]);
-        expect(DC.instances.has(10)).toBe(true);
-        expect(DC.instances.has(11)).toBe(true);
+        expect(DC.instances.has('10')).toBe(true);
+        expect(DC.instances.has('11')).toBe(true);
       });
 
       it('should update existing instances', () => {
         DC.READ([{ id: 10, name: 'A-updated', price: 99 }]);
-        const inst = DC.instances.get(10);
+        const inst = DC.instances.get('10');
         expect(inst.value.name).toBe('A-updated');
       });
 
@@ -333,33 +333,33 @@ describe('NTT.js', () => {
           data: [{ id: 20, name: 'Paged', price: 5 }],
           meta: { total: 100, limit: 20, offset: 0, has_more: true }
         });
-        expect(DC.instances.has(20)).toBe(true);
+        expect(DC.instances.has('20')).toBe(true);
         expect(DC._paginationMeta.total).toBe(100);
       });
 
       it('should handle single entity response', () => {
         DC.READ({ id: 30, name: 'Single', price: 3 });
-        expect(DC.instances.has(30)).toBe(true);
+        expect(DC.instances.has('30')).toBe(true);
       });
     });
 
     describe('DynamicClass.CREATE (static)', () => {
       it('should add new instance', () => {
         DC.CREATE({ id: 50, name: 'Created', price: 10 });
-        expect(DC.instances.has(50)).toBe(true);
+        expect(DC.instances.has('50')).toBe(true);
       });
 
       it('should update existing instance on duplicate', () => {
         DC.CREATE({ id: 50, name: 'Created-v2', price: 20 });
-        expect(DC.instances.get(50).value.name).toBe('Created-v2');
+        expect(DC.instances.get('50').value.name).toBe('Created-v2');
       });
     });
 
     describe('DynamicClass.DELETE (static)', () => {
       it('should remove instance from registry', () => {
-        DC.instances.set(60, { id: 60 });
+        DC.instances.set('60', { id: 60 });
         DC.DELETE({}, { source: 'http://localhost:5000/dc_tests/60' });
-        expect(DC.instances.has(60)).toBe(false);
+        expect(DC.instances.has('60')).toBe(false);
       });
     });
 
@@ -374,7 +374,7 @@ describe('NTT.js', () => {
     describe('instance _response_', () => {
       it('should call pull() after method response', () => {
         DC.READ([{ id: 70, name: 'Resp', price: 1 }]);
-        const inst = DC.instances.get(70);
+        const inst = DC.instances.get('70');
         const pullSpy = vi.spyOn(inst, 'pull').mockReturnValue(inst);
         inst._response_({}, {});
         expect(pullSpy).toHaveBeenCalled();
@@ -395,7 +395,7 @@ describe('NTT.js', () => {
         NTT.SCHEMA(schema);
         const DC = NTT.get('ValTest');
         DC.READ([{ id: 1, name: 'Test', price: 5 }]);
-        const inst = DC.instances.get(1);
+        const inst = DC.instances.get('1');
         expect(() => { inst.value = 'not an object'; }).toThrow(TypeError);
       });
 
@@ -408,7 +408,7 @@ describe('NTT.js', () => {
         NTT.SCHEMA(schema);
         const DC = NTT.get('ValSchema');
         DC.READ([{ id: 1, name: 'Test', price: 5 }]);
-        const inst = DC.instances.get(1);
+        const inst = DC.instances.get('1');
         const val = inst.value;
         expect(val.$schema).toContain('ValSchema');
         expect(val.$id).toBeTruthy();
@@ -423,7 +423,7 @@ describe('NTT.js', () => {
         NTT.SCHEMA(schema);
         const DC = NTT.get('ValImmut');
         DC.READ([{ id: 1, name: 'Immut', price: 7 }]);
-        const inst = DC.instances.get(1);
+        const inst = DC.instances.get('1');
         const v1 = inst.value;
         const v2 = inst.value;
         expect(v1).not.toBe(v2);
@@ -439,7 +439,7 @@ describe('NTT.js', () => {
         NTT.SCHEMA(schema);
         const DC = NTT.get('ValNoPollute');
         DC.READ([{ id: 1, name: 'Clean', price: 3 }]);
-        const inst = DC.instances.get(1);
+        const inst = DC.instances.get('1');
         // Access value to trigger getter
         const val = inst.value;
         expect(val.$schema).toBeTruthy();
@@ -457,7 +457,7 @@ describe('NTT.js', () => {
         NTT.SCHEMA(schema);
         const DC = NTT.get('ValPersist');
         DC.READ([{ id: 1, name: 'Before', price: 5 }]);
-        const inst = DC.instances.get(1);
+        const inst = DC.instances.get('1');
         inst.name = 'After';
         expect(inst.name).toBe('After');
         expect(inst.value.name).toBe('After');
@@ -474,7 +474,7 @@ describe('NTT.js', () => {
         NTT.SCHEMA(schema);
         const DC = NTT.get('JSONTest');
         DC.READ([{ id: 1, name: 'JSON', price: 5 }]);
-        const inst = DC.instances.get(1);
+        const inst = DC.instances.get('1');
         const json = inst.toJSON();
         expect(json.addr).toBeTruthy();
         expect(json.href).toBeTruthy();
@@ -491,7 +491,7 @@ describe('NTT.js', () => {
         NTT.SCHEMA(schema);
         const DC = NTT.get('UpdateTest');
         DC.READ([{ id: 1, name: 'Original', price: 5 }]);
-        const inst = DC.instances.get(1);
+        const inst = DC.instances.get('1');
         // DynamicClass instances use _data (not NTT's private #data),
         // so update() spreads undefined #data with new data.
         // The new data replaces the value entirely.
@@ -511,7 +511,7 @@ describe('NTT.js', () => {
         NTT.SCHEMA(schema);
         const DC = NTT.get('PullTest');
         DC.READ([{ id: 1, name: 'Pull', price: 5 }]);
-        const inst = DC.instances.get(1);
+        const inst = DC.instances.get('1');
         const result = inst.pull();
         expect(result).toBe(inst);
       });
@@ -545,9 +545,9 @@ describe('NTT.js', () => {
         NTT.SCHEMA(schema);
         const DC = NTT.get('RegInst');
         DC.READ([{ id: 1, name: 'First', price: 1 }]);
-        expect(DC.instances.has(1)).toBe(true);
+        expect(DC.instances.has('1')).toBe(true);
         DC.READ([{ id: 1, name: 'Updated', price: 2 }]);
-        expect(DC.instances.get(1).value.name).toBe('Updated');
+        expect(DC.instances.get('1').value.name).toBe('Updated');
       });
     });
   });

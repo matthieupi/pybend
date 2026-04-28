@@ -154,17 +154,18 @@ describe('Display Mode Cascade', () => {
   });
 
   describe('SIZES and ALIASES constants', () => {
-    it('SIZES has exactly 5 entries', () => {
-      expect(Component.SIZES).toHaveLength(5);
+    it('SIZES includes the five adaptive card sizes plus row mode', () => {
+      expect(Component.SIZES).toEqual(['xs', 'sm', 'md', 'lg', 'xl', 'row']);
     });
 
     it('ALIASES maps all semantic names', () => {
-      expect(Object.keys(Component.ALIASES)).toHaveLength(5);
+      expect(Object.keys(Component.ALIASES)).toHaveLength(6);
       expect(Component.ALIASES).toHaveProperty('pill');
       expect(Component.ALIASES).toHaveProperty('list-item');
       expect(Component.ALIASES).toHaveProperty('card');
       expect(Component.ALIASES).toHaveProperty('detail');
       expect(Component.ALIASES).toHaveProperty('page');
+      expect(Component.ALIASES).toHaveProperty('row');
     });
 
     it('all ALIASES values are valid SIZES', () => {
