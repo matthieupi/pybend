@@ -32,6 +32,9 @@ from n3tx_core import config
 
 pytestmark = pytest.mark.unit
 
+TEST_AUTH_SECRET = 'test-base-user-secret-with-enough-length-32-bytes'
+TEST_AUTH_RESTORE_SECRET = 'test-base-user-restore-secret-32-bytes'
+
 
 # ===================================================================
 # Fixtures
@@ -69,11 +72,9 @@ def user_model(test_db):
 @pytest.fixture
 def configure_test_auth():
     """Configure auth with test secret."""
-    configure(jwt_secret='test-base-user-secret', jwt_expiry_hours=1)
+    configure(jwt_secret=TEST_AUTH_SECRET, jwt_expiry_hours=1)
     yield
-    # Restore to default
-    from n3tx_core import config
-    configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
+    configure(jwt_secret=TEST_AUTH_RESTORE_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 
 # ===================================================================

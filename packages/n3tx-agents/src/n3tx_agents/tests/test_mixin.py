@@ -468,7 +468,7 @@ class TestUserAuthPropagation:
             __storable__ = False
             __agent__ = True
 
-        user_ctx = {'id': 42, 'role': 'admin', 'email': 'admin@test.com'}
+        user_ctx = {'user_id': 42, 'role': 'admin', 'email': 'admin@test.com'}
 
         await AuthAgent.run(
             task='List all',

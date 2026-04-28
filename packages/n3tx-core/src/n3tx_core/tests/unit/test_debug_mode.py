@@ -15,6 +15,9 @@ from n3tx_core import config
 
 pytestmark = pytest.mark.unit
 
+TEST_AUTH_SECRET = 'test-debug-admin-secret-with-enough-length-32-bytes'
+TEST_AUTH_RESTORE_SECRET = 'test-debug-admin-restore-secret-32-bytes'
+
 
 # ===================================================================
 # Fixtures
@@ -92,9 +95,9 @@ class TestAutoAdminRegistration:
     def configure_test_auth(self):
         """Configure auth with test secret."""
         from n3tx_core.authorize import configure
-        configure(jwt_secret='test-debug-admin-secret', jwt_expiry_hours=1)
+        configure(jwt_secret=TEST_AUTH_SECRET, jwt_expiry_hours=1)
         yield
-        configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
+        configure(jwt_secret=TEST_AUTH_RESTORE_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
     def test_register_user_admin_when_debug_true(self, user_model, configure_test_auth):
         """When DEBUG=True, new registrations get role='admin'."""

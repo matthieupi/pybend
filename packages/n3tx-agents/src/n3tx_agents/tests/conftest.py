@@ -5,7 +5,8 @@ import pytest
 from n3tx_actors.actor import Actor
 from n3tx_actors.matrix import Matrix
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
-from n3tx_core.utils.registrar import registered_models
+from n3tx_core.utils.registrar import registered_models, register_model
+from n3tx_agents.thread import Thread
 
 
 @pytest.fixture(autouse=True)
@@ -31,9 +32,13 @@ def reset_actor_state():
 
 
 @pytest.fixture
-def fresh_matrix():
-    """Create an isolated Matrix instance."""
-    return Matrix()
+def fresh_matrix(tmp_path):
+    """Create an isolated Matrix instance with agent thread routing."""
+    matrix = Matrix()
+    storage = SQLiteStorage(str(tmp_path / 'threads.db'))
+    register_model(Thread, storage=storage)
+    matrix._children[Thread.__addr__] = Thread
+    return matrix
 
 
 @pytest.fixture

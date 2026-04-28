@@ -148,6 +148,19 @@ def _agent_scope(agent_addr: str, cls=None) -> str:
     return ''
 
 
+def _agent_addr(target, cls) -> str:
+    """Resolve a concrete string actor address for class or instance calls."""
+    addr = getattr(target, '_addr', '')
+    if isinstance(addr, str) and addr:
+        return addr
+
+    addr = getattr(target, '__addr__', '')
+    if isinstance(addr, str) and addr:
+        return addr
+
+    return getattr(cls, '__tablename__', cls.__name__)
+
+
 def _thread_matches_agent(thread_data: dict, agent_addr: str, cls=None) -> bool:
     thread_agent = (thread_data or {}).get('agent_addr', '')
     if not thread_agent:
@@ -409,10 +422,7 @@ class AgentMixin:
         constraints = constraints or {}
 
         # ── Agent address ──
-        agent_addr = (
-            getattr(target, '_addr', '')
-            or getattr(target, '__addr__', '')
-        )
+        agent_addr = _agent_addr(target, cls)
 
         # ── Matrix root (for request-response) ──
         root = Actor.root()
@@ -569,10 +579,7 @@ class AgentMixin:
         )
         constraints = constraints or {}
 
-        agent_addr = (
-            getattr(target, '_addr', '')
-            or getattr(target, '__addr__', '')
-        )
+        agent_addr = _agent_addr(target, cls)
 
         # ── Matrix root (for request-response) ──
         root = Actor.root()

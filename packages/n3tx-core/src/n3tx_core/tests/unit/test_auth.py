@@ -13,15 +13,24 @@ from n3tx_core import config as _config
 
 pytestmark = pytest.mark.unit
 
-# Use the n3tx config secret for restore, not the authorize package default
-_RESTORE_SECRET = _config.JWT_SECRET
+# Restore to a non-default test secret so tests do not trigger the production
+# default-secret warning during teardown.
+_RESTORE_SECRET = 'test-restore-secret-for-auth-tests-32-bytes'
 _RESTORE_EXPIRY = _config.JWT_EXPIRY_HOURS
+_TEST_SECRET = 'test-auth-secret-with-enough-length-32-bytes'
+_KNOWN_SECRET = 'known-test-secret-with-enough-length-32-bytes'
+_FIRST_SECRET = 'first-test-secret-with-enough-length-32-bytes'
+_SECOND_SECRET = 'second-test-secret-with-enough-length-32-bytes'
+_CREATE_TOKEN_SECRET = 'test-create-token-with-enough-length-32-bytes'
+_DECODE_TOKEN_SECRET = 'test-decode-token-with-enough-length-32-bytes'
+_SECRET_A = 'test-secret-a-with-enough-length-32-bytes'
+_SECRET_B = 'test-secret-b-with-enough-length-32-bytes'
 
 
 class TestConfigure:
 
     def test_sets_jwt_secret(self):
-        configure(jwt_secret='test-secret-123')
+        configure(jwt_secret=_TEST_SECRET)
         token = create_token(user_id=1, email='a@b.com')
         decoded = decode_token(token)
         assert decoded['user_id'] == 1
@@ -36,7 +45,7 @@ class TestConfigure:
         configure(jwt_expiry_hours=_RESTORE_EXPIRY)
 
     def test_none_does_not_change(self):
-        old_secret = 'known-test-secret'
+        old_secret = _KNOWN_SECRET
         configure(jwt_secret=old_secret)
         configure(jwt_secret=None)  # Should not change
         token = create_token(user_id=1, email='a@b.com')
@@ -45,10 +54,10 @@ class TestConfigure:
         configure(jwt_secret=_RESTORE_SECRET)
 
     def test_multiple_calls(self):
-        configure(jwt_secret='first')
-        configure(jwt_secret='second')
+        configure(jwt_secret=_FIRST_SECRET)
+        configure(jwt_secret=_SECOND_SECRET)
         token = create_token(user_id=1, email='a@b.com')
-        decoded = pyjwt.decode(token, 'second', algorithms=['HS256'])
+        decoded = pyjwt.decode(token, _SECOND_SECRET, algorithms=['HS256'])
         assert decoded['user_id'] == 1
         configure(jwt_secret=_RESTORE_SECRET)
 
@@ -109,7 +118,7 @@ class TestVerifyPassword:
 class TestCreateToken:
 
     def setup_method(self):
-        configure(jwt_secret='test-create-token', jwt_expiry_hours=1)
+        configure(jwt_secret=_CREATE_TOKEN_SECRET, jwt_expiry_hours=1)
 
     def teardown_method(self):
         configure(jwt_secret=_RESTORE_SECRET, jwt_expiry_hours=_RESTORE_EXPIRY)
@@ -157,7 +166,7 @@ class TestCreateToken:
 class TestDecodeToken:
 
     def setup_method(self):
-        configure(jwt_secret='test-decode-token', jwt_expiry_hours=1)
+        configure(jwt_secret=_DECODE_TOKEN_SECRET, jwt_expiry_hours=1)
 
     def teardown_method(self):
         configure(jwt_secret=_RESTORE_SECRET, jwt_expiry_hours=_RESTORE_EXPIRY)
@@ -175,7 +184,7 @@ class TestDecodeToken:
             'user_id': 1, 'email': 'a@b.com', 'role': 'user',
             'exp': 0, 'iat': 0,
         }
-        token = pyjwt.encode(payload, 'test-decode-token', algorithm='HS256')
+        token = pyjwt.encode(payload, _DECODE_TOKEN_SECRET, algorithm='HS256')
         with pytest.raises(pyjwt.ExpiredSignatureError):
             decode_token(token)
 
@@ -191,8 +200,8 @@ class TestDecodeToken:
             decode_token('not.a.valid.token.at.all')
 
     def test_wrong_secret(self):
-        configure(jwt_secret='secret-a')
+        configure(jwt_secret=_SECRET_A)
         token = create_token(user_id=1, email='a@b.com')
-        configure(jwt_secret='secret-b')
+        configure(jwt_secret=_SECRET_B)
         with pytest.raises(Exception):
             decode_token(token)

@@ -28,7 +28,8 @@ if os.path.join(_workspace, 'src') not in sys.path:
 
 from n3tx_core import config
 from n3tx_core import authorize
-authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
+TEST_JWT_SECRET = 'test-core-integration-secret-32-bytes'
+authorize.configure(jwt_secret=TEST_JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 # Import main to trigger model registration and route setup (uses production DB initially)
 os.environ["GENERATE_DOCS"] = "false"  # Skip doc generation during tests

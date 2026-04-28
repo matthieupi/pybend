@@ -40,6 +40,8 @@ from n3tx_core.ssr.html import (
     inject_css_preloads,
 )
 
+TEST_JWT_SECRET = 'test-ssr-secret-with-enough-length-32-bytes'
+
 
 # ---------------------------------------------------------------------------
 # Minimal model for SSR tests (avoids importing example models)
@@ -159,12 +161,12 @@ def db_path(tmp_path_factory):
 @pytest.fixture(scope="module")
 def ssr_app(_isolated_models, static_dir, db_path):
     """Create a N3TX app with SSR schema mode (backward compat: ssr=True)."""
-    auth_configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=1)
+    auth_configure(jwt_secret=TEST_JWT_SECRET, jwt_expiry_hours=1)
     return create_app(
         models=[SSRProduct],
         storage=SQLiteStorage(db_path),
         static_dir=static_dir,
-        jwt_secret=config.JWT_SECRET,
+        jwt_secret=TEST_JWT_SECRET,
         ssr=True,
     )
 
@@ -172,13 +174,13 @@ def ssr_app(_isolated_models, static_dir, db_path):
 @pytest.fixture(scope="module")
 def no_ssr_app(_isolated_models, static_dir, db_path):
     """Create a N3TX app with SSR disabled (default)."""
-    auth_configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=1)
+    auth_configure(jwt_secret=TEST_JWT_SECRET, jwt_expiry_hours=1)
     db_path_no_ssr = db_path.replace('.db', '_nossr.db')
     return create_app(
         models=[SSRProduct],
         storage=SQLiteStorage(db_path_no_ssr),
         static_dir=static_dir,
-        jwt_secret=config.JWT_SECRET,
+        jwt_secret=TEST_JWT_SECRET,
         ssr=False,
     )
 
@@ -197,12 +199,12 @@ def no_ssr_client(no_ssr_app):
 
 def _make_app(static_dir, db_suffix, ssr):
     """Helper to create an app with a given SSR mode and unique DB."""
-    auth_configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=1)
+    auth_configure(jwt_secret=TEST_JWT_SECRET, jwt_expiry_hours=1)
     return create_app(
         models=[SSRProduct],
         storage=SQLiteStorage(f"/tmp/test_ssr_{db_suffix}.db"),
         static_dir=static_dir,
-        jwt_secret=config.JWT_SECRET,
+        jwt_secret=TEST_JWT_SECRET,
         ssr=ssr,
     )
 
@@ -323,13 +325,13 @@ class TestSSRBundleMode:
 
     @pytest.fixture(scope="class")
     def bundle_app(self, _isolated_models, static_dir_with_modules):
-        auth_configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=1)
+        auth_configure(jwt_secret=TEST_JWT_SECRET, jwt_expiry_hours=1)
         with patch('n3tx_core.ssr.bundler.build_bundle', return_value=MOCK_BUNDLE_JS):
             return create_app(
                 models=[SSRProduct],
                 storage=SQLiteStorage("/tmp/test_ssr_bundle.db"),
                 static_dir=static_dir_with_modules,
-                jwt_secret=config.JWT_SECRET,
+                jwt_secret=TEST_JWT_SECRET,
                 ssr="bundle",
             )
 
@@ -370,13 +372,13 @@ class TestSSRFullMode:
 
     @pytest.fixture(scope="class")
     def full_app(self, _isolated_models, static_dir_with_modules):
-        auth_configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=1)
+        auth_configure(jwt_secret=TEST_JWT_SECRET, jwt_expiry_hours=1)
         with patch('n3tx_core.ssr.bundler.build_bundle', return_value=MOCK_BUNDLE_JS):
             return create_app(
                 models=[SSRProduct],
                 storage=SQLiteStorage("/tmp/test_ssr_full.db"),
                 static_dir=static_dir_with_modules,
-                jwt_secret=config.JWT_SECRET,
+                jwt_secret=TEST_JWT_SECRET,
                 ssr="full",
             )
 

@@ -322,7 +322,7 @@ class TestAgentActorAgentic:
         ))
         agent = AgentActor.get(agent.id)
 
-        user = {'id': 99, 'role': 'admin'}
+        user = {'user_id': 99, 'role': 'admin'}
         result_str = await agent.agentic(
             task='Test',
             llm=TestModel(call_tools=[]),

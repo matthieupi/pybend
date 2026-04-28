@@ -17,6 +17,9 @@ from typing import ClassVar
 from n3tx_core import config
 
 
+TEST_AUTH_RESTORE_SECRET = 'test-restore-secret-for-core-unit-tests-32-bytes'
+
+
 # ---------------------------------------------------------------------------
 # Ensure DEBUG=False for all unit tests (examples/core conftest sets it True)
 # Individual tests can opt-in to DEBUG=True via their own fixtures.
@@ -44,8 +47,9 @@ def configure_auth(jwt_secret):
     from n3tx_core import config
     configure(jwt_secret=jwt_secret, jwt_expiry_hours=1)
     yield
-    # Restore to the n3tx config secret (not the authorize package default)
-    configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
+    # Restore to a non-default test secret so tests do not trigger the
+    # production default-secret warning during teardown.
+    configure(jwt_secret=TEST_AUTH_RESTORE_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
 
 
 @pytest.fixture

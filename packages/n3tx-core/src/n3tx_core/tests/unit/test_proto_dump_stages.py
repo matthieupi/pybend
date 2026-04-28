@@ -6,7 +6,7 @@ and ProtoModel.model_response() integration.
 import pytest
 from typing import ClassVar
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from n3tx_core import config
 from n3tx_core.models.proto_model import ProtoModel
@@ -157,8 +157,7 @@ class TestInstanceUrlStage:
             __tablename__: ClassVar[str] = 'pd_noid'
             name: str = Field(default='')
 
-            class Config:
-                arbitrary_types_allowed = True
+            model_config = ConfigDict(arbitrary_types_allowed=True)
 
         inst = _NoId(name='hello')
         object.__delattr__(inst, 'id') if 'id' in inst.__dict__ else None

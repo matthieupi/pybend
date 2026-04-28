@@ -35,3 +35,10 @@ where = ["packages/n3tx/src"]
 
 [tool.setuptools.package-data]
 "n3tx_meta" = []
+
+[tool.pytest.ini_options]
+markers = [
+    "unit: fast unit-level tests",
+    "integration: integration tests that exercise multiple modules or HTTP/API flows",
+    "e2e: end-to-end/browser or full application flow tests",
+]

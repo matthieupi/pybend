@@ -36,9 +36,15 @@ from n3tx_core import config as _config
 
 pytestmark = pytest.mark.unit
 
-# Restore to n3tx config secret after tests
-_RESTORE_SECRET = _config.JWT_SECRET
+# Restore to a non-default test secret so tests do not trigger the production
+# default-secret warning during teardown.
+_RESTORE_SECRET = 'test-restore-secret-for-auth-edge-tests-32-bytes'
 _RESTORE_EXPIRY = _config.JWT_EXPIRY_HOURS
+_EDGE_SECRET = 'test-edge-cases-with-enough-length-32-bytes'
+_EDGE_HS512_SECRET = 'test-edge-cases-with-enough-length-for-hs512-minimum-64-bytes-secret'
+_TOKEN_EDGE_SECRET = 'test-token-edge-with-enough-length-32-bytes'
+_SECRET_A = 'test-secret-a-with-enough-length-32-bytes'
+_SECRET_B = 'test-secret-b-with-enough-length-32-bytes'
 
 
 # ===================================================================
@@ -49,7 +55,7 @@ class TestJWTEdgeCases:
     """JWT token validation edge cases."""
 
     def setup_method(self):
-        configure(jwt_secret='test-edge-cases', jwt_expiry_hours=1)
+        configure(jwt_secret=_EDGE_SECRET, jwt_expiry_hours=1)
 
     def teardown_method(self):
         configure(jwt_secret=_RESTORE_SECRET, jwt_expiry_hours=_RESTORE_EXPIRY)
@@ -64,7 +70,7 @@ class TestJWTEdgeCases:
             'iat': int(time.time()),
         }
         # Sign with HS512 instead of HS256
-        token = pyjwt.encode(payload, 'test-edge-cases', algorithm='HS512')
+        token = pyjwt.encode(payload, _EDGE_HS512_SECRET, algorithm='HS512')
 
         with pytest.raises(Exception):  # InvalidAlgorithmError or DecodeError
             decode_token(token)
@@ -77,7 +83,7 @@ class TestJWTEdgeCases:
             'exp': int(time.time()) + 3600,
             'iat': int(time.time()),
         }
-        token = pyjwt.encode(payload, 'test-edge-cases', algorithm='HS256')
+        token = pyjwt.encode(payload, _EDGE_SECRET, algorithm='HS256')
 
         decoded = decode_token(token)
         assert 'user_id' not in decoded
@@ -91,7 +97,7 @@ class TestJWTEdgeCases:
             'exp': int(time.time()) + 3600,
             'iat': int(time.time()),
         }
-        token = pyjwt.encode(payload, 'test-edge-cases', algorithm='HS256')
+        token = pyjwt.encode(payload, _EDGE_SECRET, algorithm='HS256')
 
         decoded = decode_token(token)
         assert decoded['user_id'] == 1
@@ -99,10 +105,10 @@ class TestJWTEdgeCases:
 
     def test_token_decode_with_wrong_secret_fails(self):
         """Tokens signed with different secret should be rejected."""
-        configure(jwt_secret='secret-a')
+        configure(jwt_secret=_SECRET_A)
         token = create_token(user_id=1, email='test@example.com')
 
-        configure(jwt_secret='secret-b')
+        configure(jwt_secret=_SECRET_B)
         with pytest.raises(Exception):  # InvalidSignatureError
             decode_token(token)
 
@@ -116,7 +122,7 @@ class TestJWTEdgeCases:
             'exp': int(time.time()) - 1,  # 1 second ago
             'iat': int(time.time()) - 3600,
         }
-        token = pyjwt.encode(payload, 'test-edge-cases', algorithm='HS256')
+        token = pyjwt.encode(payload, _EDGE_SECRET, algorithm='HS256')
 
         with pytest.raises(pyjwt.ExpiredSignatureError):
             decode_token(token)
@@ -130,7 +136,7 @@ class TestJWTEdgeCases:
             'exp': int(time.time()) + 1,  # 1 second from now
             'iat': int(time.time()),
         }
-        token = pyjwt.encode(payload, 'test-edge-cases', algorithm='HS256')
+        token = pyjwt.encode(payload, _EDGE_SECRET, algorithm='HS256')
 
         decoded = decode_token(token)
         assert decoded['user_id'] == 1
@@ -199,7 +205,7 @@ class TestTokenEdgeCases:
     """Edge cases in token creation and decoding."""
 
     def setup_method(self):
-        configure(jwt_secret='test-token-edge', jwt_expiry_hours=1)
+        configure(jwt_secret=_TOKEN_EDGE_SECRET, jwt_expiry_hours=1)
 
     def teardown_method(self):
         configure(jwt_secret=_RESTORE_SECRET, jwt_expiry_hours=_RESTORE_EXPIRY)
