@@ -154,6 +154,13 @@ When `create_thread=True`, `run()` / `run_stream()` create a new `Thread`,
 validate later reuse against the current agent address, and return the
 resulting `thread_id` so the frontend can continue the conversation.
 
+Applications that register any agent-enabled model do not need to register
+`Thread` explicitly. `N3TXApp.build()` adds it as agents infrastructure so
+thread CRUD has storage and routes before agent execution begins. Route-injected
+user model instances are normalized to the JWT-shaped `{user_id, email, role}`
+metadata expected by `Thread` authorization before thread CRUD messages are
+sent through the actor root.
+
 ### Structured output
 
 ```python

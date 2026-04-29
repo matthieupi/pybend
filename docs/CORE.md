@@ -60,7 +60,7 @@ class Product(ProtoModel):
         },
         'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
     }
-    __access__ = {                    # -> Backend enforcement + frontend UI adaptation
+    __access__ = {                    # Optional -> Backend enforcement + frontend UI adaptation
         'read': ANYONE,
         'create': AUTHENTICATED,
         'update': OWNER | ROLE('admin'),
@@ -104,6 +104,13 @@ class Product(ProtoModel):
 | Collection routes | Join model `__tablename__` | `GET /products/comments`, `GET /products/likes` |
 | Pagination | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
 | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update |
+
+If a model omits `__access__`, schema generation exposes a wildcard fallback
+(`access['*']`) that requires authentication for all actions. The Product
+example above shows an explicit ownership policy as an illustrative model-level
+contract; the shipped `examples/core` Product currently uses the authenticated
+wildcard fallback, while Comment declares owner/admin rules and protected
+`user_owner` ownership metadata.
 | Auto-generated docs | Model + schema | `generate_docs.py` on startup |
 
 ## Schema as Universal Contract
@@ -231,7 +238,7 @@ def favorite(self, user: User = None) -> str:
     ...
 ```
 
-Returns `{"action": "favorited"}` or `{"action": "unfavorited"}`. The route layer queries the join table (`ProductLike`) and creates or deletes the record.
+Returns a structured action payload such as `{"action": "favorited", "_field": "favorites", "id": 123, "user": 1}` or `{"action": "unfavorited", "_field": "favorites", "id": 123}`. The `_field` + `id` pair lets the frontend update the affected collection locally without an extra entity fetch. The route layer queries the join table (`ProductLike`) and creates or deletes the record.
 
 ### Collection Routes
 
@@ -247,11 +254,11 @@ Collection routes are registered in Pass 1 (before CRUD routes) to avoid path co
 ### Custom Methods
 
 ```python
-@expose_route('/like', methods=['POST'], access=AUTHENTICATED)
-def like(self) -> str: ...
+@expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
+def favorite(self) -> dict: ...
 ```
 
-This creates `POST /products/{id}/like`, appears in `schema.methods`, and the frontend renders it as a clickable `<ntx-method>` button -- all from one decorator. Button-layout methods (like, favorite) render as compact icon + count pills via `__ui__.methods` hints.
+This creates `POST /products/{id}/favorite`, appears in `schema.methods`, and the frontend renders it as a clickable `<ntx-method>` button -- all from one decorator. Button-layout methods (like, favorite) render as compact icon + count pills via `__ui__.methods` hints.
 
 ## Running
 

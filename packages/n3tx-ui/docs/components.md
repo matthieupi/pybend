@@ -63,6 +63,7 @@ Component (n3tx-core: shadow DOM, addr, ref, model, proto, define(), scheduleRen
 ```
 
 Standalone (no Component base): `NTTModal`, `NTTRefPicker`, `NTTTopbar`, `NTTSidebar`, `NTTProfile`.
+`ntx-favorites` and `ntx-logs` are example-local components under `examples/*/static/components`, not packaged `n3tx-ui` components.
 
 When an app shell uses `ntx-topbar`'s built-in `#@profile` menu entry, the page
 must import `./components/ntx-profile.js` during bootstrap so the router can

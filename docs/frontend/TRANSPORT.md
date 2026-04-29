@@ -21,10 +21,7 @@ The Matrix's network bridge. Created by the Matrix singleton on construction. Tr
 
 ```javascript
 // Created inside Matrix constructor:
-this.remote = new NetworkAdapter(this, url);
-
-// Also exported as a module-level singleton (legacy):
-export const remote = new NetworkAdapter('http');
+this.remote = new NetworkAdapter(this, url, mode);
 ```
 
 ### Properties
@@ -61,7 +58,9 @@ The `target` field of the TX is used directly as the URL (it's already a full UR
 are also valid targets. They resolve via the same nested routes registered by the
 backend. A READ to such a URL returns the child entity directly.
 
-If mode is `"ws"`, the event is sent as a WebSocket frame instead.
+If mode is `"ws"` and the socket is connected, the event is wrapped as a
+TX and sent over WebSocket via `socket.send(tx)`. If the socket is not ready,
+the adapter falls back to HTTP.
 
 ### httpCallback(event, response)
 
@@ -98,10 +97,10 @@ Convenience method to send a READ event to a target URL.
 
 ### sendStream(event, onChunk, onDone, onError)
 
-Unified streaming API. Sends a streaming request and routes progressive results to callbacks. Automatically selects the transport:
+Deprecated compatibility helper. The preferred path is `send()` with
+`meta.stream = true`, which uses the normal TX/HTTP streaming flow.
 
-- **WebSocket mode** (if `socket.ready`): Uses `socket.registerStream()` for chunk correlation
-- **HTTP mode** (fallback): Uses `HTTP.stream()` for SSE
+Current behavior uses `HTTP.stream()` for SSE.
 
 ```javascript
 const handle = adapter.sendStream(
@@ -140,7 +139,7 @@ Static utility class wrapping the Fetch API. All methods use `window.localStorag
 1. Creates `Headers` with `x-access-token` if JWT exists in localStorage.
 2. For POST/PUT: stringifies data to JSON, sets `Content-Type: application/json`.
 3. On success: parses response as JSON, calls `onSuccess(json)`.
-4. On 401: redirects to `/#login`.
+4. On 401: redirects to `/login.html`.
 5. On error: calls `onError(message)`.
 
 ### Static Helpers
@@ -185,58 +184,60 @@ data: {}
 
 **File:** `core/transport/Socket.js`
 
-WebSocket client with automatic heartbeat, reconnection, and message queuing.
+TX-native WebSocket client with:
 
-**Note:** WebSocket mode is not actively used in the current v0.8 development. The system defaults to HTTP mode. A WebSocket bridge connecting frontend actors to backend actors is planned for Wave 3 (see [ARCHITECTURE.md](./ARCHITECTURE.md#upcoming-backend-actor-bridge)).
+- auto-reconnect with exponential backoff
+- outbound message queue while disconnected
+- heartbeat keep-alive every 30s
+- optional JWT auth via query parameter
 
 ### Construction
 
 ```javascript
-new Socket(url, targets={}, ttl=1000)
+const socket = new Socket('ws://localhost:5000/ws');
 ```
 
-- Connects to `ws://{url}`
-- Starts a heartbeat watchdog at `ttl` interval
-- Registers itself in `Socket.resources`
+### Public Surface
 
-### State Machine
+| Property / Method | Description |
+|---|---|
+| `url` | WebSocket URL |
+| `ws` | Underlying `WebSocket` instance or `null` |
+| `ready` | `true` when the socket is open and ready to send |
+| `onmessage` | callback invoked with parsed non-heartbeat message payloads |
+| `connect(token)` | opens the socket; appends `?token=...` when provided |
+| `send(tx)` | sends `tx.repr()` or plain payload; queues if disconnected |
+| `close()` | closes the socket and disables auto-reconnect |
 
+### Usage
+
+```javascript
+const socket = new Socket(wsUrl);
+socket.onmessage = (data) => matrix.dispatch(data);
+socket.connect(token);
+socket.send(tx);
+socket.close();
 ```
-CONNECTING -> WAITING -> CONNECTED
-                |
-                v
-FAILED -> reconnect() (up to MAX_TRIES=5)
-                |
-                v
-DISCONNECTED
-```
-
-### Key Methods
-
-| Method | Description |
-|--------|-------------|
-| `connect(url)` | Opens WebSocket, sets up event handlers. |
-| `reconnect()` | Closes and reopens connection (retries up to 5 times). |
-| `disconnect()` | Closes connection, clears watchdog interval. |
-| `sendMessage(key, msg)` | Sends JSON message. Queues if not connected. |
-| `sendEvent(event)` | Sends event as raw string. |
-| `heartbeat()` | Resets LRH timer, sends heartbeat. |
-| `watchdog()` | Runs on interval. Checks connection health, triggers reconnect if needed. |
 
 ### Message Handling
 
-Incoming messages are parsed as JSON and dispatched to registered targets via `dispatchEvent(event)`. Heartbeat messages are handled internally.
+- Incoming WS frames are parsed as JSON.
+- Heartbeat frames (`{ heartbeat: true }`) are ignored.
+- All other payloads are forwarded to `socket.onmessage(data)`.
+- Outbound payloads are JSON-stringified.
 
-Queued messages (sent while disconnected) are flushed when the connection is re-established.
+### Reconnect / Queue Behavior
 
-### Target Registration
+- When the socket closes unexpectedly, reconnect is scheduled with exponential backoff.
+- Messages sent while disconnected are stored in an internal queue.
+- The queue is flushed when the socket opens successfully.
 
-```javascript
-socket.setTarget(targetAddr, callback);
-socket.removeTarget(targetAddr);
-```
+### Obsolete Contract Notes
 
-Targets receive events dispatched by the socket's `onMessage` handler.
+Older docs/tests referenced a larger Socket API with `sendEvent()`,
+`sendMessage()`, `watchdog()`, `Socket.resources`, `Socket.defaultSocket`,
+and target registration helpers. That is no longer the intended public
+contract for the current transport layer.
 
 ### Stream Correlation
 

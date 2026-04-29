@@ -181,8 +181,12 @@ Logged-out pages still honor the persisted theme but do not render `<ntx-theme-b
 Frontend verification now has two layers:
 
 - `cd /workspace/tests/frontend && npx vitest run` - JS unit tests for runtime, components, and helpers
-- `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js` - browser verification against the seeded `examples/core` app
+- `cd /workspace/tests/frontend && npm run test:e2e:fast` - parallel browser smoke for read-only/default UI contracts
+- `cd /workspace/tests/frontend && npm run test:e2e` - default fully parallel core browser lane with worker-isolated app servers and SQLite DBs
+- `cd /workspace/tests/frontend && npm run test:e2e:serial` - legacy serial shared-server browser verification against seeded `examples/core`
 - `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/veille.playwright.config.js` - Veille browser verification, including Assistant chat with deterministic `N3TX_CHAT_LLM=test`
+- `cd /workspace && python3 scripts/test-frontend.py` - aggregate frontend runner; runs selected suites concurrently with 2 suite workers by default and writes overview JSON reporting
+- `cd /workspace && python3 scripts/test-frontend.py --suite e2e-core` - script runner for the worker-isolated parallel core browser lane
 
 The Veille E2E harness seeds both the framework-provisioned `Assistant` and the
 sample `Veille Scout` agent. The dashboard contract is to render every configured
@@ -201,8 +205,47 @@ The E2E harness derives the repository root from
 `tests/frontend/tests/e2e/paths.js`, so checkouts do not need to live at a fixed
 path such as `/workspace`. Set `N3TX_REPO_ROOT=/path/to/n3tx` only for unusual
 symlinked or wrapped layouts. The Playwright server uses the currently active
-Python virtualenv (`$VIRTUAL_ENV/bin/python`) and falls back to `python3` when no
-virtualenv is active.
+Python virtualenv (`$VIRTUAL_ENV/bin/python`) when present, then falls back to
+the repo-local E2E env (`.venv-e2e/bin/python`), then `.venv/bin/python`, and
+finally system `python3`.
+
+E2E specs should prefer deterministic UI readiness helpers from
+`tests/frontend/tests/e2e/fixtures/ui.js` over fixed sleeps and `networkidle`:
+use `gotoApp()` / `reloadApp()` for `domcontentloaded` navigation, then wait for
+the specific Shadow DOM state under test with helpers such as `waitForTopbar()`,
+`waitForAuthenticatedTopbar()`, `waitForProductList()`, or
+`waitForRouterItem()`. Fixed `page.waitForTimeout(...)` calls should be reserved
+for behavior that is explicitly time-based.
+Veille chat specs should use `loginAndOpenVeilleAssistant()` and
+`sendVeilleChatTurn()` so chat turns wait for the actual stream footer, message
+count, and send-button readiness instead of sleeping for a fixed interval.
+When a browser spec is primarily validating static component DOM, schema-to-DOM
+mapping, or renderer structure, prefer moving that coverage into Vitest under
+`tests/frontend/tests/components/`, `tests/frontend/tests/generators/`, or
+`tests/frontend/tests/integration/`. Keep Playwright coverage for behavior that
+needs a real browser, backend, auth/session state, routing history, computed CSS,
+viewport layout, screenshots, or DB/API mutation flows.
+
+`tests/e2e/playwright.fast.config.js` is the parallel-safe frontend E2E lane. It
+inherits the normal core app harness but limits execution to read-only/default UI
+specs and runs with multiple workers (`4` locally, `2` in CI, or
+`N3TX_E2E_FAST_WORKERS=N`). Keep mutation-heavy suites on
+`playwright.config.js` until worker-isolated backend DBs/ports are available.
+
+`tests/e2e/playwright.parallel.config.js` is the fully parallel core lane. Specs
+import `tests/e2e/fixtures/parallel.js`, which is inert for normal configs but,
+when `N3TX_E2E_PARALLEL=1`, starts one seeded `examples/core` app per worker on
+`N3TX_E2E_PARALLEL_BASE_PORT + workerIndex` with its own temp SQLite DB. It
+defaults to 2 workers to keep local process startup and SQLite pressure stable;
+use `N3TX_E2E_PARALLEL_WORKERS=N` to tune concurrency. Grants, Veille, and explicit
+performance specs stay on their app-specific configs because they need different
+app processes and environment contracts.
+
+`scripts/test-frontend.py` runs selected top-level suites concurrently with
+2 suite workers by default (`--workers N` or `N3TX_FRONTEND_SUITE_WORKERS`
+to override). This means `unit`, `e2e-core`, `e2e-grants`, `e2e-veille`, and
+`e2e-perf` can run at the same time; `e2e-core` also uses its own internal
+worker-isolated Playwright parallelism, defaulting to 2 workers.
 
 ## Frontend Split Rationale
 

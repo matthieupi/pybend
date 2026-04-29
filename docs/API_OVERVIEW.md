@@ -182,7 +182,7 @@ class Comment(ProtoModel):
 **To Get Full Object** - Make a separate request:
 ```javascript
 // First, get the comment
-const comment = await fetch('/comments/1').then(r => r.json());
+const comment = await fetch('/products/5/comments/1').then(r => r.json());
 
 // Then, get the full user object
 const user = await fetch(`/users/${comment.user}`).then(r => r.json());
@@ -471,6 +471,12 @@ Response:
 ```
 
 The `schema()` method adds `$schema` (pointing to `{API_URL}/Schema`) and `$id` (pointing to `{API_URL}/{ClassName}`) to the top-level schema dict, and `$id` to each `$defs` entry.
+
+Custom method responses, including auth methods such as `/users/login` and
+`/users/register`, may be returned either as the method payload directly or under
+`data` when response debugging/enveloping is enabled. Browser test helpers should
+read auth tokens with `body.token ?? body.data?.token` rather than assuming only
+one envelope shape.
 
 This is useful for:
 - Dynamic form generation

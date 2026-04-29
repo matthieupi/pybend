@@ -226,7 +226,7 @@ Formidable receives these as `attachedMethods` and injects them after the target
 
 - **anyOf resolution.** When a field has `anyOf` (Pydantic optional types), `resolveAnyOf()` strips the null type and uses the remaining definition. If multiple non-null types exist, it throws -- this is a schema design issue, not a form bug.
 
-- **getListInput uses a VISIBLE_COUNT of 2.** Arrays show the first 2 items inline, then collapse the rest into a `.nested-collapsed` div with a "Show N more" button. This matches NTTItem's surgical update logic which expects this DOM structure.
+- **getListInput defaults to a visible count of 8.** Array fields render through `<ntx-list-field>`, which shows the first 8 items inline by default, then collapses the rest into a `.nested-collapsed` div with a "Show N more" button. The count is configurable with the component's `visible-count` attribute or schema UI hints (`ui.visible_count` / `ui.visibleCount`); use `visible-count="all"` or `"none"` to disable collapsing.
 
 - **Widget wrappers stamp `data-key` and `data-type`** on the editable element so that `handleInputChange()` in NTTItem can process widget-produced inputs identically to plain inputs.
 

@@ -18,6 +18,7 @@ create_app() / N3TXApp.build()
   5. Provision app assistant (optional, if app_agent=...)
   6. Create FastAPIBackend (JWT middleware, CORS, SSR)
   7. Register routes (direct or actor)
+     - actor mode re-syncs Matrix children to the finalized registered model classes
   8. Mount discovery endpoints (/_meta, /.well-known/agent.json)
   9. Mount static files (framework + app)
   |
@@ -149,6 +150,12 @@ Automatically mounted by `build()`:
 provision a static `AgentActor` during bootstrap. This is additive: existing
 seed scripts and runtime-created agents continue to work unchanged.
 
+When any registered model is agent-enabled (`__agent__ = True`, including
+`AgentActor`), bootstrap also registers the agents package's `Thread` model as
+framework infrastructure. Agent `run()` / `run_stream()` use `Thread` for
+persistent conversation history, so applications do not need to list it in
+`models=[...]` manually.
+
 ```python
 app = create_app(
     models=[Grant, Source, AgentTool, AgentActor],
@@ -185,8 +192,10 @@ When multiple directories exist, a `_CascadingStaticFiles` ASGI handler searches
 ## Gotchas
 
 - **`build()` clears global registries.** `registered_models.clear()` and `join_models.clear()` are called at the start of `build()` to support uvicorn `--reload`. This means multiple `build()` calls do not accumulate models.
+- **Actor routing re-registers finalized actor models into Matrix.** Actor subclasses may auto-register with the root Matrix at import time, before storage/test bootstrap is finalized. During `build(routing='actor')`, the finalized `registered_models` actor classes are re-registered into Matrix so routing uses the same live classes that storage was attached to.
 - **Storage URI parsing is limited.** Only `sqlite:///path` is currently supported. Passing an unrecognized URI raises `ValueError`.
 - **SSR parameter accepts multiple types.** `None` reads from config, `True` maps to `"schema"`, `False` maps to `"off"`, strings are validated against `('off', 'schema', 'bundle', 'full')`.
 - **JWT middleware is pure ASGI.** It does not use `BaseHTTPMiddleware` (which buffers response bodies and breaks SSE streaming). The token is extracted from the `x-access-token` header, not `Authorization: Bearer`.
+- **Streaming routes emit anti-buffered SSE frames.** Each frame includes a comment padding line so proxy/browser buffers flush progressive chunks instead of waiting for the stream to complete.
 - **CORS defaults to `["*"]`.** This is intentional for development. Set explicit origins in production. When `"*"` is in the origins list, `allow_credentials` is automatically set to `False`.
 - **Static files are mounted last.** `get_app()` mounts the framework static directory as a catch-all ASGI mount. All API routes and explicit file routes take precedence.

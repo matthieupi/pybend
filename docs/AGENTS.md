@@ -271,6 +271,12 @@ helpers — no transient adapters needed. Non-stream calls use
 tool calls use `Actor.root().stream()` with queues and are collapsed
 server-side into a single final tool result for the LLM.
 
+`Thread` is registered automatically during app bootstrap whenever any
+agent-enabled model is present, so applications do not need to include it in
+their model list. When custom routes inject a full user model into agent calls,
+the agent thread helpers normalize it to JWT-shaped metadata before dispatching
+Thread CRUD messages through the actor root.
+
 ---
 
 ### AgentActor (`actor.py`)

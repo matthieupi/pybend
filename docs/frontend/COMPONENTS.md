@@ -79,15 +79,15 @@ matrix.register(Component);   // Component CLASS is a Matrix child
 | `schema` | `object` | JSON Schema from proto. Cached in `_schema`. |
 | `value` | `object\|array` | Current data. **No auto-render** — subclasses decide. |
 | `defaultValue` | `object\|array` | The default passed to constructor (`{}` or `[]`). |
-| `displayMode` | `string` | Current adaptive display mode (`'xs'`, `'sm'`, `'md'`, `'lg'`, `'xl'`). |
+| `displayMode` | `string` | Current display mode (`'xs'`, `'sm'`, `'md'`, `'lg'`, `'xl'`, or table-only `'row'`). |
 | `display` | `string` | The `display` attribute value, or `'auto'`. Set to force a display mode. |
 
 ### Static Members
 
 | Member | Type | Description |
 |--------|------|-------------|
-| `SIZES` | `string[]` | `['xs', 'sm', 'md', 'lg', 'xl']` — valid abstract size names. |
-| `ALIASES` | `object` | Semantic name → size mapping: `{pill: 'xs', 'list-item': 'sm', card: 'md', detail: 'lg', page: 'xl'}`. |
+| `SIZES` | `string[]` | `['xs', 'sm', 'md', 'lg', 'xl', 'row']` — valid display mode names. `row` is reserved for table-row renderers. |
+| `ALIASES` | `object` | Semantic name → size mapping: `{pill: 'xs', 'list-item': 'sm', card: 'md', detail: 'lg', page: 'xl', row: 'row'}`. |
 | `normalizeDisplay(value)` | `function` | Resolves a display value (abstract or semantic) to an abstract size. Returns `null` for `'auto'` or unrecognized values. |
 
 ### Stylesheet Hook
@@ -120,6 +120,7 @@ Every component gets space-awareness via ResizeObserver. Sizes use abstract name
 | `md` | `card` | 400px+ | Full card: edit + form + methods |
 | `lg` | `detail` | 600px+ | Detail view (future: normally-hidden fields) |
 | `xl` | `page` | 800px+ | Page view (future: full metadata) |
+| `row` | `row` | n/a | Table row layout for `NTTRow`; not selected by ResizeObserver |
 
 **Auto mode (default):** ResizeObserver measures component width and resolves to the largest matching breakpoint.
 
@@ -226,7 +227,7 @@ set value(data) {
 ### Entity Signal Subscription
 
 When `DESCRIBE` is called, the component subscribes to the N3TX entity's signal. This means:
-- After a method call (e.g., `comment`), the entity's `_response_` handler triggers `pull()`, which re-fetches data and notifies the component via the signal.
+- After a method call, the entity's `_response_` handler either applies a structured local update (`{action, _field, id}`), updates same-entity payloads directly, or falls back to `pull()` for ambiguous / child-entity responses. Any entity value change notifies the component via the signal.
 - The subscription is cleaned up in `disconnectedCallback()` to prevent memory leaks.
 
 ### Save
@@ -296,7 +297,7 @@ constructor() {
 
 ### Pagination
 
-ListElement requests paginated data automatically. The initial `definedCallback()` sends `READ` with `{limit: 20, offset: 0}`. Concrete renderers can then read `this.proto._paginationMeta` to display count/total and a "Load More" affordance when `has_more` is true.
+ListElement requests paginated data automatically. The initial `definedCallback()` sends `READ` with `{limit: 20, offset: 0}`. Concrete renderers can then read `this.proto._paginationMeta` to display count/total and a "Load More" affordance when `has_more` is true or when the rendered item count is lower than `meta.total`.
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -607,7 +608,7 @@ Button layout uses the shared icon resolver, which maps built-in lookup tokens l
 1. `load()`: Resolves DynamicClass via `N3TX.get(this.model)`, optionally resolves N3TX instance, reads method schema.
 2. `render()`: Dispatches to `renderFieldset()`, `renderInline()`, or `renderButton()` based on layout attribute.
 3. `callMethod()`: Calls `target.call(method, payload)` on the N3TX instance or DynamicClass.
-4. `#postCall()`: Shared post-invoke logic across all layouts — displays response, triggers entity re-fetch via `_response_` handler.
+4. `#postCall()`: Shared post-invoke logic across all layouts — renders optimistic sent state. Backend replies route to the entity `_response_` handler, which locally applies structured action results, updates same-entity payloads, or pulls for ambiguous/child-entity responses.
 
 ---
 
@@ -680,10 +681,19 @@ Custom NTTItem subclass with circular avatar rendering for User entities. Wired 
 
 ## NTTFavorites
 
-**File:** `components/ntx-favorites.js`
+**File:** `examples/core/static/components/ntx-favorites.js` and `examples/actors/static/components/ntx-favorites.js`
 **Tag:** `<ntx-favorites>`
 
-Simple page wrapper that mounts `<ntx-list model="ProductLike">` at the `#@favorites` route. Accessible via the Favorites nav link in `<ntx-topbar>`.
+Example-local page wrapper that mounts `<ntx-list model="ProductLike">` at the `#@favorites` route. It is not currently a packaged `n3tx-ui` component.
+
+---
+
+## NTTLogs
+
+**File:** `examples/core/static/components/ntx-logs.js` and `examples/actors/static/components/ntx-logs.js`
+**Tag:** `<ntx-logs>`
+
+Example-local developer log viewer backed by the shared `Logging` utility. It is not currently a packaged `n3tx-ui` component. The panel keeps DOM entries lazy while closed: the badge updates from the shared log buffer, and existing entries render when the panel opens. When the panel is already open, clear resets the visible list and future log events append live. `Logging` stores entries and listeners on a browser-global singleton so duplicate module imports still notify the mounted panel.
 
 ---
 
@@ -692,7 +702,7 @@ Simple page wrapper that mounts `<ntx-list model="ProductLike">` at the `#@favor
 **File:** `components/ntx-topbar.js`
 **Tag:** `<ntx-topbar>`
 
-Navigation bar component with auth status display, login/logout, and navigation links. Authenticated users see a "Favorites" nav link (`topbar-nav` CSS block with hover transitions). Icon controls and the authenticated user menu now use borderless surface chrome.
+Navigation bar component with auth status display, login/logout, and slotted navigation links. App-specific routes such as `#@favorites` are supplied by the shell through the `nav` slot rather than hardcoded by the packaged component. Icon controls and the authenticated user menu now use borderless surface chrome.
 
 Theme controls are no longer hardcoded into the component. `ntx-topbar` exposes a manual `slot="user-menu"` insertion point inside the authenticated dropdown so pages can place `<ntx-theme-button slot="user-menu"></ntx-theme-button>` explicitly.
 
@@ -924,7 +934,7 @@ Fields with `ui.protected === true` are backend-owned and cannot be modified via
 - Extracts referenced model name from `items.$ref`
 - Resolves child tag from `$defs[model].ui.renderer.item` (falls back to `ntx-item`)
 - Renders header with model label + count badge
-- Collapses items beyond VISIBLE_COUNT (2) with show-more button
+- Collapses items beyond the configured visible count (default 8) with a show-more button
 
 ### Type Resolution
 

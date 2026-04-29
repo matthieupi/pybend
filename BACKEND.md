@@ -100,7 +100,7 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 - `packages/n3tx-core/src/n3tx_core/widgets/schema_ext.py` - Schema pipeline stage (`@schema_extension(before='ui')`)
 
 ### App Bootstrap (n3tx-core)
-- `packages/n3tx-core/src/n3tx_core/app.py` - `N3TXApp` builder + `create_app()` factory. Supports `routing='direct'` and `routing='actor'`.
+ - `packages/n3tx-core/src/n3tx_core/app.py` - `N3TXApp` builder + `create_app()` factory. Supports `routing='direct'` and `routing='actor'`. In actor mode, re-syncs Matrix children to the finalized registered actor model classes after storage registration.
 - `packages/n3tx-core/src/n3tx_core/__init__.py` - Public API re-exports
 - `packages/n3tx-core/src/n3tx_core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE, AGENT_DEFAULTS
 
@@ -136,6 +136,13 @@ class Product(ProtoModel):
 register_model(generate_join_model(Product, Comment), storage=storage_backend)
 ```
 Creates a `ProductComment` join model with auto-generated FK column. Routes become `/products/{parent_id}/comments/{id}`.
+
+### Custom Method Return Types
+`@expose_route` methods may return any import-resolvable model type, including a
+different `ProtoModel` than the route owner. With `from __future__ import
+annotations`, route registration resolves return annotations through
+`typing.get_type_hints()` before passing them to FastAPI's `response_model`, so
+patterns such as `Product.comment(...) -> Comment` remain valid and validated.
 
 ### API Response Format
 All entity responses include `$schema` (schema URL) and `$id` (instance URL), injected by `model_response()` via the dump pipeline.

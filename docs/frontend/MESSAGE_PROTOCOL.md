@@ -295,9 +295,13 @@ TX { name: comment, source: <ntx-addr>, target: http://localhost:8000/products/<
 -> Response routed back to N3TX instance
 
 Instance._response_(data):
-  this.pull()  → re-fetches entity from backend
-  → Entity signal fires → watching NTTElement components auto-update
-  → No manual setTimeout needed
+  if data has {action, _field, id}:
+    update that local collection field (e.g. favorites) without a GET
+  else if data is the same entity type:
+    update this instance directly
+  else:
+    this.pull()  → re-fetches entity from backend
+  → Entity signal fires when local state changes → watching NTTElement components auto-update
 ```
 
 ---
@@ -379,7 +383,7 @@ Step 3: NTTRouter restores slot
 | `UPDATE` | N3TX instance -> Backend | N3TX addr | backend URL | entity data | NetworkAdapter (HTTP PUT) |
 | `DELETE` | NTTItem -> DynClass | DynClass addr | entity API URL (via `ref`) | - | Routed through DynClass to NetworkAdapter (HTTP DELETE, no body) |
 | `DELETE` | Backend -> DynClass | entity URL | DynClass addr | `{message}` | `DynClass.DELETE()` — removes instance, re-notifies watchers |
-| `_response_` | Backend -> N3TX instance | backend URL | instance addr | method result | `instance._response_()` — triggers `pull()` for live update |
+| `_response_` | Backend -> N3TX instance | backend URL | instance addr | method result | `instance._response_()` — locally applies structured action results, updates same-entity payloads, otherwise triggers `pull()` |
 | `SELECT` | NTTItem -> ListElement | item addr | list addr (via `select-target` attribute) | entity ref string (e.g., `"Product/3"`) | `ListElement.SELECT()` |
 | `NAVIGATE` | ListElement -> Router | list addr | router addr (via `router` attribute) | route data (string or object) | `Router.NAVIGATE()` |
 | `BACK` | NTTRouter -> Router | router component addr | router actor addr | (ignored) | `Router.BACK()` |

@@ -101,6 +101,10 @@ Recommended verification commands:
 
 ```bash
 cd /workspace/tests/frontend && npx vitest run
+cd /workspace/tests/frontend && npm run test:e2e:fast
+cd /workspace/tests/frontend && npm run test:e2e:parallel
+cd /workspace && python3 scripts/test-frontend.py
+cd /workspace && python3 scripts/test-frontend.py --suite e2e-core
 cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/theme-toggle.spec.js
 cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/css-and-theming-unit.spec.js tests/e2e/page-load.spec.js
 ```
@@ -108,6 +112,22 @@ cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwrigh
 ### Playwright Environment
 
 - The browser harness runs against `examples/core`.
-- `tests/frontend/tests/e2e/global-setup.js` creates and seeds a temp SQLite database before the server starts.
+- `tests/frontend/tests/e2e/start-e2e-app.js` creates and seeds a temp SQLite database inside the Playwright `webServer.command` before the server starts. This avoids relying on `globalSetup` ordering for the DB marker handoff.
 - `tests/frontend/tests/e2e/global-teardown.js` removes that temp DB after the run.
-- In this workspace, Python web dependencies for the Playwright server are installed in `/workspace/.venv-e2e`; `playwright.config.js` and `global-setup.js` auto-detect and use it.
+- In this workspace, Python web dependencies for the Playwright server are installed in `/workspace/.venv-e2e`; `start-e2e-app.js` auto-detects and uses it.
+- Prefer the shared readiness helpers in `tests/frontend/tests/e2e/fixtures/ui.js`
+  (`gotoApp`, `waitForTopbar`, `waitForProductList`, etc.) instead of
+  `networkidle` plus fixed sleeps. This keeps UI tests tied to actual component
+  state and avoids adding seconds of guaranteed delay per assertion.
+- Use `tests/e2e/playwright.fast.config.js` / `npm run test:e2e:fast` for the
+  parallel read-only smoke lane. The full `playwright.config.js` suite remains
+  serial because mutation-heavy specs currently share one backend and database.
+- Use `tests/e2e/playwright.parallel.config.js` / `npm run test:e2e:parallel`
+  for the fully parallel core lane. Its `fixtures/parallel.js` worker fixture
+  starts isolated `examples/core` servers on separate ports with separate temp
+  SQLite DBs. App-specific Grants, Veille, and performance specs still use their
+  dedicated configs.
+- `scripts/test-frontend.py` is the aggregate runner. It executes selected
+  suites concurrently with 2 suite workers by default (`--workers N` or
+  `N3TX_FRONTEND_SUITE_WORKERS`) while `e2e-core` uses the worker-isolated
+  Playwright parallel config internally.

@@ -117,6 +117,11 @@ app.include_router(create_ws_routes(ws))
 
 Streaming `@expose_route(stream=True)` methods produce SSE responses. The adapter calls `stream()` internally and converts TX chunks to SSE format: `event: chunk|done|error`, `data: {json TX envelope}`.
 
+Frames are intentionally anti-buffered: each SSE message starts with a large
+comment padding line and responses set `Cache-Control: no-cache, no-transform`
+plus `X-Accel-Buffering: no`. This keeps browser/proxy stacks from coalescing
+small model-generated chunks and preserves progressive first-token delivery.
+
 ## Gotchas
 
 - **All adapters must use `auto_register=False`** and be manually registered via `matrix.register()`. They require constructor arguments and manual setup (interceptors, etc.).

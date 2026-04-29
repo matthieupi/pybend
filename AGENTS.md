@@ -553,6 +553,16 @@ For **example apps**, run from the example directory (e.g., `examples/core/`).
 For **framework code**, the relevant package directory under `packages/`.
 
 ### Tests
+Use the backend runner when checking multiple backend suites from one command. It executes each suite in a separate process with the correct working directory and `PYTHONPATH`, avoiding root-level pytest import collisions between example apps:
+
+```bash
+cd /workspace && python3 scripts/test-backend.py --list
+cd /workspace && python3 scripts/test-backend.py --suite core -- -q
+cd /workspace && python3 scripts/test-backend.py --short
+cd /workspace && python3 scripts/test-backend.py -- -q
+cd /workspace && python3 scripts/test-backend.py --fail-fast -- -q  # optional: stop after first failing suite
+```
+
 | Test suite | Command | What it covers |
 |-----------|---------|---------------|
 | Core unit tests | `cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/` | Models, storage, auth, routes, schema |
