@@ -4,8 +4,9 @@
  * Tests adding comments, viewing comments, nested replies, multi-user
  * commenting, cross-product isolation, anonymous restrictions, and edge cases.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, getToken, setToken, clearToken, USERS } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -59,6 +60,7 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
     // Comment response is double-encoded JSON (model_dump_json returns a string)
     let data = await resp.json();
     if (typeof data === 'string') data = JSON.parse(data);
+    data = data.data || data;
     expect(data.name).toBe(`Fields Check ${ts}`);
     expect(data.description).toBe('Testing response fields');
   });
@@ -78,6 +80,7 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
     expect(resp.ok()).toBe(true);
     let comment = await resp.json();
     if (typeof comment === 'string') comment = JSON.parse(comment);
+    comment = comment.data || comment;
     expect(comment.user_owner).toBe(me.user_id);
   });
 });
@@ -85,51 +88,59 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
 test.describe('Comment Lifecycle — UI Display', () => {
 
   test('comments list visible on product detail', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const hasComments = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return false;
-      return !!item.shadowRoot.querySelector('.list-field[data-value="comments"]');
+      return !!item.shadowRoot.querySelector('ntx-list-field[field="comments"]')
+        ?.shadowRoot?.querySelector('.list-field[data-value="comments"]');
     });
     expect(hasComments).toBe(true);
   });
 
   test('comment count badge shows correct number', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const count = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return -1;
-      const countEl = item.shadowRoot.querySelector('.list-field[data-value="comments"] .list-field-count');
+      const field = item.shadowRoot.querySelector('ntx-list-field[field="comments"]');
+      const countEl = field?.shadowRoot?.querySelector('.list-field-count');
       return countEl ? parseInt(countEl.textContent) : -1;
     });
     expect(count).toBeGreaterThanOrEqual(0);
   });
 
   test('comment method button visible on product detail', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const hasCommentMethod = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -140,19 +151,21 @@ test.describe('Comment Lifecycle — UI Display', () => {
   });
 
   test('comment items rendered as ntx-item sub-components', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const commentItemCount = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return 0;
-      const listField = item.shadowRoot.querySelector('.list-field[data-value="comments"]');
+      const listField = item.shadowRoot.querySelector('ntx-list-field[field="comments"]')?.shadowRoot;
       if (!listField) return 0;
       return listField.querySelectorAll('ntx-item').length;
     });
@@ -193,6 +206,7 @@ test.describe('Comment Lifecycle — Nested Replies', () => {
     // Reply response is double-encoded JSON
     let reply = await replyResp.json();
     if (typeof reply === 'string') reply = JSON.parse(reply);
+    reply = reply.data || reply;
     expect(reply.parent_id).toBe(commentId);
   });
 });
@@ -297,6 +311,7 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
     expect(resp.ok()).toBe(true);
     let comment = await resp.json();
     if (typeof comment === 'string') comment = JSON.parse(comment);
+    comment = comment.data || comment;
     expect(comment.name).toBe(specialName);
     expect(comment.description).toBe('Testing <script>alert(1)</script>');
   });
@@ -312,6 +327,7 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
     expect(resp.ok()).toBe(true);
     let comment = await resp.json();
     if (typeof comment === 'string') comment = JSON.parse(comment);
+    comment = comment.data || comment;
     expect(comment.name).toBe(unicodeName);
   });
 

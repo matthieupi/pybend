@@ -1,18 +1,25 @@
 /**
  * Authentication UI & Flow — E2E Tests
  */
-import { test, expect } from '@playwright/test';
-import { loginAs, logout, USERS, getToken } from './fixtures/auth.js';
+import { test, expect } from './fixtures/parallel.js';
+import { loginAs, USERS, getToken } from './fixtures/auth.js';
+import {
+  gotoApp,
+  reloadApp,
+  waitForAnonymousTopbar,
+  waitForAuthenticatedTopbar,
+  waitForTopbar,
+} from './fixtures/ui.js';
 
 const APP_URL = '/';
 
 test.describe('Authentication', () => {
 
   test('anonymous topbar shows "Sign in" link', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await page.evaluate(() => window.localStorage.removeItem('jwtToken'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+    await reloadApp(page);
+    await waitForAnonymousTopbar(page);
 
     const hasSignIn = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.signin-link');
@@ -21,9 +28,8 @@ test.describe('Authentication', () => {
   });
 
   test('authenticated topbar shows user pill', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
 
     const hasPill = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.user-pill');
@@ -32,9 +38,8 @@ test.describe('Authentication', () => {
   });
 
   test('user pill shows initial and name', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
 
     const userName = await page.locator('ntx-topbar').evaluate((el) => {
       const nameEl = el.shadowRoot?.querySelector('.user-name');
@@ -44,16 +49,17 @@ test.describe('Authentication', () => {
     expect(userName.length).toBeGreaterThan(0);
   });
 
-  test('user dropdown contains email, role, theme toggle, logout', async ({ page }) => {
-    await page.goto(APP_URL);
+  test('user dropdown contains email, role, slotted theme control, logout', async ({ page }) => {
+    await gotoApp(page, APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
 
     const dropdown = await page.locator('ntx-topbar').evaluate((el) => {
       const dd = el.shadowRoot?.querySelector('.user-dropdown');
       return {
         hasEmail: !!dd?.querySelector('.dropdown-email'),
-        hasThemeToggle: !!dd?.querySelector('.theme-toggle'),
+        hasThemeToggle: !!dd?.querySelector('slot[name="user-menu"]')
+          ?.assignedElements({ flatten: true })
+          .some((node) => node.localName === 'ntx-theme-button'),
         hasLogout: !!dd?.querySelector('.logout-btn'),
         hasProfile: !!dd?.querySelector('[href="#@profile"]'),
       };
@@ -82,13 +88,12 @@ test.describe('Authentication', () => {
   });
 
   test('token validation — reload preserves auth state', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
 
     // Reload without clearing token
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
+    await reloadApp(page);
+    await waitForAuthenticatedTopbar(page);
 
     // Should still be authenticated
     const hasPill = await page.locator('ntx-topbar').evaluate((el) => {
@@ -109,22 +114,21 @@ test.describe('Authentication', () => {
     expect(user.user_id).toBeDefined();
   });
 
-  test('favorites link visible when authenticated', async ({ page }) => {
-    await page.goto(APP_URL);
+  test('favorites link is not hardcoded by packaged topbar', async ({ page }) => {
+    await gotoApp(page, APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
 
     const hasFavoritesLink = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('[href="#@favorites"]');
     });
-    expect(hasFavoritesLink).toBe(true);
+    expect(hasFavoritesLink).toBe(false);
   });
 
   test('favorites link hidden when anonymous', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await page.evaluate(() => window.localStorage.removeItem('jwtToken'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+    await reloadApp(page);
+    await waitForTopbar(page);
 
     const hasFavoritesLink = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('[href="#@favorites"]');

@@ -4,8 +4,9 @@
  * Tests complete create, read, update, and delete flows for products,
  * including API and UI verification, edge cases, and persistence checks.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, logout, getToken, setToken, clearToken, USERS } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -53,35 +54,33 @@ test.describe('Product CRUD — Create via API', () => {
   });
 
   test('created product appears in UI after reload', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
     const token = await page.evaluate(() => window.localStorage.getItem('jwtToken'));
     const ts = Date.now();
     const productName = `UI Verify ${ts}`;
 
-    await page.request.post('/products', {
+    const createResp = await page.request.post('/products', {
       headers: { 'x-access-token': token },
       data: { name: productName, price: 33.50 },
     });
+    expect(createResp.ok()).toBe(true);
+    const created = await createResp.json();
 
-    // Reload and check UI
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(3000);
-
-    const names = await page.locator('#product-list').evaluate((list) => {
-      const items = list.shadowRoot?.querySelectorAll('ntx-item');
-      if (!items) return [];
-      return Array.from(items).map(item => {
-        const nameEl = item.shadowRoot?.querySelector('[data-value="name"]');
-        return nameEl?.textContent || '';
-      });
-    });
-
-    const found = names.some(n => n.includes(productName));
-    expect(found).toBe(true);
+    // Navigate directly to the created entity. The list is paginated, so a new
+    // record may not be on the first loaded page after reload.
+    await gotoApp(page, `${APP_URL}#Product/${created.id}`);
+    await waitForAppReady(page);
+    await page.waitForFunction((expected) => {
+      const r = document.querySelector('ntx-router');
+      const item = r?.shadowRoot?.querySelector('ntx-item');
+      const card = item?.shadowRoot?.querySelector('.card:not(.skeleton)');
+      return card?.textContent?.includes(expected);
+    }, productName);
   });
 
   test('anonymous user cannot create product (403)', async ({ page }) => {
@@ -212,9 +211,28 @@ test.describe.serial('Product CRUD — Update Flow', () => {
   });
 
   test('updated product visible in UI after reload', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/${productId}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    if (!productId) {
+      token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
+      const createResp = await page.request.post('/products', {
+        headers: { 'x-access-token': token },
+        data: { name: 'Updated Product Name', price: 99.99, description: 'Updated description' },
+      });
+      expect(createResp.ok()).toBe(true);
+      const product = await createResp.json();
+      productId = product.id;
+    }
+    token = token || await getToken(page.request, USERS.alice.email, USERS.alice.password);
+    await gotoApp(page, APP_URL);
+    await setToken(page, token);
+    await gotoApp(page, `${APP_URL}#Product/${productId}`);
+
+    await waitForAppReady(page);
+    await page.waitForFunction(() => {
+      const r = document.querySelector('ntx-router');
+      const item = r?.shadowRoot?.querySelector('ntx-item');
+      const card = item?.shadowRoot?.querySelector('.card:not(.skeleton)');
+      return card?.textContent?.includes('Updated Product Name');
+    });
 
     const content = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -239,14 +257,16 @@ test.describe('Product CRUD — UI Edit Flow', () => {
 
   test('edit button visible for authenticated user on product detail', async ({ page }) => {
     // Product model has access {"*": "authenticated"} so any auth user can edit
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const hasEditBtn = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -256,21 +276,23 @@ test.describe('Product CRUD — UI Edit Flow', () => {
   });
 
   test('edit mode shows form inputs', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     // Click edit button
     await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       item?.shadowRoot?.querySelector('.edit-btn')?.click();
     });
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     // Verify edit mode has input fields
     const hasInputs = await page.locator('ntx-router').evaluate((r) => {
@@ -281,15 +303,18 @@ test.describe('Product CRUD — UI Edit Flow', () => {
   });
 
   test('anonymous user sees no edit button on product detail', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await clearToken(page);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+    await clearToken(page);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const hasEditBtn = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -328,12 +353,13 @@ test.describe('Product CRUD — Edge Cases', () => {
     expect(product.name).toBe(xssName);
 
     // Navigate to product detail and verify no script execution
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await setToken(page, token);
-    await page.goto(`${APP_URL}#Product/${product.id}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/${product.id}`);
+
+    await waitForAppReady(page);
 
     // No alert dialog should have appeared
     const pageStable = await page.evaluate(() => document.body.children.length > 0);
@@ -461,9 +487,28 @@ test.describe.serial('Product CRUD — Create Update Verify Persistence', () => 
   });
 
   test('verify updated name persists in UI after reload', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/${productId}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    if (!productId) {
+      token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
+      const createResp = await page.request.post('/products', {
+        headers: { 'x-access-token': token },
+        data: { name: 'Lifecycle Updated', price: 50.00, description: 'Lifecycle test' },
+      });
+      expect(createResp.ok()).toBe(true);
+      const product = await createResp.json();
+      productId = product.id;
+    }
+    token = token || await getToken(page.request, USERS.alice.email, USERS.alice.password);
+    await gotoApp(page, APP_URL);
+    await setToken(page, token);
+    await gotoApp(page, `${APP_URL}#Product/${productId}`);
+
+    await waitForAppReady(page);
+    await page.waitForFunction(() => {
+      const r = document.querySelector('ntx-router');
+      const item = r?.shadowRoot?.querySelector('ntx-item');
+      const card = item?.shadowRoot?.querySelector('.card:not(.skeleton)');
+      return card?.textContent?.includes('Lifecycle Updated');
+    });
 
     const content = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');

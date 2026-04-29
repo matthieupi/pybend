@@ -1,37 +1,34 @@
 /**
  * Favorites — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, getToken, USERS } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForRouterContent, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
 test.describe('Favorites', () => {
 
-  test('favorites link visible for authenticated user', async ({ page }) => {
+  test('favorites link is not hardcoded by packaged topbar', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
+    await waitForAppReady(page);
 
     const hasFavLink = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('a[href="#@favorites"]');
     });
 
-    expect(hasFavLink).toBe(true);
+    expect(hasFavLink).toBe(false);
   });
 
-  test('clicking favorites navigates to #@favorites', async ({ page }) => {
+  test('direct favorites route updates hash to #@favorites', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
+    await waitForAppReady(page);
 
-    // Click the favorites link
-    await page.locator('ntx-topbar').evaluate((el) => {
-      const link = el.shadowRoot?.querySelector('a[href="#@favorites"]');
-      link?.click();
-    });
+    await page.evaluate(() => { window.location.hash = '#@favorites'; });
 
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     const hash = await page.evaluate(() => window.location.hash);
     expect(hash).toBe('#@favorites');
@@ -40,11 +37,15 @@ test.describe('Favorites', () => {
   test('favorites page renders ntx-favorites component', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
+    await waitForAppReady(page);
 
     // Navigate to favorites
     await page.evaluate(() => { window.location.hash = '#@favorites'; });
-    await page.waitForTimeout(2000);
+    await waitForRouterContent(page);
+    await page.waitForFunction(() => {
+      const router = document.querySelector('ntx-router');
+      return !!router?.shadowRoot?.querySelector('.router-content ntx-favorites');
+    });
 
     const hasFavoritesComponent = await page.evaluate(() => {
       // ntx-favorites may be inside ntx-router's shadowRoot
@@ -61,11 +62,15 @@ test.describe('Favorites', () => {
   test('favorites page contains ntx-list for ProductLike', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
+    await waitForAppReady(page);
 
     // Navigate to favorites
     await page.evaluate(() => { window.location.hash = '#@favorites'; });
-    await page.waitForTimeout(2000);
+    await waitForRouterContent(page);
+    await page.waitForFunction(() => {
+      const router = document.querySelector('ntx-router');
+      return !!router?.shadowRoot?.querySelector('.router-content ntx-favorites ntx-list');
+    });
 
     const listInfo = await page.evaluate(() => {
       const router = document.querySelector('ntx-router');
@@ -123,8 +128,9 @@ test.describe('Favorites', () => {
   test('favorites not visible for anonymous user', async ({ page }) => {
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.removeItem('jwtToken'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const hasFavLink = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('a[href="#@favorites"]');
@@ -136,12 +142,13 @@ test.describe('Favorites', () => {
   test('direct navigation to #@favorites without auth', async ({ page }) => {
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.removeItem('jwtToken'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(500);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     // Navigate directly to favorites
     await page.evaluate(() => { window.location.hash = '#@favorites'; });
-    await page.waitForTimeout(2000);
+    await waitForRouterContent(page);
 
     // Page should not crash
     const pageStable = await page.evaluate(() => {

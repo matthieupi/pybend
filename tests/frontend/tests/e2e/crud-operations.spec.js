@@ -1,8 +1,9 @@
 /**
  * CRUD Operations — E2E Tests (Requires Auth)
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, logout } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -11,12 +12,12 @@ test.describe('CRUD Operations', () => {
   test('edit product as owner — modify name and save', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
     // Navigate to a product detail
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     // Check if edit button is visible (alice may own this product)
     const hasEditBtn = await page.locator('ntx-router').evaluate((r) => {
@@ -31,7 +32,7 @@ test.describe('CRUD Operations', () => {
         const item = r.shadowRoot?.querySelector('ntx-item');
         item?.shadowRoot?.querySelector('.edit-btn')?.click();
       });
-      await page.waitForTimeout(500);
+      await waitForUiSettled(page);
 
       // Verify edit mode — should have inputs
       const hasInputs = await page.locator('ntx-router').evaluate((r) => {
@@ -45,12 +46,12 @@ test.describe('CRUD Operations', () => {
   test('edit denied for non-owner — edit button not visible', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'bob');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
     // Navigate to product 1 (owned by alice or system user)
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     // Check user_owner field — if bob doesn't own it, edit should be hidden
     const editBtnInfo = await page.locator('ntx-router').evaluate((r) => {
@@ -66,9 +67,9 @@ test.describe('CRUD Operations', () => {
   });
 
   test('changes persist after reload', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Get initial product count
     const initialCount = await page.evaluate(() => {
@@ -77,8 +78,9 @@ test.describe('CRUD Operations', () => {
     });
 
     // Reload the page
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const afterCount = await page.evaluate(() => {
       const DC = window.NTT.get('Product');
@@ -91,12 +93,14 @@ test.describe('CRUD Operations', () => {
   test('anonymous user cannot see edit/delete buttons', async ({ page }) => {
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.removeItem('jwtToken'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await reloadApp(page);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const hasActionBtns = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -111,11 +115,12 @@ test.describe('CRUD Operations', () => {
   test('protected fields not editable in edit mode', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     // If edit is available, verify protected fields are hidden
     const hasEditBtn = await page.locator('ntx-router').evaluate((r) => {
@@ -128,7 +133,7 @@ test.describe('CRUD Operations', () => {
         const item = r.shadowRoot?.querySelector('ntx-item');
         item?.shadowRoot?.querySelector('.edit-btn')?.click();
       });
-      await page.waitForTimeout(500);
+      await waitForUiSettled(page);
 
       // user_owner is protected — should NOT have an input
       const hasProtectedInput = await page.locator('ntx-router').evaluate((r) => {

@@ -7,6 +7,7 @@
  */
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { scheduler } from 'node:timers/promises';
 import { PYTHON_BIN, repoPath } from '../paths.js';
 
 const execFileAsync = promisify(execFile);
@@ -63,7 +64,7 @@ export async function waitForServer(baseURL = 'http://localhost:5000', timeoutMs
     } catch {
       // Server not ready yet
     }
-    await new Promise(r => setTimeout(r, 500));
+    await scheduler.wait(500);
   }
   throw new Error(`Server not ready after ${timeoutMs}ms`);
 }

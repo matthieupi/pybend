@@ -11,6 +11,32 @@ from playwright.sync_api import sync_playwright
 BASE = "http://127.0.0.1:5000"  # Patched by conftest
 
 
+def wait_for_chat_ready(page, timeout=10000):
+    page.wait_for_function("""() => {
+        const chat = document.querySelector('ntx-chat');
+        const root = chat?.shadowRoot;
+        const select = root?.querySelector('.instance-select');
+        return !!root?.querySelector('textarea')
+            && !!root?.querySelector('.send-btn')
+            && !!select
+            && select.options.length > 0
+            && select.value !== '';
+    }""", timeout=timeout)
+
+
+def wait_for_chat_response(page, timeout=15000):
+    page.wait_for_function("""() => {
+        const chat = document.querySelector('ntx-chat');
+        const messages = chat?.shadowRoot?.querySelectorAll('.msg') || [];
+        if (messages.length < 2) return false;
+        const lastMsg = messages[messages.length - 1];
+        const role = lastMsg.querySelector('.msg-role')?.textContent;
+        const text = lastMsg.querySelector('.entry-text-output-content')?.textContent
+            || lastMsg.querySelector('.msg-text')?.textContent;
+        return role === 'assistant' && !!text && text.length > 0;
+    }""", timeout=timeout)
+
+
 def _unwrap_stream_event(event):
     """Unwrap actor-style STREAM envelopes down to the inner event payload."""
     data = event
@@ -92,8 +118,7 @@ class TestChatWidgetLoads:
         """Widget should populate the instance select with products."""
         page.goto(f"{e2e_server}/")
         page.wait_for_load_state("networkidle")
-        # Wait for schema + instances to load
-        page.wait_for_timeout(1000)
+        wait_for_chat_ready(page)
         options = page.evaluate("""() => {
             const chat = document.querySelector('ntx-chat');
             if (!chat?.shadowRoot) return [];
@@ -114,7 +139,7 @@ class TestChatWidgetStreaming:
         page = authed_page
         page.goto(f"{base}/")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)  # Let schema + instances load
+        wait_for_chat_ready(page)
 
         # Use page.evaluate to interact with shadow DOM and verify full pipeline
         result = page.evaluate("""async (base) => {
@@ -135,35 +160,22 @@ class TestChatWidgetStreaming:
             // Click send
             sendBtn.click();
 
-            // Wait for response to appear (up to 10s)
-            let attempts = 0;
-            let messages;
-            while (attempts < 100) {
-                await new Promise(r => setTimeout(r, 100));
-                messages = chat.shadowRoot.querySelectorAll('.msg');
-                // We expect at least user msg + assistant response
-                if (messages.length >= 2) {
-                    const lastMsg = messages[messages.length - 1];
-                    const role = lastMsg.querySelector('.msg-role')?.textContent;
-                    if (role === 'assistant') {
-                        const text = lastMsg.querySelector('.msg-text')?.textContent;
-                        if (text && text.length > 0) {
-                            return {
-                                messageCount: messages.length,
-                                assistantText: text,
-                                userText: messages[0].querySelector('.msg-text')?.textContent,
-                            };
-                        }
-                    }
-                }
-                attempts++;
-            }
-            return {
-                error: 'timeout waiting for response',
-                messageCount: messages?.length || 0,
-                html: chat.shadowRoot.querySelector('.chat-messages')?.innerHTML?.slice(0, 300),
-            };
+            return { ok: true };
         }""", base)
+
+        assert 'error' not in result, f"E2E setup failed: {result}"
+        wait_for_chat_response(page)
+        result = page.evaluate("""() => {
+            const chat = document.querySelector('ntx-chat');
+            const messages = chat.shadowRoot.querySelectorAll('.msg');
+            const lastMsg = messages[messages.length - 1];
+            return {
+                messageCount: messages.length,
+                assistantText: lastMsg.querySelector('.entry-text-output-content')?.textContent
+                    || lastMsg.querySelector('.msg-text')?.textContent,
+                userText: messages[0].querySelector('.msg-text')?.textContent,
+            };
+        }""")
 
         assert 'error' not in result, f"E2E failed: {result}"
         assert result['messageCount'] >= 2, f"Expected >= 2 messages, got {result['messageCount']}"

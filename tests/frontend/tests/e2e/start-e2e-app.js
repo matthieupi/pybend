@@ -8,6 +8,7 @@ import { spawn, execFileSync } from 'child_process';
 import { existsSync, mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { scheduler } from 'node:timers/promises';
 import { PYTHON_BIN, PYTHONPATH, REPO_ROOT, repoPath } from './paths.js';
 
 const APPS = {
@@ -67,6 +68,7 @@ if (!existsSync(app.dir)) {
 const tmpDir = mkdtempSync(join(tmpdir(), app.tmpPrefix));
 const dbPath = join(tmpDir, app.dbName);
 const markerPath = process.env[app.markerEnv] || join(tmpdir(), app.defaultMarker);
+const pidMarkerPath = `${markerPath}.pid`;
 const profilingDir = process.env.NTT_PROFILING_DIR || join(REPO_ROOT, '.traces/.profiling');
 
 writeFileSync(markerPath, dbPath);
@@ -79,6 +81,7 @@ const env = {
   N3TX_PORT: app.port,
   NTT_PORT: app.port,
   N3TX_API_URL: `http://localhost:${app.port}`,
+  N3TX_DEBUG: 'false',
   [app.markerEnv]: markerPath,
   NTT_PROFILING_DIR: profilingDir,
   ...(app.extraEnv || {}),
@@ -89,24 +92,44 @@ execFileSync(PYTHON_BIN, ['seed.py', app.resetArg].filter(Boolean), {
   cwd: app.dir,
   env,
   stdio: 'pipe',
-  timeout: appName === 'perf' ? 60000 : 30000,
+  timeout: 60000,
 });
 
 console.error(`[E2E] Starting ${appName} app on port ${app.port}`);
-const child = spawn(PYTHON_BIN, ['main.py'], {
-  cwd: app.dir,
-  env,
-  stdio: 'inherit',
-});
+let child = null;
+let shuttingDown = false;
+
+const startChild = () => {
+  child = spawn(PYTHON_BIN, ['main.py'], {
+    cwd: app.dir,
+    env,
+    detached: true,
+    stdio: 'ignore',
+  });
+  child.unref();
+  writeFileSync(pidMarkerPath, String(child.pid));
+
+  child.on('exit', (code, signal) => {
+    if (shuttingDown) {
+      process.exit(code ?? 0);
+      return;
+    }
+    console.error(`[E2E] ${appName} app exited unexpectedly (code=${code}, signal=${signal}); restarting`);
+    scheduler.wait(500).then(() => {
+      if (!shuttingDown) startChild();
+    });
+  });
+};
 
 const forward = (signal) => {
-  if (!child.killed) child.kill(signal);
+  shuttingDown = true;
+  // Do not forward Playwright webServer lifecycle signals to the app process.
+  // global-teardown.js owns final cleanup via the PID marker.
+  process.exit(0);
 };
 
 process.on('SIGTERM', () => forward('SIGTERM'));
 process.on('SIGINT', () => forward('SIGINT'));
 
-child.on('exit', (code, signal) => {
-  if (signal) process.kill(process.pid, signal);
-  process.exit(code ?? 0);
-});
+startChild();
+setInterval(() => {}, 60_000);

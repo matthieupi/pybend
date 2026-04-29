@@ -5,16 +5,16 @@
  * and interaction states. Uses computed style inspection rather than
  * pixel-level screenshot comparison (no baseline images required).
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForRouterItem } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
 test.describe('Visual Regression', () => {
 
   test('CSS variables resolve (no raw var() in computed styles)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForAppReady(page);
 
     const unresolved = await page.evaluate(() => {
       const root = document.documentElement;
@@ -38,10 +38,10 @@ test.describe('Visual Regression', () => {
   });
 
   test('dark theme surface is dark', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'dark'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+    await reloadApp(page);
+    await waitForAppReady(page);
 
     const surfaceValue = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
@@ -56,10 +56,10 @@ test.describe('Visual Regression', () => {
   });
 
   test('light theme surface is light', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'light'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+    await reloadApp(page);
+    await waitForAppReady(page);
 
     const surfaceValue = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
@@ -72,8 +72,8 @@ test.describe('Visual Regression', () => {
   });
 
   test('accent color defined and non-empty', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+    await waitForAppReady(page);
 
     const accent = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
@@ -84,9 +84,8 @@ test.describe('Visual Regression', () => {
   });
 
   test('typography uses expected font family', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+    await waitForAppReady(page);
 
     const fontFamily = await page.evaluate(() => {
       return getComputedStyle(document.body).fontFamily;
@@ -102,9 +101,8 @@ test.describe('Visual Regression', () => {
 
   test('list items render at xs display mode on small viewport', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 640 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForAppReady(page);
 
     const displays = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
@@ -125,9 +123,8 @@ test.describe('Visual Regression', () => {
 
   test('list items render at larger display mode on wide viewport', async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 800 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForAppReady(page);
 
     const displays = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
@@ -148,9 +145,8 @@ test.describe('Visual Regression', () => {
 
   test('detail view renders at xl display mode', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+    await waitForAppReady(page);
 
     const detailDisplay = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -166,8 +162,8 @@ test.describe('Visual Regression', () => {
   });
 
   test('border variable resolves to a color', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+    await waitForAppReady(page);
 
     const borderVal = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
@@ -178,10 +174,10 @@ test.describe('Visual Regression', () => {
   });
 
   test('no unstyled flash — theme applied immediately', async ({ page }) => {
-    await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'dark'));
-    await page.goto(APP_URL);
+    await page.addInitScript(() => window.localStorage.setItem('ntx-theme', 'dark'));
+    await gotoApp(page, APP_URL);
 
-    // Check immediately on page load (before networkidle)
+    // Check immediately on page load before the app-level readiness wait.
     const theme = await page.evaluate(() => {
       return document.documentElement.dataset.theme;
     });
@@ -190,9 +186,8 @@ test.describe('Visual Regression', () => {
   });
 
   test('screenshot list view without errors', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForAppReady(page);
 
     // Take a screenshot to verify no visual crash
     const screenshot = await page.screenshot();
@@ -201,9 +196,8 @@ test.describe('Visual Regression', () => {
   });
 
   test('screenshot detail view without errors', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+    await waitForAppReady(page);
 
     const screenshot = await page.screenshot();
     expect(screenshot).toBeTruthy();
@@ -212,16 +206,16 @@ test.describe('Visual Regression', () => {
 
   test('dark and light theme produce different screenshots', async ({ page }) => {
     // Dark theme screenshot
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'dark'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+    await reloadApp(page);
+    await waitForAppReady(page);
     const darkShot = await page.screenshot();
 
     // Light theme screenshot
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'light'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+    await reloadApp(page);
+    await waitForAppReady(page);
     const lightShot = await page.screenshot();
 
     // Screenshots should be different (different themes)
@@ -236,9 +230,10 @@ test.describe('Visual Regression', () => {
 
   test('text colors resolve and differ between themes', async ({ page }) => {
     // Dark theme text
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'dark'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+    await waitForAppReady(page);
 
     const darkText = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)
@@ -247,7 +242,8 @@ test.describe('Visual Regression', () => {
 
     // Light theme text
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'light'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+    await waitForAppReady(page);
 
     const lightText = await page.evaluate(() => {
       return getComputedStyle(document.documentElement)

@@ -22,7 +22,7 @@ def _login(page, email="alice@example.com", password="alice123"):
         "password": password,
     })
     body = resp.json()
-    token = body.get("token")
+    token = body.get("token") or (body.get("data") or {}).get("token")
     assert token, f"Login failed: {body}"
     # Inject token into localStorage (Permissions.js reads from 'jwtToken')
     page.evaluate(f"() => localStorage.setItem('jwtToken', '{token}')")
@@ -56,6 +56,18 @@ def _open_create_row(page, timeout=10000):
         // Not open yet — try clicking the add button
         table.shadowRoot?.querySelector('.inline-add-btn')?.click();
         return false;
+    }""", timeout=timeout)
+
+
+def _wait_for_validation_errors(page, timeout=5000):
+    """Wait until client-side validation has marked the create row invalid."""
+    page.wait_for_function("""() => {
+        const table = document.querySelector('#grant-table');
+        const row = table?.shadowRoot?.querySelector('.create-row');
+        if (!row || row.style.display === 'none') return false;
+        if (row.classList.contains('loading')) return false;
+        return row.querySelectorAll('.input-error').length > 0
+            && row.querySelectorAll('.cell-error-msg').length > 0;
     }""", timeout=timeout)
 
 
@@ -96,7 +108,7 @@ def test_create_grant_title_only_client_validation():
             const table = document.querySelector('#grant-table');
             table.shadowRoot.querySelector('.save-create-btn').click();
         }""")
-        page.wait_for_timeout(500)
+        _wait_for_validation_errors(page)
 
         # Inspect the create row for validation error indicators
         result = page.evaluate("""() => {
@@ -238,7 +250,7 @@ def test_create_grant_title_only_detailed_feedback_analysis():
             const table = document.querySelector('#grant-table');
             table.shadowRoot.querySelector('.save-create-btn').click();
         }""")
-        page.wait_for_timeout(300)
+        _wait_for_validation_errors(page)
 
         feedback = page.evaluate("""() => {
             const table = document.querySelector('#grant-table');
@@ -340,7 +352,7 @@ def test_create_grant_title_only_error_visibility():
             row.querySelector('[data-key="title"]').value = 'Visibility Test';
             table.shadowRoot.querySelector('.save-create-btn').click();
         }""")
-        page.wait_for_timeout(500)
+        _wait_for_validation_errors(page)
 
         visibility = page.evaluate("""() => {
             const table = document.querySelector('#grant-table');

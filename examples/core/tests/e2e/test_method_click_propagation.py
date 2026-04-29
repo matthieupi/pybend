@@ -6,7 +6,7 @@ detail page. Edit/delete/confirm buttons work correctly (they stop
 propagation), but method buttons do not.
 
 Validates:
-  1. Clicking a like button on a card does NOT change the URL hash
+  1. Clicking a favorite button on a product card does NOT change the URL hash
   2. Clicking a favorite button on a card does NOT navigate to detail view
   3. After clicking a method button, the list view remains visible
   4. The method's POST request still fires successfully (action works)
@@ -43,6 +43,17 @@ def _wait_for_list_items(page, timeout=10000):
         }
         return false;
     }""", timeout=timeout)
+
+
+def _wait_for_render_settle(page):
+    """Wait for queued event/render work without adding a fixed sleep."""
+    page.evaluate("""() => new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    })""")
+
+
+def _method_response_predicate(method_name):
+    return lambda resp: resp.request.method == "POST" and f"/{method_name}" in resp.url
 
 
 def _find_method_button(page, method_name):
@@ -108,12 +119,12 @@ def _is_list_visible(page):
     }""")
 
 
-# ─── Test 1: Like button click must NOT navigate ───
+# ─── Test 1: Favorite button click must NOT navigate ───
 
-def test_like_button_click_does_not_navigate():
-    """Clicking the like button on a product card should NOT change the URL hash.
+def test_favorite_button_click_does_not_navigate_from_product_list():
+    """Clicking the favorite button on a product card should NOT change the URL hash.
 
-    The like button is inside an ntx-method component inside an ntx-item card.
+    The favorite button is inside an ntx-method component inside an ntx-item card.
     The card has a click handler that navigates to the detail view. The method
     button click must not propagate to the card.
     """
@@ -130,19 +141,20 @@ def test_like_button_click_does_not_navigate():
         assert hash_before == "" or hash_before == "#", \
             f"Expected no hash before click, got {hash_before}"
 
-        # Find and click the like button
-        btn = _find_method_button(page, "like")
-        assert btn is not None, "No like button found in list view"
-        result = _click_method_button(page, "like", btn["uuid"])
-        assert result == "clicked", f"Failed to click like button: {result}"
-
-        # Wait for any navigation to happen (if the bug exists)
-        page.wait_for_timeout(2000)
+        # Find and click the top-level Product favorite button. Comment `like`
+        # buttons are rendered in nested comment detail views, not in the
+        # default compact Product list.
+        btn = _find_method_button(page, "favorite")
+        assert btn is not None, "No favorite button found in list view"
+        with page.expect_response(_method_response_predicate("favorite")):
+            result = _click_method_button(page, "favorite", btn["uuid"])
+            assert result == "clicked", f"Failed to click favorite button: {result}"
+        _wait_for_render_settle(page)
 
         # Assert: URL hash should NOT have changed to a detail view
         hash_after = page.evaluate("() => location.hash")
         assert not hash_after.startswith("#"), \
-            f"BUG: Clicking like button navigated to {hash_after} — event propagated to card"
+            f"BUG: Clicking favorite button navigated to {hash_after} — event propagated to card"
 
         browser.close()
 
@@ -168,10 +180,10 @@ def test_favorite_button_click_does_not_navigate():
 
         btn = _find_method_button(page, "favorite")
         assert btn is not None, "No favorite button found in list view"
-        result = _click_method_button(page, "favorite", btn["uuid"])
-        assert result == "clicked", f"Failed to click favorite button: {result}"
-
-        page.wait_for_timeout(2000)
+        with page.expect_response(_method_response_predicate("favorite")):
+            result = _click_method_button(page, "favorite", btn["uuid"])
+            assert result == "clicked", f"Failed to click favorite button: {result}"
+        _wait_for_render_settle(page)
 
         hash_after = page.evaluate("() => location.hash")
         assert not hash_after.startswith("#"), \
@@ -206,10 +218,10 @@ def test_list_view_stays_visible_after_method_click():
         assert btn is not None, "No method button found in list view"
 
         method = "like" if _find_method_button(page, "like") else "favorite"
-        result = _click_method_button(page, method, btn["uuid"])
-        assert result == "clicked", f"Failed to click button: {result}"
-
-        page.wait_for_timeout(2000)
+        with page.expect_response(_method_response_predicate(method)):
+            result = _click_method_button(page, method, btn["uuid"])
+            assert result == "clicked", f"Failed to click button: {result}"
+        _wait_for_render_settle(page)
 
         # The list view should still be visible — not replaced by detail
         still_visible = _is_list_visible(page)
@@ -235,7 +247,7 @@ def test_method_action_executes_on_click():
         # Track POST responses
         method_response = {}
         def on_response(resp):
-            if resp.request.method == "POST" and "/like" in resp.url:
+            if resp.request.method == "POST" and "/favorite" in resp.url:
                 try:
                     method_response["status"] = resp.status
                     method_response["body"] = resp.json()
@@ -248,11 +260,11 @@ def test_method_action_executes_on_click():
         page.reload()
         _wait_for_list_items(page)
 
-        btn = _find_method_button(page, "like")
-        assert btn is not None, "No like button found"
-        _click_method_button(page, "like", btn["uuid"])
-
-        page.wait_for_timeout(3000)
+        btn = _find_method_button(page, "favorite")
+        assert btn is not None, "No favorite button found"
+        with page.expect_response(_method_response_predicate("favorite")):
+            _click_method_button(page, "favorite", btn["uuid"])
+        _wait_for_render_settle(page)
 
         # The method POST should have fired
         assert "status" in method_response, \

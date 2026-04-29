@@ -1,32 +1,17 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import {
+  loginAndOpenVeilleAssistant,
+  sendVeilleChatTurn,
+  waitForVeilleUi,
+} from './fixtures/ui.js';
 
 test.describe('Veille Assistant chat', () => {
   test('second reply still allows typing into the chat input', async ({ page }) => {
-    await page.goto('/login.html');
-    await page.fill('#email', 'admin@veille.local');
-    await page.fill('#password', 'admin123');
-    await page.click('button.auth-btn');
-    await page.waitForURL('/');
-    await page.waitForTimeout(1500);
+    await loginAndOpenVeilleAssistant(page);
+    await sendVeilleChatTurn(page, 'Hello assistant');
+    await sendVeilleChatTurn(page, 'And again');
 
-    await page.locator('.agents-dashboard-card').filter({ hasText: 'Assistant' }).click();
-    await page.waitForURL(/#AgentActor\/\d+/);
-    await page.waitForTimeout(1500);
-
-    const state = await page.locator('#agent-detail').evaluate(async (el) => {
-      const runTurn = async (text) => {
-        const chat = el.shadowRoot.querySelector('ntx-chat');
-        const textarea = chat.shadowRoot.querySelector('textarea');
-        const send = chat.shadowRoot.querySelector('.send-btn');
-        textarea.value = text;
-        textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        send.click();
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-      };
-
-      await runTurn('Hello assistant');
-      await runTurn('And again');
-
+    const state = await page.locator('#agent-detail').evaluate((el) => {
       const chat = el.shadowRoot.querySelector('ntx-chat');
       const textarea = chat.shadowRoot.querySelector('textarea');
       textarea.value = 'Third message';
@@ -42,48 +27,10 @@ test.describe('Veille Assistant chat', () => {
   });
 
   test('second reply still allows sending another message', async ({ page }) => {
-    await page.goto('/login.html');
-    await page.fill('#email', 'admin@veille.local');
-    await page.fill('#password', 'admin123');
-    await page.click('button.auth-btn');
-    await page.waitForURL('/');
-    await page.waitForTimeout(1500);
-
-    await page.locator('.agents-dashboard-card').filter({ hasText: 'Assistant' }).click();
-    await page.waitForURL(/#AgentActor\/\d+/);
-    await page.waitForTimeout(1500);
-
-    const state = await page.locator('#agent-detail').evaluate(async (el) => {
-      const runTurn = async (text) => {
-        const chat = el.shadowRoot.querySelector('ntx-chat');
-        const textarea = chat.shadowRoot.querySelector('textarea');
-        const send = chat.shadowRoot.querySelector('.send-btn');
-        textarea.value = text;
-        textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        send.click();
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-      };
-
-      await runTurn('Hello assistant');
-      await runTurn('And again');
-
-      const chat = el.shadowRoot.querySelector('ntx-chat');
-      const textarea = chat.shadowRoot.querySelector('textarea');
-      const send = chat.shadowRoot.querySelector('.send-btn');
-      textarea.value = 'Third message';
-      textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-      send.click();
-      await new Promise((resolve) => setTimeout(resolve, 2500));
-
-      const messages = Array.from(chat.shadowRoot.querySelectorAll('.msg')).map((node) =>
-        node.textContent.replace(/\s+/g, ' ').trim()
-      );
-      return {
-        sendEnabled: !send.disabled,
-        messageCount: chat.shadowRoot.querySelectorAll('.msg').length,
-        messages,
-      };
-    });
+    await loginAndOpenVeilleAssistant(page);
+    await sendVeilleChatTurn(page, 'Hello assistant');
+    await sendVeilleChatTurn(page, 'And again');
+    const state = await sendVeilleChatTurn(page, 'Third message');
 
     expect(state.sendEnabled).toBe(true);
     expect(state.messageCount).toBeGreaterThanOrEqual(6);
@@ -91,34 +38,8 @@ test.describe('Veille Assistant chat', () => {
   });
 
   test('first reply keeps the chat shell mounted and usable', async ({ page }) => {
-    await page.goto('/login.html');
-    await page.fill('#email', 'admin@veille.local');
-    await page.fill('#password', 'admin123');
-    await page.click('button.auth-btn');
-    await page.waitForURL('/');
-    await page.waitForTimeout(1500);
-
-    await page.locator('.agents-dashboard-card').filter({ hasText: 'Assistant' }).click();
-    await page.waitForURL(/#AgentActor\/\d+/);
-    await page.waitForTimeout(1500);
-
-    const state = await page.locator('#agent-detail').evaluate(async (el) => {
-      const chat = el.shadowRoot.querySelector('ntx-chat');
-      const textarea = chat?.shadowRoot?.querySelector('textarea');
-      const send = chat?.shadowRoot?.querySelector('.send-btn');
-      textarea.value = 'Hello assistant';
-      textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-      send.click();
-      await new Promise((resolve) => setTimeout(resolve, 2500));
-      return {
-        chatMounted: !!el.shadowRoot.querySelector('ntx-chat'),
-        hasTextarea: !!chat?.shadowRoot?.querySelector('textarea'),
-        sendEnabled: !chat?.shadowRoot?.querySelector('.send-btn')?.disabled,
-        messageCount: chat?.shadowRoot?.querySelectorAll('.msg').length || 0,
-        footerCount: chat?.shadowRoot?.querySelectorAll('.stream-footer').length || 0,
-        footerText: chat?.shadowRoot?.querySelector('.stream-footer')?.textContent || '',
-      };
-    });
+    await loginAndOpenVeilleAssistant(page);
+    const state = await sendVeilleChatTurn(page, 'Hello assistant');
 
     expect(state.chatMounted).toBe(true);
     expect(state.hasTextarea).toBe(true);
@@ -129,39 +50,9 @@ test.describe('Veille Assistant chat', () => {
   });
 
   test('second reply does not unmount the chat component', async ({ page }) => {
-    await page.goto('/login.html');
-    await page.fill('#email', 'admin@veille.local');
-    await page.fill('#password', 'admin123');
-    await page.click('button.auth-btn');
-    await page.waitForURL('/');
-    await page.waitForTimeout(1500);
-
-    await page.locator('.agents-dashboard-card').filter({ hasText: 'Assistant' }).click();
-    await page.waitForURL(/#AgentActor\/\d+/);
-    await page.waitForTimeout(1500);
-
-    const state = await page.locator('#agent-detail').evaluate(async (el) => {
-      const runTurn = async (text) => {
-        const chat = el.shadowRoot.querySelector('ntx-chat');
-        const textarea = chat?.shadowRoot?.querySelector('textarea');
-        const send = chat?.shadowRoot?.querySelector('.send-btn');
-        textarea.value = text;
-        textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        send.click();
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-      };
-
-      await runTurn('Hello assistant');
-      await runTurn('And again');
-
-      const chat = el.shadowRoot.querySelector('ntx-chat');
-      return {
-        chatMounted: !!chat,
-        hasTextarea: !!chat?.shadowRoot?.querySelector('textarea'),
-        sendEnabled: !chat?.shadowRoot?.querySelector('.send-btn')?.disabled,
-        messageCount: chat?.shadowRoot?.querySelectorAll('.msg').length || 0,
-      };
-    });
+    await loginAndOpenVeilleAssistant(page);
+    await sendVeilleChatTurn(page, 'Hello assistant');
+    const state = await sendVeilleChatTurn(page, 'And again');
 
     expect(state.chatMounted).toBe(true);
     expect(state.hasTextarea).toBe(true);
@@ -170,33 +61,14 @@ test.describe('Veille Assistant chat', () => {
   });
 
   test('second reply preserves route and agent detail visibility', async ({ page }) => {
-    await page.goto('/login.html');
-    await page.fill('#email', 'admin@veille.local');
-    await page.fill('#password', 'admin123');
-    await page.click('button.auth-btn');
-    await page.waitForURL('/');
-    await page.waitForTimeout(1500);
-
-    await page.locator('.agents-dashboard-card').filter({ hasText: 'Assistant' }).click();
-    await page.waitForURL(/#AgentActor\/\d+/);
-    await page.waitForTimeout(1500);
+    await loginAndOpenVeilleAssistant(page);
 
     const beforeHash = await page.evaluate(() => window.location.hash);
 
-    const state = await page.locator('#agent-detail').evaluate(async (el) => {
-      const runTurn = async (text) => {
-        const chat = el.shadowRoot.querySelector('ntx-chat');
-        const textarea = chat?.shadowRoot?.querySelector('textarea');
-        const send = chat?.shadowRoot?.querySelector('.send-btn');
-        textarea.value = text;
-        textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        send.click();
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-      };
+    await sendVeilleChatTurn(page, 'Hello assistant');
+    await sendVeilleChatTurn(page, 'And again');
 
-      await runTurn('Hello assistant');
-      await runTurn('And again');
-
+    const state = await page.locator('#agent-detail').evaluate((el) => {
       const panel = document.getElementById('agent-panel');
       return {
         panelVisible: !!panel && getComputedStyle(panel).display !== 'none',
@@ -226,7 +98,7 @@ test.describe('Veille Assistant chat', () => {
     await page.fill('#password', 'admin123');
     await page.click('button.auth-btn');
     await page.waitForURL('/');
-    await page.waitForTimeout(1500);
+    await waitForVeilleUi(page);
 
     await expect(page.locator('ntx-sidebar')).toContainText('DASHBOARD');
     await expect(page.locator('.agents-dashboard-card').filter({ hasText: 'Assistant' })).toBeVisible();
@@ -235,7 +107,7 @@ test.describe('Veille Assistant chat', () => {
 
     await page.locator('.agents-dashboard-card').filter({ hasText: 'Assistant' }).click();
     await page.waitForURL(/#AgentActor\/\d+/);
-    await page.waitForTimeout(1500);
+    await waitForVeilleUi(page);
 
     const detail = page.locator('#agent-detail');
     await expect(detail).toBeAttached();
@@ -255,52 +127,14 @@ test.describe('Veille Assistant chat', () => {
     expect(desktopState.hasTextarea).toBe(true);
     expect(desktopState.inlineMode).toBe(true);
 
-    const firstTurn = await detail.evaluate(async (el) => {
-      const chat = el.shadowRoot.querySelector('ntx-chat');
-      const textarea = chat.shadowRoot.querySelector('textarea');
-      const send = chat.shadowRoot.querySelector('.send-btn');
-      textarea.value = 'Hello assistant';
-      textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-      send.click();
-      await new Promise((resolve) => setTimeout(resolve, 2500));
-
-      const messages = Array.from(chat.shadowRoot.querySelectorAll('.msg')).map((node) => node.textContent.replace(/\s+/g, ' ').trim());
-      return {
-        sendDisabled: send.disabled,
-        messages,
-        raw: chat.shadowRoot.textContent,
-      };
-    });
+    const firstTurn = await sendVeilleChatTurn(page, 'Hello assistant');
 
     expect(firstTurn.messages.some((text) => text.includes('Hello assistant'))).toBe(true);
     expect(firstTurn.messages.some((text) => text.includes('success'))).toBe(true);
-    expect(firstTurn.sendDisabled).toBe(false);
+    expect(firstTurn.sendEnabled).toBe(true);
     expect(streamPayloads[0]?.thread_id).toBeUndefined();
 
-    const secondTurn = await detail.evaluate(async (el) => {
-      const chat = el.shadowRoot.querySelector('ntx-chat');
-      const textarea = chat.shadowRoot.querySelector('textarea');
-      const send = chat.shadowRoot.querySelector('.send-btn');
-      const waitUntilEnabled = async () => {
-        const start = Date.now();
-        while (send.disabled && Date.now() - start < 5000) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      };
-
-      await waitUntilEnabled();
-      textarea.value = 'And again';
-      textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-      send.click();
-      await new Promise((resolve) => setTimeout(resolve, 2500));
-
-      const messages = Array.from(chat.shadowRoot.querySelectorAll('.msg')).map((node) => node.textContent.replace(/\s+/g, ' ').trim());
-      return {
-        messages,
-        messageCount: chat.shadowRoot.querySelectorAll('.msg').length,
-        raw: chat.shadowRoot.textContent,
-      };
-    });
+    const secondTurn = await sendVeilleChatTurn(page, 'And again');
 
     expect(secondTurn.messages.filter((text) => text.includes('assistant')).length).toBeGreaterThan(1);
     expect(secondTurn.messages.some((text) => text.includes('success'))).toBe(true);

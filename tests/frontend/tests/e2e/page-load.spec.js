@@ -1,7 +1,8 @@
 /**
  * Page Load & Bootstrap — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -11,8 +12,10 @@ test.describe('Page Load & Bootstrap', () => {
     const errors = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+
+    await waitForAppReady(page);
 
     // Filter out expected warnings
     const realErrors = errors.filter(e => !e.includes('AssertionError'));
@@ -20,15 +23,16 @@ test.describe('Page Load & Bootstrap', () => {
   });
 
   test('product list appears with seeded data', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Wait for ntx-list to have items
     const list = page.locator('#product-list');
     await expect(list).toBeVisible();
 
     // Wait for shadow DOM content
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
     // Check that items exist in the list shadow DOM
     const itemCount = await list.evaluate((el) => {
@@ -51,9 +55,9 @@ test.describe('Page Load & Bootstrap', () => {
   });
 
   test('framework components register in window.NTT', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const hasNTT = await page.evaluate(() => !!window.NTT);
     expect(hasNTT).toBe(true);
@@ -63,9 +67,9 @@ test.describe('Page Load & Bootstrap', () => {
   });
 
   test('NTT.get("Product") returns DynamicClass with instances', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const instanceCount = await page.evaluate(() => {
       const DC = window.NTT.get('Product');
@@ -78,7 +82,9 @@ test.describe('Page Load & Bootstrap', () => {
     // Clear token first
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.removeItem('jwtToken'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const topbar = page.locator('ntx-topbar');
     await expect(topbar).toBeVisible();
@@ -92,8 +98,9 @@ test.describe('Page Load & Bootstrap', () => {
   });
 
   test('CSS variables are defined and resolve', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const vars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
@@ -118,16 +125,18 @@ test.describe('Page Load & Bootstrap', () => {
       }
     });
 
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+
+    await waitForAppReady(page);
 
     expect(failedRequests).toHaveLength(0);
   });
 
   test('list header shows model name', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const header = await page.locator('#product-list').evaluate((el) => {
       const h1 = el.shadowRoot?.querySelector('.list-header h1');
@@ -138,9 +147,9 @@ test.describe('Page Load & Bootstrap', () => {
   });
 
   test('list count badge shows correct total', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const count = await page.locator('#product-list').evaluate((el) => {
       const badge = el.shadowRoot?.querySelector('.list-count');

@@ -1,16 +1,17 @@
 /**
  * Product Detail Navigation — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import { gotoApp, waitForAppReady, waitForRouterContent, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
 test.describe('Product Detail Navigation', () => {
 
   test('click product navigates to detail view', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Click the first product item
     await page.locator('#product-list').evaluate((list) => {
@@ -21,16 +22,16 @@ test.describe('Product Detail Navigation', () => {
       }
     });
 
-    await page.waitForTimeout(1000);
+    await page.waitForFunction(() => window.location.hash.includes('Product'));
 
     // Hash should change to include Product
     expect(page.url()).toContain('#Product');
   });
 
   test('back button returns to list', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Navigate to detail
     await page.locator('#product-list').evaluate((list) => {
@@ -40,7 +41,7 @@ test.describe('Product Detail Navigation', () => {
       }
     });
 
-    await page.waitForTimeout(1000);
+    await page.waitForFunction(() => window.location.hash.includes('Product'));
     expect(page.url()).toContain('#Product');
 
     // Click back button inside ntx-router
@@ -50,7 +51,7 @@ test.describe('Product Detail Navigation', () => {
       backBtn?.click();
     });
 
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     // Should be back to list (no hash or empty hash)
     const hash = new URL(page.url()).hash;
@@ -58,9 +59,9 @@ test.describe('Product Detail Navigation', () => {
   });
 
   test('direct URL with hash loads detail directly', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     // Router should show detail view
     const hasRouterContent = await page.locator('ntx-router').evaluate((r) => {
@@ -70,9 +71,9 @@ test.describe('Product Detail Navigation', () => {
   });
 
   test('detail view shows all visible fields', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const content = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -84,13 +85,13 @@ test.describe('Product Detail Navigation', () => {
   });
 
   test('hash changes without page reload', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Manually set hash
     await page.evaluate(() => { window.location.hash = 'Product/1'; });
-    await page.waitForTimeout(1000);
+    await waitForRouterContent(page);
 
     // Router should have navigated
     const hasContent = await page.locator('ntx-router').evaluate((r) => {
@@ -100,9 +101,9 @@ test.describe('Product Detail Navigation', () => {
   });
 
   test('router title shows model name', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const title = await page.locator('ntx-router').evaluate((r) => {
       return r.shadowRoot?.querySelector('.router-title')?.textContent || '';
@@ -111,14 +112,23 @@ test.describe('Product Detail Navigation', () => {
   });
 
   test('back button not visible at root', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
 
-    const hasBackBtn = await page.locator('ntx-router').evaluate((r) => {
-      return !!r.shadowRoot?.querySelector('.back-btn');
-    });
+    await waitForAppReady(page);
+
+    await expect.poll(async () => page.locator('ntx-router').evaluate((r) => {
+      const hostStyle = getComputedStyle(r);
+      const hostVisible = hostStyle.display !== 'none' && hostStyle.visibility !== 'hidden';
+      if (!hostVisible) return false;
+      const btn = r.shadowRoot?.querySelector('.back-btn');
+      if (!btn) return false;
+      const style = getComputedStyle(btn);
+      const rect = btn.getBoundingClientRect();
+      return style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        rect.width > 0 &&
+        rect.height > 0;
+    })).toBe(false);
     // At root, there should be no back button (slot content shown instead)
-    expect(hasBackBtn).toBe(false);
   });
 });

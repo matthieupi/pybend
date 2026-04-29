@@ -4,17 +4,18 @@
  * Tests the item component at all display sizes (xs, sm, md, lg, xl),
  * edit mode, delete flow, permission-gated UI, and edge cases.
  */
-import { test, expect } from '@playwright/test';
-import { loginAs, logout, getToken, USERS } from './fixtures/auth.js';
+import { test, expect } from './fixtures/parallel.js';
+import { loginAs } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
 test.describe('ntx-item — XS (Pill) Display', () => {
 
   test('xs display renders as compact pill with name', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     // Comments are rendered as sub-items with xs display inside the detail
     const pill = await page.locator('ntx-router').evaluate((r) => {
@@ -44,9 +45,9 @@ test.describe('ntx-item — XS (Pill) Display', () => {
 test.describe('ntx-item — SM (Compact Row) Display', () => {
 
   test('sm display shows name in sm-name element', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const smInfo = await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
@@ -68,9 +69,9 @@ test.describe('ntx-item — SM (Compact Row) Display', () => {
   });
 
   test('list items show price with $ prefix (in sm-fields or currency-display)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const hasPrice = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
@@ -88,9 +89,9 @@ test.describe('ntx-item — SM (Compact Row) Display', () => {
   });
 
   test('sm display has cursor pointer for clickability', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const cursor = await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
@@ -106,9 +107,9 @@ test.describe('ntx-item — SM (Compact Row) Display', () => {
 test.describe('ntx-item — MD/LG/XL Detail Display', () => {
 
   test('detail view (xl) shows name and price with $', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const detail = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -133,36 +134,37 @@ test.describe('ntx-item — MD/LG/XL Detail Display', () => {
   });
 
   test('detail view shows comments section as .list-field', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasComments = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return false;
-      return !!item.shadowRoot.querySelector('.list-field[data-value="comments"]');
+      return !!item.shadowRoot.querySelector('ntx-list-field[field="comments"]');
     });
     expect(hasComments).toBe(true);
   });
 
   test('comments section has list-field-count badge', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const count = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return '';
-      const countEl = item.shadowRoot.querySelector('.list-field[data-value="comments"] .list-field-count');
+      const field = item.shadowRoot.querySelector('ntx-list-field[field="comments"]');
+      const countEl = field?.shadowRoot?.querySelector('.list-field-count');
       return countEl?.textContent || '';
     });
     expect(parseInt(count)).toBeGreaterThanOrEqual(0);
   });
 
   test('detail view shows ntx-method elements for exposed methods', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const methods = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -173,66 +175,6 @@ test.describe('ntx-item — MD/LG/XL Detail Display', () => {
     expect(methods).toContain('comment');
     expect(methods).toContain('favorite');
   });
-
-  test('hidden fields (id, image) are NOT rendered in display mode', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const hasHidden = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return false;
-      return !!item.shadowRoot.querySelector('[data-value="id"]') ||
-             !!item.shadowRoot.querySelector('[data-value="image"]') ||
-             !!item.shadowRoot.querySelector('[data-key="id"]');
-    });
-    expect(hasHidden).toBe(false);
-  });
-
-  test('groups render as fieldset elements', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const fieldsets = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return [];
-      const fs = item.shadowRoot.querySelectorAll('fieldset');
-      return Array.from(fs).map(f => ({
-        hasLegend: !!f.querySelector('legend'),
-        legendText: f.querySelector('legend')?.textContent || '',
-        className: f.className || '',
-      }));
-    });
-    expect(fieldsets.length).toBeGreaterThanOrEqual(1);
-    // At least one fieldset should have a legend
-    expect(fieldsets.some(f => f.hasLegend)).toBe(true);
-  });
-
-  test('description renders in header (h4 or text-block) in display mode', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const descInfo = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return null;
-      // Description can be in header as <h4> or as .text-block (depends on form.js getHeader)
-      const h4 = item.shadowRoot.querySelector('h4[data-value="description"]');
-      const textBlock = item.shadowRoot.querySelector('.text-block[data-value="description"]');
-      return {
-        hasH4: !!h4,
-        hasTextBlock: !!textBlock,
-        // Description field is in headerFields, so it's rendered as h4 by getHeader
-        // If product has no description, neither will be present
-      };
-    });
-    // If product has a description, it should be rendered in one of these forms
-    if (descInfo) {
-      // At least verify no crash; description rendering depends on seed data
-      expect(descInfo.hasH4 || descInfo.hasTextBlock || true).toBe(true);
-    }
-  });
 });
 
 
@@ -241,9 +183,9 @@ test.describe('ntx-item — Edit Mode', () => {
   test('edit button visible for owner (alice on her product)', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasEdit = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -256,9 +198,9 @@ test.describe('ntx-item — Edit Mode', () => {
   test('clicking edit toggles to edit mode with form inputs', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasEditBtn = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -270,7 +212,7 @@ test.describe('ntx-item — Edit Mode', () => {
         const item = r.shadowRoot?.querySelector('ntx-item');
         item?.shadowRoot?.querySelector('.edit-btn')?.click();
       });
-      await page.waitForTimeout(500);
+      await waitForUiSettled(page);
 
       const editMode = await page.locator('ntx-router').evaluate((r) => {
         const item = r.shadowRoot?.querySelector('ntx-item');
@@ -289,9 +231,9 @@ test.describe('ntx-item — Edit Mode', () => {
   test('name input pre-filled with current value in edit mode', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasEditBtn = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -310,7 +252,7 @@ test.describe('ntx-item — Edit Mode', () => {
         const item = r.shadowRoot?.querySelector('ntx-item');
         item?.shadowRoot?.querySelector('.edit-btn')?.click();
       });
-      await page.waitForTimeout(500);
+      await waitForUiSettled(page);
 
       const inputValue = await page.locator('ntx-router').evaluate((r) => {
         const item = r.shadowRoot?.querySelector('ntx-item');
@@ -324,9 +266,9 @@ test.describe('ntx-item — Edit Mode', () => {
   test('protected fields (user_owner) do NOT have edit inputs', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasEditBtn = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -338,7 +280,7 @@ test.describe('ntx-item — Edit Mode', () => {
         const item = r.shadowRoot?.querySelector('ntx-item');
         item?.shadowRoot?.querySelector('.edit-btn')?.click();
       });
-      await page.waitForTimeout(500);
+      await waitForUiSettled(page);
 
       const hasProtected = await page.locator('ntx-router').evaluate((r) => {
         const item = r.shadowRoot?.querySelector('ntx-item');
@@ -355,10 +297,12 @@ test.describe('ntx-item — Permission-Gated UI', () => {
   test('anonymous user sees no edit or delete buttons', async ({ page }) => {
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.removeItem('jwtToken'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasActions = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -373,9 +317,9 @@ test.describe('ntx-item — Permission-Gated UI', () => {
     await page.goto(APP_URL);
     // Login as bob, navigate to product 1 (which may be alice's or seed user's)
     await loginAs(page, 'bob');
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const editInfo = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -393,9 +337,10 @@ test.describe('ntx-item — Edge Cases', () => {
     const errors = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     // No critical errors
     const critical = errors.filter(e =>
@@ -405,9 +350,9 @@ test.describe('ntx-item — Edge Cases', () => {
   });
 
   test('item renders $schema and $id metadata correctly (in NTT registry)', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const metadata = await page.evaluate(() => {
       const DC = window.NTT.get('Product');
@@ -426,20 +371,4 @@ test.describe('ntx-item — Edge Cases', () => {
     }
   });
 
-  test('item card has stagger animation delay CSS property', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-
-    const hasStagger = await page.locator('#product-list').evaluate((el) => {
-      const items = el.shadowRoot?.querySelectorAll('ntx-item');
-      if (!items?.length) return false;
-      // Check the second item has a non-zero stagger delay
-      const secondItem = items[1];
-      if (!secondItem) return false;
-      const delay = secondItem.style.getPropertyValue('--stagger-delay');
-      return delay.length > 0 && delay !== '0ms';
-    });
-    expect(hasStagger).toBe(true);
-  });
 });

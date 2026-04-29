@@ -4,8 +4,16 @@
  * Tests keyboard navigation, ARIA & semantics, focus management,
  * color & contrast, screen reader landmarks, and edge cases.
  */
-import { test, expect } from '@playwright/test';
-import { loginAs, logout } from './fixtures/auth.js';
+import { test, expect } from './fixtures/parallel.js';
+import { loginAs } from './fixtures/auth.js';
+import {
+  gotoApp,
+  reloadApp,
+  waitForProductList,
+  waitForRouterContent,
+  waitForRouterItem,
+  waitForTopbar,
+} from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -13,15 +21,13 @@ const APP_URL = '/';
 test.describe('accessibility — Keyboard Navigation', () => {
 
   test('Tab key moves focus through interactive elements', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
 
     // Press Tab several times and track which elements receive focus
     const focusedTags = [];
     for (let i = 0; i < 5; i++) {
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(200);
       const tag = await page.evaluate(() => {
         const el = document.activeElement;
         // If focused into shadow DOM, check shadowRoot
@@ -38,13 +44,11 @@ test.describe('accessibility — Keyboard Navigation', () => {
   });
 
   test('Enter key activates focused button (topbar link)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
 
     // Tab to the first focusable element in topbar
     await page.keyboard.press('Tab');
-    await page.waitForTimeout(200);
 
     const focused = await page.evaluate(() => {
       const el = document.activeElement;
@@ -55,13 +59,11 @@ test.describe('accessibility — Keyboard Navigation', () => {
   });
 
   test('Tab order includes topbar elements first', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
 
     // First Tab should focus inside or on the topbar
     await page.keyboard.press('Tab');
-    await page.waitForTimeout(200);
 
     const isTopbar = await page.evaluate(() => {
       const el = document.activeElement;
@@ -78,9 +80,8 @@ test.describe('accessibility — Keyboard Navigation', () => {
 test.describe('accessibility — ARIA & Semantics', () => {
 
   test('buttons have accessible text content or aria-label', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
 
     // Check topbar buttons
     const topbarButtons = await page.locator('ntx-topbar').evaluate((el) => {
@@ -101,9 +102,8 @@ test.describe('accessibility — ARIA & Semantics', () => {
   });
 
   test('navigation links have descriptive text', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
 
     const links = await page.locator('ntx-topbar').evaluate((el) => {
       const anchors = el.shadowRoot?.querySelectorAll('a');
@@ -121,10 +121,10 @@ test.describe('accessibility — ARIA & Semantics', () => {
   });
 
   test('form inputs in edit mode have id attributes for label association', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await loginAs(page, 'alice');
     await page.evaluate(() => { window.location.hash = '#Product/1'; });
-    await page.waitForTimeout(3000);
+    await waitForRouterItem(page);
 
     const editClicked = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -134,7 +134,10 @@ test.describe('accessibility — ARIA & Semantics', () => {
       return false;
     });
     if (!editClicked) return;
-    await page.waitForTimeout(1000);
+    await page.waitForFunction(() => {
+      const item = document.querySelector('ntx-router')?.shadowRoot?.querySelector('ntx-item');
+      return !!item?.shadowRoot?.querySelector('input[data-key], textarea[data-key]');
+    });
 
     const inputs = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -153,9 +156,8 @@ test.describe('accessibility — ARIA & Semantics', () => {
   });
 
   test('list items are contained in a grid structure', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForProductList(page);
 
     const hasGrid = await page.locator('#product-list').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.list-grid');
@@ -168,10 +170,10 @@ test.describe('accessibility — ARIA & Semantics', () => {
 test.describe('accessibility — Focus Management', () => {
 
   test('after opening edit mode, name input receives focus', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await loginAs(page, 'alice');
     await page.evaluate(() => { window.location.hash = '#Product/1'; });
-    await page.waitForTimeout(3000);
+    await waitForRouterItem(page);
 
     const editClicked = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -181,7 +183,10 @@ test.describe('accessibility — Focus Management', () => {
       return false;
     });
     if (!editClicked) return;
-    await page.waitForTimeout(1000);
+    await page.waitForFunction(() => {
+      const item = document.querySelector('ntx-router')?.shadowRoot?.querySelector('ntx-item');
+      return !!item?.shadowRoot?.querySelector('input[data-key], textarea[data-key]');
+    });
 
     // Check if any input has focus inside the item
     const hasFocusedInput = await page.locator('ntx-router').evaluate((r) => {
@@ -196,13 +201,12 @@ test.describe('accessibility — Focus Management', () => {
   });
 
   test('router shows content after hash navigation', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
 
     // Navigate to detail
     await page.evaluate(() => { window.location.hash = '#Product/1'; });
-    await page.waitForTimeout(2000);
+    await waitForRouterContent(page);
 
     // Content should be rendered
     const hasContent = await page.locator('ntx-router').evaluate((r) => {
@@ -216,14 +220,14 @@ test.describe('accessibility — Focus Management', () => {
 test.describe('accessibility — Color & Contrast', () => {
 
   test('text has sufficient contrast against dark background', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
     await page.evaluate(() => {
       localStorage.removeItem('ntx-theme');
       delete document.documentElement.dataset.theme;
     });
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+    await reloadApp(page);
+    await waitForTopbar(page);
 
     const colors = await page.evaluate(() => {
       const style = getComputedStyle(document.body);
@@ -246,13 +250,13 @@ test.describe('accessibility — Color & Contrast', () => {
   });
 
   test('text has sufficient contrast against light background', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
     await page.evaluate(() => {
       localStorage.setItem('ntx-theme', 'light');
       document.documentElement.dataset.theme = 'light';
     });
-    await page.waitForTimeout(500);
+    await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
 
     const colors = await page.evaluate(() => {
       const style = getComputedStyle(document.body);
@@ -276,9 +280,8 @@ test.describe('accessibility — Color & Contrast', () => {
   });
 
   test('interactive elements have visible focus indicators via :focus-visible', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
 
     // Check that the CSS defines focus-visible styles
     const hasFocusStyle = await page.evaluate(() => {
@@ -304,9 +307,7 @@ test.describe('accessibility — Color & Contrast', () => {
 test.describe('accessibility — Screen Reader Support', () => {
 
   test('page has a main content area with .page class', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
 
     const hasPage = await page.evaluate(() => {
       return !!document.querySelector('.page');
@@ -315,9 +316,8 @@ test.describe('accessibility — Screen Reader Support', () => {
   });
 
   test('navigation is present via ntx-topbar', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
 
     const hasNav = await page.locator('ntx-topbar').evaluate((el) => {
       const nav = el.shadowRoot?.querySelector('.topbar') || el.shadowRoot?.querySelector('nav');
@@ -327,9 +327,8 @@ test.describe('accessibility — Screen Reader Support', () => {
   });
 
   test('list has a heading element identifying the content', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForProductList(page);
 
     const headingText = await page.locator('#product-list').evaluate((el) => {
       const h = el.shadowRoot?.querySelector('h1, h2, h3');
@@ -344,9 +343,8 @@ test.describe('accessibility — Screen Reader Support', () => {
 test.describe('accessibility — Edge Cases', () => {
 
   test('no elements have tabindex > 0 (anti-pattern)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+    await waitForTopbar(page);
 
     const badTabindex = await page.evaluate(() => {
       const all = document.querySelectorAll('[tabindex]');
@@ -359,8 +357,7 @@ test.describe('accessibility — Edge Cases', () => {
   });
 
   test('page title is set and non-empty', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
 
     const title = await page.title();
     expect(title.length).toBeGreaterThan(0);
@@ -368,8 +365,7 @@ test.describe('accessibility — Edge Cases', () => {
   });
 
   test('html lang attribute is set', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
 
     const lang = await page.evaluate(() => {
       return document.documentElement.getAttribute('lang') || '';
@@ -378,8 +374,7 @@ test.describe('accessibility — Edge Cases', () => {
   });
 
   test('viewport meta tag is present', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
 
     const hasViewport = await page.evaluate(() => {
       return !!document.querySelector('meta[name="viewport"]');
@@ -388,9 +383,8 @@ test.describe('accessibility — Edge Cases', () => {
   });
 
   test('images have alt attributes', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+    await waitForRouterItem(page);
 
     const images = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -408,10 +402,10 @@ test.describe('accessibility — Edge Cases', () => {
   });
 
   test('buttons have title or text for screen readers', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoApp(page, APP_URL);
     await loginAs(page, 'alice');
     await page.evaluate(() => { window.location.hash = '#Product/1'; });
-    await page.waitForTimeout(3000);
+    await waitForRouterItem(page);
 
     const buttons = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');

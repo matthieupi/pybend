@@ -4,6 +4,49 @@ import json
 
 BASE = "http://localhost:5000"
 
+
+def wait_for_method_form(page, timeout=10000):
+    """Wait until the app has rendered an actionable ntx-method form."""
+    page.wait_for_function("""() => {
+        const lists = document.querySelectorAll('ntx-list');
+        for (const list of lists) {
+            const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
+            for (const item of items) {
+                const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
+                for (const method of methods) {
+                    if (method.getAttribute('method') !== 'comment') continue;
+                    const button = method.shadowRoot?.querySelector('button[type="submit"]');
+                    const fields = method.shadowRoot?.querySelectorAll('input, textarea') || [];
+                    const namedField = Array.from(fields).some(field => field.name || field.dataset?.key);
+                    if (button && fields.length > 0 && namedField) return true;
+                }
+            }
+        }
+        return false;
+    }""", timeout=timeout)
+
+
+def wait_for_render_settle(page):
+    """Wait for queued click/render work without sleeping for a fixed duration."""
+    page.evaluate("""() => new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    })""")
+
+
+def get_token(page, email="alice@example.com", password="alice123"):
+    """Get JWT token via API and store it for authenticated method rendering."""
+    return page.evaluate("""async (args) => {
+        const resp = await fetch('/users/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: args.email, password: args.password}),
+        });
+        const data = await resp.json();
+        const token = data.data ? data.data.token : data.token;
+        window.localStorage.setItem('jwtToken', token);
+        return token;
+    }""", {"email": email, "password": password})
+
 def test_comment():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -36,7 +79,9 @@ def test_comment():
 
         # Navigate
         page.goto(f"{BASE}/")
-        page.wait_for_timeout(5000)
+        get_token(page)
+        page.reload()
+        wait_for_method_form(page)
 
         # Check ntx-method exists and has correct form
         method_info = page.evaluate("""() => {
@@ -46,7 +91,8 @@ def test_comment():
                 for (const item of items) {
                     const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
                     for (const m of methods) {
-                        const inputs = m.shadowRoot?.querySelectorAll('input') || [];
+                        if (m.getAttribute('method') !== 'comment') continue;
+                        const inputs = m.shadowRoot?.querySelectorAll('input, textarea') || [];
                         return {
                             model: m.getAttribute('model'),
                             method: m.getAttribute('method'),
@@ -70,7 +116,8 @@ def test_comment():
                 for (const item of items) {
                     const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
                     for (const m of methods) {
-                        const inputs = m.shadowRoot?.querySelectorAll('input');
+                        if (m.getAttribute('method') !== 'comment') continue;
+                        const inputs = m.shadowRoot?.querySelectorAll('input, textarea');
                         if (inputs && inputs.length > 0) {
                             inputs[0].value = 'Test Comment';
                             inputs[0].dispatchEvent(new Event('input', {bubbles: true}));
@@ -82,7 +129,7 @@ def test_comment():
             return false;
         }""")
 
-        # Click Run button
+        # Click Run button and let browser/network queues settle instead of sleeping.
         page.evaluate("""() => {
             const lists = document.querySelectorAll('ntx-list');
             for (const list of lists) {
@@ -90,6 +137,7 @@ def test_comment():
                 for (const item of items) {
                     const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
                     for (const m of methods) {
+                        if (m.getAttribute('method') !== 'comment') continue;
                         const btn = m.shadowRoot?.querySelector('button[type="submit"]');
                         if (btn) {
                             btn.click();
@@ -100,9 +148,8 @@ def test_comment():
             }
             return false;
         }""")
-
-        # Wait and check - if loop is fixed, should be just 1 request
-        page.wait_for_timeout(3000)
+        page.wait_for_load_state("networkidle")
+        wait_for_render_settle(page)
 
         print(f"\n=== REQUESTS: {len(requests_log)} (should be 1 if loop is fixed) ===")
         for i, r in enumerate(requests_log[:5]):

@@ -3,6 +3,7 @@
  *
  * Provides login helpers, token management, and pre-computed user data.
  */
+import { reloadApp, waitForAnonymousTopbar, waitForAuthenticatedTopbar } from './ui.js';
 
 /**
  * Seed user credentials.
@@ -12,6 +13,13 @@ export const USERS = {
   bob: { email: 'bob@example.com', password: 'bob123', name: 'Bob Johnson' },
   charlie: { email: 'charlie@example.com', password: 'charlie123', name: 'Charlie Lee' },
 };
+
+export function authPayload(body) {
+  return {
+    token: body?.token || body?.data?.token,
+    user: body?.user || body?.data?.user,
+  };
+}
 
 /**
  * Login via API and return the JWT token.
@@ -25,7 +33,7 @@ export async function getToken(request, email, password) {
     data: { email, password },
   });
   const json = await resp.json();
-  const token = json.token || json.data?.token;
+  const { token } = authPayload(json);
   if (!token) {
     throw new Error(`Login failed for ${email}: ${JSON.stringify(json)}`);
   }
@@ -66,7 +74,8 @@ export async function loginAs(page, userName) {
 
   const token = await getToken(page.request, user.email, user.password);
   await setToken(page, token);
-  await page.reload({ waitUntil: 'networkidle' });
+  await reloadApp(page);
+  await waitForAuthenticatedTopbar(page);
 }
 
 /**
@@ -75,5 +84,6 @@ export async function loginAs(page, userName) {
  */
 export async function logout(page) {
   await clearToken(page);
-  await page.reload({ waitUntil: 'networkidle' });
+  await reloadApp(page);
+  await waitForAnonymousTopbar(page);
 }

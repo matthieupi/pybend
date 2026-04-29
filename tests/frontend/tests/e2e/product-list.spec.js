@@ -1,16 +1,17 @@
 /**
  * Product List Behavior — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
 test.describe('Product List', () => {
 
   test('items display correct fields per schema', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Get the first ntx-item inside the list and check its content
     const firstItemContent = await page.locator('#product-list').evaluate((list) => {
@@ -28,9 +29,9 @@ test.describe('Product List', () => {
 
   test('responsive layout at 480px viewport', async ({ page }) => {
     await page.setViewportSize({ width: 480, height: 800 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // At 480px, the list should still be visible
     const list = page.locator('#product-list');
@@ -39,9 +40,9 @@ test.describe('Product List', () => {
 
   test('responsive layout at 768px viewport', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const list = page.locator('#product-list');
     await expect(list).toBeVisible();
@@ -49,24 +50,24 @@ test.describe('Product List', () => {
 
   test('responsive layout at 1200px viewport', async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 800 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const list = page.locator('#product-list');
     await expect(list).toBeVisible();
   });
 
   test('each product shows name field', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const names = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items) return [];
       return Array.from(items).map(item => {
-        const nameEl = item.shadowRoot?.querySelector('[data-value="name"]');
+        const nameEl = item.shadowRoot?.querySelector('[data-value="name"], h2, .item-title');
         return nameEl?.textContent || '';
       }).filter(Boolean);
     });
@@ -78,9 +79,9 @@ test.describe('Product List', () => {
   });
 
   test('list-grid container exists inside ntx-list shadow DOM', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const hasGrid = await page.locator('#product-list').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.list-grid');

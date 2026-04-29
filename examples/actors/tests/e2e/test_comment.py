@@ -5,6 +5,25 @@ from playwright.sync_api import sync_playwright
 BASE = "http://localhost:5000"
 
 
+def _wait_for_comment_method(page, timeout=10000):
+    page.wait_for_function("""() => {
+        const lists = document.querySelectorAll('ntx-list');
+        for (const list of lists) {
+            const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
+            for (const item of items) {
+                const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
+                for (const m of methods) {
+                    if (m.getAttribute('method') !== 'comment') continue;
+                    const btn = m.shadowRoot?.querySelector('button[type="submit"], .method-btn');
+                    const input = m.shadowRoot?.querySelector('textarea, input');
+                    if (btn && input) return true;
+                }
+            }
+        }
+        return false;
+    }""", timeout=timeout)
+
+
 def _login(page, email="alice@example.com", password="alice123"):
     token = page.evaluate("""async (args) => {
         const resp = await fetch('/users/login', {
@@ -50,7 +69,7 @@ def test_comment_submits_once():
         page.goto(f"{BASE}/")
         _login(page)
         page.reload()
-        page.wait_for_timeout(5000)
+        _wait_for_comment_method(page)
 
         method_info = page.evaluate("""() => {
             const lists = document.querySelectorAll('ntx-list');
@@ -99,26 +118,26 @@ def test_comment_submits_once():
         }""")
         assert filled is True, "Failed to fill comment input"
 
-        clicked = page.evaluate("""() => {
-            const lists = document.querySelectorAll('ntx-list');
-            for (const list of lists) {
-                const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
-                for (const item of items) {
-                    const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
-                    for (const m of methods) {
-                        if (m.getAttribute('method') !== 'comment') continue;
-                        const btn = m.shadowRoot?.querySelector('button[type="submit"], .method-btn');
-                        if (!btn) return false;
-                        btn.click();
-                        return true;
+        with page.expect_response(lambda resp: 'comment' in resp.url.lower()
+                                  and resp.request.method == 'POST'):
+            clicked = page.evaluate("""() => {
+                const lists = document.querySelectorAll('ntx-list');
+                for (const list of lists) {
+                    const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
+                    for (const item of items) {
+                        const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
+                        for (const m of methods) {
+                            if (m.getAttribute('method') !== 'comment') continue;
+                            const btn = m.shadowRoot?.querySelector('button[type="submit"], .method-btn');
+                            if (!btn) return false;
+                            btn.click();
+                            return true;
+                        }
                     }
                 }
-            }
-            return false;
-        }""")
+                return false;
+            }""")
         assert clicked is True, "Failed to click comment submit button"
-
-        page.wait_for_timeout(3000)
 
         assert len(requests_log) == 1, requests_log
         assert len(responses_log) == 1, responses_log

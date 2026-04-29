@@ -16,10 +16,14 @@ export const PYTHONPATH = [
 const ACTIVE_VENV_PYTHON = process.env.VIRTUAL_ENV
   ? join(process.env.VIRTUAL_ENV, 'bin/python')
   : null;
+const E2E_VENV_PYTHON = join(REPO_ROOT, '.venv-e2e/bin/python');
+const WORKSPACE_VENV_PYTHON = join(REPO_ROOT, '.venv/bin/python');
 
-export const PYTHON_BIN = ACTIVE_VENV_PYTHON && existsSync(ACTIVE_VENV_PYTHON)
-  ? ACTIVE_VENV_PYTHON
-  : 'python3';
+export const PYTHON_BIN = [
+  ACTIVE_VENV_PYTHON,
+  E2E_VENV_PYTHON,
+  WORKSPACE_VENV_PYTHON,
+].find((pythonBin) => pythonBin && existsSync(pythonBin)) || 'python3';
 
 export function repoPath(...parts) {
   return join(REPO_ROOT, ...parts);

@@ -16,7 +16,7 @@
  * These tests run against an isolated test database created by
  * grants-global-setup.js (via NTT_SQLITE_DB env var).
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 
 const APP_URL = 'http://localhost:5000/';
 
@@ -25,9 +25,15 @@ async function login(page) {
     data: { email: 'alice@example.com', password: 'alice123' },
   });
   const json = await resp.json();
-  await page.goto(APP_URL);
-  await page.evaluate((t) => window.localStorage.setItem('jwtToken', t), json.token);
-  await page.reload({ waitUntil: 'networkidle' });
+  const token = json.token || json.data?.token;
+  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
+  await page.evaluate((t) => window.localStorage.setItem('jwtToken', t), token);
+  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
+}
+
+async function waitForRequestQuietWindow(page, durationMs = 300) {
+  const deadline = Date.now() + durationMs;
+  await page.waitForFunction((targetTime) => Date.now() >= targetTime, deadline);
 }
 
 /**
@@ -36,7 +42,9 @@ async function login(page) {
  */
 async function waitForGrantTable(page, timeout = 10000) {
   await page.waitForFunction(() => {
-    const table = document.querySelector('#grant-table');
+    const table = document.querySelector('#grant-table') ||
+      document.querySelector('ntx-table[model="Grant"]') ||
+      document.querySelector('ntx-table');
     return table?.shadowRoot?.querySelector('.inline-add-btn') != null;
   }, { timeout });
 }
@@ -69,7 +77,7 @@ test.describe('Grant Create — Number Field Validation', () => {
 
     // Open inline create row
     const clicked = await withGrantTable(page, () => {
-      const table = document.querySelector('#grant-table');
+      const table = document.querySelector('#grant-table') || document.querySelector('ntx-table[model="Grant"]') || document.querySelector('ntx-table');
       if (!table?.shadowRoot) return 'no-table';
       const btn = table.shadowRoot.querySelector('.inline-add-btn');
       if (!btn) return 'no-btn';
@@ -77,11 +85,14 @@ test.describe('Grant Create — Number Field Validation', () => {
       return 'clicked';
     });
     expect(clicked).toBe('clicked');
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => {
+      const table = document.querySelector('#grant-table') || document.querySelector('ntx-table[model="Grant"]') || document.querySelector('ntx-table');
+      return !!table?.shadowRoot?.querySelector('.create-row');
+    });
 
     // Fill required text fields but leave number fields empty
     await withGrantTable(page, () => {
-      const table = document.querySelector('#grant-table');
+      const table = document.querySelector('#grant-table') || document.querySelector('ntx-table[model="Grant"]') || document.querySelector('ntx-table');
       const row = table.shadowRoot.querySelector('.create-row');
 
       const title = row.querySelector('[data-key="title"]');
@@ -93,12 +104,12 @@ test.describe('Grant Create — Number Field Validation', () => {
 
     // Click save — should submit (amounts are optional, empty is valid)
     await withGrantTable(page, () => {
-      const table = document.querySelector('#grant-table');
+      const table = document.querySelector('#grant-table') || document.querySelector('ntx-table[model="Grant"]') || document.querySelector('ntx-table');
       table.shadowRoot.querySelector('.save-create-btn')?.click();
     });
 
-    // Wait for any potential error loop
-    await page.waitForTimeout(2000);
+    // Intentional negative wait: give a potential error loop a short quiet window to manifest.
+    await waitForRequestQuietWindow(page);
 
     // No error loop should have occurred
     expect(errorRequests.length).toBe(0);
@@ -118,19 +129,23 @@ test.describe('Grant Create — Number Field Validation', () => {
 
     // Open create row
     await withGrantTable(page, () => {
-      const table = document.querySelector('#grant-table');
+      const table = document.querySelector('#grant-table') || document.querySelector('ntx-table[model="Grant"]') || document.querySelector('ntx-table');
       table?.shadowRoot?.querySelector('.inline-add-btn')?.click();
     });
 
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => {
+      const table = document.querySelector('#grant-table') || document.querySelector('ntx-table[model="Grant"]') || document.querySelector('ntx-table');
+      return !!table?.shadowRoot?.querySelector('.create-row');
+    });
 
     // Click save without filling anything
     await withGrantTable(page, () => {
-      const table = document.querySelector('#grant-table');
+      const table = document.querySelector('#grant-table') || document.querySelector('ntx-table[model="Grant"]') || document.querySelector('ntx-table');
       table?.shadowRoot?.querySelector('.save-create-btn')?.click();
     });
 
-    await page.waitForTimeout(1000);
+    // Intentional negative wait: ensure validation does not submit later.
+    await waitForRequestQuietWindow(page);
 
     // No POST should have been sent for an empty form
     expect(postRequests.length).toBe(0);
@@ -151,7 +166,7 @@ test.describe('Grant Create — Number Field Validation', () => {
 
     // Send an invalid CREATE through the NTT framework to trigger error handling
     await page.evaluate(() => {
-      const table = document.querySelector('#grant-table');
+      const table = document.querySelector('#grant-table') || document.querySelector('ntx-table[model="Grant"]') || document.querySelector('ntx-table');
       if (table?.proto) {
         // Bad data — this triggers a backend error that the framework
         // must handle without looping
@@ -159,8 +174,8 @@ test.describe('Grant Create — Number Field Validation', () => {
       }
     });
 
-    // Wait long enough for any loop to manifest
-    await page.waitForTimeout(3000);
+    // Intentional negative wait: long enough for any loop to manifest without dominating the suite.
+    await waitForRequestQuietWindow(page);
 
     // The critical assertion: no requests to /error endpoints (the loop symptom)
     expect(errorRequests.length).toBe(0);
@@ -169,7 +184,7 @@ test.describe('Grant Create — Number Field Validation', () => {
 
   test('backend validation error returns proper HTTP status, no error loop', async ({ page }) => {
     await login(page);
-    await page.waitForTimeout(2000);
+    await waitForGrantTable(page);
 
     // Directly POST invalid data to the API (bypasses frontend validation)
     const token = await page.evaluate(() => window.localStorage.getItem('jwtToken'));

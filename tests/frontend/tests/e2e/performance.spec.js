@@ -11,18 +11,20 @@
  *   PERF_LABEL  - Tag for this run (e.g. "baseline", "optimized"). Default: "run"
  *   PERF_TIER   - Data tier used for seeding (set by perf-global-setup.js). Default: "full"
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import { authPayload } from './fixtures/auth.js';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { REPO_ROOT } from './paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Load harness code once at module level — injected into pages via addScriptTag
 const harnessCode = readFileSync(join(__dirname, 'perf-harness.js'), 'utf-8');
 
-// Resolve profiling output dir: env var > workspace root (5 levels up from tests/e2e/)
-const PROFILING_DIR = process.env.NTT_PROFILING_DIR || join(__dirname, '..', '..', '..', '..', '..', '.traces', '.profiling');
+// Resolve profiling output dir: env var > repository root.
+const PROFILING_DIR = process.env.NTT_PROFILING_DIR || join(REPO_ROOT, '.traces', '.profiling');
 const LABEL = process.env.PERF_LABEL || 'run';
 const TIER = process.env.PERF_TIER || 'full';
 
@@ -87,6 +89,22 @@ async function harvestPerfMeasures(page, prefix = '') {
   return measures;
 }
 
+async function waitForRenderedProductItem(page) {
+  await page.waitForFunction(() => {
+    const list = document.querySelector('#product-list');
+    const item = list?.shadowRoot?.querySelector('.list-grid ntx-item');
+    return !!item?.shadowRoot?.querySelector('.card');
+  }, { timeout: 15000 });
+}
+
+async function waitForRenderedRouterItem(page) {
+  await page.waitForFunction(() => {
+    const router = document.querySelector('ntx-router');
+    const item = router?.shadowRoot?.querySelector('ntx-item');
+    return !!item?.shadowRoot?.querySelector('.card');
+  }, { timeout: 10000 });
+}
+
 
 test.describe.serial('Performance Profiling', () => {
 
@@ -108,7 +126,7 @@ test.describe.serial('Performance Profiling', () => {
 
     // Wait for product items to render (bootstrap complete)
     const renderStart = performance.now();
-    await page.waitForSelector('ntx-item', { timeout: 15000 });
+    await waitForRenderedProductItem(page);
     const firstItemMs = performance.now() - renderStart;
     record('first_item_render_after_idle', firstItemMs);
 
@@ -148,16 +166,16 @@ test.describe.serial('Performance Profiling', () => {
 
   test('5. Product detail navigation', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
-    await page.waitForSelector('ntx-item', { timeout: 15000 });
+    await waitForRenderedProductItem(page);
 
     // Inject perf harness before interaction
     await page.addScriptTag({ content: harnessCode, type: 'module' });
 
     // Click first product item to navigate to detail
     const navStart = performance.now();
-    await page.locator('ntx-item').first().click();
-    // Wait for the detail view to render (lg/xl display)
-    await page.waitForSelector('ntx-item[display="xl"], ntx-item[display="lg"]', { timeout: 10000 });
+    await page.locator('#product-list').locator('ntx-item').first().click();
+    // Wait for the routed detail item to render inside the router shadow DOM.
+    await waitForRenderedRouterItem(page);
     const detailMs = performance.now() - navStart;
     record('product_detail_navigation', detailMs);
 
@@ -170,7 +188,7 @@ test.describe.serial('Performance Profiling', () => {
     const loginResp = await request.post('/users/login', {
       data: { email: 'alice@example.com', password: 'alice123' },
     });
-    const token = (await loginResp.json()).token;
+    const token = authPayload(await loginResp.json()).token;
     if (!token) {
       record('get_product_skipped', 0, { error: true, error_detail: 'login failed, skipping' });
       return;
@@ -190,7 +208,7 @@ test.describe.serial('Performance Profiling', () => {
     const loginResp = await request.post('/users/login', {
       data: { email: 'alice@example.com', password: 'alice123' },
     });
-    const token = (await loginResp.json()).token;
+    const token = authPayload(await loginResp.json()).token;
     if (!token) {
       record('child_collections_skipped', 0, { error: true, error_detail: 'login failed' });
       return;
@@ -223,7 +241,7 @@ test.describe.serial('Performance Profiling', () => {
     const loginResp = await request.post('/users/login', {
       data: { email: 'alice@example.com', password: 'alice123' },
     });
-    const token = (await loginResp.json()).token;
+    const token = authPayload(await loginResp.json()).token;
     if (!token) {
       record('write_ops_skipped', 0, { error: true, error_detail: 'login failed' });
       return;
@@ -268,12 +286,12 @@ test.describe.serial('Performance Profiling', () => {
   test('10. Full page reload (warm)', async ({ page }) => {
     // First load to warm caches
     await page.goto('/', { waitUntil: 'networkidle' });
-    await page.waitForSelector('ntx-item', { timeout: 15000 });
+    await waitForRenderedProductItem(page);
 
     // Second load = warm
     const start = performance.now();
     await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForSelector('ntx-item', { timeout: 15000 });
+    await waitForRenderedProductItem(page);
     const warmMs = performance.now() - start;
     record('page_reload_warm', warmMs);
 
@@ -290,7 +308,7 @@ test.describe.serial('Performance Profiling', () => {
     await client.send('Profiler.start');
 
     await page.goto('/', { waitUntil: 'networkidle' });
-    await page.waitForSelector('ntx-item', { timeout: 15000 });
+    await waitForRenderedProductItem(page);
 
     // Inject perf harness for any subsequent profiled interactions
     await page.addScriptTag({ content: harnessCode, type: 'module' });

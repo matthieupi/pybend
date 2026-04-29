@@ -54,6 +54,21 @@ def _wait_for_routed_list(page, timeout=10000):
     }""", timeout=timeout)
 
 
+def _wait_for_render_settle(page):
+    """Wait for queued event/render work without adding a fixed sleep."""
+    page.evaluate("""() => new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    })""")
+
+
+def _wait_for_hash_change(page, hash_before, timeout=5000):
+    page.wait_for_function(
+        "before => location.hash !== before && location.hash.startsWith('#')",
+        arg=hash_before,
+        timeout=timeout,
+    )
+
+
 def _inject_widget(page, stop_propagation=False):
     """Inject a custom element with interactive shadow DOM into a routed card.
 
@@ -165,7 +180,7 @@ def test_widget_with_stop_propagation_textarea_does_not_navigate():
         click_result = _click_widget_element(page, "test-fixed-widget", "textarea")
         assert click_result == "clicked", f"Could not click textarea: {click_result}"
 
-        page.wait_for_timeout(2000)
+        _wait_for_render_settle(page)
 
         hash_after = page.evaluate("() => location.hash")
         assert hash_after == hash_before, \
@@ -197,7 +212,7 @@ def test_widget_with_stop_propagation_button_does_not_navigate():
         click_result = _click_widget_element(page, "test-fixed-widget", ".widget-btn")
         assert click_result == "clicked", f"Could not click button: {click_result}"
 
-        page.wait_for_timeout(2000)
+        _wait_for_render_settle(page)
 
         hash_after = page.evaluate("() => location.hash")
         assert hash_after == hash_before, \
@@ -227,7 +242,7 @@ def test_widget_with_stop_propagation_list_stays_visible():
         click_result = _click_widget_element(page, "test-fixed-widget", "textarea")
         assert click_result == "clicked"
 
-        page.wait_for_timeout(2000)
+        _wait_for_render_settle(page)
 
         # Router should NOT have switched to detail view
         router_on_detail = page.evaluate("() => location.hash.startsWith('#')")
@@ -267,7 +282,7 @@ def test_widget_without_stop_propagation_does_navigate():
         click_result = _click_widget_element(page, "test-broken-widget", "textarea")
         assert click_result == "clicked", f"Could not click textarea: {click_result}"
 
-        page.wait_for_timeout(2000)
+        _wait_for_hash_change(page, hash_before)
 
         hash_after = page.evaluate("() => location.hash")
         # This SHOULD navigate (the bug) — proving the vulnerability exists

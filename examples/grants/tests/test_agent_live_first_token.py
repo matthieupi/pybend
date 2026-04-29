@@ -16,6 +16,14 @@ from n3tx_agents.actor import AgentActor
 pytestmark = pytest.mark.integration
 
 
+def _unwrap_stream_event(payload):
+    """Unwrap Level 3 TX STREAM envelopes to the inner agent event."""
+    data = payload
+    while isinstance(data, dict) and data.get('name') == 'STREAM' and isinstance(data.get('data'), dict):
+        data = data['data']
+    return data if isinstance(data, dict) else {}
+
+
 @pytest.fixture(scope="module")
 def live_agent(test_db, seed_data):
     """Create a minimal test agent for streaming tests."""
@@ -53,8 +61,9 @@ class TestSSEStreamAllTokensDelivered:
                         payload = json.loads(line[5:].strip())
                     except json.JSONDecodeError:
                         continue
-                    name = payload.get('name') or payload.get('event')
-                    data = payload.get('data', {})
+                    event = _unwrap_stream_event(payload)
+                    name = event.get('name') or event.get('event')
+                    data = event.get('data', {})
                     if name == 'text':
                         text_chunks.append(data.get('text', ''))
 
@@ -90,8 +99,9 @@ class TestSSEStreamAllTokensDelivered:
                         payload = json.loads(line[5:].strip())
                     except json.JSONDecodeError:
                         continue
-                    name = payload.get('name') or payload.get('event')
-                    data = payload.get('data', {})
+                    event = _unwrap_stream_event(payload)
+                    name = event.get('name') or event.get('event')
+                    data = event.get('data', {})
                     if name == 'text':
                         text_chunks.append(data.get('text', ''))
                     elif name == 'done':
@@ -138,8 +148,9 @@ class TestAgentLiveAccumulatesAllChunks:
                         payload = json.loads(line[5:].strip())
                     except json.JSONDecodeError:
                         continue
-                    name = payload.get('name') or payload.get('event')
-                    data = payload.get('data', {})
+                    event = _unwrap_stream_event(payload)
+                    name = event.get('name') or event.get('event')
+                    data = event.get('data', {})
                     if name == 'text':
                         all_text.append(data.get('text', ''))
                     elif name == 'done':

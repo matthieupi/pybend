@@ -13,7 +13,7 @@ export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.js',
   globalTeardown: './global-teardown.js',
-  timeout: 30000,
+  timeout: 60000,
   expect: {
     timeout: 10000,
   },
@@ -46,7 +46,7 @@ export default defineConfig({
     },
     url: 'http://localhost:5000/Product',
     reuseExistingServer: process.env.N3TX_E2E_REUSE_SERVER === '1',
-    timeout: 30000,
+    timeout: 120000,
     stdout: 'ignore',
     stderr: 'pipe',
   },

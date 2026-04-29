@@ -1,17 +1,18 @@
 /**
  * Comments (Nested Entity) — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, getToken, USERS } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
 test.describe('Comments', () => {
 
   test('comment method visible on product detail', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasCommentMethod = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -23,24 +24,24 @@ test.describe('Comments', () => {
   });
 
   test('comments list visible on product detail', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasComments = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return false;
-      const listField = item.shadowRoot.querySelector('.list-field[data-value="comments"]');
-      return !!listField;
+      const listField = item.shadowRoot.querySelector('ntx-list-field[field="comments"]');
+      return !!listField?.shadowRoot?.querySelector('.list-field[data-value="comments"]');
     });
 
     expect(hasComments).toBe(true);
   });
 
   test('comment count badge shows correct number', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const count = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -84,9 +85,9 @@ test.describe('Comments', () => {
   });
 
   test('comment shows author and text', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const commentContent = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');

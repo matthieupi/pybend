@@ -9,7 +9,17 @@ from examples.grants.models import Grant
 
 
 def test_delete_grant_does_not_emit_lifecycle_response_errors(client, alice_token, seed_data, caplog):
-    grant = seed_data["grants"][0]
+    create_response = client.post(
+        "/grants",
+        json={
+            "title": "Lifecycle Delete Test Grant",
+            "agency": "NSF",
+            "url": "https://nsf.gov/lifecycle-delete-test",
+        },
+        headers=auth_header(alice_token),
+    )
+    assert create_response.status_code == 201
+    grant_id = create_response.json()["id"]
 
     class Runs(ActorModel):
         __tablename__: ClassVar[str] = "runs"
@@ -29,7 +39,7 @@ def test_delete_grant_does_not_emit_lifecycle_response_errors(client, alice_toke
             root.register(Runs)
 
         with caplog.at_level(logging.ERROR):
-            response = client.delete(f"/grants/{grant.id}", headers=auth_header(alice_token))
+            response = client.delete(f"/grants/{grant_id}", headers=auth_header(alice_token))
     finally:
         Grant._subscribers = original_subscribers
 

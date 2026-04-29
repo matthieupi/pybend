@@ -96,6 +96,52 @@ def get_count(page, method, uuid):
     }""", {"method": method, "uuid": uuid})
 
 
+def wait_for_method_buttons(page, timeout=10000):
+    page.wait_for_function("""() => {
+        function findInShadow(root, method, depth = 0) {
+            if (depth > 10) return false;
+            for (const el of root.querySelectorAll(`ntx-method[method="${method}"]`)) {
+                if (el.shadowRoot?.querySelector('.method-btn-count')) return true;
+            }
+            for (const el of root.querySelectorAll('*')) {
+                if (el.shadowRoot && findInShadow(el.shadowRoot, method, depth + 1)) return true;
+            }
+            return false;
+        }
+        return findInShadow(document, 'like') && findInShadow(document, 'favorite');
+    }""", timeout=timeout)
+
+
+def wait_for_method_count(page, method, uuid, expected, timeout=5000):
+    page.wait_for_function("""(args) => {
+        function findInShadow(root, depth = 0) {
+            if (depth > 10) return null;
+            for (const el of root.querySelectorAll(`ntx-method[method="${args.method}"]`)) {
+                if (el.getAttribute('uuid') === args.uuid) {
+                    return el.shadowRoot?.querySelector('.method-btn-count')?.textContent ?? null;
+                }
+            }
+            for (const el of root.querySelectorAll('*')) {
+                if (el.shadowRoot) {
+                    const result = findInShadow(el.shadowRoot, depth + 1);
+                    if (result !== null) return result;
+                }
+            }
+            return null;
+        }
+        return Number(findInShadow(document)) === args.expected;
+    }""", arg={"method": method, "uuid": uuid, "expected": expected}, timeout=timeout)
+
+
+def response_action(response):
+    body = response.json()
+    if isinstance(body, str):
+        body = json.loads(body)
+    if '_debug' in body and 'data' in body:
+        body = body['data']
+    return body.get('action', '?')
+
+
 def get_ntt_field(page, model, uuid, field):
     """Get a specific field from the N3TX instance's value."""
     return page.evaluate("""(args) => {
@@ -132,7 +178,7 @@ def test_like_and_favorite():
         page.goto(f"{BASE}/")
         get_token(page)
         page.reload()
-        page.wait_for_timeout(4000)
+        wait_for_method_buttons(page)
 
         # ─── TEST: LIKE TOGGLE ───
         likes = find_buttons(page, 'like')
@@ -143,17 +189,17 @@ def test_like_and_favorite():
 
         # Click 1: toggle
         last_action.clear()
-        assert click_button(page, 'like', uuid) == 'clicked'
-        page.wait_for_timeout(3000)
-
-        count_after_1 = int(get_count(page, 'like', uuid))
-        action_1 = last_action.get('value', '?')
-        ntt_count_1 = get_ntt_field(page, model, uuid, 'likes')
+        with page.expect_response(lambda resp: resp.request.method == "POST" and "/like" in resp.url) as response_info:
+            assert click_button(page, 'like', uuid) == 'clicked'
+        action_1 = response_action(response_info.value)
 
         if action_1 == 'liked':
             expected_1 = count_before + 1
         else:
             expected_1 = count_before - 1
+        wait_for_method_count(page, 'like', uuid, expected_1)
+        count_after_1 = int(get_count(page, 'like', uuid))
+        ntt_count_1 = get_ntt_field(page, model, uuid, 'likes')
 
         like_pass_1 = count_after_1 == expected_1 and count_after_1 == ntt_count_1
         results.append(('Like toggle 1', like_pass_1,
@@ -161,11 +207,12 @@ def test_like_and_favorite():
 
         # Click 2: toggle back
         last_action.clear()
-        click_button(page, 'like', uuid)
-        page.wait_for_timeout(3000)
+        with page.expect_response(lambda resp: resp.request.method == "POST" and "/like" in resp.url) as response_info:
+            click_button(page, 'like', uuid)
+        action_2 = response_action(response_info.value)
+        wait_for_method_count(page, 'like', uuid, count_before)
 
         count_after_2 = int(get_count(page, 'like', uuid))
-        action_2 = last_action.get('value', '?')
         ntt_count_2 = get_ntt_field(page, model, uuid, 'likes')
 
         like_pass_2 = count_after_2 == count_before and count_after_2 == ntt_count_2
@@ -181,17 +228,17 @@ def test_like_and_favorite():
 
         # Click 1: toggle
         last_action.clear()
-        assert click_button(page, 'favorite', uuid) == 'clicked'
-        page.wait_for_timeout(3000)
-
-        count_after_1 = int(get_count(page, 'favorite', uuid))
-        action_1 = last_action.get('value', '?')
-        ntt_count_1 = get_ntt_field(page, model, uuid, 'favorites')
+        with page.expect_response(lambda resp: resp.request.method == "POST" and "/favorite" in resp.url) as response_info:
+            assert click_button(page, 'favorite', uuid) == 'clicked'
+        action_1 = response_action(response_info.value)
 
         if action_1 == 'favorited':
             expected_1 = count_before + 1
         else:
             expected_1 = count_before - 1
+        wait_for_method_count(page, 'favorite', uuid, expected_1)
+        count_after_1 = int(get_count(page, 'favorite', uuid))
+        ntt_count_1 = get_ntt_field(page, model, uuid, 'favorites')
 
         fav_pass_1 = count_after_1 == expected_1 and count_after_1 == ntt_count_1
         results.append(('Favorite toggle 1', fav_pass_1,
@@ -199,11 +246,12 @@ def test_like_and_favorite():
 
         # Click 2: toggle back
         last_action.clear()
-        click_button(page, 'favorite', uuid)
-        page.wait_for_timeout(3000)
+        with page.expect_response(lambda resp: resp.request.method == "POST" and "/favorite" in resp.url) as response_info:
+            click_button(page, 'favorite', uuid)
+        action_2 = response_action(response_info.value)
+        wait_for_method_count(page, 'favorite', uuid, count_before)
 
         count_after_2 = int(get_count(page, 'favorite', uuid))
-        action_2 = last_action.get('value', '?')
         ntt_count_2 = get_ntt_field(page, model, uuid, 'favorites')
 
         fav_pass_2 = count_after_2 == count_before and count_after_2 == ntt_count_2

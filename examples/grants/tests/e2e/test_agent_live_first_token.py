@@ -35,7 +35,8 @@ def streaming_agent_id(browser, e2e_server):
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: 'alice@example.com', password: 'alice123' }),
         });
-        const { token } = await loginResp.json();
+        const loginData = await loginResp.json();
+        const token = loginData.token || loginData.data?.token;
 
         const agentResp = await fetch(`${base}/agents`, {
             method: 'POST',
@@ -76,6 +77,14 @@ class TestStreamFirstTokenNotDropped:
         p.wait_for_load_state("networkidle")
 
         result = p.evaluate("""async (args) => {
+            function unwrapStreamEvent(payload) {
+                let event = payload;
+                while (event && event.name === 'STREAM' && event.data && typeof event.data === 'object') {
+                    event = event.data;
+                }
+                return event || {};
+            }
+
             const [base, agentId] = args;
 
             // Login
@@ -84,7 +93,8 @@ class TestStreamFirstTokenNotDropped:
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: 'alice@example.com', password: 'alice123' }),
             });
-            const { token } = await loginResp.json();
+            const loginData = await loginResp.json();
+            const token = loginData.token || loginData.data?.token;
             localStorage.setItem('jwtToken', token);
 
             // First, collect the expected full answer from the SSE stream
@@ -115,8 +125,9 @@ class TestStreamFirstTokenNotDropped:
                     if (line.startsWith('data:')) {
                         try {
                             const payload = JSON.parse(line.slice(5).trim());
-                            const name = payload.name || payload.event;
-                            const data = payload.data || {};
+                            const event = unwrapStreamEvent(payload);
+                            const name = event.name || event.event;
+                            const data = event.data || {};
                             if (name === 'text') textChunks.push(data.text || '');
                             if (name === 'done') doneAnswer = data.answer || '';
                         } catch {}

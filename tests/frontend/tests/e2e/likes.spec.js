@@ -1,17 +1,18 @@
 /**
  * Likes (Method Button) — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, getToken, USERS } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
 test.describe('Likes', () => {
 
   test('like button visible on product list items', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const hasLikeMethod = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
@@ -24,21 +25,21 @@ test.describe('Likes', () => {
     expect(typeof hasLikeMethod).toBe('boolean');
   });
 
-  test('like method exists in schema', async ({ page }) => {
+  test('favorite method exists in schema', async ({ page }) => {
     const resp = await page.request.get('/Product');
     const schema = await resp.json();
 
-    expect(schema.methods.like).toBeDefined();
-    expect(schema.methods.like.scope).toBe('instancemethod');
-    expect(schema.methods.like.ui.layout).toBe('button');
-    expect(schema.methods.like.ui.icon).toBe('heart');
-    expect(schema.methods.like.ui.count_field).toBe('likes');
+    expect(schema.methods.favorite).toBeDefined();
+    expect(schema.methods.favorite.scope).toBe('instancemethod');
+    expect(schema.methods.favorite.ui.layout).toBe('button');
+    expect(schema.methods.favorite.ui.icon).toBe('star');
+    expect(schema.methods.favorite.ui.count_field).toBe('favorites');
   });
 
-  test('like via API succeeds with auth', async ({ page }) => {
+  test('favorite via API succeeds with auth', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
-    const resp = await page.request.post('/products/1/like', {
+    const resp = await page.request.post('/products/1/favorite', {
       headers: { 'x-access-token': token },
       data: {},
     });
@@ -46,7 +47,7 @@ test.describe('Likes', () => {
     expect(resp.ok()).toBe(true);
   });
 
-  test('like count accessible via API', async ({ page }) => {
+  test('favorite count accessible via API', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     const resp = await page.request.get('/products/1?depth=1', {
@@ -54,14 +55,14 @@ test.describe('Likes', () => {
     });
     const data = await resp.json();
 
-    // likes should be present as array or populated
-    expect(data.likes !== undefined).toBe(true);
+    // favorites should be present as array or populated
+    expect(data.favorites !== undefined).toBe(true);
   });
 
   test('like button shows count badge', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const likeInfo = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -80,12 +81,12 @@ test.describe('Likes', () => {
     expect(typeof likeInfo.hasLikeBtn).toBe('boolean');
   });
 
-  test('like without auth fails', async ({ page }) => {
-    const resp = await page.request.post('/products/1/like', {
+  test('favorite without auth fails', async ({ page }) => {
+    const resp = await page.request.post('/products/1/favorite', {
       data: {},
     });
 
-    // Should fail with 401 (no token)
-    expect(resp.status()).toBe(401);
+    // AUTHENTICATED method access is denied without a token.
+    expect(resp.status()).toBe(403);
   });
 });

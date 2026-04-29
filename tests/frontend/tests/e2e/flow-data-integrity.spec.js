@@ -4,8 +4,9 @@
  * Verifies data consistency across UI and API: create/update/verify everywhere,
  * schema consistency, pagination, FK integrity, and concurrent modifications.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, getToken, setToken, clearToken, USERS } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -48,12 +49,13 @@ test.describe('Data Integrity — Create and Verify Everywhere', () => {
     expect(inList.name).toBe(productName);
 
     // Verify in UI
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await setToken(page, token);
-    await page.goto(`${APP_URL}#Product/${pid}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/${pid}`);
+
+    await waitForAppReady(page);
 
     const content = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -108,11 +110,27 @@ test.describe.serial('Data Integrity — Update and Verify Everywhere', () => {
   });
 
   test('update reflected in list view', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await setToken(page, token);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(3000);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
+
+    await page.waitForFunction(() => {
+      const list = document.querySelector('#product-list');
+      const items = list?.shadowRoot?.querySelectorAll('ntx-item') || [];
+      const found = Array.from(items).some((item) => {
+        const nameEl = item.shadowRoot?.querySelector('[data-value="name"]');
+        return nameEl?.textContent?.includes('Updated Integrity Name');
+      });
+      if (found) return true;
+
+      const loadMore = list?.shadowRoot?.querySelector('.load-more-btn');
+      loadMore?.click();
+      return false;
+    });
 
     const names = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');

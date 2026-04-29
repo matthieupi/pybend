@@ -4,8 +4,9 @@
  * Product has `favorite` method (star icon, toggles).
  * Comment has `like` method (heart icon, toggles) and `reply` method.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, getToken, setToken, clearToken, USERS } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForRouterContent, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -141,14 +142,16 @@ test.describe('Favorite — Multiple Users', () => {
 test.describe('Favorite — UI Button', () => {
 
   test('favorite button visible on product detail', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const hasFavBtn = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -159,14 +162,16 @@ test.describe('Favorite — UI Button', () => {
   });
 
   test('favorite button shows count badge', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const favInfo = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -186,10 +191,11 @@ test.describe('Favorite — UI Button', () => {
   });
 
   test('favorite button visible in product list items', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
     const hasFavInList = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
@@ -287,21 +293,23 @@ test.describe('Comment Like — Toggle via API', () => {
 test.describe('Comment Like — UI Button', () => {
 
   test('like button visible on comment items in product detail', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const hasLikeBtn = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return false;
-      const listField = item.shadowRoot.querySelector('.list-field[data-value="comments"]');
-      if (!listField) return false;
-      const commentItems = listField.querySelectorAll('ntx-item');
+      const listField = item.shadowRoot.querySelector('ntx-list-field[field="comments"]');
+      if (!listField?.shadowRoot) return false;
+      const commentItems = listField.shadowRoot.querySelectorAll('ntx-item');
       if (!commentItems.length) return false;
       const firstComment = commentItems[0];
       if (!firstComment?.shadowRoot) return false;
@@ -314,13 +322,14 @@ test.describe('Comment Like — UI Button', () => {
 test.describe('Favorites Page — Navigation', () => {
 
   test('favorites page renders ntx-favorites component', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
+    await waitForAppReady(page);
 
     await page.evaluate(() => { window.location.hash = '#@favorites'; });
-    await page.waitForTimeout(2000);
+    await waitForRouterContent(page);
 
     const hasFavoritesComponent = await page.evaluate(() => {
       const router = document.querySelector('ntx-router');
@@ -333,13 +342,14 @@ test.describe('Favorites Page — Navigation', () => {
   });
 
   test('favorites page shows ProductLike list', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
+    await waitForAppReady(page);
 
     await page.evaluate(() => { window.location.hash = '#@favorites'; });
-    await page.waitForTimeout(2000);
+    await waitForRouterContent(page);
 
     const listInfo = await page.evaluate(() => {
       const router = document.querySelector('ntx-router');
@@ -374,12 +384,13 @@ test.describe('Favorite — Edge Cases', () => {
     });
 
     // Load the page, verify count
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await setToken(page, token);
-    await page.goto(`${APP_URL}#Product/${product.id}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/${product.id}`);
+
+    await waitForAppReady(page);
 
     const countBefore = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -391,8 +402,9 @@ test.describe('Favorite — Edge Cases', () => {
     });
 
     // Reload
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(3000);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const countAfter = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');

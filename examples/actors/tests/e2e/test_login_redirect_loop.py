@@ -15,6 +15,12 @@ from playwright.sync_api import sync_playwright, expect
 BASE = "http://localhost:5000"  # Patched by conftest
 
 
+def _wait_for_render_settle(page):
+    page.evaluate("""() => new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    })""")
+
+
 @pytest.fixture(scope="module")
 def browser():
     with sync_playwright() as p:
@@ -69,8 +75,9 @@ class TestLoginRedirectLoop:
         page.fill("#password", "alice123")
         page.click("button[type=submit]")
 
-        # Give the page time to settle (or loop)
-        page.wait_for_timeout(3000)
+        page.wait_for_url(re.compile(r"/$|/index\.html"), timeout=5000)
+        page.wait_for_load_state("networkidle")
+        _wait_for_render_settle(page)
 
         # Count how many times we hit login.html after the initial load
         login_hits = [u for u in navigations if "login.html" in u]
@@ -98,8 +105,8 @@ class TestLoginRedirectLoop:
             )
             pytest.fail(f"Unexpected URL after login: {current}")
 
-        # The main page should not immediately redirect us back to login
-        page.wait_for_timeout(2000)
+        page.wait_for_load_state("networkidle")
+        _wait_for_render_settle(page)
         current_url = page.url
         assert "login" not in current_url, (
             f"Redirected back to login after reaching main page: {current_url}"
@@ -148,7 +155,8 @@ class TestRegisterRedirectLoop:
             name_input.fill("Test User")
 
         page.click("button[type=submit]")
-        page.wait_for_timeout(3000)
+        page.wait_for_url(re.compile(r"/$|/index\.html|/login\.html"), timeout=5000)
+        page.wait_for_load_state("networkidle")
 
         token = page.evaluate("() => window.localStorage.getItem('jwtToken')")
 

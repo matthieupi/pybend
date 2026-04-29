@@ -1,7 +1,8 @@
 /**
  * Form Validation — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -20,9 +21,9 @@ test.describe('Form Validation', () => {
   });
 
   test('currency widget shows $ prefix in display mode', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const priceText = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -35,17 +36,18 @@ test.describe('Form Validation', () => {
   });
 
   test('textarea widget renders for description field', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
 
-    const hasTextBlock = await page.locator('ntx-router').evaluate((r) => {
+    await waitForAppReady(page);
+
+    const hasDescription = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       if (!item?.shadowRoot) return false;
-      return !!item.shadowRoot.querySelector('.text-block[data-value="description"]');
+      const description = item.shadowRoot.querySelector('[data-value="description"]');
+      return !!description && description.textContent.trim().length > 0;
     });
 
-    expect(hasTextBlock).toBe(true);
+    expect(hasDescription).toBe(true);
   });
 
   test('required fields marked in schema', async ({ page }) => {
@@ -55,9 +57,9 @@ test.describe('Form Validation', () => {
   });
 
   test('field groups render as fieldsets', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const fieldsetCount = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -69,9 +71,9 @@ test.describe('Form Validation', () => {
   });
 
   test('hidden fields (id, image) not rendered', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasHiddenFields = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');

@@ -21,14 +21,14 @@ class TestLikeResponseIncludesEntityData:
     """After calling like, the response should include updated entity data
     so the frontend can update the count without a separate GET."""
 
-    def test_comment_like_response_includes_updated_likes(self, client, charlie_token, seed_data):
+    def test_comment_like_response_includes_updated_likes(self, client, charlie_token, seed_data, make_comment):
         """Like response should include the comment's updated likes array
         so the frontend _response_ handler can update the count badge."""
         product = seed_data["products"][3]
-        comment = seed_data["comments"][5]  # comment on product 3
+        comment = make_comment(product.id, name="Fresh response contract comment")
 
         resp = client.post(
-            f"/products/{product.id}/comments/{comment.id}/like",
+            f"/products/{product.id}/comments/{comment['id']}/like",
             json={}, headers=auth_header(charlie_token),
         )
         assert resp.status_code == 200
@@ -67,18 +67,18 @@ class TestLikeResponseIncludesEntityData:
             f"for the frontend to update. Got: {data}"
         )
 
-    def test_like_response_has_likes_count(self, client, bob_token, seed_data):
+    def test_like_response_has_likes_count(self, client, bob_token, seed_data, make_comment):
         """The like response should carry enough info to update the count badge
         immediately — at minimum the current likes count."""
         product = seed_data["products"][2]
-        comment = seed_data["comments"][4]  # comment on product 2
+        comment = make_comment(product.id, name="Fresh count contract comment")
 
         # Get the count before
-        before = client.get(f"/products/{product.id}/comments/{comment.id}")
+        before = client.get(f"/products/{product.id}/comments/{comment['id']}")
         before_likes = before.json().get("likes", [])
 
         resp = client.post(
-            f"/products/{product.id}/comments/{comment.id}/like",
+            f"/products/{product.id}/comments/{comment['id']}/like",
             json={}, headers=auth_header(bob_token),
         )
         assert resp.status_code == 200

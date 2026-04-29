@@ -4,8 +4,9 @@
  * Master integration test: register -> create product -> comment -> favorite ->
  * cross-user interaction -> update -> verify aggregate state.
  */
-import { test, expect } from '@playwright/test';
-import { loginAs, getToken, setToken, USERS } from './fixtures/auth.js';
+import { test, expect } from './fixtures/parallel.js';
+import { loginAs, getToken, setToken, USERS, authPayload } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 const TS = Date.now();
@@ -16,6 +17,30 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   let creatorEmail;
   let productId;
 
+  async function ensureChainProduct(page) {
+    if (!creatorToken) {
+      creatorEmail = `social-chain-${TS}@example.com`;
+      const regResp = await page.request.post('/users/register', {
+        data: { name: `Chain User ${TS}`, email: creatorEmail, password: 'chain123' },
+      });
+      expect(regResp.ok()).toBe(true);
+      const regData = await regResp.json();
+      creatorToken = authPayload(regData).token;
+      expect(creatorToken).toBeTruthy();
+    }
+
+    if (!productId) {
+      const createResp = await page.request.post('/products', {
+        headers: { 'x-access-token': creatorToken },
+        data: { name: `Social Chain Product ${TS}`, price: 55.00, description: 'Full flow test' },
+      });
+      expect(createResp.ok()).toBe(true);
+      const product = await createResp.json();
+      productId = product.id;
+      expect(productId).toBeDefined();
+    }
+  }
+
   test('Phase 1: Register a fresh user', async ({ page }) => {
     creatorEmail = `social-chain-${TS}@example.com`;
     const regResp = await page.request.post('/users/register', {
@@ -23,16 +48,18 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
     });
     expect(regResp.ok()).toBe(true);
     const regData = await regResp.json();
-    creatorToken = regData.token;
+    creatorToken = authPayload(regData).token;
     expect(creatorToken).toBeTruthy();
   });
 
   test('Phase 1: Verify authenticated state in topbar', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await setToken(page, creatorToken);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const hasPill = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.user-pill');
@@ -62,6 +89,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 3: Add first comment', async ({ page }) => {
+    await ensureChainProduct(page);
     const resp = await page.request.post(`/products/${productId}/comment`, {
       headers: { 'x-access-token': creatorToken },
       data: { comment: { name: `First Comment ${TS}`, description: 'Testing the chain' } },
@@ -203,12 +231,13 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 7: Product renders correctly in UI', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await setToken(page, creatorToken);
-    await page.goto(`${APP_URL}#Product/${productId}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/${productId}`);
+
+    await waitForAppReady(page);
 
     const content = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -218,11 +247,27 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 7: Product appears in list with correct name', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await setToken(page, creatorToken);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(3000);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
+
+    await page.waitForFunction((expectedName) => {
+      const list = document.querySelector('#product-list');
+      const items = list?.shadowRoot?.querySelectorAll('ntx-item') || [];
+      const found = Array.from(items).some((item) => {
+        const nameEl = item.shadowRoot?.querySelector('[data-value="name"]');
+        return nameEl?.textContent?.includes(expectedName);
+      });
+      if (found) return true;
+
+      const loadMore = list?.shadowRoot?.querySelector('.load-more-btn');
+      loadMore?.click();
+      return false;
+    }, `Updated Social Chain ${TS}`);
 
     const names = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');

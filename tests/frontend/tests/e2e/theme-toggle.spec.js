@@ -1,8 +1,9 @@
 /**
  * Theme Toggle — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -23,7 +24,9 @@ test.describe('Theme Toggle', () => {
   test('default theme is dark', async ({ page }) => {
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.removeItem('ntx-theme'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const theme = await page.evaluate(() => {
       return document.documentElement.dataset.theme || 'dark';
@@ -35,7 +38,7 @@ test.describe('Theme Toggle', () => {
   test('sidebar theme button changes data-theme attribute', async ({ page }) => {
     await page.goto(APP_URL);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     // Get initial theme
     const initialTheme = await page.evaluate(() =>
@@ -70,19 +73,24 @@ test.describe('Theme Toggle', () => {
   });
 
   test('logged-out pages do not render theme switchers', async ({ page }) => {
-    await page.goto('/login.html');
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, '/login.html');
+
+    await expect(page.locator('.auth-card')).toBeVisible();
     await expect(page.locator('ntx-theme-button')).toHaveCount(0);
 
-    await page.goto('/register.html');
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, '/register.html');
+
+
+    await expect(page.locator('.auth-card')).toBeVisible();
     await expect(page.locator('ntx-theme-button')).toHaveCount(0);
   });
 
   test('theme persists in localStorage', async ({ page }) => {
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'light'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const theme = await page.evaluate(() =>
       document.documentElement.dataset.theme
@@ -93,7 +101,9 @@ test.describe('Theme Toggle', () => {
   test('theme survives page reload', async ({ page }) => {
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'light'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const storedTheme = await page.evaluate(() =>
       window.localStorage.getItem('ntx-theme')
@@ -104,7 +114,9 @@ test.describe('Theme Toggle', () => {
   test('dark mode has dark surface', async ({ page }) => {
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'dark'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const surface = await page.evaluate(() => {
       return getComputedStyle(document.documentElement).getPropertyValue('--ntx-color-page').trim();
@@ -117,7 +129,9 @@ test.describe('Theme Toggle', () => {
   test('light mode has light surface', async ({ page }) => {
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'light'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const surface = await page.evaluate(() => {
       return getComputedStyle(document.documentElement).getPropertyValue('--ntx-color-page').trim();
@@ -130,7 +144,9 @@ test.describe('Theme Toggle', () => {
     // Dark theme
     await page.goto(APP_URL);
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'dark'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const darkAccent = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--ntx-color-accent').trim()
@@ -139,7 +155,9 @@ test.describe('Theme Toggle', () => {
 
     // Light theme
     await page.evaluate(() => window.localStorage.setItem('ntx-theme', 'light'));
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const lightAccent = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--ntx-color-accent').trim()

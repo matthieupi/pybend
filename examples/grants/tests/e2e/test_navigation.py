@@ -20,7 +20,7 @@ def _login(page, email="alice@example.com", password="alice123"):
         "email": email, "password": password,
     })
     body = resp.json()
-    token = body.get("token")
+    token = body.get("token") or (body.get("data") or {}).get("token")
     assert token, f"Login failed: {body}"
     page.evaluate(f"() => localStorage.setItem('jwtToken', '{token}')")
     return token
@@ -38,6 +38,49 @@ def _wait_for_items(page, timeout=10000):
         // Ensure first row's shadow DOM is fully rendered
         return !!rows[0].shadowRoot?.querySelector('.row');
     }""", timeout=timeout)
+
+
+def _wait_for_router_detail(page, model="Grant", timeout=10000):
+    """Wait until the router has mounted and hydrated a detail item."""
+    page.wait_for_function("""(model) => {
+        const router = document.querySelector('ntx-router');
+        const content = router?.shadowRoot?.querySelector('.router-content');
+        const item = content?.querySelector('ntx-item');
+        return location.hash.startsWith(`#${model}/`)
+            && !!router?.shadowRoot?.querySelector('.back-btn')
+            && router?.shadowRoot?.querySelector('.router-title')?.textContent === model
+            && !!item?.value && Object.keys(item.value).length > 0;
+    }""", arg=model, timeout=timeout)
+
+
+def _wait_for_router_home(page, timeout=10000):
+    """Wait until the router has returned to the slotted home/table view."""
+    page.wait_for_function("""() => {
+        const router = document.querySelector('ntx-router');
+        const chrome = router?.shadowRoot?.querySelector('.router-chrome');
+        const rows = document.querySelector('#grant-table')?.shadowRoot
+            ?.querySelector('.table-body')?.querySelectorAll('ntx-row')?.length ?? 0;
+        return (location.hash === '' || location.hash === '#')
+            && !!router?.shadowRoot?.querySelector('slot')
+            && (!chrome || chrome.hidden || getComputedStyle(chrome).display === 'none')
+            && rows > 0;
+    }""", timeout=timeout)
+
+
+def _wait_for_sidebar_list(page, timeout=10000):
+    """Wait until the expanded sidebar has rendered its nested list."""
+    page.wait_for_function("""() => {
+        const sidebar = document.querySelector('ntx-sidebar');
+        const list = sidebar?.shadowRoot?.querySelector('ntx-list');
+        const grid = list?.shadowRoot?.querySelector('.list-grid');
+        return !!list && !!grid;
+    }""", timeout=timeout)
+
+
+def _wait_for_render_settle(page):
+    page.evaluate("""() => new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    })""")
 
 
 def test_main_list_click_navigates():
@@ -66,7 +109,7 @@ def test_main_list_click_navigates():
             const row = body.querySelector('ntx-row');
             row.shadowRoot.querySelector('.row').click();
         }""")
-        page.wait_for_timeout(1500)
+        _wait_for_router_detail(page)
 
         # Verify navigation occurred
         after = page.evaluate("""() => {
@@ -108,26 +151,36 @@ def test_back_button_returns_to_list():
             const body = table.shadowRoot.querySelector('.table-body');
             body.querySelector('ntx-row').shadowRoot.querySelector('.row').click();
         }""")
-        page.wait_for_timeout(1500)
+        _wait_for_router_detail(page)
 
         # Click back
         page.evaluate("""() => {
             document.querySelector('ntx-router')
                 .shadowRoot.querySelector('.back-btn').click();
         }""")
-        page.wait_for_timeout(1000)
+        _wait_for_render_settle(page)
 
         # Verify we're back at the table
-        after_back = page.evaluate("""() => ({
-            hash: location.hash,
-            hasSlot: !!document.querySelector('ntx-router')?.shadowRoot?.querySelector('slot'),
-            hasBackBtn: !!document.querySelector('ntx-router')?.shadowRoot?.querySelector('.back-btn'),
-            tableRowCount: document.querySelector('#grant-table')?.shadowRoot
-                ?.querySelector('.table-body')?.querySelectorAll('ntx-row')?.length ?? 0,
-        })""")
-        assert after_back["hash"] == "", f"Hash should be empty after back, got {after_back['hash']}"
+        after_back = page.evaluate("""() => {
+            const router = document.querySelector('ntx-router');
+            const chrome = router?.shadowRoot?.querySelector('.router-chrome');
+            const backBtn = router?.shadowRoot?.querySelector('.back-btn');
+            return {
+                hash: location.hash,
+                hasSlot: !!router?.shadowRoot?.querySelector('slot'),
+                backBtnVisible: !!backBtn && !backBtn.hidden
+                    && !!backBtn.offsetParent
+                    && getComputedStyle(backBtn).display !== 'none',
+                chromeVisible: !!chrome && !chrome.hidden
+                    && getComputedStyle(chrome).display !== 'none',
+                tableRowCount: document.querySelector('#grant-table')?.shadowRoot
+                    ?.querySelector('.table-body')?.querySelectorAll('ntx-row')?.length ?? 0,
+            };
+        }""")
+        assert after_back["hash"] in ("", "#"), f"Hash should be empty after back, got {after_back['hash']}"
         assert after_back["hasSlot"], "Slot (table view) should be visible after back"
-        assert not after_back["hasBackBtn"], "Back button should not be visible at home"
+        assert not after_back["chromeVisible"], "Router chrome should not be visible at home"
+        assert not after_back["backBtnVisible"], "Back button should not be visible at home"
         assert after_back["tableRowCount"] > 0, "Table should still have rows after back"
 
         browser.close()
@@ -142,7 +195,7 @@ def test_hash_deep_link():
         page.goto(BASE)
         _login(page)
         page.goto(f"{BASE}/#Grant/1")
-        page.wait_for_timeout(6000)
+        _wait_for_router_detail(page)
 
         state = page.evaluate("""() => {
             const router = document.querySelector('ntx-router');
@@ -179,7 +232,7 @@ def test_sidebar_item_navigates():
             const header = sidebar.shadowRoot.querySelector('.model-header');
             header.click();
         }""")
-        page.wait_for_timeout(3000)
+        _wait_for_sidebar_list(page)
 
         # Check that the sidebar list has router attribute
         sidebar_info = page.evaluate("""() => {
@@ -208,7 +261,7 @@ def test_sidebar_item_navigates():
             const grid = list.shadowRoot.querySelector('.list-grid');
             grid.querySelector('ntx-item').shadowRoot.querySelector('.card').click();
         }""")
-        page.wait_for_timeout(2000)
+        _wait_for_router_detail(page)
 
         after = page.evaluate("""() => ({
             hash: location.hash,

@@ -48,6 +48,13 @@ def _wait_for_list_items(page, timeout=10000):
     }""", timeout=timeout)
 
 
+def _wait_for_render_settle(page):
+    """Wait for queued event/render work without adding a fixed sleep."""
+    page.evaluate("""() => new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    })""")
+
+
 def _inject_interactive_element(page):
     """Inject a custom element with interactive shadow DOM into a card.
 
@@ -141,7 +148,7 @@ def test_textarea_in_custom_element_shadow_dom_does_not_navigate():
         }""")
         assert click_result == "clicked", f"Could not click textarea: {click_result}"
 
-        page.wait_for_timeout(2000)
+        _wait_for_render_settle(page)
 
         hash_after = page.evaluate("() => location.hash")
         assert not hash_after.startswith("#"), \
@@ -195,7 +202,7 @@ def test_button_in_custom_element_shadow_dom_does_not_navigate():
         }""")
         assert click_result == "clicked", f"Could not click button: {click_result}"
 
-        page.wait_for_timeout(2000)
+        _wait_for_render_settle(page)
 
         hash_after = page.evaluate("() => location.hash")
         assert not hash_after.startswith("#"), \
@@ -240,7 +247,7 @@ def test_list_stays_visible_after_shadow_dom_widget_click():
             }
         }""")
 
-        page.wait_for_timeout(2000)
+        _wait_for_render_settle(page)
 
         # Check if the list is still visible
         list_visible = page.evaluate("""() => {

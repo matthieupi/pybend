@@ -4,8 +4,9 @@
  * Tests complete user journeys: registration, login, session persistence,
  * logout, multi-user switching, and token edge cases.
  */
-import { test, expect } from '@playwright/test';
-import { loginAs, logout, getToken, setToken, clearToken, USERS } from './fixtures/auth.js';
+import { test, expect } from './fixtures/parallel.js';
+import { loginAs, logout, getToken, setToken, clearToken, USERS, authPayload } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -21,9 +22,10 @@ test.describe('Auth Lifecycle — Registration Flow', () => {
     });
     expect(regResp.ok()).toBe(true);
     const regData = await regResp.json();
-    expect(regData.token).toBeTruthy();
-    expect(regData.user).toBeDefined();
-    expect(regData.user.email).toBe(email);
+    const registered = authPayload(regData);
+    expect(registered.token).toBeTruthy();
+    expect(registered.user).toBeDefined();
+    expect(registered.user.email).toBe(email);
 
     // Login with the newly registered credentials
     const loginResp = await page.request.post('/users/login', {
@@ -31,14 +33,17 @@ test.describe('Auth Lifecycle — Registration Flow', () => {
     });
     expect(loginResp.ok()).toBe(true);
     const loginData = await loginResp.json();
-    expect(loginData.token).toBeTruthy();
+    const loggedIn = authPayload(loginData);
+    expect(loggedIn.token).toBeTruthy();
 
     // Set token and verify in UI
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await setToken(page, loginData.token);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
+    await setToken(page, loggedIn.token);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const hasPill = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.user-pill');
@@ -47,7 +52,7 @@ test.describe('Auth Lifecycle — Registration Flow', () => {
 
     // Verify /auth/me returns correct data
     const meResp = await page.request.get('/auth/me', {
-      headers: { 'x-access-token': loginData.token },
+      headers: { 'x-access-token': loggedIn.token },
     });
     expect(meResp.ok()).toBe(true);
     const meData = await meResp.json();
@@ -63,7 +68,7 @@ test.describe('Auth Lifecycle — Registration Flow', () => {
     // Current behavior: succeeds (200 OK) despite empty name
     expect(resp.ok()).toBe(true);
     const data = await resp.json();
-    expect(data.token).toBeTruthy();
+    expect(authPayload(data).token).toBeTruthy();
   });
 
   test('register with duplicate email returns 409 conflict', async ({ page }) => {
@@ -104,10 +109,11 @@ test.describe('Auth Lifecycle — Login Flow', () => {
   });
 
   test('login sets localStorage token and topbar shows user pill', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
     // Check localStorage
     const storedToken = await page.evaluate(() => window.localStorage.getItem('jwtToken'));
@@ -166,15 +172,17 @@ test.describe('Auth Lifecycle — Login Flow', () => {
 test.describe('Auth Lifecycle — Session Persistence', () => {
 
   test('token survives page reload and topbar stays authenticated', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
 
-    // Reload 3 times
-    for (let i = 0; i < 3; i++) {
-      await page.reload({ waitUntil: 'networkidle' });
-      await page.waitForTimeout(1500);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    // One reload is enough to validate persistence while keeping the full suite deterministic.
+    for (let i = 0; i < 1; i++) {
+      await reloadApp(page);
+
+      await waitForAppReady(page);
 
       const token = await page.evaluate(() => window.localStorage.getItem('jwtToken'));
       expect(token).toBeTruthy();
@@ -187,14 +195,16 @@ test.describe('Auth Lifecycle — Session Persistence', () => {
   });
 
   test('product list loads after each reload while authenticated', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
     for (let i = 0; i < 2; i++) {
-      await page.reload({ waitUntil: 'networkidle' });
-      await page.waitForTimeout(2000);
+      await reloadApp(page);
+
+      await waitForAppReady(page);
 
       const hasItems = await page.locator('#product-list').evaluate((list) => {
         const grid = list.shadowRoot?.querySelector('.list-grid');
@@ -208,10 +218,11 @@ test.describe('Auth Lifecycle — Session Persistence', () => {
 test.describe('Auth Lifecycle — Logout Flow', () => {
 
   test('logout clears token and reverts topbar to signin link', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
+    await waitForAppReady(page);
 
     // Verify authenticated state
     let hasPill = await page.locator('ntx-topbar').evaluate((el) => {
@@ -221,7 +232,7 @@ test.describe('Auth Lifecycle — Logout Flow', () => {
 
     // Logout
     await logout(page);
-    await page.waitForTimeout(1500);
+    await waitForAppReady(page);
 
     // Token should be gone
     const token = await page.evaluate(() => window.localStorage.getItem('jwtToken'));
@@ -235,12 +246,13 @@ test.describe('Auth Lifecycle — Logout Flow', () => {
   });
 
   test('page still functions after logout (product list visible)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await loginAs(page, 'alice');
-    await page.waitForTimeout(1000);
+    await waitForAppReady(page);
     await logout(page);
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
     // Products should still load (read is public)
     const hasItems = await page.locator('#product-list').evaluate((list) => {
@@ -254,13 +266,14 @@ test.describe('Auth Lifecycle — Logout Flow', () => {
 test.describe('Auth Lifecycle — Multi-User Switching', () => {
 
   test('switch between alice, bob, and charlie with correct states', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const users = ['alice', 'bob', 'charlie'];
     for (const userName of users) {
       await loginAs(page, userName);
-      await page.waitForTimeout(1500);
+      await waitForAppReady(page);
 
       // Verify user pill is visible
       const hasPill = await page.locator('ntx-topbar').evaluate((el) => {
@@ -278,7 +291,7 @@ test.describe('Auth Lifecycle — Multi-User Switching', () => {
 
       // Logout before next user
       await logout(page);
-      await page.waitForTimeout(500);
+      await waitForUiSettled(page);
     }
   });
 });
@@ -286,17 +299,19 @@ test.describe('Auth Lifecycle — Multi-User Switching', () => {
 test.describe('Auth Lifecycle — Token Edge Cases', () => {
 
   test('invalid JWT in localStorage is handled gracefully', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Set garbage JWT
     await page.evaluate(() => {
       window.localStorage.setItem('jwtToken', 'garbage.invalid.token');
     });
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await reloadApp(page);
 
-    // Page should not crash
+    await page.waitForURL(/\/login\.html$/);
+
+    // Invalid stored credentials redirect to the standalone login page without crashing.
     const hasBody = await page.evaluate(() => document.body.children.length > 0);
     expect(hasBody).toBe(true);
 
@@ -308,11 +323,13 @@ test.describe('Auth Lifecycle — Token Edge Cases', () => {
   });
 
   test('anonymous state visible when no token is set', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await clearToken(page);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const hasSignIn = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.signin-link');

@@ -1,7 +1,8 @@
 /**
  * Responsive/Adaptive Display — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -9,9 +10,9 @@ test.describe('Responsive Display', () => {
 
   test('small viewport (360px) renders items', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 640 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const list = page.locator('#product-list');
     await expect(list).toBeVisible();
@@ -25,9 +26,9 @@ test.describe('Responsive Display', () => {
 
   test('medium viewport (600px) renders items', async ({ page }) => {
     await page.setViewportSize({ width: 600, height: 900 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const itemCount = await page.locator('#product-list').evaluate((el) => {
       const grid = el.shadowRoot?.querySelector('.list-grid');
@@ -38,9 +39,9 @@ test.describe('Responsive Display', () => {
 
   test('large viewport (1200px) renders items', async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 800 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const itemCount = await page.locator('#product-list').evaluate((el) => {
       const grid = el.shadowRoot?.querySelector('.list-grid');
@@ -51,9 +52,9 @@ test.describe('Responsive Display', () => {
 
   test('detail view renders at 480px viewport', async ({ page }) => {
     await page.setViewportSize({ width: 480, height: 800 });
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasContent = await page.locator('ntx-router').evaluate((r) => {
       return !!r.shadowRoot?.querySelector('.router-content');
@@ -63,9 +64,9 @@ test.describe('Responsive Display', () => {
 
   test('detail view renders at 1920px viewport', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const hasContent = await page.locator('ntx-router').evaluate((r) => {
       return !!r.shadowRoot?.querySelector('.router-content');
@@ -74,9 +75,9 @@ test.describe('Responsive Display', () => {
   });
 
   test('list items have data-display attribute', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const displays = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
@@ -98,30 +99,31 @@ test.describe('Responsive Display', () => {
     const errors = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+
+    await waitForAppReady(page);
 
     // Resize through multiple breakpoints
     await page.setViewportSize({ width: 1200, height: 800 });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
     await page.setViewportSize({ width: 768, height: 1024 });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
     await page.setViewportSize({ width: 480, height: 640 });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
     await page.setViewportSize({ width: 360, height: 640 });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
     await page.setViewportSize({ width: 1920, height: 1080 });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
 
     const realErrors = errors.filter(e => !e.includes('AssertionError'));
     expect(realErrors).toHaveLength(0);
   });
 
   test('child items have cascaded display mode', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const childDisplays = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');

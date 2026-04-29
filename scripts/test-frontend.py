@@ -7,8 +7,9 @@ The frontend harness has two runner families:
 * Playwright for browser specs under ``tests/e2e/*.spec.js``.
 
 Specialized Playwright configs own app-specific suites such as grants, veille,
-and performance. The core e2e suite intentionally excludes those files so the
-default run covers every frontend spec exactly once.
+and performance. The core e2e suite runs through the worker-isolated parallel
+config and intentionally excludes those files so the default run covers every
+frontend spec exactly once.
 """
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ import os
 import re
 import subprocess
 import sys
+import threading
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = ROOT / "tests/frontend"
 E2E_DIR = FRONTEND_ROOT / "tests/e2e"
 DEFAULT_OVERVIEW_FILE = ROOT / ".project/test-runs/frontend-test-overview.json"
+DEFAULT_SUITE_WORKERS = int(os.environ.get("N3TX_FRONTEND_SUITE_WORKERS", "2"))
 COUNT_PATTERN = re.compile(
     r"(?P<count>\d+)\s+"
     r"(?P<label>passed|failed|errors?|warnings?)"
@@ -39,6 +43,7 @@ COLORS = {
     "warning": "\033[33m",
     "header": "\033[36m",
 }
+PRINT_LOCK = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -79,6 +84,7 @@ def frontend_env() -> dict[str, str]:
     return {
         "FORCE_COLOR": "1",
         "npm_config_color": "always",
+        "N3TX_E2E_PARALLEL_WORKERS": os.environ.get("N3TX_E2E_PARALLEL_WORKERS", "2"),
     }
 
 
@@ -99,12 +105,15 @@ def build_suites() -> tuple[Suite, ...]:
                 "npx",
                 "playwright",
                 "test",
-                "--config=tests/e2e/playwright.config.js",
+                "--config=tests/e2e/playwright.parallel.config.js",
                 *core_e2e_specs(),
             ),
             append_args=True,
             env=frontend_env(),
-            description="Core Playwright specs excluding grants, veille, and performance",
+            description=(
+                "Core Playwright specs with worker-isolated app servers/DBs; "
+                "excludes grants, veille, and performance"
+            ),
         ),
         Suite(
             name="e2e-grants",
@@ -157,9 +166,10 @@ def run_suite(suite: Suite, extra_args: tuple[str, ...]) -> tuple[int, str]:
         env.update(suite.env)
     command = [*suite.command, *(extra_args if suite.append_args else ())]
 
-    print(f"\n=== frontend suite: {suite.name} ===", flush=True)
-    print(f"cwd: {suite.cwd}", flush=True)
-    print("cmd:", " ".join(command), flush=True)
+    with PRINT_LOCK:
+        print(f"\n=== frontend suite: {suite.name} ===", flush=True)
+        print(f"cwd: {suite.cwd}", flush=True)
+        print("cmd:", " ".join(command), flush=True)
 
     process = subprocess.Popen(
         command,
@@ -173,7 +183,8 @@ def run_suite(suite: Suite, extra_args: tuple[str, ...]) -> tuple[int, str]:
     output_lines: list[str] = []
     if process.stdout is not None:
         for line in process.stdout:
-            print(line, end="")
+            with PRINT_LOCK:
+                print(f"[{suite.name}] {line}", end="")
             output_lines.append(line)
     return process.wait(), "".join(output_lines)
 
@@ -265,6 +276,16 @@ def result_from_run(suite: Suite, code: int, output: str, previous: dict[str, st
         failed=counts["failed"],
         warnings=counts["warnings"],
         errors=counts["errors"],
+        previous_status=previous.get(suite.name),
+    )
+
+
+def exception_result(suite: Suite, exc: BaseException, previous: dict[str, str]) -> SuiteResult:
+    return SuiteResult(
+        name=suite.name,
+        status="failed",
+        returncode=1,
+        message=f"runner exception: {exc}",
         previous_status=previous.get(suite.name),
     )
 
@@ -471,11 +492,90 @@ def parse_args() -> argparse.Namespace:
         help="Colorize the final frontend test summary. Default: auto.",
     )
     parser.add_argument(
+        "--workers",
+        "--suite-workers",
+        dest="suite_workers",
+        type=int,
+        default=DEFAULT_SUITE_WORKERS,
+        help=(
+            "Number of frontend suites to run concurrently. "
+            f"Default: {DEFAULT_SUITE_WORKERS} (N3TX_FRONTEND_SUITE_WORKERS). "
+            "--suite-workers is kept as a backward-compatible alias."
+        ),
+    )
+    parser.add_argument(
         "test_args",
         nargs=argparse.REMAINDER,
         help="Extra arguments passed to each selected test command after '--'.",
     )
     return parser.parse_args()
+
+
+def runnable_suites(selected: set[str], previous: dict[str, str]) -> tuple[list[Suite], list[SuiteResult]]:
+    suites: list[Suite] = []
+    results: list[SuiteResult] = []
+    for suite in SUITES:
+        if suite.name not in selected:
+            continue
+        if not suite.cwd.exists():
+            message = f"missing cwd: {suite.cwd}"
+            print(f"Skipping missing suite {suite.name}: {suite.cwd}", file=sys.stderr)
+            results.append(warning_result(suite, message, previous))
+            continue
+        suites.append(suite)
+    return suites, results
+
+
+def run_suites_parallel(
+    suites: list[Suite],
+    extra_args: tuple[str, ...],
+    previous: dict[str, str],
+    suite_workers: int,
+    continue_on_failure: bool,
+) -> list[SuiteResult]:
+    if not suites:
+        return []
+
+    workers = max(1, min(suite_workers, len(suites)))
+    print(f"\nRunning {len(suites)} frontend suites with {workers} suite worker(s).", flush=True)
+
+    ordered_results: dict[str, SuiteResult] = {}
+    pending = iter(suites)
+    futures: dict[Future[tuple[int, str]], Suite] = {}
+    stop_submitting = False
+
+    def submit_next(executor: ThreadPoolExecutor) -> bool:
+        try:
+            suite = next(pending)
+        except StopIteration:
+            return False
+        futures[executor.submit(run_suite, suite, extra_args)] = suite
+        return True
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        for _ in range(workers):
+            if not submit_next(executor):
+                break
+
+        while futures:
+            done, _ = wait(futures, return_when=FIRST_COMPLETED)
+            for future in done:
+                suite = futures.pop(future)
+                try:
+                    code, output = future.result()
+                    result = result_from_run(suite, code, output, previous)
+                except BaseException as exc:  # pragma: no cover - defensive runner guard
+                    result = exception_result(suite, exc, previous)
+                ordered_results[suite.name] = result
+
+                if result.status == "failed" and not continue_on_failure:
+                    stop_submitting = True
+
+            while not stop_submitting and len(futures) < workers:
+                if not submit_next(executor):
+                    break
+
+    return [ordered_results[suite.name] for suite in suites if suite.name in ordered_results]
 
 
 def main() -> int:
@@ -492,24 +592,16 @@ def main() -> int:
     extra_args = tuple(arg for arg in args.test_args if arg != "--")
     overview_file = args.overview_file
     previous = load_previous_overview(overview_file)
-    results: list[SuiteResult] = []
-    exit_code = 0
-
-    for suite in SUITES:
-        if suite.name not in selected:
-            continue
-        if not suite.cwd.exists():
-            message = f"missing cwd: {suite.cwd}"
-            print(f"Skipping missing suite {suite.name}: {suite.cwd}", file=sys.stderr)
-            results.append(warning_result(suite, message, previous))
-            continue
-        code, output = run_suite(suite, extra_args)
-        results.append(result_from_run(suite, code, output, previous))
-        if code != 0:
-            exit_code = code
-            if not args.continue_on_failure:
-                print(f"\nFAILED: {suite.name}", file=sys.stderr)
-                break
+    suites_to_run, results = runnable_suites(selected, previous)
+    results.extend(
+        run_suites_parallel(
+            suites_to_run,
+            extra_args,
+            previous,
+            args.suite_workers,
+            args.continue_on_failure,
+        )
+    )
 
     save_overview(overview_file, overview_payload(results, sys.argv, overview_file))
     print_summary(results, overview_file, args.summary_color)
@@ -518,7 +610,7 @@ def main() -> int:
     if failures:
         print("\nFailed suites:", ", ".join(failures), file=sys.stderr)
 
-    return 1 if failures and args.continue_on_failure else exit_code
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

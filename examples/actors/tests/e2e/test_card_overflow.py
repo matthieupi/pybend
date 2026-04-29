@@ -97,12 +97,13 @@ def test_ntx_item_inputs_have_box_sizing():
     """
     css = _strip_comments(_read(ITEM_CSS))
 
-    # Find the shared input, textarea rule
+    # Find the shared form-control rule. It may include additional controls
+    # such as select, but must cover both input and textarea.
     match = re.search(
-        r'(?:^|\n)\s*input\s*,\s*textarea\s*\{([^}]+)\}',
+        r'(?:^|\n)\s*input\s*,\s*textarea(?:\s*,\s*select)?\s*\{([^}]+)\}',
         css,
     )
-    assert match, "Could not find shared 'input, textarea' rule in ntx-item.css"
+    assert match, "Could not find shared input/textarea rule in ntx-item.css"
     block = match.group(1)
 
     assert 'box-sizing' in block, (

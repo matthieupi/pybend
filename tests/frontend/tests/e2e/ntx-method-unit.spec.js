@@ -1,272 +1,106 @@
 /**
- * ntx-method — Comprehensive Unit Tests
+ * ntx-method — browser/backend contracts.
  *
- * Tests the method button component for Product (favorite, comment)
- * and Comment (like, reply) methods, including schema verification,
- * button/inline layouts, and edge cases.
+ * Static rendering behavior is covered in Vitest component tests. This spec keeps
+ * real-page rendering, browser-computed style, schema, and authenticated API
+ * coverage that still needs Playwright.
  */
-import { test, expect } from '@playwright/test';
-import { loginAs, getToken, USERS } from './fixtures/auth.js';
+import { test, expect } from './fixtures/parallel.js';
+import { getToken, USERS } from './fixtures/auth.js';
+import { gotoApp, waitForAppReady } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
-test.describe('ntx-method — Product Favorite Button', () => {
+test.describe('ntx-method — Product Detail Rendering', () => {
+  test('favorite method renders with icon, count, and browser-computed button layout', async ({ page }) => {
+    await gotoApp(page, `${APP_URL}#Product/1`);
+    await waitForAppReady(page);
 
-  test('favorite method element exists on product detail', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const hasFav = await page.locator('ntx-router').evaluate((r) => {
+    const info = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return false;
-      return !!item.shadowRoot.querySelector('ntx-method[method="favorite"]');
-    });
-    expect(hasFav).toBe(true);
-  });
-
-  test('favorite button has star icon SVG', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const hasStarSvg = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return false;
-      const method = item.shadowRoot.querySelector('ntx-method[method="favorite"]');
-      if (!method?.shadowRoot) return false;
-      const icon = method.shadowRoot.querySelector('ntx-icon');
-      return !!icon?.shadowRoot?.querySelector('svg polygon');
-    });
-    expect(hasStarSvg).toBe(true);
-  });
-
-  test('favorite button shows count badge', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const count = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return null;
-      const method = item.shadowRoot.querySelector('ntx-method[method="favorite"]');
-      if (!method?.shadowRoot) return null;
-      const countEl = method.shadowRoot.querySelector('.method-btn-count');
-      return countEl?.textContent || null;
-    });
-    // Count should be a number (could be "0")
-    expect(count).not.toBeNull();
-    expect(parseInt(count)).toBeGreaterThanOrEqual(0);
-  });
-
-  test('favorite button is clickable (has .method-btn)', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const hasBtn = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return false;
-      const method = item.shadowRoot.querySelector('ntx-method[method="favorite"]');
-      if (!method?.shadowRoot) return false;
-      const btn = method.shadowRoot.querySelector('.method-btn');
-      return !!btn && getComputedStyle(btn).cursor === 'pointer';
-    });
-    expect(hasBtn).toBe(true);
-  });
-
-  test('favorite button uses button layout (pill-shaped)', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const style = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return {};
-      const method = item.shadowRoot.querySelector('ntx-method[method="favorite"]');
-      if (!method?.shadowRoot) return {};
-      const btn = method.shadowRoot.querySelector('.method-btn');
-      if (!btn) return {};
-      const s = getComputedStyle(btn);
+      const method = item?.shadowRoot?.querySelector('ntx-method[method="favorite"]');
+      const btn = method?.shadowRoot?.querySelector('.method-btn');
+      const styles = btn ? getComputedStyle(btn) : null;
       return {
-        borderRadius: s.borderRadius,
-        display: s.display,
+        found: !!method,
+        hasStarSvg: !!method?.shadowRoot?.querySelector('ntx-icon')?.shadowRoot?.querySelector('svg polygon'),
+        count: method?.shadowRoot?.querySelector('.method-btn-count')?.textContent ?? null,
+        cursor: styles?.cursor ?? '',
+        borderRadius: styles?.borderRadius ?? '',
+        display: styles?.display ?? '',
       };
     });
-    expect(parseFloat(style.borderRadius)).toBeGreaterThanOrEqual(100);
-    expect(style.display).toContain('flex');
+
+    expect(info.found).toBe(true);
+    expect(info.hasStarSvg).toBe(true);
+    expect(parseInt(info.count, 10)).toBeGreaterThanOrEqual(0);
+    expect(info.cursor).toBe('pointer');
+    expect(parseFloat(info.borderRadius)).toBeGreaterThanOrEqual(100);
+    expect(info.display).toContain('flex');
   });
 
-  test('favorite button also present on sm list items', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+  test('comment method renders inline textarea form from live schema', async ({ page }) => {
+    await gotoApp(page, `${APP_URL}#Product/1`);
+    await waitForAppReady(page);
+
+    const inlineInfo = await page.locator('ntx-router').evaluate((r) => {
+      const item = r.shadowRoot?.querySelector('ntx-item');
+      const method = item?.shadowRoot?.querySelector('ntx-method[method="comment"]');
+      const textarea = method?.shadowRoot?.querySelector('textarea');
+      const submit = method?.shadowRoot?.querySelector('button[type="submit"]');
+      return {
+        hasInline: !!method?.shadowRoot?.querySelector('.method-inline'),
+        hasForm: !!method?.shadowRoot?.querySelector('form'),
+        placeholder: textarea?.getAttribute('placeholder') || '',
+        buttonText: submit?.textContent?.trim() || '',
+      };
+    });
+
+    expect(inlineInfo.hasInline).toBe(true);
+    expect(inlineInfo.hasForm).toBe(true);
+    expect(inlineInfo.placeholder).toContain('Add your comment');
+    expect(inlineInfo.buttonText).toBe('Post');
+  });
+
+  test('favorite method is also present on product list items', async ({ page }) => {
+    await gotoApp(page, APP_URL);
+    await waitForAppReady(page);
 
     const hasFavInList = await page.locator('#product-list').evaluate((el) => {
       const items = el.shadowRoot?.querySelectorAll('ntx-item');
-      if (!items?.length) return false;
-      for (const item of items) {
-        if (item.shadowRoot?.querySelector('ntx-method[method="favorite"]')) return true;
-      }
-      return false;
+      return Array.from(items || []).some((item) => item.shadowRoot?.querySelector('ntx-method[method="favorite"]'));
     });
+
     expect(hasFavInList).toBe(true);
   });
 });
 
-
-test.describe('ntx-method — Product Comment Method (Inline)', () => {
-
-  test('comment method element exists on product detail', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const hasComment = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return false;
-      return !!item.shadowRoot.querySelector('ntx-method[method="comment"]');
-    });
-    expect(hasComment).toBe(true);
-  });
-
-  test('comment method has inline layout with textarea', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const inlineInfo = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return {};
-      const method = item.shadowRoot.querySelector('ntx-method[method="comment"]');
-      if (!method?.shadowRoot) return {};
-      return {
-        hasInline: !!method.shadowRoot.querySelector('.method-inline'),
-        hasTextarea: !!method.shadowRoot.querySelector('textarea'),
-        hasForm: !!method.shadowRoot.querySelector('form'),
-      };
-    });
-    expect(inlineInfo.hasInline).toBe(true);
-    expect(inlineInfo.hasTextarea).toBe(true);
-    expect(inlineInfo.hasForm).toBe(true);
-  });
-
-  test('comment textarea has placeholder "Add your comment..."', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const placeholder = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return '';
-      const method = item.shadowRoot.querySelector('ntx-method[method="comment"]');
-      if (!method?.shadowRoot) return '';
-      const ta = method.shadowRoot.querySelector('textarea');
-      return ta?.getAttribute('placeholder') || '';
-    });
-    expect(placeholder).toContain('Add your comment');
-  });
-
-  test('comment form has "Post" submit button', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const btnText = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return '';
-      const method = item.shadowRoot.querySelector('ntx-method[method="comment"]');
-      if (!method?.shadowRoot) return '';
-      const btn = method.shadowRoot.querySelector('button[type="submit"]');
-      return btn?.textContent?.trim() || '';
-    });
-    expect(btnText).toBe('Post');
-  });
-});
-
-
-test.describe('ntx-method — Comment Like Button (Nested)', () => {
-
-  test('comment items have like method with heart icon', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const likeInfo = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return {};
-      // Find a comment ntx-item inside the comments list-field
-      const commentItems = item.shadowRoot.querySelectorAll('.list-field[data-value="comments"] ntx-item');
-      for (const ci of commentItems) {
-        const likeMethod = ci.shadowRoot?.querySelector('ntx-method[method="like"]');
-        if (likeMethod?.shadowRoot) {
-          const icon = likeMethod.shadowRoot.querySelector('.method-btn-icon');
-          return {
-            found: true,
-            hasHeart: !!icon?.querySelector('svg path'), // heart SVG uses <path>
-            hasCount: !!likeMethod.shadowRoot.querySelector('.method-btn-count'),
-          };
-        }
-      }
-      return { found: false };
-    });
-
-    // Comments may or may not have rendered sub-methods depending on data
-    if (likeInfo.found) {
-      expect(likeInfo.hasHeart).toBe(true);
-      expect(likeInfo.hasCount).toBe(true);
-    }
-  });
-});
-
-
-test.describe('ntx-method — Schema Verification', () => {
-
-  test('Product schema has favorite method with correct ui', async ({ page }) => {
+test.describe('ntx-method — Backend Schema', () => {
+  test('Product and Comment method schema exposes expected ui/access contracts', async ({ page }) => {
     const resp = await page.request.get('/Product');
     const schema = await resp.json();
+    const commentDef = schema.$defs?.Comment;
 
-    expect(schema.methods.favorite).toBeDefined();
-    expect(schema.methods.favorite.scope).toBe('instancemethod');
-    expect(schema.methods.favorite.ui.layout).toBe('button');
-    expect(schema.methods.favorite.ui.icon).toBe('star');
-    expect(schema.methods.favorite.ui.count_field).toBe('favorites');
-    expect(schema.methods.favorite.access.rule).toBe('authenticated');
-  });
-
-  test('Product schema has comment method with inline layout', async ({ page }) => {
-    const resp = await page.request.get('/Product');
-    const schema = await resp.json();
-
-    expect(schema.methods.comment).toBeDefined();
+    expect(schema.methods.favorite).toMatchObject({
+      scope: 'instancemethod',
+      ui: { layout: 'button', icon: 'star', count_field: 'favorites' },
+      access: { rule: 'authenticated' },
+    });
     expect(schema.methods.comment.scope).toBe('instancemethod');
-    expect(schema.methods.comment.ui.layout).toBe('inline');
-    expect(schema.methods.comment.ui.button_label).toBe('Post');
+    expect(schema.methods.comment.ui).toMatchObject({
+      layout: 'inline',
+      button_label: 'Post',
+      widget: 'textarea',
+    });
     expect(schema.methods.comment.ui.placeholder).toContain('comment');
-    expect(schema.methods.comment.ui.widget).toBe('textarea');
-    // comment parameter references Comment $def
-    expect(schema.methods.comment.parameters.comment).toBeDefined();
     expect(schema.methods.comment.parameters.comment.$ref).toContain('Comment');
-  });
 
-  test('Comment $defs has like method with heart icon', async ({ page }) => {
-    const resp = await page.request.get('/Product');
-    const schema = await resp.json();
-    const commentDef = schema.$defs?.Comment;
-
-    expect(commentDef?.methods?.like).toBeDefined();
-    expect(commentDef.methods.like.ui.icon).toBe('heart');
-    expect(commentDef.methods.like.ui.layout).toBe('button');
-    expect(commentDef.methods.like.ui.count_field).toBe('likes');
+    expect(commentDef?.methods?.like.ui).toMatchObject({
+      icon: 'heart',
+      layout: 'button',
+      count_field: 'likes',
+    });
     expect(commentDef.methods.like.access.rule).toBe('authenticated');
-  });
-
-  test('Comment $defs has reply method with inline layout', async ({ page }) => {
-    const resp = await page.request.get('/Product');
-    const schema = await resp.json();
-    const commentDef = schema.$defs?.Comment;
-
-    expect(commentDef?.methods?.reply).toBeDefined();
     expect(commentDef.methods.reply.ui.layout).toBe('inline');
     expect(commentDef.methods.reply.ui.button_label).toBe('Reply');
     expect(commentDef.methods.reply.ui.placeholder).toContain('reply');
@@ -274,57 +108,7 @@ test.describe('ntx-method — Schema Verification', () => {
   });
 });
 
-
-test.describe('ntx-method — Edge Cases', () => {
-
-  test('method button renders with correct structure', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const structure = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return {};
-      const method = item.shadowRoot.querySelector('ntx-method[method="favorite"]');
-      if (!method?.shadowRoot) return {};
-      return {
-        hasBtn: !!method.shadowRoot.querySelector('.method-btn'),
-        hasIcon: !!method.shadowRoot.querySelector('.method-btn-icon'),
-        hasCount: !!method.shadowRoot.querySelector('.method-btn-count'),
-        hasStyle: !!(method.shadowRoot.querySelector('style') || method.shadowRoot.querySelector('link[rel="stylesheet"]') || method.shadowRoot.adoptedStyleSheets?.length),
-      };
-    });
-    expect(structure.hasBtn).toBe(true);
-    expect(structure.hasIcon).toBe(true);
-    expect(structure.hasCount).toBe(true);
-    expect(structure.hasStyle).toBe(true);
-  });
-
-  test('method component has correct attributes from schema', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    const attrs = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return {};
-      const method = item.shadowRoot.querySelector('ntx-method[method="favorite"]');
-      if (!method) return {};
-      return {
-        model: method.getAttribute('model') || '',
-        method: method.getAttribute('method') || '',
-        layout: method.getAttribute('layout') || '',
-        icon: method.getAttribute('icon') || '',
-        countField: method.getAttribute('count-field') || '',
-      };
-    });
-    expect(attrs.model).toBe('Product');
-    expect(attrs.method).toBe('favorite');
-    expect(attrs.layout).toBe('button');
-    expect(attrs.icon).toBe('star');
-    expect(attrs.countField).toBe('favorites');
-  });
-
+test.describe('ntx-method — Authenticated API Calls', () => {
   test('favorite API call works with auth', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const resp = await page.request.post('/products/1/favorite', {
@@ -334,7 +118,7 @@ test.describe('ntx-method — Edge Cases', () => {
     expect(resp.ok()).toBe(true);
   });
 
-  test('favorite API call fails without auth (401)', async ({ page }) => {
+  test('favorite API call fails without auth', async ({ page }) => {
     const resp = await page.request.post('/products/1/favorite', {
       data: {},
     });

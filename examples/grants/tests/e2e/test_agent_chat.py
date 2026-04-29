@@ -11,6 +11,34 @@ from playwright.sync_api import sync_playwright
 BASE = "http://127.0.0.1:5000"  # Patched by conftest
 
 
+def wait_for_chat_ready(page, timeout=10000):
+    """Wait until ntx-chat has mounted controls and loaded agent options."""
+    page.wait_for_function("""() => {
+        const chat = document.querySelector('ntx-chat');
+        const root = chat?.shadowRoot;
+        if (!root) return false;
+        const select = root.querySelector('.instance-select');
+        return !!root.querySelector('textarea')
+            && !!root.querySelector('.send-btn')
+            && !!select
+            && select.options.length > 0;
+    }""", timeout=timeout)
+
+
+def wait_for_chat_response(page, timeout=15000):
+    """Wait until the chat has rendered a non-empty assistant/system response."""
+    page.wait_for_function("""() => {
+        const chat = document.querySelector('ntx-chat');
+        const messages = chat?.shadowRoot?.querySelectorAll('.msg') || [];
+        if (messages.length < 2) return false;
+        const lastMsg = messages[messages.length - 1];
+        const role = lastMsg.querySelector('.msg-role')?.textContent;
+        const text = lastMsg.querySelector('.entry-text-output-content')?.textContent
+            || lastMsg.querySelector('.msg-text')?.textContent;
+        return (role === 'assistant' || role === 'system') && !!text && text.length > 0;
+    }""", timeout=timeout)
+
+
 @pytest.fixture(scope="module")
 def browser():
     with sync_playwright() as p:
@@ -126,7 +154,7 @@ class TestChatWidgetLoads:
         """Widget should populate the select with agent instances."""
         page.goto(f"{e2e_server}/")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
+        wait_for_chat_ready(page)
         options = page.evaluate("""() => {
             const chat = document.querySelector('ntx-chat');
             if (!chat?.shadowRoot) return [];
@@ -193,18 +221,17 @@ class TestAgentRunHTTPPipeline:
 
 
 class TestChatWidgetInteraction:
-    """Test sending a message through the chat widget (non-streaming flow)."""
+    """Test sending a message through the streaming chat widget."""
 
-    def test_send_message_via_widget(self, authed_page, e2e_server, test_agent_id):
+    def test_send_message_via_widget(self, authed_page, e2e_server):
         """Type a task in the chat widget and verify the agent responds."""
         base = e2e_server
         page = authed_page
         page.goto(f"{base}/")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1500)  # Let schema + instances load
+        wait_for_chat_ready(page)
 
-        result = page.evaluate("""async (args) => {
-            const [base, agentId] = args;
+        result = page.evaluate("""async () => {
             const chat = document.querySelector('ntx-chat');
             if (!chat?.shadowRoot) return { error: 'no shadow root' };
 
@@ -212,8 +239,34 @@ class TestChatWidgetInteraction:
             const textarea = chat.shadowRoot.querySelector('textarea');
             const sendBtn = chat.shadowRoot.querySelector('.send-btn');
 
-            // Select our test agent
-            select.value = String(agentId);
+            if (!select.value) {
+                const token = localStorage.getItem('jwtToken');
+                const resp = await fetch('/agents', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-access-token': token,
+                    },
+                    body: JSON.stringify({
+                        name: 'E2E Widget Agent',
+                        prompt: 'You are a helpful test agent. Answer briefly.',
+                        llm: 'test',
+                    }),
+                });
+                if (!resp.ok) return { error: `agent create failed: ${resp.status}`, body: await resp.text() };
+                const created = await resp.json();
+                const agent = created.data || created.result || created;
+                if (!agent.id) return { error: 'agent create missing id', body: created };
+                const AgentClass = window.NTT?.get('AgentActor');
+                if (AgentClass && !window.NTT.get(`AgentActor/${agent.id}`)) {
+                    new AgentClass(agent);
+                }
+                const option = document.createElement('option');
+                option.value = String(agent.id);
+                option.textContent = agent.name || `#${agent.id}`;
+                select.appendChild(option);
+                select.value = option.value;
+            }
             select.dispatchEvent(new Event('change'));
 
             // Type a message
@@ -223,39 +276,23 @@ class TestChatWidgetInteraction:
             // Send
             sendBtn.click();
 
-            // Wait for response (up to 15s)
-            let attempts = 0;
-            let messages;
-            while (attempts < 150) {
-                await new Promise(r => setTimeout(r, 100));
-                messages = chat.shadowRoot.querySelectorAll('.msg');
-                if (messages.length >= 2) {
-                    const lastMsg = messages[messages.length - 1];
-                    const role = lastMsg.querySelector('.msg-role')?.textContent;
-                    if (role === 'assistant' || role === 'system') {
-                        const text = lastMsg.querySelector('.msg-text')?.textContent;
-                        if (text && text.length > 0) {
-                            return {
-                                messageCount: messages.length,
-                                lastRole: role,
-                                lastText: text,
-                            };
-                        }
-                    }
-                }
-                attempts++;
-            }
-            // Collect debug info
-            const msgInfo = messages ? Array.from(messages).map(m => ({
-                role: m.querySelector('.msg-role')?.textContent,
-                text: m.querySelector('.msg-text')?.textContent?.slice(0, 100),
-            })) : [];
+            return { ok: true };
+        }""")
+
+        assert 'error' not in result, f"Widget setup failed: {json.dumps(result, indent=2)}"
+        wait_for_chat_response(page)
+
+        result = page.evaluate("""() => {
+            const chat = document.querySelector('ntx-chat');
+            const messages = chat.shadowRoot.querySelectorAll('.msg');
+            const lastMsg = messages[messages.length - 1];
             return {
-                error: 'timeout',
-                messageCount: messages?.length || 0,
-                messages: msgInfo,
+                messageCount: messages.length,
+                lastRole: lastMsg.querySelector('.msg-role')?.textContent,
+                lastText: lastMsg.querySelector('.entry-text-output-content')?.textContent
+                    || lastMsg.querySelector('.msg-text')?.textContent,
             };
-        }""", [base, test_agent_id])
+        }""")
 
         assert 'error' not in result, f"Widget interaction failed: {json.dumps(result, indent=2)}"
         assert result['messageCount'] >= 2

@@ -1,16 +1,17 @@
 /**
  * Logs Panel — E2E Tests
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
 test.describe('Logs Panel', () => {
 
   test('toggle button visible on page', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const hasToggle = await page.locator('ntx-logs').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.toggle');
@@ -19,9 +20,9 @@ test.describe('Logs Panel', () => {
   });
 
   test('clicking toggle opens panel', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Panel should start closed
     const closedBefore = await page.locator('ntx-logs').evaluate((el) => {
@@ -34,7 +35,7 @@ test.describe('Logs Panel', () => {
     await page.locator('ntx-logs').evaluate((el) => {
       el.shadowRoot?.querySelector('.toggle')?.click();
     });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
 
     // Panel should be open
     const isOpen = await page.locator('ntx-logs').evaluate((el) => {
@@ -45,21 +46,21 @@ test.describe('Logs Panel', () => {
   });
 
   test('close button closes panel', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Open the panel
     await page.locator('ntx-logs').evaluate((el) => {
       el.shadowRoot?.querySelector('.toggle')?.click();
     });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
 
     // Click close
     await page.locator('ntx-logs').evaluate((el) => {
       el.shadowRoot?.querySelector('.close-btn')?.click();
     });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
 
     const isClosed = await page.locator('ntx-logs').evaluate((el) => {
       const panel = el.shadowRoot?.querySelector('.panel');
@@ -69,15 +70,15 @@ test.describe('Logs Panel', () => {
   });
 
   test('log entries appear with level and timestamp', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Open panel
     await page.locator('ntx-logs').evaluate((el) => {
       el.shadowRoot?.querySelector('.toggle')?.click();
     });
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     const entryInfo = await page.locator('ntx-logs').evaluate((el) => {
       const entries = el.shadowRoot?.querySelectorAll('.log-list .entry');
@@ -100,9 +101,15 @@ test.describe('Logs Panel', () => {
   });
 
   test('entries are color-coded by level', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
+
+    // The log list is rendered lazily when the panel opens.
+    await page.locator('ntx-logs').evaluate((el) => {
+      el.shadowRoot?.querySelector('.toggle')?.click();
+    });
+    await waitForUiSettled(page);
 
     const levelClasses = await page.locator('ntx-logs').evaluate((el) => {
       const entries = el.shadowRoot?.querySelectorAll('.log-list .entry');
@@ -123,9 +130,9 @@ test.describe('Logs Panel', () => {
   });
 
   test('filter buttons present for all levels', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const filterLevels = await page.locator('ntx-logs').evaluate((el) => {
       const btns = el.shadowRoot?.querySelectorAll('.filter-btn');
@@ -137,15 +144,15 @@ test.describe('Logs Panel', () => {
   });
 
   test('filter by level hides non-matching entries', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Open panel
     await page.locator('ntx-logs').evaluate((el) => {
       el.shadowRoot?.querySelector('.toggle')?.click();
     });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
 
     // Click on a specific filter level (e.g., 'info')
     const result = await page.locator('ntx-logs').evaluate((el) => {
@@ -181,9 +188,9 @@ test.describe('Logs Panel', () => {
   });
 
   test('clicking active filter deactivates it (shows all)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Activate a filter then click again to deactivate
     const result = await page.locator('ntx-logs').evaluate((el) => {
@@ -211,15 +218,15 @@ test.describe('Logs Panel', () => {
   });
 
   test('clear button removes all entries', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Open panel and verify there are entries
     await page.locator('ntx-logs').evaluate((el) => {
       el.shadowRoot?.querySelector('.toggle')?.click();
     });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
 
     const beforeCount = await page.locator('ntx-logs').evaluate((el) => {
       return el.shadowRoot?.querySelectorAll('.log-list .entry').length || 0;
@@ -230,7 +237,7 @@ test.describe('Logs Panel', () => {
     await page.locator('ntx-logs').evaluate((el) => {
       el.shadowRoot?.querySelector('.clear-btn')?.click();
     });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
 
     const afterCount = await page.locator('ntx-logs').evaluate((el) => {
       return el.shadowRoot?.querySelectorAll('.log-list .entry').length || 0;
@@ -239,9 +246,9 @@ test.describe('Logs Panel', () => {
   });
 
   test('badge count updates as logs are added', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const badgeText = await page.locator('ntx-logs').evaluate((el) => {
       return el.shadowRoot?.querySelector('.badge')?.textContent || '0';
@@ -253,15 +260,15 @@ test.describe('Logs Panel', () => {
   });
 
   test('badge resets to 0 after clear', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Clear logs
     await page.locator('ntx-logs').evaluate((el) => {
       el.shadowRoot?.querySelector('.clear-btn')?.click();
     });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
 
     const badgeText = await page.locator('ntx-logs').evaluate((el) => {
       return el.shadowRoot?.querySelector('.badge')?.textContent || '';
@@ -270,15 +277,15 @@ test.describe('Logs Panel', () => {
   });
 
   test('JSON detail can be expanded and collapsed', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Open panel
     await page.locator('ntx-logs').evaluate((el) => {
       el.shadowRoot?.querySelector('.toggle')?.click();
     });
-    await page.waitForTimeout(300);
+    await waitForUiSettled(page);
 
     // Check if any entries have JSON nodes (expandable)
     const hasJsonNodes = await page.locator('ntx-logs').evaluate((el) => {
@@ -307,9 +314,9 @@ test.describe('Logs Panel', () => {
   });
 
   test('panel has correct structure (header, toolbar, list)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const structure = await page.locator('ntx-logs').evaluate((el) => {
       const sr = el.shadowRoot;

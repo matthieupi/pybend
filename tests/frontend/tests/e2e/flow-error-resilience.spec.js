@@ -4,8 +4,9 @@
  * Tests API error responses, UI error handling, validation errors, XSS
  * prevention, large data handling, and edge data types.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, getToken, setToken, clearToken, USERS } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForTopbar, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -93,9 +94,11 @@ test.describe('Error Resilience — UI Error Handling', () => {
     const errors = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.goto(`${APP_URL}#Product/99999`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/99999`);
+
+
+    await waitForTopbar(page);
+    await waitForUiSettled(page);
 
     const pageWorks = await page.locator('ntx-router').evaluate((r) => !!r.shadowRoot);
     expect(pageWorks).toBe(true);
@@ -105,9 +108,11 @@ test.describe('Error Resilience — UI Error Handling', () => {
     const errors = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.goto(`${APP_URL}#???`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#???`);
+
+
+    await waitForTopbar(page);
+    await waitForUiSettled(page);
 
     const hasBody = await page.evaluate(() => document.body.children.length > 0);
     expect(hasBody).toBe(true);
@@ -117,31 +122,37 @@ test.describe('Error Resilience — UI Error Handling', () => {
     const errors = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.goto(`${APP_URL}#Unknown/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Unknown/1`);
+
+
+    await waitForTopbar(page);
+    await waitForUiSettled(page);
 
     const hasBody = await page.evaluate(() => document.body.children.length > 0);
     expect(hasBody).toBe(true);
   });
 
   test('page load with corrupted localStorage does not crash', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await page.evaluate(() => {
       window.localStorage.setItem('jwtToken', 'corrupted{notjson}value');
     });
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await reloadApp(page);
+
+    await page.waitForURL('**/login.html');
+    await page.waitForLoadState('domcontentloaded');
+    await waitForUiSettled(page);
 
     const hasBody = await page.evaluate(() => document.body.children.length > 0);
     expect(hasBody).toBe(true);
   });
 
   test('no white screen after page load', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const hasContent = await page.evaluate(() => {
       return document.body.children.length > 0 && document.body.innerHTML.trim().length > 0;
@@ -193,12 +204,14 @@ test.describe('Error Resilience — XSS Prevention', () => {
     expect(createResp.ok()).toBe(true);
     const product = await createResp.json();
 
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+
+    await waitForAppReady(page);
     await setToken(page, token);
-    await page.goto(`${APP_URL}#Product/${product.id}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/${product.id}`);
+
+    await waitForAppReady(page);
 
     // No alert dialog should have fired
     const pageStable = await page.evaluate(() => document.body.children.length > 0);
@@ -214,12 +227,13 @@ test.describe('Error Resilience — XSS Prevention', () => {
     expect(resp.ok()).toBe(true);
 
     // Navigate to the product and verify title was not changed
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await setToken(page, token);
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const title = await page.title();
     expect(title).not.toBe('hacked');
@@ -271,12 +285,14 @@ test.describe('Error Resilience — Edge Data Types', () => {
     expect(resp.ok()).toBe(true);
     const product = await resp.json();
 
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+
+    await waitForAppReady(page);
     await setToken(page, token);
-    await page.goto(`${APP_URL}#Product/${product.id}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/${product.id}`);
+
+    await waitForAppReady(page);
 
     // Page should render without error
     const hasContent = await page.locator('ntx-router').evaluate((r) => {
@@ -295,12 +311,14 @@ test.describe('Error Resilience — Edge Data Types', () => {
     expect(resp.ok()).toBe(true);
     const product = await resp.json();
 
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+
+    await waitForAppReady(page);
     await setToken(page, token);
-    await page.goto(`${APP_URL}#Product/${product.id}`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await gotoApp(page, `${APP_URL}#Product/${product.id}`);
+
+    await waitForAppReady(page);
 
     const content = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -323,30 +341,31 @@ test.describe('Error Resilience — Edge Data Types', () => {
 
 test.describe('Error Resilience — Concurrent Navigation', () => {
 
-  test('navigate to detail then immediately go back — no crash', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', (err) => errors.push(err.message));
-
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-
-    // Navigate to detail
-    await page.evaluate(() => { window.location.hash = '#Product/1'; });
-    await page.waitForTimeout(200);
-    // Immediately go back
-    await page.evaluate(() => { window.location.hash = ''; });
-    await page.waitForTimeout(2000);
-
-    const hasBody = await page.evaluate(() => document.body.children.length > 0);
-    expect(hasBody).toBe(true);
-  });
-
   test('schema endpoint always works without auth', async ({ page }) => {
     const resp = await page.request.get('/Product');
     expect(resp.ok()).toBe(true);
     const schema = await resp.json();
     expect(schema.properties).toBeDefined();
     expect(schema['$id']).toBeDefined();
+  });
+
+  test('navigate to detail then immediately go back — no crash', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', (err) => errors.push(err.message));
+
+    await gotoApp(page, APP_URL);
+
+
+    await waitForAppReady(page);
+
+    // Navigate to detail
+    await page.evaluate(() => { window.location.hash = '#Product/1'; });
+    await waitForUiSettled(page);
+    // Immediately go back
+    await page.evaluate(() => { window.location.hash = ''; });
+    await waitForAppReady(page);
+
+    const hasBody = await page.evaluate(() => document.body.children.length > 0);
+    expect(hasBody).toBe(true);
   });
 });

@@ -5,7 +5,8 @@
  * typography, component-level styles, responsive breakpoints,
  * visual regression screenshots, and edge cases.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForTopbar, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -13,9 +14,9 @@ const APP_URL = '/';
 test.describe('css-and-theming — CSS Variable Resolution', () => {
 
   test('page and surface tokens resolve to non-empty values', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const vars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
@@ -31,9 +32,9 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
   });
 
   test('text tokens resolve to non-empty values', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const vars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
@@ -49,9 +50,9 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
   });
 
   test('accent token resolves to a color value', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const accent = await page.evaluate(() => {
       return getComputedStyle(document.documentElement).getPropertyValue('--ntx-color-accent').trim();
@@ -62,9 +63,9 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
   });
 
   test('border token resolves to a color value', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const border = await page.evaluate(() => {
       return getComputedStyle(document.documentElement).getPropertyValue('--ntx-border-default').trim();
@@ -73,9 +74,9 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
   });
 
   test('radius tokens resolve to pixel values', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const vars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
@@ -89,9 +90,9 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
   });
 
   test('no CSS variable contains unresolved var( in computed value', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const brokenVars = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);
@@ -113,16 +114,17 @@ test.describe('css-and-theming — CSS Variable Resolution', () => {
 test.describe('css-and-theming — Dark Theme', () => {
 
   test('default theme is dark (--ntx-color-page is a dark color)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Ensure dark theme (clear any saved light theme)
     await page.evaluate(() => {
       localStorage.removeItem('ntx-theme');
     });
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(500);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const bg = await page.evaluate(() => {
       return getComputedStyle(document.body).backgroundColor;
@@ -138,11 +140,13 @@ test.describe('css-and-theming — Dark Theme', () => {
   });
 
   test('dark theme text token is a light color (for contrast)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await page.evaluate(() => { localStorage.removeItem('ntx-theme'); });
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(500);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const textColor = await page.evaluate(() => {
       return getComputedStyle(document.body).color;
@@ -160,14 +164,15 @@ test.describe('css-and-theming — Dark Theme', () => {
 test.describe('css-and-theming — Light Theme', () => {
 
   test('light theme page token is a light color', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     await page.evaluate(() => {
       localStorage.setItem('ntx-theme', 'light');
       document.documentElement.dataset.theme = 'light';
     });
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     const bg = await page.evaluate(() => {
       return getComputedStyle(document.body).backgroundColor;
@@ -183,14 +188,15 @@ test.describe('css-and-theming — Light Theme', () => {
   });
 
   test('light theme text token is a dark color (for contrast)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     await page.evaluate(() => {
       localStorage.setItem('ntx-theme', 'light');
       document.documentElement.dataset.theme = 'light';
     });
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     const textColor = await page.evaluate(() => {
       return getComputedStyle(document.body).color;
@@ -204,16 +210,16 @@ test.describe('css-and-theming — Light Theme', () => {
   });
 
   test('dark and light page tokens are different', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForTopbar(page);
 
     // Get dark background
     await page.evaluate(() => {
       localStorage.removeItem('ntx-theme');
-      delete document.documentElement.dataset.theme;
+      document.documentElement.dataset.theme = 'dark';
     });
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     const darkBg = await page.evaluate(() => {
       return getComputedStyle(document.body).backgroundColor;
@@ -224,7 +230,7 @@ test.describe('css-and-theming — Light Theme', () => {
       localStorage.setItem('ntx-theme', 'light');
       document.documentElement.dataset.theme = 'light';
     });
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     const lightBg = await page.evaluate(() => {
       return getComputedStyle(document.body).backgroundColor;
@@ -243,9 +249,9 @@ test.describe('css-and-theming — Light Theme', () => {
 test.describe('css-and-theming — Font & Typography', () => {
 
   test('body font-family includes sans-serif fallback', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const fontFamily = await page.evaluate(() => {
       return getComputedStyle(document.body).fontFamily;
@@ -255,9 +261,9 @@ test.describe('css-and-theming — Font & Typography', () => {
   });
 
   test('h1 and h2 have expected sizing', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const sizes = await page.evaluate(() => {
       const h1 = document.querySelector('h1');
@@ -278,9 +284,9 @@ test.describe('css-and-theming — Font & Typography', () => {
 test.describe('css-and-theming — Component-Level Styles', () => {
 
   test('ntx-topbar :host has sticky positioning at top', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const position = await page.locator('ntx-topbar').evaluate((el) => {
       // :host element (ntx-topbar itself) has position: sticky
@@ -290,9 +296,14 @@ test.describe('css-and-theming — Component-Level Styles', () => {
   });
 
   test('ntx-item .card has border-radius styling', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
+    await page.waitForFunction(() => {
+      const list = document.querySelector('#product-list');
+      const item = list?.shadowRoot?.querySelector('ntx-item');
+      return !!item?.shadowRoot?.querySelector('.card');
+    });
 
     const radius = await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
@@ -305,9 +316,14 @@ test.describe('css-and-theming — Component-Level Styles', () => {
   });
 
   test('ntx-item .card has cursor pointer in list view', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
+    await page.waitForFunction(() => {
+      const list = document.querySelector('#product-list');
+      const item = list?.shadowRoot?.querySelector('ntx-item');
+      return !!item?.shadowRoot?.querySelector('.card');
+    });
 
     const cursor = await page.locator('#product-list').evaluate((el) => {
       const item = el.shadowRoot?.querySelector('ntx-item');
@@ -319,9 +335,9 @@ test.describe('css-and-theming — Component-Level Styles', () => {
   });
 
   test('ntx-logs .panel has transition for slide-in', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const transition = await page.locator('ntx-logs').evaluate((el) => {
       const panel = el.shadowRoot?.querySelector('.panel');
@@ -347,9 +363,9 @@ test.describe('css-and-theming — Responsive Breakpoints', () => {
   for (const bp of breakpoints) {
     test(`items render correctly at ${bp.name}`, async ({ page }) => {
       await page.setViewportSize({ width: bp.width, height: bp.height });
-      await page.goto(APP_URL);
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(2000);
+      await gotoApp(page, APP_URL);
+
+      await waitForAppReady(page);
 
       const gridInfo = await page.locator('#product-list').evaluate((el) => {
         const grid = el.shadowRoot?.querySelector('.list-grid');
@@ -373,14 +389,16 @@ test.describe('css-and-theming — Visual Regression Screenshots', () => {
 
   test('dark theme list view produces non-trivial screenshot', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await page.evaluate(() => {
       localStorage.removeItem('ntx-theme');
       delete document.documentElement.dataset.theme;
     });
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const screenshot = await page.screenshot();
     // Screenshot should be a non-trivial buffer (not blank)
@@ -389,13 +407,14 @@ test.describe('css-and-theming — Visual Regression Screenshots', () => {
 
   test('light theme list view produces non-trivial screenshot', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await page.evaluate(() => {
       localStorage.setItem('ntx-theme', 'light');
       document.documentElement.dataset.theme = 'light';
     });
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
 
     const screenshot = await page.screenshot();
     expect(screenshot.byteLength).toBeGreaterThan(10000);
@@ -403,9 +422,9 @@ test.describe('css-and-theming — Visual Regression Screenshots', () => {
 
   test('detail view produces non-trivial screenshot', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+    await waitForAppReady(page);
 
     const screenshot = await page.screenshot();
     expect(screenshot.byteLength).toBeGreaterThan(10000);
@@ -413,9 +432,9 @@ test.describe('css-and-theming — Visual Regression Screenshots', () => {
 
   test('mobile list view produces non-trivial screenshot', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 640 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     const screenshot = await page.screenshot();
     expect(screenshot.byteLength).toBeGreaterThan(5000);
@@ -423,17 +442,18 @@ test.describe('css-and-theming — Visual Regression Screenshots', () => {
 
   test('dark and light screenshots are NOT byte-identical', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Capture dark
     await page.evaluate(() => {
       localStorage.removeItem('ntx-theme');
       delete document.documentElement.dataset.theme;
     });
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
     const darkShot = await page.screenshot();
 
     // Switch to light
@@ -441,7 +461,7 @@ test.describe('css-and-theming — Visual Regression Screenshots', () => {
       localStorage.setItem('ntx-theme', 'light');
       document.documentElement.dataset.theme = 'light';
     });
-    await page.waitForTimeout(1000);
+    await waitForAppReady(page);
     const lightShot = await page.screenshot();
 
     expect(Buffer.compare(darkShot, lightShot)).not.toBe(0);
@@ -453,13 +473,15 @@ test.describe('css-and-theming — Edge Cases', () => {
 
   test('theme is applied from localStorage on page load (no FOUC)', async ({ page }) => {
     // Set light theme before navigation
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
     await page.evaluate(() => { localStorage.setItem('ntx-theme', 'light'); });
 
     // Reload: theme should be applied immediately
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(500);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const theme = await page.evaluate(() => {
       return document.documentElement.dataset.theme || '';
@@ -479,17 +501,18 @@ test.describe('css-and-theming — Edge Cases', () => {
       }
     });
 
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+
+    await waitForAppReady(page);
 
     expect(failedRequests).toEqual([]);
   });
 
   test('body overflow-x is hidden (prevents horizontal scroll)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // The body has overflow-x: hidden to prevent horizontal scroll
     const overflowX = await page.evaluate(() => {
@@ -499,9 +522,9 @@ test.describe('css-and-theming — Edge Cases', () => {
   });
 
   test('theme toggle preserves page content', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
+
+    await waitForAppReady(page);
 
     // Count items before toggle
     const beforeCount = await page.locator('#product-list').evaluate((el) => {
@@ -514,7 +537,7 @@ test.describe('css-and-theming — Edge Cases', () => {
       const next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.dataset.theme = next;
     });
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     // Count items after toggle
     const afterCount = await page.locator('#product-list').evaluate((el) => {

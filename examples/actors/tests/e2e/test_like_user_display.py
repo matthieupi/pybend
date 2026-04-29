@@ -34,24 +34,30 @@ def _wait_for_product_items(page, timeout=10000):
 
 def _favorite_first_product(page):
     """Click the favorite button on the first product and wait for the response."""
-    page.evaluate("""() => {
-        const lists = document.querySelectorAll('ntx-list');
-        for (const list of lists) {
-            const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
-            for (const item of items) {
-                // Find the favorite method button
-                const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
-                for (const m of methods) {
-                    if (m.getAttribute('method') === 'favorite') {
-                        const btn = m.shadowRoot?.querySelector('.method-btn');
-                        if (btn) { btn.click(); return true; }
+    with page.expect_response(lambda resp: resp.request.method == "POST" and "/favorite" in resp.url):
+        page.evaluate("""() => {
+            const lists = document.querySelectorAll('ntx-list');
+            for (const list of lists) {
+                const items = list.shadowRoot?.querySelectorAll('ntx-item') || [];
+                for (const item of items) {
+                    // Find the favorite method button
+                    const methods = item.shadowRoot?.querySelectorAll('ntx-method') || [];
+                    for (const m of methods) {
+                        if (m.getAttribute('method') === 'favorite') {
+                            const btn = m.shadowRoot?.querySelector('.method-btn');
+                            if (btn) { btn.click(); return true; }
+                        }
                     }
                 }
             }
-        }
-        return false;
-    }""")
-    page.wait_for_timeout(2000)
+            return false;
+        }""")
+
+
+def _wait_for_product_detail(page, timeout=10000):
+    page.evaluate("""() => new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    })""")
 
 
 def test_favorite_user_renders_as_ntx_user():
@@ -80,7 +86,7 @@ def test_favorite_user_renders_as_ntx_user():
             }
             return false;
         }""")
-        page.wait_for_timeout(3000)
+        _wait_for_product_detail(page)
 
         # Now inspect the likes section — check for ntx-user elements and absence of raw URLs
         result = page.evaluate("""() => {

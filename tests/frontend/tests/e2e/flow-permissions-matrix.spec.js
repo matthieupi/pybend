@@ -8,8 +8,9 @@
  * This means all actions require authentication but do NOT require ownership.
  * Comment model has explicit per-action rules (read: anyone, update: owner|admin, etc.)
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/parallel.js';
 import { loginAs, logout, getToken, clearToken, USERS } from './fixtures/auth.js';
+import { gotoApp, reloadApp, waitForAppReady, waitForUiSettled } from './fixtures/ui.js';
 
 const APP_URL = '/';
 
@@ -71,15 +72,18 @@ test.describe('Permissions — Anonymous User (API)', () => {
 test.describe('Permissions — Anonymous User (UI)', () => {
 
   test('no edit or delete buttons visible on product detail', async ({ page }) => {
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await clearToken(page);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await gotoApp(page, `${APP_URL}#Product/1`);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+    await clearToken(page);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const hasActions = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -93,8 +97,9 @@ test.describe('Permissions — Anonymous User (UI)', () => {
   test('signin link visible, user pill hidden', async ({ page }) => {
     await page.goto(APP_URL);
     await clearToken(page);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
+    await reloadApp(page);
+
+    await waitForAppReady(page);
 
     const hasSignIn = await page.locator('ntx-topbar').evaluate((el) => {
       return !!el.shadowRoot?.querySelector('.signin-link');
@@ -173,14 +178,16 @@ test.describe('Permissions — Authenticated User (API)', () => {
 test.describe('Permissions — Authenticated User (UI)', () => {
 
   test('edit button visible for authenticated user on product detail', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     const hasEditBtn = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
@@ -190,21 +197,23 @@ test.describe('Permissions — Authenticated User (UI)', () => {
   });
 
   test('protected fields (user_owner) not editable in edit mode', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForLoadState('networkidle');
-    await loginAs(page, 'alice');
-    await page.waitForTimeout(2000);
+    await gotoApp(page, APP_URL);
 
-    await page.goto(`${APP_URL}#Product/1`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForAppReady(page);
+    await loginAs(page, 'alice');
+    await waitForAppReady(page);
+
+    await gotoApp(page, `${APP_URL}#Product/1`);
+
+
+    await waitForAppReady(page);
 
     // Click edit
     await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       item?.shadowRoot?.querySelector('.edit-btn')?.click();
     });
-    await page.waitForTimeout(500);
+    await waitForUiSettled(page);
 
     // user_owner should NOT appear as an editable input
     const hasProtectedInput = await page.locator('ntx-router').evaluate((r) => {

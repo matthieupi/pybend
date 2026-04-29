@@ -8,9 +8,12 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run tests/integration/",
-    "test:e2e": "npx playwright test --config=tests/e2e/playwright.config.js",
+    "test:e2e": "npm run test:e2e:parallel",
+    "test:e2e:serial": "npx playwright test --config=tests/e2e/playwright.config.js",
+    "test:e2e:fast": "npx playwright test --config=tests/e2e/playwright.fast.config.js",
+    "test:e2e:parallel": "npx playwright test --config=tests/e2e/playwright.parallel.config.js",
     "test:e2e:veille": "npx playwright test --config=tests/e2e/veille.playwright.config.js",
-    "test:all": "vitest run && npx playwright test --config=tests/e2e/playwright.config.js"
+    "test:all": "vitest run && npm run test:e2e:parallel"
   },
   "devDependencies": {
     "vitest": "^1.6.0",
