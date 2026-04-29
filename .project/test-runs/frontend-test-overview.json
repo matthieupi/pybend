@@ -1,13 +1,13 @@
 {
   "command": "scripts/test-frontend.py",
-  "created_at": "2026-04-29T18:31:39.762480+00:00",
+  "created_at": "2026-04-29T19:03:10.512527+00:00",
   "overview_file": "/code/n3tx/.project/test-runs/frontend-test-overview.json",
   "suites": [
     {
       "counts": {
         "errors": 0,
         "failed": 0,
-        "passed": 1309,
+        "passed": 1333,
         "warnings": 0
       },
       "message": "",
@@ -19,8 +19,8 @@
     {
       "counts": {
         "errors": 0,
-        "failed": 3,
-        "passed": 532,
+        "failed": 1,
+        "passed": 452,
         "warnings": 0
       },
       "message": "",
@@ -73,8 +73,8 @@
     "errors": 0,
     "failed": 1,
     "passed": 4,
-    "tests_failed": 3,
-    "tests_passed": 1865,
+    "tests_failed": 1,
+    "tests_passed": 1809,
     "total": 5,
     "warning": 0,
     "warnings": 0
