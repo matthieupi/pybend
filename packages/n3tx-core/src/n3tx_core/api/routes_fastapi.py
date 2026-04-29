@@ -19,6 +19,24 @@ logger = logging.getLogger('n3tx.api')
 
 router = APIRouter()
 _resolver = DefaultResolver()
+_SSE_FLUSH_PADDING = ':' + (' ' * 2048) + '\n'
+
+
+def _sse_frame(event: str, data: Any) -> str:
+    """Serialize one SSE frame with padding to discourage proxy/browser buffering."""
+    return (
+        f"{_SSE_FLUSH_PADDING}"
+        f"event: {event}\n"
+        f"data: {json.dumps(data, default=str)}\n\n"
+    )
+
+
+def _sse_headers() -> dict:
+    return {
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+        "X-Content-Type-Options": "nosniff",
+    }
 
 
 def _get_user(request: Request) -> dict:
@@ -258,6 +276,38 @@ from pydantic import BaseModel
 from typing import get_type_hints
 
 
+def _resolve_custom_return_type(attr, model_class):
+    """Resolve a custom route return annotation for FastAPI response_model.
+
+    Model files commonly use ``from __future__ import annotations`` so return
+    types such as ``-> Comment`` arrive as strings. FastAPI cannot validate an
+    unresolved ForwardRef at request time, so prefer ``get_type_hints()`` which
+    resolves importable model annotations in the defining module's namespace.
+    """
+    from typing import get_origin, get_args, ForwardRef
+
+    annotations = getattr(attr, '__annotations__', {}) or {}
+    try:
+        type_hints = get_type_hints(attr)
+    except (NameError, TypeError):
+        type_hints = {}
+    return_type = type_hints.get('return', annotations.get('return', None))
+
+    # Backward-compatible fallback for unresolved self-references.
+    if isinstance(return_type, (str, ForwardRef)):
+        type_str = str(return_type).replace('ForwardRef(', '').replace(')', '').replace("'", "")
+        if type_str == model_class.__name__:
+            return model_class
+        if type_str.startswith(f'List[{model_class.__name__}'):
+            return List[model_class]
+    elif get_origin(return_type) is list:
+        args = get_args(return_type)
+        if args and args[0] == model_class.__name__:
+            return List[model_class]
+
+    return return_type
+
+
 def _resolve_user(type_hint, request):
     """Bridge auth-layer identity to model-layer entity.
 
@@ -341,11 +391,11 @@ def make_custom_post(attr, model_class, route_path):
                 async def sse(_gen=result):
                     async for chunk in _gen:
                         data = chunk if isinstance(chunk, dict) else {'chunk': chunk}
-                        yield f"event: chunk\ndata: {json.dumps(data, default=str)}\n\n"
-                    yield f"event: done\ndata: {{}}\n\n"
+                        yield _sse_frame('chunk', data)
+                    yield _sse_frame('done', {})
                 return StreamingResponse(
                     sse(), media_type="text/event-stream",
-                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                    headers=_sse_headers(),
                 )
             return result
         except MethodError as e:
@@ -389,11 +439,11 @@ def make_custom_post(attr, model_class, route_path):
                 async def sse(_gen=result):
                     async for chunk in _gen:
                         data = chunk if isinstance(chunk, dict) else {'chunk': chunk}
-                        yield f"event: chunk\ndata: {json.dumps(data, default=str)}\n\n"
-                    yield f"event: done\ndata: {{}}\n\n"
+                        yield _sse_frame('chunk', data)
+                    yield _sse_frame('done', {})
                 return StreamingResponse(
                     sse(), media_type="text/event-stream",
-                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                    headers=_sse_headers(),
                 )
             return result
         except MethodError as e:
@@ -471,19 +521,7 @@ def register_routes():
                 else:
                     full_route = f"{endpoint_base}{route}"
 
-                from typing import get_origin, get_args, ForwardRef
-                return_type = attr.__annotations__.get('return', None)
-
-                if isinstance(return_type, (str, ForwardRef)):
-                    type_str = str(return_type).replace('ForwardRef(', '').replace(')', '').replace("'", "")
-                    if type_str == model_class.__name__:
-                        return_type = model_class
-                    elif type_str.startswith(f'List[{model_class.__name__}'):
-                        return_type = List[model_class]
-                elif get_origin(return_type) is list:
-                    args = get_args(return_type)
-                    if args and args[0] == model_class.__name__:
-                        return_type = List[model_class]
+                return_type = _resolve_custom_return_type(attr, model_class)
 
                 custom_method = None
                 if isinstance(attr, (classmethod, staticmethod)):

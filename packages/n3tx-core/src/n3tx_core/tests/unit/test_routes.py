@@ -8,7 +8,7 @@ from pydantic import Field
 
 from n3tx_core.api.routes_fastapi import (
     _get_user, _build_context, _serialize, _resolve_user,
-    register_route,
+    _resolve_custom_return_type, register_route,
 )
 from n3tx_core.authorize.context import AccessContext
 from n3tx_core.models.proto_model import ProtoModel
@@ -16,6 +16,19 @@ from n3tx_core.models.storable_mixin import StorableMixin
 
 pytestmark = pytest.mark.unit
 
+
+class ReturnParent(ProtoModel):
+    __tablename__: ClassVar[str] = 'return_parent'
+    name: str = Field(default='')
+
+
+class ReturnChild(ProtoModel):
+    __tablename__: ClassVar[str] = 'return_child'
+    name: str = Field(default='')
+
+
+def custom_returns_child(self) -> 'ReturnChild':
+    return ReturnChild(name='ok')
 
 
 class TestGetUser:
@@ -174,3 +187,9 @@ class TestRegisterRoute:
     def test_unsupported_raises(self):
         with pytest.raises(ValueError, match="Unsupported HTTP method"):
             register_route('/test', lambda: None, method='PATCH')
+
+
+class TestResolveCustomReturnType:
+
+    def test_resolves_future_annotation_to_different_model(self):
+        assert _resolve_custom_return_type(custom_returns_child, ReturnParent) is ReturnChild

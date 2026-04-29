@@ -31,6 +31,17 @@ from n3tx_core.models.storable_mixin import StorableMixin
 
 logger = logging.getLogger('n3tx.network.api')
 
+_SSE_FLUSH_PADDING = ':' + (' ' * 2048) + '\n'
+
+
+def _sse_frame(event: str, data: Any) -> str:
+    """Serialize one SSE frame with padding to discourage proxy/browser buffering."""
+    return (
+        f"{_SSE_FLUSH_PADDING}"
+        f"event: {event}\n"
+        f"data: {json.dumps(data, default=str)}\n\n"
+    )
+
 
 class NetworkAPI(NetworkAdapter, auto_register=False):
     """HTTP API adapter. Bridges FastAPI routes to Matrix via TX messaging."""
@@ -477,12 +488,12 @@ async def _sse_from_stream(adapter, tx):
     async for chunk in adapter.stream(tx, timeout=120.0):
         tx_dict = asdict(chunk)
         if chunk.is_error:
-            yield f"event: error\ndata: {json.dumps(tx_dict, default=str)}\n\n"
+            yield _sse_frame('error', tx_dict)
             return
         if chunk.meta.get('stream_end'):
-            yield f"event: done\ndata: {json.dumps(tx_dict, default=str)}\n\n"
+            yield _sse_frame('done', tx_dict)
             return
-        yield f"event: chunk\ndata: {json.dumps(tx_dict, default=str)}\n\n"
+        yield _sse_frame('chunk', tx_dict)
 
 
 def _add_streaming_handler(
@@ -515,7 +526,11 @@ def _add_streaming_handler(
             return StreamingResponse(
                 _sse_from_stream(api_adapter, tx),
                 media_type="text/event-stream",
-                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                headers={
+                    "Cache-Control": "no-cache, no-transform",
+                    "X-Accel-Buffering": "no",
+                    "X-Content-Type-Options": "nosniff",
+                },
             )
     else:
         @router.api_route(full_route, methods=methods, tags=[tag],
@@ -536,7 +551,11 @@ def _add_streaming_handler(
             return StreamingResponse(
                 _sse_from_stream(api_adapter, tx),
                 media_type="text/event-stream",
-                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                headers={
+                    "Cache-Control": "no-cache, no-transform",
+                    "X-Accel-Buffering": "no",
+                    "X-Content-Type-Options": "nosniff",
+                },
             )
 
 
