@@ -169,11 +169,30 @@ def _thread_matches_agent(thread_data: dict, agent_addr: str, cls=None) -> bool:
     return thread_agent == agent_addr or thread_agent == scope
 
 
+def _thread_user(user):
+    """Normalize route-injected users for Thread CRUD authorization.
+
+    Custom model methods may receive a full User model instance while the
+    Thread actor's ABAC rules expect the JWT-shaped dict carried by HTTP meta.
+    """
+    if user is None or isinstance(user, dict):
+        return user
+    user_id = getattr(user, 'id', None)
+    if user_id is None:
+        return user
+    return {
+        'user_id': user_id,
+        'email': getattr(user, 'email', None),
+        'role': getattr(user, 'role', 'user'),
+    }
+
+
 async def _get_thread(root, thread_id, user=None):
+    auth_user = _thread_user(user)
     thread_tx = TX(
         name='get', source=root.addr, target='threads',
         data={'id': thread_id},
-        meta={'user': user} if user else {},
+        meta={'user': auth_user} if auth_user else {},
     )
     thread_resp = await root.request(thread_tx)
     if thread_resp.is_error:
@@ -185,17 +204,18 @@ async def _get_thread(root, thread_id, user=None):
 
 
 async def _create_thread(root, agent_addr: str, user=None, cls=None):
+    auth_user = _thread_user(user)
     payload = {
         'agent_addr': agent_addr or _agent_scope(agent_addr, cls=cls),
         'messages': [],
     }
-    if isinstance(user, dict) and user.get('user_id') is not None:
-        payload['user_owner'] = user['user_id']
+    if isinstance(auth_user, dict) and auth_user.get('user_id') is not None:
+        payload['user_owner'] = auth_user['user_id']
 
     create_tx = TX(
         name='create', source=root.addr, target='threads',
         data=payload,
-        meta={'user': user} if user else {},
+        meta={'user': auth_user} if auth_user else {},
     )
     create_resp = await root.request(create_tx)
     if create_resp.is_error:
@@ -228,6 +248,7 @@ async def _load_or_create_thread(root, agent_addr: str, user=None,
 
 
 async def _update_thread(root, thread_id, all_messages, user=None, source='', target=''):
+    auth_user = _thread_user(user)
     update_tx = TX(
         name='update', source=root.addr, target='threads',
         data={
@@ -238,7 +259,7 @@ async def _update_thread(root, thread_id, all_messages, user=None, source='', ta
                 target=target,
             ),
         },
-        meta={'user': user} if user else {},
+        meta={'user': auth_user} if auth_user else {},
     )
     update_resp = await root.request(update_tx)
     if update_resp.is_error:

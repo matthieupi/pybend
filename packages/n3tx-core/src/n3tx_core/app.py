@@ -32,6 +32,42 @@ from n3tx_core import config
 import n3tx_core.authorize as authorize
 
 
+def _uses_agents(model_classes: List[Type]) -> bool:
+    """Return True when an app registers an agent-enabled model.
+
+    Agent execution persists conversation history in n3tx_agents.thread.Thread.
+    Core keeps the dependency optional by detecting agent models structurally
+    and importing Thread only when needed.
+    """
+    for model_class in model_classes:
+        if getattr(model_class, '__agent__', False):
+            return True
+        if (
+            getattr(model_class, '__module__', '').startswith('n3tx_agents')
+            and getattr(model_class, '__tablename__', '') == 'agents'
+        ):
+            return True
+    return False
+
+
+def _agent_infrastructure_models(model_classes: List[Type]) -> List[Type]:
+    """Return required agent infrastructure models not already registered."""
+    if not _uses_agents(model_classes):
+        return []
+
+    try:
+        from n3tx_agents.thread import Thread
+    except ImportError:
+        return []
+
+    if any(model_class is Thread for model_class in model_classes):
+        return []
+    if any(getattr(model_class, '__tablename__', None) == Thread.__tablename__
+           for model_class in model_classes):
+        return []
+    return [Thread]
+
+
 def _resolve_storage(storage) -> AbstractStorage:
     """Turn a storage specifier into an AbstractStorage instance.
 
@@ -204,6 +240,8 @@ class N3TXApp:
 
         # 2. Prepare all model registrations (pure — no side effects)
         preparations = []
+        explicit_model_classes = [model_class for model_class, _ in self._models]
+
         for model_class, per_model_storage in self._models:
             effective_storage = (
                 _resolve_storage(per_model_storage)
@@ -211,6 +249,9 @@ class N3TXApp:
                 else self._storage
             )
             preparations.append(prepare_model(model_class, storage=effective_storage))
+
+        for model_class in _agent_infrastructure_models(explicit_model_classes):
+            preparations.append(prepare_model(model_class, storage=self._storage))
 
         # 3. Generate and prepare join models
         for parent, child in self._join_pairs:
