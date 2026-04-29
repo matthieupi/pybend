@@ -95,6 +95,61 @@ def seed():
         Source.create(Source(**s))
         logger.info("Created source: %s", s['name'])
 
+    # Initial grant opportunities. These make the demo database useful out of
+    # the box and give browser smoke tests deterministic cards to render when
+    # navigating to the Grant surface.
+    grants = [
+        {
+            'title': 'Community Spaces Renewal Fund',
+            'funder': 'Friendly Future Foundation',
+            'url': 'https://www.friendlyfuture.com/en/foundation/apply-for-funding',
+            'source_url': 'https://www.friendlyfuture.com/en/foundation/apply-for-funding',
+            'source_urls': ['https://www.friendlyfuture.com/en/foundation/apply-for-funding'],
+            'description': (
+                'Support for community-led renovations, accessibility upgrades, '
+                'and gathering spaces that improve local quality of life.'
+            ),
+            'amount_min': 5000.0,
+            'amount_max': 50000.0,
+            'deadline': '2026-06-30',
+            'eligibility_criteria': [
+                'Applicant must be a registered non-profit or community organization.',
+                'Project must benefit underserved or minority-language communities.',
+                'Activities must take place in Canada.',
+            ],
+            'required_documents': ['Project budget', 'Letters patent', 'Board resolution'],
+            'application_process': 'Submit an online application with a project plan and budget.',
+            'status': 'new',
+            'language': 'en',
+        },
+        {
+            'title': 'Fonds initiatives francophones en santé',
+            'funder': 'Programme communautaire francophone',
+            'url': 'https://example.org/financement/sante-francophone',
+            'source_url': 'https://ccndr.ca/',
+            'source_urls': ['https://ccndr.ca/'],
+            'description': (
+                'Financement pour améliorer l’accès aux services, ressources et '
+                'activités de santé en français dans les communautés minoritaires.'
+            ),
+            'amount_min': 10000.0,
+            'amount_max': 75000.0,
+            'deadline': '2026-09-15',
+            'eligibility_criteria': [
+                'Organisme francophone ou bilingue au service d’une communauté minoritaire.',
+                'Projet lié à la promotion de la santé ou à l’accès aux services en français.',
+                'Capacité démontrée de livrer le projet dans le Nord canadien.',
+            ],
+            'required_documents': ['Plan de projet', 'Budget détaillé', 'États financiers récents'],
+            'application_process': 'Déposer le formulaire et les pièces justificatives avant la date limite.',
+            'status': 'new',
+            'language': 'fr',
+        },
+    ]
+    for g in grants:
+        Grant.create(Grant(**g))
+        logger.info("Created grant: %s", g['title'])
+
     scout = AgentActor(
         name='Veille Scout',
         prompt=(

@@ -34,7 +34,7 @@ async def test_source_fetch_persists_scrape_content_and_hash(storage, monkeypatc
             'method': 'scrape',
         }
 
-    monkeypatch.setattr('models.web_tools._fetch_http_content', mock_fetch)
+    monkeypatch.setattr('models.source._fetch_http_content', mock_fetch)
 
     result = await created.fetch()
     refreshed = Source.get(created.id)
@@ -99,7 +99,7 @@ async def test_source_fetch_marks_change_when_hash_differs(storage, monkeypatch)
             'method': 'scrape',
         }
 
-    monkeypatch.setattr('models.web_tools._fetch_http_content', mock_fetch)
+    monkeypatch.setattr('models.source._fetch_http_content', mock_fetch)
 
     await created.fetch()
     refreshed = Source.get(created.id)

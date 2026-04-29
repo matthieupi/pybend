@@ -159,6 +159,7 @@
         Logging.init("Loading Veille v1.0...");
 
         import { Matrix, matrix } from './core/Matrix.js';
+        import { buildRoute } from './core/Router.js';
         import { NTT } from './core/NTT.js';
         import { permissions } from './utils/Permissions.js';
         import './components/ntx-item.js';
@@ -188,9 +189,27 @@
             }
         });
 
-        // Simple hash-based routing
-            function handleRoute() {
-            const hash = window.location.hash.replace('#', '');
+        function resetMainRouterHome() {
+            matrix.dispatch({
+                name: 'NAVIGATE',
+                source: 'veille-shell',
+                target: 'main',
+                data: buildRoute({ type: 'home' }),
+                meta: { reset: true },
+            });
+        }
+
+        function navigateLocalRoute(route = '') {
+            history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+            resetMainRouterHome();
+            handleRoute(route);
+        }
+
+        // Simple local panel routing for Veille dashboard surfaces.
+        function handleRoute(routeOverride = null) {
+            const hash = typeof routeOverride === 'string'
+                ? routeOverride
+                : window.location.hash.replace('#', '');
             const panels = ['agents-dashboard', 'run-panel', 'source-panel', 'grant-panel', 'agent-panel',
                             'analyze-panel', 'report-panel'];
             panels.forEach(id => {
@@ -236,18 +255,12 @@
 
         document.querySelectorAll('[data-route]').forEach((button) => {
             button.addEventListener('click', () => {
-                const route = button.getAttribute('data-route');
-                if (route === '') {
-                    history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-                    handleRoute();
-                    return;
-                }
-                window.location.hash = route ?? 'runs';
+                navigateLocalRoute(button.getAttribute('data-route') ?? 'runs');
             });
         });
 
         document.getElementById('veille-fab')?.addEventListener('click', () => {
-            window.location.hash = 'runs';
+            navigateLocalRoute('runs');
             requestAnimationFrame(() => {
                 document.getElementById('run-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 document.querySelector('#run-panel .run-url-input')?.focus();
@@ -257,7 +270,7 @@
         document.getElementById('veille-search')?.addEventListener('keydown', (event) => {
             if (event.key !== 'Enter') return;
             event.preventDefault();
-            window.location.hash = 'grants';
+            navigateLocalRoute('grants');
         });
 
         window.addEventListener('hashchange', handleRoute);
