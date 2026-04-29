@@ -8,7 +8,6 @@ import { spawn, execFileSync } from 'child_process';
 import { existsSync, mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { scheduler } from 'node:timers/promises';
 import { PYTHON_BIN, PYTHONPATH, REPO_ROOT, repoPath } from './paths.js';
 
 const APPS = {
@@ -114,10 +113,7 @@ const startChild = () => {
       process.exit(code ?? 0);
       return;
     }
-    console.error(`[E2E] ${appName} app exited unexpectedly (code=${code}, signal=${signal}); restarting`);
-    scheduler.wait(500).then(() => {
-      if (!shuttingDown) startChild();
-    });
+    console.error(`[E2E] ${appName} app exited unexpectedly (code=${code}, signal=${signal})`);
   });
 };
 
