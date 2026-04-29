@@ -13,6 +13,11 @@ export class ListFieldWidget extends Widget {
     el.setAttribute('schema', encodeJson(schema));
     el.setAttribute('defs', encodeJson(host?.schema?.$defs || {}));
     el.setAttribute('value', encodeJson(value));
+    if (schema?.ui?.visible_count !== undefined) {
+      el.setAttribute('visible-count', schema.ui.visible_count);
+    } else if (schema?.ui?.visibleCount !== undefined) {
+      el.setAttribute('visible-count', schema.ui.visibleCount);
+    }
     el.setAttribute('parent-model', host?.schema?.__name__ || '');
     el.setAttribute('parent-table', host?.schema?.__tablename__ || '');
     el.setAttribute('parent-id', host?.value?.id || '');

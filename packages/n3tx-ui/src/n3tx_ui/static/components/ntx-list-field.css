@@ -48,6 +48,38 @@
     margin: 0.25rem 0;
 }
 
+.nested-collapsed {
+    display: none;
+}
+
+.nested-collapsed.expanded {
+    display: block;
+}
+
+.show-more-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ntx-color-accent-strong, #00464a);
+    background: rgba(20, 105, 109, 0.08);
+    border: 1px solid rgba(20, 105, 109, 0.12);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    box-shadow: none;
+}
+
+.show-more-btn:hover {
+    background: rgba(20, 105, 109, 0.12);
+    border-color: rgba(20, 105, 109, 0.18);
+    transform: none;
+    box-shadow: none;
+}
+
 .list-field-ref-row,
 .list-field-edit-row {
     display: grid;

@@ -170,7 +170,7 @@ export class NTTList extends ListElement {
 
     const meta = this.proto?._paginationMeta;
     const total = meta?.total ?? this.value.length;
-    const hasMore = meta?.has_more ?? false;
+    const hasMore = meta ? (meta.has_more || this.value.length < total) : false;
     const headless = this.hasAttribute('headless');
     const canCreate = !headless && this.hasAttribute('allow-create') &&
                       permissions.canAction(this.schema?.access, 'create');

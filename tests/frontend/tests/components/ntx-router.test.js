@@ -101,5 +101,43 @@ describe('ntx-router.js (NTTRouter)', () => {
       expect(sr.querySelector('.router-chrome').hidden).toBe(true);
       expect(sr.querySelector('.router-content ntx-item')).toBeTruthy();
     });
+
+    it('should mount model detail views with ref and display attributes', async () => {
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', 'router-detail-render');
+      document.body.appendChild(el);
+
+      getRouter('router-detail-render').NAVIGATE('Product/1');
+      await Promise.resolve();
+
+      const item = el.shadowRoot.querySelector('.router-content ntx-item');
+      expect(item).toBeTruthy();
+      expect(item.getAttribute('ref')).toBe('Product/1');
+      expect(item.getAttribute('display')).toBe('lg');
+    });
+
+    it('should mount app routes as ntx-prefixed components', async () => {
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', 'router-app-route');
+      document.body.appendChild(el);
+
+      getRouter('router-app-route').NAVIGATE('@profile');
+      await Promise.resolve();
+
+      expect(el.shadowRoot.querySelector('.router-content ntx-profile')).toBeTruthy();
+      expect(el.shadowRoot.querySelector('.router-title').textContent).toBe('Profile');
+    });
+
+    it('should mount unknown app routes without throwing', async () => {
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', 'router-unknown-app-route');
+      document.body.appendChild(el);
+
+      getRouter('router-unknown-app-route').NAVIGATE('@unknown');
+      await Promise.resolve();
+
+      expect(el.shadowRoot.querySelector('.router-content ntx-unknown')).toBeTruthy();
+      expect(el.shadowRoot.querySelector('.router-title').textContent).toBe('Unknown');
+    });
   });
 });

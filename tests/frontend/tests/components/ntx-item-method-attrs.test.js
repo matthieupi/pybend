@@ -40,6 +40,38 @@ function createItem(schema, value) {
 }
 
 describe('ntx-item standalone method attrs', () => {
+  it('passes button layout attrs to sm-row methods', () => {
+    const schema = {
+      __name__: 'Product',
+      properties: {
+        id: { type: 'integer', ui: { display: false } },
+        name: { type: 'string', title: 'Name' },
+      },
+      methods: {
+        favorite: {
+          scope: 'instancemethod',
+          title: 'Favorite',
+          ui: {
+            layout: 'button',
+            icon: 'star',
+            count_field: 'favorites',
+          },
+        },
+      },
+    };
+    const el = createItem(schema, { id: 7, name: 'Widget', favorites: [] });
+
+    const html = el.sm();
+
+    expect(html).toContain('model="Product"');
+    expect(html).toContain('uuid="7"');
+    expect(html).toContain('method="favorite"');
+    expect(html).toContain('layout="button"');
+    expect(html).toContain('icon="star"');
+    expect(html).toContain('count-field="favorites"');
+    expect(html).toContain('label="Favorite"');
+  });
+
   it('passes button-label, placeholder, and widget attrs to standalone methods', () => {
     const schema = {
       __name__: 'Source',
@@ -67,5 +99,38 @@ describe('ntx-item standalone method attrs', () => {
     expect(html).toContain('placeholder="Optional override"');
     expect(html).toContain('widget="textarea"');
     expect(html).toContain('label="scrape js"');
+  });
+
+  it('passes inline method attrs from schema ui to standalone methods', () => {
+    const schema = {
+      __name__: 'Product',
+      properties: {
+        id: { type: 'integer', ui: { display: false } },
+        name: { type: 'string', title: 'Name' },
+      },
+      methods: {
+        comment: {
+          scope: 'instancemethod',
+          ui: {
+            layout: 'inline',
+            button_label: 'Post',
+            placeholder: 'Add your comment...',
+            widget: 'textarea',
+          },
+        },
+      },
+    };
+    const el = createItem(schema, { id: 3, name: 'Widget' });
+
+    const html = el.lg();
+
+    expect(html).toContain('model="Product"');
+    expect(html).toContain('uuid="3"');
+    expect(html).toContain('method="comment"');
+    expect(html).toContain('layout="inline"');
+    expect(html).toContain('button-label="Post"');
+    expect(html).toContain('placeholder="Add your comment..."');
+    expect(html).toContain('widget="textarea"');
+    expect(html).toContain('label="comment"');
   });
 });

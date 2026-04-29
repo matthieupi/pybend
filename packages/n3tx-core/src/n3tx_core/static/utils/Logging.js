@@ -2,38 +2,40 @@ import {config} from '../config.js';
 
 const MAX_ENTRIES = 500;
 
+const LOGGING_STATE = globalThis.__N3TX_LOGGING__ ||= {
+    entries: [],
+    listeners: [],
+};
+
 export default class Logging {
 
-    static #entries = [];
-    static #listeners = [];
-
-    static get size() { return Logging.#entries.length; }
+    static get size() { return LOGGING_STATE.entries.length; }
 
     static getEntries(filter) {
-        if (!filter) return Logging.#entries.slice();
-        return Logging.#entries.filter(e => e.level === filter);
+        if (!filter) return LOGGING_STATE.entries.slice();
+        return LOGGING_STATE.entries.filter(e => e.level === filter);
     }
 
     static clear() {
-        Logging.#entries.length = 0;
-        for (const fn of Logging.#listeners) fn();
+        LOGGING_STATE.entries.length = 0;
+        for (const fn of LOGGING_STATE.listeners) fn();
     }
 
     static addListener(fn) {
-        Logging.#listeners.push(fn);
+        LOGGING_STATE.listeners.push(fn);
     }
 
     static removeListener(fn) {
-        Logging.#listeners = Logging.#listeners.filter(f => f !== fn);
+        LOGGING_STATE.listeners = LOGGING_STATE.listeners.filter(f => f !== fn);
     }
 
     static #push(level, message, detail) {
         const entry = { level, message, detail, timestamp: Date.now() };
-        Logging.#entries.push(entry);
-        if (Logging.#entries.length > MAX_ENTRIES) {
-            Logging.#entries.shift();
+        LOGGING_STATE.entries.push(entry);
+        if (LOGGING_STATE.entries.length > MAX_ENTRIES) {
+            LOGGING_STATE.entries.shift();
         }
-        for (const fn of Logging.#listeners) fn(entry);
+        for (const fn of LOGGING_STATE.listeners) fn(entry);
     }
 
     static init(val, data) {

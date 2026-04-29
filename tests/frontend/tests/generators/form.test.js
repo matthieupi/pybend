@@ -74,6 +74,34 @@ describe('form.js (Formidable)', () => {
       expect(html).not.toContain('data-key="secret"');
     });
 
+    it('should omit fields hidden by ui.display=false', () => {
+      const ntt = makeNtt();
+      ntt.schema = {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          image: { type: 'string', title: 'Image', ui: { display: false } },
+        },
+        ui: { ...schema.ui, field_order: ['id', 'name', 'image', 'price', 'description', 'active'] },
+      };
+
+      const html = Formidable.getForm(ntt, 'display');
+
+      expect(html).not.toContain('data-value="id"');
+      expect(html).not.toContain('data-value="image"');
+      expect(html).not.toContain('>Image<');
+    });
+
+    it('should render display mode values without editable controls', () => {
+      const html = Formidable.getForm(makeNtt(), 'display');
+
+      expect(html).toContain('data-value="price"');
+      expect(html).toContain('data-value="active"');
+      expect(html).not.toContain('data-key="price"');
+      expect(html).not.toContain('data-key="active"');
+      expect(html).not.toContain('<textarea');
+    });
+
     it('should respect field_order', () => {
       const html = Formidable.getForm(makeNtt(), 'display');
       // 'price' and 'active' are non-header fields in field_order
@@ -97,6 +125,26 @@ describe('form.js (Formidable)', () => {
       const html = Formidable.getForm(ntt, 'display');
       expect(html).toContain('Main');
       expect(html).toContain('Settings');
+    });
+
+    it('should render concrete fieldset classes and legends for grouped fields', () => {
+      const ntt = makeNtt();
+      ntt.schema = {
+        ...schema,
+        ui: {
+          ...schema.ui,
+          groups: { main: ['name', 'description', 'price'], Social: ['active'] },
+        },
+      };
+
+      const html = Formidable.getForm(ntt, 'display');
+
+      expect(html).toContain('<fieldset class="ntx-group ntx-group-main">');
+      expect(html).toContain('<legend>main</legend>');
+      expect(html).toContain('<fieldset class="ntx-group ntx-group-Social">');
+      expect(html).toContain('<legend>Social</legend>');
+      expect(html.indexOf('data-value="price"')).toBeGreaterThan(html.indexOf('ntx-group-main'));
+      expect(html.indexOf('data-value="active"')).toBeGreaterThan(html.indexOf('ntx-group-Social'));
     });
 
     it('should handle missing schema gracefully', () => {
@@ -200,6 +248,10 @@ describe('form.js (Formidable)', () => {
     it('should render input + textarea in edit mode', () => {
       const html = Formidable.getForm(makeNtt(), 'edit');
       expect(html).toContain('data-key="name"');
+      expect(html).toContain('type="text"');
+      expect(html).toContain('value="Test Product"');
+      expect(html).toContain('data-type="string"');
+      expect(html).toContain('<textarea id="description" data-key="description" data-type="text">A test</textarea>');
     });
   });
 
@@ -213,6 +265,16 @@ describe('form.js (Formidable)', () => {
     it('should render number input for number type', () => {
       const html = Formidable.getInput(makeNtt(), 'price', 'edit');
       expect(html).toContain('type="number"');
+    });
+
+    it('should render currency edit fields with wrapper, symbol, and cents step', () => {
+      const html = Formidable.getInput(makeNtt(), 'price', 'edit');
+
+      expect(html).toContain('class="currency-input"');
+      expect(html).toContain('class="currency-symbol">$</span>');
+      expect(html).toContain('type="number"');
+      expect(html).toContain('step="0.01"');
+      expect(html).toContain('data-key="price"');
     });
 
     it('should render checkbox for boolean type', () => {
@@ -288,6 +350,34 @@ describe('form.js (Formidable)', () => {
       expect(html).toContain('value="%5B');
     });
 
+    it('should pass referenced model metadata to list fields', () => {
+      const ntt = {
+        schema: {
+          __name__: 'Product',
+          properties: {
+            comments: {
+              type: 'array',
+              title: 'Comments',
+              items: { $ref: '#/$defs/Comment' },
+            },
+          },
+          $defs: { Comment: { __name__: 'Comment' } },
+        },
+        value: { comments: [] },
+        ref: 'http://localhost:5000/products/1',
+        name: 'Product',
+      };
+
+      const html = Formidable.getListInput(ntt, 'comments', 'display');
+
+      expect(html).toContain('<ntx-list-field');
+      expect(html).toContain('data-key="comments"');
+      expect(html).toContain('field="comments"');
+      expect(decodeURIComponent(html)).toContain('"$ref":"#/$defs/Comment"');
+      expect(decodeURIComponent(html)).toContain('"Comment":{"__name__":"Comment"}');
+      expect(html).toContain('mode="display"');
+    });
+
     it('should show first 2 items visible and rest collapsed', () => {
       const ntt = {
         schema: {
@@ -347,6 +437,33 @@ describe('form.js (Formidable)', () => {
       );
       expect(html).toContain('<fieldset');
       expect(html).toContain('Main');
+    });
+
+    it('should keep list fields inside their configured group', () => {
+      const ntt = {
+        schema: {
+          __name__: 'Product',
+          __tablename__: 'products',
+          properties: {
+            price: { type: 'number', title: 'Price' },
+            comments: { type: 'array', title: 'Comments', items: { $ref: '#/$defs/Comment' } },
+          },
+          $defs: { Comment: {} },
+          ui: { groups: { main: ['price'], Social: ['comments'] } },
+        },
+        value: { price: 29.99, comments: ['http://localhost:5000/products/1/comments/1'] },
+        ref: 'http://localhost:5000/products/1',
+        name: 'Product',
+      };
+
+      const html = Formidable.getForm(ntt, 'display');
+      const socialStart = html.indexOf('ntx-group-Social');
+      const socialEnd = html.indexOf('</fieldset>', socialStart);
+      const commentsPos = html.indexOf('data-key="comments"');
+
+      expect(socialStart).toBeGreaterThanOrEqual(0);
+      expect(commentsPos).toBeGreaterThan(socialStart);
+      expect(commentsPos).toBeLessThan(socialEnd);
     });
 
     it('should render ungrouped fields at end', () => {

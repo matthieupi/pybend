@@ -110,16 +110,18 @@ class NTTLogs extends HTMLElement {
       if (entry) {
         // Track counts even while closed (for filter badges)
         if (entry.level in this.#counts) this.#counts[entry.level]++;
-        // Only append DOM when the panel is already open and rendered
-        if (this.#open && this.#rendered) {
-          this.#appendEntry(entry, false);  // skip count — already incremented
+        // Keep an open panel live. If the list was not rendered yet, render the
+        // current buffer instead of waiting for the user to reopen the panel.
+        if (this.#open) {
+          if (this.#rendered) this.#appendEntry(entry, false);  // skip count — already incremented
+          else this.#renderEntries();
           this.#scrollToBottom();
         }
       } else {
         // clear event
         this.#list.innerHTML = '';
         this.#badge.textContent = '0';
-        this.#rendered = false;
+        this.#rendered = this.#open;
         this.#resetCounts();
       }
     };

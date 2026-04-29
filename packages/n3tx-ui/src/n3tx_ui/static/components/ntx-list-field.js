@@ -3,6 +3,7 @@ import { NTT } from '../core/NTT.js';
 import TX from '../core/TX.js';
 
 const STYLES_URL = new URL('./ntx-list-field.css', import.meta.url).href;
+const DEFAULT_VISIBLE_COUNT = 8;
 
 function encodeJson(value) {
   return encodeURIComponent(JSON.stringify(value ?? null));
@@ -25,7 +26,7 @@ function escapeHtml(value) {
 
 export class NTTListField extends HTMLElement {
   static get observedAttributes() {
-    return ['field', 'mode', 'schema', 'value', 'defs', 'parent-model', 'parent-table', 'parent-id'];
+    return ['field', 'mode', 'schema', 'value', 'defs', 'parent-model', 'parent-table', 'parent-id', 'visible-count'];
   }
 
   constructor() {
@@ -45,6 +46,15 @@ export class NTTListField extends HTMLElement {
   get mode() { return this.getAttribute('mode') || 'display'; }
   get schema() { return decodeJson(this.getAttribute('schema'), {}); }
   get defs() { return decodeJson(this.getAttribute('defs'), {}); }
+  get visibleCount() {
+    const raw = this.getAttribute('visible-count')
+      ?? this.schema?.ui?.visible_count
+      ?? this.schema?.ui?.visibleCount
+      ?? DEFAULT_VISIBLE_COUNT;
+    if (raw === 'all' || raw === 'none' || raw === false) return Infinity;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : Infinity;
+  }
   get value() {
     const raw = decodeJson(this.getAttribute('value'), []);
     if (!Array.isArray(raw) && raw && typeof raw === 'object' && Array.isArray(raw.data)) return raw.data;
@@ -68,14 +78,24 @@ export class NTTListField extends HTMLElement {
     html.push(`</div>`);
 
     if (modelName) {
-      value.forEach((item) => {
+      const rows = value.map((item) => {
         const ref = typeof item === 'string' ? item : item?.$id;
-        if (!ref) return;
+        if (!ref) return '';
         const removeBtn = mode === 'edit'
           ? `<button type="button" class="list-field-remove" data-array-action="remove-ref" data-ref="${escapeHtml(ref)}">Remove</button>`
           : '';
-        html.push(`<div class="list-field-ref-row"><${childTag} ref="${escapeHtml(ref)}" display="sm" data-model="${escapeHtml(modelName)}"></${childTag}>${removeBtn}</div>`);
-      });
+        return `<div class="list-field-ref-row"><${childTag} ref="${escapeHtml(ref)}" display="sm" data-model="${escapeHtml(modelName)}"></${childTag}>${removeBtn}</div>`;
+      }).filter(Boolean);
+
+      if (mode === 'display' && Number.isFinite(this.visibleCount) && rows.length > this.visibleCount) {
+        const visibleRows = rows.slice(0, this.visibleCount);
+        const collapsedRows = rows.slice(this.visibleCount);
+        html.push(...visibleRows);
+        html.push(`<div class="nested-collapsed">${collapsedRows.join('')}</div>`);
+        html.push(`<button type="button" class="show-more-btn">Show ${collapsedRows.length} more</button>`);
+      } else {
+        html.push(...rows);
+      }
 
       if (mode === 'edit') {
         const childTable = this.defs?.[modelName]?.__tablename__ || `${modelName.toLowerCase()}s`;
@@ -133,6 +153,18 @@ export class NTTListField extends HTMLElement {
         next.push(e.detail.ref);
         this.#dispatchValue(next);
       }
+    });
+
+    this.shadowRoot.querySelector('.show-more-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const btn = e.currentTarget;
+      const collapsed = btn.previousElementSibling;
+      if (!collapsed?.classList.contains('nested-collapsed')) return;
+      collapsed.classList.toggle('expanded');
+      const count = collapsed.children.length;
+      btn.textContent = collapsed.classList.contains('expanded')
+        ? 'Show less'
+        : `Show ${count} more`;
     });
   }
 

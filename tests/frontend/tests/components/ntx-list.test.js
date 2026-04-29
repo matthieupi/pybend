@@ -183,6 +183,56 @@ describe('ListElement (via NTTList)', () => {
     });
   });
 
+  describe('default render structure', () => {
+    function renderProductList(value = ['http://localhost:5000/products/1', 'http://localhost:5000/products/2']) {
+      const el = document.createElement('ntx-list');
+      el.model = 'Product';
+      el.schema = { __name__: 'Product', ui: {}, access: {} };
+      el.value = value;
+      Object.defineProperty(el, 'proto', {
+        value: { _paginationMeta: null },
+        configurable: true,
+      });
+      el.render();
+      return el;
+    }
+
+    it('renders the default header, count, and grid chrome', () => {
+      const el = renderProductList();
+
+      expect(el.shadowRoot.querySelector('.list-header')).not.toBeNull();
+      expect(el.shadowRoot.querySelector('.list-header h1').textContent).toContain('Products');
+      expect(el.shadowRoot.querySelector('.list-count').textContent).toBe('2');
+      expect(el.shadowRoot.querySelector('.list-grid')).not.toBeNull();
+    });
+
+    it('stamps one child per value with data-value, display, and select-target', () => {
+      const refs = ['http://localhost:5000/products/1', 'http://localhost:5000/products/2'];
+      const el = renderProductList(refs);
+      const items = Array.from(el.shadowRoot.querySelectorAll('.list-grid ntx-item'));
+
+      expect(items).toHaveLength(2);
+      expect(items.map(item => item.getAttribute('data-value'))).toEqual(refs);
+      expect(items.every(item => item.getAttribute('display'))).toBe(true);
+      expect(items.every(item => item.getAttribute('select-target') === el.addr)).toBe(true);
+    });
+
+    it('keeps the count badge aligned with rendered children', () => {
+      const el = renderProductList(['a', 'b', 'c']);
+      const count = parseInt(el.shadowRoot.querySelector('.list-count').textContent, 10);
+      const rendered = el.shadowRoot.querySelectorAll('.list-grid ntx-item').length;
+
+      expect(count).toBe(rendered);
+    });
+
+    it('applies stagger delay to later children', () => {
+      const el = renderProductList(['a', 'b']);
+      const second = el.shadowRoot.querySelectorAll('.list-grid ntx-item')[1];
+
+      expect(second.style.getPropertyValue('--stagger-delay')).toBe('50ms');
+    });
+  });
+
   describe('packed layout', () => {
     it('should assign row spans for wide card children', async () => {
       const el = document.createElement('ntx-list');

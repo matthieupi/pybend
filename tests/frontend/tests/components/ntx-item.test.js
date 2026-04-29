@@ -81,6 +81,41 @@ const productSchema = {
   methods: {},
 };
 
+const detailProductSchema = {
+  ...productSchema,
+  properties: {
+    ...productSchema.properties,
+    image: { type: 'string', title: 'Image', ui: { display: false } },
+    comments: { type: 'array', title: 'Comments', items: { type: '$ref', $ref: '#/$defs/Comment' } },
+    user_owner: { type: '$ref', title: 'Owner', $ref: '#/$defs/User', ui: { protected: true } },
+  },
+  ui: {
+    field_order: ['name', 'description', 'price', 'comments', 'user_owner', 'image'],
+    groups: {
+      Main: ['price'],
+      Social: ['comments'],
+    },
+  },
+  methods: {
+    comment: { scope: 'instancemethod', title: 'Comment' },
+    favorite: { scope: 'instancemethod', title: 'Favorite' },
+  },
+  $defs: {
+    Comment: { __name__: 'Comment', ui: { renderer: { item: 'ntx-item' } } },
+    User: { __name__: 'User', ui: { renderer: { item: 'ntx-user' } } },
+  },
+};
+
+const detailProductValue = {
+  id: 1,
+  name: 'Test Product',
+  price: 29.99,
+  description: 'A useful product',
+  image: 'http://example.com/image.png',
+  comments: ['http://localhost:5000/comments/1'],
+  user_owner: 'http://localhost:5000/users/1',
+};
+
 describe('ntx-item.js (NTTItem)', () => {
 
   beforeEach(() => {
@@ -447,6 +482,55 @@ describe('ntx-item.js (NTTItem)', () => {
       el.name = 'Product';
       const html = el.md();
       expect(html).not.toContain('ntx-method');
+    });
+
+    it('should render grouped detail fields and list fields in display mode', () => {
+      const el = createItem(detailProductSchema, detailProductValue, {
+        ref: 'http://localhost:5000/products/1',
+      });
+      el.name = 'Product';
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+
+      el.render();
+
+      const card = el.shadowRoot.querySelector('.card');
+      const fieldsets = Array.from(el.shadowRoot.querySelectorAll('fieldset'));
+      expect(card.dataset.display).toBe('md');
+      expect(el.shadowRoot.querySelector('[data-value="name"]').textContent).toContain('Test Product');
+      expect(el.shadowRoot.querySelector('[data-value="price"]').textContent).toContain('$29.99');
+      expect(fieldsets.length).toBeGreaterThanOrEqual(1);
+      expect(fieldsets.some(fieldset => fieldset.querySelector('legend'))).toBe(true);
+      expect(el.shadowRoot.querySelector('ntx-list-field[data-key="comments"]')).not.toBeNull();
+    });
+
+    it('should hide non-display fields and render standalone methods in display mode', () => {
+      const el = createItem(detailProductSchema, detailProductValue, {
+        ref: 'http://localhost:5000/products/1',
+      });
+      el.name = 'Product';
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+
+      el.render();
+
+      const methods = Array.from(el.shadowRoot.querySelectorAll('ntx-method')).map(method => method.getAttribute('method'));
+      expect(el.shadowRoot.querySelector('[data-value="id"]')).toBeNull();
+      expect(el.shadowRoot.querySelector('[data-value="image"]')).toBeNull();
+      expect(methods).toEqual(expect.arrayContaining(['comment', 'favorite']));
+    });
+
+    it('should omit protected field inputs in edit mode', () => {
+      const el = createItem(detailProductSchema, detailProductValue, {
+        ref: 'http://localhost:5000/products/1',
+        mode: 'edit',
+      });
+      el.name = 'Product';
+      Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
+
+      el.render();
+
+      expect(el.shadowRoot.querySelector('input[data-key="name"]')).not.toBeNull();
+      expect(el.shadowRoot.querySelector('[data-key="user_owner"]')).toBeNull();
+      expect(el.shadowRoot.querySelector('.edit-btn').className).toContain('mode-edit');
     });
   });
 

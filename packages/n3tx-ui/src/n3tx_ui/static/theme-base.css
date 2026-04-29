@@ -104,6 +104,11 @@ a:hover {
     color: var(--ntx-color-accent);
 }
 
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ntx-focus-ring);
+    outline-offset: 2px;
+}
+
 img {
     max-width: 100%;
     display: block;

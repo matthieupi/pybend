@@ -77,7 +77,16 @@ describe('ntx-topbar.js', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(el.shadowRoot.textContent).toContain('Sign in');
+    expect(el.shadowRoot.querySelector('nav.topbar')).toBeTruthy();
+    expect(el.shadowRoot.querySelector('.topbar-brand')?.getAttribute('href')).toBe('/');
+    expect(el.shadowRoot.querySelector('.topbar-title')?.textContent).toBe('Test App');
+    expect(el.shadowRoot.querySelector('.topbar-logo')?.textContent.trim()).toBe('TE');
+    expect(el.shadowRoot.querySelector('.topbar-tag')?.textContent.trim()).toBe('v1.2.3');
+    expect(el.shadowRoot.querySelector('.signin-link')?.getAttribute('href')).toBe('/login.html');
     expect(el.shadowRoot.querySelector('.user-pill')).toBeNull();
+    expect(el.shadowRoot.querySelector('.user-dropdown')).toBeNull();
+    expect(el.shadowRoot.querySelector('a[href="#@favorites"]')).toBeNull();
+    expect(el.shadowRoot.querySelector('a[href="#@profile"]')).toBeNull();
     expect(el.shadowRoot.querySelector('slot[name="user-menu"]')).toBeNull();
   });
 
@@ -96,8 +105,35 @@ describe('ntx-topbar.js', () => {
     expect(el.shadowRoot.textContent).toContain('admin');
     expect(el.shadowRoot.textContent).toContain('Profile');
     expect(el.shadowRoot.textContent).toContain('Logout');
+    expect(el.shadowRoot.querySelector('.signin-link')).toBeNull();
+    expect(el.shadowRoot.querySelector('.user-pill')).toBeTruthy();
+    expect(el.shadowRoot.querySelector('.user-avatar')?.textContent.trim()).toBe('A');
+    expect(el.shadowRoot.querySelector('.user-name')?.textContent.trim()).toBe('Alice');
+    expect(el.shadowRoot.querySelector('.user-chevron')).toBeTruthy();
+    expect(el.shadowRoot.querySelector('.dropdown-header')).toBeTruthy();
+    expect(el.shadowRoot.querySelector('.dropdown-email')?.textContent.trim()).toBe('alice@test.com');
+    expect(el.shadowRoot.querySelector('.dropdown-role')?.textContent.trim()).toBe('admin');
+    expect(el.shadowRoot.querySelector('a[href="#@profile"]')).toBeTruthy();
+    expect(el.shadowRoot.querySelector('.logout-btn')).toBeTruthy();
+    expect(el.shadowRoot.querySelectorAll('.dropdown-divider').length).toBeGreaterThanOrEqual(1);
+    expect(el.shadowRoot.querySelectorAll('.dropdown-item').length).toBeGreaterThanOrEqual(2);
     expect(el.shadowRoot.querySelector('slot[name="user-menu"]')).toBeTruthy();
     expect(el.shadowRoot.querySelector('.theme-toggle')).toBeNull();
+  });
+
+  it('derives user initials and labels from the authenticated user', async () => {
+    mockPermissions.user = { name: 'Bob Johnson', email: 'bob@example.com', role: 'user' };
+    mockPermissions.authenticated = true;
+    mockPermissions.role = 'user';
+    mockPermissions.init.mockResolvedValue(mockPermissions.user);
+
+    const el = document.createElement('ntx-topbar');
+    document.body.appendChild(el);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(el.shadowRoot.querySelector('.user-avatar')?.textContent.trim()).toBe('B');
+    expect(el.shadowRoot.querySelector('.user-name')?.textContent.trim()).toBe('Bob Johnson');
+    expect(el.shadowRoot.querySelector('.dropdown-email')?.textContent.trim()).toBe('bob@example.com');
   });
 
   it('assigns slotted nav content to the nav slot', async () => {

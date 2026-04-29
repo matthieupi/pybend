@@ -178,6 +178,33 @@ describe('Router Navigation', () => {
     expect(window.location.hash).toBe('');
   });
 
+  it('rapid sequential hash changes keep router state valid', async () => {
+    const errors = [];
+    const onError = (event) => errors.push(event.error?.message || event.message || String(event));
+    window.addEventListener('error', onError);
+
+    try {
+      const router = new Router('test-router-rapid-hash', { hash: true });
+
+      window.location.hash = '#Product/1';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      window.location.hash = '#Product/2';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      window.location.hash = '#Product/3';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      window.location.hash = '';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+
+      await flush();
+
+      expect(router.current).toBeNull();
+      expect(router.resolved).toBeNull();
+      expect(errors).toEqual([]);
+    } finally {
+      window.removeEventListener('error', onError);
+    }
+  });
+
   it('Router is registered in matrix', () => {
     const router = new Router('test-router-matrix', { hash: false });
     expect(matrix.children.has('test-router-matrix')).toBe(true);
