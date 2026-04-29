@@ -110,7 +110,7 @@ test.describe('form-rendering — List Field Components', () => {
     }
   });
 
-  test('collapsed list-field rows expose show-more chrome when seeded data exceeds preview count', async ({ page }) => {
+  test('visible-count limits list-field rows and exposes show-more chrome', async ({ page }) => {
     await gotoApp(page, `${APP_URL}#Product/1`);
 
     await waitForAppReady(page);
@@ -118,6 +118,7 @@ test.describe('form-rendering — List Field Components', () => {
     const collapsed = await page.locator('ntx-router').evaluate((r) => {
       const item = r.shadowRoot?.querySelector('ntx-item');
       const host = item?.shadowRoot?.querySelector('ntx-list-field[data-key="comments"]');
+      host?.setAttribute('visible-count', '2');
       const lf = host?.shadowRoot?.querySelector('.list-field[data-value="comments"]');
       if (!lf) return {};
       const count = parseInt(lf.querySelector('.list-field-count')?.textContent || '0');
