@@ -1,0 +1,595 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0
+rootdir: /code/n3tx
+configfile: pyproject.toml
+plugins: asyncio-1.3.0, anyio-4.13.0, logfire-4.31.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 2593 items / 5 errors
+
+==================================== ERRORS ====================================
+____________________ ERROR collecting examples/actors/tests ____________________
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:935: in _load_unlocked
+    ???
+.venv_local/lib/python3.12/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+examples/actors/tests/conftest.py:57: in <module>
+    from main import app  # noqa: triggers model registration
+    ^^^^^^^^^^^^^^^^^^^^
+examples/actors/main.py:13: in <module>
+    from models import User, Bot, Product, Comment, Like
+E   ImportError: cannot import name 'Bot' from 'models' (/code/n3tx/apps/veille/tests/../models/__init__.py)
+_____________________ ERROR collecting examples/chat/tests _____________________
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:935: in _load_unlocked
+    ???
+.venv_local/lib/python3.12/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+examples/chat/tests/conftest.py:76: in <module>
+    config = importlib.import_module('examples.chat.config')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'examples'
+____________________ ERROR collecting examples/grants/tests ____________________
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:935: in _load_unlocked
+    ???
+.venv_local/lib/python3.12/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+examples/grants/tests/conftest.py:50: in <module>
+    config = importlib.import_module('examples.grants.config')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'examples'
+___________________ ERROR collecting examples/pygentic/tests ___________________
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:935: in _load_unlocked
+    ???
+.venv_local/lib/python3.12/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+examples/pygentic/tests/conftest.py:42: in <module>
+    config = importlib.import_module('examples.pygentic.config')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'examples'
+_____ ERROR collecting packages/n3tx-core/src/n3tx_core/tests/integration ______
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:935: in _load_unlocked
+    ???
+.venv_local/lib/python3.12/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+packages/n3tx-core/src/n3tx_core/tests/integration/conftest.py:39: in <module>
+    from models import Product, Comment, Like, User
+E   ImportError: cannot import name 'Product' from 'models' (/code/n3tx/examples/pygentic/models/__init__.py)
+=============================== warnings summary ===============================
+packages/n3tx-core/src/n3tx_core/models/proto_model.py:68
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/models/proto_model.py:68: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ProtoModel(PydanticBaseModel):
+
+packages/n3tx-core/src/n3tx_core/api/backend.py:15
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/api/backend.py:15: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class BaseBackend(ABC, BaseModel):
+
+.venv_local/lib/python3.12/site-packages/pydantic/_internal/_config.py:383
+  /code/n3tx/.venv_local/lib/python3.12/site-packages/pydantic/_internal/_config.py:383: UserWarning: Valid config keys have changed in V2:
+  * 'orm_mode' has been renamed to 'from_attributes'
+    warnings.warn(message, UserWarning)
+
+packages/n3tx-actors/src/n3tx_actors/actor.py:77
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/actor.py:77: UserWarning: Field name "tools" in "AgentActor" shadows an attribute in parent "AgentMixin"
+    cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+
+examples/actors/tests/conftest.py:53
+  /code/n3tx/examples/actors/tests/conftest.py:53: UserWarning: Using a known default JWT secret. Set a unique JWT_SECRET environment variable for production.
+    authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
+
+examples/core/tests/conftest.py:53
+  /code/n3tx/examples/core/tests/conftest.py:53: UserWarning: Using a known default JWT secret. Set a unique JWT_SECRET environment variable for production.
+    authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
+
+examples/core/models/product.py:105
+  /code/n3tx/examples/core/models/product.py:105: PydanticDeprecatedSince20: The `update_forward_refs` method is deprecated; use `model_rebuild` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    Product.update_forward_refs()
+
+packages/n3tx-core/src/n3tx_core/app.py:200
+packages/n3tx-core/src/n3tx_core/app.py:200
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/app.py:200: UserWarning: Using a known default JWT secret. Set a unique JWT_SECRET environment variable for production.
+    authorize.configure(
+
+examples/core/tests/test_auth_flow.py:10
+  /code/n3tx/examples/core/tests/test_auth_flow.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_authorization.py:10
+  /code/n3tx/examples/core/tests/test_authorization.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_collection_routes.py:10
+  /code/n3tx/examples/core/tests/test_collection_routes.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_comment_model.py:13
+  /code/n3tx/examples/core/tests/test_comment_model.py:13: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+examples/core/tests/test_comments_crud.py:11
+  /code/n3tx/examples/core/tests/test_comments_crud.py:11: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_cross_model_workflows.py:10
+  /code/n3tx/examples/core/tests/test_cross_model_workflows.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_custom_methods.py:10
+  /code/n3tx/examples/core/tests/test_custom_methods.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_debug_envelope.py:52
+  /code/n3tx/examples/core/tests/test_debug_envelope.py:52: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_error_handling.py:10
+  /code/n3tx/examples/core/tests/test_error_handling.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_fk_hydration.py:11
+  /code/n3tx/examples/core/tests/test_fk_hydration.py:11: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_jwt_tokens.py:12
+  /code/n3tx/examples/core/tests/test_jwt_tokens.py:12: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_like_model.py:6
+  /code/n3tx/examples/core/tests/test_like_model.py:6: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+examples/core/tests/test_likes_crud.py:12
+  /code/n3tx/examples/core/tests/test_likes_crud.py:12: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_middleware.py:10
+  /code/n3tx/examples/core/tests/test_middleware.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_pagination.py:10
+  /code/n3tx/examples/core/tests/test_pagination.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_product_model.py:12
+  /code/n3tx/examples/core/tests/test_product_model.py:12: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+examples/core/tests/test_products_crud.py:9
+  /code/n3tx/examples/core/tests/test_products_crud.py:9: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_protected_fields.py:10
+  /code/n3tx/examples/core/tests/test_protected_fields.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_schema_endpoints.py:11
+  /code/n3tx/examples/core/tests/test_schema_endpoints.py:11: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_seed.py:11
+  /code/n3tx/examples/core/tests/test_seed.py:11: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+examples/core/tests/test_streaming.py:15
+  /code/n3tx/examples/core/tests/test_streaming.py:15: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.integration
+
+examples/core/tests/test_user_model.py:15
+  /code/n3tx/examples/core/tests/test_user_model.py:15: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_adapter.py:63
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_adapter.py:63: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_ap.py:88
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_ap.py:88: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py:95
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py:95: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_mcp.py:86
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_mcp.py:86: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_ws.py:57
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_ws.py:57: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/test_actor.py:15
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/test_actor.py:15: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/test_actor_proxy.py:13
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/test_actor_proxy.py:13: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/test_actormodel_auth.py:50
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/test_actormodel_auth.py:50: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/test_auth_interceptor.py:67
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/test_auth_interceptor.py:67: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/test_integration.py:12
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/test_integration.py:12: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/test_interceptors.py:76
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/test_interceptors.py:76: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/test_matrix.py:12
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/test_matrix.py:12: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/test_tx.py:9
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/test_tx.py:9: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model.py:19
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model.py:19: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_authorize.py:42
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_authorize.py:42: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_crud.py:20
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_crud.py:20: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_handler.py:25
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_handler.py:25: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_integration.py:27
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_integration.py:27: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_lifecycle.py:20
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_model_lifecycle.py:20: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_system.py:17
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_actor_system.py:17: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_auth_interceptor.py:74
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_auth_interceptor.py:74: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_handler_internal_method_auth.py:30
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_handler_internal_method_auth.py:30: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_like_favorite_response_format.py:20
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_like_favorite_response_format.py:20: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-actors/src/n3tx_actors/tests/unit/test_streaming.py:23
+  /code/n3tx/packages/n3tx-actors/src/n3tx_actors/tests/unit/test_streaming.py:23: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-agents/src/n3tx_agents/tests/test_agent_actor.py:17
+  /code/n3tx/packages/n3tx-agents/src/n3tx_agents/tests/test_agent_actor.py:17: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-agents/src/n3tx_agents/tests/test_app_agent.py:15
+  /code/n3tx/packages/n3tx-agents/src/n3tx_agents/tests/test_app_agent.py:15: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-agents/src/n3tx_agents/tests/test_mixin.py:17
+  /code/n3tx/packages/n3tx-agents/src/n3tx_agents/tests/test_mixin.py:17: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-agents/src/n3tx_agents/tests/test_run_stream_first_token.py:34
+  /code/n3tx/packages/n3tx-agents/src/n3tx_agents/tests/test_run_stream_first_token.py:34: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-agents/src/n3tx_agents/tests/test_streaming_tool_guard.py:13
+  /code/n3tx/packages/n3tx-agents/src/n3tx_agents/tests/test_streaming_tool_guard.py:13: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-agents/src/n3tx_agents/tests/test_streaming_tool_specs.py:9
+  /code/n3tx/packages/n3tx-agents/src/n3tx_agents/tests/test_streaming_tool_specs.py:9: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-agents/src/n3tx_agents/tests/test_thread.py:13
+  /code/n3tx/packages/n3tx-agents/src/n3tx_agents/tests/test_thread.py:13: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-agents/src/n3tx_agents/tests/test_tool_call_auth.py:29
+  /code/n3tx/packages/n3tx-agents/src/n3tx_agents/tests/test_tool_call_auth.py:29: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-agents/src/n3tx_agents/tests/test_tools.py:21
+  /code/n3tx/packages/n3tx-agents/src/n3tx_agents/tests/test_tools.py:21: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/integration/conftest.py:31
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/integration/conftest.py:31: UserWarning: Using a known default JWT secret. Set a unique JWT_SECRET environment variable for production.
+    authorize.configure(jwt_secret=config.JWT_SECRET, jwt_expiry_hours=config.JWT_EXPIRY_HOURS)
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_abstract_storage.py:6
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_abstract_storage.py:6: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_access_algebra.py:29
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_access_algebra.py:29: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_access_context.py:9
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_access_context.py:9: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_access_denied.py:6
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_access_denied.py:6: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_access_schema.py:9
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_access_schema.py:9: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_auth.py:14
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_auth.py:14: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_auth_edge_cases.py:37
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_auth_edge_cases.py:37: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_backend.py:13
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_backend.py:13: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_base_user.py:33
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_base_user.py:33: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_config.py:14
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_config.py:14: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_debug_envelope.py:59
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_debug_envelope.py:59: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_debug_mode.py:16
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_debug_mode.py:16: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_decorators.py:7
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_decorators.py:7: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_discovery.py:9
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_discovery.py:9: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_erroring.py:6
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_erroring.py:6: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_introspection.py:22
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_introspection.py:22: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_json_fields.py:17
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_json_fields.py:17: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_json_storage.py:23
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_json_storage.py:23: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_populate.py:6
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_populate.py:6: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_dump.py:22
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_dump.py:22: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_dump_stages.py:15
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_dump_stages.py:15: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_model.py:17
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_model.py:17: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_schema.py:22
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_schema.py:22: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_ref.py:10
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_ref.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_registrar.py:15
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_registrar.py:15: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_resolver.py:11
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_resolver.py:11: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py:17
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py:17: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_rules.py:17
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_rules.py:17: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_schema_ext.py:26
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_schema_ext.py:26: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_sqlite_helpers.py:13
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_sqlite_helpers.py:13: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_sqlite_migration.py:13
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_sqlite_migration.py:13: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_sqlite_storage.py:16
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_sqlite_storage.py:16: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_storable_mixin.py:9
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_storable_mixin.py:9: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_storage_adjunction.py:19
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_storage_adjunction.py:19: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_typer.py:10
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_typer.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/test_viewable_mixin.py:12
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/test_viewable_mixin.py:12: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/widgets/test_schema_ext.py:26
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/widgets/test_schema_ext.py:26: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+packages/n3tx-core/src/n3tx_core/tests/unit/widgets/test_widget.py:19
+  /code/n3tx/packages/n3tx-core/src/n3tx_core/tests/unit/widgets/test_widget.py:19: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    pytestmark = pytest.mark.unit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR examples/actors/tests - ImportError: cannot import name 'Bot' from 'mod...
+ERROR examples/chat/tests - ModuleNotFoundError: No module named 'examples'
+ERROR examples/grants/tests - ModuleNotFoundError: No module named 'examples'
+ERROR examples/pygentic/tests - ModuleNotFoundError: No module named 'examples'
+ERROR packages/n3tx-core/src/n3tx_core/tests/integration - ImportError: canno...
+!!!!!!!!!!!!!!!!!!! Interrupted: 5 errors during collection !!!!!!!!!!!!!!!!!!!!
+======================= 103 warnings, 5 errors in 2.68s ========================

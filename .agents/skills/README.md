@@ -26,6 +26,7 @@ packages rather than lightweight explicit prompts:
 - `.agents/skills/planning/plan/SKILL.md` → `/skill:plan`
 - `.agents/skills/research/ideation/SKILL.md` → `/skill:ideation`
 - `.agents/skills/perf/perf-analysis/SKILL.md` → `/skill:perf-analysis`
+- `.agents/skills/dev/fix-test/SKILL.md` → `/skill:fix-test`
 
 ## Prompt / command names
 
@@ -34,6 +35,7 @@ Examples:
 
 - `.agents/prompts/git-status.md` → `/git-status`
 - `.agents/prompts/bugfix.md` → `/bugfix`
+- `.agents/prompts/fix-test.md` → `/fix-test`
 - `.agents/prompts/deep-audit.md` → `/deep-audit`
 - `.agents/prompts/write-a-prd.md` → `/write-a-prd`
 

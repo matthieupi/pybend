@@ -987,71 +987,533 @@ def render_model_view(
 
 ---
 
-## 14. Test Plan
+## 14. Test Coverage Audit and Regression Test Plan
 
-### 14.1 Frontend unit tests
+This refactor changes route grammar and route registration. The test suite must prove two things at the same time:
 
-Run:
+1. **new `@` grammar works exactly as designed**
+2. **all legacy routes keep working exactly as before**
+
+The goal is not merely “some tests pass.” The goal is to make regressions obvious at the exact boundary where they occur: parser, resolver, component mount, sidebar link, direct FastAPI route, actor route, SSR HTML entrypoint, or app-level navigation.
+
+### 14.1 Current coverage audit
+
+Current relevant coverage exists, but it is incomplete for this architecture.
+
+| Area | Existing tests | What is covered now | Main gaps for this refactor |
+|---|---|---|---|
+| Pure route functions | `tests/frontend/tests/core/route-functions.test.js` | `parseRoute`, `buildRoute`, `resolveRoute` for `Model`, `Model/id`, `Model/id/action`, `@app`, `?view=` | no `@` path-segment routes, no trailing slash normalization, no explicit method-vs-view collision tests |
+| Router actor state | `tests/frontend/tests/core/Router.test.js`, `tests/frontend/tests/integration/router-navigation.test.js` | navigation stack, hash sync, back behavior, resolved getter | no hash refresh tests for `#Model/@`, no back-stack tests for view routes, no same-route no-op tests for view routes |
+| Router DOM mount | `tests/frontend/tests/components/ntx-router.test.js` | slot/home state, default hash sync, basic deep-link mount | no view-route mount assertions, no schema renderer mount assertions, no chrome behavior for deep-linked `@` routes |
+| Sidebar | `tests/frontend/tests/components/ntx-sidebar.test.js` | model parsing, route templates, dropdown fallback, selected state for `#Product`, bare `#` home fix | no selected-state support for `#Product/@`, no generated `@` default routes after migration, no `@view` link dispatch |
+| Sidebar record links | `tests/frontend/tests/components/ntx-sidebar-link-item.test.js` | record link currently renders `href="#Model/id"` | must update/add tests when record links migrate to `href="#Model/id/@"` |
+| Direct FastAPI routes | `packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py`, `examples/core/tests/*` | helper functions and existing table-name API behavior | no class-name mirror route tests, no `/ClassName/@` HTML tests, no route-order conflict tests |
+| Actor API routes | `packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py`, `examples/actors/tests/*` | schema route, table-name CRUD, method routes, parent-child routes | no class-name mirrors, no actor HTML route parity, no route-order conflict tests |
+| SSR/static shell | `packages/n3tx-core/src/n3tx_core/tests/unit/test_ssr.py` | root/index SSR modes, schema injection, bundle/full modes | no per-model HTML view entrypoints, no mounted component injection assertions |
+| Identity contracts | `test_proto_dump.py`, `test_populate.py`, frontend `NTT.test.js`, nested integration tests | `$schema`, `$id`, hrefs, nested refs in current API | no tests proving `/ClassName/id` mirror preserves `$id=/tablename/id` initially |
+| App/E2E navigation | frontend Playwright + examples e2e | existing UI navigation and forms | no browser-level regression around `#Model/@`, refresh, dashboard/home, or direct `/ClassName/@` HTML entrypoints |
+
+### 14.2 Required test commands by layer
+
+Use narrow commands during implementation, then full commands at phase boundaries.
 
 ```bash
+# Frontend unit/integration
+cd /workspace/tests/frontend && npx vitest run tests/core/route-functions.test.js
+cd /workspace/tests/frontend && npx vitest run tests/core/Router.test.js tests/integration/router-navigation.test.js
+cd /workspace/tests/frontend && npx vitest run tests/components/ntx-router.test.js tests/components/ntx-sidebar.test.js tests/components/ntx-sidebar-link-item.test.js
 cd /workspace/tests/frontend && npx vitest run
-```
 
-Add focused tests for:
-
-- parsing `Model/@`
-- parsing `Model/@table`
-- parsing `Model/1/@`
-- parsing `Model/1/@item`
-- preserving `Model/1/run`
-- preserving `@profile`
-- resolving view routes through `schema.ui.renderer`
-- preserving `?view=` compatibility
-
-### 14.2 Backend direct route tests
-
-Run:
-
-```bash
-cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/
+# Core backend
+cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py
+cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/test_ssr.py
 cd /workspace && python3 -m pytest examples/core/tests/
-```
 
-Add tests for:
-
-- `GET /Product/{id}` mirrors `GET /products/{id}`
-- `$id` remains `/products/{id}` initially
-- `GET /Product/@` returns HTML
-- `GET /Product/{id}/@` returns HTML
-- `GET /Product/@table` resolves/embeds table view
-
-### 14.3 Actor route tests
-
-Run:
-
-```bash
-cd /workspace && python3 -m pytest packages/n3tx-actors/src/n3tx_actors/tests/
+# Actor backend
+cd /workspace && python3 -m pytest packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py
 cd /workspace && python3 -m pytest examples/actors/tests/
+
+# Frontend browser smoke/E2E after route UI migration
+cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js
+cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/veille.playwright.config.js
 ```
 
-Add equivalent class-name mirror tests for actor routing once implemented.
+### 14.3 Phase 1 tests — pure frontend route grammar
 
-### 14.4 Veille/app smoke tests
-
-Manual smoke routes:
+Primary file:
 
 ```text
-http://localhost:4000/#AgentActor/@
-http://localhost:4000/#AgentActor/@table
-http://localhost:4000/#AgentActor/1/@
-http://localhost:4000/#AgentActor/1/@item
+tests/frontend/tests/core/route-functions.test.js
 ```
 
-Expected:
+#### `parseRoute(route)` must cover every new route form
 
-- refresh preserves the hash route
-- router remounts the correct component
-- data fetches still succeed through current data paths
+Add these exact cases:
+
+| Input | Expected important fields | Why it matters |
+|---|---|---|
+| `Product/@` | `{ type:'model', model:'Product', isViewRoute:true, view:null }` | collection default view |
+| `Product/@list` | `view:'list'` | collection named list view |
+| `Product/@table` | `view:'table'` | collection table view |
+| `Product/@custom-card` | `view:'custom-card'` | hyphenated custom view names |
+| `Product/@ntx-custom-card` | `view:'ntx-custom-card'` | explicit component-like view names |
+| `Product/@table?limit=10&offset=20` | `params:{limit:'10', offset:'20'}` | query params survive view route parsing |
+| `Product/3/@` | `{ type:'detail', model:'Product', id:'3', isViewRoute:true, view:null }` | member default view |
+| `Product/3/@item` | `view:'item'` | member item/card view |
+| `Product/3/@detail` | `view:'detail'` | member detail view |
+| `Product/3/@chat?thread=abc` | `view:'chat', params:{thread:'abc'}` | custom member view with params |
+| `Product/3/run` | `{ type:'action', action:'run', isViewRoute:undefined/false }` | method route remains method route |
+| `Product/3/@run` | `{ type:'detail', view:'run', isViewRoute:true }` | view named same as method stays view |
+| `@profile` | app route unchanged | root app route not confused with view marker |
+| `@settings?tab=security` | params preserved | app params unchanged |
+| `` | home unchanged | home route unchanged |
+| `null`, `undefined`, `42`, `{}` | home unchanged | bad input unchanged |
+
+#### Path normalization edge cases
+
+If implementation trims leading/trailing slashes as planned, add:
+
+| Input | Expected canonical parse |
+|---|---|
+| `/Product/@table` | same as `Product/@table` |
+| `Product/@table/` | same as `Product/@table` |
+| `/Product/3/@item/` | same as `Product/3/@item` |
+| `Product//3//@item` | either normalized deterministically or rejected as current behavior; decide and lock it |
+
+Recommendation: trim leading/trailing slashes and filter empty path segments; test that behavior explicitly.
+
+#### `buildRoute(parts)` must round-trip new shape
+
+Add exact cases:
+
+```js
+expect(buildRoute({ type: 'model', model: 'Product', isViewRoute: true })).toBe('Product/@');
+expect(buildRoute({ type: 'model', model: 'Product', isViewRoute: true, view: 'table' })).toBe('Product/@table');
+expect(buildRoute({ type: 'detail', model: 'Product', id: '3', isViewRoute: true })).toBe('Product/3/@');
+expect(buildRoute({ type: 'detail', model: 'Product', id: '3', isViewRoute: true, view: 'item' })).toBe('Product/3/@item');
+expect(buildRoute({ type: 'detail', model: 'Product', id: '3', action: 'run' })).toBe('Product/3/run');
+expect(buildRoute({ type: 'detail', model: 'Product', id: '3', isViewRoute: true, view: 'chat', params: { thread: 'abc' } })).toBe('Product/3/@chat?thread=abc');
+```
+
+#### Round-trip tests
+
+Every new route must satisfy:
+
+```js
+expect(buildRoute(parseRoute(route))).toBe(route);
+```
+
+Required route list:
+
+```text
+Product/@
+Product/@list
+Product/@table
+Product/@table?limit=10&offset=20
+Product/3/@
+Product/3/@item
+Product/3/@detail
+Product/3/@chat?thread=abc
+Product/3/run
+Product/3/@run
+@profile
+@settings?tab=security
+Product?view=table
+```
+
+### 14.4 Phase 1 tests — `resolveRoute(parsed, getSchema)`
+
+Primary file:
+
+```text
+tests/frontend/tests/core/route-functions.test.js
+```
+
+Use representative schemas:
+
+```js
+const productSchema = {
+  __name__: 'Product',
+  title: 'Product',
+  ui: {
+    renderer: {
+      list: 'ntx-products',
+      table: 'ntx-product-table',
+      item: 'ntx-product-card',
+      detail: 'ntx-product-detail',
+      chat: 'ntx-product-chat',
+    }
+  },
+  methods: {
+    run: { ui: { renderer: 'ntx-run-method' } }
+  }
+};
+```
+
+Required assertions:
+
+| Route | Expected tag | Expected attrs | Notes |
+|---|---|---|---|
+| `Product/@` | `ntx-products` | `{ model:'Product' }` | default collection view uses `renderer.page || renderer.list` |
+| `Product/@list` | `ntx-products` | `{ model:'Product' }` | semantic view maps through renderer |
+| `Product/@table` | `ntx-product-table` | `{ model:'Product' }` | table view maps through renderer |
+| `Product/@missing` | `ntx-missing` or rejected, per chosen fallback | document exact fallback |
+| `Product/@table?limit=10` | `ntx-product-table` | includes `limit:'10'`, excludes `view` | params pass through |
+| `Product/3/@` | `ntx-product-detail` | `{ ref:'Product/3', display:'lg' }` | default member view |
+| `Product/3/@item` | `ntx-product-card` | `{ ref:'Product/3', display:'lg' }` | member item maps through renderer |
+| `Product/3/@chat?thread=abc` | `ntx-product-chat` | includes `thread:'abc'` | custom member view |
+| `Product/3/run` | `ntx-run-method` | `{ ref:'Product/3', method:'run', display:'lg' }` | method route unchanged |
+| `Product/3/@run` | fallback or `renderer.run` | no `method` attr | view named `run` is not a method |
+| `Product?view=table` | current `ntx-table` compatibility or schema-mapped `ntx-product-table` per implementation decision | `view` not passed through | legacy query compatibility |
+
+Important regression assertions:
+
+- `resolveRoute(parseRoute('Product/3/@run')).attrs.method` must be `undefined`.
+- `resolveRoute(parseRoute('Product/3/run')).attrs.method` must be `'run'`.
+- `resolveRoute(parseRoute('@profile')).tag` remains `'ntx-profile'`.
+- unknown schema still produces stable fallbacks for all `@` routes.
+
+### 14.5 Phase 1 tests — Router actor and hash sync
+
+Primary files:
+
+```text
+tests/frontend/tests/core/Router.test.js
+tests/frontend/tests/integration/router-navigation.test.js
+```
+
+Add tests proving the state actor treats new route strings exactly like old route strings.
+
+Required tests:
+
+1. `NAVIGATE('Product/@table')` sets `current` and updates hash to `#Product/@table`.
+2. `NAVIGATE('Product/3/@item')` sets `current` and updates hash to `#Product/3/@item`.
+3. Initial hash load from `#Product/@table` sets `current` without fake back history.
+4. Initial hash load from `#Product/3/@item` sets `current` without fake back history.
+5. Duplicate `NAVIGATE('Product/@table')` is a no-op.
+6. `BACK()` from `Product/3/@item` returns to the previous route.
+7. `BACK()` from a view route to root clears hash.
+8. Reset navigation to home from a view route clears hash and stack.
+9. `resolved` getter returns renderer-mapped tag for `Product/@table` when `getSchema` is provided.
+10. Stack cap behavior still works when routes include `@` segments.
+
+### 14.6 Phase 1 tests — `ntx-router` DOM mounting
+
+Primary file:
+
+```text
+tests/frontend/tests/components/ntx-router.test.js
+```
+
+Existing tests only assert basic `#Product/9` deep-link mount. Add:
+
+1. Deep-link `#Product/@table` mounts `<ntx-table model="Product">` or schema-selected table tag.
+2. Deep-link `#Product/9/@item` mounts the schema-selected item tag with `ref="Product/9"` and `display="lg"`.
+3. Deep-linked view route has router chrome hidden when no back history, matching current deep-link behavior.
+4. Navigating from home slot to `Product/@table` removes the slot and mounts the view.
+5. Navigating back to home from `Product/@table` restores the slot and removes the mounted view.
+6. Mounted component gets `router="<router-name>"` when it has a `model` attribute and lacks a router attr.
+7. Member view components without `model` attr do not receive unwanted router attr.
+
+Test setup should mock `window.NTT.get('Product').schema` with `ui.renderer.table` and `ui.renderer.item` so the test proves schema-driven selection, not just fallback behavior.
+
+### 14.7 Sidebar and navigation link tests
+
+Primary files:
+
+```text
+tests/frontend/tests/components/ntx-sidebar.test.js
+tests/frontend/tests/components/ntx-sidebar-link-item.test.js
+```
+
+#### Before sidebar migration
+
+Add compatibility tests now:
+
+1. A hash of `#Product/@` marks `Product` model section selected.
+2. A hash of `#Product/@table` marks `Product` selected.
+3. A hash of `#Product/3/@item` marks `Product` selected.
+4. Existing `#Product` selected-state still works.
+5. Existing app link selected-state `#@settings` still works.
+6. Bare `href="#"` still dispatches home route `''`, not `'@'`.
+
+#### When sidebar route generation migrates
+
+Update/add tests:
+
+1. Model header primary link/dispatch uses `Product/@` instead of `Product` when the migration flag/default changes.
+2. Sidebar dropdown record link renders `href="#Product/5/@"` instead of `href="#Product/5"`.
+3. Existing legacy record link behavior is either preserved behind compatibility mode or explicitly updated in one test.
+4. `ntx-table` route-template dropdown fallback still mounts compact `ntx-list`, but its route target is `Product/@table` for main navigation.
+5. Custom route-template renderer with `sidebar-label` keeps label behavior while using `@` route grammar.
+
+### 14.8 Phase 3 tests — direct FastAPI class-name mirrors
+
+Primary files:
+
+```text
+packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py
+examples/core/tests/test_schema_endpoints.py
+examples/core/tests/test_products_crud.py
+```
+
+Current direct-route unit coverage is weak for generated route tables. Add or create a dedicated direct-route test file if needed, e.g.:
+
+```text
+packages/n3tx-core/src/n3tx_core/tests/unit/test_classname_routes.py
+```
+
+Required route-generation tests:
+
+1. `register_routes()` registers `/Product` schema route as before.
+2. `register_routes()` registers `/Product/{id:int}` class-name read mirror for storable models.
+3. `register_routes()` does not register duplicate class-name read mirrors for non-storable models.
+4. `register_routes()` registers `/Product/@`, `/Product/@{view}` or equivalent concrete route shape.
+5. `register_routes()` registers `/Product/{id:int}/@`, `/Product/{id:int}/@{view}`.
+6. Existing table-name routes `/products`, `/products/{id:int}`, `/products/{id:int}/comment` are still present.
+7. Route order places `@` routes before `/{id:int}` and method aliases when order matters.
+
+Required behavior tests against a `TestClient`:
+
+1. `GET /Product/1` returns status and JSON body identical to `GET /products/1`, except for allowed headers.
+2. `GET /Product/1` preserves `$id` as `/products/1` in the first wave.
+3. `GET /Product/1?populate=comments&depth=1` forwards query semantics exactly like `/products/1?populate=comments&depth=1`.
+4. `GET /Product/999999` returns the same status/detail as `/products/999999`.
+5. `GET /Product/not-an-int` does not match the `{id:int}` mirror and does not shadow `/Product/@...`.
+6. `POST /Product/1` is not available unless/until full CRUD mirrors are explicitly implemented.
+7. `PUT /Product/1` and `DELETE /Product/1` are not available unless/until full CRUD mirrors are explicitly implemented.
+8. Schema endpoint `GET /Product` remains JSON Schema and is not confused with class-name list/data endpoint.
+
+Required auth/access tests:
+
+1. If `GET /products/1` requires/uses auth context, `GET /Product/1` must enforce the same auth behavior.
+2. Owner-only protected resources return the same 403/404 behavior through both paths.
+3. User injection behavior for methods is unaffected by adding class-name read mirrors.
+
+### 14.9 Phase 4 tests — backend HTML/view entrypoints
+
+Primary files:
+
+```text
+packages/n3tx-core/src/n3tx_core/tests/unit/test_ssr.py
+new: packages/n3tx-core/src/n3tx_core/tests/unit/test_model_view_routes.py
+examples/core/tests/test_static_pages.py or equivalent
+```
+
+Required HTML endpoint tests:
+
+| Route | Expected |
+|---|---|
+| `GET /Product/@` | `200`, `Content-Type: text/html`, mounts collection default component |
+| `GET /Product/@list` | `200`, HTML contains list renderer tag or boot metadata for list renderer |
+| `GET /Product/@table` | `200`, HTML contains table renderer tag or boot metadata for table renderer |
+| `GET /Product/1/@` | `200`, HTML contains detail/item renderer and `ref="Product/1"` or equivalent boot route |
+| `GET /Product/1/@item` | `200`, HTML contains item renderer and member ref |
+| `GET /Product/999999/@` | chosen behavior is explicit: either shell still loads and frontend handles 404, or backend returns 404; test whichever is chosen |
+| `GET /Product/@unknown` | chosen fallback explicit: `ntx-unknown`, 404, or schema-error; test it |
+
+Required invariants:
+
+1. HTML routes never return JSON by accident.
+2. HTML routes are `include_in_schema=False` if OpenAPI should not expose them.
+3. HTML routes do not shadow `GET /Product` schema.
+4. HTML routes do not shadow `GET /Product/{id:int}` mirror.
+5. HTML routes preserve SSR schema injection if app SSR mode is enabled.
+6. HTML routes include enough scripts/imports for custom elements used by the route.
+7. Response should be deterministic for caching unless route-specific data is injected.
+
+### 14.10 Phase 5 tests — actor route parity
+
+Primary files:
+
+```text
+packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py
+examples/actors/tests/test_schema_endpoints.py
+examples/actors/tests/test_products_crud.py
+```
+
+Add route-generation tests:
+
+1. `create_api_routes()` generates `/MockModel` schema as before.
+2. `create_api_routes()` generates `/MockModel/{id:int}` class-name read mirror.
+3. `create_api_routes()` generates `/MockModel/@` and member HTML routes if actor API owns HTML routes.
+4. Existing `/mock_models`, `/mock_models/{id:int}`, `/mock_models/{id:int}/custom` remain present.
+5. Parent-child routes remain present and unchanged.
+
+Add behavior tests using mocked `NetworkAPI.request`:
+
+1. `GET /MockModel/5` sends a TX equivalent to `GET /mock_models/5`: `name='get'`, `target='mock_models'`, `data.id=5`.
+2. Query params `populate` and `depth` are forwarded.
+3. `meta.user` and `meta.model_cls` are identical to table-name route behavior.
+4. Error TX from class-name mirror maps to the same HTTP exception as table-name route.
+5. Class-name mirror does not send `schema` TX; only `/MockModel` does.
+6. `/MockModel/5/custom` is not added until method mirrors are intentionally implemented; if implemented, it must send the same method TX as `/mock_models/5/custom`.
+
+### 14.11 Identity and `$id` regression tests
+
+Primary files:
+
+```text
+packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_dump.py
+examples/core/tests/test_products_crud.py
+examples/actors/tests/test_products_crud.py
+tests/frontend/tests/core/NTT.test.js
+tests/frontend/tests/integration/nested-entities.test.js
+```
+
+Required tests:
+
+1. `GET /Product/1` response has `$schema` ending in `/Product`.
+2. `GET /Product/1` response has `$id` ending in `/products/1`, not `/Product/1`, for the first wave.
+3. `GET /products/1` and `GET /Product/1` return the same `id` and domain fields.
+4. `NTT` still registers instances under `Product/1` when data arrives with `$id=/products/1`.
+5. Existing nested hrefs such as `/products/1/comments/2` remain unchanged.
+6. Populated nested child `$id` behavior remains unchanged.
+7. Class-name mirror does not mutate stored hrefs or relation arrays.
+
+### 14.12 Method/action collision tests
+
+This is one of the most important regression surfaces.
+
+Add tests covering a model with both:
+
+```python
+@expose_route('/run', methods=['POST'])
+def run(self): ...
+```
+
+and schema renderer:
+
+```json
+ui.renderer.run = 'ntx-run-view'
+```
+
+Required frontend assertions:
+
+```text
+Product/1/run   -> action route, attrs.method='run'
+Product/1/@run  -> view route, no attrs.method, tag='ntx-run-view'
+```
+
+Required backend assertions:
+
+```text
+POST /products/1/run      -> method handler
+GET  /Product/1/@run      -> HTML/view route
+GET  /Product/1/run       -> only exists if class-name method mirror is explicitly implemented
+```
+
+### 14.13 Route conflict and order tests
+
+Route order bugs are likely. Add explicit tests that inspect route matching, not only route presence.
+
+Required cases:
+
+1. `/Product/@table` resolves to HTML route, not `/Product/{id:int}`.
+2. `/Product/@` resolves to HTML route, not schema route.
+3. `/Product/1/@item` resolves to member HTML route, not method route.
+4. `/Product/1/run` remains a method/action route only where intentionally registered.
+5. `/Product/abc` returns 404/422 and does not match `@` routes.
+6. `/Product/@123` is treated as a view named `123` or rejected according to chosen validation; lock behavior.
+7. `/Product/1/@123` same as above for member views.
+8. Join/static routes like `/products/comments` still beat `/products/{id:int}`.
+9. New class-name routes do not affect existing join routes.
+
+### 14.14 Query parameter compatibility tests
+
+Add tests at parser, resolver, backend mirror, and HTML-route layers.
+
+Frontend:
+
+1. `Product/@table?limit=10&offset=20` passes `limit` and `offset` to the mounted component.
+2. `Product/1/@item?tab=history` passes `tab` to the mounted component.
+3. `Product?view=table&limit=10` remains supported and does not pass `view` as attr.
+4. `Product/@table?view=list` behavior is explicit; recommendation: `@table` wins and query `view` is filtered/ignored. Add a test.
+
+Backend:
+
+1. `/Product/1?populate=comments&depth=1` mirrors `/products/1?populate=comments&depth=1`.
+2. `/Product/@table?limit=10` preserves query data in boot metadata or component attrs if server injects it.
+
+### 14.15 Invalid and boundary input tests
+
+Frontend route parser:
+
+| Input | Expected |
+|---|---|
+| `Product/@/extra` | reject or deterministic parse; choose and test |
+| `Product/1/@item/extra` | reject or deterministic parse; choose and test |
+| `Product/` | same as `Product` if normalized |
+| `/Product` | same as `Product` if normalized |
+| `Product/@?x=1` | default collection view with params |
+| `Product/1/@?x=1` | default member view with params |
+| `Product/@%E2%9C%93` | decide whether decoded view names are allowed; test |
+| `Product/@../../x` | must not generate dangerous component tag/path; reject or sanitize |
+
+Backend view validation:
+
+1. View names should be limited to a safe token pattern such as `[A-Za-z0-9_-]+`.
+2. Invalid view names return 400, not a file/path traversal attempt.
+3. HTML route rendering escapes attrs in injected HTML.
+
+### 14.16 App/E2E tests
+
+Add browser-level tests only after unit/integration coverage is green.
+
+Core example E2E or frontend Playwright:
+
+1. Navigate to `/#Product/@` and verify list surface renders.
+2. Navigate to `/#Product/@table` and verify table surface renders.
+3. Navigate to `/#Product/1/@` and verify detail item renders.
+4. Refresh on `/#Product/1/@` and verify same route remounts.
+5. Use browser back from `/#Product/1/@` to previous route.
+6. Dashboard/home route still works after the recent bare `#` fix.
+
+Veille E2E:
+
+1. `/#AgentActor/@` renders agents collection/dashboard-equivalent surface if migrated.
+2. `/#AgentActor/1/@` renders agent detail with `ntx-agent`.
+3. `/#AgentActor/1/@chat` renders or mounts chat if schema renderer declares it.
+4. Sidebar selection highlights the correct model for `#AgentActor/@...` routes.
+5. Refresh preserves route and does not blank the main panel.
+
+### 14.17 Coverage-gated acceptance checklist
+
+Do not consider the refactor complete until all rows are checked.
+
+| Layer | Required proof |
+|---|---|
+| Parser | every new route grammar branch has direct unit tests |
+| Builder | every new parsed shape round-trips through `buildRoute` |
+| Resolver | schema renderer lookup, fallback, params, and method-vs-view collision tested |
+| Router state | hash sync, initial load, back stack, reset home tested for `@` routes |
+| Router DOM | `ntx-router` mounts collection/member view routes correctly |
+| Sidebar | selected-state and generated links support `@` routes when migration happens |
+| Direct API | `/ClassName/id` mirrors `/tablename/id`; legacy API unchanged |
+| Actor API | Level 3 actor routing has parity with direct API |
+| HTML routes | `/ClassName/@...` returns HTML and cannot shadow schema/data routes |
+| Identity | `$id` remains legacy table URL until explicit future migration |
+| Security | invalid view tokens cannot inject tags/paths/scripts |
+| E2E | refresh/back/navigation do not blank the app |
+
+### 14.18 Suggested implementation order for tests
+
+Follow this order to keep failures diagnostic:
+
+1. Add failing parser tests.
+2. Implement parser.
+3. Add failing resolver tests.
+4. Implement renderer resolution.
+5. Add Router actor/hash tests.
+6. Add `ntx-router` DOM tests.
+7. Add direct backend route-generation and mirror behavior tests.
+8. Implement direct backend mirrors.
+9. Add HTML route tests.
+10. Implement HTML routes.
+11. Add actor route parity tests.
+12. Implement actor route parity.
+13. Add sidebar migration tests when changing sidebar generation.
+14. Add E2E smoke tests last.
 
 ---
 
