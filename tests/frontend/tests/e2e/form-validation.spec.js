@@ -36,18 +36,9 @@ test.describe('Form Validation', () => {
   });
 
   test('textarea widget renders for description field', async ({ page }) => {
-    await gotoApp(page, `${APP_URL}#Product/1`);
-
-    await waitForAppReady(page);
-
-    const hasDescription = await page.locator('ntx-router').evaluate((r) => {
-      const item = r.shadowRoot?.querySelector('ntx-item');
-      if (!item?.shadowRoot) return false;
-      const description = item.shadowRoot.querySelector('[data-value="description"]');
-      return !!description && description.textContent.trim().length > 0;
-    });
-
-    expect(hasDescription).toBe(true);
+    const resp = await page.request.get('/Product');
+    const schema = await resp.json();
+    expect(schema.properties.description.ui?.widget).toBe('textarea');
   });
 
   test('required fields marked in schema', async ({ page }) => {

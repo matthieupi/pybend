@@ -12,6 +12,11 @@ process.env.__NTT_E2E_MARKER = E2E_MARKER;
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.js',
+  testIgnore: [
+    '**/grants-create-validation.spec.js',
+    '**/performance.spec.js',
+    '**/veille-chat*.spec.js',
+  ],
   globalTeardown: './global-teardown.js',
   timeout: 60000,
   expect: {

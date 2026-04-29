@@ -197,6 +197,12 @@ test.describe('Favorite — UI Button', () => {
     await loginAs(page, 'alice');
     await waitForAppReady(page);
 
+    await page.waitForFunction(() => {
+      const list = document.querySelector('#product-list');
+      const first = list?.shadowRoot?.querySelector('ntx-item');
+      return !!first?.shadowRoot?.querySelector('ntx-method[method="favorite"]');
+    });
+
     const hasFavInList = await page.locator('#product-list').evaluate((list) => {
       const items = list.shadowRoot?.querySelectorAll('ntx-item');
       if (!items?.length) return false;
