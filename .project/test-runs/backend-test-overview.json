@@ -1,6 +1,6 @@
 {
-  "command": "scripts/test-backend.py --suite core -- examples/core/tests/test_debug_envelope.py::TestStrReturningMethod::test_str_returning_method_debug_false_returns_200 -q",
-  "created_at": "2026-04-29T16:32:46.600071+00:00",
+  "command": "scripts/test-backend.py -- -q",
+  "created_at": "2026-05-01T02:55:09.465190+00:00",
   "overview_file": "/workspace/.project/test-runs/backend-test-overview.json",
   "suites": [
     {
@@ -12,18 +12,96 @@
       },
       "message": "",
       "name": "core",
-      "previous_status": "warning",
+      "previous_status": "failed",
+      "returncode": 1,
+      "status": "failed"
+    },
+    {
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "warnings": 0
+      },
+      "message": "",
+      "name": "actors",
+      "previous_status": null,
+      "returncode": 1,
+      "status": "failed"
+    },
+    {
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "warnings": 0
+      },
+      "message": "",
+      "name": "agents",
+      "previous_status": null,
+      "returncode": 1,
+      "status": "failed"
+    },
+    {
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "warnings": 0
+      },
+      "message": "",
+      "name": "examples-core",
+      "previous_status": null,
+      "returncode": 1,
+      "status": "failed"
+    },
+    {
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "warnings": 0
+      },
+      "message": "",
+      "name": "examples-actors",
+      "previous_status": null,
+      "returncode": 1,
+      "status": "failed"
+    },
+    {
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "warnings": 0
+      },
+      "message": "",
+      "name": "examples-grants",
+      "previous_status": null,
+      "returncode": 1,
+      "status": "failed"
+    },
+    {
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "warnings": 0
+      },
+      "message": "",
+      "name": "veille",
+      "previous_status": null,
       "returncode": 1,
       "status": "failed"
     }
   ],
   "totals": {
     "errors": 0,
-    "failed": 1,
+    "failed": 7,
     "passed": 0,
     "tests_failed": 0,
     "tests_passed": 0,
-    "total": 1,
+    "total": 7,
     "warning": 0,
     "warnings": 0
   }

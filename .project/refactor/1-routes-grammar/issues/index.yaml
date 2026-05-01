@@ -1,0 +1,51 @@
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+source_documents:
+  - ".project/refactor/1-routes-grammar/0-hypermedia-representation-architecture-plan.md"
+  - ".project/refactor/1-routes-grammar/1-hypermedia-regression-testing.md"
+  - ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+issues:
+  - id: 1
+    file: "001-collection-default-view.yaml"
+    title: "Collection default view route"
+    type: "AFK"
+    blocked_by: []
+  - id: 2
+    file: "002-named-collection-view.yaml"
+    title: "Named collection view route"
+    type: "AFK"
+    blocked_by: [1]
+  - id: 3
+    file: "003-member-default-and-class-read.yaml"
+    title: "Member default view and class-name read mirror"
+    type: "AFK"
+    blocked_by: [1]
+  - id: 4
+    file: "004-named-member-view-collision.yaml"
+    title: "Named member views and method/view collision"
+    type: "AFK"
+    blocked_by: [3]
+  - id: 5
+    file: "005-view-token-hardening.yaml"
+    title: "View token validation and unsafe route hardening"
+    type: "HITL"
+    blocked_by: [2, 4]
+  - id: 6
+    file: "006-actor-route-parity.yaml"
+    title: "Actor routing parity for class-name mirrors and HTML view routes"
+    type: "AFK"
+    blocked_by: [1, 2, 3, 4]
+  - id: 7
+    file: "007-sidebar-navigation-migration.yaml"
+    title: "Sidebar selected-state and first-party navigation migration"
+    type: "AFK"
+    blocked_by: [1, 2, 3, 4]
+  - id: 8
+    file: "008-browser-refresh-back-smoke.yaml"
+    title: "Browser refresh and back regression smoke"
+    type: "AFK"
+    blocked_by: [1, 2, 3, 4, 5, 6, 7]
+  - id: 9
+    file: "009-standalone-view-shell-component-imports.yaml"
+    title: "Standalone view shell imports resolved renderer modules"
+    type: "AFK"
+    blocked_by: [1, 2, 3, 4, 5, 6]

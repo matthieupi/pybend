@@ -1,0 +1,22 @@
+id: 9
+title: "Standalone view shell imports resolved renderer modules"
+type: "AFK"
+blocked_by: [1, 2, 3, 4, 5, 6]
+summary: >
+  Ensure backend HTML/view shells import the JavaScript module for the resolved
+  renderer tag, so standalone routes such as /Grant/6/@ upgrade custom elements
+  like <ntx-grant-item> without relying on an app shell import side effect.
+acceptance:
+  - "GET /{ClassName}/{id}/@ includes /components/{resolved-member-tag}.js"
+  - "GET /{ClassName}/@{view} includes /components/{resolved-collection-tag}.js"
+  - "Default renderer imports are de-duplicated when the resolved tag equals the base tag"
+  - "Custom renderer tags remain validated before insertion into HTML"
+  - "Veille /Grant/6/@ includes /components/ntx-grant-item.js"
+files:
+  - "packages/n3tx-ui/src/n3tx_ui/mixin.py"
+  - "packages/n3tx-ui/src/n3tx_ui/tests/test_viewable_mixin.py"
+  - "packages/n3tx-ui/docs/viewable-mixin.md"
+verification:
+  - ".venv/bin/python -m pytest packages/n3tx-ui/src/n3tx_ui/tests/test_viewable_mixin.py -q"
+  - ".venv/bin/python -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py -q"
+  - ".venv/bin/python -m pytest packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py -q"
