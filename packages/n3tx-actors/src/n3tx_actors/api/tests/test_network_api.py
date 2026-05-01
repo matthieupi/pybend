@@ -76,6 +76,7 @@ from typing import ClassVar, Optional
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 from fastapi import Request, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
@@ -118,6 +119,7 @@ def make_mock_request(user=None):
     req = Mock(spec=Request)
     req.state = Mock()
     req.state.user = user
+    req.query_params = {}
     return req
 
 
@@ -148,6 +150,32 @@ class MockModel(StorableMixin, Actor, auto_register=False):
             },
             'required': ['name'],
         }
+
+    @classmethod
+    def register_view_routes(cls, router, *, tag: str) -> None:
+        """Local view-capability hook used to test package-neutral delegation.
+
+        The real implementation lives in n3tx-ui's ViewableMixin; actor tests
+        avoid importing that package so n3tx-actors remains package-neutral.
+        """
+
+        @router.get(f"/{cls.__name__}/@", tags=[tag], include_in_schema=False)
+        async def collection_default_view(_cls=cls):
+            return HTMLResponse(f'<ntx-list model="{_cls.__name__}"></ntx-list>')
+
+        @router.get(f"/{cls.__name__}/@{{view}}", tags=[tag], include_in_schema=False)
+        async def collection_named_view(view: str, _cls=cls):
+            tag_name = 'ntx-table' if view == 'table' else f'ntx-{view}'
+            return HTMLResponse(f'<{tag_name} model="{_cls.__name__}"></{tag_name}>')
+
+        @router.get(f"/{cls.__name__}/{{id:int}}/@", tags=[tag], include_in_schema=False)
+        async def member_default_view(id: int, _cls=cls):
+            return HTMLResponse(f'<ntx-item ref="{_cls.__name__}/{id}" display="lg"></ntx-item>')
+
+        @router.get(f"/{cls.__name__}/{{id:int}}/@{{view}}", tags=[tag], include_in_schema=False)
+        async def member_named_view(id: int, view: str, _cls=cls):
+            tag_name = 'ntx-item' if view == 'item' else f'ntx-{view}'
+            return HTMLResponse(f'<{tag_name} ref="{_cls.__name__}/{id}" display="lg"></{tag_name}>')
 
     @expose_route('/custom', methods=['POST'])
     def custom_method(self, arg1: str, arg2: int = 10) -> str:
@@ -810,6 +838,132 @@ class TestCRUDRoutes:
         assert response.status_code == 200
         assert captured_tx.name == 'get'
         assert captured_tx.data.get('id') == 5
+
+    @pytest.mark.asyncio
+    async def test_class_name_read_mirror_sends_get_tx(self):
+        """GET /{ClassName}/{id} should dispatch same get TX to table-name actor."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        api = NetworkAPI()
+        m.register(api)
+        m.register(MockModel)
+
+        models = {'mock_models': MockModel}
+        router = create_api_routes(api, models)
+
+        captured_tx = None
+        reply_data = {
+            'id': 5,
+            'name': 'Test',
+            '$schema': 'http://test/MockModel',
+            '$id': 'http://test/mock_models/5',
+        }
+
+        async def mock_request(tx, timeout=30.0):
+            nonlocal captured_tx
+            captured_tx = tx
+            return tx.reply(data=reply_data)
+
+        from fastapi import FastAPI
+        app = FastAPI()
+
+        @app.middleware("http")
+        async def add_user_to_state(request, call_next):
+            request.state.user = {'user_id': 77, 'email': 'actor@example.com'}
+            return await call_next(request)
+
+        app.include_router(router)
+
+        with mock_method(api, 'request', mock_request):
+            client = TestClient(app)
+            response = client.get('/MockModel/5?populate=children&depth=1')
+
+        assert response.status_code == 200
+        assert response.json() == reply_data
+        assert captured_tx.name == 'get'
+        assert captured_tx.source == 'api'
+        assert captured_tx.target == 'mock_models'
+        assert captured_tx.data == {'id': 5, 'populate': 'children', 'depth': 1}
+        assert captured_tx.meta['user'] == {'user_id': 77, 'email': 'actor@example.com'}
+        assert captured_tx.meta['model_cls'] is MockModel
+
+    @pytest.mark.asyncio
+    async def test_class_name_read_mirror_error_maps_like_table_get(self):
+        """Error TX from class-name read mirror should map through _response_or_raise."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        api = NetworkAPI()
+        m.register(api)
+        m.register(MockModel)
+
+        models = {'mock_models': MockModel}
+        router = create_api_routes(api, models)
+
+        async def mock_request(tx, timeout=30.0):
+            return tx.error('Not found', code=404)
+
+        with mock_method(api, 'request', mock_request):
+            from fastapi import FastAPI
+            app = FastAPI()
+            app.include_router(router)
+            client = TestClient(app)
+
+            response = client.get('/MockModel/999')
+
+        assert response.status_code == 404
+        assert response.json()['detail'] == 'Not found'
+
+    @pytest.mark.asyncio
+    async def test_actor_html_view_routes_do_not_send_crud_tx(self):
+        """Actor HTML view routes should be served by view capability, not api.request."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        api = NetworkAPI()
+        m.register(api)
+        m.register(MockModel)
+
+        models = {'mock_models': MockModel}
+        router = create_api_routes(api, models)
+
+        async def fail_request(tx, timeout=30.0):
+            raise AssertionError('HTML view routes must not call api.request')
+
+        with mock_method(api, 'request', fail_request):
+            from fastapi import FastAPI
+            app = FastAPI()
+            app.include_router(router)
+            client = TestClient(app)
+
+            collection_default = client.get('/MockModel/@')
+            collection_named = client.get('/MockModel/@table')
+            member_default = client.get('/MockModel/5/@')
+            member_named = client.get('/MockModel/5/@item')
+
+        assert collection_default.status_code == 200
+        assert 'text/html' in collection_default.headers['content-type']
+        assert '<ntx-list model="MockModel"' in collection_default.text
+        assert collection_named.status_code == 200
+        assert '<ntx-table model="MockModel"' in collection_named.text
+        assert member_default.status_code == 200
+        assert '<ntx-item ref="MockModel/5" display="lg"' in member_default.text
+        assert member_named.status_code == 200
+        assert '<ntx-item ref="MockModel/5" display="lg"' in member_named.text
+
+    def test_actor_route_conflicts_preserve_intended_targets(self):
+        """Class-name view/read routes should not shadow legacy method routes."""
+        api = NetworkAPI()
+        router = create_api_routes(api, {'mock_models': MockModel})
+        from fastapi import FastAPI
+        app = FastAPI()
+        app.include_router(router)
+        client = TestClient(app)
+
+        assert client.get('/MockModel/@table').status_code == 200
+        assert client.get('/MockModel/5/@item').status_code == 200
+        assert client.get('/MockModel/5/custom').status_code == 404
+        # Existing table-name custom route remains registered.
+        routes = {r.path for r in router.routes}
+        assert '/mock_models/{id:int}/custom' in routes
 
     @pytest.mark.asyncio
     async def test_update_route_sends_update_tx(self):

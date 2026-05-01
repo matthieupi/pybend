@@ -498,11 +498,24 @@ def register_routes():
 
         # Register basic GET route for schema
         router.get(f"/{model_class.__name__}", tags=[tag])(make_get_schema(model_class))
+
+        # Register view/HTML routes owned by optional view-capability mixins.
+        # This keeps n3tx-core package-neutral: ViewableMixin lives in n3tx-ui,
+        # but any model capability can expose this small registration hook.
+        register_view_routes = getattr(model_class, 'register_view_routes', None)
+        if callable(register_view_routes):
+            register_view_routes(router, tag=tag)
+
         # Register basic CRUD routes
         if is_storable:
+            read_instance = make_get_instance(model_class)
             router.post(endpoint_base, tags=[tag], status_code=201)(make_create_instance(model_class))
             router.get(endpoint_base, tags=[tag])(make_get_all_instances(model_class))
-            router.get(f"{endpoint_base}/{{id:int}}", tags=[tag])(make_get_instance(model_class))
+            router.get(f"{endpoint_base}/{{id:int}}", tags=[tag])(read_instance)
+            # Storable class-name read mirror. This is intentionally GET-only
+            # and reuses the table-name read handler so auth, populate, 404,
+            # and serialization behavior stay identical.
+            router.get(f"/{model_class.__name__}/{{id:int}}", tags=[tag])(read_instance)
             router.put(f"{endpoint_base}/{{id:int}}", tags=[tag])(make_update_instance(model_class))
             router.delete(f"{endpoint_base}/{{id:int}}", tags=[tag])(make_delete_instance(model_class))
 

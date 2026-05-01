@@ -5,14 +5,21 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from typing import ClassVar, Dict, Any
 
 from pydantic import Field
+from fastapi import APIRouter
+from fastapi.testclient import TestClient
 
+import n3tx_core.api.routes_fastapi as routes_fastapi
+from n3tx_core.app import create_app
 from n3tx_core.api.routes_fastapi import (
     _get_user, _build_context, _serialize, _resolve_user,
     _resolve_custom_return_type, register_route,
 )
+from n3tx_core.authorize import ANYONE
 from n3tx_core.authorize.context import AccessContext
 from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.models.storable_mixin import StorableMixin
+from n3tx_core.storage.sqlite_storage import SQLiteStorage
+from n3tx_core.utils.registrar import registered_models
 
 pytestmark = pytest.mark.unit
 
@@ -193,3 +200,111 @@ class TestResolveCustomReturnType:
 
     def test_resolves_future_annotation_to_different_model(self):
         assert _resolve_custom_return_type(custom_returns_child, ReturnParent) is ReturnChild
+
+
+class TestRegisterRoutesViewDelegation:
+
+    def test_register_routes_delegates_view_routes_without_ui_import(self, monkeypatch):
+        calls = []
+
+        class DelegatedViewModel(ProtoModel):
+            __tablename__: ClassVar[str] = 'delegated_view_models'
+
+            @classmethod
+            def register_view_routes(cls, router, *, tag: str):
+                calls.append((cls, tag))
+
+        test_router = APIRouter()
+        saved = dict(registered_models)
+        registered_models.clear()
+        registered_models['delegated_view_models'] = DelegatedViewModel
+        monkeypatch.setattr(routes_fastapi, 'router', test_router)
+        try:
+            routes_fastapi.register_routes()
+        finally:
+            registered_models.clear()
+            registered_models.update(saved)
+
+        assert calls == [(DelegatedViewModel, 'delegated_view_models'.capitalize())]
+
+
+class TestClassNameReadMirror:
+
+    def test_class_name_read_mirror_matches_table_name_read(self, tmp_path):
+        saved = dict(registered_models)
+        registered_models.clear()
+        try:
+            class MirrorProduct(ProtoModel):
+                __tablename__: ClassVar[str] = 'mirror_products'
+                __storable__: ClassVar[bool] = True
+                __access__: ClassVar[dict] = {'read': ANYONE}
+                name: str = Field(default='')
+
+            app = create_app(
+                models=[MirrorProduct],
+                storage=SQLiteStorage(str(tmp_path / 'mirror.db')),
+                static_dir=None,
+            )
+            created = MirrorProduct.create(MirrorProduct(name='Widget'))
+            client = TestClient(app)
+
+            table_response = client.get(f'/mirror_products/{created.id}')
+            class_response = client.get(f'/MirrorProduct/{created.id}')
+
+            assert table_response.status_code == 200
+            assert class_response.status_code == 200
+            assert class_response.json() == table_response.json()
+            assert class_response.json()['$schema'].endswith('/MirrorProduct')
+            assert class_response.json()['$id'].endswith(f'/mirror_products/{created.id}')
+        finally:
+            registered_models.clear()
+            registered_models.update(saved)
+
+    def test_class_name_read_mirror_preserves_not_found_and_is_get_only(self, tmp_path):
+        saved = dict(registered_models)
+        registered_models.clear()
+        try:
+            class MirrorNotFoundProduct(ProtoModel):
+                __tablename__: ClassVar[str] = 'mirror_not_found_products'
+                __storable__: ClassVar[bool] = True
+                name: str = Field(default='')
+
+            app = create_app(
+                models=[MirrorNotFoundProduct],
+                storage=SQLiteStorage(str(tmp_path / 'mirror_not_found.db')),
+                static_dir=None,
+            )
+            client = TestClient(app)
+
+            table_response = client.get('/mirror_not_found_products/999999')
+            class_response = client.get('/MirrorNotFoundProduct/999999')
+            assert class_response.status_code == table_response.status_code == 404
+            assert class_response.json() == table_response.json()
+
+            assert client.post('/MirrorNotFoundProduct/1', json={'name': 'Nope'}).status_code == 405
+            assert client.put('/MirrorNotFoundProduct/1', json={'name': 'Nope'}).status_code == 405
+            assert client.delete('/MirrorNotFoundProduct/1').status_code == 405
+        finally:
+            registered_models.clear()
+            registered_models.update(saved)
+
+    def test_non_storable_model_does_not_get_class_name_read_mirror(self, tmp_path):
+        saved = dict(registered_models)
+        registered_models.clear()
+        try:
+            class NonStorableMirror(ProtoModel):
+                __tablename__: ClassVar[str] = 'non_storable_mirrors'
+                name: str = Field(default='')
+
+            app = create_app(
+                models=[NonStorableMirror],
+                storage=SQLiteStorage(str(tmp_path / 'non_storable.db')),
+                static_dir=None,
+            )
+            client = TestClient(app)
+
+            assert client.get('/NonStorableMirror').status_code == 200
+            assert client.get('/NonStorableMirror/1').status_code == 404
+        finally:
+            registered_models.clear()
+            registered_models.update(saved)

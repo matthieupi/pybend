@@ -65,6 +65,16 @@ def _response_or_raise(response: TX):
     return response.data
 
 
+def _read_data(id: int, populate: str | None, depth: int | None) -> dict:
+    """Build the common read payload for table and class-name get routes."""
+    data = {'id': id}
+    if populate is not None:
+        data['populate'] = populate
+    if depth is not None:
+        data['depth'] = depth
+    return data
+
+
 def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
     """Create FastAPI routes that bridge HTTP to actor TX messaging.
 
@@ -124,8 +134,17 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
         # Schema route: GET /{ClassName}
         _register_schema_route(router, api_adapter, model_class, tag)
 
+        # Optional view/HTML routes owned by model capability mixins.
+        # This keeps n3tx-actors package-neutral: ViewableMixin lives in
+        # n3tx-ui, but actor routing can delegate to any model capability that
+        # exposes this small protocol hook.
+        register_view_routes = getattr(model_class, 'register_view_routes', None)
+        if callable(register_view_routes):
+            register_view_routes(router, tag=tag)
+
         # CRUD routes
         if is_storable:
+            _register_class_read_mirror(router, api_adapter, model_class, tag)
             _register_crud_routes(
                 router, api_adapter, model_class, endpoint_base, tag,
                 has_parent=parent_class is not None,
@@ -198,6 +217,31 @@ def _register_collection_route(router, api_adapter, model_class, path, tag):
             TX(
                 name='list', source=api_adapter.addr, target=_addr,
                 data=data,
+                meta={'user': user, 'model_cls': _cls},
+            ),
+            timeout=30.0,
+        )
+        return _response_or_raise(response)
+
+
+def _register_class_read_mirror(router, api_adapter, model_class, tag):
+    """GET /{ClassName}/{id:int} -> actor get TX to table-name address."""
+    class_name = model_class.__name__
+    addr = model_class.__tablename__
+
+    @router.get(f"/{class_name}/{{id:int}}", tags=[tag], name=f"get_{addr}_class")
+    async def get_instance_by_class(
+        request: Request,
+        id: int,
+        populate: str = Query(default=None),
+        depth: int = Query(default=None, ge=0, le=3),
+        _addr=addr, _cls=model_class,
+    ):
+        user = _get_user(request)
+        response = await api_adapter.request(
+            TX(
+                name='get', source=api_adapter.addr, target=_addr,
+                data=_read_data(id, populate, depth),
                 meta={'user': user, 'model_cls': _cls},
             ),
             timeout=30.0,
@@ -309,15 +353,10 @@ def _register_crud_routes(
         _addr=addr, _cls=model_class,
     ):
         user = _get_user(request)
-        data = {'id': id}
-        if populate is not None:
-            data['populate'] = populate
-        if depth is not None:
-            data['depth'] = depth
         response = await api_adapter.request(
             TX(
                 name='get', source=api_adapter.addr, target=_addr,
-                data=data,
+                data=_read_data(id, populate, depth),
                 meta={'user': user, 'model_cls': _cls},
             ),
             timeout=30.0,
