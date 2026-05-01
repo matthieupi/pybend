@@ -11,6 +11,7 @@ import config  # noqa: E402
 
 # CRITICAL: Must import n3tx_agents BEFORE model imports.
 import n3tx_agents  # noqa: F401, E402
+import n3tx_ui  # noqa: F401, E402  # Registers ViewableMixin for __ui__ models.
 
 from n3tx_core.app import create_app  # noqa: E402
 from n3tx_core.storage.sqlite_storage import SQLiteStorage  # noqa: E402
