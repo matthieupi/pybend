@@ -19,6 +19,7 @@ create_app() / N3TXApp.build()
   6. Create FastAPIBackend (JWT middleware, CORS, SSR)
   7. Register routes (direct or actor)
      - actor mode re-syncs Matrix children to the finalized registered model classes
+     - view-capability hooks may add /{ClassName}/@... HTML routes
   8. Mount discovery endpoints (/_meta, /.well-known/agent.json)
   9. Mount static files (framework + app)
   |
@@ -189,6 +190,32 @@ Multiple packages can contribute static assets. Resolution order (highest priori
 
 When multiple directories exist, a `_CascadingStaticFiles` ASGI handler searches all of them. First file match wins.
 
+### Generated Route Grammar
+
+Direct routing registers table-name data routes, class-name schema/read routes,
+and optional model view routes:
+
+```text
+GET    /{ClassName}                  # schema
+GET    /{ClassName}/{id:int}         # read-only class-name mirror
+GET    /{ClassName}/@                # collection default HTML view, if viewable
+GET    /{ClassName}/@{view}          # collection named HTML view, if viewable
+GET    /{ClassName}/{id:int}/@       # member default HTML view, if viewable
+GET    /{ClassName}/{id:int}/@{view} # member named HTML view, if viewable
+
+GET    /{tablename}                  # list
+POST   /{tablename}                  # create
+GET    /{tablename}/{id:int}         # read
+PUT    /{tablename}/{id:int}         # update
+DELETE /{tablename}/{id:int}         # delete
+POST   /{tablename}/{id:int}/method  # custom instance methods
+```
+
+The read mirror delegates to the table-name read handler, so authorization,
+population, error handling, and `$id` generation stay identical. HTML routes are
+registered through `register_view_routes()` when a model capability provides it;
+`n3tx-core` only depends on that small hook and remains UI-package neutral.
+
 ## Gotchas
 
 - **`build()` clears global registries.** `registered_models.clear()` and `join_models.clear()` are called at the start of `build()` to support uvicorn `--reload`. This means multiple `build()` calls do not accumulate models.
@@ -199,3 +226,4 @@ When multiple directories exist, a `_CascadingStaticFiles` ASGI handler searches
 - **Streaming routes emit anti-buffered SSE frames.** Each frame includes a comment padding line so proxy/browser buffers flush progressive chunks instead of waiting for the stream to complete.
 - **CORS defaults to `["*"]`.** This is intentional for development. Set explicit origins in production. When `"*"` is in the origins list, `allow_credentials` is automatically set to `False`.
 - **Static files are mounted last.** `get_app()` mounts the framework static directory as a catch-all ASGI mount. All API routes and explicit file routes take precedence.
+- **`@` routes are HTML/view routes.** `/Product/@table` is a view shell, not a JSON data route. Invalid or unknown view names should fail before renderer tags are injected into HTML.

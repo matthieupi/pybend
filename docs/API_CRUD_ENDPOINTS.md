@@ -11,13 +11,16 @@ For a model with `__tablename__ = 'users'`, N3TX generates:
 | Operation | Method | Path | Description |
 |-----------|--------|------|-------------|
 | Schema | GET | `/User` | Get model JSON schema |
+| Class-name read mirror | GET | `/User/{id}` | Read-specific mirror of `/users/{id}` |
 | Create | POST | `/users` | Create new user |
 | List | GET | `/users` | Get all users |
 | Read | GET | `/users/{id}` | Get specific user |
 | Update | PUT | `/users/{id}` | Update user |
 | Delete | DELETE | `/users/{id}` | Delete user |
 
-**Note**: Schema endpoint uses model name (capitalized), CRUD endpoints use table name (lowercase).
+**Note**: Schema and read-mirror endpoints use the model class name; CRUD writes,
+lists, deletes, and custom methods remain under the table-name API. The
+class-name read mirror is intentionally GET-only in the current migration phase.
 
 ---
 

@@ -142,9 +142,14 @@ Canonical theme state now lives in these runtime files:
 
 Expanded sidebar model groups now mount the declared route-template tag when a
 model section expands, except `ntx-table`, which still falls back to the compact
-headless `ntx-list` dropdown shell. Plain dropdown lists still force `item-display="sm"` plus the
+headless `ntx-list` dropdown shell. Model header navigation emits explicit
+frontend view routes (`#Model/@` for the default collection view and
+`#Model/@table` for table templates) while preserving template attributes as
+query parameters. Plain dropdown lists still force `item-display="sm"` plus the
 dedicated `ntx-sidebar-link-item` child renderer so record entries render as
-real internal anchors instead of pill-mode `ntx-item` badges. That renderer
+real internal anchors instead of pill-mode `ntx-item` badges; those record
+anchors target member default view routes such as `#Model/5/@` while legacy
+`#Model` and `#Model/5` routes remain supported by the router. That renderer
 also owns the truncated-label tooltip behavior: it uses a slightly enlarged
 hover target and a short custom delay instead of the browser-native `title`
 timing, and only shows when the label truly overflows the available row width.
@@ -156,10 +161,10 @@ displayed nav copy without changing the routed model/view, which is the intended
 way to surface human-facing labels like `Agents` for `AgentActor`. Custom list
 tags such as `ntx-agents` receive the same `model`, `router`, `headless`, and
 `sidebar-dropdown` attrs so app-specific dropdown views can stay compact
-without forking the sidebar.
-Plain sidebar links follow router semantics too: `href="#"` navigates to the
-router home route (empty route, no hash), while `href="#profile"` maps to the
-app route `@profile`.
+without forking the sidebar. Plain sidebar links follow router semantics too:
+`href="#"` navigates to the router home route (empty route, no hash), while
+`href="#profile"` maps to the app route `@profile`; already-explicit app links
+such as `href="#@settings"` stay `@settings` and are not double-prefixed.
 
 Standard wide `ntx-list` card views now pack uneven card heights more tightly.
 `ListElement` keeps CSS grid source ordering, but when children resolve to
@@ -184,6 +189,7 @@ Frontend verification now has two layers:
 - `cd /workspace/tests/frontend && npm run test:e2e:fast` - parallel browser smoke for read-only/default UI contracts
 - `cd /workspace/tests/frontend && npm run test:e2e` - default fully parallel core browser lane with worker-isolated app servers and SQLite DBs
 - `cd /workspace/tests/frontend && npm run test:e2e:serial` - legacy serial shared-server browser verification against seeded `examples/core`
+- `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/route-grammar-smoke.spec.js` - focused browser smoke for `#Model/@...` refresh/back/sidebar route grammar
 - `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/veille.playwright.config.js` - Veille browser verification, including Assistant chat with deterministic `N3TX_CHAT_LLM=test`
 - `cd /workspace && python3 scripts/test-frontend.py` - aggregate frontend runner; runs selected suites concurrently with 2 suite workers by default and writes overview JSON reporting
 - `cd /workspace && python3 scripts/test-frontend.py --suite e2e-core` - script runner for the worker-isolated parallel core browser lane
@@ -359,6 +365,43 @@ logout, chevron, and hamburger are inline SVG constants defined directly in
 ```
 
 ## Frontend Patterns
+
+### Hash Route Grammar and View Resolution
+
+The frontend router uses an explicit `@` segment for model view routes. This
+keeps presentation separate from method/action routing while preserving legacy
+hash links.
+
+| Route | Meaning | Mount attrs |
+|---|---|---|
+| `#Product` | Legacy/default collection route | `{ model: 'Product' }` |
+| `#Product?view=table` | Legacy query-selected collection view | `{ model: 'Product' }` plus query params except `view` |
+| `#Product/@` | Collection default view | `{ model: 'Product' }` |
+| `#Product/@table` | Collection named view | `{ model: 'Product' }` |
+| `#Product/1` | Legacy/default member detail route | `{ ref: 'Product/1', display: 'lg' }` |
+| `#Product/1/@` | Member default view | `{ ref: 'Product/1', display: 'lg' }` |
+| `#Product/1/@chat` | Member named view | `{ ref: 'Product/1', display: 'lg' }` |
+| `#Product/1/run` | Method/action route | `{ ref: 'Product/1', method: 'run', display: 'lg' }` |
+| `#Product/1/@run` | View named `run`, not a method | no `method` attr |
+| `#@profile` | App-level route | mounts `<ntx-profile>` |
+
+`Router.parseRoute()` normalizes leading/trailing slashes and rejects invalid
+model view tokens instead of silently treating them as IDs or actions. Valid view
+tokens match `[A-Za-z0-9][A-Za-z0-9_-]*`. `Router.resolveRoute()` validates
+resolved component tags before returning a mount instruction.
+
+Semantic view names resolve through the schema first:
+
+```text
+Collection default: renderer.page -> renderer.list -> ntx-list
+Collection named:   renderer[view] -> known fallback (list/table) -> invalid
+Member default:     renderer.detail -> renderer.item -> ntx-item
+Member named:       renderer[view] -> known fallback (item/detail/chat) -> invalid
+```
+
+Path-based `@view` selection takes precedence over query `view`. User-facing
+query parameters pass through to the mounted component, but internal route
+controls such as `view` are filtered from attrs.
 
 ### Widget Extension (JS)
 On the frontend, `form.js` and `ntx-item.js` dispatch to registered JS Widget instances (`getWidgetForField()`) before falling through to type-based rendering. See `packages/n3tx-ui/docs/widgets.md` for the full widget system.

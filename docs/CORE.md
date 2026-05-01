@@ -91,6 +91,8 @@ class Product(ProtoModel):
 | Concern | Source | Generator |
 |---------|--------|-----------|
 | CRUD API endpoints | `__tablename__`, fields | `register_routes()` in `routes_fastapi.py` |
+| Class-name read mirror | model class name + `__storable__` | `GET /{ClassName}/{id:int}` delegates to the table-name read path |
+| HTML/view entrypoints | `__ui__` / `ViewableMixin` | `GET /{ClassName}/@...` returns frontend shell HTML |
 | JSON Schema | Field types, validators, extras | `ProtoModel.schema()` via Pydantic |
 | DB table + auto-migration | `__storable__`, annotations | `StorableMixin` + `sqlite_migration.py` |
 | FK hydration (href arrays) | `ListRef[T]`, `__fk_models__` | `sqlite_storage.py` on read |
@@ -104,6 +106,7 @@ class Product(ProtoModel):
 | Collection routes | Join model `__tablename__` | `GET /products/comments`, `GET /products/likes` |
 | Pagination | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
 | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update |
+| Route view renderers | `__ui__.renderer` | `#Model/@view` and `/Model/@view` resolve semantic views to component tags |
 
 If a model omits `__access__`, schema generation exposes a wildcard fallback
 (`access['*']`) that requires authentication for all actions. The Product
@@ -193,8 +196,39 @@ Every entity response includes JSON Schema instance metadata via `model_response
 ```
 
 - `$schema` points to the model's schema (the contract)
-- `$id` is the instance's canonical URL (self-link, independently resolvable)
+- `$id` is the instance's canonical table-name URL (self-link, independently resolvable)
 - Collection fields (`ListRef[T]`) return href arrays rather than embedded objects
+
+### Model-Centric Route Grammar
+
+N3TX keeps the original table-name JSON API and adds class-name model routes for
+schema, read mirrors, and HTML/view shells:
+
+```text
+/{tablename}/...       compatibility JSON API and custom methods
+/{ClassName}           JSON Schema/type endpoint
+/{ClassName}/{id:int}  read-only mirror of /{tablename}/{id:int}
+/{ClassName}/@...      HTML/view entrypoints
+#{ClassName}/@...      frontend hash-router view routes
+```
+
+The `@` marker is reserved for views. A route such as `Product/1/run` remains a
+method/action route, while `Product/1/@run` is a view named `run`. The first
+class-name API phase is read-only: create, update, delete, and method endpoints
+remain under table-name paths unless a later migration deliberately adds mirrors.
+
+`$id` intentionally remains table-name based even when an entity is fetched
+through a class-name read mirror:
+
+```json
+{
+  "$schema": "http://localhost:5000/Product",
+  "$id": "http://localhost:5000/products/1"
+}
+```
+
+This separates route grammar migration from identity migration, preserving
+frontend caches, href arrays, nested references, and external API clients.
 
 ## Key Patterns
 

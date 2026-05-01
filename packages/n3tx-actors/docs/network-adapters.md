@@ -57,7 +57,24 @@ router = create_api_routes(api, registered_models)
 app.include_router(router)
 ```
 
-`create_api_routes()` generates: schema routes (`GET /{ClassName}`), CRUD routes (`POST/GET/PUT/DELETE /{tablename}/...`), custom method routes (from `@expose_route`), streaming routes (SSE for `stream=True` methods). All routes create TX, call `api.request()`, convert response via `_response_or_raise()`.
+`create_api_routes()` generates: schema routes (`GET /{ClassName}`), class-name read mirrors for storable models (`GET /{ClassName}/{id:int}`), CRUD routes (`POST/GET/PUT/DELETE /{tablename}/...`), custom method routes (from `@expose_route`), and streaming routes (SSE for `stream=True` methods). Data/API routes create TX, call `api.request()`, and convert responses via `_response_or_raise()`.
+
+Models may also expose optional HTML/view routes through a package-neutral capability hook:
+
+```python
+class Product(ActorModel):
+    @classmethod
+    def register_view_routes(cls, router, *, tag: str) -> None: ...
+```
+
+`n3tx-ui` provides this hook via `ViewableMixin` for models with `__ui__` / `__viewable__`. NetworkAPI delegates to the hook when present, so actor routing supports the same hypermedia routes as direct routing without importing `n3tx_ui`:
+
+- `GET /{ClassName}/@`
+- `GET /{ClassName}/@{view}`
+- `GET /{ClassName}/{id}/@`
+- `GET /{ClassName}/{id}/@{view}`
+
+These HTML/view routes are served directly by the capability hook and do not dispatch CRUD TXs. The class-name read mirror still dispatches a normal `get` TX to the table-name actor address and preserves `populate`, `depth`, authenticated user metadata, and `model_cls` metadata. It is GET-only; class-name create/update/delete and method mirrors are not registered in the current grammar.
 
 ### NetworkWebSocket
 

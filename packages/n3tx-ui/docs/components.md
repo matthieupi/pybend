@@ -74,6 +74,10 @@ mount a registered `<ntx-profile>` element instead of an empty unknown tag.
 `NTTSidebar` supports `brand`, `subtitle`, and optional `brand-logo` attributes so app shells can place a custom mark in the sidebar brand section without forking the component.
 Template children can also declare `sidebar-label="..."` to override the nav
 label shown in the sidebar without changing the mounted view or route params.
+Sidebar model navigation emits explicit frontend view routes (`#Model/@` or
+`#Model/@table` for table templates), and compact dropdown record links use
+member default view routes such as `#Model/5/@`. Legacy `#Model` and
+`#Model/5` routes remain selected-state compatible during the migration window.
 
 `NTTIcon` (`ntx-icon.js`) is the shared icon surface used by method buttons,
 sidebar avatars, and collection headers. It resolves icon tokens through
@@ -268,8 +272,9 @@ when it is a list-style custom surface. `ntx-table` route templates still fall
 back to a headless `ntx-list` for the compact dropdown shell. Plain dropdown
 lists still force `item-display="sm"` and use the
 sidebar-only `ntx-sidebar-link-item` renderer. That renderer outputs a real
-internal `<a href="#Model/id">...</a>` for each record so dropdown entries
-behave like proper links instead of compact pills. The full label is also
+internal `<a href="#Model/id/@">...</a>` for each record so dropdown entries
+target member default view routes instead of compact pills. Legacy `#Model/id`
+routes remain supported by the router. The full label is also
 exposed through a lightweight delayed hover/focus tooltip when the row text is
 actually truncated. The trigger hitbox extends slightly beyond the label
 itself, the delay is tuned to about `220ms`, dropdown record labels

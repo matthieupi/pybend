@@ -147,6 +147,46 @@ patterns such as `Product.comment(...) -> Comment` remain valid and validated.
 ### API Response Format
 All entity responses include `$schema` (schema URL) and `$id` (instance URL), injected by `model_response()` via the dump pipeline.
 
+### Route Grammar and Hypermedia View Entrypoints
+
+N3TX exposes an additive dual route grammar. Table-name routes remain the
+compatibility JSON API; class-name routes provide schema, read mirrors, and
+HTML/view entrypoints.
+
+| Route | Layer | Response | Notes |
+|---|---|---|---|
+| `GET /{ClassName}` | schema/type | JSON Schema | Existing schema endpoint |
+| `GET /{tablename}` | data API | JSON list | Existing table-name API |
+| `POST /{tablename}` | data API | JSON entity | Existing create route |
+| `GET /{tablename}/{id:int}` | data API | JSON entity | Existing canonical read route |
+| `PUT /{tablename}/{id:int}` | data API | JSON entity | Existing update route |
+| `DELETE /{tablename}/{id:int}` | data API | JSON status/payload | Existing delete route |
+| `POST /{tablename}/{id:int}/{method}` | method API | JSON/SSE | Existing `@expose_route` instance methods |
+| `GET /{ClassName}/{id:int}` | class-name mirror | JSON entity | Read-only mirror of table-name read |
+| `GET /{ClassName}/@` | view/html | HTML | Collection default view shell |
+| `GET /{ClassName}/@{view}` | view/html | HTML | Collection named view shell |
+| `GET /{ClassName}/{id:int}/@` | view/html | HTML | Member default view shell |
+| `GET /{ClassName}/{id:int}/@{view}` | view/html | HTML | Member named view shell |
+
+The class-name read mirror intentionally reuses the same read handler as
+`/{tablename}/{id:int}` in direct FastAPI routing. Actor routing dispatches the
+same `get` TX to the table-name actor address. In both modes, auth, population
+query parameters, missing-record behavior, and serialization stay aligned with
+the table-name route.
+
+Identity is not migrated in this phase: a response fetched through
+`GET /Product/1` still has `$schema` ending in `/Product` and `$id` ending in
+`/products/1`. Class-name writes and method mirrors are deliberately not part of
+the current grammar.
+
+HTML/view routes are owned by optional model capability hooks such as
+`ViewableMixin.register_view_routes()` from `n3tx-ui`. Core and actor routing
+delegate to that hook when present, so the core and actors packages do not
+hard-import UI code. View routes are hidden from OpenAPI and return a minimal
+HTML shell that mounts the normal frontend custom element runtime; they are not
+a separate server-side component renderer. The `@` segment always means
+view/html, never JSON data or method invocation.
+
 ### Authorization (ABAC)
 ```python
 from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE, Where

@@ -109,7 +109,7 @@ class ProtoModel(PydanticBaseModel):
         # Extensions add stages via @dump_extension
         # Injects:
         # - $schema: URL to model's JSON Schema
-        # - $id: URL to this specific instance
+        # - $id: URL to this specific instance using the table-name API path
 ```
 
 **Design Decisions**:
@@ -118,6 +118,20 @@ class ProtoModel(PydanticBaseModel):
 - Separate `schema()` from `referenced_json_schema()` to avoid circular references
 - Config `extra='allow'` permits `$schema` and `$id` metadata fields to pass through FastAPI response validation
 - `model_response()` provides JSON-LD style self-describing responses via the composable dump pipeline (`proto_dump`)
+
+**Route grammar** is additive and preserves the original API split:
+
+```text
+/{tablename}/...       JSON data API and custom methods
+/{ClassName}           schema endpoint
+/{ClassName}/{id:int}  read-only class-name mirror of /{tablename}/{id:int}
+/{ClassName}/@...      HTML/view shell entrypoints
+#{ClassName}/@...      frontend hash-router view routes
+```
+
+The `@` segment always means view/html/component routing. It never invokes a
+method and never changes entity identity; `$id` remains table-name based until a
+separate identity migration is designed.
 
 ### 2. StorableMixin
 

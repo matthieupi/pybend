@@ -59,6 +59,11 @@ The schema output includes:
 - `$id` at the top level, pointing to `{API_URL}/{ClassName}`
 - `$id` on each entry in `$defs`, pointing to `{API_URL}/{DefClassName}`
 
+The schema endpoint is `GET /{ClassName}`. For storable models, N3TX also
+registers a read-only class-name instance mirror at `GET /{ClassName}/{id:int}`;
+that mirror returns the same entity payload as `GET /{tablename}/{id:int}` and
+keeps the entity `$id` table-name based.
+
 **Returns**: Dictionary with OpenAPI-compatible schema
 
 **Example**:

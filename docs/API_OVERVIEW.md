@@ -472,6 +472,22 @@ Response:
 
 The `schema()` method adds `$schema` (pointing to `{API_URL}/Schema`) and `$id` (pointing to `{API_URL}/{ClassName}`) to the top-level schema dict, and `$id` to each `$defs` entry.
 
+Storable model instances can be read through either the original table-name API
+or the class-name read mirror:
+
+```text
+GET /users/1  -> canonical table-name JSON read
+GET /User/1   -> read-only class-name mirror of the same entity
+```
+
+The mirror does not change identity. Entity payloads keep `$schema` pointing to
+`/{ClassName}` and `$id` pointing to `/{tablename}/{id}`. Writes, deletes, and
+custom methods remain under table-name paths in the current route grammar.
+
+View routes reserve `@` for HTML/component entrypoints, for example
+`GET /User/@` and frontend hashes such as `#User/@table`; those routes are not
+JSON data routes.
+
 Custom method responses, including auth methods such as `/users/login` and
 `/users/register`, may be returned either as the method payload directly or under
 `data` when response debugging/enveloping is enabled. Browser test helpers should

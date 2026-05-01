@@ -113,11 +113,16 @@ Detection: `get_json_fields(model_class)` in `introspection.py` returns fields f
 Write path: `_coerce_value()` calls `json.dumps(v, default=str)` for dict/list values.
 Read path: `_deserialize_json_fields()` calls `json.loads()` on string values before model instantiation.
 
-The read path also normalizes legacy empty-string boolean values before
-Pydantic validation. If a bool field contains `''` or the literal string `"''"`
-from an older/default SQLite column, storage coerces it to `False` so existing
-rows remain loadable. Valid bool strings such as `'true'`, `'false'`, `'0'`, and
-`'1'` are left intact for Pydantic's normal bool parsing.
+The read path also normalizes legacy empty-string values before Pydantic
+validation. If a bool field contains `''` or the literal string `"''"` from an
+older/default SQLite column, storage coerces it to `False` so existing rows
+remain loadable. If a nullable numeric field such as `Optional[float]` or
+`Optional[int]` contains the same empty-string sentinel, storage coerces it to
+`None`. The write path applies the nullable numeric normalization as well, so
+partial updates from forms or tools do not reintroduce invalid empty strings.
+Valid bool strings such as `'true'`, `'false'`, `'0'`, and `'1'`, and valid
+numeric strings such as `'123.45'`, are left intact for Pydantic's normal
+parsing.
 
 ### FK Hydration
 

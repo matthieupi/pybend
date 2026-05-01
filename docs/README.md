@@ -326,6 +326,12 @@ Response:
 
 The `schema()` method adds `$schema` (pointing to `{API_URL}/Schema`) and `$id` (pointing to `{API_URL}/{ClassName}`) to the top-level schema dict, and `$id` to each `$defs` entry.
 
+Storable entities keep their canonical `$id` on the table-name API path (for
+example `/users/1`), even when read through the class-name mirror
+`GET /User/1`. Class-name routes are additive: `GET /User` remains schema,
+`GET /User/1` mirrors reads, and `GET /User/@...` is reserved for HTML/view
+entrypoints.
+
 ### Generate Markdown Docs
 
 N3TX includes a documentation generator:

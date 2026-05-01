@@ -29,8 +29,11 @@ At schema generation time:
                                     emits schema['ui'] from __ui__
 ```
 
-`ViewableMixin` itself is a lightweight marker — it carries `__ui__: ClassVar[Optional[dict]] = None`
-and no instance methods. All behavior comes from the `viewable` schema extension stage.
+`ViewableMixin` carries `__ui__: ClassVar[Optional[dict]] = None`, owns the
+`viewable` schema extension stage, and registers model view routes for viewable
+models. This mirrors the backend capability split: `StorableMixin` makes a
+model eligible for CRUD/data routes, while `ViewableMixin` makes a model
+eligible for HTML/view routes.
 
 ## Injection
 
@@ -107,6 +110,110 @@ __ui__ = {
 ```
 
 These are emitted as `schema['methods'][name]['ui']` for the frontend to read.
+
+### View route registration
+
+`ViewableMixin.register_view_routes(router, tag=...)` registers HTML/view
+entrypoints owned by the viewable capability. The collection route grammar
+supports both default and named collection views:
+
+```text
+GET /{ClassName}/@       # default collection view
+GET /{ClassName}/@{view} # named collection view
+GET /{ClassName}/{id}/@  # default member view
+GET /{ClassName}/{id}/@{view} # named member view
+```
+
+The response is an HTML shell that mounts the normal frontend component system;
+it is not a separate server-side component renderer. Default collection renderer
+resolution matches the frontend router. Default collection views resolve as:
+
+```text
+ui.renderer.page → ui.renderer.list → ntx-list
+```
+
+Named collection views resolve as:
+
+```text
+ui.renderer[view] → known framework fallback → 400 for unknown views
+```
+
+Known framework fallbacks currently include:
+
+```text
+list  → ntx-list
+table → ntx-table
+```
+
+Default member views resolve as:
+
+```text
+ui.renderer.detail → ui.renderer.item → ntx-item
+```
+
+Named member views resolve as:
+
+```text
+ui.renderer[view] → known member fallback → 400 for unknown views
+```
+
+Known member fallbacks currently include:
+
+```text
+item   → ui.renderer.item → ntx-item
+detail → ui.renderer.detail → ui.renderer.item → ntx-item
+chat   → ntx-chat
+```
+
+Custom view names are schema-only: a route such as `/Product/@custom-card` or
+`/Product/1/@custom-card` is accepted only when the model declares a matching
+`__ui__['renderer']['custom-card']` entry. Unsafe view tokens are rejected before
+HTML is generated. Valid view tokens must match:
+
+```text
+^[A-Za-z0-9][A-Za-z0-9_-]*$
+```
+
+Renderer tags inserted into HTML must be safe custom-element names:
+
+```text
+^[a-z][a-z0-9]*(-[a-z0-9]+)+$
+```
+
+For example:
+
+```python
+class Product(ProtoModel):
+    __tablename__ = 'products'
+    __ui__ = {'renderer': {'page': 'ntx-products-page', 'list': 'ntx-products'}}
+```
+
+registers:
+
+```text
+GET /Product/@  -> HTML containing <ntx-products-page model="Product">
+GET /Product/@table -> HTML containing <ntx-table model="Product"> unless renderer.table is declared
+GET /Product/1/@ -> HTML containing <ntx-item ref="Product/1" display="lg"> unless detail/item is declared
+GET /Product/1/@chat -> HTML containing <ntx-chat ref="Product/1" display="lg"> unless renderer.chat is declared
+```
+
+`n3tx-core` delegates to this method when present; it does not hard-import
+`n3tx_ui`, preserving the package boundary.
+
+Standalone HTML shells import the resolved renderer module using the conventional
+static component path `/components/{tag}.js`. For example, if a model declares
+`__ui__ = {'renderer': {'item': 'ntx-grant-item'}}`, then
+`GET /Grant/1/@` mounts `<ntx-grant-item ref="Grant/1">` and includes:
+
+```html
+<script type="module" src="/components/ntx-item.js"></script>
+<script type="module" src="/components/ntx-grant-item.js"></script>
+```
+
+The base renderer import (`ntx-item` for member routes, `ntx-list` for
+collection routes) is kept so custom renderers that extend first-party
+components can resolve their dependencies in standalone pages. Duplicate imports
+are removed when the resolved tag is the same as the base renderer.
 
 `ui.icon` is a universal contract shared by model shells and method actions.
 Accepted values are direct emoji (`'📚'`), direct asset URLs/paths
