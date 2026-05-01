@@ -70,6 +70,27 @@ def _is_bool_field(field_info) -> bool:
     return False
 
 
+def _is_nullable_numeric_field(field_info) -> bool:
+    """Return True when a model field accepts None plus numeric values."""
+    annotation = field_info.annotation
+    if annotation in (int, float):
+        return False
+
+    origin = get_origin(annotation)
+    if origin not in (Union, UnionType):
+        return False
+
+    args = set(get_args(annotation))
+    return type(None) in args and bool(args & {int, float})
+
+
+def _normalize_storage_value(field_info, value):
+    """Normalize legacy form/storage sentinels before SQLite bind/validation."""
+    if _is_nullable_numeric_field(field_info) and value in ('', "''"):
+        return None
+    return value
+
+
 def _deserialize_bool_fields(model_class, record):
     """Normalize legacy empty-string bool values before model validation."""
     for field_name, field_info in model_class.model_fields.items():
@@ -79,9 +100,18 @@ def _deserialize_bool_fields(model_class, record):
             record[field_name] = False
 
 
+def _deserialize_nullable_numeric_fields(model_class, record):
+    """Normalize legacy empty-string nullable numerics before validation."""
+    for field_name, field_info in model_class.model_fields.items():
+        if field_name not in record:
+            continue
+        record[field_name] = _normalize_storage_value(field_info, record.get(field_name))
+
+
 def _deserialize_json_fields(model_class, record):
     """Deserialize DB strings back into model-compatible Python values."""
     _deserialize_bool_fields(model_class, record)
+    _deserialize_nullable_numeric_fields(model_class, record)
     for field_name in get_json_fields(model_class):
         val = record.get(field_name)
         if isinstance(val, str):
@@ -173,6 +203,8 @@ class SQLiteStorage(AbstractStorage):
         values = [value.id
                   if isinstance(value, BaseModel) and hasattr(value, 'id') else value
                   for value in values]
+        values = [_normalize_storage_value(model_class.model_fields[field], value)
+                  for field, value in zip(fields, values)]
         # Coerce non-native types (e.g. AnyHttpUrl) to SQLite-compatible values
         values = [_coerce_value(v) for v in values]
         insert_sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
@@ -653,7 +685,10 @@ class SQLiteStorage(AbstractStorage):
 
         # Construct the SET clause dynamically
         set_clause = ", ".join([f"{field} = ?" for field in fields_to_update])
-        values = [_coerce_value(data[field]) for field in fields_to_update]
+        values = [
+            _coerce_value(_normalize_storage_value(model_class.model_fields[field], data[field]))
+            for field in fields_to_update
+        ]
 
         # Add the id to the values for the WHERE clause
         update_sql = f"UPDATE {table_name} SET {set_clause} WHERE id = ?"
