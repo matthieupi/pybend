@@ -170,6 +170,72 @@ describe('Router Navigation', () => {
     expect(window.location.hash).toBe('#Product/3');
   });
 
+  it('hash sync preserves named collection view routes exactly', () => {
+    const router = new Router('test-router-hash-view', { hash: true });
+    router.NAVIGATE('Product/@table');
+    expect(router.current).toBe('Product/@table');
+    expect(window.location.hash).toBe('#Product/@table');
+  });
+
+  it('full flow: named collection view route resolves schema renderer', async () => {
+    const { buildRoute, parseRoute, resolveRoute } = await import('../../core/Router.js');
+    const router = new Router('test-router-named-view-flow', { hash: false });
+    const route = buildRoute({ type: 'model', model: 'Product', isViewRoute: true, view: 'table' });
+    expect(route).toBe('Product/@table');
+    router.NAVIGATE(route);
+    expect(router.current).toBe('Product/@table');
+
+    const schema = { ui: { renderer: { table: 'ntx-product-table' } } };
+    const resolved = resolveRoute(parseRoute(router.current), () => schema);
+    expect(resolved.tag).toBe('ntx-product-table');
+    expect(resolved.attrs).toEqual({ model: 'Product' });
+  });
+
+  it('full flow: member default view route resolves schema renderer', async () => {
+    const { buildRoute, parseRoute, resolveRoute } = await import('../../core/Router.js');
+    const router = new Router('test-router-member-view-flow', { hash: false });
+    const route = buildRoute({ type: 'detail', model: 'Product', id: '1', isViewRoute: true });
+    expect(route).toBe('Product/1/@');
+    router.NAVIGATE(route);
+    expect(router.current).toBe('Product/1/@');
+
+    const schema = { ui: { renderer: { detail: 'ntx-product-detail', item: 'ntx-product-card' } } };
+    const resolved = resolveRoute(parseRoute(router.current), () => schema);
+    expect(resolved.tag).toBe('ntx-product-detail');
+    expect(resolved.attrs).toEqual({ ref: 'Product/1', display: 'lg' });
+    expect(resolved.attrs.method).toBeUndefined();
+  });
+
+  it('full flow: named member view route resolves schema renderer without method attrs', async () => {
+    const { buildRoute, parseRoute, resolveRoute } = await import('../../core/Router.js');
+    const router = new Router('test-router-named-member-view-flow', { hash: false });
+    const route = buildRoute({ type: 'detail', model: 'Product', id: '1', isViewRoute: true, view: 'chat' });
+    expect(route).toBe('Product/1/@chat');
+    router.NAVIGATE(route);
+    expect(router.current).toBe('Product/1/@chat');
+
+    const schema = { ui: { renderer: { chat: 'ntx-product-chat' } } };
+    const resolved = resolveRoute(parseRoute(router.current), () => schema);
+    expect(resolved.tag).toBe('ntx-product-chat');
+    expect(resolved.attrs).toEqual({ ref: 'Product/1', display: 'lg' });
+    expect(resolved.attrs.method).toBeUndefined();
+  });
+
+  it('full flow: method and same-named view routes stay distinct', async () => {
+    const { parseRoute, resolveRoute } = await import('../../core/Router.js');
+    const schema = {
+      ui: { renderer: { run: 'ntx-run-view' } },
+      methods: { run: { ui: { renderer: 'ntx-run-method' } } },
+    };
+
+    const action = resolveRoute(parseRoute('Product/1/run'), () => schema);
+    const view = resolveRoute(parseRoute('Product/1/@run'), () => schema);
+
+    expect(action.attrs.method).toBe('run');
+    expect(view.tag).toBe('ntx-run-view');
+    expect(view.attrs.method).toBeUndefined();
+  });
+
   it('hash sync clears hash on BACK to root', () => {
     const router = new Router('test-router-hash-2', { hash: true });
     router.NAVIGATE('Product/3');

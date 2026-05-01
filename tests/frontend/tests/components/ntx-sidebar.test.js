@@ -684,6 +684,68 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
       document.body.removeChild(el);
     });
 
+    it.each([
+      '#Product/@',
+      '#Product/@table',
+      '#Product/3',
+      '#Product/3/@',
+      '#Product/3/@item',
+    ])('should mark Product selected for route %s', (hash) => {
+      window.location.hash = hash;
+
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('models', 'Product,User');
+      document.body.appendChild(el);
+
+      const product = el.shadowRoot.querySelector('.model-section[data-model="Product"]');
+      const user = el.shadowRoot.querySelector('.model-section[data-model="User"]');
+      expect(product.classList.contains('model-section--selected')).toBe(true);
+      expect(product.querySelector('.model-header').getAttribute('aria-current')).toBe('page');
+      expect(user.classList.contains('model-section--selected')).toBe(false);
+
+      document.body.removeChild(el);
+    });
+
+    it('should dispatch explicit default collection view routes from model clicks', () => {
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('models', 'Product');
+      el.setAttribute('router', 'main');
+      document.body.appendChild(el);
+
+      el.shadowRoot.querySelector('.model-section[data-model="Product"] .model-name').click();
+
+      expect(mockMatrix.dispatch).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'NAVIGATE',
+        target: 'main',
+        data: 'Product/@?allow-create=',
+        meta: { reset: true },
+      }));
+
+      document.body.removeChild(el);
+    });
+
+    it('should dispatch explicit table view routes from table templates', () => {
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('router', 'main');
+
+      const child = document.createElement('ntx-table');
+      child.setAttribute('model', 'Product');
+      child.setAttribute('allow-create', '');
+      el.appendChild(child);
+
+      document.body.appendChild(el);
+      el.shadowRoot.querySelector('.model-section[data-model="Product"] .model-name').click();
+
+      expect(mockMatrix.dispatch).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'NAVIGATE',
+        target: 'main',
+        data: 'Product/@table?allow-create=',
+        meta: { reset: true },
+      }));
+
+      document.body.removeChild(el);
+    });
+
     it('should mark matching app links as selected on hashchange', () => {
       const el = document.createElement('ntx-sidebar');
       const link = document.createElement('a');
@@ -699,6 +761,31 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
       const header = linkEl.querySelector('.model-header');
       expect(linkEl.classList.contains('sidebar-link--selected')).toBe(true);
       expect(header.getAttribute('aria-current')).toBe('page');
+
+      document.body.removeChild(el);
+    });
+
+    it('should preserve already-explicit app link hrefs', () => {
+      const el = document.createElement('ntx-sidebar');
+      el.setAttribute('router', 'main');
+      const link = document.createElement('a');
+      link.setAttribute('href', '#@settings');
+      link.textContent = 'Settings';
+      el.appendChild(link);
+      document.body.appendChild(el);
+
+      window.location.hash = '#@settings';
+      window.dispatchEvent(new Event('hashchange'));
+      const linkEl = el.shadowRoot.querySelector('.sidebar-link[data-href="#@settings"]');
+      expect(linkEl.classList.contains('sidebar-link--selected')).toBe(true);
+
+      linkEl.querySelector('.model-header').click();
+      expect(mockMatrix.dispatch).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'NAVIGATE',
+        target: 'main',
+        data: '@settings',
+        meta: { reset: true },
+      }));
 
       document.body.removeChild(el);
     });

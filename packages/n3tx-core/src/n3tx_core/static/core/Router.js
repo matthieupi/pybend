@@ -13,6 +13,8 @@
  * Route grammar (all routes are strings):
  *   @appName[?params]               — app-level view (e.g. @profile, @settings?tab=security)
  *   Model[/id[/action]][?params]    — entity view (e.g. Product, Product/3, Grant/5/analyze)
+ *   Model/@[view][?params]          — collection view route (e.g. Product/@, Product/@table)
+ *   Model/id/@[view][?params]       — member view route (e.g. Product/1/@, Product/1/@chat)
  *
  * Pure utility functions (framework-agnostic, no state):
  *   parseRoute(string)              — route string → structured data
@@ -25,13 +27,66 @@ import { matrix } from './Matrix.js';
 
 const routers = new Map();
 const STACK_MAX = 50;
+const VIEW_TOKEN_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+const COMPONENT_TAG_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)+$/;
+
+function invalidRoute(route, reason) {
+    return { type: 'invalid', route, reason };
+}
+
+function isSafeViewToken(token) {
+    return typeof token === 'string' && VIEW_TOKEN_RE.test(token);
+}
+
+function isSafeComponentTag(tag) {
+    return typeof tag === 'string' && COMPONENT_TAG_RE.test(tag);
+}
+
+function rendererTag(renderer, view) {
+    const tag = view ? renderer[view] : null;
+    return isSafeComponentTag(tag) ? tag : null;
+}
+
+function resolveViewTag(schema, view, scope) {
+    const renderer = schema?.ui?.renderer || {};
+
+    if (view && renderer[view]) return rendererTag(renderer, view);
+
+    if (!view && scope === 'collection') {
+        if (renderer.page) return isSafeComponentTag(renderer.page) ? renderer.page : null;
+        if (renderer.list) return isSafeComponentTag(renderer.list) ? renderer.list : null;
+        return 'ntx-list';
+    }
+
+    if (!view && scope === 'member') {
+        if (renderer.detail) return isSafeComponentTag(renderer.detail) ? renderer.detail : null;
+        if (renderer.item) return isSafeComponentTag(renderer.item) ? renderer.item : null;
+        return 'ntx-item';
+    }
+
+    const known = scope === 'member'
+        ? {
+            item: renderer.item || 'ntx-item',
+            detail: renderer.detail || renderer.item || 'ntx-item',
+            chat: 'ntx-chat',
+        }
+        : {
+            list: 'ntx-list',
+            table: 'ntx-table',
+        };
+
+    if (view && known[view]) return known[view];
+    if (view) return null;
+
+    return 'ntx-list';
+}
 
 // ── Pure Route Functions (stateless, framework-agnostic) ──
 
 /**
  * Parse a route string into structured data.
  * @param {string|null} route
- * @returns {{ type: string, app?: string, model?: string, id?: string, action?: string, params: object }}
+ * @returns {{ type: string, app?: string, model?: string, id?: string|null, action?: string|null, view?: string|null, isViewRoute?: boolean, params?: object }}
  */
 export function parseRoute(route) {
     if (!route || typeof route !== 'string') return { type: 'home' };
@@ -48,11 +103,38 @@ export function parseRoute(route) {
 
     // Entity routes: Model, Model/id, Model/id/action, all with optional ?params
     const [path, query] = route.split('?');
-    const parts = path.split('/');
+    const parts = path.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
     const params = query ? Object.fromEntries(new URLSearchParams(query)) : {};
     const model = parts[0];
     const id = parts[1] || null;
     const action = parts[2] || null;
+
+    if (parts.length > 3) {
+        return invalidRoute(route, 'too_many_segments');
+    }
+
+    if (id === '@' || id?.startsWith('@')) {
+        if (parts.length > 2) return invalidRoute(route, 'too_many_segments');
+        const view = id === '@' ? null : id.slice(1);
+        if (view !== null && !isSafeViewToken(view)) {
+            return invalidRoute(route, 'invalid_view');
+        }
+        return {
+            type: 'model', model, id: null, action: null,
+            view, isViewRoute: true, params,
+        };
+    }
+
+    if (action === '@' || action?.startsWith('@')) {
+        const view = action === '@' ? null : action.slice(1);
+        if (view !== null && !isSafeViewToken(view)) {
+            return invalidRoute(route, 'invalid_view');
+        }
+        return {
+            type: 'detail', model, id, action: null,
+            view, isViewRoute: true, params,
+        };
+    }
 
     let type = 'model';
     if (id && action) type = 'action';
@@ -63,11 +145,11 @@ export function parseRoute(route) {
 
 /**
  * Build a route string from structured parts (inverse of parseRoute).
- * @param {{ type: string, app?: string, model?: string, id?: string, action?: string, params?: object }} parts
+ * @param {{ type: string, app?: string, model?: string, id?: string, action?: string, view?: string|null, isViewRoute?: boolean, params?: object }} parts
  * @returns {string}
  */
 export function buildRoute(parts) {
-    if (!parts || parts.type === 'home') return '';
+    if (!parts || parts.type === 'home' || parts.type === 'invalid') return '';
 
     let route;
     if (parts.type === 'app') {
@@ -75,7 +157,8 @@ export function buildRoute(parts) {
     } else {
         route = parts.model || '';
         if (parts.id) route += '/' + parts.id;
-        if (parts.action) route += '/' + parts.action;
+        if (parts.isViewRoute) route += '/@' + (parts.view || '');
+        else if (parts.action) route += '/' + parts.action;
     }
 
     const params = parts.params;
@@ -94,7 +177,7 @@ export function buildRoute(parts) {
  * @returns {{ tag: string, attrs: object, title: string } | null}
  */
 export function resolveRoute(parsed, getSchema = () => null) {
-    if (!parsed || parsed.type === 'home') return null;
+    if (!parsed || parsed.type === 'home' || parsed.type === 'invalid') return null;
 
     const params = parsed.params || {};
 
@@ -116,12 +199,24 @@ export function resolveRoute(parsed, getSchema = () => null) {
     }
 
     if (parsed.type === 'model') {
+        if (parsed.isViewRoute) {
+            const tag = resolveViewTag(schema, parsed.view, 'collection');
+            if (!tag) return null;
+            return {
+                tag,
+                attrs: { model: parsed.model, ...passthrough },
+                title: schema?.title || schema?.__name__ || parsed.model,
+            };
+        }
+
         // List view: view= param overrides schema default
         let tag;
         if (params.view) {
-            tag = params.view.startsWith('ntx-') ? params.view : 'ntx-' + params.view;
+            tag = resolveViewTag(schema, params.view, 'collection');
+            if (!tag) return null;
         } else {
             tag = renderer.list || 'ntx-list';
+            if (!isSafeComponentTag(tag)) return null;
         }
         return {
             tag,
@@ -131,10 +226,15 @@ export function resolveRoute(parsed, getSchema = () => null) {
     }
 
     if (parsed.type === 'detail') {
-        const tag = renderer.detail || renderer.item || 'ntx-item';
+        const tag = parsed.isViewRoute
+            ? resolveViewTag(schema, parsed.view, 'member')
+            : renderer.detail || renderer.item || 'ntx-item';
+        if (!tag || !isSafeComponentTag(tag)) return null;
+        const detailAttrs = { ref: parsed.model + '/' + parsed.id, display: 'lg', ...passthrough };
+        if (parsed.isViewRoute) delete detailAttrs.method;
         return {
             tag,
-            attrs: { ref: parsed.model + '/' + parsed.id, display: 'lg', ...passthrough },
+            attrs: detailAttrs,
             title: schema?.title || schema?.__name__ || parsed.model,
         };
     }

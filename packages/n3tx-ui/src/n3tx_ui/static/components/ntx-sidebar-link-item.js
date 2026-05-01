@@ -94,8 +94,8 @@ export class NTTSidebarLinkItem extends NTTItem {
     const modelName = this.schema?.__name__ || this.model || this.getAttribute('data-model') || '';
     const id = this.value?.id ?? this.ref?.split('/').pop();
     const route = id != null
-      ? buildRoute({ type: 'detail', model: modelName, id: String(id) })
-      : buildRoute({ type: 'model', model: modelName });
+      ? buildRoute({ type: 'detail', model: modelName, id: String(id), isViewRoute: true })
+      : buildRoute({ type: 'model', model: modelName, isViewRoute: true });
     const label = this.value?.name || this.value?.title || (id != null ? `#${id}` : modelName);
     const escapedLabel = escapeHtml(label);
     const escapedAttrLabel = escapeAttr(label);

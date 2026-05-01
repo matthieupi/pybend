@@ -31,9 +31,9 @@
  *     <ntx-theme-button slot="footer"></ntx-theme-button>   <!-- footer: manual shell action -->
  *   </ntx-sidebar>
  *
- *   Clicking "Grant" → router opens <ntx-table model="Grant" allow-create>
- *   Clicking "Organization" → router opens <ntx-item model="Organization" ref="Organization/1">
- *   Clicking "Settings" → router dispatches "#settings" hash route
+ *   Clicking "Grant" → router opens Grant/@table?allow-create=
+ *   Clicking "Organization" → router opens Organization/1/@
+ *   Clicking "Settings" → router dispatches @settings
  *
  * Listens for:
  *   sidebar-toggle — on document (from ntx-topbar hamburger)
@@ -335,7 +335,9 @@ class NTTSidebar extends HTMLElement {
     if (parsed.type === 'app') {
       const activeLink = [...this.shadowRoot.querySelectorAll('.sidebar-link')].find((linkEl) => {
         const href = linkEl.getAttribute('data-href') || '';
-        return href.startsWith('#') ? href.slice(1) === parsed.app : href === route;
+        if (href.startsWith('#@')) return href.slice(2) === parsed.app;
+        if (href.startsWith('#')) return href.slice(1) === parsed.app;
+        return href === route;
       });
       if (!activeLink) return;
 
@@ -367,11 +369,13 @@ class NTTSidebar extends HTMLElement {
 
     const template = this.#routeTemplates.get(modelName);
     const params = {};
+    let view = null;
 
     if (template) {
-      // Map template tag to view= param
-      if (template.tag === 'ntx-table') params.view = 'table';
-      else if (template.tag !== 'ntx-list') params.view = template.tag.replace('ntx-', '');
+      // Map template tags to explicit @ view routes. Table is a semantic view;
+      // other custom component tags keep the existing tag-derived fallback.
+      if (template.tag === 'ntx-table') view = 'table';
+      else if (template.tag !== 'ntx-list') view = template.tag.replace('ntx-', '');
       // Forward template attrs as query params
       for (const [k, v] of Object.entries(template.attrs)) {
         params[k] = v;
@@ -385,6 +389,8 @@ class NTTSidebar extends HTMLElement {
     const route = buildRoute({
       type: 'model',
       model: modelName,
+      isViewRoute: true,
+      view,
       params: Object.keys(params).length > 0 ? params : undefined,
     });
 
@@ -409,15 +415,22 @@ class NTTSidebar extends HTMLElement {
       return;
     }
 
-    // itemRef is already "Model/id" — a valid route string
+    const [model, id] = itemRef.split('/');
+    const route = buildRoute({
+      type: 'detail',
+      model: model || modelName,
+      id,
+      isViewRoute: true,
+    });
+
     matrix.dispatch({
       name: 'NAVIGATE',
       source: 'sidebar',
       target: routerAddr,
-      data: itemRef,
+      data: route,
       meta: { reset: true },
     });
-    this.#applyActiveRoute(itemRef);
+    this.#applyActiveRoute(route);
     this.close();
   }
 
@@ -428,9 +441,11 @@ class NTTSidebar extends HTMLElement {
     // Convert hash links to router routes. Bare '#' means home.
     const route = href === '#'
       ? ''
-      : href.startsWith('#')
-        ? '@' + href.slice(1)
-        : href;
+      : href.startsWith('#@')
+        ? href.slice(1)
+        : href.startsWith('#')
+          ? '@' + href.slice(1)
+          : href;
 
     matrix.dispatch({
       name: 'NAVIGATE',

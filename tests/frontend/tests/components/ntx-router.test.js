@@ -26,11 +26,13 @@ describe('ntx-router.js (NTTRouter)', () => {
   beforeEach(() => {
     window.location.hash = '';
     document.body.innerHTML = '';
+    delete window.NTT;
   });
 
   afterEach(() => {
     document.body.innerHTML = '';
     window.location.hash = '';
+    delete window.NTT;
   });
 
   describe('custom element registration', () => {
@@ -100,6 +102,147 @@ describe('ntx-router.js (NTTRouter)', () => {
       const sr = el.shadowRoot;
       expect(sr.querySelector('.router-chrome').hidden).toBe(true);
       expect(sr.querySelector('.router-content ntx-item')).toBeTruthy();
+    });
+
+    it('should mount collection default view routes from deep links', async () => {
+      window.location.hash = '#Product/@';
+      window.NTT = {
+        get: vi.fn(() => ({ schema: { ui: { renderer: { page: 'ntx-products-page', list: 'ntx-products' } } } })),
+      };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-view-deeplink-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const mounted = el.shadowRoot.querySelector('.router-content ntx-products-page');
+      expect(mounted).toBeTruthy();
+      expect(mounted.getAttribute('model')).toBe('Product');
+      expect(mounted.getAttribute('router')).toBe(el.getAttribute('name'));
+      expect(el.shadowRoot.querySelector('.router-chrome').hidden).toBe(true);
+    });
+
+    it('should mount named collection view routes from schema renderers', async () => {
+      window.location.hash = '#Product/@table';
+      window.NTT = {
+        get: vi.fn(() => ({ schema: { ui: { renderer: { table: 'ntx-product-table' } } } })),
+      };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-named-view-deeplink-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const mounted = el.shadowRoot.querySelector('.router-content ntx-product-table');
+      expect(mounted).toBeTruthy();
+      expect(mounted.getAttribute('model')).toBe('Product');
+      expect(mounted.getAttribute('router')).toBe(el.getAttribute('name'));
+    });
+
+    it('should mount named collection view fallback components', async () => {
+      window.location.hash = '#Product/@table';
+      window.NTT = { get: vi.fn(() => ({ schema: {} })) };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-named-view-fallback-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const mounted = el.shadowRoot.querySelector('.router-content ntx-table');
+      expect(mounted).toBeTruthy();
+      expect(mounted.getAttribute('model')).toBe('Product');
+    });
+
+    it('should not mount unknown custom collection views without schema renderers', async () => {
+      window.location.hash = '#Product/@custom-card';
+      window.NTT = { get: vi.fn(() => ({ schema: {} })) };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-unknown-custom-view-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      expect(el.shadowRoot.querySelector('.router-content ntx-custom-card')).toBeFalsy();
+      expect(el.shadowRoot.querySelector('.router-content slot')).toBeTruthy();
+    });
+
+    it('should mount member default view routes from schema renderers', async () => {
+      window.location.hash = '#Product/1/@';
+      window.NTT = {
+        get: vi.fn(() => ({ schema: { ui: { renderer: { detail: 'ntx-product-detail', item: 'ntx-product-card' } } } })),
+      };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-member-view-deeplink-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const mounted = el.shadowRoot.querySelector('.router-content ntx-product-detail');
+      expect(mounted).toBeTruthy();
+      expect(mounted.getAttribute('ref')).toBe('Product/1');
+      expect(mounted.getAttribute('display')).toBe('lg');
+      expect(mounted.hasAttribute('method')).toBe(false);
+    });
+
+    it('should mount named member view routes from schema renderers', async () => {
+      window.location.hash = '#Product/1/@item';
+      window.NTT = {
+        get: vi.fn(() => ({ schema: { ui: { renderer: { item: 'ntx-product-card' } } } })),
+      };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-named-member-view-deeplink-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const mounted = el.shadowRoot.querySelector('.router-content ntx-product-card');
+      expect(mounted).toBeTruthy();
+      expect(mounted.getAttribute('ref')).toBe('Product/1');
+      expect(mounted.getAttribute('display')).toBe('lg');
+      expect(mounted.hasAttribute('method')).toBe(false);
+    });
+
+    it('should mount same-named member view without method attrs', async () => {
+      window.location.hash = '#Product/1/@run';
+      window.NTT = {
+        get: vi.fn(() => ({
+          schema: {
+            ui: { renderer: { run: 'ntx-run-view' } },
+            methods: { run: { ui: { renderer: 'ntx-run-method' } } },
+          },
+        })),
+      };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-run-member-view-deeplink-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const mounted = el.shadowRoot.querySelector('.router-content ntx-run-view');
+      expect(mounted).toBeTruthy();
+      expect(mounted.getAttribute('ref')).toBe('Product/1');
+      expect(mounted.hasAttribute('method')).toBe(false);
+    });
+
+    it('should not mount invalid view routes or arbitrary extra components', async () => {
+      window.location.hash = '#Product/1/@item/extra';
+      window.NTT = { get: vi.fn(() => ({ schema: {} })) };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-invalid-view-route-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      expect(el.shadowRoot.querySelector('.router-content ntx-extra')).toBeFalsy();
+      expect(el.shadowRoot.querySelector('.router-content slot')).toBeTruthy();
     });
 
     it('should mount model detail views with ref and display attributes', async () => {

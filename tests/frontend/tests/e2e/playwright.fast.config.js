@@ -9,6 +9,7 @@ const FAST_SPECS = [
   'tests/e2e/page-load.spec.js',
   'tests/e2e/product-detail.spec.js',
   'tests/e2e/product-list.spec.js',
+  'tests/e2e/route-grammar-smoke.spec.js',
   'tests/e2e/responsive-display.spec.js',
   'tests/e2e/visual-regression.spec.js',
 ];

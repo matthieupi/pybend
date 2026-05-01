@@ -24,9 +24,14 @@ describe('Router.js', () => {
   let router;
 
   beforeEach(() => {
+    window.location.hash = '';
     // Create a fresh router for each test
     const name = `test-router-${Math.random().toString(36).slice(2)}`;
     router = new Router(name, { hash: false });
+  });
+
+  afterEach(() => {
+    window.location.hash = '';
   });
 
   describe('constructor(addr, {hash})', () => {
@@ -42,10 +47,64 @@ describe('Router.js', () => {
       expect(window.location.hash).toBe('#Product/1');
     });
 
+    it('should hash-sync collection default view routes', () => {
+      const name = `default-view-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name);
+      r.NAVIGATE('Product/@');
+      expect(r.current).toBe('Product/@');
+      expect(window.location.hash).toBe('#Product/@');
+    });
+
+    it('should hash-sync named collection view routes', () => {
+      const name = `named-view-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name);
+      r.NAVIGATE('Product/@table');
+      expect(r.current).toBe('Product/@table');
+      expect(window.location.hash).toBe('#Product/@table');
+    });
+
+    it('should hash-sync member default view routes', () => {
+      const name = `member-view-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name);
+      r.NAVIGATE('Product/1/@');
+      expect(r.current).toBe('Product/1/@');
+      expect(window.location.hash).toBe('#Product/1/@');
+    });
+
+    it('should hash-sync named member view routes', () => {
+      const name = `named-member-view-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name);
+      r.NAVIGATE('Product/1/@item');
+      expect(r.current).toBe('Product/1/@item');
+      expect(window.location.hash).toBe('#Product/1/@item');
+    });
+
     it('should register in global routers map', () => {
       const name = `global-${Math.random().toString(36).slice(2)}`;
       const r = new Router(name);
       expect(getRouter(name)).toBe(r);
+    });
+  });
+
+  describe('resolved (getter)', () => {
+    it('should resolve named member view routes through schema renderers without method attrs', () => {
+      const name = `resolved-named-member-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, {
+        hash: false,
+        getSchema: () => ({ ui: { renderer: { item: 'ntx-product-card' } } }),
+      });
+      r.NAVIGATE('Product/1/@item');
+      expect(r.resolved.tag).toBe('ntx-product-card');
+      expect(r.resolved.attrs).toEqual({ ref: 'Product/1', display: 'lg' });
+      expect(r.resolved.attrs.method).toBeUndefined();
+    });
+
+    it('should return null for invalid view routes', () => {
+      const name = `resolved-invalid-view-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, { hash: false });
+      r.NAVIGATE('Product/@table/extra');
+      expect(r.current).toBe('Product/@table/extra');
+      expect(r.resolved).toBeNull();
     });
   });
 
@@ -243,6 +302,30 @@ describe('Router.js', () => {
       expect(r.canGoBack).toBe(false);
     });
 
+    it('should not create fake back history from an initial collection view hash load', () => {
+      window.location.hash = '#Product/@';
+      const name = `initial-view-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, { hash: true });
+      expect(r.current).toBe('Product/@');
+      expect(r.canGoBack).toBe(false);
+    });
+
+    it('should not create fake back history from an initial named collection view hash load', () => {
+      window.location.hash = '#Product/@table';
+      const name = `initial-named-view-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, { hash: true });
+      expect(r.current).toBe('Product/@table');
+      expect(r.canGoBack).toBe(false);
+    });
+
+    it('should not create fake back history from an initial member view hash load', () => {
+      window.location.hash = '#Product/1/@';
+      const name = `initial-member-view-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, { hash: true });
+      expect(r.current).toBe('Product/1/@');
+      expect(r.canGoBack).toBe(false);
+    });
+
     it('should clear back state when the browser returns to root', () => {
       const name = `back-root-${Math.random().toString(36).slice(2)}`;
       const r = new Router(name, { hash: true });
@@ -289,6 +372,34 @@ describe('Router.js', () => {
       const r = router.resolved;
       expect(r.tag).toBe('ntx-list');
       expect(r.attrs.model).toBe('Grant');
+    });
+
+    it('should resolve collection default view routes', () => {
+      const name = `resolved-view-${Math.random().toString(36).slice(2)}`;
+      const schema = { ui: { renderer: { page: 'ntx-products-page', list: 'ntx-products' } } };
+      const r = new Router(name, { hash: false, getSchema: () => schema });
+      r.NAVIGATE('Product/@');
+      expect(r.resolved.tag).toBe('ntx-products-page');
+      expect(r.resolved.attrs).toEqual({ model: 'Product' });
+    });
+
+    it('should resolve named collection view routes', () => {
+      const name = `resolved-named-view-${Math.random().toString(36).slice(2)}`;
+      const schema = { ui: { renderer: { table: 'ntx-product-table' } } };
+      const r = new Router(name, { hash: false, getSchema: () => schema });
+      r.NAVIGATE('Product/@table');
+      expect(r.resolved.tag).toBe('ntx-product-table');
+      expect(r.resolved.attrs).toEqual({ model: 'Product' });
+    });
+
+    it('should resolve member default view routes', () => {
+      const name = `resolved-member-view-${Math.random().toString(36).slice(2)}`;
+      const schema = { ui: { renderer: { detail: 'ntx-product-detail', item: 'ntx-product-card' } } };
+      const r = new Router(name, { hash: false, getSchema: () => schema });
+      r.NAVIGATE('Product/1/@');
+      expect(r.resolved.tag).toBe('ntx-product-detail');
+      expect(r.resolved.attrs).toEqual({ ref: 'Product/1', display: 'lg' });
+      expect(r.resolved.attrs.method).toBeUndefined();
     });
   });
 });

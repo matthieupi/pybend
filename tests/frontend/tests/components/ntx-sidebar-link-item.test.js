@@ -73,7 +73,7 @@ describe('ntx-sidebar-link-item.js', () => {
 
     const html = el.sm();
     expect(html).toContain('<a');
-    expect(html).toContain('href="#Grant/5"');
+    expect(html).toContain('href="#Grant/5/@"');
     expect(html).toContain('aria-label="Energy Grant"');
     expect(html).toContain('data-tooltip="Energy Grant"');
     expect(html).toContain('Energy Grant');
@@ -86,7 +86,7 @@ describe('ntx-sidebar-link-item.js', () => {
     );
 
     const html = el.sm();
-    expect(html).toContain('href="#Source/3"');
+    expect(html).toContain('href="#Source/3/@"');
     expect(html).toContain('data-tooltip="Funding Feed"');
     expect(html).toContain('Funding Feed');
   });
