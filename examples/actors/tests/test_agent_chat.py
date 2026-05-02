@@ -3,7 +3,7 @@
 Verifies:
 - Product schema includes `agent` section (from schema extension)
 - Product schema includes `ask` method with stream: true
-- POST /products/{id}/ask returns SSE streaming response
+- POST /Product/{id}/ask returns SSE streaming response
 - Agent run uses TestModel (no real LLM)
 """
 import json
@@ -72,13 +72,13 @@ class TestProductAgentSchema:
 
 
 class TestProductAgentAsk:
-    """POST /products/{id}/ask — streaming agent endpoint."""
+    """POST /Product/{id}/ask — streaming agent endpoint."""
 
     def test_ask_requires_auth(self, client, seed_data):
         """Streaming endpoints in Level 3 always return 200 — auth errors are in the stream."""
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/ask",
+            f"/Product/{product.id}/ask",
             json={"task": "Tell me about this product"},
         )
         # Level 3 actor routing: streaming returns 200, errors are SSE events
@@ -93,7 +93,7 @@ class TestProductAgentAsk:
 
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/ask",
+            f"/Product/{product.id}/ask",
             json={"task": "Describe this product"},
             headers=auth_header(alice_token),
         )
@@ -107,7 +107,7 @@ class TestProductAgentAsk:
 
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/ask",
+            f"/Product/{product.id}/ask",
             json={"task": "What is the price?"},
             headers=auth_header(alice_token),
         )
@@ -127,7 +127,7 @@ class TestProductAgentAsk:
 
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/ask",
+            f"/Product/{product.id}/ask",
             json={"task": "Summarize"},
             headers=auth_header(alice_token),
         )

@@ -34,13 +34,13 @@ def _parse_sse_events(text):
 
 
 class TestStreamingCountdown:
-    """POST /products/{id}/countdown -- SSE streaming endpoint."""
+    """POST /Product/{id}/countdown -- SSE streaming endpoint."""
 
     def test_streaming_returns_event_stream_content_type(self, client, seed_data):
         """Streaming endpoint should return text/event-stream."""
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/countdown",
+            f"/Product/{product.id}/countdown",
             json={"n": 3},
         )
         assert resp.status_code == 200
@@ -51,7 +51,7 @@ class TestStreamingCountdown:
         """Should receive chunk events with countdown data."""
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/countdown",
+            f"/Product/{product.id}/countdown",
             json={"n": 3},
         )
         assert resp.status_code == 200
@@ -66,7 +66,7 @@ class TestStreamingCountdown:
         """Countdown chunks should arrive in descending order."""
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/countdown",
+            f"/Product/{product.id}/countdown",
             json={"n": 4},
         )
         assert resp.status_code == 200
@@ -82,7 +82,7 @@ class TestStreamingCountdown:
         """Stream should terminate with event: done."""
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/countdown",
+            f"/Product/{product.id}/countdown",
             json={"n": 2},
         )
         assert resp.status_code == 200
@@ -95,7 +95,7 @@ class TestStreamingCountdown:
         """countdown has access=ANYONE, so no auth header is needed."""
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/countdown",
+            f"/Product/{product.id}/countdown",
             json={"n": 2},
         )
         # Should succeed without any auth header
@@ -105,7 +105,7 @@ class TestStreamingCountdown:
     def test_streaming_on_nonexistent_product_returns_404(self, client):
         """Streaming on a nonexistent product should return 404."""
         resp = client.post(
-            "/products/99999/countdown",
+            "/Product/99999/countdown",
             json={"n": 2},
         )
         assert resp.status_code == 404
@@ -114,7 +114,7 @@ class TestStreamingCountdown:
         """Each chunk should contain a message string."""
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/countdown",
+            f"/Product/{product.id}/countdown",
             json={"n": 2},
         )
         events = _parse_sse_events(resp.text)

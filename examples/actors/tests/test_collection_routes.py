@@ -80,21 +80,21 @@ class TestCollectionEdgeCases:
 
 
 class TestProductLikesCollection:
-    """GET /products_likes -- all favorites across all products."""
+    """GET /Product_likes -- all favorites across all products."""
 
     def test_collection_route_returns_200(self, client, alice_token, seed_data):
-        resp = client.get("/products_likes", headers=auth_header(alice_token))
+        resp = client.get("/Product_likes", headers=auth_header(alice_token))
         assert resp.status_code == 200
 
     def test_collection_returns_favorites(self, client, alice_token, seed_data):
-        resp = client.get("/products_likes", headers=auth_header(alice_token))
+        resp = client.get("/Product_likes", headers=auth_header(alice_token))
         data = resp.json()
         items = data if isinstance(data, list) else data.get("data", [])
         assert isinstance(items, list)
         assert len(items) >= 5  # 5 favorites from seed
 
     def test_collection_items_have_user_field(self, client, alice_token, seed_data):
-        resp = client.get("/products_likes", headers=auth_header(alice_token))
+        resp = client.get("/Product_likes", headers=auth_header(alice_token))
         data = resp.json()
         items = data if isinstance(data, list) else data.get("data", [])
         if items:

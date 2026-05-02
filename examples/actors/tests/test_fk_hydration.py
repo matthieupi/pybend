@@ -19,7 +19,7 @@ class TestRefFieldHydration:
         """Comment.user_owner is Ref[User], should be hydrated as href (IT-1)."""
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.get(f"/products/{product.id}/comments/{comment.id}")
+        resp = client.get(f"/Product/{product.id}/Comment/{comment.id}")
         data = resp.json()
         user_owner = data.get("user_owner")
         # Should be an href string like "http://localhost:5000/users/2"
@@ -30,7 +30,7 @@ class TestRefFieldHydration:
     def test_comment_href_is_resolvable(self, client, seed_data, alice_token):
         """IT-14: GETing an href URL should return the referenced entity."""
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}", headers=auth_header(alice_token))
+        resp = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
         data = resp.json()
         comments = data.get("comments", [])
         assert len(comments) > 0, "Product 0 should have comments from seed data"
@@ -52,29 +52,29 @@ class TestListRefHydration:
 
     def test_product_comments_as_href_array(self, client, seed_data, alice_token):
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}", headers=auth_header(alice_token))
+        resp = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
         data = resp.json()
         comments = data.get("comments", [])
         assert isinstance(comments, list)
         if comments:
             assert isinstance(comments[0], str)
-            assert "/products/" in comments[0]
+            assert "/Product/" in comments[0]
             assert "/comments/" in comments[0]
 
     def test_product_favorites_as_href_array(self, client, seed_data, alice_token):
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}", headers=auth_header(alice_token))
+        resp = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
         data = resp.json()
         favorites = data.get("favorites", [])
         assert isinstance(favorites, list)
         if favorites:
             assert isinstance(favorites[0], str)
-            assert "/products/" in favorites[0]
+            assert "/Product/" in favorites[0]
 
     def test_comment_likes_as_href_array(self, client, seed_data):
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.get(f"/products/{product.id}/comments/{comment.id}")
+        resp = client.get(f"/Product/{product.id}/Comment/{comment.id}")
         data = resp.json()
         likes = data.get("likes", [])
         assert isinstance(likes, list)
@@ -88,14 +88,14 @@ class TestSelfRefFK:
         product = seed_data["products"][0]
         reply = seed_data["replies"][0]
         parent = seed_data["comments"][0]
-        resp = client.get(f"/products/{product.id}/comments/{reply.id}")
+        resp = client.get(f"/Product/{product.id}/Comment/{reply.id}")
         data = resp.json()
         assert data.get("parent_id") == parent.id
 
     def test_top_level_comment_has_null_parent_id(self, client, seed_data):
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.get(f"/products/{product.id}/comments/{comment.id}")
+        resp = client.get(f"/Product/{product.id}/Comment/{comment.id}")
         data = resp.json()
         assert data.get("parent_id") is None
 
@@ -110,7 +110,7 @@ class TestHydrationOnList:
     """Href arrays present on every item in paginated list responses."""
 
     def test_list_products_each_has_comments_href(self, client, alice_token, seed_data):
-        resp = client.get("/products?limit=5&offset=0", headers=auth_header(alice_token))
+        resp = client.get("/Product/_?limit=5&offset=0", headers=auth_header(alice_token))
         data = resp.json()
         for item in data["data"]:
             assert "comments" in item
@@ -125,7 +125,7 @@ class TestPopulateDepthLevels:
     def test_depth_0_get_returns_href_arrays(self, client, alice_token, seed_data):
         """Without populate/depth, comments are href strings."""
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}",
+        resp = client.get(f"/Product/{product.id}",
                           headers=auth_header(alice_token))
         data = resp.json()
         comments = data.get("comments", [])
@@ -136,7 +136,7 @@ class TestPopulateDepthLevels:
 
     def test_depth_0_list_returns_href_arrays(self, client, alice_token, seed_data):
         """Without populate/depth, list items have href arrays."""
-        resp = client.get("/products?limit=2",
+        resp = client.get("/Product/_?limit=2",
                           headers=auth_header(alice_token))
         data = resp.json()
         assert "data" in data
@@ -151,7 +151,7 @@ class TestPopulateDepthLevels:
     def test_depth_1_get_populates_comments(self, client, alice_token, seed_data):
         """?populate=comments returns comment objects with $schema/$id."""
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}?populate=comments",
+        resp = client.get(f"/Product/{product.id}?populate=comments",
                           headers=auth_header(alice_token))
         data = resp.json()
         comments = data.get("comments")
@@ -166,7 +166,7 @@ class TestPopulateDepthLevels:
     def test_depth_1_get_likes_still_hrefs(self, client, alice_token, seed_data):
         """?populate=comments at depth 1 — nested likes remain href strings."""
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}?populate=comments",
+        resp = client.get(f"/Product/{product.id}?populate=comments",
                           headers=auth_header(alice_token))
         data = resp.json()
         comment_obj = data["comments"]["data"][0]
@@ -178,7 +178,7 @@ class TestPopulateDepthLevels:
 
     def test_depth_1_list_populates_comments(self, client, alice_token, seed_data):
         """?populate=comments on list endpoint returns populated wrapper."""
-        resp = client.get("/products?limit=2&populate=comments",
+        resp = client.get("/Product/_?limit=2&populate=comments",
                           headers=auth_header(alice_token))
         data = resp.json()
         assert "data" in data
@@ -194,7 +194,7 @@ class TestPopulateDepthLevels:
     def test_depth_2_get_populates_comments_and_likes(self, client, alice_token, seed_data):
         """?populate=comments&depth=2 loads comments AND their nested likes."""
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}?populate=comments&depth=2",
+        resp = client.get(f"/Product/{product.id}?populate=comments&depth=2",
                           headers=auth_header(alice_token))
         data = resp.json()
         comments = data.get("comments")
@@ -209,7 +209,7 @@ class TestPopulateDepthLevels:
 
     def test_depth_2_list_populates_nested(self, client, alice_token, seed_data):
         """?populate=comments&depth=2 on list endpoint loads nested likes."""
-        resp = client.get("/products?limit=2&populate=comments&depth=2",
+        resp = client.get("/Product/_?limit=2&populate=comments&depth=2",
                           headers=auth_header(alice_token))
         data = resp.json()
         assert "data" in data
@@ -228,14 +228,14 @@ class TestPopulateDepthLevels:
     def test_populate_nonexistent_field_ignored(self, client, alice_token, seed_data):
         """Populating a non-existent field should not cause errors."""
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}?populate=nonexistent_field",
+        resp = client.get(f"/Product/{product.id}?populate=nonexistent_field",
                           headers=auth_header(alice_token))
         assert resp.status_code == 200
 
     def test_depth_only_without_populate(self, client, alice_token, seed_data):
         """?depth=1 without populate= populates all ListRef fields."""
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}?depth=1",
+        resp = client.get(f"/Product/{product.id}?depth=1",
                           headers=auth_header(alice_token))
         data = resp.json()
         comments = data.get("comments")

@@ -80,7 +80,7 @@ def run_tests():
               f"{fav1.get('action')} → {fav2.get('action')}")
 
         # 4. Like toggle
-        like1 = page.evaluate("""(token) => fetch('/products/1/comments/1/like', {
+        like1 = page.evaluate("""(token) => fetch('/Product/1/Comment/1/like', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'x-access-token': token},
             body: '{}'
@@ -88,7 +88,7 @@ def run_tests():
         check("Like returns action", 'action' in like1, f"got {like1}")
 
         # 5. Reply
-        reply = page.evaluate("""(token) => fetch('/products/1/comments/2/reply', {
+        reply = page.evaluate("""(token) => fetch('/Product/1/Comment/2/reply', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'x-access-token': token},
             body: JSON.stringify({text: 'Playwright reply'})

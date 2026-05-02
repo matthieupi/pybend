@@ -27,7 +27,7 @@ class TestLikeResponseContract:
         comment = make_comment(product.id, name="Fresh like contract comment")
 
         resp = client.post(
-            f"/products/{product.id}/comments/{comment['id']}/like",
+            f"/Product/{product.id}/Comment/{comment['id']}/like",
             json={}, headers=auth_header(charlie_token),
         )
         assert resp.status_code == 200
@@ -42,7 +42,7 @@ class TestLikeResponseContract:
         product = seed_data["products"][3]
 
         resp = client.post(
-            f"/products/{product.id}/favorite",
+            f"/Product/{product.id}/favorite",
             json={}, headers=auth_header(alice_token),
         )
         assert resp.status_code == 200
@@ -59,7 +59,7 @@ class TestLikeResponseContract:
 
         # Comment method returns entity data
         comment_resp = client.post(
-            f"/products/{product.id}/comment",
+            f"/Product/{product.id}/comment",
             json={"comment": {"name": "Test comment", "description": "Testing"}},
             headers=auth_header(alice_token),
         )
@@ -70,7 +70,7 @@ class TestLikeResponseContract:
         fresh_comment = make_comment(product.id, name="Fresh paired like contract comment")
 
         like_resp = client.post(
-            f"/products/{product.id}/comments/{fresh_comment['id']}/like",
+            f"/Product/{product.id}/Comment/{fresh_comment['id']}/like",
             json={}, headers=auth_header(alice_token),
         )
         assert like_resp.status_code == 200

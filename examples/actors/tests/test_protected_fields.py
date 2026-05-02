@@ -17,7 +17,7 @@ class TestProtectedFieldsOnCreate:
     def test_comment_user_owner_injected_from_jwt(self, client, alice_token, seed_data):
         product = seed_data["products"][0]
         alice = seed_data["users"]["alice"]
-        resp = client.post(f"/products/{product.id}/comments", json={
+        resp = client.post(f"/Product/{product.id}/Comment", json={
             "name": "Protected create",
             "description": "Testing auto-inject",
         }, headers=auth_header(alice_token))
@@ -31,7 +31,7 @@ class TestProtectedFieldsOnCreate:
         """Even if user_owner is in the body, it should be overwritten by JWT."""
         product = seed_data["products"][0]
         bob = seed_data["users"]["bob"]
-        resp = client.post(f"/products/{product.id}/comments", json={
+        resp = client.post(f"/Product/{product.id}/Comment", json={
             "name": "Body override test",
             "description": "user_owner in body should be ignored",
             "user_owner": 999,
@@ -52,7 +52,7 @@ class TestProtectedFieldsOnUpdate:
         product = seed_data["products"][0]
         bob = seed_data["users"]["bob"]
 
-        resp = client.put(f"/products/{product.id}/comments/{comment.id}", json={
+        resp = client.put(f"/Product/{product.id}/Comment/{comment.id}", json={
             "name": "Strip test",
             "user_owner": 999,  # Should be stripped
         }, headers=auth_header(bob_token))

@@ -16,7 +16,7 @@ def parse_href_id(href):
     """Extract the trailing integer ID from an href URL.
 
     Examples:
-        parse_href_id("http://localhost:5000/products/1/comments/3") -> 3
+        parse_href_id("http://localhost:5000/Product/1/Comment/3") -> 3
         parse_href_id("http://localhost:5000/users/5") -> 5
     """
     if isinstance(href, int):

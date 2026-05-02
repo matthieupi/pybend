@@ -290,7 +290,7 @@ class TestStrReturningMethod:
         """
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/comment",
+            f"/Product/{product.id}/comment",
             json={"comment": {"name": "Debug test", "description": "Works now"}},
             headers=auth_header(alice_token),
         )
@@ -306,7 +306,7 @@ class TestStrReturningMethod:
         n3tx_config.DEBUG = False
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/comment",
+            f"/Product/{product.id}/comment",
             json={"comment": {"name": "No debug", "description": "Should work"}},
             headers=auth_header(alice_token),
         )

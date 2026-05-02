@@ -133,7 +133,7 @@ def test_favorite_user_renders_as_ntx_user():
 
         # Also check the API response directly for favorites data
         api_result = page.evaluate("""async () => {
-            const resp = await fetch(location.origin + '/products?limit=5&offset=0');
+            const resp = await fetch(location.origin + '/Product/_?limit=5&offset=0');
             const data = await resp.json();
             const products = data.data || [];
             const result = { products: [] };

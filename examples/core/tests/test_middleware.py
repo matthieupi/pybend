@@ -79,7 +79,7 @@ class TestJWTMiddleware:
         """Public endpoint (Comment read = ANYONE) should work without token."""
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.get(f"/products/{product.id}/comments/{comment.id}")
+        resp = client.get(f"/Product/{product.id}/Comment/{comment.id}")
         assert resp.status_code == 200
 
 
@@ -97,7 +97,7 @@ class TestCORSMiddleware:
 
     def test_options_preflight(self, client):
         """OPTIONS preflight should return CORS headers."""
-        resp = client.options("/products", headers={
+        resp = client.options("/Product", headers={
             "origin": "http://localhost:3000",
             "access-control-request-method": "POST",
         })

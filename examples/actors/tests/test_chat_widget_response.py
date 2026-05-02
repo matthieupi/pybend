@@ -82,7 +82,7 @@ class TestStreamingChunkTextExtraction:
 
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/ask",
+            f"/Product/{product.id}/ask",
             json={"task": "hello"},
             headers=auth_header(alice_token),
         )
@@ -100,7 +100,7 @@ class TestStreamingChunkTextExtraction:
 
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/ask",
+            f"/Product/{product.id}/ask",
             json={"task": "describe"},
             headers=auth_header(alice_token),
         )
@@ -132,7 +132,7 @@ class TestStreamingChunkTextExtraction:
 
         product = seed_data["products"][0]
         resp = client.post(
-            f"/products/{product.id}/ask",
+            f"/Product/{product.id}/ask",
             json={"task": "hello"},
             headers=auth_header(alice_token),
         )

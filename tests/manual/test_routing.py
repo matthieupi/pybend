@@ -57,7 +57,7 @@ def run():
 
         like_calls = [c for c in api_calls if '/like' in c['url'] and c['method'] == 'POST']
         print(f"  Like POST calls: {[c['url'] for c in like_calls]}")
-        like_ok = any('/products/' in c['url'] and '/comments/' in c['url'] for c in like_calls)
+        like_ok = any('/Product/' in c['url'] and '/Comment/' in c['url'] for c in like_calls)
         like_bad = any('/Comment/' in c['url'] for c in like_calls)
         print(f"  Correct path: {like_ok}, Wrong path: {like_bad}")
 
@@ -89,7 +89,7 @@ def run():
 
         reply_calls = [c for c in api_calls if '/reply' in c['url'] and c['method'] == 'POST']
         print(f"  Reply POST calls: {[c['url'] for c in reply_calls]}")
-        reply_ok = any('/products/' in c['url'] and '/comments/' in c['url'] for c in reply_calls)
+        reply_ok = any('/Product/' in c['url'] and '/Comment/' in c['url'] for c in reply_calls)
         reply_bad = any('/Comment/' in c['url'] for c in reply_calls)
         print(f"  Correct path: {reply_ok}, Wrong path: {reply_bad}")
 
@@ -108,7 +108,7 @@ def run():
 
         fav_calls = [c for c in api_calls if '/favorite' in c['url'] and c['method'] == 'POST']
         print(f"  Favorite POST calls: {[c['url'] for c in fav_calls]}")
-        fav_ok = any('/products/' in c['url'] for c in fav_calls)
+        fav_ok = any('/Product/' in c['url'] for c in fav_calls)
         print(f"  Correct path: {fav_ok}")
 
         # ── Errors ──

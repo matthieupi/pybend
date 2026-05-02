@@ -20,7 +20,7 @@ class TestCommentLikes:
         """Verify likes appear on comments when fetched."""
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.get(f"/products/{product.id}/comments/{comment.id}")
+        resp = client.get(f"/Product/{product.id}/Comment/{comment.id}")
         data = resp.json()
         likes = data.get("likes", [])
         assert isinstance(likes, list)
@@ -32,17 +32,17 @@ class TestCommentLikes:
         product = seed_data["products"][1]
         comment = seed_data["comments"][2]  # comment on product 1
         # Get initial likes count
-        before = client.get(f"/products/{product.id}/comments/{comment.id}")
+        before = client.get(f"/Product/{product.id}/Comment/{comment.id}")
         before_likes = before.json().get("likes", [])
         initial_count = len(before_likes)
 
-        resp = client.post(f"/products/{product.id}/comments/{comment.id}/like",
+        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
                            json={}, headers=auth_header(charlie_token))
         assert resp.status_code == 200
         data = resp.json()
         action = data["action"]
 
-        after = client.get(f"/products/{product.id}/comments/{comment.id}")
+        after = client.get(f"/Product/{product.id}/Comment/{comment.id}")
         after_likes = after.json().get("likes", [])
         if action == "liked":
             assert len(after_likes) == initial_count + 1
@@ -53,10 +53,10 @@ class TestCommentLikes:
         """IT-4: Two consecutive calls should toggle like/unlike."""
         product = seed_data["products"][1]
         comment = seed_data["comments"][3]
-        resp1 = client.post(f"/products/{product.id}/comments/{comment.id}/like",
+        resp1 = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
                             json={}, headers=auth_header(alice_token))
         data1 = resp1.json()
-        resp2 = client.post(f"/products/{product.id}/comments/{comment.id}/like",
+        resp2 = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
                             json={}, headers=auth_header(alice_token))
         data2 = resp2.json()
         assert data1["action"] != data2["action"]
@@ -65,7 +65,7 @@ class TestCommentLikes:
         """IT-4: Anonymous user cannot like."""
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.post(f"/products/{product.id}/comments/{comment.id}/like",
+        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
                            json={})
         assert resp.status_code == 401
 
@@ -75,10 +75,10 @@ class TestCommentLikes:
         comment = seed_data["comments"][4]
 
         # Both users like
-        r1 = client.post(f"/products/{product.id}/comments/{comment.id}/like",
+        r1 = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
                          json={}, headers=auth_header(alice_token))
         assert r1.status_code == 200
-        r2 = client.post(f"/products/{product.id}/comments/{comment.id}/like",
+        r2 = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
                          json={}, headers=auth_header(bob_token))
         assert r2.status_code == 200
 
@@ -89,7 +89,7 @@ class TestProductFavorites:
     def test_list_product_favorites_via_product(self, client, seed_data, alice_token):
         """Verify favorites appear on products when fetched."""
         product = seed_data["products"][0]
-        resp = client.get(f"/products/{product.id}", headers=auth_header(alice_token))
+        resp = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
         data = resp.json()
         favorites = data.get("favorites", [])
         assert isinstance(favorites, list)
@@ -99,16 +99,16 @@ class TestProductFavorites:
     def test_favorite_creates_record(self, client, charlie_token, seed_data, alice_token):
         """IT-4: Favorite via custom method creates a persisted record."""
         product = seed_data["products"][3]
-        before = client.get(f"/products/{product.id}", headers=auth_header(alice_token))
+        before = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
         initial = len(before.json().get("favorites", []))
 
-        resp = client.post(f"/products/{product.id}/favorite",
+        resp = client.post(f"/Product/{product.id}/favorite",
                            json={}, headers=auth_header(charlie_token))
         assert resp.status_code == 200
         data = resp.json()
         action = data["action"]
 
-        after = client.get(f"/products/{product.id}", headers=auth_header(alice_token))
+        after = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
         final = len(after.json().get("favorites", []))
         if action == "favorited":
             assert final == initial + 1
@@ -134,7 +134,7 @@ class TestDirectLikeCRUD:
         product = seed_data["products"][0]
         comment = seed_data["comments"][1]
         resp = client.post(
-            f"/products/{product.id}/comments/{comment.id}/likes",
+            f"/Product/{product.id}/Comment/{comment.id}/likes",
             json={"user": seed_data["users"]["alice"].id},
             headers=auth_header(alice_token),
         )
@@ -145,7 +145,7 @@ class TestDirectLikeCRUD:
         """List likes on a comment via nested route."""
         product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.get(f"/products/{product.id}/comments/{comment.id}/likes")
+        resp = client.get(f"/Product/{product.id}/Comment/{comment.id}/likes")
         # Nested list may or may not be implemented
         if resp.status_code == 200:
             data = resp.json()

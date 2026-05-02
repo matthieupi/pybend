@@ -187,7 +187,7 @@ class TestAgentHTTPPipeline:
     """Test the HTTP pipeline directly (no widget) for finer-grained assertions."""
 
     def test_ask_endpoint_streams_sse(self, page, e2e_server):
-        """POST /products/{id}/ask should return SSE with text chunks and done."""
+        """POST /Product/{id}/ask should return SSE with text chunks and done."""
         base = e2e_server
 
         # First login
@@ -209,7 +209,7 @@ class TestAgentHTTPPipeline:
         # Call the agent endpoint and parse SSE
         result = page.evaluate("""async (args) => {
             const [base, token] = args;
-            const resp = await fetch(`${base}/products/1/ask`, {
+            const resp = await fetch(`${base}/Product/1/ask`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

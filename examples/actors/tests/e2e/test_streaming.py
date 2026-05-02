@@ -28,7 +28,7 @@ def page(browser):
 
 
 def test_sse_chunks_arrive_progressively(page, e2e_server):
-    """Chunks from /products/1/countdown must arrive with real delays."""
+    """Chunks from /Product/1/countdown must arrive with real delays."""
     base = e2e_server
 
     # Navigate to the app so we have a page context
@@ -37,7 +37,7 @@ def test_sse_chunks_arrive_progressively(page, e2e_server):
 
     # Run a fetch-based SSE reader in the browser and record chunk timestamps
     result = page.evaluate("""async (base) => {
-        const url = `${base}/products/1/countdown`;
+        const url = `${base}/Product/1/countdown`;
         const resp = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
