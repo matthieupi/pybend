@@ -70,8 +70,8 @@ class NetworkWebSocket(NetworkAdapter, auto_register=False):
 
         Frontend targets include full API URLs:
             http://localhost:5000/Product      -> target='products', name='schema'
-            http://localhost:5000/products     -> target='products', name='list'
-            http://localhost:5000/products/42  -> target='products', data.id=42
+            http://localhost:5000/Product/_    -> target='products', name='list'
+            http://localhost:5000/Product/42   -> target='products', data.id=42
 
         Returns a TX ready for self.request().
         """
@@ -94,22 +94,31 @@ class NetworkWebSocket(NetworkAdapter, auto_register=False):
         # 2. Map frontend UPPERCASE name to backend lowercase
         backend_name = _NAME_MAP.get(name.upper(), name.lower())
 
-        # 3. Resolve target: could be ClassName or tablename/id
+        # 3. Resolve target: could be ClassName, ClassName/_ or ClassName/id,
+        # or a legacy tablename/id path.
         model_cls = None
         entity_id = None
+        parts = target.split('/')
+        route_head = parts[0] if parts else target
 
-        # Check if target is a ClassName (e.g., "Product")
+        # Check if target is a ClassName grammar path (e.g., Product/_ or Product/1)
         for tablename, cls in registered_models.items():
-            if cls.__name__ == target:
+            if cls.__name__ == route_head:
                 target = tablename
                 model_cls = cls
-                # ClassName target = schema request
-                if backend_name in ('list', 'schema'):
+                # Bare ClassName target = schema request. Explicit '_' is list.
+                if len(parts) == 1 and backend_name in ('list', 'schema'):
                     backend_name = 'schema'
+                elif len(parts) >= 2 and parts[1] == '_':
+                    backend_name = 'list'
+                elif len(parts) >= 2 and parts[1]:
+                    try:
+                        entity_id = int(parts[1])
+                    except ValueError:
+                        pass
                 break
         else:
             # Target is tablename or tablename/id path
-            parts = target.split('/')
             tablename = parts[0]
             if tablename in registered_models:
                 model_cls = registered_models[tablename]

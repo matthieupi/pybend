@@ -93,6 +93,28 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
 
     router = APIRouter()
 
+    nested_class_pairs = {}
+    for candidate in models_dict.values():
+        owner_cls = getattr(candidate, '__owner__', None)
+        child_cls = getattr(candidate, '__parent__', None)
+        if owner_cls and child_cls:
+            nested_class_pairs.setdefault((owner_cls.__name__, child_cls.__name__), []).append(candidate)
+
+    def nested_class_base_for(model_class):
+        owner_cls = getattr(model_class, '__owner__', None)
+        child_cls = getattr(model_class, '__parent__', None)
+        if not owner_cls or not child_cls:
+            return None
+        matches = nested_class_pairs.get((owner_cls.__name__, child_cls.__name__), [])
+        if len(matches) != 1:
+            logger.warning(
+                "Skipping ambiguous nested class-name actor routes for %s/%s: %s",
+                owner_cls.__name__, child_cls.__name__,
+                [m.__name__ for m in matches],
+            )
+            return None
+        return f"/{owner_cls.__name__}/{{parent_id:int}}/{child_cls.__name__}"
+
     # Utility routes (not model-specific, no actor routing needed)
     @router.get("/auth/me", tags=["Auth"])
     async def auth_me(request: Request):
@@ -148,11 +170,13 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
             _register_crud_routes(
                 router, api_adapter, model_class, endpoint_base, tag,
                 has_parent=parent_class is not None,
+                nested_class_base=nested_class_base_for(model_class),
             )
 
         # Custom @expose_route methods
         _register_custom_routes(
             router, api_adapter, model_class, endpoint_base, tag,
+            nested_class_base=nested_class_base_for(model_class),
         )
 
     return router
@@ -251,6 +275,7 @@ def _register_class_read_mirror(router, api_adapter, model_class, tag):
 
 def _register_crud_routes(
     router, api_adapter, model_class, endpoint_base, tag, has_parent=False,
+    nested_class_base=None,
 ):
     """Register POST, GET (list), GET (item), PUT, DELETE routes."""
     addr = model_class.__tablename__
@@ -420,13 +445,54 @@ def _register_crud_routes(
         )
         return _response_or_raise(response)
 
+    if not has_parent:
+        class_base = f"/{model_class.__name__}"
+        router.post(
+            class_base, tags=[tag], status_code=201,
+            name=f"create_{addr}_class",
+        )(create_instance)
+        router.get(
+            f"{class_base}/_", tags=[tag],
+            name=f"list_{addr}_class",
+        )(list_instances)
+        router.put(
+            f"{class_base}/{{id:int}}", tags=[tag],
+            name=f"update_{addr}_class",
+        )(update_instance)
+        router.delete(
+            f"{class_base}/{{id:int}}", tags=[tag],
+            name=f"delete_{addr}_class",
+        )(delete_instance)
+    elif nested_class_base:
+        router.post(
+            nested_class_base, tags=[tag], status_code=201,
+            name=f"create_{addr}_nested_class",
+        )(create_instance)
+        router.get(
+            nested_class_base, tags=[tag],
+            name=f"list_{addr}_nested_class",
+        )(list_instances)
+        router.get(
+            f"{nested_class_base}/{{id:int}}", tags=[tag],
+            name=f"get_{addr}_nested_class",
+        )(get_instance)
+        router.put(
+            f"{nested_class_base}/{{id:int}}", tags=[tag],
+            name=f"update_{addr}_nested_class",
+        )(update_instance)
+        router.delete(
+            f"{nested_class_base}/{{id:int}}", tags=[tag],
+            name=f"delete_{addr}_nested_class",
+        )(delete_instance)
 
-def _register_custom_routes(router, api_adapter, model_class, endpoint_base, tag):
+
+def _register_custom_routes(router, api_adapter, model_class, endpoint_base, tag, nested_class_base=None):
     """Register @expose_route custom method routes."""
     from inspect import signature as get_sig
     from typing import get_type_hints
 
     addr = model_class.__tablename__
+    parent_class = getattr(model_class, '__owner__', None)
 
     for attr_name in dir(model_class):
         attr = getattr(model_class, attr_name, None)
@@ -457,6 +523,37 @@ def _register_custom_routes(router, api_adapter, model_class, endpoint_base, tag
                 full_route, methods, tag, is_instance_method, addr,
             )
 
+        if not parent_class:
+            if is_instance_method:
+                class_route = f"/{model_class.__name__}/{{id:int}}{route}"
+            else:
+                class_route = f"/{model_class.__name__}{route}"
+            if is_stream:
+                _add_streaming_handler(
+                    router, api_adapter, model_class, attr, attr_name,
+                    class_route, methods, tag, is_instance_method, addr,
+                )
+            else:
+                _add_custom_handler(
+                    router, api_adapter, model_class, attr, attr_name,
+                    class_route, methods, tag, is_instance_method, addr,
+                )
+        elif nested_class_base:
+            if is_instance_method:
+                nested_class_route = f"{nested_class_base}/{{id:int}}{route}"
+            else:
+                nested_class_route = f"{nested_class_base}{route}"
+            if is_stream:
+                _add_streaming_handler(
+                    router, api_adapter, model_class, attr, attr_name,
+                    nested_class_route, methods, tag, is_instance_method, addr,
+                )
+            else:
+                _add_custom_handler(
+                    router, api_adapter, model_class, attr, attr_name,
+                    nested_class_route, methods, tag, is_instance_method, addr,
+                )
+
 
 def _add_custom_handler(
     router, api_adapter, model_class, attr, attr_name,
@@ -474,6 +571,7 @@ def _add_custom_handler(
                           name=f"custom_{addr}_{attr_name}")
         async def custom_with_id(
             request: Request,
+            parent_id: int = None,
             id: int = Path(...),
             data: Dict[str, Any] = Body(default={}),
             _attr=attr, _attr_name=attr_name, _sig=sig,
@@ -549,7 +647,9 @@ def _add_streaming_handler(
         @router.api_route(full_route, methods=methods, tags=[tag],
                           name=f"stream_{addr}_{attr_name}")
         async def stream_with_id(
-            request: Request, id: int = Path(...),
+            request: Request,
+            parent_id: int = None,
+            id: int = Path(...),
             data: Dict[str, Any] = Body(default={}),
             _attr=attr, _attr_name=attr_name, _sig=sig,
             _type_hints=type_hints, _addr=addr, _cls=model_class,

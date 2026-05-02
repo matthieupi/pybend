@@ -181,6 +181,10 @@ class MockModel(StorableMixin, Actor, auto_register=False):
     def custom_method(self, arg1: str, arg2: int = 10) -> str:
         return f"{arg1}_{arg2}"
 
+    @expose_route('/stream_custom', methods=['POST'], stream=True)
+    async def stream_custom(self, prompt: str = ''):
+        yield {'chunk': prompt}
+
 
 class MockUser(StorableMixin, Actor, auto_register=False):
     """Mock user model for user injection tests."""
@@ -202,10 +206,18 @@ class MockChildModel(StorableMixin, Actor, auto_register=False):
     __tablename__: ClassVar[str] = 'mock_children'
     __tagname__: ClassVar[str] = 'children'
     __storable__: ClassVar[bool] = True
-    __owner__: ClassVar[type] = MockModel
+    __owner__ = MockModel
+    __parent__ = None
 
     content: str = Field(min_length=1)
     mockmodel_id: Optional[int] = Field(default=None)
+
+    @expose_route('/mark', methods=['POST'])
+    def mark(self, value: str) -> dict:
+        return {'id': self.id, 'value': value}
+
+
+MockChildModel.__parent__ = MockChildModel
 
 
 # ===================================================================
@@ -525,10 +537,12 @@ class TestCreateAPIRoutesRouteGeneration:
         router = create_api_routes(api, models)
 
         routes = {r.path for r in router.routes}
-        # Base path for list and create
+        # Legacy table-name transport remains available.
         assert '/mock_models' in routes
-        # Item path for get, update, delete
         assert '/mock_models/{id:int}' in routes
+        # Canonical class-name transport is the primary API grammar.
+        assert '/MockModel/_' in routes
+        assert '/MockModel/{id:int}' in routes
 
     def test_create_api_routes_generates_custom_method_routes(self):
         """Should generate routes for @expose_route methods."""
@@ -539,6 +553,34 @@ class TestCreateAPIRoutesRouteGeneration:
         routes = {r.path for r in router.routes}
         # Instance method route includes {id:int}
         assert '/mock_models/{id:int}/custom' in routes
+        assert '/MockModel/{id:int}/custom' in routes
+
+    def test_create_api_routes_generates_class_name_crud_method_parity(self):
+        """Class-name actor routes should mirror root table-name CRUD/method routes."""
+        api = NetworkAPI()
+        models = {'mock_models': MockModel}
+        router = create_api_routes(api, models)
+
+        methods_by_path = {}
+        for route in router.routes:
+            methods_by_path.setdefault(route.path, set()).update(
+                getattr(route, 'methods', set()) or set()
+            )
+
+        assert 'GET' in methods_by_path['/MockModel']
+        assert 'POST' in methods_by_path['/MockModel']
+        assert 'GET' in methods_by_path['/MockModel/_']
+        assert {'GET', 'PUT', 'DELETE'} <= methods_by_path['/MockModel/{id:int}']
+        assert 'POST' in methods_by_path['/MockModel/{id:int}/custom']
+        assert 'POST' in methods_by_path['/MockModel/{id:int}/stream_custom']
+
+        assert {'GET', 'POST'} <= methods_by_path['/mock_models']
+        assert {'GET', 'PUT', 'DELETE'} <= methods_by_path['/mock_models/{id:int}']
+        assert 'POST' in methods_by_path['/mock_models/{id:int}/custom']
+        assert 'POST' in methods_by_path['/mock_models/{id:int}/stream_custom']
+
+        assert 'GET' in methods_by_path['/MockModel/@']
+        assert 'GET' in methods_by_path['/MockModel/{id:int}/@{view}']
 
     def test_create_api_routes_generates_collection_routes_for_join_models(self):
         """Join models should get static collection routes first."""
@@ -566,6 +608,9 @@ class TestCreateAPIRoutesRouteGeneration:
         # Parent-child path structure
         assert '/mock_models/{parent_id:int}/children' in routes
         assert '/mock_models/{parent_id:int}/children/{id:int}' in routes
+        assert '/MockModel/{parent_id:int}/MockChildModel' in routes
+        assert '/MockModel/{parent_id:int}/MockChildModel/{id:int}' in routes
+        assert '/MockModel/{parent_id:int}/MockChildModel/{id:int}/mark' in routes
 
 
 # ===================================================================
@@ -640,7 +685,7 @@ class TestCRUDRoutes:
 
     @pytest.mark.asyncio
     async def test_create_route_sends_create_tx(self):
-        """POST /{tablename} should send create TX."""
+        """POST /{ClassName} should send create TX."""
         Actor.__matrix__ = None
         m = Matrix()
         api = NetworkAPI()
@@ -663,7 +708,7 @@ class TestCRUDRoutes:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.post('/mock_models', json={'name': 'Test', 'value': 5})
+            response = client.post('/MockModel', json={'name': 'Test', 'value': 5})
 
         assert response.status_code == 201
         assert captured_tx.name == 'create'
@@ -704,7 +749,7 @@ class TestCRUDRoutes:
 
         with mock_method(api, 'request', mock_request):
             client = TestClient(app)
-            response = client.post('/mock_models', json={'name': 'Test'})
+            response = client.post('/MockModel', json={'name': 'Test'})
 
         assert response.status_code == 201
         assert captured_tx.data.get('user_owner') == 123
@@ -747,8 +792,99 @@ class TestCRUDRoutes:
         assert captured_tx.data.get('mockmodel_id') == 5
 
     @pytest.mark.asyncio
+    async def test_nested_class_name_routes_match_legacy_join_tx_contracts(self):
+        """Nested class-name actor routes should dispatch the same TXs as join routes."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        api = NetworkAPI()
+        m.register(api)
+        m.register(MockModel)
+        m.register(MockChildModel)
+
+        router = create_api_routes(api, {
+            'mock_models': MockModel,
+            'mock_children': MockChildModel,
+        })
+        captured = []
+
+        async def mock_request(tx, timeout=30.0):
+            captured.append(tx)
+            if tx.name == 'list':
+                return tx.reply(data=[])
+            if tx.name == 'delete':
+                return tx.reply(data={'message': 'Deleted successfully'})
+            return tx.reply(data={'id': tx.data.get('id', 1), **tx.data})
+
+        from fastapi import FastAPI
+        app = FastAPI()
+
+        @app.middleware("http")
+        async def add_user_to_state(request, call_next):
+            request.state.user = {'user_id': 42, 'email': 'actor@example.com'}
+            return await call_next(request)
+
+        app.include_router(router)
+
+        def assert_tx_pair(table_tx, class_tx, *, name, data):
+            assert table_tx.name == class_tx.name == name
+            assert table_tx.source == class_tx.source == 'api'
+            assert table_tx.target == class_tx.target == 'mock_children'
+            assert table_tx.data == class_tx.data == data
+            assert table_tx.meta['user'] == class_tx.meta['user'] == {
+                'user_id': 42,
+                'email': 'actor@example.com',
+            }
+            assert table_tx.meta['model_cls'] is class_tx.meta['model_cls'] is MockChildModel
+
+        with mock_method(api, 'request', mock_request):
+            client = TestClient(app)
+
+            client.post('/mock_models/5/children', json={'content': 'Child content'})
+            client.post('/MockModel/5/MockChildModel', json={'content': 'Child content'})
+            assert_tx_pair(captured[-2], captured[-1], name='create', data={
+                'content': 'Child content',
+                'mockmodel_id': 5,
+            })
+
+            client.get('/mock_models/5/children?limit=2&populate=items&depth=1')
+            client.get('/MockModel/5/MockChildModel?limit=2&populate=items&depth=1')
+            assert_tx_pair(captured[-2], captured[-1], name='list', data={
+                'limit': 2,
+                'parent_id': 5,
+                'populate': 'items',
+                'depth': 1,
+            })
+
+            client.get('/mock_models/5/children/7?populate=items&depth=1')
+            client.get('/MockModel/5/MockChildModel/7?populate=items&depth=1')
+            assert_tx_pair(captured[-2], captured[-1], name='get', data={
+                'id': 7,
+                'populate': 'items',
+                'depth': 1,
+            })
+
+            client.put('/mock_models/5/children/7', json={'content': 'Updated'})
+            client.put('/MockModel/5/MockChildModel/7', json={'content': 'Updated'})
+            assert_tx_pair(captured[-2], captured[-1], name='update', data={
+                'content': 'Updated',
+                'mockmodel_id': 5,
+                'id': 7,
+            })
+
+            client.post('/mock_models/5/children/7/mark', json={'value': 'ok'})
+            client.post('/MockModel/5/MockChildModel/7/mark', json={'value': 'ok'})
+            assert_tx_pair(captured[-2], captured[-1], name='mark', data={
+                'value': 'ok',
+                'id': 7,
+            })
+
+            client.delete('/mock_models/5/children/7')
+            client.delete('/MockModel/5/MockChildModel/7')
+            assert_tx_pair(captured[-2], captured[-1], name='delete', data={'id': 7})
+
+    @pytest.mark.asyncio
     async def test_list_route_sends_list_tx(self):
-        """GET /{tablename} should send list TX."""
+        """GET /{ClassName}/_ should send list TX."""
         Actor.__matrix__ = None
         m = Matrix()
         api = NetworkAPI()
@@ -771,7 +907,7 @@ class TestCRUDRoutes:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.get('/mock_models')
+            response = client.get('/MockModel/_')
 
         assert response.status_code == 200
         assert captured_tx.name == 'list'
@@ -779,7 +915,7 @@ class TestCRUDRoutes:
 
     @pytest.mark.asyncio
     async def test_list_route_handles_pagination(self):
-        """GET /{tablename}?limit=10&offset=20 should include pagination."""
+        """GET /{ClassName}/_?limit=10&offset=20 should include pagination."""
         Actor.__matrix__ = None
         m = Matrix()
         api = NetworkAPI()
@@ -802,7 +938,7 @@ class TestCRUDRoutes:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.get('/mock_models?limit=10&offset=20')
+            response = client.get('/MockModel/_?limit=10&offset=20')
 
         assert response.status_code == 200
         assert captured_tx.data.get('limit') == 10
@@ -810,7 +946,7 @@ class TestCRUDRoutes:
 
     @pytest.mark.asyncio
     async def test_get_route_sends_get_tx(self):
-        """GET /{tablename}/{id} should send get TX."""
+        """GET /{ClassName}/{id} should send get TX."""
         Actor.__matrix__ = None
         m = Matrix()
         api = NetworkAPI()
@@ -833,7 +969,7 @@ class TestCRUDRoutes:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.get('/mock_models/5')
+            response = client.get('/MockModel/5')
 
         assert response.status_code == 200
         assert captured_tx.name == 'get'
@@ -856,7 +992,7 @@ class TestCRUDRoutes:
             'id': 5,
             'name': 'Test',
             '$schema': 'http://test/MockModel',
-            '$id': 'http://test/mock_models/5',
+            '$id': 'http://test/MockModel/5',
         }
 
         async def mock_request(tx, timeout=30.0):
@@ -914,6 +1050,87 @@ class TestCRUDRoutes:
         assert response.json()['detail'] == 'Not found'
 
     @pytest.mark.asyncio
+    async def test_class_name_crud_mirrors_match_table_tx_contracts(self):
+        """Class-name CRUD mirrors should dispatch the same TX contract as table routes."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        api = NetworkAPI()
+        m.register(api)
+        m.register(MockModel)
+
+        router = create_api_routes(api, {'mock_models': MockModel})
+        captured = []
+
+        async def mock_request(tx, timeout=30.0):
+            captured.append(tx)
+            if tx.name == 'list':
+                return tx.reply(data={'data': [], 'meta': {'total': 0}})
+            if tx.name == 'delete':
+                return tx.reply(data={'message': 'Deleted successfully'})
+            return tx.reply(data={'id': tx.data.get('id', 1), **tx.data})
+
+        from fastapi import FastAPI
+        app = FastAPI()
+
+        @app.middleware("http")
+        async def add_user_to_state(request, call_next):
+            request.state.user = {'user_id': 42, 'email': 'actor@example.com'}
+            return await call_next(request)
+
+        app.include_router(router)
+
+        def assert_tx_pair(table_tx, class_tx, *, name, data):
+            assert table_tx.name == class_tx.name == name
+            assert table_tx.source == class_tx.source == 'api'
+            assert table_tx.target == class_tx.target == 'mock_models'
+            assert table_tx.data == class_tx.data == data
+            assert table_tx.meta['user'] == class_tx.meta['user'] == {
+                'user_id': 42,
+                'email': 'actor@example.com',
+            }
+            assert table_tx.meta['model_cls'] is class_tx.meta['model_cls'] is MockModel
+
+        with mock_method(api, 'request', mock_request):
+            client = TestClient(app)
+
+            client.post('/mock_models', json={'name': 'Test', 'value': 5})
+            client.post('/MockModel', json={'name': 'Test', 'value': 5})
+            assert_tx_pair(captured[-2], captured[-1], name='create', data={
+                'name': 'Test',
+                'value': 5,
+                'user_owner': 42,
+            })
+
+            client.get('/mock_models?limit=10&offset=20&populate=children&depth=1')
+            client.get('/MockModel/_?limit=10&offset=20&populate=children&depth=1')
+            assert_tx_pair(captured[-2], captured[-1], name='list', data={
+                'limit': 10,
+                'offset': 20,
+                'populate': 'children',
+                'depth': 1,
+            })
+
+            client.get('/mock_models/5?populate=children&depth=1')
+            client.get('/MockModel/5?populate=children&depth=1')
+            assert_tx_pair(captured[-2], captured[-1], name='get', data={
+                'id': 5,
+                'populate': 'children',
+                'depth': 1,
+            })
+
+            client.put('/mock_models/5', json={'name': 'Updated', 'value': 7})
+            client.put('/MockModel/5', json={'name': 'Updated', 'value': 7})
+            assert_tx_pair(captured[-2], captured[-1], name='update', data={
+                'name': 'Updated',
+                'value': 7,
+                'id': 5,
+            })
+
+            client.delete('/mock_models/5')
+            client.delete('/MockModel/5')
+            assert_tx_pair(captured[-2], captured[-1], name='delete', data={'id': 5})
+
+    @pytest.mark.asyncio
     async def test_actor_html_view_routes_do_not_send_crud_tx(self):
         """Actor HTML view routes should be served by view capability, not api.request."""
         Actor.__matrix__ = None
@@ -960,14 +1177,14 @@ class TestCRUDRoutes:
 
         assert client.get('/MockModel/@table').status_code == 200
         assert client.get('/MockModel/5/@item').status_code == 200
-        assert client.get('/MockModel/5/custom').status_code == 404
         # Existing table-name custom route remains registered.
         routes = {r.path for r in router.routes}
         assert '/mock_models/{id:int}/custom' in routes
+        assert '/MockModel/{id:int}/custom' in routes
 
     @pytest.mark.asyncio
     async def test_update_route_sends_update_tx(self):
-        """PUT /{tablename}/{id} should send update TX."""
+        """PUT /{ClassName}/{id} should send update TX."""
         Actor.__matrix__ = None
         m = Matrix()
         api = NetworkAPI()
@@ -990,7 +1207,7 @@ class TestCRUDRoutes:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.put('/mock_models/5', json={'name': 'Updated', 'value': 20})
+            response = client.put('/MockModel/5', json={'name': 'Updated', 'value': 20})
 
         assert response.status_code == 200
         assert captured_tx.name == 'update'
@@ -1023,7 +1240,7 @@ class TestCRUDRoutes:
             client = TestClient(app)
 
             response = client.put(
-                '/mock_models/5',
+                '/MockModel/5',
                 json={'name': 'Test', 'user_owner': 999}  # Protected field
             )
 
@@ -1034,7 +1251,7 @@ class TestCRUDRoutes:
 
     @pytest.mark.asyncio
     async def test_delete_route_sends_delete_tx(self):
-        """DELETE /{tablename}/{id} should send delete TX."""
+        """DELETE /{ClassName}/{id} should send delete TX."""
         Actor.__matrix__ = None
         m = Matrix()
         api = NetworkAPI()
@@ -1057,7 +1274,7 @@ class TestCRUDRoutes:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.delete('/mock_models/5')
+            response = client.delete('/MockModel/5')
 
         assert response.status_code == 200
         assert captured_tx.name == 'delete'
@@ -1097,7 +1314,7 @@ class TestCustomMethodRoutes:
             client = TestClient(app)
 
             response = client.post(
-                '/mock_models/5/custom',
+                '/MockModel/5/custom',
                 json={'arg1': 'test', 'arg2': 10}
             )
 
@@ -1130,6 +1347,7 @@ class TestCustomMethodRoutes:
         routes = {r.path for r in router.routes}
         # Class method should not have {id:int}
         assert '/mock_models/class_method' in routes
+        assert '/MockModel/class_method' in routes
 
     @pytest.mark.asyncio
     async def test_custom_method_parses_body_args(self):
@@ -1157,13 +1375,100 @@ class TestCustomMethodRoutes:
             client = TestClient(app)
 
             response = client.post(
-                '/mock_models/1/custom',
+                '/MockModel/1/custom',
                 json={'arg1': 'value1', 'arg2': 42}
             )
 
         assert response.status_code == 200
         assert captured_tx.data.get('arg1') == 'value1'
         assert captured_tx.data.get('arg2') == 42
+
+    @pytest.mark.asyncio
+    async def test_class_name_method_mirror_matches_table_tx_contract(self):
+        """Class-name method mirrors should dispatch the same TX as table methods."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        api = NetworkAPI()
+        m.register(api)
+        m.register(MockModel)
+
+        router = create_api_routes(api, {'mock_models': MockModel})
+        captured = []
+
+        async def mock_request(tx, timeout=30.0):
+            captured.append(tx)
+            return tx.reply(data={'result': 'ok'})
+
+        from fastapi import FastAPI
+        app = FastAPI()
+
+        @app.middleware("http")
+        async def add_user_to_state(request, call_next):
+            request.state.user = {'user_id': 42, 'email': 'actor@example.com'}
+            return await call_next(request)
+
+        app.include_router(router)
+
+        with mock_method(api, 'request', mock_request):
+            client = TestClient(app)
+            table_resp = client.post('/mock_models/5/custom', json={'arg1': 'test', 'arg2': 10})
+            class_resp = client.post('/MockModel/5/custom', json={'arg1': 'test', 'arg2': 10})
+
+        assert table_resp.status_code == class_resp.status_code == 200
+        table_tx, class_tx = captured
+        assert table_tx.name == class_tx.name == 'custom_method'
+        assert table_tx.source == class_tx.source == 'api'
+        assert table_tx.target == class_tx.target == 'mock_models'
+        assert table_tx.data == class_tx.data == {'arg1': 'test', 'arg2': 10, 'id': 5}
+        assert table_tx.meta['user'] == class_tx.meta['user'] == {
+            'user_id': 42,
+            'email': 'actor@example.com',
+        }
+        assert table_tx.meta['model_cls'] is class_tx.meta['model_cls'] is MockModel
+
+    @pytest.mark.asyncio
+    async def test_class_name_streaming_method_mirror_preserves_sse_tx_contract(self):
+        """Class-name streaming method mirrors should use stream TX metadata."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        api = NetworkAPI()
+        m.register(api)
+        m.register(MockModel)
+
+        router = create_api_routes(api, {'mock_models': MockModel})
+        captured_tx = None
+
+        async def mock_stream(tx, timeout=120.0):
+            nonlocal captured_tx
+            captured_tx = tx
+            yield tx.stream_chunk({'chunk': tx.data.get('prompt')}, seq=0)
+            yield tx.stream_end({'done': True}, seq=1)
+
+        from fastapi import FastAPI
+        app = FastAPI()
+
+        @app.middleware("http")
+        async def add_user_to_state(request, call_next):
+            request.state.user = {'user_id': 42, 'email': 'actor@example.com'}
+            return await call_next(request)
+
+        app.include_router(router)
+
+        with mock_method(api, 'stream', mock_stream):
+            client = TestClient(app)
+            response = client.post('/MockModel/5/stream_custom', json={'prompt': 'hello'})
+
+        assert response.status_code == 200
+        assert 'text/event-stream' in response.headers['content-type']
+        assert 'event: chunk' in response.text
+        assert 'event: done' in response.text
+        assert captured_tx.name == 'stream_custom'
+        assert captured_tx.source == 'api'
+        assert captured_tx.target == 'mock_models'
+        assert captured_tx.data == {'prompt': 'hello', 'id': 5}
+        assert captured_tx.meta['stream'] is True
+        assert captured_tx.meta['user'] == {'user_id': 42, 'email': 'actor@example.com'}
+        assert captured_tx.meta['model_cls'] is MockModel
 
 
 # ===================================================================
@@ -1228,7 +1533,7 @@ class TestEndToEndPipeline:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.post('/mock_models', json={'name': 'Widget', 'value': 10})
+            response = client.post('/MockModel', json={'name': 'Widget', 'value': 10})
 
         assert response.status_code == 201
         data = response.json()
@@ -1262,7 +1567,7 @@ class TestEndToEndPipeline:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.get('/mock_models')
+            response = client.get('/MockModel/_')
 
         assert response.status_code == 200
         data = response.json()
@@ -1290,7 +1595,7 @@ class TestEndToEndPipeline:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.get('/mock_models/999')
+            response = client.get('/MockModel/999')
 
         assert response.status_code == 404
         data = response.json()
@@ -1348,7 +1653,7 @@ class TestOutputShape:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.post('/mock_models', json={'name': 'Test'})
+            response = client.post('/MockModel', json={'name': 'Test'})
 
         assert response.status_code == 201
 
@@ -1373,7 +1678,7 @@ class TestOutputShape:
             app.include_router(router)
             client = TestClient(app)
 
-            response = client.post('/mock_models', json={})
+            response = client.post('/MockModel', json={})
 
         assert response.status_code == 422
         data = response.json()

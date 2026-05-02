@@ -151,7 +151,7 @@ class TestTranslateIncoming:
         msg = {
             'name': 'READ',
             'source': 'N3TX/Product',
-            'target': 'http://localhost:5000/products',
+            'target': 'http://localhost:5000/Product/_',
             'data': {'limit': 20, 'offset': 0},
             'meta': {},
         }
@@ -169,7 +169,7 @@ class TestTranslateIncoming:
         msg = {
             'name': 'READ',
             'source': 'N3TX/Product',
-            'target': 'http://localhost:5000/products/42',
+            'target': 'http://localhost:5000/Product/42',
             'data': {},
             'meta': {},
         }
@@ -186,7 +186,7 @@ class TestTranslateIncoming:
         msg = {
             'name': 'CREATE',
             'source': 'N3TX/Product',
-            'target': 'http://localhost:5000/products',
+            'target': 'http://localhost:5000/Product/_',
             'data': {'name': 'Widget', 'price': 9.99},
             'meta': {},
         }
@@ -203,7 +203,7 @@ class TestTranslateIncoming:
         msg = {
             'name': 'UPDATE',
             'source': 'N3TX/Product',
-            'target': 'http://localhost:5000/products/5',
+            'target': 'http://localhost:5000/Product/5',
             'data': {'name': 'Updated'},
             'meta': {},
         }
@@ -221,7 +221,7 @@ class TestTranslateIncoming:
         msg = {
             'name': 'DELETE',
             'source': 'N3TX/Product',
-            'target': 'http://localhost:5000/products/10',
+            'target': 'http://localhost:5000/Product/10',
             'data': {},
             'meta': {},
         }
@@ -255,7 +255,7 @@ class TestTranslateIncoming:
         msg = {
             'name': 'favorite',
             'source': 'N3TX/Product',
-            'target': 'http://localhost:5000/products/3',
+            'target': 'http://localhost:5000/Product/3',
             'data': {},
             'meta': {},
         }
@@ -272,7 +272,7 @@ class TestTranslateIncoming:
         msg = {
             'name': 'READ',
             'source': 'N3TX/Product',
-            'target': 'http://localhost:5000/products',
+            'target': 'http://localhost:5000/Product/_',
             'data': {},
             'meta': {'inbox': 'DESCRIBE', 'custom_key': 'custom_value'},
         }
@@ -301,12 +301,12 @@ class TestTranslateOutgoing:
             data={'data': [], 'meta': {'total': 0}},
             meta={
                 'ws_source': 'N3TX/Product',
-                'ws_target': 'http://localhost:5000/products',
+                'ws_target': 'http://localhost:5000/Product/_',
                 'ws_name': 'READ',
             },
         )
         result = ws._translate_outgoing(response)
-        assert result['source'] == 'http://localhost:5000/products'
+        assert result['source'] == 'http://localhost:5000/Product/_'
         assert result['target'] == 'N3TX/Product'
 
     def test_translate_outgoing_uses_inbox_override(self):
@@ -319,7 +319,7 @@ class TestTranslateOutgoing:
             data=[],
             meta={
                 'ws_source': 'N3TX/Product',
-                'ws_target': 'http://localhost:5000/products',
+                'ws_target': 'http://localhost:5000/Product/_',
                 'ws_name': 'READ',
                 'inbox': 'DESCRIBE',
             },
@@ -338,7 +338,7 @@ class TestTranslateOutgoing:
             meta={
                 'error': True,
                 'ws_source': 'N3TX/Product',
-                'ws_target': 'http://localhost:5000/products/999',
+                'ws_target': 'http://localhost:5000/Product/999',
                 'ws_name': 'READ',
             },
         )
@@ -356,7 +356,7 @@ class TestTranslateOutgoing:
             data=[],
             meta={
                 'ws_source': 'N3TX/Product',
-                'ws_target': 'http://localhost:5000/products',
+                'ws_target': 'http://localhost:5000/Product/_',
                 'ws_name': 'READ',
                 'model_cls': MockModel,
                 'sql_filter': 'user_owner = 1',
@@ -598,7 +598,7 @@ class TestIntegrationWebSocket:
                 websocket.send_json({
                     'name': 'CREATE',
                     'source': 'N3TX/Product',
-                    'target': 'http://localhost:5000/products',
+                    'target': 'http://localhost:5000/Product/_',
                     'data': {'name': 'Widget', 'price': 9.99},
                     'meta': {},
                 })
@@ -635,7 +635,7 @@ class TestIntegrationWebSocket:
                 websocket.send_json({
                     'name': 'READ',
                     'source': 'N3TX/Product',
-                    'target': 'http://localhost:5000/products',
+                    'target': 'http://localhost:5000/Product/_',
                     'data': {'limit': 20},
                     'meta': {},
                 })
@@ -671,7 +671,7 @@ class TestIntegrationWebSocket:
                 websocket.send_json({
                     'name': 'READ',
                     'source': 'N3TX/Product',
-                    'target': 'http://localhost:5000/products/5',
+                    'target': 'http://localhost:5000/Product/5',
                     'data': {},
                     'meta': {},
                 })
@@ -707,7 +707,7 @@ class TestIntegrationWebSocket:
                 websocket.send_json({
                     'name': 'UPDATE',
                     'source': 'N3TX/Product',
-                    'target': 'http://localhost:5000/products/5',
+                    'target': 'http://localhost:5000/Product/5',
                     'data': {'name': 'Updated'},
                     'meta': {},
                 })
@@ -744,7 +744,7 @@ class TestIntegrationWebSocket:
                 websocket.send_json({
                     'name': 'DELETE',
                     'source': 'N3TX/Product',
-                    'target': 'http://localhost:5000/products/10',
+                    'target': 'http://localhost:5000/Product/10',
                     'data': {},
                     'meta': {},
                 })
@@ -776,7 +776,7 @@ class TestIntegrationWebSocket:
                 websocket.send_json({
                     'name': 'READ',
                     'source': 'N3TX/Product',
-                    'target': 'http://localhost:5000/products/999',
+                    'target': 'http://localhost:5000/Product/999',
                     'data': {},
                     'meta': {},
                 })
