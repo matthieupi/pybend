@@ -411,4 +411,4 @@ These are not blockers for the first refactor wave, but they should be decided b
 
 ### Saved Plan
 
-- `.project/plans/ntx-agent-deep-refactor-plan.md`
+- `.project/refactor/2-agents/0-ntx-agent-deep-refactor-plan.md`

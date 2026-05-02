@@ -798,8 +798,8 @@ Phase 1 planning is complete and currently targets findings **2, 3, 4, 6, and 8*
 
 Use this audit together with:
 
-- `.project/plans/ntx-agent-phase-1-runtime-refactor-plan.md` for execution order
-- `.project/plans/ntx-agent-deep-refactor-plan.md` for the broader roadmap
+- `.project/refactor/2-agents/1-ntx-agent-phase-1-runtime-refactor-plan.md` for execution order
+- `.project/refactor/2-agents/0-ntx-agent-deep-refactor-plan.md` for the broader roadmap
 
 ## P2
 

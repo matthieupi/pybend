@@ -8,8 +8,8 @@ Default path:
 
 1. freeze current behavior with focused tests
 2. extract shared call/config resolution from `agentic()` / `agentic_stream()`
-3. extract shared runtime preparation from `run()` / `run_stream()`
-4. split terminal execution into sync and stream executors
+3. introduce `AgentRuntime` as the explicit shared runtime seam
+4. move sync and stream execution behind `AgentRuntime`
 5. turn `AgentActor` into a thin DB-config adapter over that same runtime
 6. normalize return shape internally, while preserving the public JSON-string contract of `AgentActor.agentic()`
 
@@ -58,9 +58,9 @@ Leave these for a later phase:
 ### Improve internally
 
 - one call-config resolver
-- one runtime-preparation path
-- one sync executor
-- one stream executor
+- one explicit `AgentRuntime` boundary
+- one runtime-preparation path owned by `AgentRuntime`
+- one sync/stream execution owner
 - one `AgentActor` runtime-config adapter
 - one internal Python result shape
 
@@ -83,14 +83,14 @@ agentic() --------\
 agentic_stream() --+--> resolve_agent_call(...)
                     |
                     v
-              prepare_execution(...)
+               AgentRuntime.prepare(...)
                     |
              +------+------+
              |             |
              v             v
-       execute_once()  execute_stream()
+      AgentRuntime.run()  AgentRuntime.run_stream()
 
-AgentActor -> _agent_runtime_config(...) -> same prepare/execute path
+AgentActor -> _agent_runtime_config(...) -> same AgentRuntime path
 ```
 
 ---
@@ -133,7 +133,6 @@ class AgentCallConfig:
     thread_id: int | None
     create_thread: bool
     result_type: type | None
-    llm_override: object | None
 
     def runtime_args(self) -> dict:
         ...
@@ -152,7 +151,11 @@ def resolve_agent_call(target, task: str, kwargs: dict) -> AgentCallConfig:
 - `thread_id`
 - `create_thread`
 - `result_type`
-- explicit `llm` override
+
+### Keep out of this helper
+
+- concrete `llm` resolution
+- conversion from `llm` string/override into a runnable model instance
 
 ### Use it from
 
@@ -167,13 +170,13 @@ One source of truth for public-call behavior.
 
 ## Slice 2 — Extract shared runtime preparation
 
-Create one internal preparation object for repeated orchestration currently duplicated in `run()` and `run_stream()`.
+Introduce `AgentRuntime` as the explicit shared owner of runtime assembly and execution.
 
 Representative shape:
 
 ```python
 @dataclass
-class PreparedExecution:
+class PreparedAgentRun:
     llm: object
     root: Actor
     agent_addr: str
@@ -184,23 +187,23 @@ class PreparedExecution:
     usage_limits: UsageLimits | None
 
 
-async def prepare_execution(
-    target,
-    *,
-    prompt,
-    tools,
-    user,
-    constraints,
-    thread_id,
-    create_thread,
-    result_type,
-    llm=None,
-) -> PreparedExecution:
-    ...
+class AgentRuntime:
+    @classmethod
+    async def prepare(cls, target, call: ResolvedAgentCall, **kwargs) -> PreparedAgentRun:
+        ...
+
+    @classmethod
+    async def run(cls, prepared: PreparedAgentRun, task: str) -> dict:
+        ...
+
+    @classmethod
+    async def run_stream(cls, prepared: PreparedAgentRun, task: str):
+        yield ...
 ```
 
-### This helper should own
+### `AgentRuntime.prepare(...)` should own
 
+- llm override handling
 - llm resolution
 - Matrix root lookup
 - thread preload / create
@@ -212,33 +215,35 @@ async def prepare_execution(
 
 ### Result
 
-`run()` and `run_stream()` stop rebuilding the same setup independently.
+`run()` and `run_stream()` stop rebuilding the same setup independently, and the package gains one explicit runtime owner.
 
 ---
 
-## Slice 3 — Split terminal execution cleanly
+## Slice 3 — Move terminal execution behind `AgentRuntime`
 
-Keep two small execution functions after shared prep exists.
+After shared preparation exists, keep two small terminal execution methods on `AgentRuntime`.
 
 Representative shape:
 
 ```python
-async def execute_once(prepared: PreparedExecution, task: str) -> dict:
-    ...
+class AgentRuntime:
+    @classmethod
+    async def run(cls, prepared: PreparedAgentRun, task: str) -> dict:
+        ...
 
-
-async def execute_stream(prepared: PreparedExecution, task: str):
-    yield ...
+    @classmethod
+    async def run_stream(cls, prepared: PreparedAgentRun, task: str):
+        yield ...
 ```
 
-### `execute_once()` should own only
+### `AgentRuntime.run()` should own only
 
 - `ai_agent.run(...)`
 - usage extraction
 - final result dict creation
 - thread persistence
 
-### `execute_stream()` should own only
+### `AgentRuntime.run_stream()` should own only
 
 - `agent.iter(...)`
 - graph event translation
@@ -260,7 +265,7 @@ Remove the duplicated bridge logic and descriptor reach-in.
 Add:
 
 ```python
-def _agent_runtime_config(self, task: str, **kwargs) -> AgentCallConfig:
+def _agent_runtime_config(self, task: str, **kwargs) -> ResolvedAgentCall:
     ...
 ```
 
@@ -278,8 +283,8 @@ def _agent_runtime_config(self, task: str, **kwargs) -> AgentCallConfig:
 @expose_route('/agentic', methods=['POST'])
 async def agentic(self, task: str, **kwargs) -> str:
     call = self._agent_runtime_config(task, **kwargs)
-    prepared = await prepare_execution(self, **call.runtime_args())
-    result = await execute_once(prepared, call.task)
+    prepared = await AgentRuntime.prepare(self, call)
+    result = await AgentRuntime.run(prepared, call.task)
     return json.dumps(result, default=str)
 ```
 
@@ -298,6 +303,7 @@ Do **not** change public return contracts in Phase 1.
 Instead:
 
 - standardize on one internal Python result dict from `execute_once()`
+- standardize on one internal Python result dict from `AgentRuntime.run()`
 - let `AgentMixin.agentic()` return that dict directly
 - let `AgentActor.agentic()` remain a thin JSON serializer over that dict
 
@@ -316,14 +322,14 @@ class AgentMixin:
     @fullmethod
     async def agentic(target, task: str, **kwargs) -> dict:
         call = resolve_agent_call(target, task, kwargs)
-        prepared = await prepare_execution(target, **call.runtime_args())
-        return await execute_once(prepared, call.task)
+        prepared = await AgentRuntime.prepare(target, call)
+        return await AgentRuntime.run(prepared, call.task)
 
     @fullmethod
     async def agentic_stream(target, task: str, **kwargs):
         call = resolve_agent_call(target, task, kwargs)
-        prepared = await prepare_execution(target, **call.runtime_args())
-        async for chunk in execute_stream(prepared, call.task):
+        prepared = await AgentRuntime.prepare(target, call)
+        async for chunk in AgentRuntime.run_stream(prepared, call.task):
             yield chunk
 ```
 
@@ -331,14 +337,14 @@ class AgentMixin:
 
 ```python
 class AgentActor(ActorModel):
-    def _agent_runtime_config(self, task: str, **kwargs) -> AgentCallConfig:
+    def _agent_runtime_config(self, task: str, **kwargs) -> ResolvedAgentCall:
         ...
 
     @expose_route('/agentic', methods=['POST'])
     async def agentic(self, task: str, **kwargs) -> str:
         call = self._agent_runtime_config(task, **kwargs)
-        prepared = await prepare_execution(self, **call.runtime_args())
-        return json.dumps(await execute_once(prepared, call.task), default=str)
+        prepared = await AgentRuntime.prepare(self, call)
+        return json.dumps(await AgentRuntime.run(prepared, call.task), default=str)
 ```
 
 ---
@@ -369,7 +375,7 @@ Run targeted `test_tools.py` cases only if tool wiring changes indirectly.
 ### Add focused tests for
 
 - extracted `resolve_agent_call(...)`
-- extracted `prepare_execution(...)`
+- extracted `AgentRuntime.prepare(...)`
 - `AgentActor` adapter parity
 - JSON wrapper preservation for `AgentActor.agentic()`
 
@@ -380,8 +386,8 @@ Run targeted `test_tools.py` cases only if tool wiring changes indirectly.
 ```text
 tests
  -> resolve_agent_call
- -> prepare_execution
- -> execute_once / execute_stream
+ -> AgentRuntime.prepare
+ -> AgentRuntime.run / AgentRuntime.run_stream
  -> AgentActor adapter cleanup
  -> internal return normalization
 ```
@@ -410,4 +416,4 @@ tests
 
 ## Saved plan
 
-- `.project/plans/ntx-agent-phase-1-runtime-refactor-plan.md`
+- `.project/refactor/2-agents/1-ntx-agent-phase-1-runtime-refactor-plan.md`
