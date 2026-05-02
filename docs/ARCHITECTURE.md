@@ -109,7 +109,7 @@ class ProtoModel(PydanticBaseModel):
         # Extensions add stages via @dump_extension
         # Injects:
         # - $schema: URL to model's JSON Schema
-        # - $id: URL to this specific instance using the table-name API path
+        # - $id: URL to this specific instance using the class-name API path
 ```
 
 **Design Decisions**:
@@ -124,14 +124,17 @@ class ProtoModel(PydanticBaseModel):
 ```text
 /{tablename}/...       JSON data API and custom methods
 /{ClassName}           schema endpoint
-/{ClassName}/{id:int}  read-only class-name mirror of /{tablename}/{id:int}
+/{ClassName}/_         JSON collection mirror of /{tablename}
+/{ClassName}/{id:int}  JSON read/update/delete mirror of /{tablename}/{id:int}
+/{ClassName}/{id:int}/{method}
+                       literal custom method mirror, no generic catch-all
 /{ClassName}/@...      HTML/view shell entrypoints
 #{ClassName}/@...      frontend hash-router view routes
 ```
 
 The `@` segment always means view/html/component routing. It never invokes a
-method and never changes entity identity; `$id` remains table-name based until a
-separate identity migration is designed.
+method. Entity `$id` values use class-name routes while table-name routes remain
+available as compatibility API paths.
 
 ### 2. StorableMixin
 

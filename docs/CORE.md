@@ -104,6 +104,7 @@ class Product(ProtoModel):
 | Method UI hints | `__ui__.methods` (icon, layout, count_field) | Injected into `$defs` method entries |
 | Toggle endpoints | `@expose_route` + join table logic | Like/favorite via create/delete on join models |
 | Collection routes | Join model `__tablename__` | `GET /products/comments`, `GET /products/likes` |
+| Nested class-name identity | Join model `__owner__` + `__parent__` | Canonical nested `$id`: `/Product/1/Comment/2` |
 | Pagination | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
 | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update |
 | Route view renderers | `__ui__.renderer` | `#Model/@view` and `/Model/@view` resolve semantic views to component tags |
@@ -184,7 +185,7 @@ Every entity response includes JSON Schema instance metadata via `model_response
 ```json
 {
   "$schema": "http://localhost:5000/Product",
-  "$id": "http://localhost:5000/products/1",
+  "$id": "http://localhost:5000/Product/1",
   "id": 1,
   "name": "Wireless Headphones",
   "price": 79.99,
@@ -196,7 +197,7 @@ Every entity response includes JSON Schema instance metadata via `model_response
 ```
 
 - `$schema` points to the model's schema (the contract)
-- `$id` is the instance's canonical table-name URL (self-link, independently resolvable)
+- `$id` is the instance's canonical class-name URL (self-link, independently resolvable)
 - Collection fields (`ListRef[T]`) return href arrays rather than embedded objects
 
 ### Model-Centric Route Grammar
@@ -207,28 +208,67 @@ schema, read mirrors, and HTML/view shells:
 ```text
 /{tablename}/...       compatibility JSON API and custom methods
 /{ClassName}           JSON Schema/type endpoint
-/{ClassName}/{id:int}  read-only mirror of /{tablename}/{id:int}
+/{ClassName}/_         JSON collection mirror of /{tablename}
+/{ClassName}/{id:int}  JSON instance mirror of /{tablename}/{id:int}
+/{ClassName}/{id:int}/{method}
+                       literal method mirror of /{tablename}/{id:int}/{method}
+/{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}
+                       canonical nested class-name identity/read shape
 /{ClassName}/@...      HTML/view entrypoints
 #{ClassName}/@...      frontend hash-router view routes
 ```
 
 The `@` marker is reserved for views. A route such as `Product/1/run` remains a
-method/action route, while `Product/1/@run` is a view named `run`. The first
-class-name API phase is read-only: create, update, delete, and method endpoints
-remain under table-name paths unless a later migration deliberately adds mirrors.
+method/action route, while `Product/1/@run` is a view named `run`. The `_`
+marker is reserved for backend JSON collection reads and is not a frontend hash
+view route. Class-name create/update/delete mirrors are available. Class-name
+method mirrors are registered for literal `@expose_route` declarations only;
+there is no generic method catch-all.
 
-`$id` intentionally remains table-name based even when an entity is fetched
-through a class-name read mirror:
+`$id` uses class-name identity even when an entity is fetched through a legacy
+table-name route:
 
 ```json
 {
   "$schema": "http://localhost:5000/Product",
-  "$id": "http://localhost:5000/products/1"
+  "$id": "http://localhost:5000/Product/1"
 }
 ```
 
-This separates route grammar migration from identity migration, preserving
-frontend caches, href arrays, nested references, and external API clients.
+Legacy table-name routes remain available for compatibility while response
+identity moves to the class-name grammar.
+
+### Nested Class-Name Identity
+
+Parent-child relationships generated from `ListRef[T]` keep their legacy
+relation/tag routes for compatibility, but canonical nested identity uses class
+names:
+
+```text
+Legacy table route:       /products/1/comments/2
+Canonical class route:    /Product/1/Comment/2
+Concrete storage model:   ProductComment
+```
+
+The public URL exposes the semantic child class (`Comment`), not the generated
+join class (`ProductComment`). The generated join model remains the concrete
+implementation type for storage, FK injection, authorization, and serialization.
+After the class-name identity migration, nested responses use `$id` directly:
+
+```json
+{
+  "$schema": "http://localhost:5000/ProductComment",
+  "$id": "http://localhost:5000/Product/1/Comment/2",
+  "id": 2,
+  "product_id": 1
+}
+```
+
+No `$href` or `links` metadata is emitted. If a parent declares multiple
+relationships to the same child class, for example both `comments` and `reviews`
+as `ListRef[Comment]`, the class-name nested route is ambiguous. Implementations
+must fail or skip that nested mirror deterministically and keep using the legacy
+relation/tag routes until a relation-aware alias grammar exists.
 
 ## Key Patterns
 
@@ -243,7 +283,7 @@ class Product(ProtoModel):
 register_model(generate_join_model(Product, Comment), storage=storage_backend)
 ```
 
-This creates a `ProductComment` join model with auto-generated `product_id` FK column. Routes become `/products/{parent_id}/comments/{id}`.
+This creates a `ProductComment` join model with auto-generated `product_id` FK column. Legacy compatibility routes use the relation/tag segment (`/products/{parent_id}/comments/{id}`), while the canonical class-name identity shape is `/Product/{parent_id}/Comment/{id}`.
 
 ### Authorization (ABAC)
 

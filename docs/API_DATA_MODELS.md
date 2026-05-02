@@ -88,7 +88,7 @@ Content-Type: application/json
 ```json
 {
   "$schema": "http://localhost:8000/User",
-  "$id": "http://localhost:8000/users/1",
+  "$id": "http://localhost:8000/User/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -107,7 +107,7 @@ GET /users/1
 ```json
 {
   "$schema": "http://localhost:8000/User",
-  "$id": "http://localhost:8000/users/1",
+  "$id": "http://localhost:8000/User/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -127,7 +127,7 @@ GET /users
 [
   {
     "$schema": "http://localhost:8000/User",
-    "$id": "http://localhost:8000/users/1",
+    "$id": "http://localhost:8000/User/1",
     "id": 1,
     "name": "Alice Johnson",
     "email": "alice@example.com",
@@ -135,7 +135,7 @@ GET /users
   },
   {
     "$schema": "http://localhost:8000/User",
-    "$id": "http://localhost:8000/users/2",
+    "$id": "http://localhost:8000/User/2",
     "id": 2,
     "name": "Bob Smith",
     "email": "bob@example.com",
@@ -160,7 +160,7 @@ Content-Type: application/json
 ```json
 {
   "$schema": "http://localhost:8000/User",
-  "$id": "http://localhost:8000/users/1",
+  "$id": "http://localhost:8000/User/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -201,7 +201,7 @@ Content-Type: application/json
 ```json
 {
   "$schema": "http://localhost:8000/User",
-  "$id": "http://localhost:8000/users/1",
+  "$id": "http://localhost:8000/User/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -368,7 +368,7 @@ Content-Type: application/json
 ```json
 {
   "$schema": "http://localhost:8000/Product",
-  "$id": "http://localhost:8000/products/1",
+  "$id": "http://localhost:8000/Product/1",
   "id": 1,
   "name": "Laptop",
   "price": 999.99,
@@ -393,7 +393,7 @@ Content-Type: application/json
 ```json
 {
   "$schema": "http://localhost:8000/Product",
-  "$id": "http://localhost:8000/products/1",
+  "$id": "http://localhost:8000/Product/1",
   "id": 1,
   "name": "Laptop",
   "price": 899.99,
@@ -426,7 +426,7 @@ x-access-token: <JWT>
 ```json
 {
   "$schema": "http://localhost:8000/Comment",
-  "$id": "http://localhost:8000/comments/1",
+  "$id": "http://localhost:8000/Product/1/Comment/1",
   "id": 1,
   "name": "Great product!",
   "description": "Very satisfied with this purchase",
@@ -599,7 +599,7 @@ Content-Type: application/json
 ```json
 {
   "$schema": "http://localhost:8000/Comment",
-  "$id": "http://localhost:8000/comments/1",
+  "$id": "http://localhost:8000/Product/1/Comment/1",
   "id": 1,
   "name": "Great product!",
   "description": "Very satisfied",
@@ -622,7 +622,7 @@ GET /products/1/comments
 [
   {
     "$schema": "http://localhost:8000/Comment",
-    "$id": "http://localhost:8000/comments/1",
+    "$id": "http://localhost:8000/Product/1/Comment/1",
     "id": 1,
     "name": "Great product!",
     "description": "Very satisfied",
@@ -631,7 +631,7 @@ GET /products/1/comments
   },
   {
     "$schema": "http://localhost:8000/Comment",
-    "$id": "http://localhost:8000/comments/2",
+    "$id": "http://localhost:8000/Product/1/Comment/2",
     "id": 2,
     "name": "Fast shipping",
     "description": "Arrived quickly",
@@ -652,7 +652,7 @@ GET /products/1/comments/1
 ```json
 {
   "$schema": "http://localhost:8000/Comment",
-  "$id": "http://localhost:8000/comments/1",
+  "$id": "http://localhost:8000/Product/1/Comment/1",
   "id": 1,
   "name": "Great product!",
   "description": "Very satisfied",
@@ -677,7 +677,7 @@ Content-Type: application/json
 ```json
 {
   "$schema": "http://localhost:8000/Comment",
-  "$id": "http://localhost:8000/comments/1",
+  "$id": "http://localhost:8000/Product/1/Comment/1",
   "id": 1,
   "name": "Great product!",
   "description": "Updated: Very satisfied with this purchase!",

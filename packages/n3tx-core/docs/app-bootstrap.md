@@ -192,12 +192,27 @@ When multiple directories exist, a `_CascadingStaticFiles` ASGI handler searches
 
 ### Generated Route Grammar
 
-Direct routing registers table-name data routes, class-name schema/read routes,
-and optional model view routes:
+Direct routing registers table-name data routes, class-name schema/CRUD mirror
+routes, and optional model view routes:
 
 ```text
 GET    /{ClassName}                  # schema
-GET    /{ClassName}/{id:int}         # read-only class-name mirror
+GET    /{ClassName}/_                # JSON collection mirror
+POST   /{ClassName}                  # create mirror
+GET    /{ClassName}/{id:int}         # read mirror
+PUT    /{ClassName}/{id:int}         # update mirror
+DELETE /{ClassName}/{id:int}         # delete mirror
+POST   /{ClassName}/{id:int}/method  # literal custom method mirror
+GET    /{ParentClass}/{parent_id:int}/{ChildClass}
+                                      # nested JSON collection mirror
+POST   /{ParentClass}/{parent_id:int}/{ChildClass}
+                                      # nested create mirror with parent FK injection
+GET    /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}
+                                      # nested read mirror / canonical nested identity
+PUT    /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}
+                                      # nested update mirror
+DELETE /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}
+                                      # nested delete mirror
 GET    /{ClassName}/@                # collection default HTML view, if viewable
 GET    /{ClassName}/@{view}          # collection named HTML view, if viewable
 GET    /{ClassName}/{id:int}/@       # member default HTML view, if viewable
@@ -211,10 +226,18 @@ DELETE /{tablename}/{id:int}         # delete
 POST   /{tablename}/{id:int}/method  # custom instance methods
 ```
 
-The read mirror delegates to the table-name read handler, so authorization,
-population, error handling, and `$id` generation stay identical. HTML routes are
-registered through `register_view_routes()` when a model capability provides it;
-`n3tx-core` only depends on that small hook and remains UI-package neutral.
+The class-name mirrors delegate to table-name handlers, so authorization,
+population, error handling, and `$id` generation stay identical. `GET
+/{ClassName}` remains schema; `GET /{ClassName}/_` is the explicit JSON
+collection marker. HTML routes are registered through `register_view_routes()`
+when a model capability provides it; `n3tx-core` only depends on that small hook
+and remains UI-package neutral.
+
+Nested class-name mirrors are generated from join model metadata (`__owner__`,
+`__parent__`, and the generated parent FK field). They are only registered when a
+`(ParentClass, ChildClass)` pair is unique; duplicate same-child relationships
+continue to use legacy relation/tag routes until a relation-aware alias grammar
+exists.
 
 ## Gotchas
 

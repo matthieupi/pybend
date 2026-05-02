@@ -135,7 +135,7 @@ class Product(ProtoModel):
 
 register_model(generate_join_model(Product, Comment), storage=storage_backend)
 ```
-Creates a `ProductComment` join model with auto-generated FK column. Routes become `/products/{parent_id}/comments/{id}`.
+Creates a `ProductComment` join model with auto-generated FK column. Legacy compatibility routes use `/products/{parent_id}/comments/{id}`. The canonical nested class-name identity shape is `/Product/{parent_id}/Comment/{id}`; generated join model names are implementation details, not public URL segments.
 
 ### Custom Method Return Types
 `@expose_route` methods may return any import-resolvable model type, including a
@@ -162,22 +162,49 @@ HTML/view entrypoints.
 | `PUT /{tablename}/{id:int}` | data API | JSON entity | Existing update route |
 | `DELETE /{tablename}/{id:int}` | data API | JSON status/payload | Existing delete route |
 | `POST /{tablename}/{id:int}/{method}` | method API | JSON/SSE | Existing `@expose_route` instance methods |
-| `GET /{ClassName}/{id:int}` | class-name mirror | JSON entity | Read-only mirror of table-name read |
+| `GET /{ClassName}/_` | class-name mirror | JSON list | Explicit `_` collection marker |
+| `POST /{ClassName}` | class-name mirror | JSON entity | Create mirror; `GET /{ClassName}` stays schema |
+| `GET /{ClassName}/{id:int}` | class-name mirror | JSON entity | Read mirror of table-name read |
+| `PUT /{ClassName}/{id:int}` | class-name mirror | JSON entity | Update mirror |
+| `DELETE /{ClassName}/{id:int}` | class-name mirror | JSON status/payload | Delete mirror |
+| `POST /{ClassName}/{id:int}/{method}` | class-name mirror | JSON/SSE | Literal `@expose_route` method mirror |
+| `GET /{ParentClass}/{parent_id:int}/{ChildClass}` | nested class-name mirror | JSON list | Mirror of relation/tag child list |
+| `POST /{ParentClass}/{parent_id:int}/{ChildClass}` | nested class-name mirror | JSON entity | Mirror of nested create with parent FK injection |
+| `GET /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}` | nested class-name mirror | JSON entity | Canonical nested identity/read shape |
+| `PUT /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}` | nested class-name mirror | JSON entity | Nested update mirror |
+| `DELETE /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}` | nested class-name mirror | JSON status/payload | Nested delete mirror |
 | `GET /{ClassName}/@` | view/html | HTML | Collection default view shell |
 | `GET /{ClassName}/@{view}` | view/html | HTML | Collection named view shell |
 | `GET /{ClassName}/{id:int}/@` | view/html | HTML | Member default view shell |
 | `GET /{ClassName}/{id:int}/@{view}` | view/html | HTML | Member named view shell |
 
-The class-name read mirror intentionally reuses the same read handler as
-`/{tablename}/{id:int}` in direct FastAPI routing. Actor routing dispatches the
-same `get` TX to the table-name actor address. In both modes, auth, population
-query parameters, missing-record behavior, and serialization stay aligned with
-the table-name route.
+The class-name JSON mirrors intentionally reuse the same handlers as the
+table-name routes in direct FastAPI routing. `GET /{ClassName}` remains schema;
+`GET /{ClassName}/_` is the explicit JSON collection marker. Actor routing
+dispatches equivalent TXs to the table-name actor address. In both modes, auth,
+population query parameters, missing-record behavior, and serialization stay
+aligned with the table-name route.
 
-Identity is not migrated in this phase: a response fetched through
-`GET /Product/1` still has `$schema` ending in `/Product` and `$id` ending in
-`/products/1`. Class-name writes and method mirrors are deliberately not part of
-the current grammar.
+Response identity is class-name based: a response fetched through either
+`GET /products/1` or `GET /Product/1` has `$schema` ending in `/Product` and
+`$id` ending in `/Product/1`. Method mirrors are registered only for literal
+`@expose_route` declarations; there is no generic class-name method catch-all.
+
+Nested response identity is parent-scoped and class-name based. A legacy route
+such as `GET /products/1/comments/2` and its class-name mirror
+`GET /Product/1/Comment/2` identify the same generated join record. The public
+URL exposes the semantic child class (`Comment`), while the generated join model
+(`ProductComment`) remains the concrete storage and serialization type. A nested
+response therefore uses `$id=/Product/1/Comment/2`; `$schema` may identify the
+generated join model if that is the concrete response shape. No `$href` or
+`links` metadata is emitted.
+
+The nested class-name grammar intentionally omits the relationship/tag segment.
+If a parent has multiple relationships to the same child class, for example
+`comments: ListRef[Comment]` and `reviews: ListRef[Comment]`, route generation
+must fail or skip the ambiguous class-name nested mirror and leave the legacy
+relation/tag routes as the supported transport until a relation-aware alias
+grammar is introduced.
 
 HTML/view routes are owned by optional model capability hooks such as
 `ViewableMixin.register_view_routes()` from `n3tx-ui`. Core and actor routing

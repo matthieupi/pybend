@@ -249,7 +249,7 @@ def some_action(self) -> Product:
 ```json
 {
   "$schema": "http://localhost:8000/Product",
-  "$id": "http://localhost:8000/products/1",
+  "$id": "http://localhost:8000/Product/1",
   "id": 1,
   "name": "Product",
   "price": 99.99
@@ -269,8 +269,8 @@ def filter_products(cls, min_price: float) -> List[Product]:
 **Frontend Response**:
 ```json
 [
-  {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/products/1", "id": 1, "name": "Laptop", "price": 999.99},
-  {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/products/2", "id": 2, "name": "Phone", "price": 699.99}
+  {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/Product/1", "id": 1, "name": "Laptop", "price": 999.99},
+  {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/Product/2", "id": 2, "name": "Phone", "price": 699.99}
 ]
 ```
 

@@ -11,16 +11,22 @@ For a model with `__tablename__ = 'users'`, N3TX generates:
 | Operation | Method | Path | Description |
 |-----------|--------|------|-------------|
 | Schema | GET | `/User` | Get model JSON schema |
-| Class-name read mirror | GET | `/User/{id}` | Read-specific mirror of `/users/{id}` |
+| Class-name list mirror | GET | `/User/_` | Explicit collection mirror of `/users` |
+| Class-name create mirror | POST | `/User` | Create mirror of `/users` |
+| Class-name read mirror | GET | `/User/{id}` | Read mirror of `/users/{id}` |
+| Class-name update mirror | PUT | `/User/{id}` | Update mirror of `/users/{id}` |
+| Class-name delete mirror | DELETE | `/User/{id}` | Delete mirror of `/users/{id}` |
 | Create | POST | `/users` | Create new user |
 | List | GET | `/users` | Get all users |
 | Read | GET | `/users/{id}` | Get specific user |
 | Update | PUT | `/users/{id}` | Update user |
 | Delete | DELETE | `/users/{id}` | Delete user |
 
-**Note**: Schema and read-mirror endpoints use the model class name; CRUD writes,
-lists, deletes, and custom methods remain under the table-name API. The
-class-name read mirror is intentionally GET-only in the current migration phase.
+**Note**: `GET /{ClassName}` remains the schema endpoint. Class-name collection
+reads use the explicit `_` marker (`GET /{ClassName}/_`), and class-name writes
+reuse the same handlers or actor TX contracts as table-name routes. Literal
+`@expose_route` methods may also have class-name mirrors; there is no generic
+method catch-all.
 
 ---
 
@@ -170,7 +176,7 @@ Example for User model:
 ```json
 {
   "$schema": "http://localhost:8000/User",
-  "$id": "http://localhost:8000/users/1",
+  "$id": "http://localhost:8000/User/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -211,7 +217,7 @@ async function createUser(userData) {
   
   const user = await response.json();
   // user.$schema === "http://localhost:8000/User"
-  // user.$id === "http://localhost:8000/users/1"
+  // user.$id === "http://localhost:8000/User/1"
   return user;
 }
 ```
@@ -254,7 +260,7 @@ When no `limit` parameter is provided, returns a plain array:
 [
   {
     "$schema": "http://localhost:8000/User",
-    "$id": "http://localhost:8000/users/1",
+    "$id": "http://localhost:8000/User/1",
     "id": 1,
     "name": "Alice Johnson",
     "email": "alice@example.com",
@@ -262,7 +268,7 @@ When no `limit` parameter is provided, returns a plain array:
   },
   {
     "$schema": "http://localhost:8000/User",
-    "$id": "http://localhost:8000/users/2",
+    "$id": "http://localhost:8000/User/2",
     "id": 2,
     "name": "Bob Smith",
     "email": "bob@example.com",
@@ -284,7 +290,7 @@ When `limit` is provided, returns a wrapped object with `data` and `meta`:
   "data": [
     {
       "$schema": "http://localhost:8000/User",
-      "$id": "http://localhost:8000/users/1",
+      "$id": "http://localhost:8000/User/1",
       "id": 1,
       "name": "Alice Johnson",
       "email": "alice@example.com",
@@ -292,7 +298,7 @@ When `limit` is provided, returns a wrapped object with `data` and `meta`:
     },
     {
       "$schema": "http://localhost:8000/User",
-      "$id": "http://localhost:8000/users/2",
+      "$id": "http://localhost:8000/User/2",
       "id": 2,
       "name": "Bob Smith",
       "email": "bob@example.com",
@@ -334,7 +340,7 @@ console.log(`Found ${users.length} users`);
 
 // Display in UI
 users.forEach(user => {
-  console.log(user['$id']); // e.g., "http://localhost:8000/users/1"
+  console.log(user['$id']); // e.g., "http://localhost:8000/User/1"
   renderUserCard(user);
 });
 ```
@@ -391,7 +397,7 @@ GET /{resource}/{id}
 ```json
 {
   "$schema": "http://localhost:8000/User",
-  "$id": "http://localhost:8000/users/1",
+  "$id": "http://localhost:8000/User/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -471,7 +477,7 @@ PUT /{resource}/{id}
 ```json
 {
   "$schema": "http://localhost:8000/User",
-  "$id": "http://localhost:8000/users/1",
+  "$id": "http://localhost:8000/User/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -642,7 +648,7 @@ POST /{parent_resource}/{parent_id}/{child_resource}
 ```json
 {
   "$schema": "http://localhost:8000/Comment",
-  "$id": "http://localhost:8000/comments/1",
+  "$id": "http://localhost:8000/Product/5/Comment/1",
   "id": 1,
   "text": "Great product!",
   "rating": 5,
@@ -665,7 +671,7 @@ Returns only child resources belonging to specified parent:
 [
   {
     "$schema": "http://localhost:8000/Comment",
-    "$id": "http://localhost:8000/comments/1",
+    "$id": "http://localhost:8000/Product/5/Comment/1",
     "id": 1,
     "text": "Great product!",
     "product_id": 5,
@@ -673,7 +679,7 @@ Returns only child resources belonging to specified parent:
   },
   {
     "$schema": "http://localhost:8000/Comment",
-    "$id": "http://localhost:8000/comments/2",
+    "$id": "http://localhost:8000/Product/5/Comment/2",
     "id": 2,
     "text": "Fast shipping",
     "product_id": 5,
@@ -773,7 +779,7 @@ const product = await fetch('http://localhost:8000/products', {
 }).then(r => r.json());
 
 console.log('Created:', product);
-// { "$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/products/1", "id": 1, "name": "Laptop", ... }
+// { "$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/Product/1", "id": 1, "name": "Laptop", ... }
 
 // 2. Get all products
 const allProducts = await fetch('http://localhost:8000/products')

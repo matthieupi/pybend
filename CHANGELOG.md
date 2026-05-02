@@ -1,5 +1,13 @@
 # N3tx Change Log
 
+# Unreleased
+
+## Backend / API
+- [x] **Class-name response identity** — response `$id` values are now class-name based (`/Product/1`) instead of table-name based (`/products/1`). Nested entities use parent-scoped class-name identity such as `/Product/1/Comment/2`.
+  - Legacy table-name routes remain available as compatibility transport paths.
+  - `$id` is the single response identity; N3TX does not emit `$href` or `links` metadata.
+  - Class-name JSON mirrors cover collection, create, read, update, delete, and literal custom methods while `GET /ClassName` remains the schema endpoint.
+
 # 0.7.0 (2026-02)
 
 ## Backend

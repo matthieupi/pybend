@@ -383,6 +383,9 @@ hash links.
 | `#Product/1/@chat` | Member named view | `{ ref: 'Product/1', display: 'lg' }` |
 | `#Product/1/run` | Method/action route | `{ ref: 'Product/1', method: 'run', display: 'lg' }` |
 | `#Product/1/@run` | View named `run`, not a method | no `method` attr |
+| `#Product/1/Comment/2` | Nested member route | `{ data-model: 'Comment', ref: '<API_URL>/Product/1/Comment/2', display: 'lg' }` |
+| `#Product/1/Comment/2/@item` | Nested member view | `{ data-model: 'Comment', ref: '<API_URL>/Product/1/Comment/2', display: 'lg' }` |
+| `#Product/1/Comment/2/like` | Nested method/action route | `{ data-model: 'Comment', ref: '<API_URL>/Product/1/Comment/2', method: 'like', display: 'lg' }` |
 | `#@profile` | App-level route | mounts `<ntx-profile>` |
 
 `Router.parseRoute()` normalizes leading/trailing slashes and rejects invalid
@@ -402,6 +405,55 @@ Member named:       renderer[view] -> known fallback (item/detail/chat) -> inval
 Path-based `@view` selection takes precedence over query `view`. User-facing
 query parameters pass through to the mounted component, but internal route
 controls such as `view` are filtered from attrs.
+
+Nested class-name hash routes use the backend's canonical nested identity shape:
+
+```text
+#Product/1/Comment/2
+```
+
+This is intentionally a narrow one-hop grammar derived from backend join model
+metadata: parent class, parent id, semantic child class, child id. The route does
+not include the relationship/tag segment (`comments`) or generated join class
+name (`ProductComment`). If the backend detects duplicate relationships from one
+parent class to the same child class, the nested class-name route is ambiguous;
+the frontend should continue to support legacy relation/tag refs until a
+relation-aware alias grammar exists.
+
+The parser shape for nested details is:
+
+```js
+{
+  type: 'nested-detail',
+  parentModel: 'Product',
+  parentId: '1',
+  model: 'Comment',
+  id: '2',
+  params: {}
+}
+```
+
+Resolution intentionally mirrors legacy parent-scoped table-name refs: the router
+mounts the child component with a full transport URL plus a child model hint.
+`Component.ref` then attaches the instance under the semantic child cache key
+while preserving the full nested URL for network reads, writes, and methods:
+
+```text
+mounted attrs:   data-model="Comment" ref="<API_URL>/Product/1/Comment/2"
+NTT cache key:   Comment/2
+transport href: <API_URL>/Product/1/Comment/2
+```
+
+This is the same mechanism used for legacy table-name refs such as
+`<API_URL>/products/1/comments/2`, which also rely on `data-model="Comment"`
+to avoid inferring semantic model identity from the URL path.
+
+Nested view and action routes preserve the existing `@` boundary:
+
+```text
+Product/1/Comment/2/like   -> nested action, `method="like"`
+Product/1/Comment/2/@like  -> nested view, no `method` attr
+```
 
 ### Widget Extension (JS)
 On the frontend, `form.js` and `ntx-item.js` dispatch to registered JS Widget instances (`getWidgetForField()`) before falling through to type-based rendering. See `packages/n3tx-ui/docs/widgets.md` for the full widget system.

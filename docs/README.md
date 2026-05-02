@@ -90,7 +90,7 @@ All CRUD responses include `$schema` and `$id` metadata:
 ```json
 {
   "$schema": "http://localhost:8000/User",
-  "$id": "http://localhost:8000/users/1",
+  "$id": "http://localhost:8000/User/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
@@ -122,7 +122,7 @@ ProtoModel's Config sets `extra='allow'` so that metadata fields like `$schema` 
 All CRUD route handlers call `.model_response()` to include self-describing metadata in every response:
 
 - `$schema` - URL pointing to this model's JSON Schema (e.g., `http://localhost:8000/Product`)
-- `$id` - URL pointing to this specific resource instance (e.g., `http://localhost:8000/products/1`)
+- `$id` - URL pointing to this specific resource instance using the class-name route grammar (e.g., `http://localhost:8000/Product/1`)
 
 This enables clients to discover the schema for any resource directly from the response payload.
 
@@ -326,11 +326,11 @@ Response:
 
 The `schema()` method adds `$schema` (pointing to `{API_URL}/Schema`) and `$id` (pointing to `{API_URL}/{ClassName}`) to the top-level schema dict, and `$id` to each `$defs` entry.
 
-Storable entities keep their canonical `$id` on the table-name API path (for
-example `/users/1`), even when read through the class-name mirror
-`GET /User/1`. Class-name routes are additive: `GET /User` remains schema,
-`GET /User/1` mirrors reads, and `GET /User/@...` is reserved for HTML/view
-entrypoints.
+Storable entities now advertise class-name `$id` values such as `/User/1` even
+when read through legacy table-name routes like `/users/1`. Table-name routes
+remain available for compatibility; response identity is class-name based.
+`GET /User` remains schema, `GET /User/1` mirrors reads, and `GET /User/@...`
+is reserved for HTML/view entrypoints.
 
 ### Generate Markdown Docs
 

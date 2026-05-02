@@ -68,7 +68,7 @@ For every model marked as `__storable__ = True`, N3TX generates:
 All CRUD route handlers call `.model_response()`, which injects two metadata fields at the top of every response object:
 
 - `$schema` - URL to the model's JSON Schema (e.g., `http://localhost:8000/User`)
-- `$id` - URL to this specific resource instance (e.g., `http://localhost:8000/users/1`)
+- `$id` - canonical class-name URL to this specific resource instance (e.g., `http://localhost:8000/User/1`)
 
 This makes every response self-describing, allowing clients to discover schema information directly from the payload.
 
@@ -104,13 +104,31 @@ All successful responses return JSON with `$schema` and `$id` metadata at the to
 ```json
 {
   "$schema": "http://localhost:8000/User",
-  "$id": "http://localhost:8000/users/1",
+  "$id": "http://localhost:8000/User/1",
   "id": 1,
   "name": "Alice Johnson",
   "email": "alice@example.com",
   "age": 28
 }
 ```
+
+### `$id` Migration Note
+
+N3TX response identity is class-name based. A response fetched through either
+`/users/1` or `/User/1` advertises:
+
+```json
+{
+  "$schema": "http://localhost:8000/User",
+  "$id": "http://localhost:8000/User/1"
+}
+```
+
+Legacy table-name routes such as `/users/1` remain supported as compatibility
+transport paths, but new clients should treat `$id` as the canonical entity URL.
+Nested entities use parent-scoped class-name identity such as
+`/Product/1/Comment/2`. N3TX does not emit `$href` or `links`; `$id` is the
+single response identity.
 
 All error responses return:
 ```json
@@ -172,7 +190,7 @@ class Comment(ProtoModel):
 ```json
 {
   "$schema": "http://localhost:8000/Comment",
-  "$id": "http://localhost:8000/comments/1",
+  "$id": "http://localhost:8000/Product/5/Comment/1",
   "id": 1,
   "text": "Great product!",
   "user": 1
@@ -207,7 +225,7 @@ This creates:
 ```json
 {
   "$schema": "http://localhost:8000/Comment",
-  "$id": "http://localhost:8000/comments/1",
+  "$id": "http://localhost:8000/Product/5/Comment/1",
   "id": 1,
   "text": "Great!",
   "product_id": 5,
@@ -472,17 +490,21 @@ Response:
 
 The `schema()` method adds `$schema` (pointing to `{API_URL}/Schema`) and `$id` (pointing to `{API_URL}/{ClassName}`) to the top-level schema dict, and `$id` to each `$defs` entry.
 
-Storable model instances can be read through either the original table-name API
-or the class-name read mirror:
+Storable models can be accessed through either the original table-name API or
+the class-name JSON mirror grammar:
 
 ```text
-GET /users/1  -> canonical table-name JSON read
-GET /User/1   -> read-only class-name mirror of the same entity
+GET  /users/1  -> legacy table-name JSON read
+GET  /User/1   -> class-name read mirror of the same entity
+GET  /User/_   -> class-name collection mirror
+POST /User     -> class-name create mirror
+PUT  /User/1   -> class-name update mirror
 ```
 
-The mirror does not change identity. Entity payloads keep `$schema` pointing to
-`/{ClassName}` and `$id` pointing to `/{tablename}/{id}`. Writes, deletes, and
-custom methods remain under table-name paths in the current route grammar.
+Entity payloads keep `$schema` pointing to `/{ClassName}` and now advertise
+`$id` as `/{ClassName}/{id}`, even when fetched through the legacy table-name
+route. Literal custom methods may also be mirrored under class-name paths, for
+example `/User/1/run`; there is no generic method catch-all.
 
 View routes reserve `@` for HTML/component entrypoints, for example
 `GET /User/@` and frontend hashes such as `#User/@table`; those routes are not
