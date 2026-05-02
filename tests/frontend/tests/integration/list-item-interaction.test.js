@@ -164,7 +164,7 @@ describe('List + Item Interaction', () => {
       const DC = NTT.get('Product');
       const data = makeProductData(1);
       const instance = new DC(data);
-      expect(instance.href).toContain('/products/1');
+      expect(instance.href).toContain('/Product/1');
     });
 
     it('instance addr is the string id', () => {
@@ -203,7 +203,7 @@ describe('List + Item Interaction', () => {
       // DynamicClass toJSON returns { addr, href, ... }
       // addr comes from the id passed to super()
       expect(json.addr).toBeTruthy();
-      expect(json.href).toContain('/products/1');
+      expect(json.href).toContain('/Product/1');
     });
   });
 

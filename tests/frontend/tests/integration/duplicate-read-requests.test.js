@@ -2,7 +2,7 @@
  * Duplicate READ Request Bug — Integration Tests
  *
  * Verifies that on page load with multiple components consuming the same model,
- * only ONE data request is made to the products endpoint (not 3-4 redundant ones).
+ * only ONE data request is made to the Product collection endpoint (not 3-4 redundant ones).
  *
  * Bug: NTT.SCHEMA() fires an unconditional DC.call('READ') after creating the
  * DynamicClass, AND each ListElement fires its own READ in definedCallback().
@@ -31,7 +31,7 @@ beforeEach(async () => {
         json: () => Promise.resolve(ProductSchema),
       });
     }
-    if (urlStr.includes('/products')) {
+    if (urlStr.includes('/Product/_')) {
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(makeProductListResponse(3)),
@@ -62,14 +62,14 @@ beforeEach(async () => {
 
 
 /**
- * Helper: count how many fetch calls target the products data endpoint
+  * Helper: count how many fetch calls target the Product data endpoint
  * (excludes schema fetches to /Product).
  */
 function countProductDataFetches() {
   return global.fetch.mock.calls.filter(([url]) => {
     const urlStr = typeof url === 'string' ? url : url.toString();
-    // Match /products (data endpoint), exclude /Product (schema endpoint)
-    return urlStr.includes('/products');
+    // Match /Product/_ (data endpoint), exclude /Product (schema endpoint)
+    return urlStr.includes('/Product/_');
   }).length;
 }
 
@@ -85,9 +85,9 @@ describe('NTT.SCHEMA should not trigger redundant READ', () => {
     // Wait for any async TX dispatches to settle
     await flush(50);
 
-    // The SCHEMA handler should NOT have triggered a fetch to /products.
+    // The SCHEMA handler should NOT have triggered a fetch to /Product/_.
     // The only acceptable fetch is the schema fetch itself (if any).
-    // Any fetch to /products is a redundant READ.
+    // Any fetch to /Product/_ is a redundant READ.
     const dataFetches = countProductDataFetches();
     expect(dataFetches).toBe(0);
   });
@@ -105,7 +105,7 @@ describe('NTT.SCHEMA should not trigger redundant READ', () => {
     NTT.SCHEMA(ProductSchema);
     await flush(50);
 
-    // The only acceptable fetch to /products would be from the component's
+    // The only acceptable fetch to /Product/_ would be from the component's
     // own definedCallback, NOT from NTT.SCHEMA's unconditional READ.
     // Since we're only testing NTT.SCHEMA here (no real ListElement), there
     // should be zero data fetches.

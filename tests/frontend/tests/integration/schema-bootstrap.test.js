@@ -27,7 +27,7 @@ beforeEach(async () => {
         json: () => Promise.resolve(ProductSchema),
       });
     }
-    if (urlStr.includes('/products')) {
+    if (urlStr.includes('/Product/_')) {
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(makeProductListResponse(3)),
@@ -59,7 +59,7 @@ describe('Schema Bootstrap Flow', () => {
     expect(DC).toBeDefined();
     expect(DC.name).toBe('Product');
     expect(DC._schema).toBe(ProductSchema);
-    expect(DC.href).toBe(`${API_URL}/products`);
+    expect(DC.href).toBe(`${API_URL}/Product`);
   });
 
   it('DynamicClass properties are generated from schema fields', () => {
@@ -121,7 +121,18 @@ describe('Schema Bootstrap Flow', () => {
     const instance = new DC(makeProductData(1));
     const val = instance.value;
     expect(val.$schema).toBe(`${API_URL}/Product`);
-    expect(val.$id).toContain('/products/1');
+    expect(val.$id).toBe(`${API_URL}/Product/1`);
+    expect(val.$href).toBeUndefined();
+    expect(val.links).toBeUndefined();
+  });
+
+  it('uses class-name model base href and entity $id', () => {
+    NTT.SCHEMA(ProductSchema);
+    const DC = NTT.get('Product');
+    const instance = new DC(makeProductData(1));
+
+    expect(DC.href).toBe(`${API_URL}/Product`);
+    expect(instance.href).toBe(`${API_URL}/Product/1`);
   });
 
   it('property setter validates type and throws TypeError on mismatch', () => {

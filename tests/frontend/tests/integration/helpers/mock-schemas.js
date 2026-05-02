@@ -158,7 +158,7 @@ export function makeProductData(id = 1) {
   return {
     id,
     $schema: `${API_URL}/Product`,
-    $id: `${API_URL}/products/${id}`,
+    $id: `${API_URL}/Product/${id}`,
     name: `Test Product ${id}`,
     price: 29.99,
     description: 'A test product',
@@ -173,7 +173,7 @@ export function makeCommentData(id = 1, productId = 1) {
   return {
     id,
     $schema: `${API_URL}/Comment`,
-    $id: `${API_URL}/products/${productId}/comments/${id}`,
+    $id: `${API_URL}/Product/${productId}/Comment/${id}`,
     name: `Test Comment ${id}`,
     description: 'A test comment',
     user_owner: 1,
@@ -186,7 +186,7 @@ export function makeLikeData(id = 1) {
   return {
     id,
     $schema: `${API_URL}/Like`,
-    $id: `${API_URL}/likes/${id}`,
+    $id: `${API_URL}/Like/${id}`,
     user: 1,
     created_at: new Date().toISOString(),
   };

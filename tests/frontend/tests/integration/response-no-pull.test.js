@@ -41,35 +41,35 @@ beforeEach(async () => {
       });
     }
     // Individual product fetch
-    if (/\/products\/\d+/.test(urlStr) && method === 'GET') {
-      const id = parseInt(urlStr.match(/\/products\/(\d+)/)[1]);
+    if (/\/Product\/\d+/.test(urlStr) && method === 'GET') {
+      const id = parseInt(urlStr.match(/\/Product\/(\d+)/)[1]);
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(makeProductData(id)),
       });
     }
     // Product favorite toggle response carries enough data for local update.
-    if (/\/products\/\d+\/favorite/.test(urlStr) && method === 'POST') {
+    if (/\/Product\/\d+\/favorite/.test(urlStr) && method === 'POST') {
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve({ action: 'favorited', _field: 'favorites', id: 99, user: 1 }),
       });
     }
     // Product comment returns a child Comment entity, so Product must pull.
-    if (/\/products\/\d+\/comment/.test(urlStr) && method === 'POST') {
+    if (/\/Product\/\d+\/comment/.test(urlStr) && method === 'POST') {
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve({
           id: 99,
           $schema: `${API_URL}/Comment`,
-          $id: `${API_URL}/products/1/comments/99`,
+          $id: `${API_URL}/Product/1/Comment/99`,
           name: 'Great!',
           description: '',
         }),
       });
     }
     // List fetch
-    if (urlStr.includes('/products')) {
+    if (urlStr.includes('/Product/_')) {
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(makeProductListResponse(3)),
@@ -121,7 +121,7 @@ describe('_response_ should not trigger network pull for action responses', () =
 
     // _response_ with structured action data should NOT call pull()
     expect(pullCalled).toBe(false);
-    expect(instance.value?.favorites).toContain(`${API_URL}/products/1/favorites/99`);
+    expect(instance.value?.favorites).toContain(`${API_URL}/Product/1/favorites/99`);
 
     // No network requests should have been made
     const gets = global.fetch.mock.calls.filter(([u, o]) => (o?.method || 'GET').toUpperCase() === 'GET');
@@ -148,7 +148,7 @@ describe('_response_ should not trigger network pull for action responses', () =
     // Simulate response that returns entity data (e.g., backend returns updated entity)
     const entityData = makeProductData(1);
     entityData.name = 'Updated Product';
-    entityData.favorites = [`${API_URL}/products/1/favorites/99`];
+    entityData.favorites = [`${API_URL}/Product/1/favorites/99`];
     instance._response_(entityData);
     await flush(100);
 
@@ -214,7 +214,7 @@ describe('Full method call flow with fixed _response_', () => {
 
     // 1 POST for the favorite action
     expect(posts.length).toBe(1);
-    expect(posts[0].url).toContain('/products/1/favorite');
+    expect(posts[0].url).toContain('/Product/1/favorite');
 
     // ZERO GETs — no pull after _response_
     expect(gets.length).toBe(0);

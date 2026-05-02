@@ -16,7 +16,7 @@ test.describe('Favorite — Toggle via API', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // First, ensure we are in a known state by unfavoriting if already favorited
-    const firstResp = await page.request.post('/products/3/favorite', {
+    const firstResp = await page.request.post('/Product/3/favorite', {
       headers: { 'x-access-token': token },
     });
     expect(firstResp.ok()).toBe(true);
@@ -25,7 +25,7 @@ test.describe('Favorite — Toggle via API', () => {
     const firstAction = firstData.action; // either "favorited" or "unfavorited"
 
     // Now toggle again to get the opposite action
-    const secondResp = await page.request.post('/products/3/favorite', {
+    const secondResp = await page.request.post('/Product/3/favorite', {
       headers: { 'x-access-token': token },
     });
     expect(secondResp.ok()).toBe(true);
@@ -44,7 +44,7 @@ test.describe('Favorite — Toggle via API', () => {
     const token = await getToken(page.request, USERS.bob.email, USERS.bob.password);
 
     // Create a fresh product to test on
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Fav Count Test ${Date.now()}`, price: 10 },
     });
@@ -52,7 +52,7 @@ test.describe('Favorite — Toggle via API', () => {
     const pid = product.id;
 
     // Check initial favorites count
-    const beforeResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const beforeResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const beforeData = await beforeResp.json();
@@ -60,13 +60,13 @@ test.describe('Favorite — Toggle via API', () => {
     expect(beforeCount).toBe(0);
 
     // Favorite the product
-    const favResp = await page.request.post(`/products/${pid}/favorite`, {
+    const favResp = await page.request.post(`/Product/${pid}/favorite`, {
       headers: { 'x-access-token': token },
     });
     expect(favResp.ok()).toBe(true);
 
     // Check count increased
-    const afterResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const afterResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const afterData = await afterResp.json();
@@ -74,13 +74,13 @@ test.describe('Favorite — Toggle via API', () => {
     expect(afterCount).toBe(1);
 
     // Unfavorite
-    const unfavResp = await page.request.post(`/products/${pid}/favorite`, {
+    const unfavResp = await page.request.post(`/Product/${pid}/favorite`, {
       headers: { 'x-access-token': token },
     });
     expect(unfavResp.ok()).toBe(true);
 
     // Check count decreased
-    const finalResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const finalResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const finalData = await finalResp.json();
@@ -92,7 +92,7 @@ test.describe('Favorite — Toggle via API', () => {
 test.describe('Favorite — Without Auth', () => {
 
   test('favorite without auth returns 403', async ({ page }) => {
-    const resp = await page.request.post('/products/1/favorite');
+    const resp = await page.request.post('/Product/1/favorite');
     expect(resp.status()).toBe(403);
   });
 });
@@ -102,7 +102,7 @@ test.describe('Favorite — Multiple Users', () => {
   test('multiple users can favorite the same product', async ({ page }) => {
     // Create a clean product
     const aliceToken = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': aliceToken },
       data: { name: `Multi Fav ${Date.now()}`, price: 10 },
     });
@@ -110,27 +110,27 @@ test.describe('Favorite — Multiple Users', () => {
     const pid = product.id;
 
     // Alice favorites
-    const r1 = await page.request.post(`/products/${pid}/favorite`, {
+    const r1 = await page.request.post(`/Product/${pid}/favorite`, {
       headers: { 'x-access-token': aliceToken },
     });
     expect(r1.ok()).toBe(true);
 
     // Bob favorites
     const bobToken = await getToken(page.request, USERS.bob.email, USERS.bob.password);
-    const r2 = await page.request.post(`/products/${pid}/favorite`, {
+    const r2 = await page.request.post(`/Product/${pid}/favorite`, {
       headers: { 'x-access-token': bobToken },
     });
     expect(r2.ok()).toBe(true);
 
     // Charlie favorites
     const charlieToken = await getToken(page.request, USERS.charlie.email, USERS.charlie.password);
-    const r3 = await page.request.post(`/products/${pid}/favorite`, {
+    const r3 = await page.request.post(`/Product/${pid}/favorite`, {
       headers: { 'x-access-token': charlieToken },
     });
     expect(r3.ok()).toBe(true);
 
     // Verify count is 3
-    const verifyResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': aliceToken },
     });
     const data = await verifyResp.json();
@@ -220,28 +220,28 @@ test.describe('Favorite — Cross-Product Independence', () => {
 
     // Create two products
     const ts = Date.now();
-    const respA = await page.request.post('/products', {
+    const respA = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Cross Fav A ${ts}`, price: 10 },
     });
     const productA = await respA.json();
 
-    const respB = await page.request.post('/products', {
+    const respB = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Cross Fav B ${ts}`, price: 20 },
     });
     const productB = await respB.json();
 
     // Favorite only product A
-    await page.request.post(`/products/${productA.id}/favorite`, {
+    await page.request.post(`/Product/${productA.id}/favorite`, {
       headers: { 'x-access-token': token },
     });
 
     // Verify A has 1 favorite, B has 0
-    const dataA = await (await page.request.get(`/products/${productA.id}?depth=1`, {
+    const dataA = await (await page.request.get(`/Product/${productA.id}?depth=1`, {
       headers: { 'x-access-token': token },
     })).json();
-    const dataB = await (await page.request.get(`/products/${productB.id}?depth=1`, {
+    const dataB = await (await page.request.get(`/Product/${productB.id}?depth=1`, {
       headers: { 'x-access-token': token },
     })).json();
 
@@ -258,7 +258,7 @@ test.describe('Comment Like — Toggle via API', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // Get a comment to like
-    const productResp = await page.request.get('/products/1?depth=1', {
+    const productResp = await page.request.get('/Product/1?depth=1', {
       headers: { 'x-access-token': token },
     });
     const productData = await productResp.json();
@@ -267,7 +267,7 @@ test.describe('Comment Like — Toggle via API', () => {
     const commentId = comments[0].id;
 
     // Like the comment
-    const likeResp = await page.request.post(`/products/1/comments/${commentId}/like`, {
+    const likeResp = await page.request.post(`/Product/1/Comment/${commentId}/like`, {
       headers: { 'x-access-token': token },
     });
     expect(likeResp.ok()).toBe(true);
@@ -277,7 +277,7 @@ test.describe('Comment Like — Toggle via API', () => {
     expect(['liked', 'unliked']).toContain(firstAction);
 
     // Toggle again — should be opposite
-    const unlikeResp = await page.request.post(`/products/1/comments/${commentId}/like`, {
+    const unlikeResp = await page.request.post(`/Product/1/Comment/${commentId}/like`, {
       headers: { 'x-access-token': token },
     });
     expect(unlikeResp.ok()).toBe(true);
@@ -291,7 +291,7 @@ test.describe('Comment Like — Toggle via API', () => {
   });
 
   test('like comment without auth returns 403', async ({ page }) => {
-    const resp = await page.request.post('/products/1/comments/1/like');
+    const resp = await page.request.post('/Product/1/Comment/1/like');
     expect(resp.status()).toBe(403);
   });
 });
@@ -380,12 +380,12 @@ test.describe('Favorite — Edge Cases', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // Create product and favorite it
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Reload Fav ${Date.now()}`, price: 10 },
     });
     const product = await createResp.json();
-    await page.request.post(`/products/${product.id}/favorite`, {
+    await page.request.post(`/Product/${product.id}/favorite`, {
       headers: { 'x-access-token': token },
     });
 

@@ -143,7 +143,7 @@ export class NetworkAdapter {
       HTTP.get(url, callback, onError);
     }
     else if (name.toUpperCase() === 'SCHEMA') HTTP.get(`${target}`, callback, onError);
-    else if (name.toUpperCase() === 'CREATE') HTTP.post(target, data, callback, onError);
+    else if (name.toUpperCase() === 'CREATE') HTTP.post(collectionWriteTarget(target), data, callback, onError);
     else if (name.toUpperCase() === 'UPDATE') HTTP.put(target, data, callback, onError);
     else if (name.toUpperCase() === 'DELETE') HTTP.remove(target, callback, onError);
     else if (name.toUpperCase() === 'TEST') HTTP.get(target, data, callback, onError);
@@ -163,10 +163,10 @@ export class NetworkAdapter {
         });
       };
        */
-      HTTP.stream(`${target}/${name.toLowerCase()}`, data, callback, callback, onError);
+      HTTP.stream(`${collectionWriteTarget(target)}/${name.toLowerCase()}`, data, callback, callback, onError);
     }
     else {
-      HTTP.post(`${target}/${name.toLowerCase()}`, data, callback, onError);
+      HTTP.post(`${collectionWriteTarget(target)}/${name.toLowerCase()}`, data, callback, onError);
     }
   }
 
@@ -180,4 +180,10 @@ export class NetworkAdapter {
     return HTTP.stream(url, data, onChunk, onDone, onError);
   }
 
+}
+
+function collectionWriteTarget(target) {
+  return typeof target === 'string' && target.endsWith('/_')
+    ? target.slice(0, -2)
+    : target;
 }

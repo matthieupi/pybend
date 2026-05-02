@@ -10,7 +10,7 @@ const APP_URL = '/';
 test.describe('Error Scenarios', () => {
 
   test('403 response when accessing protected endpoint without token', async ({ page }) => {
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       data: { name: 'Unauthorized Product', price: 10 },
     });
     expect(resp.status()).toBe(403);
@@ -19,7 +19,7 @@ test.describe('Error Scenarios', () => {
   test('404 on non-existent product detail', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
-    const resp = await page.request.get('/products/99999', {
+    const resp = await page.request.get('/Product/99999', {
       headers: { 'x-access-token': token },
     });
 
@@ -56,7 +56,7 @@ test.describe('Error Scenarios', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // Missing required fields
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: {},
     });
@@ -68,7 +68,7 @@ test.describe('Error Scenarios', () => {
   test('malformed JSON body returns error', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: {
         'x-access-token': token,
         'Content-Type': 'application/json',
@@ -119,7 +119,7 @@ test.describe('Error Scenarios', () => {
     // Alice is a regular user and does not own seeded comment 1.
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
-    const resp = await page.request.delete('/products/1/comments/1', {
+    const resp = await page.request.delete('/Product/1/Comment/1', {
       headers: { 'x-access-token': token },
     });
 
@@ -128,7 +128,7 @@ test.describe('Error Scenarios', () => {
   });
 
   test('expired or invalid token returns 401', async ({ page }) => {
-    const resp = await page.request.get('/products', {
+    const resp = await page.request.get('/Product', {
       headers: { 'x-access-token': 'invalid.jwt.token' },
     });
 
@@ -177,7 +177,7 @@ test.describe('Error Scenarios', () => {
   });
 
   test('API returns proper error structure', async ({ page }) => {
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       data: { name: 'Test', price: 10 },
     });
 

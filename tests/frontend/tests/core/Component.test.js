@@ -30,6 +30,14 @@ vi.mock('../../utils/Logging.js', () => ({
 
 import { Component } from '../../core/Component.js';
 
+class TestEntityComponent extends Component {
+  render() {}
+}
+
+if (!customElements.get('test-entity-component')) {
+  customElements.define('test-entity-component', TestEntityComponent);
+}
+
 describe('Component.js', () => {
 
   describe('static normalizeDisplay(value)', () => {
@@ -110,6 +118,38 @@ describe('Component.js', () => {
       if (desc && desc.value) {
         expect(() => desc.value.call({ constructor: { name: 'Test' } })).toThrow(/render\(\) must be implemented/);
       }
+    });
+  });
+
+  describe('ref URL transport hints', () => {
+    it('attaches URL refs through data-model while preserving the transport href', () => {
+      const el = document.createElement('test-entity-component');
+      const sendSpy = vi.spyOn(el, 'send').mockImplementation(() => {});
+
+      el.setAttribute('data-model', 'Comment');
+      el.setAttribute('ref', 'http://localhost:5000/Product/1/Comment/2');
+
+      expect(sendSpy).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'ATTACH',
+        target: 'NTT',
+        data: 'Comment/2',
+        meta: { href: 'http://localhost:5000/Product/1/Comment/2' },
+      }));
+    });
+
+    it('keeps legacy parent-scoped table-name URL refs working through the same path', () => {
+      const el = document.createElement('test-entity-component');
+      const sendSpy = vi.spyOn(el, 'send').mockImplementation(() => {});
+
+      el.setAttribute('data-model', 'Comment');
+      el.setAttribute('ref', 'http://localhost:5000/products/1/comments/2');
+
+      expect(sendSpy).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'ATTACH',
+        target: 'NTT',
+        data: 'Comment/2',
+        meta: { href: 'http://localhost:5000/products/1/comments/2' },
+      }));
     });
   });
 });

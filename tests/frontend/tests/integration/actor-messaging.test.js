@@ -171,7 +171,7 @@ describe('Actor Messaging', () => {
     expect(sendSpy).toHaveBeenCalled();
     const sentTx = sendSpy.mock.calls[0][0];
     expect(sentTx.name).toBe('favorite');
-    expect(sentTx.target).toContain('/products/1');
+    expect(sentTx.target).toContain('/Product/1');
 
     instance.constructor.send = originalSend;
   });
@@ -189,7 +189,7 @@ describe('Actor Messaging', () => {
     expect(sendSpy).toHaveBeenCalled();
     const sentTx = sendSpy.mock.calls[0][0];
     expect(sentTx.name).toBe('READ');
-    expect(sentTx.target).toBe(`${API_URL}/products`);
+    expect(sentTx.target).toBe(`${API_URL}/Product/_`);
 
     DC.send = originalSend;
   });
@@ -217,7 +217,7 @@ describe('Actor Messaging', () => {
     matrix.dispatch(new TX({
       name: 'READ',
       source: 'NTT',
-      target: `${API_URL}/products`,
+      target: `${API_URL}/Product/_`,
       data: {},
     }));
     expect(remoteSendSpy).toHaveBeenCalled();

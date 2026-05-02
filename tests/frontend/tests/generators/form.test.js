@@ -49,7 +49,7 @@ describe('form.js (Formidable)', () => {
   const makeNtt = (value = {}) => ({
     schema,
     value: { id: 1, name: 'Test Product', price: 29.99, description: 'A test', active: true, ...value },
-    ref: 'http://localhost:5000/products/1',
+    ref: 'http://localhost:5000/Product/1',
     name: 'Product',
   });
 
@@ -336,12 +336,12 @@ describe('form.js (Formidable)', () => {
         },
         value: {
           comments: [
-            'http://localhost:5000/products/1/comments/1',
-            'http://localhost:5000/products/1/comments/2',
-            'http://localhost:5000/products/1/comments/3',
+            'http://localhost:5000/Product/1/Comment/1',
+            'http://localhost:5000/Product/1/Comment/2',
+            'http://localhost:5000/Product/1/Comment/3',
           ]
         },
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
         name: 'Product',
       };
       const html = Formidable.getListInput(ntt, 'comments', 'display');
@@ -364,7 +364,7 @@ describe('form.js (Formidable)', () => {
           $defs: { Comment: { __name__: 'Comment' } },
         },
         value: { comments: [] },
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
         name: 'Product',
       };
 
@@ -451,8 +451,8 @@ describe('form.js (Formidable)', () => {
           $defs: { Comment: {} },
           ui: { groups: { main: ['price'], Social: ['comments'] } },
         },
-        value: { price: 29.99, comments: ['http://localhost:5000/products/1/comments/1'] },
-        ref: 'http://localhost:5000/products/1',
+        value: { price: 29.99, comments: ['http://localhost:5000/Product/1/Comment/1'] },
+        ref: 'http://localhost:5000/Product/1',
         name: 'Product',
       };
 
@@ -676,7 +676,7 @@ describe('form.js (Formidable)', () => {
           ui: { ...schema.ui, field_order: ['name', 'price', 'description', 'active', 'status'] },
         },
         value: { id: 1, name: 'Test', price: 10, description: '', active: true, status: 'active' },
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
         name: 'Product',
       };
       // getInput calls resolveAnyOf internally for anyOf fields
@@ -946,7 +946,7 @@ describe('form.js (Formidable)', () => {
           $defs: { User: { ui: { renderer: { item: 'ntx-user' } } } },
         },
         value: { id: 1, name: 'Test', user_owner: 'http://localhost:5000/users/1' },
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
         name: 'Product',
       };
       const html = Formidable.getInput(ntt, 'user_owner', 'display');
@@ -969,7 +969,7 @@ describe('form.js (Formidable)', () => {
           $defs: { User: {} },
         },
         value: { id: 1, name: 'Test', author: { $id: 'http://localhost:5000/users/2', name: 'Bob' } },
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
         name: 'Product',
       };
       const html = Formidable.getInput(ntt, 'author', 'display');

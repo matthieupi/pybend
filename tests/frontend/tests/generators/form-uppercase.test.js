@@ -38,7 +38,7 @@ describe('Formidable detail-only title headers', () => {
         methods: {},
       },
       value: { name: 'mixed case title', price: 10 },
-      ref: 'http://localhost:5000/products/1',
+      ref: 'http://localhost:5000/Product/1',
       name: 'Product',
     };
 

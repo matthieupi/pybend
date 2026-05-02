@@ -273,7 +273,7 @@ describe('ntx-item.js (NTTItem)', () => {
     it('should delegate to md() in edit mode', () => {
       const el = createItem(productSchema, {
         id: 1, name: 'Product', price: 10, description: 'test',
-      }, { mode: 'edit', ref: 'http://localhost:5000/products/1' });
+      }, { mode: 'edit', ref: 'http://localhost:5000/Product/1' });
       el.name = 'Product';
       const html = el.sm();
       // md() renders a form via Formidable - just check it renders something
@@ -427,7 +427,7 @@ describe('ntx-item.js (NTTItem)', () => {
       };
       const el = createItem(schema, {
         id: 1, name: 'Product', price: 29.99, description: 'A test',
-      }, { ref: 'http://localhost:5000/products/1' });
+      }, { ref: 'http://localhost:5000/Product/1' });
       el.name = 'Product';
       const html = el.md();
       expect(html).toContain('card-actions');
@@ -438,7 +438,7 @@ describe('ntx-item.js (NTTItem)', () => {
     it('should render image when value has image', () => {
       const el = createItem(productSchema, {
         id: 1, name: 'Product', image: 'http://example.com/img.png',
-      }, { ref: 'http://localhost:5000/products/1' });
+      }, { ref: 'http://localhost:5000/Product/1' });
       el.name = 'Product';
       const html = el.md();
       expect(html).toContain('card-image');
@@ -457,7 +457,7 @@ describe('ntx-item.js (NTTItem)', () => {
         },
       };
       const el = createItem(schema, { id: 1, name: 'Product' }, {
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
       });
       el.name = 'Product';
       const html = el.md();
@@ -476,7 +476,7 @@ describe('ntx-item.js (NTTItem)', () => {
         },
       };
       const el = createItem(schema, { id: 1, name: 'Product' }, {
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
         mode: 'edit',
       });
       el.name = 'Product';
@@ -486,7 +486,7 @@ describe('ntx-item.js (NTTItem)', () => {
 
     it('should render grouped detail fields and list fields in display mode', () => {
       const el = createItem(detailProductSchema, detailProductValue, {
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
       });
       el.name = 'Product';
       Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
@@ -505,7 +505,7 @@ describe('ntx-item.js (NTTItem)', () => {
 
     it('should hide non-display fields and render standalone methods in display mode', () => {
       const el = createItem(detailProductSchema, detailProductValue, {
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
       });
       el.name = 'Product';
       Object.defineProperty(el, 'displayMode', { get: () => 'md', configurable: true });
@@ -520,7 +520,7 @@ describe('ntx-item.js (NTTItem)', () => {
 
     it('should omit protected field inputs in edit mode', () => {
       const el = createItem(detailProductSchema, detailProductValue, {
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
         mode: 'edit',
       });
       el.name = 'Product';
@@ -706,7 +706,7 @@ describe('ntx-item.js (NTTItem)', () => {
       const confirmSpy = vi.spyOn(globalThis, 'confirm');
       const ctx = {
         schema: { __name__: 'Product', access: { delete: { rule: 'admin' } } },
-        value: { id: 1, $id: 'http://localhost:5000/products/1' },
+        value: { id: 1, $id: 'http://localhost:5000/Product/1' },
       };
       NTTItem.prototype.deleteItem.call(ctx);
       expect(confirmSpy).not.toHaveBeenCalled();
@@ -716,7 +716,7 @@ describe('ntx-item.js (NTTItem)', () => {
       vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
       const ctx = {
         schema: { __name__: 'Product', access: { delete: { rule: 'anyone' } } },
-        value: { id: 1, $id: 'http://localhost:5000/products/1' },
+        value: { id: 1, $id: 'http://localhost:5000/Product/1' },
       };
       NTTItem.prototype.deleteItem.call(ctx);
       expect(globalThis.confirm).toHaveBeenCalled();
@@ -736,8 +736,8 @@ describe('ntx-item.js (NTTItem)', () => {
     describe('top-level delete path', () => {
       it('should ask "Delete this {modelName}?" confirmation', () => {
         const schema = { __name__: 'Product', properties: {}, access: {} };
-        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
-          ref: 'http://localhost:5000/products/1',
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/Product/1' }, {
+          ref: 'http://localhost:5000/Product/1',
         });
         // Mock getRootNode to return no host (top-level context)
         el.getRootNode = vi.fn(() => ({ host: null }));
@@ -752,8 +752,8 @@ describe('ntx-item.js (NTTItem)', () => {
         nttGetSpy.mockReturnValue(DCMock);
 
         const schema = { __name__: 'Product', properties: {}, access: {} };
-        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
-          ref: 'http://localhost:5000/products/1',
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/Product/1' }, {
+          ref: 'http://localhost:5000/Product/1',
         });
         el.getRootNode = vi.fn(() => ({ host: null }));
 
@@ -763,7 +763,7 @@ describe('ntx-item.js (NTTItem)', () => {
         expect(sendSpy).toHaveBeenCalledWith(
           expect.objectContaining({
             name: 'DELETE',
-            target: 'http://localhost:5000/products/1',
+            target: 'http://localhost:5000/Product/1',
             meta: { inbox: 'DELETE' },
           })
         );
@@ -775,8 +775,8 @@ describe('ntx-item.js (NTTItem)', () => {
         nttGetSpy.mockReturnValue(DCMock);
 
         const schema = { __name__: 'Product', properties: {}, access: {} };
-        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
-          ref: 'http://localhost:5000/products/1',
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/Product/1' }, {
+          ref: 'http://localhost:5000/Product/1',
         });
         el.getRootNode = vi.fn(() => undefined);
 
@@ -792,7 +792,7 @@ describe('ntx-item.js (NTTItem)', () => {
         nttGetSpy.mockReturnValue(DCMock);
 
         const schema = { __name__: 'Product', properties: {}, access: {} };
-        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/Product/1' }, {
           ref: '',
         });
         el.getRootNode = vi.fn(() => ({ host: null }));
@@ -801,7 +801,7 @@ describe('ntx-item.js (NTTItem)', () => {
 
         expect(sendSpy).toHaveBeenCalledWith(
           expect.objectContaining({
-            target: 'http://localhost:5000/products/1',
+            target: 'http://localhost:5000/Product/1',
           })
         );
       });
@@ -810,8 +810,8 @@ describe('ntx-item.js (NTTItem)', () => {
         nttGetSpy.mockReturnValue(null);
 
         const schema = { __name__: 'Product', properties: {}, access: {} };
-        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/products/1' }, {
-          ref: 'http://localhost:5000/products/1',
+        const el = createItem(schema, { id: 1, $id: 'http://localhost:5000/Product/1' }, {
+          ref: 'http://localhost:5000/Product/1',
         });
         el.getRootNode = vi.fn(() => ({ host: null }));
 
@@ -1547,7 +1547,7 @@ describe('ntx-item.js (NTTItem)', () => {
         access: { update: { rule: 'owner' }, delete: { rule: 'admin' } },
       };
       const el = createItem(schema, { id: 1, name: 'Product' }, {
-        ref: 'http://localhost:5000/products/1',
+        ref: 'http://localhost:5000/Product/1',
       });
       el.name = 'Product';
       const html = el.md();

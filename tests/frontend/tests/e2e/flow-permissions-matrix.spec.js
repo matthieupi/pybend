@@ -17,12 +17,12 @@ const APP_URL = '/';
 test.describe('Permissions — Anonymous User (API)', () => {
 
   test('can view product list (200 OK)', async ({ page }) => {
-    const resp = await page.request.get('/products');
+    const resp = await page.request.get('/Product');
     expect(resp.ok()).toBe(true);
   });
 
   test('cannot view product detail (403)', async ({ page }) => {
-    const resp = await page.request.get('/products/1');
+    const resp = await page.request.get('/Product/1');
     expect(resp.status()).toBe(403);
   });
 
@@ -32,14 +32,14 @@ test.describe('Permissions — Anonymous User (API)', () => {
   });
 
   test('cannot create product (403)', async ({ page }) => {
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       data: { name: 'Anon Product', price: 10 },
     });
     expect(resp.status()).toBe(403);
   });
 
   test('cannot update product (403 or 422)', async ({ page }) => {
-    const resp = await page.request.put('/products/1', {
+    const resp = await page.request.put('/Product/1', {
       data: { name: 'Hacked', price: 1 },
     });
     // 403 for access denied or 422 for validation (but should be 403 first)
@@ -47,19 +47,19 @@ test.describe('Permissions — Anonymous User (API)', () => {
   });
 
   test('cannot delete product (403)', async ({ page }) => {
-    const resp = await page.request.delete('/products/1');
+    const resp = await page.request.delete('/Product/1');
     expect(resp.status()).toBe(403);
   });
 
   test('cannot add comment (403)', async ({ page }) => {
-    const resp = await page.request.post('/products/1/comment', {
+    const resp = await page.request.post('/Product/1/comment', {
       data: { comment: { name: 'Anon', description: 'Should fail' } },
     });
     expect(resp.status()).toBe(403);
   });
 
   test('cannot favorite product (403)', async ({ page }) => {
-    const resp = await page.request.post('/products/1/favorite');
+    const resp = await page.request.post('/Product/1/favorite');
     expect(resp.status()).toBe(403);
   });
 
@@ -117,7 +117,7 @@ test.describe('Permissions — Authenticated User (API)', () => {
 
   test('can view product list (200 OK)', async ({ page }) => {
     const token = await getToken(page.request, USERS.bob.email, USERS.bob.password);
-    const resp = await page.request.get('/products', {
+    const resp = await page.request.get('/Product', {
       headers: { 'x-access-token': token },
     });
     expect(resp.ok()).toBe(true);
@@ -125,7 +125,7 @@ test.describe('Permissions — Authenticated User (API)', () => {
 
   test('can view product detail (200 OK)', async ({ page }) => {
     const token = await getToken(page.request, USERS.bob.email, USERS.bob.password);
-    const resp = await page.request.get('/products/1', {
+    const resp = await page.request.get('/Product/1', {
       headers: { 'x-access-token': token },
     });
     expect(resp.ok()).toBe(true);
@@ -133,7 +133,7 @@ test.describe('Permissions — Authenticated User (API)', () => {
 
   test('can create own product (200 OK)', async ({ page }) => {
     const token = await getToken(page.request, USERS.bob.email, USERS.bob.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Bobs Product ${Date.now()}`, price: 10 },
     });
@@ -143,7 +143,7 @@ test.describe('Permissions — Authenticated User (API)', () => {
   test('can update any product (Product has no owner check)', async ({ page }) => {
     // Product uses {"*": "authenticated"} — any authenticated user can update any product
     const token = await getToken(page.request, USERS.bob.email, USERS.bob.password);
-    const resp = await page.request.put('/products/1', {
+    const resp = await page.request.put('/Product/1', {
       headers: { 'x-access-token': token },
       data: { name: 'Wireless Headphones', price: 79.99 },
     });
@@ -152,7 +152,7 @@ test.describe('Permissions — Authenticated User (API)', () => {
 
   test('can add comment to any product (200 OK)', async ({ page }) => {
     const token = await getToken(page.request, USERS.bob.email, USERS.bob.password);
-    const resp = await page.request.post('/products/1/comment', {
+    const resp = await page.request.post('/Product/1/comment', {
       headers: { 'x-access-token': token },
       data: { comment: { name: `Bob comment ${Date.now()}`, description: 'Test' } },
     });
@@ -162,13 +162,13 @@ test.describe('Permissions — Authenticated User (API)', () => {
   test('can favorite any product (200 OK)', async ({ page }) => {
     const token = await getToken(page.request, USERS.charlie.email, USERS.charlie.password);
     // Create a fresh product to avoid toggle issues
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Perm Fav Test ${Date.now()}`, price: 10 },
     });
     const product = await createResp.json();
 
-    const resp = await page.request.post(`/products/${product.id}/favorite`, {
+    const resp = await page.request.post(`/Product/${product.id}/favorite`, {
       headers: { 'x-access-token': token },
     });
     expect(resp.ok()).toBe(true);
@@ -316,8 +316,8 @@ test.describe('Permissions — Role Escalation Prevention', () => {
 
     const endpoints = [
       { method: 'GET', url: '/auth/me' },
-      { method: 'POST', url: '/products' },
-      { method: 'POST', url: '/products/1/favorite' },
+      { method: 'POST', url: '/Product' },
+      { method: 'POST', url: '/Product/1/favorite' },
     ];
 
     for (const ep of endpoints) {
@@ -329,7 +329,7 @@ test.describe('Permissions — Role Escalation Prevention', () => {
       } else {
         resp = await page.request.post(ep.url, {
           headers: { 'x-access-token': invalidToken },
-          data: ep.method === 'POST' && ep.url === '/products' ? { name: 'test', price: 1 } : {},
+          data: ep.method === 'POST' && ep.url === '/Product' ? { name: 'test', price: 1 } : {},
         });
       }
       expect(resp.ok()).toBe(false);

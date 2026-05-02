@@ -42,7 +42,7 @@ describe('Method Execution', () => {
 
     const favoriteTx = sentTxs.find(tx => tx.name === 'favorite');
     expect(favoriteTx).toBeDefined();
-    expect(favoriteTx.target).toContain('/products/1');
+    expect(favoriteTx.target).toContain('/Product/1');
     expect(favoriteTx.meta.inbox).toBe('_response_');
 
     instance.constructor.send = originalSend;
@@ -60,7 +60,7 @@ describe('Method Execution', () => {
 
     const readTx = sentTxs.find(tx => tx.name === 'READ');
     expect(readTx).toBeDefined();
-    expect(readTx.target).toBe(`${API_URL}/products`);
+    expect(readTx.target).toBe(`${API_URL}/Product/_`);
 
     DC.send = originalSend;
   });
@@ -93,7 +93,7 @@ describe('Method Execution', () => {
     const pullSpy = vi.spyOn(instance, 'pull');
     instance._response_('Comment added', new TX({
       name: '_response_',
-      source: `${API_URL}/products/1/comment`,
+      source: `${API_URL}/Product/1/comment`,
       target: 'Product/1',
     }));
 
@@ -115,7 +115,7 @@ describe('Method Execution', () => {
 
     const readTx = sentTxs.find(tx => tx.name === 'READ');
     expect(readTx).toBeDefined();
-    expect(readTx.target).toContain('/products/1');
+    expect(readTx.target).toContain('/Product/1');
     expect(readTx.meta.remote).toBe(true);
 
     instance.constructor.send = originalSend;

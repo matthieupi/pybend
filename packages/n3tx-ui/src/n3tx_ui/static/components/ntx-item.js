@@ -717,7 +717,7 @@ export class NTTItem extends NTTElement {
         const text = input.value.trim();
         if (!text) return;
         // Route through the NTT Actor — href is authoritative (carries correct
-        // nested URL like /products/1/comments/3) after the $id fix.
+        // nested URL like /Product/1/Comment/3) after the $id fix.
         const entity = NTT.get(this.schema.__name__ + '/' + this.value.id);
         if (entity?.call) {
           entity.call(methodName, { text }, { inbox: '_response_' });

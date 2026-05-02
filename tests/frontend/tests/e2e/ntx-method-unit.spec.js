@@ -111,7 +111,7 @@ test.describe('ntx-method — Backend Schema', () => {
 test.describe('ntx-method — Authenticated API Calls', () => {
   test('favorite API call works with auth', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products/1/favorite', {
+    const resp = await page.request.post('/Product/1/favorite', {
       headers: { 'x-access-token': token },
       data: {},
     });
@@ -119,7 +119,7 @@ test.describe('ntx-method — Authenticated API Calls', () => {
   });
 
   test('favorite API call fails without auth', async ({ page }) => {
-    const resp = await page.request.post('/products/1/favorite', {
+    const resp = await page.request.post('/Product/1/favorite', {
       data: {},
     });
     expect([401, 403]).toContain(resp.status());

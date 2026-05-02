@@ -57,7 +57,7 @@ test.describe('Comments', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // Get current comment count
-    const beforeResp = await page.request.get('/products/1?depth=1', {
+    const beforeResp = await page.request.get('/Product/1?depth=1', {
       headers: { 'x-access-token': token },
     });
     const beforeData = await beforeResp.json();
@@ -66,14 +66,14 @@ test.describe('Comments', () => {
       : (Array.isArray(beforeData.comments) ? beforeData.comments.length : 0);
 
     // Add a comment via API
-    const resp = await page.request.post('/products/1/comment', {
+    const resp = await page.request.post('/Product/1/comment', {
       headers: { 'x-access-token': token },
       data: { comment: { name: 'E2E Test Comment', description: 'From Playwright' } },
     });
     expect(resp.ok()).toBe(true);
 
     // Verify count increased
-    const afterResp = await page.request.get('/products/1?depth=1', {
+    const afterResp = await page.request.get('/Product/1?depth=1', {
       headers: { 'x-access-token': token },
     });
     const afterData = await afterResp.json();

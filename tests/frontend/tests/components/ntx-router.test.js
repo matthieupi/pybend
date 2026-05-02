@@ -231,12 +231,95 @@ describe('ntx-router.js (NTTRouter)', () => {
       expect(mounted.hasAttribute('method')).toBe(false);
     });
 
+    it('should mount nested class-name detail routes with child model hint and absolute nested ref', async () => {
+      window.location.hash = '#Product/1/Comment/2';
+      window.NTT = {
+        get: vi.fn((model) => ({
+          schema: { ui: { renderer: model === 'Comment' ? { item: 'ntx-comment-card' } : { item: 'ntx-product-card' } } },
+        })),
+      };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-nested-detail-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const mounted = el.shadowRoot.querySelector('.router-content ntx-comment-card');
+      expect(mounted).toBeTruthy();
+      expect(window.NTT.get).toHaveBeenCalledWith('Comment');
+      expect(mounted.getAttribute('data-model')).toBe('Comment');
+      expect(mounted.getAttribute('ref')).toBe('http://localhost:5000/Product/1/Comment/2');
+      expect(mounted.getAttribute('display')).toBe('lg');
+      expect(mounted.hasAttribute('method')).toBe(false);
+    });
+
+    it('should mount nested class-name named views without method attrs', async () => {
+      window.location.hash = '#Product/1/Comment/2/@like';
+      window.NTT = {
+        get: vi.fn(() => ({
+          schema: {
+            ui: { renderer: { like: 'ntx-like-view' } },
+            methods: { like: { ui: { renderer: 'ntx-like-method' } } },
+          },
+        })),
+      };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-nested-view-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const mounted = el.shadowRoot.querySelector('.router-content ntx-like-view');
+      expect(mounted).toBeTruthy();
+      expect(mounted.getAttribute('data-model')).toBe('Comment');
+      expect(mounted.getAttribute('ref')).toBe('http://localhost:5000/Product/1/Comment/2');
+      expect(mounted.hasAttribute('method')).toBe(false);
+    });
+
+    it('should mount nested class-name action routes with method attrs', async () => {
+      window.location.hash = '#Product/1/Comment/2/like';
+      window.NTT = {
+        get: vi.fn(() => ({
+          schema: { methods: { like: { ui: { renderer: 'ntx-like-method' } } } },
+        })),
+      };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-nested-action-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      const mounted = el.shadowRoot.querySelector('.router-content ntx-like-method');
+      expect(mounted).toBeTruthy();
+      expect(mounted.getAttribute('data-model')).toBe('Comment');
+      expect(mounted.getAttribute('ref')).toBe('http://localhost:5000/Product/1/Comment/2');
+      expect(mounted.getAttribute('method')).toBe('like');
+      expect(mounted.getAttribute('display')).toBe('lg');
+    });
+
     it('should not mount invalid view routes or arbitrary extra components', async () => {
       window.location.hash = '#Product/1/@item/extra';
       window.NTT = { get: vi.fn(() => ({ schema: {} })) };
 
       const el = document.createElement('ntx-router');
       el.setAttribute('name', `router-invalid-view-route-${Math.random().toString(36).slice(2)}`);
+      document.body.appendChild(el);
+
+      await Promise.resolve();
+
+      expect(el.shadowRoot.querySelector('.router-content ntx-extra')).toBeFalsy();
+      expect(el.shadowRoot.querySelector('.router-content slot')).toBeTruthy();
+    });
+
+    it('should not mount invalid nested extra segments as arbitrary components', async () => {
+      window.location.hash = '#Product/1/Comment/2/@item/extra';
+      window.NTT = { get: vi.fn(() => ({ schema: {} })) };
+
+      const el = document.createElement('ntx-router');
+      el.setAttribute('name', `router-invalid-nested-route-${Math.random().toString(36).slice(2)}`);
       document.body.appendChild(el);
 
       await Promise.resolve();

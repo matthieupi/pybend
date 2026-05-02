@@ -301,7 +301,7 @@ export class NTT extends TT {
      */
     static SCHEMA(data, tx) {
         const addr = data.__name__;
-        const href = collectionHref(data, addr);
+        const href = modelHref(data, addr);
 
         // Handle $defs (nested schemas) first — skip the main model itself.
         // Use inline $defs even when a separate fetch is in-flight (null in prototypes)
@@ -312,7 +312,7 @@ export class NTT extends TT {
                 // !NTT.#prototypes.get(key) is true for both undefined (never seen)
                 // and null (in-flight) — either way, create from inline $def
                 if (value.type === 'object' && value.properties && !NTT.#prototypes.get(key)) {
-                    const defHref = collectionHref(value, key);
+                    const defHref = modelHref(value, key);
                     const DC = prototype(key, value, defHref);
                     NTT.#prototypes.set(key, DC);
                     NTT.#replayWaiting(key, DC);
@@ -521,12 +521,16 @@ function schemaApiBase(schemaId) {
 }
 
 /**
- * Resolve a model collection href from schema metadata.
+ * Resolve the class-name model base href from schema metadata.
+ *
+ * Collection transport appends the explicit '_' marker at collection call sites;
+ * member transport appends the id directly. Keeping the shared static href at
+ * the model base avoids accidentally building member URLs like /Model/_/id.
  */
-function collectionHref(schema, addr) {
+function modelHref(schema, addr) {
     const base = schemaApiBase(schema?.$id);
-    const table = schema?.__tablename__ || `${addr.toLowerCase()}s`;
-    return `${base}/${table}`;
+    const model = schema?.__name__ || addr;
+    return `${base}/${model}`;
 }
 
 /**
@@ -642,8 +646,9 @@ function prototype(addr, schema, href) {
         this.value = data;
         // Use the entity's $id (context-specific URL) when available.
         // For nested entities (e.g. comments inside products), $id carries
-        // the correct CRUD path (/products/1/comments/3) while the
-        // DynamicClass-level href points to the standalone collection (/comments).
+        // the correct CRUD path (/Product/1/Comment/3). DynamicClass.href is
+        // the class-name model base (/Comment), with '_' appended only where
+        // collection transport is required.
         this.href = data.$id || `${href}/${this.id}`;
         Logging.dev(`[NTT] Created instance of ${className}`, this.addr)
       }
@@ -764,7 +769,7 @@ function prototype(addr, schema, href) {
     DynamicClass.call = function(method, data = {}, meta = {}) {
         DynamicClass.send(new TX({
             name: method,
-            target: DynamicClass.href,
+            target: `${DynamicClass.href}/_`,
             data: data,
             meta: meta,
             timestamp: Date.now()

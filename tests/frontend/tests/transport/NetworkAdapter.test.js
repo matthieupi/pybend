@@ -87,32 +87,32 @@ describe('NetworkAdapter.js', () => {
     it('should dispatch reply with swapped source and target', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {},
       };
       adapter.httpCallback(event, { id: 1 });
 
       const reply = matrix.dispatch.mock.calls[0][0];
-      expect(reply.source).toBe('http://localhost:5000/products');
+      expect(reply.source).toBe('http://localhost:5000/Product/_');
       expect(reply.target).toBe('actor-1');
     });
 
     it('should not mutate the original event', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {},
       };
       adapter.httpCallback(event, { id: 1 });
       expect(event.source).toBe('actor-1');
-      expect(event.target).toBe('http://localhost:5000/products');
+      expect(event.target).toBe('http://localhost:5000/Product/_');
       expect(event.data).toBe(null);
     });
 
     it('should set reply data to response', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {},
       };
       const response = { id: 1, name: 'Product' };
@@ -124,7 +124,7 @@ describe('NetworkAdapter.js', () => {
     it('should use meta.inbox as reply name when provided', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: { inbox: 'DESCRIBE' },
       };
       adapter.httpCallback(event, {});
@@ -135,7 +135,7 @@ describe('NetworkAdapter.js', () => {
     it('should keep event.name in reply when no meta.inbox', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {},
       };
       adapter.httpCallback(event, {});
@@ -146,13 +146,13 @@ describe('NetworkAdapter.js', () => {
     it('should dispatch reply via matrix', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {},
       };
       adapter.httpCallback(event, {});
       expect(matrix.dispatch).toHaveBeenCalledTimes(1);
       const reply = matrix.dispatch.mock.calls[0][0];
-      expect(reply.source).toBe('http://localhost:5000/products');
+      expect(reply.source).toBe('http://localhost:5000/Product/_');
       expect(reply.target).toBe('actor-1');
       expect(reply.name).toBe('READ');
     });
@@ -160,7 +160,7 @@ describe('NetworkAdapter.js', () => {
     it('should include timestamp in reply', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {}, timestamp: Date.now(),
       };
       adapter.httpCallback(event, {});
@@ -172,7 +172,7 @@ describe('NetworkAdapter.js', () => {
     it('should preserve event id in reply', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', id: 'evt-12345', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', id: 'evt-12345', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {},
       };
       adapter.httpCallback(event, {});
@@ -183,7 +183,7 @@ describe('NetworkAdapter.js', () => {
     it('should preserve meta in reply', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: { foo: 'bar', baz: 123 },
       };
       adapter.httpCallback(event, {});
@@ -197,7 +197,7 @@ describe('NetworkAdapter.js', () => {
     it('should log error via Logging.error', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', id: '123', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', id: '123', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {}, timestamp: Date.now(),
       };
       // onError calls this.emit which will throw because callback is undefined,
@@ -215,7 +215,7 @@ describe('NetworkAdapter.js', () => {
     it('should dispatch ERROR TX through matrix', () => {
       const adapter = new NetworkAdapter(matrix);
       const event = {
-        name: 'READ', id: 'err-123', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', id: 'err-123', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {}, timestamp: Date.now(),
       };
       const response = { error: 'not found', status: 404 };
@@ -230,7 +230,7 @@ describe('NetworkAdapter.js', () => {
       expect(matrix.dispatch).toHaveBeenCalledTimes(1);
       const errorTx = matrix.dispatch.mock.calls[0][0];
       expect(errorTx.name).toBe('ERROR');
-      expect(errorTx.source).toBe('http://localhost:5000/products');
+      expect(errorTx.source).toBe('http://localhost:5000/Product/_');
       expect(errorTx.target).toBe('actor-1');
       expect(errorTx.data).toBe(event); // data is the original event
       expect(errorTx.id).toBe('err-123');
@@ -244,18 +244,18 @@ describe('NetworkAdapter.js', () => {
     it('should call send with a read event', () => {
       const adapter = new NetworkAdapter(matrix);
       const sendSpy = vi.spyOn(adapter, 'send');
-      adapter.pull('http://localhost:5000/products');
+      adapter.pull('http://localhost:5000/Product/_');
       expect(sendSpy).toHaveBeenCalled();
       const sentEvent = sendSpy.mock.calls[0][0];
       expect(sentEvent.name).toBe('read');
-      expect(sentEvent.target).toBe('http://localhost:5000/products');
+      expect(sentEvent.target).toBe('http://localhost:5000/Product/_');
       expect(sentEvent.meta.remote).toBe(true);
     });
 
     it('should set source to remote', () => {
       const adapter = new NetworkAdapter(matrix);
       const sendSpy = vi.spyOn(adapter, 'send');
-      adapter.pull('http://localhost:5000/products');
+      adapter.pull('http://localhost:5000/Product/_');
       const sentEvent = sendSpy.mock.calls[0][0];
       expect(sentEvent.source).toBe('remote');
     });
@@ -264,7 +264,7 @@ describe('NetworkAdapter.js', () => {
       const adapter = new NetworkAdapter(matrix);
       const sendSpy = vi.spyOn(adapter, 'send');
       const cb = vi.fn();
-      adapter.pull('http://localhost:5000/products', cb);
+      adapter.pull('http://localhost:5000/Product/_', cb);
       expect(sendSpy).toHaveBeenCalled();
     });
   });
@@ -273,18 +273,18 @@ describe('NetworkAdapter.js', () => {
     it('should route READ events to HTTP.get', () => {
       const adapter = new NetworkAdapter(matrix);
       adapter.send({
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {}, id: '1', timestamp: Date.now(),
       });
       expect(HTTP.get).toHaveBeenCalled();
       const [url] = HTTP.get.mock.calls[0];
-      expect(url).toBe('http://localhost:5000/products');
+      expect(url).toBe('http://localhost:5000/Product/_');
     });
 
     it('should append query params for READ with data object', () => {
       const adapter = new NetworkAdapter(matrix);
       adapter.send({
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: { limit: 20, offset: 0 }, meta: {}, id: '1', timestamp: Date.now(),
       });
       expect(HTTP.get).toHaveBeenCalled();
@@ -296,11 +296,11 @@ describe('NetworkAdapter.js', () => {
     it('should not append params for READ with null data', () => {
       const adapter = new NetworkAdapter(matrix);
       adapter.send({
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {}, id: '1', timestamp: Date.now(),
       });
       const [url] = HTTP.get.mock.calls[0];
-      expect(url).toBe('http://localhost:5000/products');
+      expect(url).toBe('http://localhost:5000/Product/_');
     });
 
     it('should route SCHEMA events to HTTP.get', () => {
@@ -318,12 +318,12 @@ describe('NetworkAdapter.js', () => {
       const adapter = new NetworkAdapter(matrix);
       const payload = { name: 'New Product' };
       adapter.send({
-        name: 'CREATE', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'CREATE', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: payload, meta: {}, id: '1', timestamp: Date.now(),
       });
       expect(HTTP.post).toHaveBeenCalled();
       const [url, data] = HTTP.post.mock.calls[0];
-      expect(url).toBe('http://localhost:5000/products');
+      expect(url).toBe('http://localhost:5000/Product');
       expect(data).toBe(payload);
     });
 
@@ -331,41 +331,41 @@ describe('NetworkAdapter.js', () => {
       const adapter = new NetworkAdapter(matrix);
       const payload = { name: 'Updated' };
       adapter.send({
-        name: 'UPDATE', source: 'actor-1', target: 'http://localhost:5000/products/1',
+        name: 'UPDATE', source: 'actor-1', target: 'http://localhost:5000/Product/1',
         data: payload, meta: {}, id: '1', timestamp: Date.now(),
       });
       expect(HTTP.put).toHaveBeenCalled();
       const [url, data] = HTTP.put.mock.calls[0];
-      expect(url).toBe('http://localhost:5000/products/1');
+      expect(url).toBe('http://localhost:5000/Product/1');
       expect(data).toBe(payload);
     });
 
     it('should route DELETE events to HTTP.remove', () => {
       const adapter = new NetworkAdapter(matrix);
       adapter.send({
-        name: 'DELETE', source: 'actor-1', target: 'http://localhost:5000/products/1',
+        name: 'DELETE', source: 'actor-1', target: 'http://localhost:5000/Product/1',
         data: null, meta: {}, id: '1', timestamp: Date.now(),
       });
       expect(HTTP.remove).toHaveBeenCalled();
       const [url] = HTTP.remove.mock.calls[0];
-      expect(url).toBe('http://localhost:5000/products/1');
+      expect(url).toBe('http://localhost:5000/Product/1');
     });
 
     it('should route custom method names to HTTP.post with /{target}/{method}', () => {
       const adapter = new NetworkAdapter(matrix);
       adapter.send({
-        name: 'favorite', source: 'actor-1', target: 'http://localhost:5000/products/1',
+        name: 'favorite', source: 'actor-1', target: 'http://localhost:5000/Product/1',
         data: {}, meta: {}, id: '1', timestamp: Date.now(),
       });
       expect(HTTP.post).toHaveBeenCalled();
       const [url] = HTTP.post.mock.calls[0];
-      expect(url).toBe('http://localhost:5000/products/1/favorite');
+      expect(url).toBe('http://localhost:5000/Product/1/favorite');
     });
 
     it('should handle case-insensitive event names', () => {
       const adapter = new NetworkAdapter(matrix);
       adapter.send({
-        name: 'read', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'read', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {}, id: '1', timestamp: Date.now(),
       });
       expect(HTTP.get).toHaveBeenCalled();
@@ -374,7 +374,7 @@ describe('NetworkAdapter.js', () => {
     it('should skip null values in READ query params', () => {
       const adapter = new NetworkAdapter(matrix);
       adapter.send({
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: { limit: 20, offset: null }, meta: {}, id: '1', timestamp: Date.now(),
       });
       const [url] = HTTP.get.mock.calls[0];
@@ -390,7 +390,7 @@ describe('NetworkAdapter.js', () => {
       await vi.waitFor(() => expect(adapter.socket).toBeTruthy());
       const sendSpy = vi.spyOn(adapter.socket, 'send');
       adapter.send({
-        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/products',
+        name: 'READ', source: 'actor-1', target: 'http://localhost:5000/Product/_',
         data: null, meta: {}, id: '1', timestamp: Date.now(),
       });
       expect(adapter.socket.connect).toHaveBeenCalled();

@@ -79,6 +79,22 @@ describe('Router.js', () => {
       expect(window.location.hash).toBe('#Product/1/@item');
     });
 
+    it('should hash-sync nested class-name detail routes', () => {
+      const name = `nested-detail-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name);
+      r.NAVIGATE('Product/1/Comment/2');
+      expect(r.current).toBe('Product/1/Comment/2');
+      expect(window.location.hash).toBe('#Product/1/Comment/2');
+    });
+
+    it('should hash-sync nested class-name member view routes', () => {
+      const name = `nested-view-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name);
+      r.NAVIGATE('Product/1/Comment/2/@item');
+      expect(r.current).toBe('Product/1/Comment/2/@item');
+      expect(window.location.hash).toBe('#Product/1/Comment/2/@item');
+    });
+
     it('should register in global routers map', () => {
       const name = `global-${Math.random().toString(36).slice(2)}`;
       const r = new Router(name);
@@ -97,6 +113,26 @@ describe('Router.js', () => {
       expect(r.resolved.tag).toBe('ntx-product-card');
       expect(r.resolved.attrs).toEqual({ ref: 'Product/1', display: 'lg' });
       expect(r.resolved.attrs.method).toBeUndefined();
+    });
+
+    it('should resolve nested detail routes through child schema renderers and absolute nested refs', () => {
+      const name = `resolved-nested-detail-${Math.random().toString(36).slice(2)}`;
+      const getSchema = vi.fn((model) => ({
+        ui: { renderer: model === 'Comment' ? { item: 'ntx-comment-card' } : { item: 'ntx-product-card' } },
+      }));
+      const r = new Router(name, { hash: false, getSchema });
+
+      r.NAVIGATE('Product/1/Comment/2/@item');
+      const resolved = r.resolved;
+
+      expect(getSchema).toHaveBeenCalledWith('Comment');
+      expect(resolved.tag).toBe('ntx-comment-card');
+      expect(resolved.attrs).toEqual({
+        'data-model': 'Comment',
+        ref: 'http://localhost:5000/Product/1/Comment/2',
+        display: 'lg',
+      });
+      expect(resolved.attrs.method).toBeUndefined();
     });
 
     it('should return null for invalid view routes', () => {
@@ -324,6 +360,38 @@ describe('Router.js', () => {
       const r = new Router(name, { hash: true });
       expect(r.current).toBe('Product/1/@');
       expect(r.canGoBack).toBe(false);
+    });
+
+    it('should not create fake back history from an initial nested hash load', () => {
+      window.location.hash = '#Product/1/Comment/2/@item';
+      const name = `initial-nested-view-hash-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, { hash: true });
+      expect(r.current).toBe('Product/1/Comment/2/@item');
+      expect(r.canGoBack).toBe(false);
+    });
+
+    it('should back out of nested routes like ordinary routes', () => {
+      const name = `nested-back-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, { hash: true });
+      r.NAVIGATE('Product/@');
+      r.NAVIGATE('Product/1/Comment/2/@item');
+
+      r.BACK();
+
+      expect(r.current).toBe('Product/@');
+      expect(window.location.hash).toBe('#Product/@');
+    });
+
+    it('should reset nested routes to home and clear hash/back state', () => {
+      const name = `nested-reset-${Math.random().toString(36).slice(2)}`;
+      const r = new Router(name, { hash: true });
+      r.NAVIGATE('Product/1/Comment/2/@item');
+
+      r.NAVIGATE('', { meta: { reset: true } });
+
+      expect(r.current).toBeNull();
+      expect(r.canGoBack).toBe(false);
+      expect(window.location.hash).toBe('');
     });
 
     it('should clear back state when the browser returns to root', () => {

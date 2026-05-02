@@ -151,8 +151,8 @@ describe('Form Generation', () => {
   it('array fields render list-field container', () => {
     const ntt = makeNtt();
     ntt.value.comments = [
-      `${API_URL}/products/1/comments/1`,
-      `${API_URL}/products/1/comments/2`,
+      `${API_URL}/Product/1/Comment/1`,
+      `${API_URL}/Product/1/Comment/2`,
     ];
     const html = Formidable.getForm(ntt, 'display');
     expect(html).toContain('list-field');
@@ -224,9 +224,9 @@ describe('Form Generation', () => {
   it('getListInput renders the ntx-list-field boundary for arrays', () => {
     const ntt = makeNtt();
     ntt.value.comments = [
-      `${API_URL}/products/1/comments/1`,
-      `${API_URL}/products/1/comments/2`,
-      `${API_URL}/products/1/comments/3`,
+      `${API_URL}/Product/1/Comment/1`,
+      `${API_URL}/Product/1/Comment/2`,
+      `${API_URL}/Product/1/Comment/3`,
     ];
     const html = Formidable.getListInput(ntt, 'comments', 'display');
     expect(html).toContain('<ntx-list-field');
@@ -236,7 +236,7 @@ describe('Form Generation', () => {
 
   it('getListInput resolves child tag from $defs renderer hints', () => {
     const ntt = makeNtt();
-    ntt.value.comments = [`${API_URL}/products/1/comments/1`];
+    ntt.value.comments = [`${API_URL}/Product/1/Comment/1`];
     const html = Formidable.getListInput(ntt, 'comments', 'display');
     // Child components are rendered inside ntx-list-field's shadow DOM.
     expect(html).toContain('<ntx-list-field');

@@ -18,7 +18,7 @@ test.describe('Data Integrity — Create and Verify Everywhere', () => {
     const productName = `Integrity Test ${ts}`;
 
     // Create via API
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: productName, price: 42.99, description: 'Integrity check' },
     });
@@ -28,10 +28,10 @@ test.describe('Data Integrity — Create and Verify Everywhere', () => {
 
     // Verify $schema and $id
     expect(product['$schema']).toContain('/Product');
-    expect(product['$id']).toContain(`/products/${pid}`);
+    expect(product['$id']).toContain(`/Product/${pid}`);
 
     // Verify via API GET
-    const getResp = await page.request.get(`/products/${pid}`, {
+    const getResp = await page.request.get(`/Product/${pid}`, {
       headers: { 'x-access-token': token },
     });
     const getProduct = await getResp.json();
@@ -41,7 +41,7 @@ test.describe('Data Integrity — Create and Verify Everywhere', () => {
     expect(getProduct.id).toBe(pid);
 
     // Verify in list API
-    const listResp = await page.request.get('/products');
+    const listResp = await page.request.get('/Product');
     const listProducts = await listResp.json();
     const list = Array.isArray(listProducts) ? listProducts : listProducts.data || [];
     const inList = list.find(p => p.id === pid);
@@ -72,7 +72,7 @@ test.describe.serial('Data Integrity — Update and Verify Everywhere', () => {
 
   test('setup: create product', async ({ page }) => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Update Integrity ${Date.now()}`, price: 50.00 },
     });
@@ -82,12 +82,12 @@ test.describe.serial('Data Integrity — Update and Verify Everywhere', () => {
 
   test('update name — consistent in API GET', async ({ page }) => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    await page.request.put(`/products/${pid}`, {
+    await page.request.put(`/Product/${pid}`, {
       headers: { 'x-access-token': token },
       data: { name: 'Updated Integrity Name', price: 50.00 },
     });
 
-    const resp = await page.request.get(`/products/${pid}`, {
+    const resp = await page.request.get(`/Product/${pid}`, {
       headers: { 'x-access-token': token },
     });
     const product = await resp.json();
@@ -97,12 +97,12 @@ test.describe.serial('Data Integrity — Update and Verify Everywhere', () => {
 
   test('update price — format consistent', async ({ page }) => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    await page.request.put(`/products/${pid}`, {
+    await page.request.put(`/Product/${pid}`, {
       headers: { 'x-access-token': token },
       data: { name: 'Updated Integrity Name', price: 75.50 },
     });
 
-    const resp = await page.request.get(`/products/${pid}`, {
+    const resp = await page.request.get(`/Product/${pid}`, {
       headers: { 'x-access-token': token },
     });
     const product = await resp.json();
@@ -152,7 +152,7 @@ test.describe('Data Integrity — Comment FK Relationship', () => {
     const ts = Date.now();
 
     // Create product
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `FK Test ${ts}`, price: 10 },
     });
@@ -160,13 +160,13 @@ test.describe('Data Integrity — Comment FK Relationship', () => {
     const pid = product.id;
 
     // Add comment to this product
-    await page.request.post(`/products/${pid}/comment`, {
+    await page.request.post(`/Product/${pid}/comment`, {
       headers: { 'x-access-token': token },
       data: { comment: { name: `FK Comment ${ts}`, description: 'Testing FK' } },
     });
 
     // Verify comment appears in this product's comments
-    const prodResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const prodResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const prodData = await prodResp.json();
@@ -178,7 +178,7 @@ test.describe('Data Integrity — Comment FK Relationship', () => {
   test('comment $schema and $id URLs are correct', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
-    const resp = await page.request.get('/products/1?depth=1', {
+    const resp = await page.request.get('/Product/1?depth=1', {
       headers: { 'x-access-token': token },
     });
     const data = await resp.json();
@@ -188,7 +188,7 @@ test.describe('Data Integrity — Comment FK Relationship', () => {
     const firstComment = comments[0];
     // Join model is named ProductComment, so $schema contains that
     expect(firstComment['$schema']).toContain('/ProductComment');
-    expect(firstComment['$id']).toContain('/products/1/comments/');
+    expect(firstComment['$id']).toContain('/Product/1/Comment/');
   });
 
   test('comment user_owner matches the commenter', async ({ page }) => {
@@ -199,7 +199,7 @@ test.describe('Data Integrity — Comment FK Relationship', () => {
     const me = await meResp.json();
 
     // Create a fresh product so newly added comment won't be pushed out by pagination
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token, 'Content-Type': 'application/json' },
       data: { name: `Owner Check Product ${Date.now()}`, price: 1.0 },
     });
@@ -208,12 +208,12 @@ test.describe('Data Integrity — Comment FK Relationship', () => {
     const pid = product.id;
 
     const ts = Date.now();
-    await page.request.post(`/products/${pid}/comment`, {
+    await page.request.post(`/Product/${pid}/comment`, {
       headers: { 'x-access-token': token },
       data: { comment: { name: `Owner Verify ${ts}`, description: 'Testing' } },
     });
 
-    const resp = await page.request.get(`/products/${pid}?depth=1`, {
+    const resp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const data = await resp.json();
@@ -238,28 +238,28 @@ test.describe('Data Integrity — Favorite Relationship', () => {
     const ts = Date.now();
 
     // Create two products
-    const resp1 = await page.request.post('/products', {
+    const resp1 = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Fav Integrity A ${ts}`, price: 10 },
     });
     const productA = await resp1.json();
 
-    const resp2 = await page.request.post('/products', {
+    const resp2 = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Fav Integrity B ${ts}`, price: 20 },
     });
     const productB = await resp2.json();
 
     // Favorite only product A
-    await page.request.post(`/products/${productA.id}/favorite`, {
+    await page.request.post(`/Product/${productA.id}/favorite`, {
       headers: { 'x-access-token': token },
     });
 
     // Verify A has favorite, B does not
-    const dataA = await (await page.request.get(`/products/${productA.id}?depth=1`, {
+    const dataA = await (await page.request.get(`/Product/${productA.id}?depth=1`, {
       headers: { 'x-access-token': token },
     })).json();
-    const dataB = await (await page.request.get(`/products/${productB.id}?depth=1`, {
+    const dataB = await (await page.request.get(`/Product/${productB.id}?depth=1`, {
       headers: { 'x-access-token': token },
     })).json();
 
@@ -281,7 +281,7 @@ test.describe('Data Integrity — Schema Consistency', () => {
     const schemaProps = Object.keys(schema.properties);
 
     // Get entity
-    const entityResp = await page.request.get('/products/1', {
+    const entityResp = await page.request.get('/Product/1', {
       headers: { 'x-access-token': token },
     });
     const entity = await entityResp.json();
@@ -319,7 +319,7 @@ test.describe('Data Integrity — Schema Consistency', () => {
     const schema = await schemaResp.json();
     const required = schema.required || [];
 
-    const entityResp = await page.request.get('/products/1', {
+    const entityResp = await page.request.get('/Product/1', {
       headers: { 'x-access-token': token },
     });
     const entity = await entityResp.json();
@@ -340,7 +340,7 @@ test.describe('Data Integrity — Schema Consistency', () => {
     expect(commentDef.properties).toBeDefined();
 
     // Get an actual comment
-    const prodResp = await page.request.get('/products/1?depth=1', {
+    const prodResp = await page.request.get('/Product/1?depth=1', {
       headers: { 'x-access-token': token },
     });
     const prodData = await prodResp.json();
@@ -359,7 +359,7 @@ test.describe('Data Integrity — Schema Consistency', () => {
 test.describe('Data Integrity — Unique IDs', () => {
 
   test('all products have unique IDs', async ({ page }) => {
-    const resp = await page.request.get('/products');
+    const resp = await page.request.get('/Product');
     const products = await resp.json();
     const list = Array.isArray(products) ? products : products.data || [];
     const ids = list.map(p => p.id);
@@ -376,7 +376,7 @@ test.describe('Data Integrity — Concurrent Modifications', () => {
     const ts = Date.now();
 
     // Create a product
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': aliceToken },
       data: { name: `Concurrent Test ${ts}`, price: 100 },
     });
@@ -385,11 +385,11 @@ test.describe('Data Integrity — Concurrent Modifications', () => {
 
     // Alice updates the product while Bob comments on it (in parallel)
     const [updateResp, commentResp] = await Promise.all([
-      page.request.put(`/products/${pid}`, {
+      page.request.put(`/Product/${pid}`, {
         headers: { 'x-access-token': aliceToken },
         data: { name: `Concurrent Updated ${ts}`, price: 100 },
       }),
-      page.request.post(`/products/${pid}/comment`, {
+      page.request.post(`/Product/${pid}/comment`, {
         headers: { 'x-access-token': bobToken },
         data: { comment: { name: `Bob Concurrent ${ts}`, description: 'Concurrent test' } },
       }),
@@ -399,7 +399,7 @@ test.describe('Data Integrity — Concurrent Modifications', () => {
     expect(commentResp.ok()).toBe(true);
 
     // Verify both changes persisted
-    const verifyResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': aliceToken },
     });
     const verifyData = await verifyResp.json();
@@ -414,7 +414,7 @@ test.describe('Data Integrity — Concurrent Modifications', () => {
     const ts = Date.now();
 
     // Create
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Rapid Cycle ${ts}`, price: 10 },
     });
@@ -422,18 +422,18 @@ test.describe('Data Integrity — Concurrent Modifications', () => {
     const pid = product.id;
 
     // Update twice in sequence
-    await page.request.put(`/products/${pid}`, {
+    await page.request.put(`/Product/${pid}`, {
       headers: { 'x-access-token': token },
       data: { name: `Rapid Cycle Updated 1 ${ts}`, price: 20 },
     });
 
-    await page.request.put(`/products/${pid}`, {
+    await page.request.put(`/Product/${pid}`, {
       headers: { 'x-access-token': token },
       data: { name: `Rapid Cycle Final ${ts}`, price: 30 },
     });
 
     // Verify final state
-    const verifyResp = await page.request.get(`/products/${pid}`, {
+    const verifyResp = await page.request.get(`/Product/${pid}`, {
       headers: { 'x-access-token': token },
     });
     const verifyData = await verifyResp.json();

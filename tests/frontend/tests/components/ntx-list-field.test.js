@@ -75,6 +75,42 @@ describe('ntx-list-field.js', () => {
     }));
   });
 
+  it('renders class-name string refs as-is', () => {
+    const ref = 'http://localhost:5000/Product/1/Comment/2';
+    const el = mountListField({ value: [ref], mode: 'display' });
+
+    const child = el.shadowRoot.querySelector('ntx-item');
+    expect(child.getAttribute('ref')).toBe(ref);
+  });
+
+  it('sends DELETE using class-name refs as-is', () => {
+    const ref = 'http://localhost:5000/Product/1/Comment/2';
+    const parentSend = vi.fn();
+    NTT.get.mockReturnValue({
+      addr: 'Product/1',
+      send: parentSend,
+    });
+    const el = mountListField({ value: [ref] });
+
+    el.shadowRoot.querySelector('[data-array-action="remove-ref"]').click();
+
+    expect(parentSend).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'DELETE',
+      target: ref,
+    }));
+  });
+
+  it('renders object refs using their class-name $id', () => {
+    const ref = 'http://localhost:5000/Product/1/Comment/2';
+    const el = mountListField({ value: [{ id: 2, $id: ref, name: 'Comment' }] });
+
+    const child = el.shadowRoot.querySelector('ntx-item');
+    const remove = el.shadowRoot.querySelector('[data-array-action="remove-ref"]');
+
+    expect(child.getAttribute('ref')).toBe(ref);
+    expect(remove.dataset.ref).toBe(ref);
+  });
+
   it('still updates local state after removing a ref', () => {
     NTT.get.mockReturnValue({
       addr: 'Product/1',

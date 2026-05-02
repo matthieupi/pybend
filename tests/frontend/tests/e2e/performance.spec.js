@@ -146,7 +146,7 @@ test.describe.serial('Performance Profiling', () => {
       for (const limit of [10, 25]) {
         const resp = await timedRequest(request,
           `list_products_d${depth}_limit_${limit}`, 'get',
-          `/products?limit=${limit}&depth=${depth}`);
+          `/Product/_?limit=${limit}&depth=${depth}`);
         const body = await resp.json();
         const count = body.data ? body.data.length : 0;
         // Amend the last result with item count
@@ -155,7 +155,7 @@ test.describe.serial('Performance Profiling', () => {
     }
 
     // Full collection fetch
-    await timedRequest(request, 'list_products_all', 'get', '/products?limit=100');
+    await timedRequest(request, 'list_products_all', 'get', '/Product/_?limit=100');
   });
 
 
@@ -198,7 +198,7 @@ test.describe.serial('Performance Profiling', () => {
     for (const depth of [0, 1, 2]) {
       for (const pid of [1, 2, 3]) {
         await timedRequest(request, `get_product_${pid}_d${depth}`, 'get',
-          `/products/${pid}?depth=${depth}`, { headers });
+          `/Product/${pid}?depth=${depth}`, { headers });
       }
     }
   });
@@ -218,13 +218,13 @@ test.describe.serial('Performance Profiling', () => {
     // Comments on products
     for (const pid of [1, 2]) {
       await timedRequest(request, `get_product_${pid}_comments`, 'get',
-        `/products/${pid}/comments`, { headers });
+        `/Product/${pid}/Comment`, { headers });
     }
 
     // Favorites on products
     for (const pid of [1, 2]) {
       await timedRequest(request, `get_product_${pid}_favorites`, 'get',
-        `/products/${pid}/favorites`, { headers });
+        `/Product/${pid}/favorites`, { headers });
     }
   });
 
@@ -250,7 +250,7 @@ test.describe.serial('Performance Profiling', () => {
 
     // Multiple product creates
     for (let i = 1; i <= 3; i++) {
-      await timedRequest(request, `create_product_${i}`, 'post', '/products', {
+      await timedRequest(request, `create_product_${i}`, 'post', '/Product', {
         headers,
         data: {
           name: `Perf Test Product ${i} (${TIER})`,
@@ -264,7 +264,7 @@ test.describe.serial('Performance Profiling', () => {
     // Comments on different products
     for (const pid of [1, 2]) {
       await timedRequest(request, `comment_on_product_${pid}`, 'post',
-        `/products/${pid}/comment`, {
+        `/Product/${pid}/comment`, {
           headers,
           data: {
             comment: {
@@ -278,7 +278,7 @@ test.describe.serial('Performance Profiling', () => {
     // Favorite multiple products
     for (const pid of [1, 2, 3]) {
       await timedRequest(request, `favorite_product_${pid}`, 'post',
-        `/products/${pid}/favorite`, { headers });
+        `/Product/${pid}/favorite`, { headers });
     }
   });
 

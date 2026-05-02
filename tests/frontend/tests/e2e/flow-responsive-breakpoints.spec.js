@@ -178,7 +178,7 @@ test.describe('Responsive — Desktop (1280x720)', () => {
 
     // Create product via API
     const token = await page.evaluate(() => window.localStorage.getItem('jwtToken'));
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Desktop CRUD ${Date.now()}`, price: 25.99 },
     });

@@ -24,6 +24,7 @@
 import Actor from './Actor.js';
 import Observable from './Observable.js';
 import { matrix } from './Matrix.js';
+import { config } from '../config.js';
 
 const routers = new Map();
 const STACK_MAX = 50;
@@ -40,6 +41,10 @@ function isSafeViewToken(token) {
 
 function isSafeComponentTag(tag) {
     return typeof tag === 'string' && COMPONENT_TAG_RE.test(tag);
+}
+
+function isClassNameToken(token) {
+    return typeof token === 'string' && /^[A-Z][A-Za-z0-9_]*$/.test(token);
 }
 
 function rendererTag(renderer, view) {
@@ -81,6 +86,10 @@ function resolveViewTag(schema, view, scope) {
     return 'ntx-list';
 }
 
+function apiRef(path) {
+    return `${config.API_URL}/${path}`;
+}
+
 // ── Pure Route Functions (stateless, framework-agnostic) ──
 
 /**
@@ -108,6 +117,59 @@ export function parseRoute(route) {
     const model = parts[0];
     const id = parts[1] || null;
     const action = parts[2] || null;
+
+    if (parts.length > 5) {
+        return invalidRoute(route, 'too_many_segments');
+    }
+
+    // Nested class-name routes: Parent/1/Child[/2[/action|@view]]
+    if (parts.length >= 3 && isClassNameToken(parts[2])) {
+        const [parentModel, parentId, childModel, childId, nestedAction] = parts;
+
+        if (parts.length === 3) {
+            return {
+                type: 'nested-collection', parentModel, parentId,
+                model: childModel, id: null, action: null, params,
+            };
+        }
+
+        if (childId === '@' || childId?.startsWith('@')) {
+            if (parts.length > 4) return invalidRoute(route, 'too_many_segments');
+            const view = childId === '@' ? null : childId.slice(1);
+            if (view !== null && !isSafeViewToken(view)) {
+                return invalidRoute(route, 'invalid_view');
+            }
+            return {
+                type: 'nested-collection', parentModel, parentId,
+                model: childModel, id: null, action: null,
+                view, isViewRoute: true, params,
+            };
+        }
+
+        if (nestedAction === '@' || nestedAction?.startsWith('@')) {
+            const view = nestedAction === '@' ? null : nestedAction.slice(1);
+            if (view !== null && !isSafeViewToken(view)) {
+                return invalidRoute(route, 'invalid_view');
+            }
+            return {
+                type: 'nested-detail', parentModel, parentId,
+                model: childModel, id: childId, action: null,
+                view, isViewRoute: true, params,
+            };
+        }
+
+        if (parts.length === 4) {
+            return {
+                type: 'nested-detail', parentModel, parentId,
+                model: childModel, id: childId, action: null, params,
+            };
+        }
+
+        return {
+            type: 'nested-action', parentModel, parentId,
+            model: childModel, id: childId, action: nestedAction, params,
+        };
+    }
 
     if (parts.length > 3) {
         return invalidRoute(route, 'too_many_segments');
@@ -154,6 +216,11 @@ export function buildRoute(parts) {
     let route;
     if (parts.type === 'app') {
         route = '@' + parts.app;
+    } else if (parts.type === 'nested-collection' || parts.type === 'nested-detail' || parts.type === 'nested-action') {
+        route = `${parts.parentModel || ''}/${parts.parentId || ''}/${parts.model || ''}`;
+        if (parts.id) route += '/' + parts.id;
+        if (parts.isViewRoute) route += '/@' + (parts.view || '');
+        else if (parts.action) route += '/' + parts.action;
     } else {
         route = parts.model || '';
         if (parts.id) route += '/' + parts.id;
@@ -236,6 +303,54 @@ export function resolveRoute(parsed, getSchema = () => null) {
             tag,
             attrs: detailAttrs,
             title: schema?.title || schema?.__name__ || parsed.model,
+        };
+    }
+
+    if (parsed.type === 'nested-collection') {
+        const tag = parsed.isViewRoute
+            ? resolveViewTag(schema, parsed.view, 'collection')
+            : renderer.list || 'ntx-list';
+        if (!tag || !isSafeComponentTag(tag)) return null;
+        return {
+            tag,
+            attrs: {
+                model: parsed.model,
+                parent: `${parsed.parentModel}/${parsed.parentId}`,
+                ...passthrough,
+            },
+            title: schema?.title || schema?.__name__ || parsed.model,
+        };
+    }
+
+    if (parsed.type === 'nested-detail') {
+        const tag = parsed.isViewRoute
+            ? resolveViewTag(schema, parsed.view, 'member')
+            : renderer.detail || renderer.item || 'ntx-item';
+        if (!tag || !isSafeComponentTag(tag)) return null;
+        const ref = `${parsed.parentModel}/${parsed.parentId}/${parsed.model}/${parsed.id}`;
+        return {
+            tag,
+            attrs: { 'data-model': parsed.model, ref: apiRef(ref), display: 'lg', ...passthrough },
+            title: schema?.title || schema?.__name__ || parsed.model,
+        };
+    }
+
+    if (parsed.type === 'nested-action') {
+        const methodDef = schema?.methods?.[parsed.action];
+        const tag = methodDef?.ui?.renderer
+            || (methodDef?.stream ? 'ntx-stream' : null)
+            || renderer.detail || renderer.item || 'ntx-item';
+        if (!tag || !isSafeComponentTag(tag)) return null;
+        return {
+            tag,
+            attrs: {
+                'data-model': parsed.model,
+                ref: apiRef(`${parsed.parentModel}/${parsed.parentId}/${parsed.model}/${parsed.id}`),
+                method: parsed.action,
+                display: 'lg',
+                ...passthrough,
+            },
+            title: (schema?.title || schema?.__name__ || parsed.model) + ' / ' + parsed.action,
         };
     }
 

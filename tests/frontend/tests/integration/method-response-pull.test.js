@@ -37,25 +37,25 @@ beforeEach(async () => {
       });
     }
     // Individual product fetch (pull response)
-    if (/\/products\/\d+/.test(urlStr) && method === 'GET') {
-      const id = parseInt(urlStr.match(/\/products\/(\d+)/)[1]);
+    if (/\/Product\/\d+/.test(urlStr) && method === 'GET') {
+      const id = parseInt(urlStr.match(/\/Product\/(\d+)/)[1]);
       const data = makeProductData(id);
       // After a favorite, the product has an updated favorites array
-      data.favorites = [`${API_URL}/products/${id}/favorites/99`];
+      data.favorites = [`${API_URL}/Product/${id}/favorites/99`];
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(data),
       });
     }
     // Method call (favorite) response
-    if (/\/products\/\d+\/favorite/.test(urlStr) && method === 'POST') {
+    if (/\/Product\/\d+\/favorite/.test(urlStr) && method === 'POST') {
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve({ action: 'favorited', _field: 'favorites', id: 99, user: 1 }),
       });
     }
     // List fetch
-    if (urlStr.includes('/products')) {
+    if (urlStr.includes('/Product/_')) {
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(makeProductListResponse(3)),
@@ -86,15 +86,14 @@ beforeEach(async () => {
 
 
 /**
- * Helper: count how many fetch calls target the products LIST endpoint
+  * Helper: count how many fetch calls target the Product LIST endpoint
  * (excludes schema fetches and individual product fetches).
  */
 function countProductListFetches() {
   return global.fetch.mock.calls.filter(([url, opts]) => {
     const urlStr = typeof url === 'string' ? url : url.toString();
     const method = opts?.method?.toUpperCase() || 'GET';
-    // Match GET /products but NOT /products/123 (individual) or /Product (schema)
-    return method === 'GET' && urlStr.includes('/products') && !/\/products\/\d+/.test(urlStr);
+    return method === 'GET' && urlStr.includes('/Product/_');
   }).length;
 }
 
@@ -105,7 +104,7 @@ function countPullFetches() {
   return global.fetch.mock.calls.filter(([url, opts]) => {
     const urlStr = typeof url === 'string' ? url : url.toString();
     const method = opts?.method?.toUpperCase() || 'GET';
-    return method === 'GET' && /\/products\/\d+/.test(urlStr);
+    return method === 'GET' && /\/Product\/\d+/.test(urlStr);
   }).length;
 }
 
@@ -116,7 +115,7 @@ function countMethodPosts() {
   return global.fetch.mock.calls.filter(([url, opts]) => {
     const urlStr = typeof url === 'string' ? url : url.toString();
     const method = opts?.method?.toUpperCase() || 'GET';
-    return method === 'POST' && /\/products\/\d+\//.test(urlStr);
+    return method === 'POST' && /\/Product\/\d+\//.test(urlStr);
   }).length;
 }
 
@@ -240,7 +239,7 @@ describe('Entity signal behavior after _response_', () => {
     // _response_ with entity data (has id) should update + signal
     const entityData = makeProductData(1);
     entityData.name = 'Updated';
-    entityData.favorites = [`${API_URL}/products/1/favorites/99`];
+    entityData.favorites = [`${API_URL}/Product/1/favorites/99`];
     DC.children.get('1')._response_(entityData);
     await flush(100);
 
@@ -265,7 +264,7 @@ describe('Entity signal behavior after _response_', () => {
     await flush(100);
 
     expect(signalCount).toBeGreaterThanOrEqual(1);
-    expect(instance.value?.favorites).toContain(`${API_URL}/products/1/favorites/99`);
+    expect(instance.value?.favorites).toContain(`${API_URL}/Product/1/favorites/99`);
   });
 });
 

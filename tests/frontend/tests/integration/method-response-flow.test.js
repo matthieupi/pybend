@@ -38,24 +38,24 @@ beforeEach(async () => {
       });
     }
     // Individual product fetch (pull response) — includes depth param
-    if (/\/products\/\d+/.test(urlStr) && method === 'GET') {
-      const id = parseInt(urlStr.match(/\/products\/(\d+)/)[1]);
+    if (/\/Product\/\d+/.test(urlStr) && method === 'GET') {
+      const id = parseInt(urlStr.match(/\/Product\/(\d+)/)[1]);
       const data = makeProductData(id);
-      data.favorites = [`${API_URL}/products/${id}/favorites/99`];
+      data.favorites = [`${API_URL}/Product/${id}/favorites/99`];
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(data),
       });
     }
     // Method call (favorite) POST
-    if (/\/products\/\d+\/favorite/.test(urlStr) && method === 'POST') {
+    if (/\/Product\/\d+\/favorite/.test(urlStr) && method === 'POST') {
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve({ action: 'favorited', _field: 'favorites', id: 99, user: 1 }),
       });
     }
     // List fetch
-    if (urlStr.includes('/products') && method === 'GET') {
+    if (urlStr.includes('/Product/_') && method === 'GET') {
       return Promise.resolve({
         ok: true, status: 200,
         json: () => Promise.resolve(makeProductListResponse(3)),
@@ -87,8 +87,7 @@ beforeEach(async () => {
 function getListGets() {
   return fetchLog.filter(f =>
     f.method === 'GET' &&
-    f.url.includes('/products') &&
-    !/\/products\/\d+/.test(f.url) &&
+    f.url.includes('/Product/_') &&
     !f.url.endsWith('/Product')
   );
 }
@@ -96,14 +95,14 @@ function getListGets() {
 function getPullGets() {
   return fetchLog.filter(f =>
     f.method === 'GET' &&
-    /\/products\/\d+/.test(f.url)
+    /\/Product\/\d+/.test(f.url)
   );
 }
 
 function getMethodPosts() {
   return fetchLog.filter(f =>
     f.method === 'POST' &&
-    /\/products\/\d+\//.test(f.url)
+    /\/Product\/\d+\//.test(f.url)
   );
 }
 
@@ -124,7 +123,7 @@ describe('Full favorite flow — network request audit', () => {
     // Phase 2: Simulate favorite via the Actor system (full routing)
     const instance = DC.children.get('1');
     expect(instance).toBeDefined();
-    expect(instance.href).toContain('/products/1');
+    expect(instance.href).toContain('/Product/1');
 
     // This is what ntx-method.callMethod() does:
     instance.call('favorite', {}, { inbox: '_response_' });

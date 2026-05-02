@@ -30,7 +30,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
     }
 
     if (!productId) {
-      const createResp = await page.request.post('/products', {
+      const createResp = await page.request.post('/Product', {
         headers: { 'x-access-token': creatorToken },
         data: { name: `Social Chain Product ${TS}`, price: 55.00, description: 'Full flow test' },
       });
@@ -68,7 +68,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 2: Create a new product', async ({ page }) => {
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': creatorToken },
       data: { name: `Social Chain Product ${TS}`, price: 55.00, description: 'Full flow test' },
     });
@@ -80,7 +80,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 2: Product appears in list via API', async ({ page }) => {
-    const resp = await page.request.get('/products');
+    const resp = await page.request.get('/Product');
     const products = await resp.json();
     const list = Array.isArray(products) ? products : products.data || [];
     const found = list.find(p => p.id === productId);
@@ -90,7 +90,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
 
   test('Phase 3: Add first comment', async ({ page }) => {
     await ensureChainProduct(page);
-    const resp = await page.request.post(`/products/${productId}/comment`, {
+    const resp = await page.request.post(`/Product/${productId}/comment`, {
       headers: { 'x-access-token': creatorToken },
       data: { comment: { name: `First Comment ${TS}`, description: 'Testing the chain' } },
     });
@@ -98,14 +98,14 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 3: Add second comment', async ({ page }) => {
-    const resp = await page.request.post(`/products/${productId}/comment`, {
+    const resp = await page.request.post(`/Product/${productId}/comment`, {
       headers: { 'x-access-token': creatorToken },
       data: { comment: { name: `Second Comment ${TS}`, description: 'Another test' } },
     });
     expect(resp.ok()).toBe(true);
 
     // Verify comment count is 2
-    const verifyResp = await page.request.get(`/products/${productId}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${productId}?depth=1`, {
       headers: { 'x-access-token': creatorToken },
     });
     const data = await verifyResp.json();
@@ -114,13 +114,13 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 3: Favorite the product', async ({ page }) => {
-    const resp = await page.request.post(`/products/${productId}/favorite`, {
+    const resp = await page.request.post(`/Product/${productId}/favorite`, {
       headers: { 'x-access-token': creatorToken },
     });
     expect(resp.ok()).toBe(true);
 
     // Verify favorites count is 1
-    const verifyResp = await page.request.get(`/products/${productId}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${productId}?depth=1`, {
       headers: { 'x-access-token': creatorToken },
     });
     const data = await verifyResp.json();
@@ -130,14 +130,14 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
 
   test('Phase 4: Bob adds a comment', async ({ page }) => {
     const bobToken = await getToken(page.request, USERS.bob.email, USERS.bob.password);
-    const resp = await page.request.post(`/products/${productId}/comment`, {
+    const resp = await page.request.post(`/Product/${productId}/comment`, {
       headers: { 'x-access-token': bobToken },
       data: { comment: { name: `Bobs Comment ${TS}`, description: 'Cross-user test' } },
     });
     expect(resp.ok()).toBe(true);
 
     // Verify comment count is now 3
-    const verifyResp = await page.request.get(`/products/${productId}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${productId}?depth=1`, {
       headers: { 'x-access-token': bobToken },
     });
     const data = await verifyResp.json();
@@ -147,13 +147,13 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
 
   test('Phase 4: Bob favorites the product', async ({ page }) => {
     const bobToken = await getToken(page.request, USERS.bob.email, USERS.bob.password);
-    const resp = await page.request.post(`/products/${productId}/favorite`, {
+    const resp = await page.request.post(`/Product/${productId}/favorite`, {
       headers: { 'x-access-token': bobToken },
     });
     expect(resp.ok()).toBe(true);
 
     // Verify favorites count is now 2
-    const verifyResp = await page.request.get(`/products/${productId}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${productId}?depth=1`, {
       headers: { 'x-access-token': bobToken },
     });
     const data = await verifyResp.json();
@@ -162,7 +162,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 5: Verify aggregate state — 3 comments, 2 favorites', async ({ page }) => {
-    const verifyResp = await page.request.get(`/products/${productId}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${productId}?depth=1`, {
       headers: { 'x-access-token': creatorToken },
     });
     const data = await verifyResp.json();
@@ -177,7 +177,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 5: All comments have different user_owner values', async ({ page }) => {
-    const verifyResp = await page.request.get(`/products/${productId}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${productId}?depth=1`, {
       headers: { 'x-access-token': creatorToken },
     });
     const data = await verifyResp.json();
@@ -190,14 +190,14 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 6: Creator updates product name', async ({ page }) => {
-    const resp = await page.request.put(`/products/${productId}`, {
+    const resp = await page.request.put(`/Product/${productId}`, {
       headers: { 'x-access-token': creatorToken },
       data: { name: `Updated Social Chain ${TS}`, price: 55.00, description: 'Full flow test' },
     });
     expect(resp.ok()).toBe(true);
 
     // Verify name changed
-    const verifyResp = await page.request.get(`/products/${productId}`, {
+    const verifyResp = await page.request.get(`/Product/${productId}`, {
       headers: { 'x-access-token': creatorToken },
     });
     const data = await verifyResp.json();
@@ -205,7 +205,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 6: Comments and favorites intact after update', async ({ page }) => {
-    const verifyResp = await page.request.get(`/products/${productId}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${productId}?depth=1`, {
       headers: { 'x-access-token': creatorToken },
     });
     const data = await verifyResp.json();
@@ -218,7 +218,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
   });
 
   test('Phase 7: Verify final state via API', async ({ page }) => {
-    const verifyResp = await page.request.get(`/products/${productId}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${productId}?depth=1`, {
       headers: { 'x-access-token': creatorToken },
     });
     const data = await verifyResp.json();
@@ -227,7 +227,7 @@ test.describe.serial('Social Chain — Complete User Journey', () => {
     expect(data.price).toBe(55.00);
     expect(data.description).toBe('Full flow test');
     expect(data['$schema']).toContain('/Product');
-    expect(data['$id']).toContain(`/products/${productId}`);
+    expect(data['$id']).toContain(`/Product/${productId}`);
   });
 
   test('Phase 7: Product renders correctly in UI', async ({ page }) => {

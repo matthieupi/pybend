@@ -12,8 +12,8 @@ const APP_URL = '/';
 
 test.describe('Error Resilience — API Error Responses', () => {
 
-  test('POST /products without auth returns 403 with error detail', async ({ page }) => {
-    const resp = await page.request.post('/products', {
+  test('POST /Product without auth returns 403 with error detail', async ({ page }) => {
+    const resp = await page.request.post('/Product', {
       data: { name: 'No Auth', price: 10 },
     });
     expect(resp.status()).toBe(403);
@@ -21,32 +21,32 @@ test.describe('Error Resilience — API Error Responses', () => {
     expect(body.detail).toBeDefined();
   });
 
-  test('DELETE /products/{id} without auth returns 403', async ({ page }) => {
-    const resp = await page.request.delete('/products/1');
+  test('DELETE /Product/{id} without auth returns 403', async ({ page }) => {
+    const resp = await page.request.delete('/Product/1');
     expect(resp.status()).toBe(403);
   });
 
-  test('POST /products with empty body returns 422 validation error', async ({ page }) => {
+  test('POST /Product with empty body returns 422 validation error', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: {},
     });
     expect([400, 422]).toContain(resp.status());
   });
 
-  test('POST /products with missing required field returns 422', async ({ page }) => {
+  test('POST /Product with missing required field returns 422', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { price: 10 }, // Missing name
     });
     expect([400, 422]).toContain(resp.status());
   });
 
-  test('GET /products/99999 returns 404 or empty', async ({ page }) => {
+  test('GET /Product/99999 returns 404 or empty', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.get('/products/99999', {
+    const resp = await page.request.get('/Product/99999', {
       headers: { 'x-access-token': token },
     });
     if (resp.status() === 200) {
@@ -58,14 +58,14 @@ test.describe('Error Resilience — API Error Responses', () => {
   });
 
   test('expired or invalid token returns 401 or 403', async ({ page }) => {
-    const resp = await page.request.get('/products/1', {
+    const resp = await page.request.get('/Product/1', {
       headers: { 'x-access-token': 'invalid.jwt.token' },
     });
     expect([401, 403]).toContain(resp.status());
   });
 
   test('API returns proper JSON error structure on auth failure', async ({ page }) => {
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       data: { name: 'Test', price: 10 },
     });
     expect(resp.status()).toBe(403);
@@ -78,7 +78,7 @@ test.describe('Error Resilience — API Error Responses', () => {
 
   test('API returns proper JSON error structure on validation failure', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: 'Test' }, // Missing price
     });
@@ -165,7 +165,7 @@ test.describe('Error Resilience — Validation', () => {
 
   test('create product with price=0 fails validation', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Zero Price ${Date.now()}`, price: 0 },
     });
@@ -174,7 +174,7 @@ test.describe('Error Resilience — Validation', () => {
 
   test('create product with negative price fails validation', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Neg Price ${Date.now()}`, price: -10 },
     });
@@ -183,7 +183,7 @@ test.describe('Error Resilience — Validation', () => {
 
   test('create product with very long name (201 chars) fails validation', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: 'X'.repeat(201), price: 10 },
     });
@@ -197,7 +197,7 @@ test.describe('Error Resilience — XSS Prevention', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const xssName = `<img src=x onerror=alert(1)> ${Date.now()}`;
 
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: xssName, price: 10 },
     });
@@ -220,7 +220,7 @@ test.describe('Error Resilience — XSS Prevention', () => {
 
   test('comment with script tag in description does not execute', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products/1/comment', {
+    const resp = await page.request.post('/Product/1/comment', {
       headers: { 'x-access-token': token },
       data: { comment: { name: `XSS Test ${Date.now()}`, description: '<script>document.title="hacked"</script>' } },
     });
@@ -244,7 +244,7 @@ test.describe('Error Resilience — Edge Data Types', () => {
 
   test('product with many decimal places in price displays correctly', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Decimal Price ${Date.now()}`, price: 42.999 },
     });
@@ -256,7 +256,7 @@ test.describe('Error Resilience — Edge Data Types', () => {
 
   test('product with price 0.01 displays as valid amount', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Min Price ${Date.now()}`, price: 0.01 },
     });
@@ -267,7 +267,7 @@ test.describe('Error Resilience — Edge Data Types', () => {
 
   test('product with very large price stores correctly', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Big Price ${Date.now()}`, price: 999999.99 },
     });
@@ -278,7 +278,7 @@ test.describe('Error Resilience — Edge Data Types', () => {
 
   test('product with all optional fields empty renders without error', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Minimal ${Date.now()}`, price: 1 },
     });
@@ -304,7 +304,7 @@ test.describe('Error Resilience — Edge Data Types', () => {
   test('product with unicode name renders correctly', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const unicodeName = `\u00e9\u00e0\u00fc \u4e16\u754c ${Date.now()}`;
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: unicodeName, price: 10 },
     });
@@ -329,7 +329,7 @@ test.describe('Error Resilience — Edge Data Types', () => {
 
   test('product with emoji in description stores and renders', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Emoji Test ${Date.now()}`, price: 10, description: 'Great product! \ud83d\ude00\ud83d\udc4d\u2764\ufe0f' },
     });

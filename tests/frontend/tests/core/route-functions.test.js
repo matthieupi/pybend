@@ -147,6 +147,65 @@ describe('parseRoute(route)', () => {
     });
   });
 
+  it('nested class-name routes parse as nested collection/detail/action/view routes', () => {
+    expect(parseRoute('Product/1/Comment')).toEqual({
+      type: 'nested-collection', parentModel: 'Product', parentId: '1',
+      model: 'Comment', id: null, action: null, params: {},
+    });
+    expect(parseRoute('Product/1/Comment/@table')).toEqual({
+      type: 'nested-collection', parentModel: 'Product', parentId: '1',
+      model: 'Comment', id: null, action: null,
+      view: 'table', isViewRoute: true, params: {},
+    });
+    expect(parseRoute('Product/1/Comment/2')).toEqual({
+      type: 'nested-detail', parentModel: 'Product', parentId: '1',
+      model: 'Comment', id: '2', action: null, params: {},
+    });
+    expect(parseRoute('Product/1/Comment/2/@item')).toEqual({
+      type: 'nested-detail', parentModel: 'Product', parentId: '1',
+      model: 'Comment', id: '2', action: null,
+      view: 'item', isViewRoute: true, params: {},
+    });
+    expect(parseRoute('Product/1/Comment/2/like')).toEqual({
+      type: 'nested-action', parentModel: 'Product', parentId: '1',
+      model: 'Comment', id: '2', action: 'like', params: {},
+    });
+  });
+
+  it('nested default view routes and params parse deterministically', () => {
+    expect(parseRoute('Product/1/Comment/@')).toEqual({
+      type: 'nested-collection', parentModel: 'Product', parentId: '1',
+      model: 'Comment', id: null, action: null,
+      view: null, isViewRoute: true, params: {},
+    });
+    expect(parseRoute('Product/1/Comment/2/@')).toEqual({
+      type: 'nested-detail', parentModel: 'Product', parentId: '1',
+      model: 'Comment', id: '2', action: null,
+      view: null, isViewRoute: true, params: {},
+    });
+    expect(parseRoute('Product/1/Comment/2/@item?tab=history').params)
+      .toEqual({ tab: 'history' });
+  });
+
+  it('invalid nested class-name route boundaries are deterministic', () => {
+    expect(parseRoute('Product/1/Comment/2/@/extra')).toMatchObject({
+      type: 'invalid', reason: 'too_many_segments',
+    });
+    expect(parseRoute('Product/1/Comment/2/@item/extra')).toMatchObject({
+      type: 'invalid', reason: 'too_many_segments',
+    });
+    expect(parseRoute('Product/1/Comment/2/like/extra')).toMatchObject({
+      type: 'invalid', reason: 'too_many_segments',
+    });
+  });
+
+  it('nested action and same-named nested view routes remain distinct', () => {
+    expect(parseRoute('Product/1/Comment/2/like').type).toBe('nested-action');
+    expect(parseRoute('Product/1/Comment/2/@like')).toMatchObject({
+      type: 'nested-detail', isViewRoute: true, view: 'like', action: null,
+    });
+  });
+
   it('member default view route preserves params', () => {
     expect(parseRoute('Product/1/@?tab=history')).toEqual({
       type: 'detail', model: 'Product', id: '1', action: null,
@@ -248,6 +307,22 @@ describe('buildRoute(parts)', () => {
     expect(buildRoute({ type: 'action', model: 'Grant', id: '5', action: 'analyze' }))
       .toBe('Grant/5/analyze');
   });
+
+  it('nested routes build canonical nested class-name strings', () => {
+    expect(buildRoute({
+      type: 'nested-collection', parentModel: 'Product', parentId: '1', model: 'Comment',
+    })).toBe('Product/1/Comment');
+    expect(buildRoute({
+      type: 'nested-detail', parentModel: 'Product', parentId: '1', model: 'Comment', id: '2',
+    })).toBe('Product/1/Comment/2');
+    expect(buildRoute({
+      type: 'nested-detail', parentModel: 'Product', parentId: '1', model: 'Comment', id: '2',
+      isViewRoute: true, view: 'item',
+    })).toBe('Product/1/Comment/2/@item');
+    expect(buildRoute({
+      type: 'nested-action', parentModel: 'Product', parentId: '1', model: 'Comment', id: '2', action: 'like',
+    })).toBe('Product/1/Comment/2/like');
+  });
 });
 
 // ── Round-trip ──
@@ -268,6 +343,13 @@ describe('parseRoute ↔ buildRoute round-trip', () => {
     'Product/1/@detail',
     'Product/1/@chat?thread=abc',
     'Product/1/@run',
+    'Product/1/Comment',
+    'Product/1/Comment/@table',
+    'Product/1/Comment/2',
+    'Product/1/Comment/2/@',
+    'Product/1/Comment/2/@item',
+    'Product/1/Comment/2/@item?tab=history',
+    'Product/1/Comment/2/like',
     'Grant/5/analyze',
     'Grant?view=table',
   ];
@@ -449,6 +531,67 @@ describe('resolveRoute(parsed, getSchema)', () => {
     expect(action.attrs.method).toBe('run');
     expect(view.tag).toBe('ntx-run-view');
     expect(view.attrs.method).toBeUndefined();
+  });
+
+  it('nested class-name detail and action routes resolve to canonical refs', () => {
+    const schema = {
+      ui: { renderer: { item: 'ntx-comment-card', like: 'ntx-like-view' } },
+      methods: { like: { ui: { renderer: 'ntx-like-method' } } },
+    };
+    const detail = resolveRoute(parseRoute('Product/1/Comment/2'), () => schema);
+    expect(detail.tag).toBe('ntx-comment-card');
+    expect(detail.attrs).toEqual({
+      'data-model': 'Comment',
+      ref: 'http://localhost:5000/Product/1/Comment/2',
+      display: 'lg',
+    });
+
+    const view = resolveRoute(parseRoute('Product/1/Comment/2/@like'), () => schema);
+    expect(view.tag).toBe('ntx-like-view');
+    expect(view.attrs).toEqual({
+      'data-model': 'Comment',
+      ref: 'http://localhost:5000/Product/1/Comment/2',
+      display: 'lg',
+    });
+    expect(view.attrs.method).toBeUndefined();
+
+    const action = resolveRoute(parseRoute('Product/1/Comment/2/like'), () => schema);
+    expect(action.tag).toBe('ntx-like-method');
+    expect(action.attrs).toEqual({
+      'data-model': 'Comment',
+      ref: 'http://localhost:5000/Product/1/Comment/2',
+      method: 'like',
+      display: 'lg',
+    });
+  });
+
+  it('nested class-name detail routes resolve with child schema and filter internal params', () => {
+    const getSchema = vi.fn((model) => ({
+      ui: { renderer: model === 'Comment' ? { item: 'ntx-comment-card' } : { item: 'ntx-product-card' } },
+    }));
+
+    const route = resolveRoute(parseRoute('Product/1/Comment/2/@item?view=detail&tab=history'), getSchema);
+
+    expect(getSchema).toHaveBeenCalledWith('Comment');
+    expect(route.tag).toBe('ntx-comment-card');
+    expect(route.attrs).toEqual({
+      'data-model': 'Comment',
+      ref: 'http://localhost:5000/Product/1/Comment/2',
+      display: 'lg',
+      tab: 'history',
+    });
+    expect(route.attrs.view).toBeUndefined();
+  });
+
+  it('nested collection routes resolve with parent context', () => {
+    const schema = { ui: { renderer: { table: 'ntx-comment-table' } } };
+    const collection = resolveRoute(parseRoute('Product/1/Comment'), () => schema);
+    expect(collection.tag).toBe('ntx-list');
+    expect(collection.attrs).toEqual({ model: 'Comment', parent: 'Product/1' });
+
+    const table = resolveRoute(parseRoute('Product/1/Comment/@table?limit=10'), () => schema);
+    expect(table.tag).toBe('ntx-comment-table');
+    expect(table.attrs).toEqual({ model: 'Comment', parent: 'Product/1', limit: '10' });
   });
 
   it('invalid routes resolve to null', () => {

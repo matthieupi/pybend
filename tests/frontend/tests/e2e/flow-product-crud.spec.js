@@ -17,7 +17,7 @@ test.describe('Product CRUD — Create via API', () => {
     const ts = Date.now();
     const productName = `CRUD Test Product ${ts}`;
 
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: productName, price: 42.99, description: 'Created by Playwright' },
     });
@@ -29,7 +29,7 @@ test.describe('Product CRUD — Create via API', () => {
     expect(product.price).toBe(42.99);
     expect(product.description).toBe('Created by Playwright');
     expect(product['$schema']).toContain('/Product');
-    expect(product['$id']).toContain(`/products/${product.id}`);
+    expect(product['$id']).toContain(`/Product/${product.id}`);
   });
 
   test('created product appears in product list', async ({ page }) => {
@@ -38,13 +38,13 @@ test.describe('Product CRUD — Create via API', () => {
     const productName = `List Verify ${ts}`;
 
     // Create product
-    await page.request.post('/products', {
+    await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: productName, price: 19.99 },
     });
 
     // Verify in API list
-    const listResp = await page.request.get('/products');
+    const listResp = await page.request.get('/Product');
     expect(listResp.ok()).toBe(true);
     const products = await listResp.json();
     const found = (Array.isArray(products) ? products : products.data || [])
@@ -64,7 +64,7 @@ test.describe('Product CRUD — Create via API', () => {
     const ts = Date.now();
     const productName = `UI Verify ${ts}`;
 
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: productName, price: 33.50 },
     });
@@ -84,7 +84,7 @@ test.describe('Product CRUD — Create via API', () => {
   });
 
   test('anonymous user cannot create product (403)', async ({ page }) => {
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       data: { name: 'No Auth Product', price: 10 },
     });
     expect(resp.status()).toBe(403);
@@ -94,7 +94,7 @@ test.describe('Product CRUD — Create via API', () => {
 test.describe('Product CRUD — Read', () => {
 
   test('anonymous user can view product list (200 OK)', async ({ page }) => {
-    const resp = await page.request.get('/products');
+    const resp = await page.request.get('/Product');
     expect(resp.ok()).toBe(true);
     const products = await resp.json();
     const list = Array.isArray(products) ? products : products.data || [];
@@ -104,13 +104,13 @@ test.describe('Product CRUD — Read', () => {
   test('anonymous user cannot view product detail (403 — read on detail requires auth)', async ({ page }) => {
     // Product model uses {"*": "authenticated"} which blocks single-item reads for anonymous.
     // The list endpoint is public but individual detail is not.
-    const resp = await page.request.get('/products/1');
+    const resp = await page.request.get('/Product/1');
     expect(resp.status()).toBe(403);
   });
 
   test('authenticated user can view product detail', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.get('/products/1', {
+    const resp = await page.request.get('/Product/1', {
       headers: { 'x-access-token': token },
     });
     expect(resp.ok()).toBe(true);
@@ -121,7 +121,7 @@ test.describe('Product CRUD — Read', () => {
 
   test('product detail with depth=1 returns populated children', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.get('/products/1?depth=1', {
+    const resp = await page.request.get('/Product/1?depth=1', {
       headers: { 'x-access-token': token },
     });
     expect(resp.ok()).toBe(true);
@@ -154,7 +154,7 @@ test.describe.serial('Product CRUD — Update Flow', () => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const ts = Date.now();
 
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Update Target ${ts}`, price: 42.99, description: 'Before update' },
     });
@@ -166,14 +166,14 @@ test.describe.serial('Product CRUD — Update Flow', () => {
 
   test('update product name via API', async ({ page }) => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.put(`/products/${productId}`, {
+    const resp = await page.request.put(`/Product/${productId}`, {
       headers: { 'x-access-token': token },
       data: { name: 'Updated Product Name', price: 42.99 },
     });
     expect(resp.ok()).toBe(true);
 
     // Verify via GET (requires auth)
-    const getResp = await page.request.get(`/products/${productId}`, {
+    const getResp = await page.request.get(`/Product/${productId}`, {
       headers: { 'x-access-token': token },
     });
     const product = await getResp.json();
@@ -182,13 +182,13 @@ test.describe.serial('Product CRUD — Update Flow', () => {
 
   test('update product price via API', async ({ page }) => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.put(`/products/${productId}`, {
+    const resp = await page.request.put(`/Product/${productId}`, {
       headers: { 'x-access-token': token },
       data: { name: 'Updated Product Name', price: 99.99 },
     });
     expect(resp.ok()).toBe(true);
 
-    const getResp = await page.request.get(`/products/${productId}`, {
+    const getResp = await page.request.get(`/Product/${productId}`, {
       headers: { 'x-access-token': token },
     });
     const product = await getResp.json();
@@ -197,13 +197,13 @@ test.describe.serial('Product CRUD — Update Flow', () => {
 
   test('update product description via API', async ({ page }) => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.put(`/products/${productId}`, {
+    const resp = await page.request.put(`/Product/${productId}`, {
       headers: { 'x-access-token': token },
       data: { name: 'Updated Product Name', price: 99.99, description: 'Updated description' },
     });
     expect(resp.ok()).toBe(true);
 
-    const getResp = await page.request.get(`/products/${productId}`, {
+    const getResp = await page.request.get(`/Product/${productId}`, {
       headers: { 'x-access-token': token },
     });
     const product = await getResp.json();
@@ -213,7 +213,7 @@ test.describe.serial('Product CRUD — Update Flow', () => {
   test('updated product visible in UI after reload', async ({ page }) => {
     if (!productId) {
       token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-      const createResp = await page.request.post('/products', {
+      const createResp = await page.request.post('/Product', {
         headers: { 'x-access-token': token },
         data: { name: 'Updated Product Name', price: 99.99, description: 'Updated description' },
       });
@@ -246,7 +246,7 @@ test.describe.serial('Product CRUD — Update Flow', () => {
 test.describe('Product CRUD — Update without Auth', () => {
 
   test('anonymous user cannot update product (403)', async ({ page }) => {
-    const resp = await page.request.put('/products/1', {
+    const resp = await page.request.put('/Product/1', {
       data: { name: 'Hacked Name', price: 1 },
     });
     expect(resp.status()).toBe(403);
@@ -330,7 +330,7 @@ test.describe('Product CRUD — Edge Cases', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const unicodeName = `Produit Fran\u00e7ais \u65e5\u672c\u8a9e ${Date.now()}`;
 
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: unicodeName, price: 10.0 },
     });
@@ -343,7 +343,7 @@ test.describe('Product CRUD — Edge Cases', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const xssName = `<script>alert(1)</script> ${Date.now()}`;
 
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: xssName, price: 10.0 },
     });
@@ -368,7 +368,7 @@ test.describe('Product CRUD — Edge Cases', () => {
 
   test('create product with minimum price (0.01)', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Min Price ${Date.now()}`, price: 0.01 },
     });
@@ -379,7 +379,7 @@ test.describe('Product CRUD — Edge Cases', () => {
 
   test('create product with price=0 fails validation', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Zero Price ${Date.now()}`, price: 0 },
     });
@@ -388,7 +388,7 @@ test.describe('Product CRUD — Edge Cases', () => {
 
   test('create product with negative price fails validation', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Neg Price ${Date.now()}`, price: -5 },
     });
@@ -397,7 +397,7 @@ test.describe('Product CRUD — Edge Cases', () => {
 
   test('create product without required name fails validation', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { price: 10 },
     });
@@ -409,11 +409,11 @@ test.describe('Product CRUD — Edge Cases', () => {
     const ts = Date.now();
 
     const [resp1, resp2] = await Promise.all([
-      page.request.post('/products', {
+      page.request.post('/Product', {
         headers: { 'x-access-token': token },
         data: { name: `Parallel A ${ts}`, price: 10 },
       }),
-      page.request.post('/products', {
+      page.request.post('/Product', {
         headers: { 'x-access-token': token },
         data: { name: `Parallel B ${ts}`, price: 20 },
       }),
@@ -430,7 +430,7 @@ test.describe('Product CRUD — Edge Cases', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const longName = 'A'.repeat(200);
 
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: longName, price: 10 },
     });
@@ -443,7 +443,7 @@ test.describe('Product CRUD — Edge Cases', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const tooLongName = 'B'.repeat(201);
 
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: tooLongName, price: 10 },
     });
@@ -458,7 +458,7 @@ test.describe.serial('Product CRUD — Create Update Verify Persistence', () => 
 
   test('create product', async ({ page }) => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products', {
+    const resp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Lifecycle Test ${Date.now()}`, price: 50.00, description: 'Lifecycle test' },
     });
@@ -469,7 +469,7 @@ test.describe.serial('Product CRUD — Create Update Verify Persistence', () => 
 
   test('update product name', async ({ page }) => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.put(`/products/${productId}`, {
+    const resp = await page.request.put(`/Product/${productId}`, {
       headers: { 'x-access-token': token },
       data: { name: 'Lifecycle Updated', price: 50.00 },
     });
@@ -478,7 +478,7 @@ test.describe.serial('Product CRUD — Create Update Verify Persistence', () => 
 
   test('verify updated name persists via API', async ({ page }) => {
     token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.get(`/products/${productId}`, {
+    const resp = await page.request.get(`/Product/${productId}`, {
       headers: { 'x-access-token': token },
     });
     expect(resp.ok()).toBe(true);
@@ -489,7 +489,7 @@ test.describe.serial('Product CRUD — Create Update Verify Persistence', () => 
   test('verify updated name persists in UI after reload', async ({ page }) => {
     if (!productId) {
       token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-      const createResp = await page.request.post('/products', {
+      const createResp = await page.request.post('/Product', {
         headers: { 'x-access-token': token },
         data: { name: 'Lifecycle Updated', price: 50.00, description: 'Lifecycle test' },
       });

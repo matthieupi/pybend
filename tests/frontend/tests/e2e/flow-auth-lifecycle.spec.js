@@ -131,14 +131,14 @@ test.describe('Auth Lifecycle — Login Flow', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // Authenticated call
-    const authResp = await page.request.post('/products', {
+    const authResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token },
       data: { name: `Auth Test ${Date.now()}`, price: 10.0 },
     });
     expect(authResp.ok()).toBe(true);
 
     // Unauthenticated call (same endpoint)
-    const noAuthResp = await page.request.post('/products', {
+    const noAuthResp = await page.request.post('/Product', {
       data: { name: 'No Auth', price: 10.0 },
     });
     expect(noAuthResp.status()).toBe(403);

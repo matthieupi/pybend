@@ -16,7 +16,7 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // Create a fresh product so comment count starts at 0
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token, 'Content-Type': 'application/json' },
       data: { name: `Comment Count Test ${Date.now()}`, price: 1.0 },
     });
@@ -25,7 +25,7 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
     const pid = product.id;
 
     // Get current comment count (should be 0)
-    const beforeResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const beforeResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const beforeData = await beforeResp.json();
@@ -33,14 +33,14 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
 
     // Add comment
     const ts = Date.now();
-    const resp = await page.request.post(`/products/${pid}/comment`, {
+    const resp = await page.request.post(`/Product/${pid}/comment`, {
       headers: { 'x-access-token': token },
       data: { comment: { name: `Flow Comment ${ts}`, description: 'Written by Playwright flow test' } },
     });
     expect(resp.ok()).toBe(true);
 
     // Verify count increased
-    const afterResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const afterResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const afterData = await afterResp.json();
@@ -52,7 +52,7 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const ts = Date.now();
 
-    const resp = await page.request.post('/products/2/comment', {
+    const resp = await page.request.post('/Product/2/comment', {
       headers: { 'x-access-token': token },
       data: { comment: { name: `Fields Check ${ts}`, description: 'Testing response fields' } },
     });
@@ -73,7 +73,7 @@ test.describe('Comment Lifecycle — Add Comment via API', () => {
     const me = await meResp.json();
 
     const ts = Date.now();
-    const resp = await page.request.post('/products/2/comment', {
+    const resp = await page.request.post('/Product/2/comment', {
       headers: { 'x-access-token': token },
       data: { comment: { name: `Owner Check ${ts}`, description: 'Checking owner' } },
     });
@@ -188,7 +188,7 @@ test.describe('Comment Lifecycle — Nested Replies', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // Get a comment to reply to
-    const productResp = await page.request.get('/products/1?depth=1', {
+    const productResp = await page.request.get('/Product/1?depth=1', {
       headers: { 'x-access-token': token },
     });
     const productData = await productResp.json();
@@ -198,7 +198,7 @@ test.describe('Comment Lifecycle — Nested Replies', () => {
     const commentId = firstComment.id;
 
     // Reply to the comment
-    const replyResp = await page.request.post(`/products/1/comments/${commentId}/reply`, {
+    const replyResp = await page.request.post(`/Product/1/Comment/${commentId}/reply`, {
       headers: { 'x-access-token': token },
       data: { text: `Reply to comment ${commentId} at ${Date.now()}` },
     });
@@ -218,7 +218,7 @@ test.describe('Comment Lifecycle — Multiple Users Commenting', () => {
 
     // Create a fresh product to isolate this test
     const aliceToken = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': aliceToken },
       data: { name: `Multi User Comments ${ts}`, price: 10 },
     });
@@ -226,7 +226,7 @@ test.describe('Comment Lifecycle — Multiple Users Commenting', () => {
     const pid = product.id;
 
     // Alice comments
-    const resp1 = await page.request.post(`/products/${pid}/comment`, {
+    const resp1 = await page.request.post(`/Product/${pid}/comment`, {
       headers: { 'x-access-token': aliceToken },
       data: { comment: { name: `Alice comment ${ts}`, description: 'From Alice' } },
     });
@@ -234,7 +234,7 @@ test.describe('Comment Lifecycle — Multiple Users Commenting', () => {
 
     // Bob comments
     const bobToken = await getToken(page.request, USERS.bob.email, USERS.bob.password);
-    const resp2 = await page.request.post(`/products/${pid}/comment`, {
+    const resp2 = await page.request.post(`/Product/${pid}/comment`, {
       headers: { 'x-access-token': bobToken },
       data: { comment: { name: `Bob comment ${ts}`, description: 'From Bob' } },
     });
@@ -242,14 +242,14 @@ test.describe('Comment Lifecycle — Multiple Users Commenting', () => {
 
     // Charlie comments
     const charlieToken = await getToken(page.request, USERS.charlie.email, USERS.charlie.password);
-    const resp3 = await page.request.post(`/products/${pid}/comment`, {
+    const resp3 = await page.request.post(`/Product/${pid}/comment`, {
       headers: { 'x-access-token': charlieToken },
       data: { comment: { name: `Charlie comment ${ts}`, description: 'From Charlie' } },
     });
     expect(resp3.ok()).toBe(true);
 
     // Verify all 3 comments exist
-    const verifyResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': aliceToken },
     });
     const data = await verifyResp.json();
@@ -269,14 +269,14 @@ test.describe('Comment Lifecycle — Cross-Product Isolation', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // Get comments for product 1
-    const resp1 = await page.request.get('/products/1?depth=1', {
+    const resp1 = await page.request.get('/Product/1?depth=1', {
       headers: { 'x-access-token': token },
     });
     const data1 = await resp1.json();
     const comments1 = (data1.comments?.data || []).map(c => c.id);
 
     // Get comments for product 2
-    const resp2 = await page.request.get('/products/2?depth=1', {
+    const resp2 = await page.request.get('/Product/2?depth=1', {
       headers: { 'x-access-token': token },
     });
     const data2 = await resp2.json();
@@ -291,7 +291,7 @@ test.describe('Comment Lifecycle — Cross-Product Isolation', () => {
 test.describe('Comment Lifecycle — Anonymous User', () => {
 
   test('anonymous user cannot comment (403)', async ({ page }) => {
-    const resp = await page.request.post('/products/1/comment', {
+    const resp = await page.request.post('/Product/1/comment', {
       data: { comment: { name: 'Anon Comment', description: 'Should fail' } },
     });
     expect(resp.status()).toBe(403);
@@ -304,7 +304,7 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const specialName = `Special <>&"' chars ${Date.now()}`;
 
-    const resp = await page.request.post('/products/3/comment', {
+    const resp = await page.request.post('/Product/3/comment', {
       headers: { 'x-access-token': token },
       data: { comment: { name: specialName, description: 'Testing <script>alert(1)</script>' } },
     });
@@ -320,7 +320,7 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
     const unicodeName = `\u65e5\u672c\u8a9e \u4e2d\u6587 \ud83d\ude00 ${Date.now()}`;
 
-    const resp = await page.request.post('/products/3/comment', {
+    const resp = await page.request.post('/Product/3/comment', {
       headers: { 'x-access-token': token },
       data: { comment: { name: unicodeName, description: 'Unicode test' } },
     });
@@ -336,7 +336,7 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
     const ts = Date.now();
 
     // Create a fresh product so we don't hit pagination limits
-    const createResp = await page.request.post('/products', {
+    const createResp = await page.request.post('/Product', {
       headers: { 'x-access-token': token, 'Content-Type': 'application/json' },
       data: { name: `Rapid Comment Test ${ts}`, price: 1.0 },
     });
@@ -346,7 +346,7 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
 
     // Submit sequentially to avoid SQLite locking issues
     for (let i = 0; i < 5; i++) {
-      const resp = await page.request.post(`/products/${pid}/comment`, {
+      const resp = await page.request.post(`/Product/${pid}/comment`, {
         headers: { 'x-access-token': token },
         data: { comment: { name: `Rapid ${i} ${ts}`, description: `Comment ${i}` } },
       });
@@ -354,7 +354,7 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
     }
 
     // Verify all 5 were actually created by checking the product
-    const verifyResp = await page.request.get(`/products/${pid}?depth=1`, {
+    const verifyResp = await page.request.get(`/Product/${pid}?depth=1`, {
       headers: { 'x-access-token': token },
     });
     const data = await verifyResp.json();
@@ -365,7 +365,7 @@ test.describe('Comment Lifecycle — Edge Cases', () => {
 
   test('comment on non-existent product returns error', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
-    const resp = await page.request.post('/products/99999/comment', {
+    const resp = await page.request.post('/Product/99999/comment', {
       headers: { 'x-access-token': token },
       data: { comment: { name: 'Ghost Comment', description: 'Product does not exist' } },
     });

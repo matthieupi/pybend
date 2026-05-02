@@ -107,13 +107,13 @@ test.describe('Favorites', () => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
     // Like product 1
-    await page.request.post('/products/1/like', {
+    await page.request.post('/Product/1/like', {
       headers: { 'x-access-token': token },
       data: {},
     });
 
     // Check favorites endpoint
-    const resp = await page.request.get('/products/1/likes?depth=1', {
+    const resp = await page.request.get('/Product/1/likes?depth=1', {
       headers: { 'x-access-token': token },
     });
 

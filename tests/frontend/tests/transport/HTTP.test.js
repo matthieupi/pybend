@@ -29,7 +29,7 @@ describe('HTTP.js', () => {
 
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.get('http://localhost:5000/products', onSuccess, onError);
+      HTTP.get('http://localhost:5000/Product/_', onSuccess, onError);
 
       await vi.waitFor(() => expect(onSuccess).toHaveBeenCalled());
       expect(onSuccess).toHaveBeenCalledWith({ id: 1, name: 'Product' });
@@ -94,7 +94,7 @@ describe('HTTP.js', () => {
       });
 
       const onSuccess = vi.fn();
-      HTTP.post('http://localhost:5000/products', { name: 'New' }, onSuccess, vi.fn());
+      HTTP.post('http://localhost:5000/Product/_', { name: 'New' }, onSuccess, vi.fn());
 
       await vi.waitFor(() => expect(onSuccess).toHaveBeenCalled());
       const [, opts] = global.fetch.mock.calls[0];
@@ -123,7 +123,7 @@ describe('HTTP.js', () => {
       });
 
       const onSuccess = vi.fn();
-      HTTP.put('http://localhost:5000/products/1', { name: 'Updated' }, onSuccess, vi.fn());
+      HTTP.put('http://localhost:5000/Product/1', { name: 'Updated' }, onSuccess, vi.fn());
 
       await vi.waitFor(() => expect(onSuccess).toHaveBeenCalled());
       const [, opts] = global.fetch.mock.calls[0];
@@ -140,7 +140,7 @@ describe('HTTP.js', () => {
       });
 
       const onSuccess = vi.fn();
-      HTTP.remove('http://localhost:5000/products/1', onSuccess, vi.fn());
+      HTTP.remove('http://localhost:5000/Product/1', onSuccess, vi.fn());
 
       await vi.waitFor(() => expect(onSuccess).toHaveBeenCalled());
       const [, opts] = global.fetch.mock.calls[0];
@@ -275,7 +275,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.post('http://localhost:5000/products', { name: '' }, onSuccess, onError);
+      HTTP.post('http://localhost:5000/Product/_', { name: '' }, onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledTimes(1);
@@ -296,7 +296,7 @@ describe('HTTP.js', () => {
       delete window.location;
       window.location = { href: '' };
 
-      HTTP.put('http://localhost:5000/products/1', { name: 'Test' }, onSuccess, onError);
+      HTTP.put('http://localhost:5000/Product/1', { name: 'Test' }, onSuccess, onError);
 
       await vi.waitFor(() => expect(window.location).toBe('/login.html'));
       expect(onSuccess).not.toHaveBeenCalled();
@@ -312,7 +312,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.remove('http://localhost:5000/products/1', onSuccess, onError);
+      HTTP.remove('http://localhost:5000/Product/1', onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledTimes(1);
@@ -362,7 +362,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+      HTTP.post('http://localhost:5000/Product/_', {}, onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledWith(errorResponse);
@@ -379,7 +379,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.put('http://localhost:5000/products/1', { name: 'Test' }, onSuccess, onError);
+      HTTP.put('http://localhost:5000/Product/1', { name: 'Test' }, onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledWith(errorResponse);
@@ -396,7 +396,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.remove('http://localhost:5000/products/1', onSuccess, onError);
+      HTTP.remove('http://localhost:5000/Product/1', onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledWith(errorResponse);
@@ -408,7 +408,7 @@ describe('HTTP.js', () => {
       global.fetch.mockRejectedValueOnce(new Error('Connection refused'));
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.post('http://localhost:5000/products', { name: 'Test' }, onSuccess, onError);
+      HTTP.post('http://localhost:5000/Product/_', { name: 'Test' }, onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledTimes(1);
@@ -420,7 +420,7 @@ describe('HTTP.js', () => {
       global.fetch.mockRejectedValueOnce(new Error('Timeout'));
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.put('http://localhost:5000/products/1', { name: 'Test' }, onSuccess, onError);
+      HTTP.put('http://localhost:5000/Product/1', { name: 'Test' }, onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledTimes(1);
@@ -432,7 +432,7 @@ describe('HTTP.js', () => {
       global.fetch.mockRejectedValueOnce(new Error('Network down'));
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.remove('http://localhost:5000/products/1', onSuccess, onError);
+      HTTP.remove('http://localhost:5000/Product/1', onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledTimes(1);
@@ -453,7 +453,7 @@ describe('HTTP.js', () => {
       delete window.location;
       window.location = { href: '' };
 
-      HTTP.get('http://localhost:5000/products', onSuccess, onError);
+      HTTP.get('http://localhost:5000/Product/_', onSuccess, onError);
 
       await vi.waitFor(() => expect(window.location).toBe('/login.html'));
       expect(onSuccess).not.toHaveBeenCalled();
@@ -486,7 +486,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+      HTTP.post('http://localhost:5000/Product/_', {}, onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledWith({ detail: 'Invalid input format' });
@@ -507,7 +507,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+      HTTP.post('http://localhost:5000/Product/_', {}, onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledWith(errorBody);
@@ -529,7 +529,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+      HTTP.post('http://localhost:5000/Product/_', {}, onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledWith(errorBody);
@@ -546,7 +546,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.post('http://localhost:5000/products', {}, onSuccess, onError);
+      HTTP.post('http://localhost:5000/Product/_', {}, onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledWith(errorBody);
@@ -562,7 +562,7 @@ describe('HTTP.js', () => {
       });
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.get('http://localhost:5000/products/1/favorite', onSuccess, onError);
+      HTTP.get('http://localhost:5000/Product/1/favorite', onSuccess, onError);
 
       await vi.waitFor(() => expect(onError).toHaveBeenCalled());
       expect(onError).toHaveBeenCalledWith({ error: 'authentication required' });

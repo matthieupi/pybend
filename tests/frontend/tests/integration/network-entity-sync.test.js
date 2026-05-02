@@ -47,10 +47,10 @@ describe('Network Entity Sync', () => {
       window.localStorage.setItem('jwtToken', 'test-token-123');
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.get(`${API_URL}/products`, onSuccess, onError);
+      HTTP.get(`${API_URL}/Product/_`, onSuccess, onError);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        `${API_URL}/products`,
+        `${API_URL}/Product/_`,
         expect.objectContaining({ method: 'GET' })
       );
 
@@ -62,7 +62,7 @@ describe('Network Entity Sync', () => {
 
     it('GET without token does not include auth header', () => {
       window.localStorage.removeItem('jwtToken');
-      HTTP.get(`${API_URL}/products`, vi.fn(), vi.fn());
+      HTTP.get(`${API_URL}/Product/_`, vi.fn(), vi.fn());
 
       const callArgs = global.fetch.mock.calls[0];
       const headers = callArgs[1].headers;
@@ -71,7 +71,7 @@ describe('Network Entity Sync', () => {
 
     it('POST sends JSON body with Content-Type', () => {
       const data = { name: 'Test', price: 10 };
-      HTTP.post(`${API_URL}/products`, data, vi.fn(), vi.fn());
+      HTTP.post(`${API_URL}/Product`, data, vi.fn(), vi.fn());
 
       const callArgs = global.fetch.mock.calls[0];
       expect(callArgs[1].method).toBe('POST');
@@ -81,7 +81,7 @@ describe('Network Entity Sync', () => {
 
     it('PUT sends JSON body with Content-Type', () => {
       const data = { name: 'Updated' };
-      HTTP.put(`${API_URL}/products/1`, data, vi.fn(), vi.fn());
+      HTTP.put(`${API_URL}/Product/1`, data, vi.fn(), vi.fn());
 
       const callArgs = global.fetch.mock.calls[0];
       expect(callArgs[1].method).toBe('PUT');
@@ -89,7 +89,7 @@ describe('Network Entity Sync', () => {
     });
 
     it('DELETE sends with DELETE method', () => {
-      HTTP.remove(`${API_URL}/products/1`, vi.fn(), vi.fn());
+      HTTP.remove(`${API_URL}/Product/1`, vi.fn(), vi.fn());
 
       const callArgs = global.fetch.mock.calls[0];
       expect(callArgs[1].method).toBe('DELETE');
@@ -106,7 +106,7 @@ describe('Network Entity Sync', () => {
       delete window.location;
       window.location = { href: '', assign: vi.fn() };
 
-      HTTP.get(`${API_URL}/products`, vi.fn(), vi.fn());
+      HTTP.get(`${API_URL}/Product/_`, vi.fn(), vi.fn());
 
       // Wait for the promise chain
       await new Promise(r => setTimeout(r, 50));
@@ -125,7 +125,7 @@ describe('Network Entity Sync', () => {
       }));
 
       const onSuccess = vi.fn();
-      HTTP.get(`${API_URL}/products`, onSuccess, vi.fn());
+      HTTP.get(`${API_URL}/Product/_`, onSuccess, vi.fn());
 
       await new Promise(r => setTimeout(r, 50));
       expect(window.localStorage.getItem('jwtToken')).toBe('new-token-456');
@@ -136,7 +136,7 @@ describe('Network Entity Sync', () => {
 
       const onSuccess = vi.fn();
       const onError = vi.fn();
-      HTTP.get(`${API_URL}/products`, onSuccess, onError);
+      HTTP.get(`${API_URL}/Product/_`, onSuccess, onError);
 
       await new Promise(r => setTimeout(r, 50));
       expect(onError).toHaveBeenCalled();
@@ -174,13 +174,13 @@ describe('Network Entity Sync', () => {
       adapter.send({
         name: 'READ',
         source: 'Product',
-        target: `${API_URL}/products`,
+        target: `${API_URL}/Product/_`,
         data: {},
         meta: {},
       });
 
       expect(getSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/products'),
+        expect.stringContaining('/Product/_'),
         expect.any(Function),
         expect.any(Function)
       );
@@ -194,7 +194,7 @@ describe('Network Entity Sync', () => {
       adapter.send({
         name: 'READ',
         source: 'Product',
-        target: `${API_URL}/products`,
+        target: `${API_URL}/Product/_`,
         data: { limit: 20, offset: 0, depth: 1 },
         meta: {},
       });
@@ -217,14 +217,14 @@ describe('Network Entity Sync', () => {
       adapter.send({
         name: 'READ',
         source: 'Product',
-        target: `${API_URL}/products`,
+        target: `${API_URL}/Product/_`,
         data: {},
         meta: {},
       });
 
       const DC = NTT.get('Product');
       expect(getSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/products'),
+        expect.stringContaining('/Product/_'),
         expect.any(Function),
         expect.any(Function)
       );
@@ -261,7 +261,7 @@ describe('Network Entity Sync', () => {
       adapter.send({
         name: 'CREATE',
         source: 'Product',
-        target: `${API_URL}/products`,
+        target: `${API_URL}/Product`,
         data: { name: 'New', price: 10 },
         meta: {},
       });
@@ -277,7 +277,7 @@ describe('Network Entity Sync', () => {
       adapter.send({
         name: 'UPDATE',
         source: 'Product',
-        target: `${API_URL}/products/1`,
+        target: `${API_URL}/Product/1`,
         data: { name: 'Updated' },
         meta: {},
       });
@@ -293,7 +293,7 @@ describe('Network Entity Sync', () => {
       adapter.send({
         name: 'DELETE',
         source: 'Product',
-        target: `${API_URL}/products/1`,
+        target: `${API_URL}/Product/1`,
         data: {},
         meta: {},
       });
@@ -309,13 +309,13 @@ describe('Network Entity Sync', () => {
       adapter.send({
         name: 'favorite',
         source: 'Product/1',
-        target: `${API_URL}/products/1`,
+        target: `${API_URL}/Product/1`,
         data: {},
         meta: {},
       });
 
       expect(postSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/products/1/favorite'),
+        expect.stringContaining('/Product/1/favorite'),
         expect.anything(),
         expect.any(Function),
         expect.any(Function)
@@ -334,7 +334,7 @@ describe('Network Entity Sync', () => {
       const event = {
         name: 'READ',
         source: 'Product',
-        target: `${API_URL}/products`,
+        target: `${API_URL}/Product/_`,
         data: {},
         meta: {},
       };
@@ -344,7 +344,7 @@ describe('Network Entity Sync', () => {
 
       expect(mockMatrix.dispatch).toHaveBeenCalled();
       const dispatched = mockMatrix.dispatch.mock.calls[0][0];
-      expect(dispatched.source).toBe(`${API_URL}/products`);
+      expect(dispatched.source).toBe(`${API_URL}/Product/_`);
       expect(dispatched.target).toBe('Product');
       expect(dispatched.data).toBe(response);
     });
@@ -359,7 +359,7 @@ describe('Network Entity Sync', () => {
       const event = {
         name: 'READ',
         source: 'Product',
-        target: `${API_URL}/products`,
+        target: `${API_URL}/Product/_`,
         data: {},
         meta: { inbox: 'UPDATE' },
       };

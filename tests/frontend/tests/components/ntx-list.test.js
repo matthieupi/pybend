@@ -147,19 +147,19 @@ describe('ListElement (via NTTList)', () => {
   describe('createChild(addr)', () => {
     it('should create child element with correct tag', () => {
       const el = document.createElement('ntx-list');
-      const child = el.createChild('http://localhost:5000/products/1');
+      const child = el.createChild('http://localhost:5000/Product/1');
       expect(child.tagName.toLowerCase()).toBe('ntx-item');
     });
 
     it('should set ref on child', () => {
       const el = document.createElement('ntx-list');
-      const child = el.createChild('http://localhost:5000/products/1');
+      const child = el.createChild('http://localhost:5000/Product/1');
       expect(child.ref || child.getAttribute('ref')).toBeTruthy();
     });
 
     it('should set select-target to list address', () => {
       const el = document.createElement('ntx-list');
-      const child = el.createChild('http://localhost:5000/products/1');
+      const child = el.createChild('http://localhost:5000/Product/1');
       expect(child.getAttribute('select-target')).toBeTruthy();
     });
   });
@@ -184,7 +184,7 @@ describe('ListElement (via NTTList)', () => {
   });
 
   describe('default render structure', () => {
-    function renderProductList(value = ['http://localhost:5000/products/1', 'http://localhost:5000/products/2']) {
+    function renderProductList(value = ['http://localhost:5000/Product/1', 'http://localhost:5000/Product/2']) {
       const el = document.createElement('ntx-list');
       el.model = 'Product';
       el.schema = { __name__: 'Product', ui: {}, access: {} };
@@ -207,7 +207,7 @@ describe('ListElement (via NTTList)', () => {
     });
 
     it('stamps one child per value with data-value, display, and select-target', () => {
-      const refs = ['http://localhost:5000/products/1', 'http://localhost:5000/products/2'];
+      const refs = ['http://localhost:5000/Product/1', 'http://localhost:5000/Product/2'];
       const el = renderProductList(refs);
       const items = Array.from(el.shadowRoot.querySelectorAll('.list-grid ntx-item'));
 

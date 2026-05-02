@@ -35,8 +35,8 @@ describe('Nested Entities', () => {
     const productData = {
       ...makeProductData(1),
       comments: [
-        `${API_URL}/products/1/comments/1`,
-        `${API_URL}/products/1/comments/2`,
+        `${API_URL}/Product/1/Comment/1`,
+        `${API_URL}/Product/1/Comment/2`,
       ],
     };
 
@@ -44,7 +44,7 @@ describe('Nested Entities', () => {
     const product = DC.instances.get('1');
     expect(Array.isArray(product.value.comments)).toBe(true);
     expect(product.value.comments).toHaveLength(2);
-    expect(product.value.comments[0]).toContain('/comments/1');
+    expect(product.value.comments[0]).toContain('/Comment/1');
   });
 
   it('populated collection {data, meta} normalized to href array', () => {
@@ -52,8 +52,8 @@ describe('Nested Entities', () => {
     const DC = NTT.get('Product');
     const CommentDC = NTT.get('Comment');
 
-    const comment1 = { ...makeCommentData(1, 1), $id: `${API_URL}/products/1/comments/1` };
-    const comment2 = { ...makeCommentData(2, 1), $id: `${API_URL}/products/1/comments/2` };
+    const comment1 = { ...makeCommentData(1, 1), $id: `${API_URL}/Product/1/Comment/1` };
+    const comment2 = { ...makeCommentData(2, 1), $id: `${API_URL}/Product/1/Comment/2` };
 
     const productData = {
       ...makeProductData(1),
@@ -111,7 +111,7 @@ describe('Nested Entities', () => {
     const replyData = {
       ...makeCommentData(3, 1),
       parent_id: 1,
-      $id: `${API_URL}/products/1/comments/3`,
+      $id: `${API_URL}/Product/1/Comment/3`,
     };
 
     CommentDC.READ([replyData]);
@@ -128,8 +128,8 @@ describe('Nested Entities', () => {
     const productData = {
       ...makeProductData(1),
       comments: [
-        `${API_URL}/products/1/comments/1`,
-        `${API_URL}/products/1/comments/2`,
+        `${API_URL}/Product/1/Comment/1`,
+        `${API_URL}/Product/1/Comment/2`,
       ],
     };
     DC.READ([productData]);
@@ -147,7 +147,7 @@ describe('Nested Entities', () => {
 
     CommentDC.DELETE({}, new TX({
       name: 'DELETE',
-      source: `${API_URL}/products/1/comments/1`,
+      source: `${API_URL}/Product/1/Comment/1`,
       target: 'Comment',
     }));
 
@@ -164,8 +164,8 @@ describe('Nested Entities', () => {
       ...makeProductData(1),
       comments: {
         data: [
-          `${API_URL}/products/1/comments/1`, // already a string
-          { ...makeCommentData(2, 1), $id: `${API_URL}/products/1/comments/2` }, // populated object
+          `${API_URL}/Product/1/Comment/1`, // already a string
+          { ...makeCommentData(2, 1), $id: `${API_URL}/Product/1/Comment/2` }, // populated object
         ],
         meta: { total: 2 },
       },
@@ -174,8 +174,8 @@ describe('Nested Entities', () => {
     DC.READ([productData]);
     const product = DC.instances.get('1');
     expect(product.value.comments).toHaveLength(2);
-    expect(product.value.comments[0]).toBe(`${API_URL}/products/1/comments/1`);
-    expect(product.value.comments[1]).toBe(`${API_URL}/products/1/comments/2`);
+    expect(product.value.comments[0]).toBe(`${API_URL}/Product/1/Comment/1`);
+    expect(product.value.comments[1]).toBe(`${API_URL}/Product/1/Comment/2`);
   });
 
   it('deeply nested population (depth=2) normalizes recursively', () => {
@@ -187,7 +187,7 @@ describe('Nested Entities', () => {
     const likeData = { id: 1, user: 1, created_at: '2024-01-01', $id: `${API_URL}/likes/1`, $schema: `${API_URL}/Like` };
     const commentData = {
       ...makeCommentData(1, 1),
-      $id: `${API_URL}/products/1/comments/1`,
+      $id: `${API_URL}/Product/1/Comment/1`,
       likes: {
         data: [likeData],
         meta: { total: 1 },
@@ -233,7 +233,7 @@ describe('Nested Entities', () => {
 
     const pullSpy = vi.spyOn(instance, 'pull');
     instance._response_({ message: 'Comment added' }, new TX({
-      name: '_response_', source: `${API_URL}/products/1`, target: 'Product/1',
+      name: '_response_', source: `${API_URL}/Product/1`, target: 'Product/1',
     }));
 
     expect(pullSpy).toHaveBeenCalled();
@@ -248,7 +248,7 @@ describe('Nested Entities', () => {
     const populated = {
       ...makeProductData(1),
       comments: {
-        data: [{ ...makeCommentData(1, 1), $id: `${API_URL}/products/1/comments/1` }],
+        data: [{ ...makeCommentData(1, 1), $id: `${API_URL}/Product/1/Comment/1` }],
         meta: { total: 1 },
       },
     };

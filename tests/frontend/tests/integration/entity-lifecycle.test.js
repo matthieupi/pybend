@@ -126,7 +126,7 @@ describe('Entity Lifecycle', () => {
 
     DC.DELETE({}, new TX({
       name: 'DELETE',
-      source: `${API_URL}/products/1`,
+      source: `${API_URL}/Product/1`,
       target: 'Product',
     }));
 
@@ -149,7 +149,7 @@ describe('Entity Lifecycle', () => {
     expect(sendSpy).toHaveBeenCalled();
     const tx = sendSpy.mock.calls[0][0];
     expect(tx.name).toBe('READ');
-    expect(tx.target).toContain('/products/1');
+    expect(tx.target).toContain('/Product/1');
     instance.constructor.send = originalSend;
   });
 

@@ -343,6 +343,111 @@ describe('NTT.js', () => {
       });
     });
 
+    describe('class-name response identity', () => {
+      it('uses class-name $id as the instance href', () => {
+        DC.READ([{ id: 501, name: 'Class ID', price: 1, $id: 'http://localhost:5000/DCTest/501' }]);
+        const inst = DC.instances.get('501');
+
+        expect(inst.href).toBe('http://localhost:5000/DCTest/501');
+        expect(inst.value.$id).toBe('http://localhost:5000/DCTest/501');
+      });
+
+      it('does not require or emit $href or links metadata', () => {
+        DC.READ([{ id: 502, name: 'No Links', price: 1, $id: 'http://localhost:5000/DCTest/502' }]);
+        const inst = DC.instances.get('502');
+
+        expect(inst.value.$href).toBeUndefined();
+        expect(inst.value.links).toBeUndefined();
+      });
+
+      it('keeps legacy table-name $id values working as hrefs', () => {
+        DC.READ([{ id: 503, name: 'Legacy ID', price: 1, $id: 'http://localhost:5000/dc_tests/503' }]);
+        const inst = DC.instances.get('503');
+
+        expect(inst.href).toBe('http://localhost:5000/dc_tests/503');
+        expect(inst.value.$id).toBe('http://localhost:5000/dc_tests/503');
+      });
+
+      it('targets class-name href for instance method calls', () => {
+        DC.READ([{ id: 504, name: 'Method Target', price: 1, $id: 'http://localhost:5000/DCTest/504' }]);
+        const inst = DC.instances.get('504');
+        const sendSpy = vi.spyOn(inst, 'send').mockImplementation(() => {});
+
+        inst.like();
+
+        expect(sendSpy).toHaveBeenCalledWith(expect.objectContaining({
+          name: 'like',
+          target: 'http://localhost:5000/DCTest/504',
+        }));
+        sendSpy.mockRestore();
+      });
+
+      it('targets class-name href for pull reads', () => {
+        DC.READ([{ id: 505, name: 'Pull Target', price: 1, $id: 'http://localhost:5000/DCTest/505' }]);
+        const inst = DC.instances.get('505');
+        const sendSpy = vi.spyOn(inst, 'send').mockImplementation(() => {});
+
+        inst.pull();
+
+        expect(sendSpy).toHaveBeenCalledWith(expect.objectContaining({
+          name: 'READ',
+          target: 'http://localhost:5000/DCTest/505',
+        }));
+        sendSpy.mockRestore();
+      });
+
+      it('normalizes populated children while preserving class-name nested $id refs', () => {
+        const childSchema = {
+          type: 'object',
+          __name__: 'AuditComment',
+          __tablename__: 'audit_comments',
+          properties: {
+            id: { type: 'integer' },
+            name: { type: 'string' },
+          },
+          methods: {},
+          $defs: {},
+        };
+        const parentSchema = {
+          ...productSchema,
+          __name__: 'AuditProduct',
+          __tablename__: 'audit_products',
+          properties: {
+            ...productSchema.properties,
+            comments: {
+              type: 'array',
+              items: { anyOf: [{ $ref: '#/$defs/AuditComment' }, { type: 'null' }] },
+            },
+          },
+          $defs: { AuditComment: childSchema },
+        };
+
+        NTT.SCHEMA(parentSchema);
+        const ParentDC = NTT.get('AuditProduct');
+        ParentDC.READ({
+          id: 1,
+          name: 'Parent',
+          price: 1,
+          $id: 'http://localhost:5000/AuditProduct/1',
+          comments: {
+            data: [{
+              id: 2,
+              $schema: 'http://localhost:5000/AuditComment',
+              $id: 'http://localhost:5000/AuditProduct/1/AuditComment/2',
+              name: 'Child',
+            }],
+            meta: { total: 1, limit: 20, offset: 0, has_more: false },
+          },
+        });
+
+        const parent = ParentDC.instances.get('1');
+        const ChildDC = NTT.get('AuditComment');
+
+        expect(parent.value.comments).toEqual(['http://localhost:5000/AuditProduct/1/AuditComment/2']);
+        expect(ChildDC.instances.get('2').href).toBe('http://localhost:5000/AuditProduct/1/AuditComment/2');
+      });
+    });
+
     describe('DynamicClass.CREATE (static)', () => {
       it('should add new instance', () => {
         DC.CREATE({ id: 50, name: 'Created', price: 10 });
@@ -368,6 +473,94 @@ describe('NTT.js', () => {
         const tx = { name: 'ATTACH', source: 'watcher-1', target: 'NTT', data: schemaName };
         DC.ATTACH(schemaName, tx);
         expect(DC._watchers.has('watcher-1')).toBe(true);
+      });
+
+      it('fetches missing class-name instances from member route, not collection marker route', () => {
+        const schema = {
+          ...productSchema,
+          __name__: 'AttachMemberRoute',
+          __tablename__: 'attach_member_routes',
+          $id: 'http://localhost:5000/AttachMemberRoute',
+        };
+        NTT.SCHEMA(schema);
+        const MemberDC = NTT.get('AttachMemberRoute');
+        const sendSpy = vi.spyOn(MemberDC, 'send').mockImplementation(() => {});
+
+        MemberDC.ATTACH('AttachMemberRoute/6', {
+          name: 'ATTACH', source: 'component-attach-member', target: 'NTT', data: 'AttachMemberRoute/6', meta: {},
+        });
+
+        expect(sendSpy).toHaveBeenCalledWith(expect.objectContaining({
+          name: 'READ',
+          target: 'http://localhost:5000/AttachMemberRoute/6',
+        }));
+        sendSpy.mockRestore();
+      });
+
+      it('keeps static href at model base and collection reads on the explicit collection marker route', () => {
+        const schema = {
+          ...productSchema,
+          __name__: 'AttachCollectionRoute',
+          __tablename__: 'attach_collection_routes',
+          $id: 'http://localhost:5000/AttachCollectionRoute',
+        };
+        NTT.SCHEMA(schema);
+        const CollectionDC = NTT.get('AttachCollectionRoute');
+        const sendSpy = vi.spyOn(CollectionDC, 'send').mockImplementation(() => {});
+
+        CollectionDC.call('READ', { limit: 20 }, { remote: true });
+
+        expect(CollectionDC.href).toBe('http://localhost:5000/AttachCollectionRoute');
+        expect(sendSpy).toHaveBeenCalledWith(expect.objectContaining({
+          name: 'READ',
+          target: 'http://localhost:5000/AttachCollectionRoute/_',
+        }));
+        sendSpy.mockRestore();
+      });
+
+      it('uses class-name member route for missing instances when schema has no $id', () => {
+        const schema = {
+          ...productSchema,
+          __name__: 'AttachMemberNoSchemaId',
+          __tablename__: 'attach_member_no_schema_ids',
+        };
+        NTT.SCHEMA(schema);
+        const MemberDC = NTT.get('AttachMemberNoSchemaId');
+        const sendSpy = vi.spyOn(MemberDC, 'send').mockImplementation(() => {});
+
+        MemberDC.ATTACH('AttachMemberNoSchemaId/8', {
+          name: 'ATTACH', source: 'component-attach-no-id', target: 'NTT', data: 'AttachMemberNoSchemaId/8', meta: {},
+        });
+
+        expect(sendSpy).toHaveBeenCalledWith(expect.objectContaining({
+          name: 'READ',
+          target: 'http://localhost:5000/AttachMemberNoSchemaId/8',
+        }));
+        sendSpy.mockRestore();
+      });
+
+      it('keeps populate depth on missing member fetches without changing the member route', () => {
+        const schema = {
+          ...productSchema,
+          __name__: 'AttachMemberPopulate',
+          __tablename__: 'attach_member_populates',
+          $id: 'http://localhost:5000/AttachMemberPopulate',
+          ui: { populate: { depth: 2 } },
+        };
+        NTT.SCHEMA(schema);
+        const MemberDC = NTT.get('AttachMemberPopulate');
+        const sendSpy = vi.spyOn(MemberDC, 'send').mockImplementation(() => {});
+
+        MemberDC.ATTACH('AttachMemberPopulate/9', {
+          name: 'ATTACH', source: 'component-attach-populate', target: 'NTT', data: 'AttachMemberPopulate/9', meta: {},
+        });
+
+        expect(sendSpy).toHaveBeenCalledWith(expect.objectContaining({
+          name: 'READ',
+          target: 'http://localhost:5000/AttachMemberPopulate/9',
+          data: { depth: 2 },
+        }));
+        sendSpy.mockRestore();
       });
     });
 

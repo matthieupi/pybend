@@ -39,7 +39,7 @@ test.describe('Likes', () => {
   test('favorite via API succeeds with auth', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
-    const resp = await page.request.post('/products/1/favorite', {
+    const resp = await page.request.post('/Product/1/favorite', {
       headers: { 'x-access-token': token },
       data: {},
     });
@@ -50,7 +50,7 @@ test.describe('Likes', () => {
   test('favorite count accessible via API', async ({ page }) => {
     const token = await getToken(page.request, USERS.alice.email, USERS.alice.password);
 
-    const resp = await page.request.get('/products/1?depth=1', {
+    const resp = await page.request.get('/Product/1?depth=1', {
       headers: { 'x-access-token': token },
     });
     const data = await resp.json();
@@ -82,7 +82,7 @@ test.describe('Likes', () => {
   });
 
   test('favorite without auth fails', async ({ page }) => {
-    const resp = await page.request.post('/products/1/favorite', {
+    const resp = await page.request.post('/Product/1/favorite', {
       data: {},
     });
 

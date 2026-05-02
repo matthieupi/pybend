@@ -253,8 +253,8 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
       const mockHost = {
         value: {
           comments: [
-            'http://localhost:5000/products/1/comments/1',
-            'http://localhost:5000/products/1/comments/2',
+            'http://localhost:5000/Product/1/Comment/1',
+            'http://localhost:5000/Product/1/Comment/2',
           ]
         }
       };
@@ -264,8 +264,8 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
       });
       const refs = picker.currentRefs;
       expect(refs.size).toBe(2);
-      expect(refs.has('http://localhost:5000/products/1/comments/1')).toBe(true);
-      expect(refs.has('http://localhost:5000/products/1/comments/2')).toBe(true);
+      expect(refs.has('http://localhost:5000/Product/1/Comment/1')).toBe(true);
+      expect(refs.has('http://localhost:5000/Product/1/Comment/2')).toBe(true);
     });
 
     it('should extract $id from object array', () => {
@@ -287,6 +287,25 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
       expect(refs.size).toBe(2);
       expect(refs.has('http://localhost:5000/comments/1')).toBe(true);
       expect(refs.has('http://localhost:5000/comments/2')).toBe(true);
+    });
+
+    it('should extract class-name $id from object array', () => {
+      const picker = document.createElement('ntx-ref-picker');
+      picker.setAttribute('field', 'comments');
+      const mockHost = {
+        value: {
+          comments: [
+            { $id: 'http://localhost:5000/Product/1/Comment/2', text: 'Comment 2' },
+          ]
+        }
+      };
+      Object.defineProperty(picker, 'getRootNode', {
+        value: () => ({ host: mockHost }),
+        writable: true,
+      });
+      const refs = picker.currentRefs;
+      expect(refs.size).toBe(1);
+      expect(refs.has('http://localhost:5000/Product/1/Comment/2')).toBe(true);
     });
 
     it('should return empty set when field value is not an array', () => {
@@ -526,6 +545,35 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
       picker._showPicker();
       const options = picker.shadowRoot.querySelectorAll('.picker-option');
       // Only Comment 2 should be shown (Comment 1 is already in currentRefs)
+      expect(options.length).toBe(1);
+      expect(options[0].textContent).toBe('Comment 2');
+    });
+
+    it('should filter out currentRefs with class-name $id values', () => {
+      const picker = document.createElement('ntx-ref-picker');
+      picker.setAttribute('model', 'Comment');
+      picker.setAttribute('field', 'comments');
+      picker.setAttribute('child-table', 'comments');
+      picker._render();
+
+      const mockHost = {
+        value: {
+          comments: ['http://localhost:5000/Product/1/Comment/1']
+        }
+      };
+      Object.defineProperty(picker, 'getRootNode', {
+        value: () => ({ host: mockHost }),
+        writable: true,
+      });
+
+      const instances = new Map();
+      instances.set('1', { value: { id: 1, name: 'Comment 1', $id: 'http://localhost:5000/Product/1/Comment/1' } });
+      instances.set('2', { value: { id: 2, name: 'Comment 2', $id: 'http://localhost:5000/Product/1/Comment/2' } });
+      NTT.get.mockReturnValue({ instances, call: vi.fn() });
+
+      picker._showPicker();
+
+      const options = picker.shadowRoot.querySelectorAll('.picker-option');
       expect(options.length).toBe(1);
       expect(options[0].textContent).toBe('Comment 2');
     });
@@ -809,9 +857,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     it('should send CREATE TX via DynamicClass', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
       const sendMock = vi.fn();
       NTT.get.mockReturnValue({ send: sendMock });
@@ -820,7 +868,7 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
       expect(sendMock).toHaveBeenCalled();
       const tx = sendMock.mock.calls[0][0];
       expect(tx.name).toBe('CREATE');
-      expect(tx.target).toBe('http://localhost:5000/products/1/comments');
+      expect(tx.target).toBe('http://localhost:5000/Product/1/Comment');
       expect(tx.data).toBe(entity);
       expect(tx.meta.inbox).toBe('_response_');
     });
@@ -829,9 +877,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
       picker.setAttribute('field', 'comments');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
       NTT.get.mockReturnValue({ send: vi.fn() });
       const entity = { id: 5, text: 'Test', $id: 'http://localhost:5000/comments/5' };
@@ -845,6 +893,26 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
       expect(event.detail.data).toBe(entity);
       expect(event.bubbles).toBe(true);
       expect(event.composed).toBe(true);
+    });
+
+    it('should dispatch class-name $id from entity when adding a ref', () => {
+      const picker = document.createElement('ntx-ref-picker');
+      picker.setAttribute('model', 'Comment');
+      picker.setAttribute('field', 'comments');
+      picker.setAttribute('parent-table', 'Product');
+      picker.setAttribute('parent-id', '1');
+      picker.setAttribute('child-table', 'Comment');
+      picker._render();
+      NTT.get.mockReturnValue({ send: vi.fn() });
+      const entity = { id: 5, text: 'Test', $id: 'http://localhost:5000/Product/1/Comment/5' };
+      const eventSpy = vi.fn();
+      picker.addEventListener('ref-added', eventSpy);
+
+      picker._addRef(5, entity);
+
+      const event = eventSpy.mock.calls[0][0];
+      expect(event.detail.ref).toBe('http://localhost:5000/Product/1/Comment/5');
+      expect(event.detail.data).toBe(entity);
     });
 
     it('should construct href when entity has no $id', () => {
@@ -867,9 +935,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     it('should collect form data correctly from inputs', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
 
       const sendMock = vi.fn();
@@ -891,9 +959,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     it('should handle boolean inputs (checkboxes)', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
 
       const sendMock = vi.fn();
@@ -915,9 +983,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     it('should handle number inputs', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
 
       const sendMock = vi.fn();
@@ -939,9 +1007,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     it('should handle object inputs (JSON parsing)', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
 
       const sendMock = vi.fn();
@@ -963,9 +1031,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     it('should fallback to string for invalid JSON in object inputs', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
 
       const sendMock = vi.fn();
@@ -987,9 +1055,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     it('should send CREATE TX with correct target URL', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
 
       const sendMock = vi.fn();
@@ -1000,7 +1068,7 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
 
       const tx = sendMock.mock.calls[0][0];
       expect(tx.name).toBe('CREATE');
-      expect(tx.target).toBe('http://localhost:5000/products/1/comments');
+      expect(tx.target).toBe('http://localhost:5000/Product/1/Comment');
       expect(tx.meta.inbox).toBe('_response_');
     });
 
@@ -1008,9 +1076,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
       picker.setAttribute('field', 'comments');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
 
       const sendMock = vi.fn();
@@ -1038,9 +1106,9 @@ describe('ntx-ref-picker.js (NTTRefPicker)', () => {
     it('should call _close after submit', () => {
       const picker = document.createElement('ntx-ref-picker');
       picker.setAttribute('model', 'Comment');
-      picker.setAttribute('parent-table', 'products');
+      picker.setAttribute('parent-table', 'Product');
       picker.setAttribute('parent-id', '1');
-      picker.setAttribute('child-table', 'comments');
+      picker.setAttribute('child-table', 'Comment');
       picker._render();
 
       const sendMock = vi.fn();
