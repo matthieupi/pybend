@@ -48,7 +48,7 @@ class TestBuildMeta:
         assert product['name'] == 'Product'
         assert product['tablename'] == 'products'
         assert product['schema_url'] == 'http://localhost:5000/Product'
-        assert product['collection_url'] == 'http://localhost:5000/products'
+        assert product['collection_url'] == 'http://localhost:5000/Product/_'
 
     def test_access_rules_serialized(self):
         models = {'products': _make_model('Product', 'products', access={

@@ -569,8 +569,12 @@ class SQLiteStorage(AbstractStorage):
                         child_inst = effective_cls(**rec)
                         child_instances.append(child_inst)
                         dumped = child_inst.model_response()
-                        # Use parent-scoped URL for $id
-                        dumped['$id'] = f"{config.API_URL}/{model_class.__tablename__}/{pid}/{field_name}/{rec.get('id')}"
+                        # Use parent-scoped class-name URL for $id.
+                        child_cls = getattr(effective_cls, '__parent__', effective_cls)
+                        dumped['$id'] = (
+                            f"{config.API_URL}/{model_class.__name__}/{pid}"
+                            f"/{child_cls.__name__}/{rec.get('id')}"
+                        )
                         child_dicts.append(dumped)
                     except Exception:
                         pass

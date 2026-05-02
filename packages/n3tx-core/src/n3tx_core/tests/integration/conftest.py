@@ -226,7 +226,7 @@ def _make_product(client, token, name="Factory Product", price=19.99, **override
     """Create a product via the API and return the response data dict."""
     from n3tx_core.tests.helpers import auth_header
     payload = {"name": name, "price": price, **overrides}
-    resp = client.post("/products", json=payload, headers=auth_header(token))
+    resp = client.post("/Product", json=payload, headers=auth_header(token))
     assert resp.status_code == 201, f"Failed to create product: {resp.text}"
     return resp.json()
 
@@ -236,7 +236,7 @@ def _make_comment(client, token, product_id, name="Factory Comment",
     """Create a comment on a product via the API and return the response data dict."""
     from n3tx_core.tests.helpers import auth_header
     payload = {"name": name, "description": description, **overrides}
-    resp = client.post(f"/products/{product_id}/comments", json=payload,
+    resp = client.post(f"/Product/{product_id}/Comment", json=payload,
                        headers=auth_header(token))
     assert resp.status_code == 201, f"Failed to create comment: {resp.text}"
     return resp.json()

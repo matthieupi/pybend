@@ -36,7 +36,7 @@ def _build_meta(registered_models: dict, name: str, version: str,
             'name': model_cls.__name__,
             'tablename': tablename,
             'schema_url': f'{base_url}/{model_cls.__name__}',
-            'collection_url': f'{base_url}/{tablename}',
+            'collection_url': f'{base_url}/{model_cls.__name__}/_',
         }
 
         if hasattr(model_cls, '__access__'):

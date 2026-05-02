@@ -173,7 +173,7 @@ def run_workload(tier, token=None):
     if token:
         for pid in [1, 2]:
             record(f'get_product_{pid}_comments', 'get',
-                   f'{SERVER_URL}/products/{pid}/comments', headers=headers)
+                   f'{SERVER_URL}/Product/{pid}/Comment', headers=headers)
 
     # Child collections: favorites on products
     if token:

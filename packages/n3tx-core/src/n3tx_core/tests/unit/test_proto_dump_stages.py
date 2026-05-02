@@ -143,13 +143,15 @@ class TestInstanceUrlStage:
     def test_injects_id_url(self):
         m = _DumpSimple(id=7, name='test')
         d = proto_dump.instance_url(m, {'name': 'test', 'id': 7})
-        assert d['$id'] == f'{config.API_URL}/pd_simple/7'
+        assert d['$id'] == f'{config.API_URL}/_DumpSimple/7'
+        assert '$href' not in d
+        assert 'links' not in d
 
     def test_id_zero_produces_url(self):
         m = _DumpSimple(id=0, name='test')
         d = proto_dump.instance_url(m, {'name': 'test', 'id': 0})
         # id=0 is not None, so $id should be constructed
-        assert d['$id'] == f'{config.API_URL}/pd_simple/0'
+        assert d['$id'] == f'{config.API_URL}/_DumpSimple/0'
 
     def test_id_none_produces_null(self):
         """When instance has no id attribute at all, $id should be None."""
@@ -172,17 +174,16 @@ class TestInstanceUrlStage:
         d = proto_dump.instance_url(m, {})
         assert d['$id'].startswith(config.API_URL)
 
-    def test_uses_tablename_in_id_url(self):
+    def test_uses_classname_in_id_url(self):
         m = _DumpSimple(id=3)
         d = proto_dump.instance_url(m, {})
-        assert '/pd_simple/' in d['$id']
+        assert '/_DumpSimple/' in d['$id']
 
-    def test_tablename_fallback_to_lowercase_classname(self):
+    def test_uses_classname_even_without_tablename(self):
         proto_dump._instance_url_cache.clear()
         m = _DumpNoTable(id=1, name='fallback')
         d = proto_dump.instance_url(m, {'id': 1})
-        # Without __tablename__, falls back to cls.__name__.lower()
-        assert '/_dumpnotable/' in d['$id']
+        assert d['$id'] == f'{config.API_URL}/_DumpNoTable/1'
 
 
 # ===================================================================
@@ -208,7 +209,9 @@ class TestModelResponse:
         m = _DumpSimple(id=10, name='meta', value=77)
         d = m.model_response()
         assert d['$schema'] == f'{config.API_URL}/_DumpSimple'
-        assert d['$id'] == f'{config.API_URL}/pd_simple/10'
+        assert d['$id'] == f'{config.API_URL}/_DumpSimple/10'
+        assert '$href' not in d
+        assert 'links' not in d
 
     def test_idempotent(self):
         m = _DumpSimple(id=2, name='idem', value=3)
@@ -219,8 +222,7 @@ class TestModelResponse:
     def test_tablename_fallback(self):
         m = _DumpNoTable(id=5, name='notn')
         d = m.model_response()
-        # Without __tablename__, $id should use lowercase class name
-        assert '_dumpnotable' in d['$id']
+        assert d['$id'] == f'{config.API_URL}/_DumpNoTable/5'
         # $schema always uses the class name
         assert d['$schema'] == f'{config.API_URL}/_DumpNoTable'
 
@@ -343,7 +345,7 @@ class TestInstanceUrlCache:
         m = _DumpSimple(id=1)
         proto_dump.instance_url(m, {})
         cached = proto_dump._instance_url_cache[_DumpSimple]
-        assert cached['base_url'] == f'{config.API_URL}/pd_simple'
+        assert cached['base_url'] == f'{config.API_URL}/_DumpSimple'
 
     def test_second_call_uses_cache(self):
         m = _DumpSimple(id=1)
@@ -362,8 +364,8 @@ class TestInstanceUrlCache:
         assert _DumpOther in proto_dump._instance_url_cache
         cache_simple = proto_dump._instance_url_cache[_DumpSimple]
         cache_other = proto_dump._instance_url_cache[_DumpOther]
-        assert cache_simple['base_url'].endswith('/pd_simple')
-        assert cache_other['base_url'].endswith('/pd_other')
+        assert cache_simple['base_url'].endswith('/_DumpSimple')
+        assert cache_other['base_url'].endswith('/_DumpOther')
 
     def test_cache_survives_multiple_instances(self):
         m1 = _DumpSimple(id=1, name='first')
@@ -388,18 +390,20 @@ class TestInstanceUrlJoinModel:
     def test_join_model_uses_parent_scoped_url(self):
         m = DumpChild(id=5, dumpowner_id=3)
         d = proto_dump.instance_url(m, {'id': 5, 'dumpowner_id': 3})
-        assert d['$id'] == f'{config.API_URL}/pd_owners/3/children/5'
+        assert d['$id'] == f'{config.API_URL}/DumpOwner/3/DumpChild/5'
+        assert '$href' not in d
+        assert 'links' not in d
 
     def test_join_model_reads_fk_from_instance(self):
         m = DumpChild(id=10, dumpowner_id=7)
         d = proto_dump.instance_url(m, {})
-        assert d['$id'] == f'{config.API_URL}/pd_owners/7/children/10'
+        assert d['$id'] == f'{config.API_URL}/DumpOwner/7/DumpChild/10'
 
     def test_join_model_reads_fk_from_dict_fallback(self):
         m = DumpChild(id=10, dumpowner_id=0)
         # dumpowner_id=0 is falsy, so falls back to d dict
         d = proto_dump.instance_url(m, {'dumpowner_id': 7})
-        assert d['$id'] == f'{config.API_URL}/pd_owners/7/children/10'
+        assert d['$id'] == f'{config.API_URL}/DumpOwner/7/DumpChild/10'
 
     def test_join_model_missing_parent_id_returns_none(self):
         m = DumpChild(id=10, dumpowner_id=0)
@@ -415,17 +419,17 @@ class TestInstanceUrlJoinModel:
     def test_regular_model_unaffected(self):
         m = _DumpSimple(id=42)
         d = proto_dump.instance_url(m, {})
-        assert d['$id'] == f'{config.API_URL}/pd_simple/42'
+        assert d['$id'] == f'{config.API_URL}/_DumpSimple/42'
 
     def test_join_model_cache_contains_owner_metadata(self):
         m = DumpChild(id=1, dumpowner_id=1)
         proto_dump.instance_url(m, {})
         cached = proto_dump._instance_url_cache[DumpChild]
         assert 'owner_base' in cached
-        assert 'tagname' in cached
+        assert 'child_name' in cached
         assert 'fk_field' in cached
-        assert cached['owner_base'] == f'{config.API_URL}/pd_owners'
-        assert cached['tagname'] == 'children'
+        assert cached['owner_base'] == f'{config.API_URL}/DumpOwner'
+        assert cached['child_name'] == 'DumpChild'
         assert cached['fk_field'] == 'dumpowner_id'
 
     def test_join_model_full_pipeline(self):
@@ -433,5 +437,5 @@ class TestInstanceUrlJoinModel:
         m = DumpChild(id=3, dumpowner_id=2)
         d = m.model_response()
         assert d['$schema'] == f'{config.API_URL}/DumpChild'
-        assert d['$id'] == f'{config.API_URL}/pd_owners/2/children/3'
+        assert d['$id'] == f'{config.API_URL}/DumpOwner/2/DumpChild/3'
         assert d['dumpowner_id'] == 2

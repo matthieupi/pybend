@@ -168,25 +168,24 @@ def schema_url(instance, d: dict) -> dict:
 def instance_url(instance, d: dict) -> dict:
     """Inject $id — the resolvable URL to this specific instance.
 
-    Join models (with __owner__ + __tagname__) get parent-scoped URLs:
-        {API_URL}/{owner_table}/{parent_id}/{tagname}/{id}
+    Join models (with __owner__) get parent-scoped class-name URLs:
+        {API_URL}/{OwnerClass}/{parent_id}/{ChildClass}/{id}
     Regular models get flat URLs:
-        {API_URL}/{tablename}/{id}
+        {API_URL}/{ClassName}/{id}
     """
     cls = instance.__class__
     if cls not in _instance_url_cache:
         owner_cls = getattr(cls, '__owner__', None)
-        tagname = getattr(cls, '__tagname__', None)
-        if owner_cls and tagname:
+        if owner_cls:
+            child_cls = getattr(cls, '__parent__', cls)
             _instance_url_cache[cls] = {
-                'owner_base': f"{config.API_URL}/{owner_cls.__tablename__}",
-                'tagname': tagname,
+                'owner_base': f"{config.API_URL}/{owner_cls.__name__}",
+                'child_name': child_cls.__name__,
                 'fk_field': f"{owner_cls.__name__.lower()}_id",
             }
         else:
-            tablename = getattr(cls, '__tablename__', cls.__name__.lower())
             _instance_url_cache[cls] = {
-                'base_url': f"{config.API_URL}/{tablename}",
+                'base_url': f"{config.API_URL}/{cls.__name__}",
             }
     meta = _instance_url_cache[cls]
     instance_id = getattr(instance, 'id', None)
@@ -194,7 +193,7 @@ def instance_url(instance, d: dict) -> dict:
     if 'fk_field' in meta:
         parent_id = getattr(instance, meta['fk_field'], None) or d.get(meta['fk_field'])
         url = (
-            f"{meta['owner_base']}/{parent_id}/{meta['tagname']}/{instance_id}"
+            f"{meta['owner_base']}/{parent_id}/{meta['child_name']}/{instance_id}"
             if instance_id is not None and parent_id is not None
             else None
         )

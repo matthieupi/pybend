@@ -270,6 +270,7 @@ def make_delete_instance(model_class):
         return {"message": "Deleted successfully"}
     return delete_instance
 
+
 from fastapi import Body, Path
 from inspect import signature
 from pydantic import BaseModel
@@ -354,6 +355,7 @@ def make_custom_post(attr, model_class, route_path):
 
     async def post_with_id(
         request: Request,
+        parent_id: int = None,
         id: int = Path(..., description=f"{model_class.__name__} ID"),
         data: Dict[str, Any] = Body(default={}),
     ):
@@ -466,6 +468,28 @@ async def auth_me(request: Request):
 
 
 def register_routes():
+    nested_class_pairs = {}
+    for candidate in registered_models.values():
+        owner_cls = getattr(candidate, '__owner__', None)
+        child_cls = getattr(candidate, '__parent__', None)
+        if owner_cls and child_cls:
+            nested_class_pairs.setdefault((owner_cls.__name__, child_cls.__name__), []).append(candidate)
+
+    def nested_class_base_for(model_class):
+        owner_cls = getattr(model_class, '__owner__', None)
+        child_cls = getattr(model_class, '__parent__', None)
+        if not owner_cls or not child_cls:
+            return None
+        matches = nested_class_pairs.get((owner_cls.__name__, child_cls.__name__), [])
+        if len(matches) != 1:
+            logger.warning(
+                "Skipping ambiguous nested class-name routes for %s/%s: %s",
+                owner_cls.__name__, child_cls.__name__,
+                [m.__name__ for m in matches],
+            )
+            return None
+        return f"/{owner_cls.__name__}/{{parent_id:int}}/{child_cls.__name__}"
+
     # Pass 1: Register static collection routes for join models FIRST.
     # These must come before parent model's /{table}/{id:int} routes because
     # FastAPI matches routes by registration order, and {id:int} would match
@@ -508,16 +532,36 @@ def register_routes():
 
         # Register basic CRUD routes
         if is_storable:
+            create_instance = make_create_instance(model_class)
+            list_instances = make_get_all_instances(model_class)
             read_instance = make_get_instance(model_class)
-            router.post(endpoint_base, tags=[tag], status_code=201)(make_create_instance(model_class))
-            router.get(endpoint_base, tags=[tag])(make_get_all_instances(model_class))
+            update_instance = make_update_instance(model_class)
+            delete_instance = make_delete_instance(model_class)
+
+            router.post(endpoint_base, tags=[tag], status_code=201)(create_instance)
+            router.get(endpoint_base, tags=[tag])(list_instances)
             router.get(f"{endpoint_base}/{{id:int}}", tags=[tag])(read_instance)
-            # Storable class-name read mirror. This is intentionally GET-only
-            # and reuses the table-name read handler so auth, populate, 404,
-            # and serialization behavior stay identical.
+            # Storable class-name read mirror reuses the table-name read
+            # handler so auth, populate, 404, and serialization behavior stay
+            # identical.
             router.get(f"/{model_class.__name__}/{{id:int}}", tags=[tag])(read_instance)
-            router.put(f"{endpoint_base}/{{id:int}}", tags=[tag])(make_update_instance(model_class))
-            router.delete(f"{endpoint_base}/{{id:int}}", tags=[tag])(make_delete_instance(model_class))
+            router.put(f"{endpoint_base}/{{id:int}}", tags=[tag])(update_instance)
+            router.delete(f"{endpoint_base}/{{id:int}}", tags=[tag])(delete_instance)
+
+            if not parent_class:
+                class_base = f"/{model_class.__name__}"
+                router.post(class_base, tags=[tag], status_code=201)(create_instance)
+                router.get(f"{class_base}/_", tags=[tag])(list_instances)
+                router.put(f"{class_base}/{{id:int}}", tags=[tag])(update_instance)
+                router.delete(f"{class_base}/{{id:int}}", tags=[tag])(delete_instance)
+            else:
+                nested_class_base = nested_class_base_for(model_class)
+                if nested_class_base:
+                    router.post(nested_class_base, tags=[tag], status_code=201)(create_instance)
+                    router.get(nested_class_base, tags=[tag])(list_instances)
+                    router.get(f"{nested_class_base}/{{id:int}}", tags=[tag])(read_instance)
+                    router.put(f"{nested_class_base}/{{id:int}}", tags=[tag])(update_instance)
+                    router.delete(f"{nested_class_base}/{{id:int}}", tags=[tag])(delete_instance)
 
         # Custom @expose_route handlers
         for attr_name in dir(model_class):
@@ -576,6 +620,30 @@ def register_routes():
                                      methods=methods, tags=[model_title], name=attr.__name__,
                                      response_model=resp_model,
                                      )
+                if not parent_class:
+                    if is_instance_method:
+                        class_route = f"/{model_class.__name__}/{{id:int}}{route}"
+                    else:
+                        class_route = f"/{model_class.__name__}{route}"
+                    router.add_api_route(
+                        class_route, handler,
+                        methods=methods, tags=[model_title],
+                        name=f"{attr.__name__}_class",
+                        response_model=resp_model,
+                    )
+                else:
+                    nested_class_base = nested_class_base_for(model_class)
+                    if nested_class_base:
+                        if is_instance_method:
+                            nested_class_route = f"{nested_class_base}/{{id:int}}{route}"
+                        else:
+                            nested_class_route = f"{nested_class_base}{route}"
+                        router.add_api_route(
+                            nested_class_route, handler,
+                            methods=methods, tags=[model_title],
+                            name=f"{attr.__name__}_nested_class",
+                            response_model=resp_model,
+                        )
 
 
 
