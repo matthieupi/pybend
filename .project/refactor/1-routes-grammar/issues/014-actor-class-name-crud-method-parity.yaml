@@ -1,0 +1,50 @@
+id: 14
+title: "Actor class-name CRUD and method parity"
+type: "AFK"
+status: implemented
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 12
+  - 13
+what_to_build: |
+  Bring Level 3 actor-routed HTTP APIs to parity with the new direct FastAPI
+  class-name write and method mirrors.
+
+  Actor class-name mirrors must still dispatch to table-name actor addresses so
+  authorization, storage, lifecycle hooks, and method execution remain
+  centralized in `ActorModel`.
+acceptance_criteria:
+  - "Actor route generation includes `POST /{ClassName}`, `PUT /{ClassName}/{id:int}`, and `DELETE /{ClassName}/{id:int}` where direct routing does."
+  - "Actor route generation includes literal class-name method mirrors matching direct routing."
+  - "Class-name create/update/delete mirrors send the same TX names and payload shapes as table-name routes, targeting the table-name actor address."
+  - "Class-name method mirrors send method TXs with the same `data`, `user`, and `model_cls` metadata as table-name methods."
+  - "Streaming method mirrors preserve SSE behavior and stream metadata."
+  - "Tier 1 auth interceptor and Tier 2 `ActorModel` authorization behavior match table-name routes."
+  - "Actor HTML/view routes remain direct capability-hook responses and do not dispatch CRUD TXs."
+  - "Existing table-name actor routes remain unchanged."
+completion_note: |
+  Implemented as actor-route parity for class-name collection/write and literal
+  method mirrors. `NetworkAPI` registers class-name CRUD mirrors for root
+  storable models, class-name method mirrors for literal `@expose_route`
+  declarations, and streaming method mirrors that preserve SSE metadata. These
+  mirrors dispatch to the table-name actor address; HTML/view routes remain
+  capability-hook responses and do not dispatch CRUD or method TXs.
+implementation_notes:
+  - "Primary file: `packages/n3tx-actors/src/n3tx_actors/api/network_api.py`."
+  - "Prefer refactoring `_register_crud_routes()` and `_register_custom_routes()` to accept an alternate class-name endpoint base rather than duplicating TX construction."
+  - "Do not create class-name actor addresses. The target remains `model_class.__tablename__`."
+  - "Preserve current `GET /ClassName` schema behavior; do not add class-name list route."
+critical_files:
+  - "packages/n3tx-actors/src/n3tx_actors/api/network_api.py"
+  - "packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py"
+  - "examples/actors/tests/"
+verification:
+  - "cd /workspace && python3 -m pytest packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py examples/actors/tests/"
+risks:
+  - "Route-generation helpers may need careful naming to avoid duplicate FastAPI operation names."
+  - "Do not bypass actor authorization by resolving classes directly in the route handler."
+user_stories_addressed:
+  - 51
+  - 52
+  - 53
+  - 54

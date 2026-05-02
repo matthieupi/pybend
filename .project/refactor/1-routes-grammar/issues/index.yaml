@@ -49,3 +49,71 @@ issues:
     title: "Standalone view shell imports resolved renderer modules"
     type: "AFK"
     blocked_by: [1, 2, 3, 4, 5, 6]
+  - id: 10
+    file: "010-dual-link-response-metadata.yaml"
+    title: "Flip response `$id` to class-name identity"
+    type: "AFK"
+    blocked_by: []
+  - id: 11
+    file: "011-frontend-identity-transport-split.yaml"
+    title: "Frontend class-name response identity audit"
+    type: "AFK"
+    blocked_by: [10]
+  - id: 12
+    file: "012-direct-class-name-write-mirrors.yaml"
+    title: "Direct FastAPI class-name write mirrors"
+    type: "AFK"
+    blocked_by: [10]
+  - id: 13
+    file: "013-direct-class-name-method-mirrors.yaml"
+    title: "Direct FastAPI class-name method mirrors"
+    type: "AFK"
+    blocked_by: [12]
+  - id: 14
+    file: "014-actor-class-name-crud-method-parity.yaml"
+    title: "Actor class-name CRUD and method parity"
+    type: "AFK"
+    status: implemented
+    blocked_by: [12, 13]
+  - id: 15
+    file: "015-nested-class-name-grammar-decision.yaml"
+    title: "Nested class-name route grammar decision"
+    type: "HITL"
+    status: decided
+    blocked_by: [10]
+  - id: 16
+    file: "016-nested-class-name-backend-mirrors.yaml"
+    title: "Nested class-name backend mirrors"
+    type: "AFK"
+    blocked_by: [15]
+  - id: 17
+    file: "017-frontend-nested-class-route-support.yaml"
+    title: "Frontend nested class route support"
+    type: "AFK"
+    blocked_by: [15, 16]
+  - id: 18
+    file: "018-flip-id-to-class-name-identity.yaml"
+    title: "Superseded: `$id` flip handled by issue 010"
+    type: "HITL"
+    status: closed
+    resolution: superseded_by_010
+    blocked_by: [10]
+  - id: 19
+    file: "019-backend-route-aliases.yaml"
+    title: "Backend-authoritative route aliases"
+    type: "HITL"
+    status: deferred
+    resolution: weak_value_relative_to_complexity
+    blocked_by: [14, 17]
+  - id: 20
+    file: "020-frontend-alias-resolution.yaml"
+    title: "Frontend route alias resolution"
+    type: "AFK"
+    status: deferred
+    resolution: blocked_by_deferred_backend_aliases
+    blocked_by: [19]
+  - id: 21
+    file: "021-lock-schema-only-view-fallback.yaml"
+    title: "Lock schema-only custom view fallback contract"
+    type: "AFK"
+    blocked_by: []

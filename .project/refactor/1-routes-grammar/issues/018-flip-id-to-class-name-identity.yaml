@@ -1,0 +1,45 @@
+id: 18
+title: "Superseded: `$id` flip handled by issue 010"
+type: "HITL"
+status: "closed"
+resolution: "superseded_by_010"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 10
+what_to_build: |
+  This issue is superseded by issue 010. The migration no longer adds `$href` or
+  `links` before a later `$id` flip; issue 010 flips response `$id` directly to
+  class-name identity.
+
+  Keep this issue as a HITL compatibility/documentation checkpoint after issues
+  010–017 land. Use it to decide whether any external migration notes,
+  compatibility flags, or deprecation timelines are needed for clients that
+  stored old table-name `$id` values.
+acceptance_criteria:
+  - "Issue 010 has implemented class-name `$id` for regular and nested responses."
+  - "Legacy table-name routes remain available for clients with stored old URLs."
+  - "Docs clearly state that response identity is now class-name based."
+  - "Release notes or migration guidance call out the public `$id` change."
+  - "A compatibility flag is either explicitly rejected or planned as a separate issue."
+implementation_notes:
+  - "Do not implement response `$href` or `links` here."
+  - "Do not duplicate issue 010 implementation work."
+  - "This is documentation/release-policy review only unless compatibility gaps are found."
+critical_files:
+  - "docs/CORE.md"
+  - "BACKEND.md"
+  - "FRONTEND.md"
+  - ".project/refactor/1-routes-grammar/4-class-name-identity-api-migration-plan.md"
+verification:
+  - "Documentation review completed; stale table-name response `$id` examples were updated."
+  - "Compatibility flag explicitly rejected for now; legacy table-name routes remain transport aliases."
+risks:
+  - "External clients storing table-name `$id` may need explicit migration guidance even though legacy routes still work."
+closure_notes: |
+  Issue 010 already implemented the runtime `$id` flip. This checkpoint was
+  closed by documenting the public identity contract in API docs and release
+  notes, and by explicitly rejecting `$href`, `links`, or a response identity
+  compatibility flag for the current migration.
+user_stories_addressed:
+  - 41
+  - 42

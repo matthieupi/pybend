@@ -1,0 +1,45 @@
+id: 17
+title: "Frontend nested class route support"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 15
+  - 16
+what_to_build: |
+  Extend the frontend route/runtime layer to understand nested class-name route
+  shapes from issue 015 while preserving all existing flat and table-name refs.
+
+  The current router treats more than three path segments as invalid. This slice
+  adds a narrow parsed shape for the approved nested grammar and resolves it to
+  the correct component/ref/transport behavior.
+acceptance_criteria:
+  - "`parseRoute()` recognizes the approved nested class-name read/detail route shape."
+  - "`buildRoute()` round-trips the approved nested parsed shape."
+  - "`resolveRoute()` produces a mount instruction that can render the nested child using the correct model and transport ref."
+  - "Legacy routes `Model`, `Model/id`, `Model/id/action`, `Model/@`, and `Model/id/@view` remain unchanged."
+  - "Invalid extra segments still fail deterministically instead of being misread as methods."
+  - "Nested class-name refs can be attached/fetched without breaking existing parent-scoped table-name refs."
+  - "Router state, hash sync, and `ntx-router` DOM mounting tests cover at least one nested class-name route."
+implementation_notes:
+  - "Primary file: `packages/n3tx-core/src/n3tx_core/static/core/Router.js`."
+  - "Likely parsed shape: `{ type: 'nested-detail', parentModel, parentId, model, id, params }`."
+  - "Coordinate with `NTT.js`/`Component.js` so mounted refs use a valid transport href when needed."
+  - "Do not add broad arbitrary-depth parsing; implement the approved grammar only."
+critical_files:
+  - "packages/n3tx-core/src/n3tx_core/static/core/Router.js"
+  - "packages/n3tx-core/src/n3tx_core/static/core/NTT.js"
+  - "packages/n3tx-core/src/n3tx_core/static/core/Component.js"
+  - "packages/n3tx-ui/src/n3tx_ui/static/components/ntx-router.js"
+  - "tests/frontend/tests/core/route-functions.test.js"
+  - "tests/frontend/tests/core/Router.test.js"
+  - "tests/frontend/tests/components/ntx-router.test.js"
+verification:
+  - "cd /workspace/tests/frontend && npx vitest run tests/core/route-functions.test.js tests/core/Router.test.js tests/components/ntx-router.test.js"
+risks:
+  - "Do not weaken invalid route handling so malformed view routes silently mount components."
+user_stories_addressed:
+  - 21
+  - 22
+  - 23
+  - 24
+  - 25

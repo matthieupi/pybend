@@ -1,0 +1,39 @@
+id: 21
+title: "Lock schema-only custom view fallback contract"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by: []
+what_to_build: |
+  Lock the production view fallback decision: arbitrary custom `@view` routes do
+  not auto-mount `ntx-${view}` components. A custom view is accepted only if the
+  model schema declares it in `ui.renderer`, or if it is one of the known
+  framework fallbacks.
+
+  This issue may already be mostly implemented; its purpose is to ensure the
+  contract is permanently covered by tests and docs.
+acceptance_criteria:
+  - "Frontend `resolveRoute(parseRoute('Product/@custom-card'))` returns null/invalid unless `schema.ui.renderer['custom-card']` is declared."
+  - "Backend `GET /Product/@custom-card` returns 400 unless the model declares `renderer['custom-card']`."
+  - "Known framework fallbacks remain available: collection `list`/`table`, member `item`/`detail`/`chat`."
+  - "Unsafe view tokens are rejected before component tags are generated."
+  - "Renderer tags from schema are validated as safe custom-element names."
+  - "Docs explicitly state that arbitrary `ntx-${view}` fallback is disabled in production."
+implementation_notes:
+  - "Frontend current policy is in `Router.js::resolveViewTag()`, which returns null for unknown custom views."
+  - "Backend current policy is in `n3tx_ui.mixin.resolve_collection_view_tag()` and `resolve_member_view_tag()`, which raise `Unknown view name`."
+  - "This issue should mostly add/confirm regression coverage and docs unless implementation drift is found."
+critical_files:
+  - "packages/n3tx-core/src/n3tx_core/static/core/Router.js"
+  - "packages/n3tx-ui/src/n3tx_ui/mixin.py"
+  - "tests/frontend/tests/core/route-functions.test.js"
+  - "packages/n3tx-ui/src/n3tx_ui/tests/test_viewable_mixin.py"
+  - "packages/n3tx-ui/docs/viewable-mixin.md"
+verification:
+  - "cd /workspace/tests/frontend && npx vitest run tests/core/route-functions.test.js"
+  - "cd /workspace && python3 -m pytest packages/n3tx-ui/src/n3tx_ui/tests/test_viewable_mixin.py"
+risks:
+  - "Developer ergonomics are lower than arbitrary fallback, but this avoids mounting undeclared components from URL input."
+user_stories_addressed:
+  - 12
+  - 14
+  - 48

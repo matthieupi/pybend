@@ -1,0 +1,59 @@
+id: 19
+title: "Backend-authoritative route aliases"
+type: "HITL"
+status: "deferred"
+resolution: |
+  Deferred after HITL review. The value is currently too weak relative to the
+  cross-layer complexity and risk: backend alias registries, route duplication,
+  OpenAPI policy, actor parity, frontend alias maps, waiter replay, and cache
+  canonicalization. Revisit only when there is a concrete compatibility or
+  public-URL stability need, such as preserving old model routes after a rename.
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 14
+  - 17
+what_to_build: |
+  Add a backend-owned alias system for model route names. Aliases should be
+  additive and validated at app build time.
+
+  Example:
+
+      class AgentActor(ActorModel):
+          __tablename__ = 'agents'
+          __route_aliases__ = ['Agent']
+
+  Expected routes:
+
+      GET /Agent       -> same schema as /AgentActor
+      GET /Agent/1     -> same entity as /AgentActor/1
+      GET /Agent/1/@   -> same view as /AgentActor/1/@
+
+  Schema should remain canonical:
+
+      "__name__": "AgentActor"
+      "__aliases__": ["Agent"]
+      "canonical_name": "AgentActor"
+acceptance_criteria:
+  - "Models can declare safe route aliases through a documented class variable."
+  - "App/bootstrap validation rejects aliases that collide with class names, tablenames, other aliases, static routes, or reserved `@` grammar."
+  - "Alias schema routes return canonical schema metadata including alias declarations."
+  - "Alias read/write/method/view routes delegate to the same handlers as canonical class-name routes."
+  - "Alias routes do not create new actor addresses or storage identities."
+  - "OpenAPI exposure policy for aliases is explicit and tested."
+implementation_notes:
+  - "This is HITL because alias collision policy and public URL stability need review."
+  - "Do not replace `__name__` or `__tablename__`; aliases are an additional lookup layer."
+  - "Add a registry structure for alias -> canonical model class during app build."
+  - "Keep aliases case-sensitive unless the decision says otherwise."
+critical_files:
+  - "packages/n3tx-core/src/n3tx_core/app.py"
+  - "packages/n3tx-core/src/n3tx_core/utils/registrar.py"
+  - "packages/n3tx-core/src/n3tx_core/models/proto_schema.py"
+  - "packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py"
+  - "packages/n3tx-actors/src/n3tx_actors/api/network_api.py"
+verification:
+  - "cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/ packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py"
+risks:
+  - "Alias routes share the root namespace with schemas and table-name APIs; validation must be strict."
+user_stories_addressed:
+  - 58

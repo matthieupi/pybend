@@ -1,0 +1,48 @@
+id: 11
+title: "Frontend class-name response identity audit"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 10
+what_to_build: |
+  Audit and update the frontend runtime for the simplified issue 010 identity
+  migration: responses now carry class-name `$id` directly and do not carry
+  `$href` or `links`.
+
+  Today, DynamicClass instances use `data.$id` as `instance.href`. That remains
+  the intended behavior:
+
+      instance.href = data.$id
+
+  This slice proves the runtime can read, attach, render, update, delete, invoke
+  methods, and resolve refs with class-name `$id` values such as `/Product/1` and
+  nested values such as `/Product/1/Comment/2`.
+acceptance_criteria:
+  - "DynamicClass instances use class-name `$id` as `instance.href`."
+  - "READ/UPDATE/DELETE/method calls build from class-name `href` values."
+  - "Legacy table-name refs continue to attach/fetch while compatibility routes exist."
+  - "`value` serialization includes class-name `$id` without adding `$href` or `links`."
+  - "Populated single refs and list refs continue to render with class-name `$id` values."
+  - "Parent-scoped nested class refs such as `/Product/1/Comment/2` parse or attach according to issue 017."
+  - "Tests prove the runtime does not require `$href` or `links`."
+implementation_notes:
+  - "Primary file: `packages/n3tx-core/src/n3tx_core/static/core/NTT.js`."
+  - "Audit `DynamicClass` constructor, `value` getter, `ATTACH`, `READ`, action response handling, and collection wrapper normalization."
+  - "Audit `Component.js` ref handling for URL refs and `data-model` refs."
+  - "Audit `ntx-list-field.js` and `ntx-ref-picker.js`; they use ref strings and object `$id` values as transport URLs."
+  - "Do not introduce public `idUrl`, `$href`, or `links` fields unless implementation uncovers a real need."
+critical_files:
+  - "packages/n3tx-core/src/n3tx_core/static/core/NTT.js"
+  - "packages/n3tx-core/src/n3tx_core/static/core/Component.js"
+  - "packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list-field.js"
+  - "packages/n3tx-ui/src/n3tx_ui/static/components/ntx-ref-picker.js"
+  - "tests/frontend/tests/integration/schema-bootstrap.test.js"
+  - "tests/frontend/tests/core/NTT.test.js"
+verification:
+  - "cd /workspace/tests/frontend && npx vitest run tests/integration/schema-bootstrap.test.js tests/core/NTT.test.js tests/components/ntx-list-field.test.js tests/components/ntx-ref-picker.test.js"
+risks:
+  - "Class-name write/method mirrors must exist before frontend mutation flows fully rely on class-name `$id`."
+  - "Nested children require the issue 017 parser/runtime work before arbitrary nested class-name refs are safe."
+user_stories_addressed:
+  - 41
+  - 42

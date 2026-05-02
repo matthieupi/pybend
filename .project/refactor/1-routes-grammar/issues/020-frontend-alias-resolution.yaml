@@ -1,0 +1,52 @@
+id: 20
+title: "Frontend route alias resolution"
+type: "AFK"
+status: "deferred"
+resolution: |
+  Deferred because backend route aliases in issue 019 are deferred. The frontend
+  should continue using canonical model class names from schema routes and must
+  not introduce frontend-only aliases. Revisit only if backend-authoritative
+  aliases are revived for a concrete compatibility or public-URL stability need.
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 19
+what_to_build: |
+  Teach the frontend schema loader, router, and NTT registry to resolve backend
+  route aliases to canonical model names.
+
+  Example:
+
+      #Agent/1/@
+
+  should fetch `/Agent` if needed, receive canonical schema metadata for
+  `AgentActor`, register the canonical DynamicClass, register alias lookup
+  metadata, replay any pending alias waiters, and mount the canonical component
+  with the intended route/ref behavior.
+acceptance_criteria:
+  - "`NTT.attach('Alias')` fetches the alias schema endpoint and registers the canonical model."
+  - "Alias waiters are replayed when the canonical schema arrives."
+  - "`window.NTT.get('Alias')` or router schema lookup resolves to the canonical DynamicClass/schema according to the chosen API."
+  - "Hash routes using aliases parse, build, resolve, and mount correctly."
+  - "Canonical hash routes still work unchanged."
+  - "Alias routes do not duplicate entity caches or create divergent DynamicClasses."
+implementation_notes:
+  - "Primary file: `packages/n3tx-core/src/n3tx_core/static/core/NTT.js`."
+  - "Router schema accessor currently calls `window.NTT.get(model)?.schema`; alias lookup must work with that path or provide an equivalent resolver."
+  - "Schema metadata from issue 019 should include aliases and canonical name."
+  - "Do not invent frontend-only aliases; backend schema remains authoritative."
+critical_files:
+  - "packages/n3tx-core/src/n3tx_core/static/core/NTT.js"
+  - "packages/n3tx-core/src/n3tx_core/static/core/Router.js"
+  - "packages/n3tx-ui/src/n3tx_ui/static/components/ntx-router.js"
+  - "tests/frontend/tests/core/NTT.test.js"
+  - "tests/frontend/tests/core/route-functions.test.js"
+  - "tests/frontend/tests/components/ntx-router.test.js"
+verification:
+  - "cd /workspace/tests/frontend && npx vitest run tests/core/NTT.test.js tests/core/route-functions.test.js tests/components/ntx-router.test.js"
+risks:
+  - "Without alias waiter replay, `NTT.attach(alias)` can fetch successfully but leave callers waiting under the alias key."
+user_stories_addressed:
+  - 21
+  - 22
+  - 23
+  - 25

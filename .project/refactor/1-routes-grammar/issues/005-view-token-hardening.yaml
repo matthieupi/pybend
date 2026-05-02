@@ -1,0 +1,33 @@
+id: 5
+title: "View token validation and unsafe route hardening"
+type: "HITL"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 2
+  - 4
+what_to_build: |
+  Finalize and implement the policy for unknown and unsafe view names. The
+  implementation must reject or sanitize unsafe backend view tokens, prevent
+  route traversal or injected markup, and make malformed frontend route forms
+  deterministic instead of silently mounting the wrong component.
+
+  This issue is HITL because it locks a product/security decision: whether
+  arbitrary `ntx-${view}` fallback remains allowed broadly, is limited to safe
+  tokens, or is restricted to schema-declared renderers in production contexts.
+acceptance_criteria:
+  - "The accepted view-token policy is documented in this refactor folder before implementation."
+  - "Backend view names are validated against the approved safe token contract."
+  - "Unsafe backend view names return a deterministic client error and are not used in generated HTML."
+  - "Generated HTML escapes model, ref, and view-derived attrs."
+  - "Frontend malformed routes such as extra segments or traversal-like view names have deterministic parse/resolve behavior."
+  - "Unknown safe view names follow the approved fallback or rejection policy consistently on frontend and backend."
+  - "Tests cover unsafe collection views, unsafe member views, extra path segments, traversal-like inputs, numeric view names, and query conflict behavior."
+  - "Existing safe custom views remain usable according to the approved policy."
+user_stories_addressed:
+  - 14
+  - 20
+  - 47
+  - 48
+  - 49
+  - 50
+  - 55
