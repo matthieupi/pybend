@@ -36,19 +36,21 @@ AgentActor (DB record)
     |      |
     |      | _resolve_tool_addrs()  -- DB lookup
     |      v
-    |   AgentMixin.run()  -- bypasses mixin's agentic() cascade
+    |   CallConfig  -- DB-backed adapter input (mixin.py)
+    |      |
+    |      v
+    |   Agent.prepare(...) -> Agent.run(...)  (agent.py)
     |
     +-- agentic_stream(task)   @expose_route('/agentic_stream', POST, stream=True, events={...})
            |
            | _resolve_tool_addrs()  -- same DB lookup
            v
-        AgentMixin.run_stream()  -- streaming engine
+        CallConfig -> Agent.prepare(...) -> Agent.run_stream(...)  (agent.py)
 ```
 
 AgentActor's `agentic()` and `agentic_stream()` override the mixin's
 versions. They read config from DB fields instead of using the 3-tier
-cascade, then call `AgentMixin.run()` / `run_stream()` directly via the
-descriptor's underlying function.
+cascade, then delegate into the shared internal runtime seam.
 
 ### Stream Event Models
 
@@ -101,6 +103,11 @@ Linked to AgentActor via `ListRef` + auto-generated join table.
 
 Exposed as `POST /agents/{id}/agentic`. Returns a JSON string (not dict)
 containing `{answer, usage, messages, message_count}`.
+
+Internally, `AgentActor.agentic()` delegates to the shared runtime and then
+serializes the same sync result dict used by `AgentMixin.agentic()` with
+`json.dumps(result, default=str)`. `message_count` therefore always matches
+`len(messages)`, and `thread_id` is included when a thread is used or created.
 
 **kwargs accepted**: `llm`, `constraints`, `user`, `thread_id`,
 `result_type`.
@@ -166,10 +173,13 @@ register_model(join_cls, storage=storage)
 
 - `agentic()` returns a JSON **string**, not a dict. This is because it
   is decorated with `@expose_route` (HTTP endpoint returns text). Parse
-  with `json.loads()` in code.
-- AgentActor's `agentic()` bypasses the mixin's config cascade. It reads
-  `self.prompt`, `self.llm`, `self.constraints` directly from DB fields.
-  kwargs override DB values (`constraints` are merged, not replaced).
+  with `json.loads()` in code. The decoded payload is the same sync result
+  dict produced internally by the shared runtime.
+- AgentActor's `agentic()` uses DB-backed configuration rather than the
+  mixin's class-config cascade. It reads `self.prompt`, `self.llm`,
+  `self.constraints`, and tool refs from stored fields, then delegates to
+  the shared runtime. kwargs override DB values (`constraints` are merged,
+  not replaced).
 - Tool addresses must match actor addresses registered in the Matrix.
   If a tool address has no corresponding actor, `discover_tools()` logs
   a warning and skips it.

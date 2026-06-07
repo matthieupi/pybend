@@ -18,21 +18,38 @@ receives either the class or the instance.
 ```
 agentic(task)                    agentic_stream(task)
     |                                |
-    | 3-tier config cascade          | same cascade
+    | shared call normalization      | same resolver
     |                                |
     v                                v
-run(task, prompt, tools, ...)    run_stream(task, prompt, tools, ...)
-    |                                |
-    | discover_tools()               | discover_tools()
-    | build pydantic-ai Agent        | build pydantic-ai Agent
-    | agent.run(task)                | agent.run_stream(task)
+CallConfig                CallConfig
     |                                |
     v                                v
+run(...)                         run_stream(...)
+    |                                |
+    +------------+-------------------+
+                 |
+                 v
+          Agent.prepare(...)
+                 |
+                 v
+          PreparedCall
+                 |
+       +---------+---------+
+       |                   |
+       v                   v
+Agent.run(...)       Agent.run_stream(...)
+       |                   |
+       v                   v
 {answer, usage, messages}        yields {name, data, meta} chunks
 ```
 
-Tool calls and thread operations route through `Actor.root().request()`
-(Matrix request-response) — no transient adapters needed.
+`Agent.prepare(...)` in `agent.py` owns runtime assembly for both sync and streaming calls:
+LLM resolution, Matrix root lookup, thread preload/create, tool discovery,
+Pydantic AI agent construction, dependency creation, and usage limits. Terminal
+execution then lives in `Agent.run(...)` or `Agent.run_stream(...)`.
+
+Tool calls and thread operations route through `Actor.root().request()` (Matrix
+request-response) — no transient adapters needed.
 
 ## Interface
 
@@ -65,11 +82,24 @@ Policy layer. Resolves config, delegates to `run()`.
 The `tools` kwarg uses `in` check (passing `tools=[]` is valid and means
 "no tools", distinct from omitting it which triggers auto-discovery).
 
-**Returns**: `{"answer": str|structured, "usage": {"input_tokens": int, "output_tokens": int, "requests": int}, "messages": list, "message_count": int}`
+**Returns**: a Python dict representing the shared internal sync result shape:
+
+`{"answer": str|structured, "usage": {"input_tokens": int, "output_tokens": int, "requests": int}, "messages": list, "message_count": int, "thread_id": int?}`
+
+`AgentMixin.agentic()` returns this dict directly. `message_count` always matches
+`len(messages)`. When a thread is used or created, `thread_id` is included.
 
 ### `run(target, task, prompt, tools, ...) -> dict`
 
-Engine. No config resolution. Receives fully resolved params.
+Thin engine adapter. No policy config resolution. Receives fully resolved params,
+wraps them in a `CallConfig`, delegates runtime assembly to
+`Agent.prepare(...)` in `agent.py`, then executes via `Agent.run(...)`.
+
+`Agent.run(...)` is the single source of truth for the sync result dict consumed
+by both adapters:
+
+- `AgentMixin.agentic()` returns the dict directly
+- `AgentActor.agentic()` JSON-serializes the same dict for compatibility
 
 **Parameters**:
 
@@ -97,7 +127,9 @@ Yields the same chunk format.
 
 ### `run_stream(target, task, prompt, tools, ...)` -> async generator
 
-Streaming engine. Same params as `run()`. Yields TX-aligned chunks:
+Thin streaming engine adapter. Same params as `run()`. It wraps explicit params
+in a `CallConfig`, delegates runtime assembly to `Agent.prepare(...)` in
+`agent.py`, then yields terminal chunks from `Agent.run_stream(...)`:
 
 | Chunk | `name` | `data` | `meta` |
 |-------|--------|--------|--------|
@@ -108,7 +140,8 @@ Streaming engine. Same params as `run()`. Yields TX-aligned chunks:
 | Done | `"done"` | `{"answer": "...", "usage": {...}, "tool_calls": N, "thread_id": id?}` | `{"stream_end": true, "seq": N}` |
 | Error | `"error"` | `{"message": "...", "code": 500}` | `{"error": true, "seq": N}` |
 
-Errors are caught and yielded as error chunks rather than raised.
+Streaming errors are caught and yielded as error chunks rather than raised,
+including runtime-preparation failures such as a missing Matrix root.
 
 Event schemas can be declared via `events=` on `@expose_route` (see
 [agent-actor.md](agent-actor.md) for the concrete event models). The
@@ -139,7 +172,7 @@ result2 = await product.agentic(
 ### Auto-create a thread from chat UI
 
 ```python
-result = await agent.run(
+result = await agent.call(
     task='Hello',
     prompt='You are helpful.',
     tools=[],

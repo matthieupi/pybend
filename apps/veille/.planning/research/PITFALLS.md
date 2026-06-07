@@ -224,8 +224,10 @@ print(result['answer'])
 ```
 
 Or call `run()` directly for internal use (returns a dict):
+
 ```python
-result = await agent.run(task="Find grants", prompt=agent.prompt, tools=agent_tools, llm=agent.llm)
+result = await agent.call(task="Find grants", prompt=agent.prompt,
+                          tools=agent_tools, llm=agent.llm)
 print(result['answer'])  # Works directly
 ```
 

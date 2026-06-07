@@ -69,7 +69,7 @@ From DB:
 
 ```python
 scanner = AgentActor.get(1)
-result = await scanner.run(task="Find new grants")
+result = await scanner.call(task="Find new grants")
 ```
 
 ### Path B: Agentic Model Methods (secondary)
@@ -681,10 +681,11 @@ Agents wake up on messages. No special scheduling infrastructure needed:
 
 ```python
 # Via HTTP endpoint
-POST /agents/1/run {"task": "Scan all sources"}
+POST / agents / 1 / run
+{"task": "Scan all sources"}
 
 # Via code
-result = await scanner.run(task="Scan all sources")
+result = await scanner.call(task="Scan all sources")
 
 # Via TX message (from another actor or agent)
 await matrix.send(TX(
@@ -707,13 +708,13 @@ Use Pydantic AI's `TestModel` for mock LLM responses:
 from pydantic_ai.models.test import TestModel
 
 # No tool calls — LLM returns immediately
-result = await agent.run(
+result = await agent.call(
     task="Hello",
     llm=TestModel(call_tools=[]),
 )
 
 # LLM calls a specific tool, then returns
-result = await agent.run(
+result = await agent.call(
     task="List all grants",
     llm=TestModel(call_tools=['grants_list']),
 )
