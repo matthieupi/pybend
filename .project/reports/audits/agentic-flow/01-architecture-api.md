@@ -395,16 +395,19 @@ Key observation: **No persistent state accumulates between runs.** Each `run()` 
 ### 2.5 Usage Patterns
 
 **Pattern 1: Zero-config agent model** (most common)
+
 ```python
 # Definition
 class Product(ActorModel):
     __agent__ = True
     name: str = Field(...)
 
+
 # Usage
-result = await Product.run(task='Analyze products', llm=TestModel(call_tools=[]))
+result = await Product.run(task='Analyze products',
+                           llm=TestModel(call_tools=[]))
 # or
-result = await product.run(task='Analyze this', llm='anthropic:...')
+result = await product.call(task='Analyze this', llm='anthropic:...')
 ```
 Evidence: `test_mixin.py:411-416`, `test_mixin.py:477-486`
 
@@ -422,6 +425,7 @@ class Product(ActorModel):
 Evidence: `test_mixin.py:51-58`, `test_mixin.py:79-85`
 
 **Pattern 3: Data-driven agent** (AgentActor)
+
 ```python
 agent = AgentActor.create(AgentActor(
     name='Grant Scanner',
@@ -429,14 +433,15 @@ agent = AgentActor.create(AgentActor(
     llm='anthropic:...',
 ))
 join_cls.create(join_cls(target='grants', agentactor_id=agent.id))
-result_str = await agent.run(task='Find grants', llm=TestModel(...))
+result_str = await agent.call(task='Find grants', llm=TestModel(...))
 result = json.loads(result_str)
 ```
 Evidence: `test_agent_actor.py:291-306`, `test_agent_run.py:28-40`
 
 **Pattern 4: Streaming agent**
+
 ```python
-async for chunk in product.run_stream(task='Describe yourself', llm=...):
+async for chunk in product.call_stream(task='Describe yourself', llm=...):
     yield chunk  # {'name': 'text'|'done'|'error', 'data': {...}, 'meta': {...}}
 ```
 Evidence: `test_mixin.py:588-597`

@@ -183,7 +183,7 @@ async def agentic(target, task: str, **kwargs) -> dict:
     adapter, root = _create_adapter()
     try:
         instance = target if not isinstance(target, type) else target()
-        return await instance.run(task=task, adapter=adapter, **conf)
+        return await instance.call(task=task, adapter=adapter, **conf)
     finally:
         root._children.pop(adapter._addr, None)
 ```
@@ -194,10 +194,11 @@ async def agentic(target, task: str, **kwargs) -> dict:
 async def run(self, task, prompt, tools, llm=None, ...):
     ai_agent, run_kwargs = _setup_agent(...)
 
-    async with ai_agent.run_stream(task, **run_kwargs) as result:
+    async with ai_agent.call_stream(task, **run_kwargs) as result:
         async for event in result._stream_response:
             if isinstance(event, PartDeltaEvent):
-                if isinstance(event.delta, TextPartDelta) and event.delta.content_delta:
+                if isinstance(event.delta,
+                              TextPartDelta) and event.delta.content_delta:
                     await self.emit({
                         'name': 'text',
                         'data': {'text': event.delta.content_delta},

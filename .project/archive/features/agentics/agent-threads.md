@@ -113,14 +113,14 @@ Return dict adds `'thread_id': thread_id` when present.
 Same `thread_id` parameter and pre-run read. Post-run update happens after stream completes but inside the `async with` block (adapter still alive):
 
 ```python
-async with ai_agent.run_stream(task, **run_kwargs) as result:
+async with ai_agent.call_stream(task, **run_kwargs) as result:
     async for text in result.stream_text(delta=True):
         yield {name: 'text', ...}
 
     # Stream complete — capture messages and update thread
     all_messages = result.all_messages()
     if thread_id is not None:
-        # TX update (same as run())
+    # TX update (same as run())
 
     yield {name: 'done', data: {answer, usage, thread_id}, ...}
 ```
@@ -132,7 +132,7 @@ Pass-through only — extract `thread_id` from kwargs and forward to `run()`/`ru
 ```python
 thread_id = kwargs.get('thread_id')
 # ... in the run() call:
-return await instance.run(..., thread_id=thread_id, ...)
+return await instance.call(..., thread_id=thread_id, ...)
 ```
 
 ### `AgentActor.agentic()` — Override (actor.py lines 103-135)

@@ -342,7 +342,7 @@ class AnalyzerMonitor(Actor, auto_register=False):
             # A new grant was just created -- analyze it
             analyzer_agent = AgentActor.get(2)  # The Analyzer agent
             if analyzer_agent:
-                await analyzer_agent.run(
+                await analyzer_agent.call(
                     task=f"Analyze grant '{entity.get('title')}' (ID: {entity.get('id')}). "
                          f"Check for duplicates, score relevance, update status.",
                 )
@@ -422,7 +422,7 @@ Then in the scanner agent's `run()` method:
 ```python
 @expose_route('/run', methods=['POST'])
 async def run(self, task: str, **kwargs) -> str:
-    tool_addrs = self._resolve_tool_addrs()
+    tool_addrs = self.tool_addrs()
     result = await self.agent_run(
         prompt=self.prompt,
         tools=tool_addrs,
@@ -685,7 +685,7 @@ Pydantic AI supports [agent delegation](https://ai.pydantic.dev/multi-agent-appl
 ```python
 @scanner_agent.tool
 async def analyze_grant(ctx: RunContext[AgentDeps], grant_id: int) -> str:
-    result = await analyzer_agent.run(
+    result = await analyzer_agent.call(
         f"Analyze grant {grant_id}",
         usage=ctx.usage,  # aggregate token counts
     )

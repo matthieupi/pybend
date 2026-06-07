@@ -458,7 +458,7 @@ async def scan_and_review_pipeline(sources: list, user: dict):
     # Phase 1: Scan all sources (parallel fan-out)
     scanner = AgentActor.get(scanner_id)
     scan_tasks = [
-        scanner.run(task=f"Scan {src.url} for grants", llm=...)
+        scanner.call(task=f"Scan {src.url} for grants", llm=...)
         for src in sources
     ]
     raw_results = await asyncio.gather(*scan_tasks, return_exceptions=True)
@@ -466,7 +466,7 @@ async def scan_and_review_pipeline(sources: list, user: dict):
     # Phase 2: Review and validate (sequential)
     reviewer = AgentActor.get(reviewer_id)
     candidates = merge_scan_results(raw_results)
-    reviewed = await reviewer.run(
+    reviewed = await reviewer.call(
         task=f"Review these grant candidates: {json.dumps(candidates)}",
         llm=...
     )
@@ -670,7 +670,7 @@ scanner_agent = Agent(
     tools=ai_tools,
 )
 
-result = await scanner_agent.run(task, deps=deps)
+result = await scanner_agent.call(task, deps=deps)
 # result.output is a ScanResult instance -- validated, typed, guaranteed
 for grant in result.output.grants:
     if grant.confidence >= 0.6:
@@ -695,7 +695,7 @@ async def agent_run(self, prompt: str, tools: list, task: str,
         output_type=output_type,  # NEW: pass through to pydantic-ai
     )
 
-    result = await ai_agent.run(task, deps=deps, usage_limits=usage_limits)
+    result = await ai_agent.call(task, deps=deps, usage_limits=usage_limits)
 
     output = result.output
     if output_type and not isinstance(output, str):
@@ -703,7 +703,7 @@ async def agent_run(self, prompt: str, tools: list, task: str,
 
     return {
         'answer': output,
-        'usage': { ... },
+        'usage': {...},
         'messages': len(result.all_messages()),
     }
 ```
@@ -865,10 +865,11 @@ FALLBACK_CHAIN = [
     'ollama:llama3.1',
 ]
 
+
 async def run_with_fallback(agent, task, **kwargs):
     for model in FALLBACK_CHAIN:
         try:
-            return await agent.run(task=task, llm=model, **kwargs)
+            return await agent.call(task=task, llm=model, **kwargs)
         except Exception as e:
             logger.warning("Model %s failed: %s. Trying next.", model, e)
     raise RuntimeError("All models in fallback chain failed")

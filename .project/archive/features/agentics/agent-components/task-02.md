@@ -24,24 +24,24 @@ Step 1: Add the agentic_stream() method to AgentActor class, after the existing 
 
 ```python
     @expose_route('/agentic_stream', methods=['POST'], stream=True)
-    async def agentic_stream(self, task: str, **kwargs):
-        """Streaming agent execution — resolves tools from DB.
+async def agentic_stream(self, task: str, **kwargs):
+    """Streaming agent execution — resolves tools from DB.
 
-        Override — same as agentic() but yields TX-aligned stream chunks.
-        Calls AgentMixin.run_stream() directly, bypassing the mixin's
-        agentic_stream() config cascade since AgentActor has its own config.
+    Override — same as agentic() but yields TX-aligned stream chunks.
+    Calls AgentMixin.run_stream() directly, bypassing the mixin's
+    agentic_stream() config cascade since AgentActor has its own config.
 
-        Args:
-            task: The user task / query to execute.
-            **kwargs: Override llm, constraints, user, thread_id, result_type.
+    Args:
+        task: The user task / query to execute.
+        **kwargs: Override llm, constraints, user, thread_id, result_type.
 
-        Yields:
-            TX-aligned dicts: text, tool_call, tool_result, thinking, done, error.
-        """
-        from n3tx_agents.mixin import AgentMixin
-        tool_addrs = self._resolve_tool_addrs()
-        run_stream_fn = AgentMixin.__dict__['run_stream'].fn
-        async for chunk in run_stream_fn(
+    Yields:
+        TX-aligned dicts: text, tool_call, tool_result, thinking, done, error.
+    """
+    from n3tx_agents.mixin import AgentMixin
+    tool_addrs = self.tool_addrs()
+    run_stream_fn = AgentMixin.__dict__['run_stream'].fn
+    async for chunk in run_stream_fn(
             self,
             task=task,
             prompt=self.prompt,
@@ -51,8 +51,8 @@ Step 1: Add the agentic_stream() method to AgentActor class, after the existing 
             user=kwargs.get('user'),
             thread_id=kwargs.get('thread_id'),
             result_type=kwargs.get('result_type'),
-        ):
-            yield chunk
+    ):
+        yield chunk
 ```
 
 This follows the exact same pattern as the existing agentic() override:

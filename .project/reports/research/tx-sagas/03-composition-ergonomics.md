@@ -520,11 +520,12 @@ Testability is the **second most important factor** (after learning curve) in wo
 ### Testing Strategies by Approach
 
 **Temporal** -- Test workflows using `WorkflowEnvironment`:
+
 ```python
 async def test_booking_saga():
     async with await WorkflowEnvironment.start_time_skipping() as env:
         result = await env.client.execute_workflow(
-            BookingWorkflow.run,
+            BookingWorkflow.call,
             BookVacationInput(user_id="test", destination="Paris"),
             id="test-id",
             task_queue="test-queue",
@@ -726,24 +727,25 @@ Uses Python's `async with` for saga lifecycle management, combined with function
 ```python
 from n3tx.core.sagas import TXSaga, SagaStep
 
+
 async def process_order(data: dict, tx: TX):
     async with TXSaga("process_order", tx) as saga:
         # Each step auto-tracks in the saga context
-        user = await saga.run(
+        user = await saga.call(
             "validate_user",
             action=validate_user,
             compensate=None,  # validation has no side effects
             input=data["user_id"],
         )
 
-        inventory = await saga.run(
+        inventory = await saga.call(
             "reserve_inventory",
             action=reserve_stock,
             compensate=release_stock,
             input={"product": data["product_id"], "qty": data["qty"]},
         )
 
-        payment = await saga.run(
+        payment = await saga.call(
             "charge_payment",
             action=charge_card,
             compensate=refund_card,
@@ -752,8 +754,8 @@ async def process_order(data: dict, tx: TX):
 
         # Parallel steps
         async with saga.parallel() as batch:
-            batch.run("send_email", action=send_confirmation, input=user)
-            batch.run("update_analytics", action=track_order, input=data)
+            batch.call("send_email", action=send_confirmation, input=user)
+            batch.call("update_analytics", action=track_order, input=data)
 
     # saga.__aexit__ handles:
     #   - If all steps succeeded: returns accumulated effects

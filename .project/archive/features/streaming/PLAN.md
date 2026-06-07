@@ -221,7 +221,7 @@ from pydantic_ai.messages import (
 
 # With:
 streamed_text = ''
-async with ai_agent.run_stream(task, **run_kwargs) as result:
+async with ai_agent.call_stream(task, **run_kwargs) as result:
     async for event in result:
         if isinstance(event, PartStartEvent):
             if isinstance(event.part, ThinkingPart) and event.part.content:
@@ -252,14 +252,16 @@ async with ai_agent.run_stream(task, **run_kwargs) as result:
                 seq += 1
 
         elif isinstance(event, PartDeltaEvent):
-            if isinstance(event.delta, ThinkingPartDelta) and event.delta.content_delta:
+            if isinstance(event.delta,
+                          ThinkingPartDelta) and event.delta.content_delta:
                 yield {
                     'name': 'thinking',
                     'data': {'text': event.delta.content_delta},
                     'meta': {'stream': True, 'seq': seq},
                 }
                 seq += 1
-            elif isinstance(event.delta, TextPartDelta) and event.delta.content_delta:
+            elif isinstance(event.delta,
+                            TextPartDelta) and event.delta.content_delta:
                 streamed_text += event.delta.content_delta
                 yield {
                     'name': 'text',

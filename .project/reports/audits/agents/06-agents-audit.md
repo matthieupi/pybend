@@ -225,12 +225,14 @@ class AgentMixin:
         prompt = kwargs.get('prompt') or target.ctx()
         tools = kwargs['tools'] if 'tools' in kwargs else target.tools()
         llm = kwargs.get('llm') or _resolve_from_config(target)
-        return await _run(target, task=task, prompt=prompt, tools=tools, llm=llm, ...)
+        return await _run(target, task=task, prompt=prompt, tools=tools,
+                          llm=llm, ...)
+
 
 # AgentActor no longer needs descriptor hack
 @expose_route('/agentic', methods=['POST'])
 async def agentic(self, task: str, **kwargs) -> dict:
-    tool_addrs = self._resolve_tool_addrs()
+    tool_addrs = self.tool_addrs()
     return await super().agentic(
         task=task, prompt=self.prompt, tools=tool_addrs,
         llm=kwargs.get('llm', self.llm), ...
@@ -406,7 +408,8 @@ class NTTStreamAgent extends NTTStream {
 # In _run():
 timeout = constraints.get('timeout', config.AGENT_DEFAULTS.get('timeout', 300))
 try:
-    result = await asyncio.wait_for(ai_agent.run(task, **run_kwargs), timeout=timeout)
+    result = await asyncio.wait_for(ai_agent.call(task, **run_kwargs),
+                                    timeout=timeout)
 except asyncio.TimeoutError:
     raise RuntimeError(f"Agent execution timed out after {timeout}s")
 

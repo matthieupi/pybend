@@ -276,7 +276,8 @@ async def test_class_level_run_required_fields(self, fresh_matrix):
     """Class-level run() on a model with required fields should fail clearly."""
     # AgentActor has name: str = Field(min_length=1) with no default
     with pytest.raises((ValidationError, RuntimeError)):
-        await AgentActor.run(task='test', llm=TestModel(call_tools=[]))
+        await AgentActor.call(task='test', llm=TestModel(call_tools=[]))
+
 
 async def test_structured_output_result_type(self, fresh_matrix, setup_models):
     """run() with result_type returns structured output."""
@@ -284,25 +285,28 @@ async def test_structured_output_result_type(self, fresh_matrix, setup_models):
     class Analysis(BaseModel):
         summary: str
         score: float
-    result = await AgenticProduct.run(
+
+    result = await AgenticProduct.call(
         task='Analyze', llm=TestModel(call_tools=[]),
         result_type=Analysis,
     )
     # Verify result shape (TestModel behavior may vary)
     assert 'answer' in result
 
+
 async def test_stream_partial_consumption(self, fresh_matrix, setup_models):
     """Partially consuming agentic_stream() cleans up adapter."""
     from n3tx.core.actors.actor import Actor
     root = Actor.root()
     initial = len(root._children)
-    gen = AgenticProduct.run_stream(task='test', llm=TestModel(call_tools=[]))
+    gen = AgenticProduct.call_stream(task='test', llm=TestModel(call_tools=[]))
     # Consume only first chunk
     chunk = await gen.__anext__()
     assert chunk is not None
     await gen.aclose()
     # Verify adapter was cleaned up
     assert len(root._children) == initial
+
 
 # test_tools.py
 def test_ctx_parameter_collision(self):
@@ -348,10 +352,11 @@ def test_ctx_parameter_collision(self):
 6. Add test in `test_mixin.py`
 
 **Adding a custom method to AgentActor** (cite `actor.py:103-129`):
+
 ```python
 @expose_route('/analyze', methods=['POST'], stream=True)
 async def analyze(self, query: str):
-    async for chunk in self.run_stream(task=query):
+    async for chunk in self.call_stream(task=query):
         yield chunk
 ```
 

@@ -617,6 +617,7 @@ async def countdown(self, n: int):
 Key: method is an async generator, `stream=True` declared, each `yield` becomes an SSE chunk.
 
 *Agent streaming method (typed events pattern):*
+
 ```python
 # Template from n3tx-agents/actor.py:170-204
 @expose_route('/agentic_stream', methods=['POST'], stream=True,
@@ -624,7 +625,7 @@ Key: method is an async generator, `stream=True` declared, each `yield` becomes 
                       'tool_result': ToolResultEvent, 'done': DoneChunk})
 async def agentic_stream(self, task: str, **kwargs):
     # Delegates to run_stream() which yields {name, data, meta} dicts
-    async for chunk in self.run_stream(task=task, ...):
+    async for chunk in self.call_stream(task=task, ...):
         yield chunk
 ```
 Key: `events={}` declares vocabulary, `run_stream()` handles LLM iteration, each dict has `name` for dispatch.

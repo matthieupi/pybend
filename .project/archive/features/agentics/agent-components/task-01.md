@@ -54,74 +54,74 @@ Step 2: Replace the core streaming loop in run_stream(). Find this block (approx
 
 ```python
             # Use Agent.run_stream() for token-level streaming
-            streamed_text = ''
-            async with ai_agent.run_stream(task, **run_kwargs) as result:
-                async for text in result.stream_text(delta=True):
-                    streamed_text += text
-                    yield {
-                        # TODO Add type (tool call, thinking, response etc)
-                        'name': 'text',
-                        'data': {'text': text},
-                        'meta': {'stream': True, 'seq': seq},
-                    }
-                    seq += 1
+streamed_text = ''
+async with ai_agent.call_stream(task, **run_kwargs) as result:
+    async for text in result.stream_text(delta=True):
+        streamed_text += text
+        yield {
+            # TODO Add type (tool call, thinking, response etc)
+            'name': 'text',
+            'data': {'text': text},
+            'meta': {'stream': True, 'seq': seq},
+        }
+        seq += 1
 
-                # Stream complete — emit final done chunk
-                usage = result.usage()
-                try:
-                    output = await result.get_output()
-                except Exception:
-                    output = ''
-                if not output and streamed_text:
-                    output = streamed_text
+    # Stream complete — emit final done chunk
+    usage = result.usage()
+    try:
+        output = await result.get_output()
+    except Exception:
+        output = ''
+    if not output and streamed_text:
+        output = streamed_text
 
-                all_messages = result.all_messages()
+    all_messages = result.all_messages()
 
-                # ── Thread: post-stream update ──
-                if thread_id is not None:
-                    update_tx = TX(
-                        name='update', source=root.addr, target='threads',
-                        data={
-                            'id': thread_id,
-                            'messages': Thread.from_history(
-                                all_messages,
-                                source=root.addr,
-                                target=agent_addr,
-                            ),
-                        },
-                        meta={'user': user} if user else {},
-                    )
-                    update_resp = await root.request(update_tx)
-                    if update_resp.is_error:
-                        logger.warning(
-                            "Failed to update thread %s: %s",
-                            thread_id,
-                            update_resp.data.get('message', 'unknown'),
-                        )
+    # ── Thread: post-stream update ──
+    if thread_id is not None:
+        update_tx = TX(
+            name='update', source=root.addr, target='threads',
+            data={
+                'id': thread_id,
+                'messages': Thread.from_history(
+                    all_messages,
+                    source=root.addr,
+                    target=agent_addr,
+                ),
+            },
+            meta={'user': user} if user else {},
+        )
+        update_resp = await root.request(update_tx)
+        if update_resp.is_error:
+            logger.warning(
+                "Failed to update thread %s: %s",
+                thread_id,
+                update_resp.data.get('message', 'unknown'),
+            )
 
-                done_data = {
-                    'answer': str(output),
-                    'usage': {
-                        'input_tokens': usage.input_tokens,
-                        'output_tokens': usage.output_tokens,
-                        'requests': usage.requests,
-                    },
-                }
-                if thread_id is not None:
-                    done_data['thread_id'] = thread_id
+    done_data = {
+        'answer': str(output),
+        'usage': {
+            'input_tokens': usage.input_tokens,
+            'output_tokens': usage.output_tokens,
+            'requests': usage.requests,
+        },
+    }
+    if thread_id is not None:
+        done_data['thread_id'] = thread_id
 
-                # TODO
-                #  Replace by returning full output (text, thinking, tool calls, any other relevant info
-                #  We can probably remove streamed_text and use output.
-                yield {
-                    'name': 'done',
-                    'data': done_data,
-                    'meta': {
-                        'stream': True,
-                        'stream_end': True,
-                        'seq': seq,
-                    },
-                }
+    # TODO
+    #  Replace by returning full output (text, thinking, tool calls, any other relevant info
+    #  We can probably remove streamed_text and use output.
+    yield {
+        'name': 'done',
+        'data': done_data,
+        'meta': {
+            'stream': True,
+            'stream_end': True,
+            'seq': seq,
+        },
+    }
 ```
 
 Replace with this new implementation using agent.iter():

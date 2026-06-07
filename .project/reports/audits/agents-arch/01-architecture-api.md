@@ -571,7 +571,7 @@ join_cls.create(join_cls(target='grants', agentactor_id=agent.id))
 
 # Later, from DB
 agent = AgentActor.get(1)
-result_str = await agent.run(task='Scan all sources')
+result_str = await agent.call(task='Scan all sources')
 result = json.loads(result_str)
 ```
 
@@ -589,7 +589,8 @@ class Conversation(AgentActor):
 ### 12.4 Streaming (test_mixin.py)
 
 ```python
-async for chunk in AgenticProduct.run_stream(task='Describe yourself', llm=TestModel(call_tools=[])):
+async for chunk in AgenticProduct.call_stream(task='Describe yourself',
+                                              llm=TestModel(call_tools=[])):
     if chunk['name'] == 'text':
         print(chunk['data']['text'], end='')
     elif chunk['name'] == 'done':

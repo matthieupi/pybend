@@ -142,20 +142,21 @@ class AgentMixin:
 ```
 
 This mirrors Actor's existing patterns:
+
 ```python
 # Actor pattern:
-Product.addr       # 'products'        (class)
-product.addr       # 'products/1'      (instance)
-Product.children   # class children    (class)
-product.children   # instance children (instance)
+Product.addr  # 'products'        (class)
+product.addr  # 'products/1'      (instance)
+Product.children  # class children    (class)
+product.children  # instance children (instance)
 
 # AgentMixin pattern:
-Product.ctx()      # schema context          (class)
-product.ctx()      # schema + instance data  (instance)
-Product.tools()    # ['products', 'comments'] (class)
-product.tools()    # ['products', 'comments'] (instance — same)
-Product.run(task=...) # resolves config, calls agentic()  (class)
-product.run(task=...) # same, with instance context        (instance)
+Product.ctx()  # schema context          (class)
+product.ctx()  # schema + instance data  (instance)
+Product.tools()  # ['products', 'comments'] (class)
+product.tools()  # ['products', 'comments'] (instance — same)
+Product.call(task=...)  # resolves config, calls agentic()  (class)
+product.call(task=...)  # same, with instance context        (instance)
 ```
 
 ### AgentActor overrides `run()` — `agentic()` is the shared engine
@@ -367,7 +368,7 @@ The developer writes a streaming `@expose_route` that delegates to `run(stream=T
 ```python
 @expose_route('/analyze', methods=['POST'], stream=True)
 async def analyze(self, query: str):
-    async for chunk in self.run(task=query, stream=True):
+    async for chunk in self.call(task=query, stream=True):
         yield chunk
 ```
 

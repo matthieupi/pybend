@@ -201,11 +201,11 @@ class DigestReport(BaseModel):
 message_history = kwargs.get('message_history')
 
 # ── Run ──
-result = await ai_agent.run(
+result = await ai_agent.call(
     task,
     deps=deps,
     usage_limits=usage_limits,
-    message_history=message_history,    # <-- new parameter
+    message_history=message_history,  # <-- new parameter
 )
 ```
 
@@ -839,7 +839,8 @@ class AnalyzerMonitor(Actor, auto_register=False):
         """Dispatch LIFECYCLE events to the appropriate handler."""
         if tx.name != 'LIFECYCLE':
             # Not our concern -- drop silently (don't error, don't bounce)
-            logger.debug("[AnalyzerMonitor] Ignoring non-LIFECYCLE TX: %s", tx.name)
+            logger.debug("[AnalyzerMonitor] Ignoring non-LIFECYCLE TX: %s",
+                         tx.name)
             return
 
         event = tx.data.get('event', '')
@@ -917,10 +918,11 @@ class AnalyzerMonitor(Actor, auto_register=False):
     async def _run_analyzer(self, analyzer, task: str, grant_id: int) -> None:
         """Execute the analyzer agent run with error handling."""
         try:
-            result = await analyzer.run(task=task)
+            result = await analyzer.call(task=task)
             logger.info(
                 "[AnalyzerMonitor] Analysis complete for grant #%d: %s",
-                grant_id, result[:200] if isinstance(result, str) else str(result)[:200],
+                grant_id,
+                result[:200] if isinstance(result, str) else str(result)[:200],
             )
         except Exception as e:
             logger.error(
@@ -1060,6 +1062,7 @@ def create_analyze_grant_tool():
     a grant inline (within the same run) rather than waiting for the
     event-driven pipeline.
     """
+
     async def analyze_grant(ctx, grant_id: int) -> str:
         """Delegate grant analysis to the Analyzer agent.
 
@@ -1073,7 +1076,7 @@ def create_analyze_grant_tool():
             return json.dumps({"error": "Analyzer agent not found"})
 
         try:
-            result_str = await analyzer.run(
+            result_str = await analyzer.call(
                 task=f"Analyze grant {grant_id}: check duplicates and score relevance.",
             )
             return result_str
@@ -1472,8 +1475,8 @@ if constraints.get('max_iterations') or constraints.get('max_tokens'):
 # ── Run with timeout ──
 try:
     result = await asyncio.wait_for(
-        ai_agent.run(task, deps=deps, usage_limits=usage_limits,
-                     message_history=message_history),
+        ai_agent.call(task, deps=deps, usage_limits=usage_limits,
+                      message_history=message_history),
         timeout=run_timeout,
     )
 except asyncio.TimeoutError:
@@ -1739,7 +1742,7 @@ class TestStructuredOutput:
     async def test_output_type_passthrough(self, test_db, seed_data):
         """agent_run() passes output_type to Pydantic AI Agent."""
         agent = AgentActor.get(seed_data['agent'].id)
-        result_str = await agent.run(
+        result_str = await agent.call(
             task="Scan for grants",
             llm=TestModel(call_tools=[]),
             output_type=ScanResult,
@@ -1752,7 +1755,7 @@ class TestStructuredOutput:
     async def test_default_str_output(self, test_db, seed_data):
         """Without output_type, agent returns plain string (backward compat)."""
         agent = AgentActor.get(seed_data['agent'].id)
-        result_str = await agent.run(
+        result_str = await agent.call(
             task="Hello",
             llm=TestModel(call_tools=[]),
         )

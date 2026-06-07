@@ -197,6 +197,7 @@ run() --> discover_tools_cached() --> exact_cache_check(task, tools)
 ```python
 # ── Cache check (before LLM call) ──
 import hashlib
+
 cache_key = hashlib.sha256(
     f"{agent_addr}:{task}:{tuple(sorted(tools))}".encode()
 ).hexdigest()
@@ -213,7 +214,7 @@ if config.AGENT_DEFAULTS.get('semantic_cache'):
         return semantic_hit
 
 # ── Normal execution ──
-result = await ai_agent.run(task, **run_kwargs)
+result = await ai_agent.call(task, **run_kwargs)
 
 # ── Cache store ──
 await _store_cache(cache_key, result_dict, task_embedding=...)

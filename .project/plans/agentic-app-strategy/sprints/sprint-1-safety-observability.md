@@ -803,6 +803,7 @@ Since `AgentActor` is currently framework code (lives in `src/n3tx/core/agents/`
 The existing `run()` method (lines 138-156) currently calls `agent_run()` and returns the raw JSON result. We wrap it with AgentRun record creation.
 
 Replace lines 138-156:
+
 ```python
 @expose_route('/run', methods=['POST'])
 async def run(self, task: str, **kwargs) -> str:
@@ -815,7 +816,7 @@ async def run(self, task: str, **kwargs) -> str:
     Returns:
         JSON string with {answer, usage, messages}.
     """
-    tool_addrs = self._resolve_tool_addrs()
+    tool_addrs = self.tool_addrs()
     result = await self.agent_run(
         prompt=self.prompt,
         tools=tool_addrs,
@@ -826,6 +827,7 @@ async def run(self, task: str, **kwargs) -> str:
 ```
 
 With:
+
 ```python
 @expose_route('/run', methods=['POST'])
 async def run(self, task: str, **kwargs) -> str:
@@ -844,7 +846,7 @@ async def run(self, task: str, **kwargs) -> str:
     import time as _time
     from datetime import datetime, timezone
 
-    tool_addrs = self._resolve_tool_addrs()
+    tool_addrs = self.tool_addrs()
     model_used = kwargs.get('llm') or self.llm
 
     # ── Create run record (optional: only if AgentRun is registered) ──
@@ -861,7 +863,7 @@ async def run(self, task: str, **kwargs) -> str:
                 started_at=datetime.now(timezone.utc).isoformat(),
                 model_used=str(model_used),
                 user_id=(kwargs.get('user') or {}).get('user_id', 0)
-                        if isinstance(kwargs.get('user'), dict) else 0,
+                if isinstance(kwargs.get('user'), dict) else 0,
             )
             run_record = agent_run_cls.create(run_record)
     except Exception as e:

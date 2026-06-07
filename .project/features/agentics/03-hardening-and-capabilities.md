@@ -325,7 +325,7 @@ def test_description_with_special_chars(self): ...
 async def test_agent_multi_tool_sequence(self, test_db, seed_data):
     """Agent calls grants_list, then sources_list in sequence."""
     agent = AgentActor.get(seed_data["agent"].id)
-    result_str = await agent.run(
+    result_str = await agent.call(
         task="Compare grants with sources",
         llm=TestModel(call_tools=['grants_list', 'sources_list']),
     )
@@ -410,11 +410,12 @@ class AgentRun(ActorModel):
 import time
 
 start = time.monotonic()
-result = await ai_agent.run(...)
+result = await ai_agent.call(...)
 elapsed = (time.monotonic() - start) * 1000
 
 if getattr(self.__class__, '__log_runs__', False):
     from n3tx.core.agents.run_model import AgentRun
+
     AgentRun.create(AgentRun(
         agent_id=getattr(self, 'id', 0),
         task=task, answer=str(result.output),

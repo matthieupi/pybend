@@ -381,7 +381,7 @@ This reaches into the `fullmethod` descriptor's internal `.fn` attribute -- a pa
 # In AgentActor, after simplification from 1a:
 @expose_route('/agentic', methods=['POST'])
 async def agentic(self, task: str, **kwargs) -> str:
-    tool_addrs = self._resolve_tool_addrs()
+    tool_addrs = self.tool_addrs()
     # Call parent's agentic with all params explicit -- cascade is no-op
     result = await AgentMixin.agentic.__get__(self)(
         task=task,
@@ -427,7 +427,7 @@ Add structured error handling to `run()`:
 async def run(target, task, prompt, tools, ...):
     # ... existing setup ...
     try:
-        result = await ai_agent.run(task, **run_kwargs)
+        result = await ai_agent.call(task, **run_kwargs)
     except Exception as e:
         logger.error("[%s] Agent run failed: %s", agent_addr, e)
         raise  # re-raise -- callers handle it
@@ -488,12 +488,13 @@ constraints = constraints or {}
 timeout = constraints.get('timeout', config.AGENT_DEFAULTS.get('timeout', 300))
 
 # In run():
-result = await asyncio.wait_for(ai_agent.run(task, **run_kwargs), timeout=timeout)
+result = await asyncio.wait_for(ai_agent.call(task, **run_kwargs),
+                                timeout=timeout)
 
 # In run_stream():
 async with asyncio.timeout(timeout):
     async with ai_agent.iter(task, **run_kwargs) as agent_run:
-        # ...
+# ...
 ```
 
 Default 300s (5 min) is generous but prevents infinite hangs. Configurable per-model via `__agent__ = {'constraints': {'timeout': 60}}`.

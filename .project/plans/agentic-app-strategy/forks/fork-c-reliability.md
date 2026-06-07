@@ -785,6 +785,7 @@ import structlog
 
 logger = structlog.get_logger('n3tx.agents')
 
+
 async def agent_run(self, prompt, tools, task, user=None, **kwargs):
     # ... existing setup ...
 
@@ -801,23 +802,23 @@ async def agent_run(self, prompt, tools, task, user=None, **kwargs):
     logger.info("agent_run.start", task_length=len(task), tools=tools)
 
     try:
-        result = await ai_agent.run(task, deps=deps, usage_limits=usage_limits)
+        result = await ai_agent.call(task, deps=deps, usage_limits=usage_limits)
         usage = result.usage()
 
         logger.info("agent_run.complete",
-            input_tokens=usage.input_tokens,
-            output_tokens=usage.output_tokens,
-            requests=usage.requests,
-            messages=len(result.all_messages()),
-        )
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                    requests=usage.requests,
+                    messages=len(result.all_messages()),
+                    )
 
-        return { ... }
+        return {...}
 
     except Exception as e:
         logger.error("agent_run.failed",
-            error=str(e),
-            error_type=type(e).__name__,
-        )
+                     error=str(e),
+                     error_type=type(e).__name__,
+                     )
         raise
 
     finally:

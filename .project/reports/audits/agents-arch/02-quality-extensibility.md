@@ -74,10 +74,11 @@ The test at `test_mixin.py:607-618` explicitly calls `await gen.aclose()`, demon
 
 **File:** `mixin.py:577-652` (agentic_stream)
 **Code:**
+
 ```python
 try:
     ...
-    async with ai_agent.run_stream(task, **run_kwargs) as result:
+    async with ai_agent.call_stream(task, **run_kwargs) as result:
         async for text in result.stream_text(delta=True):
             yield ...
         ...
@@ -429,7 +430,7 @@ class AuditedProduct(ActorModel):
         log_agent_run(task, kwargs.get('user'))
 
         # Delegate to engine
-        result = await AgentMixin.run(target, task=task, **kwargs)
+        result = await AgentMixin.call(target, task=task, **kwargs)
 
         # Post-processing: cost tracking, output filtering
         track_cost(result['usage'])

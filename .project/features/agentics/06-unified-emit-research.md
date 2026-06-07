@@ -321,11 +321,12 @@ object.__setattr__(instance, '_tx', None)
 async def run(self, task, prompt, tools, llm=None, ...):
     ai_agent, run_kwargs = _setup_agent(...)
 
-    async with ai_agent.run_stream(task, **run_kwargs) as result:
+    async with ai_agent.call_stream(task, **run_kwargs) as result:
         async for event in result._stream_response:
             # Emit text deltas, thinking, tool calls as they arrive
             if isinstance(event, PartDeltaEvent):
-                if isinstance(event.delta, TextPartDelta) and event.delta.content_delta:
+                if isinstance(event.delta,
+                              TextPartDelta) and event.delta.content_delta:
                     await self.emit({
                         'name': 'text',
                         'data': {'text': event.delta.content_delta},
@@ -334,7 +335,8 @@ async def run(self, task, prompt, tools, llm=None, ...):
 
         output = await result.get_output()
         usage = result.usage()
-        return {'answer': str(output), 'usage': {...}, 'messages': result.all_messages()}
+        return {'answer': str(output), 'usage': {...},
+                'messages': result.all_messages()}
 ```
 
 **API surface: 6 methods → 4 methods** (ctx, tools, agentic, run).

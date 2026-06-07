@@ -88,14 +88,15 @@ AgentActor(
 Sequential pipeline: Scanner → Reviewer.
 
 ```python
-async def run_scan_review_pipeline(scanner_id, reviewer_id, task, **kwargs) -> dict:
+async def run_scan_review_pipeline(scanner_id, reviewer_id, task,
+                                   **kwargs) -> dict:
     # Phase 1: Run Scanner
     scanner = AgentActor.get(scanner_id)
-    scanner_result = await scanner.run(task=task, **kwargs)
+    scanner_result = await scanner.call(task=task, **kwargs)
 
     # Phase 2: Run Reviewer
     reviewer = AgentActor.get(reviewer_id)
-    reviewer_result = await reviewer.run(
+    reviewer_result = await reviewer.call(
         task="Review all grants with status='discovered'", **kwargs)
 
     return {scanner, reviewer, timing}

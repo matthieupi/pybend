@@ -8,8 +8,8 @@ Default path:
 
 1. freeze current behavior with focused tests
 2. extract shared call/config resolution from `agentic()` / `agentic_stream()`
-3. introduce `AgentRuntime` as the explicit shared runtime seam
-4. move sync and stream execution behind `AgentRuntime`
+3. introduce `Agent` as the explicit shared runtime seam
+4. move sync and stream execution behind `Agent`
 5. turn `AgentActor` into a thin DB-config adapter over that same runtime
 6. normalize return shape internally, while preserving the public JSON-string contract of `AgentActor.agentic()`
 
@@ -58,8 +58,8 @@ Leave these for a later phase:
 ### Improve internally
 
 - one call-config resolver
-- one explicit `AgentRuntime` boundary
-- one runtime-preparation path owned by `AgentRuntime`
+- one explicit `Agent` boundary
+- one runtime-preparation path owned by `Agent`
 - one sync/stream execution owner
 - one `AgentActor` runtime-config adapter
 - one internal Python result shape
@@ -83,14 +83,14 @@ agentic() --------\
 agentic_stream() --+--> resolve_agent_call(...)
                     |
                     v
-               AgentRuntime.prepare(...)
+               Agent.prepare(...)
                     |
              +------+------+
              |             |
              v             v
-      AgentRuntime.run()  AgentRuntime.run_stream()
+             Agent.run()  Agent.run_stream()
 
-AgentActor -> _agent_runtime_config(...) -> same AgentRuntime path
+AgentActor -> _agent_runtime_config(...) -> same `Agent` path
 ```
 
 ---
@@ -124,7 +124,7 @@ Representative shape:
 
 ```python
 @dataclass
-class AgentCallConfig:
+class CallConfig:
     task: str
     prompt: str
     tools: list[str]
@@ -138,7 +138,7 @@ class AgentCallConfig:
         ...
 
 
-def resolve_agent_call(target, task: str, kwargs: dict) -> AgentCallConfig:
+def resolve_agent_call(target, task: str, kwargs: dict) -> CallConfig:
     ...
 ```
 
@@ -170,38 +170,38 @@ One source of truth for public-call behavior.
 
 ## Slice 2 — Extract shared runtime preparation
 
-Introduce `AgentRuntime` as the explicit shared owner of runtime assembly and execution.
+Introduce `Agent` as the explicit shared owner of runtime assembly and execution.
 
 Representative shape:
 
 ```python
 @dataclass
-class PreparedAgentRun:
+class PreparedCall:
     llm: object
     root: Actor
     agent_addr: str
     thread_id: int | None
     message_history: list | None
-    ai_agent: Agent
+    ai_agent: PydanticAgent
     deps: AgentDeps
     usage_limits: UsageLimits | None
 
 
-class AgentRuntime:
+class Agent:
     @classmethod
-    async def prepare(cls, target, call: ResolvedAgentCall, **kwargs) -> PreparedAgentRun:
+    async def prepare(cls, target, call: CallConfig, **kwargs) -> PreparedCall:
         ...
 
     @classmethod
-    async def run(cls, prepared: PreparedAgentRun, task: str) -> dict:
+    async def run(cls, prepared: PreparedCall, task: str) -> dict:
         ...
 
     @classmethod
-    async def run_stream(cls, prepared: PreparedAgentRun, task: str):
+    async def run_stream(cls, prepared: PreparedCall, task: str):
         yield ...
 ```
 
-### `AgentRuntime.prepare(...)` should own
+### `Agent.prepare(...)` should own
 
 - llm override handling
 - llm resolution
@@ -209,7 +209,7 @@ class AgentRuntime:
 - thread preload / create
 - tool discovery
 - tool wrapping
-- `Agent` construction
+- `PydanticAgent` construction
 - deps creation
 - usage limits
 
@@ -219,31 +219,31 @@ class AgentRuntime:
 
 ---
 
-## Slice 3 — Move terminal execution behind `AgentRuntime`
+## Slice 3 — Move terminal execution behind `Agent`
 
-After shared preparation exists, keep two small terminal execution methods on `AgentRuntime`.
+After shared preparation exists, keep two small terminal execution methods on `Agent`.
 
 Representative shape:
 
 ```python
-class AgentRuntime:
+class Agent:
     @classmethod
-    async def run(cls, prepared: PreparedAgentRun, task: str) -> dict:
+    async def run(cls, prepared: PreparedCall, task: str) -> dict:
         ...
 
     @classmethod
-    async def run_stream(cls, prepared: PreparedAgentRun, task: str):
+    async def run_stream(cls, prepared: PreparedCall, task: str):
         yield ...
 ```
 
-### `AgentRuntime.run()` should own only
+### `Agent.run()` should own only
 
 - `ai_agent.run(...)`
 - usage extraction
 - final result dict creation
 - thread persistence
 
-### `AgentRuntime.run_stream()` should own only
+### `Agent.run_stream()` should own only
 
 - `agent.iter(...)`
 - graph event translation
@@ -265,7 +265,7 @@ Remove the duplicated bridge logic and descriptor reach-in.
 Add:
 
 ```python
-def _agent_runtime_config(self, task: str, **kwargs) -> ResolvedAgentCall:
+def _agent_runtime_config(self, task: str, **kwargs) -> CallConfig:
     ...
 ```
 
@@ -283,8 +283,8 @@ def _agent_runtime_config(self, task: str, **kwargs) -> ResolvedAgentCall:
 @expose_route('/agentic', methods=['POST'])
 async def agentic(self, task: str, **kwargs) -> str:
     call = self._agent_runtime_config(task, **kwargs)
-    prepared = await AgentRuntime.prepare(self, call)
-    result = await AgentRuntime.run(prepared, call.task)
+    prepared = await Agent.prepare(self, call)
+    result = await Agent.call(prepared, call.task)
     return json.dumps(result, default=str)
 ```
 
@@ -303,7 +303,7 @@ Do **not** change public return contracts in Phase 1.
 Instead:
 
 - standardize on one internal Python result dict from `execute_once()`
-- standardize on one internal Python result dict from `AgentRuntime.run()`
+- standardize on one internal Python result dict from `Agent.run()`
 - let `AgentMixin.agentic()` return that dict directly
 - let `AgentActor.agentic()` remain a thin JSON serializer over that dict
 
@@ -322,14 +322,14 @@ class AgentMixin:
     @fullmethod
     async def agentic(target, task: str, **kwargs) -> dict:
         call = resolve_agent_call(target, task, kwargs)
-        prepared = await AgentRuntime.prepare(target, call)
-        return await AgentRuntime.run(prepared, call.task)
+        prepared = await Agent.prepare(target, call)
+        return await Agent.call(prepared, call.task)
 
     @fullmethod
     async def agentic_stream(target, task: str, **kwargs):
         call = resolve_agent_call(target, task, kwargs)
-        prepared = await AgentRuntime.prepare(target, call)
-        async for chunk in AgentRuntime.run_stream(prepared, call.task):
+        prepared = await Agent.prepare(target, call)
+        async for chunk in Agent.call_stream(prepared, call.task):
             yield chunk
 ```
 
@@ -337,15 +337,25 @@ class AgentMixin:
 
 ```python
 class AgentActor(ActorModel):
-    def _agent_runtime_config(self, task: str, **kwargs) -> ResolvedAgentCall:
+    def _agent_runtime_config(self, task: str, **kwargs) -> CallConfig:
         ...
 
     @expose_route('/agentic', methods=['POST'])
     async def agentic(self, task: str, **kwargs) -> str:
         call = self._agent_runtime_config(task, **kwargs)
-        prepared = await AgentRuntime.prepare(self, call)
-        return json.dumps(await AgentRuntime.run(prepared, call.task), default=str)
+        prepared = await Agent.prepare(self, call)
+        return json.dumps(await Agent.call(prepared, call.task), default=str)
 ```
+
+### Naming note
+
+To avoid confusion with `pydantic_ai.Agent`, import the upstream class as:
+
+```python
+from pydantic_ai import Agent as PydanticAgent
+```
+
+Then reserve `Agent` for the package’s own runtime abstraction.
 
 ---
 
@@ -375,7 +385,7 @@ Run targeted `test_tools.py` cases only if tool wiring changes indirectly.
 ### Add focused tests for
 
 - extracted `resolve_agent_call(...)`
-- extracted `AgentRuntime.prepare(...)`
+- extracted `Agent.prepare(...)`
 - `AgentActor` adapter parity
 - JSON wrapper preservation for `AgentActor.agentic()`
 
@@ -386,8 +396,8 @@ Run targeted `test_tools.py` cases only if tool wiring changes indirectly.
 ```text
 tests
  -> resolve_agent_call
- -> AgentRuntime.prepare
- -> AgentRuntime.run / AgentRuntime.run_stream
+ -> Agent.prepare
+ -> Agent.run / Agent.run_stream
  -> AgentActor adapter cleanup
  -> internal return normalization
 ```

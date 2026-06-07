@@ -666,6 +666,7 @@ import structlog
 
 logger = structlog.get_logger('n3tx.agents')
 
+
 async def agent_run(self, prompt, tools, task, user=None, **kwargs):
     run_id = TX(name='', source='', target='').uuid
     log = logger.bind(
@@ -678,22 +679,22 @@ async def agent_run(self, prompt, tools, task, user=None, **kwargs):
     log.info("agent_run.start", task_length=len(task))
 
     try:
-        result = await ai_agent.run(task, deps=deps, usage_limits=usage_limits)
+        result = await ai_agent.call(task, deps=deps, usage_limits=usage_limits)
         usage = result.usage()
 
         log.info("agent_run.complete",
-            input_tokens=usage.input_tokens,
-            output_tokens=usage.output_tokens,
-            requests=usage.requests,
-            messages=len(result.all_messages()),
-        )
-        return { ... }
+                 input_tokens=usage.input_tokens,
+                 output_tokens=usage.output_tokens,
+                 requests=usage.requests,
+                 messages=len(result.all_messages()),
+                 )
+        return {...}
 
     except Exception as e:
         log.error("agent_run.failed",
-            error=str(e),
-            error_type=type(e).__name__,
-        )
+                  error=str(e),
+                  error_type=type(e).__name__,
+                  )
         raise
     finally:
         root._children.pop(adapter_addr, None)

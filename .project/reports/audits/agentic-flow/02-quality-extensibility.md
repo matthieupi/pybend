@@ -470,7 +470,7 @@ The `agent` section in schema (from `schema_ext.py`) tells the frontend that a m
        async def run(self, task, **kwargs):
            if 'delete' in task.lower():
                return {'answer': 'Deletion not allowed', 'usage': {}}
-           return await super().run(task, **kwargs)
+           return await super().call(task, **kwargs)
    ```
 
 4. **Add a new schema extension**: Write a function, decorate with `@schema_extension`, import it. Zero modification to existing code.
@@ -552,10 +552,11 @@ safe_keys = {'self_tools', 'neighbors', 'neighbor_depth', 'max_cost_usd'}
 ```
 
 Step 5 — Add test:
+
 ```python
 # test_mixin.py
 async def test_cost_budget_constraint(self, fresh_matrix):
-    result = await AgenticProduct.run(
+    result = await AgenticProduct.call(
         task='Test',
         llm=TestModel(call_tools=[]),
         constraints={'max_cost_usd': 0.01},

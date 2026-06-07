@@ -206,8 +206,10 @@ class AgentMixin:
         Returns:
             {answer, usage: {input_tokens, output_tokens, requests}, messages}
         """
-        llm_model = getattr(self, 'llm', None) or kwargs.get('llm', 'ollama:llama3.1')
-        constraints = getattr(self, 'constraints', {}) | kwargs.get('constraints', {})
+        llm_model = getattr(self, 'llm', None) or kwargs.get('llm',
+                                                             'ollama:llama3.1')
+        constraints = getattr(self, 'constraints', {}) | kwargs.get(
+            'constraints', {})
 
         # 1. Discover tools from actor addresses
         tool_specs = await self._discover_tools(tools)
@@ -228,7 +230,8 @@ class AgentMixin:
         deps = AgentDeps(
             matrix=self.__class__.__matrix__,
             user=user,
-            agent_addr=self.addr if hasattr(self, '_addr') else self.__class__.__addr__,
+            agent_addr=self.addr if hasattr(self,
+                                            '_addr') else self.__class__.__addr__,
         )
 
         # 5. Run with Pydantic AI's usage limits
@@ -239,7 +242,7 @@ class AgentMixin:
                 response_tokens_limit=constraints.get('max_response_tokens'),
             )
 
-        result = await ai_agent.run(task, deps=deps, usage_limits=usage_limits)
+        result = await ai_agent.call(task, deps=deps, usage_limits=usage_limits)
 
         # 6. Return structured result
         return {

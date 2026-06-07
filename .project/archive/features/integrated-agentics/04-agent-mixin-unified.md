@@ -54,16 +54,16 @@ The split: `run()` is the boundary where you enforce constraints and resolve con
 
 ```python
 # Actor pattern (existing):
-Product.addr       # 'products'        (class)
-product.addr       # 'products/1'      (instance)
+Product.addr  # 'products'        (class)
+product.addr  # 'products/1'      (instance)
 
 # AgentMixin pattern (new):
-Product.ctx()      # schema context          (class)
-product.ctx()      # schema + instance data  (instance)
-Product.tools()    # ['products', 'comments'] (class)
-product.tools()    # ['products', 'comments'] (instance — same)
-Product.run(task=...) # resolves config, calls agentic()  (class)
-product.run(task=...) # same, with instance context        (instance)
+Product.ctx()  # schema context          (class)
+product.ctx()  # schema + instance data  (instance)
+Product.tools()  # ['products', 'comments'] (class)
+product.tools()  # ['products', 'comments'] (instance — same)
+Product.call(task=...)  # resolves config, calls agentic()  (class)
+product.call(task=...)  # same, with instance context        (instance)
 ```
 
 ---
@@ -468,11 +468,12 @@ Already woven into Steps 5-7:
 
 ```python
 # First turn
-result1 = await product.run(task='What are my fields?')
+result1 = await product.call(task='What are my fields?')
 history = result1['messages']
 
 # Second turn (continues conversation)
-result2 = await product.run(task='Now explain the price constraints', message_history=history)
+result2 = await product.call(task='Now explain the price constraints',
+                             message_history=history)
 ```
 
 Storage of history is the caller's responsibility. The mixin provides plumbing only.
@@ -488,20 +489,23 @@ Already woven into Steps 5-7:
 ```python
 from pydantic import BaseModel
 
+
 class ProductAnalysis(BaseModel):
     strengths: list[str]
     weaknesses: list[str]
     score: float
 
+
 # Via __agent__ config
 class Product(ActorModel):
     __agent__ = {'result_type': ProductAnalysis}
 
-result = await product.run(task='Analyze this product')
+
+result = await product.call(task='Analyze this product')
 analysis = result['answer']  # ProductAnalysis instance
 
 # Via run() kwarg (overrides config)
-result = await product.run(task='...', result_type=dict)
+result = await product.call(task='...', result_type=dict)
 ```
 
 ### Step 10: Update schema extension
@@ -536,7 +540,7 @@ def agent(cls, schema: dict) -> dict:
 @expose_route('/run', methods=['POST'])
 async def run(self, task: str, **kwargs) -> str:
     """Override — resolves tools from DB instead of __agent__ config."""
-    tool_addrs = self._resolve_tool_addrs()
+    tool_addrs = self.tool_addrs()
     result = await self.agentic(
         task=task,
         prompt=self.prompt,

@@ -341,8 +341,10 @@ The `__agent__ = True` injection follows the same MRO pattern as `__storable__ =
 # Purpose: Ensure misspelled kwargs are not silently ignored
 
 @pytest.mark.asyncio
-async def test_run_kwargs_with_typo_logged_or_rejected(matrix_fixture, tmp_path):
+async def test_run_kwargs_with_typo_logged_or_rejected(matrix_fixture,
+                                                       tmp_path):
     """Verify run() does not silently ignore misspelled kwargs."""
+
     class M(ActorModel):
         __agent__ = True
         __tablename__ = 'typo_test'
@@ -366,9 +368,9 @@ async def test_streaming_with_tool_calls(matrix_fixture, tmp_path):
     should yield text chunks and a done chunk."""
     # Setup: register a storable actor, create test model with call_tools
     chunks = []
-    async for chunk in Agent.run_stream(
-        task='List items',
-        llm=TestModel(call_tools=['items_list']),
+    async for chunk in Agent.call_stream(
+            task='List items',
+            llm=TestModel(call_tools=['items_list']),
     ):
         chunks.append(chunk)
     assert any(c['name'] == 'text' for c in chunks)
@@ -387,7 +389,7 @@ async def test_result_type_structured_output(matrix_fixture, tmp_path):
         title: str
         score: float
 
-    result = await Agent.run(
+    result = await Agent.call(
         task='Summarize',
         result_type=Summary,
         llm=TestModel(call_tools=[]),
@@ -408,6 +410,7 @@ async def test_full_3_tier_cascade(matrix_fixture, tmp_path, monkeypatch):
         'llm': 'tier1_llm',
         'constraints': {'max_iterations': 10},
     })
+
     class M(ActorModel):
         __agent__ = {'llm': 'tier2_llm', 'constraints': {'max_iterations': 5}}
         __tablename__ = 'cascade_test'
@@ -437,12 +440,13 @@ async def test_adapter_cleanup_on_generator_abandon(matrix_fixture, tmp_path):
     from n3tx.core.actors.actor import Actor
     root = Actor.root()
     initial_count = len(root._children)
-    gen = Agent.run_stream(task='test', llm=TestModel(call_tools=[]))
+    gen = Agent.call_stream(task='test', llm=TestModel(call_tools=[]))
     # Consume one chunk then abandon
     chunk = await gen.__anext__()
     # Delete without aclose
     del gen
-    import gc; gc.collect()
+    import gc;
+    gc.collect()
     # After GC, adapter should be cleaned up
     assert len(root._children) == initial_count
 ```
@@ -485,7 +489,7 @@ async def test_adapter_cleanup_on_generator_abandon(matrix_fixture, tmp_path):
           logger.info("Agent run started: task=%s user=%s", task[:50], user)
 
           # Delegate to the engine via the mixin's run()
-          result = await AgentMixin.run(target, task=task, **kwargs)
+          result = await AgentMixin.call(target, task=task, **kwargs)
 
           elapsed = time.monotonic() - start
           logger.info("Agent run completed: tokens=%s time=%.2fs",

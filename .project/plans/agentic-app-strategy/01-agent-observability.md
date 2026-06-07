@@ -286,6 +286,7 @@ The implementation wraps `agent_run()` at the `AgentActor.run()` level (in the G
 import time
 from datetime import datetime, timezone
 
+
 async def instrumented_run(self, task: str, user=None, **kwargs) -> str:
     from models.agent_run import AgentRun
     from agents.pricing import estimate_cost
@@ -304,7 +305,7 @@ async def instrumented_run(self, task: str, user=None, **kwargs) -> str:
 
     try:
         # Phase 2: Execute with tracing
-        tool_addrs = self._resolve_tool_addrs()
+        tool_addrs = self.tool_addrs()
         result = await self.agent_run(
             prompt=self.prompt,
             tools=tool_addrs,
@@ -324,7 +325,8 @@ async def instrumented_run(self, task: str, user=None, **kwargs) -> str:
             'answer': parsed.get('answer', ''),
             'input_tokens': usage.get('input_tokens', 0),
             'output_tokens': usage.get('output_tokens', 0),
-            'total_tokens': usage.get('input_tokens', 0) + usage.get('output_tokens', 0),
+            'total_tokens': usage.get('input_tokens', 0) + usage.get(
+                'output_tokens', 0),
             'requests': usage.get('requests', 0),
             'estimated_cost': estimate_cost(
                 model=kwargs.get('llm') or self.llm,

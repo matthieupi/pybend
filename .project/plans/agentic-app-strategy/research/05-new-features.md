@@ -850,14 +850,17 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 scheduler = AsyncIOScheduler()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler.start()
     yield
     scheduler.shutdown()
 
+
 # In create_app():
 app = FastAPI(lifespan=lifespan)
+
 
 # Schedule jobs
 @scheduler.scheduled_job('cron', hour=6, minute=0)  # Daily at 6 AM
@@ -866,7 +869,8 @@ async def daily_scan():
     agents = AgentActor.list()
     items = agents if isinstance(agents, list) else agents.get('data', [])
     for agent in items:
-        await agent.run(task="Scan all sources for new grants")
+        await agent.call(task="Scan all sources for new grants")
+
 
 @scheduler.scheduled_job('cron', hour=7, minute=0)  # Daily at 7 AM
 async def deadline_check():
@@ -879,7 +883,8 @@ async def deadline_check():
             "deadline = ? AND status NOT IN ('expired','awarded','rejected','dismissed')",
             [target_date]
         ))
-        items = approaching if isinstance(approaching, list) else approaching.get('data', [])
+        items = approaching if isinstance(approaching,
+                                          list) else approaching.get('data', [])
         for grant in items:
             # Create notifications for watchers
             ...

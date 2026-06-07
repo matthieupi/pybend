@@ -13,9 +13,10 @@ After the module split (v0.10), the `n3tx-agents` package needs frontend compone
 `run_stream()` in `mixin.py` (line 532-541) only uses `stream_text(delta=True)`:
 
 ```python
-async with ai_agent.run_stream(task, **run_kwargs) as result:
+async with ai_agent.call_stream(task, **run_kwargs) as result:
     async for text in result.stream_text(delta=True):
-        yield {'name': 'text', 'data': {'text': text}, 'meta': {'stream': True, 'seq': seq}}
+        yield {'name': 'text', 'data': {'text': text},
+               'meta': {'stream': True, 'seq': seq}}
 ```
 
 Source has explicit TODOs at lines 536 and 551-553 acknowledging this gap.

@@ -218,7 +218,7 @@ The `agent_run()` method in `mixin.py` has **zero error handling** around the LL
 
 ```python
 # Line 129 of mixin.py -- no try/except
-result = await ai_agent.run(task, deps=deps, usage_limits=usage_limits)
+result = await ai_agent.call(task, deps=deps, usage_limits=usage_limits)
 ```
 
 Failure modes that will crash or hang:
@@ -236,7 +236,7 @@ Failure modes that will crash or hang:
 
 ```python
 try:
-    result = await ai_agent.run(task, deps=deps, usage_limits=usage_limits)
+    result = await ai_agent.call(task, deps=deps, usage_limits=usage_limits)
 except UsageLimitExceeded:
     return {'answer': None, 'error': 'Usage limit exceeded',
             'usage': {...}, 'messages': ...}
