@@ -61,7 +61,7 @@ class TestAgentAgentic:
         assert isinstance(agent.tools, list)
         assert len(agent.tools) >= 3
         # _resolve_tool_addrs should resolve hrefs to addr strings
-        addrs = agent._resolve_tool_addrs()
+        addrs = agent.tool_addrs()
         assert 'grants' in addrs
         assert 'sources' in addrs
         assert 'web_tools' in addrs

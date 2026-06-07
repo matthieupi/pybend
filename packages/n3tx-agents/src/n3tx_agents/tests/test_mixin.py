@@ -408,6 +408,23 @@ class TestAgentic:
         )
         assert 'answer' in result
 
+    @pytest.mark.asyncio
+    async def test_agentic_returns_python_result_dict(self, fresh_matrix):
+        """agentic() returns the internal sync result dict directly."""
+        from pydantic_ai.models.test import TestModel
+
+        result = await AgenticProduct.agentic(
+            task='Return dict contract',
+            llm=TestModel(call_tools=[]),
+        )
+
+        assert isinstance(result, dict)
+        assert 'answer' in result
+        assert 'usage' in result
+        assert 'messages' in result
+        assert 'message_count' in result
+        assert result['message_count'] == len(result['messages'])
+
 
 # ── Concurrent Runs ──────────────────────────────────────────────
 
@@ -517,6 +534,79 @@ class TestAgenticStreamPolicy:
         # Should have at least a done chunk
         assert any(c['name'] in ('done', 'error') for c in chunks)
 
+    @pytest.mark.asyncio
+    async def test_agentic_and_agentic_stream_forward_same_normalized_kwargs(self, fresh_matrix, monkeypatch):
+        """Policy entrypoints normalize the same explicit call arguments."""
+        captured = {}
+
+        async def fake_run(*args, **kwargs):
+            captured['agentic'] = kwargs
+            return {'answer': 'ok', 'usage': {}, 'messages': [], 'message_count': 0}
+
+        async def fake_run_stream(*args, **kwargs):
+            captured['agentic_stream'] = kwargs
+            yield {'name': 'done', 'data': {'answer': 'ok'}, 'meta': {'stream_end': True}}
+
+        monkeypatch.setattr(AgenticProduct, 'run', fake_run)
+        monkeypatch.setattr(AgenticProduct, 'run_stream', fake_run_stream)
+
+        user = {'user_id': 7, 'role': 'editor'}
+
+        await AgenticProduct.agentic(
+            task='Compare forwarding',
+            prompt='Explicit prompt',
+            tools=['alpha', 'beta'],
+            llm='test',
+            constraints={'max_iterations': 3},
+            user=user,
+            thread_id=123,
+            result_type=dict,
+        )
+
+        async for _chunk in AgenticProduct.agentic_stream(
+            task='Compare forwarding',
+            prompt='Explicit prompt',
+            tools=['alpha', 'beta'],
+            llm='test',
+            constraints={'max_iterations': 3},
+            user=user,
+            thread_id=123,
+            result_type=dict,
+        ):
+            pass
+
+        assert captured['agentic'] == captured['agentic_stream']
+
+    @pytest.mark.asyncio
+    async def test_class_level_agentic_stream_forwards_normalized_kwargs_to_instance_engine(self, fresh_matrix, monkeypatch):
+        """Class-level agentic_stream() instantiates and forwards normalized kwargs."""
+        captured = {}
+
+        async def fake_run_stream(self, **kwargs):
+            captured['self_type'] = type(self)
+            captured['kwargs'] = kwargs
+            yield {'name': 'done', 'data': {'answer': 'ok'}, 'meta': {'stream_end': True}}
+
+        monkeypatch.setattr(AgenticWithPrompt, 'run_stream', fake_run_stream)
+
+        async for _chunk in AgenticWithPrompt.agentic_stream(
+            task='Stream from class',
+            llm='test',
+            constraints={'max_iterations': 4},
+            thread_id=55,
+            result_type=dict,
+        ):
+            pass
+
+        assert captured['self_type'] is AgenticWithPrompt
+        assert captured['kwargs']['task'] == 'Stream from class'
+        assert captured['kwargs']['prompt'].startswith('You are a product expert.')
+        assert captured['kwargs']['tools'] == ['prompted_agents']
+        assert captured['kwargs']['constraints'] == {'max_iterations': 4}
+        assert captured['kwargs']['thread_id'] == 55
+        assert captured['kwargs']['result_type'] is dict
+        assert captured['kwargs']['llm'] == 'test'
+
 
 class TestRunStreamEngine:
     """Tests for run_stream() — direct streaming with explicit params."""
@@ -594,6 +684,39 @@ class TestRunStreamEngine:
         assert len(error_chunks) == 1
         assert error_chunks[0]['meta']['error'] is True
         assert 'message' in error_chunks[0]['data']
+
+    @pytest.mark.asyncio
+    async def test_setup_error_yields_error_chunk(self, fresh_matrix, monkeypatch):
+        """run_stream() yields an error chunk for runtime-preparation failures."""
+        from pydantic_ai.models.test import TestModel
+
+        class Orphan(ActorModel, auto_register=False):
+            __tablename__ = 'orphan_streamers'
+            __storable__ = False
+            __agent__ = True
+
+        monkeypatch.setattr(Actor, '__matrix__', None)
+        orphan = Orphan(addr='orphan_streamers/1')
+
+        chunks = []
+        async for chunk in orphan.run_stream(
+            task='Test',
+            prompt='Test prompt',
+            tools=[],
+            llm=TestModel(call_tools=[]),
+        ):
+            chunks.append(chunk)
+
+        assert chunks == [
+            {
+                'name': 'error',
+                'data': {
+                    'message': 'No Matrix root. Initialize a Matrix before running agents.',
+                    'code': 500,
+                },
+                'meta': {'stream': True, 'error': True, 'seq': 0},
+            }
+        ]
 
 
 class TestRunStreamTypedEvents:

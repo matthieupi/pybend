@@ -11,6 +11,7 @@ from n3tx_core.models.proto_model import generate_join_model
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.utils.decorators import expose_route
 from n3tx_core.utils.registrar import register_model
+from n3tx_agents.agent import Agent, PreparedCall
 from n3tx_agents.actor import AgentActor
 from n3tx_agents.tool_model import AgentTool
 
@@ -131,7 +132,7 @@ class TestResolveToolAddrs:
             tools=[AgentTool(target='grants'), AgentTool(target='sources')],
             addr='agents/1',
         )
-        addrs = agent._resolve_tool_addrs()
+        addrs = agent.tool_addrs()
         assert addrs == ['grants', 'sources']
 
     def test_from_plain_strings(self, fresh_matrix):
@@ -141,7 +142,7 @@ class TestResolveToolAddrs:
             tools=['grants', 'sources'],
             addr='agents/2',
         )
-        addrs = agent._resolve_tool_addrs()
+        addrs = agent.tool_addrs()
         assert addrs == ['grants', 'sources']
 
     def test_from_hrefs(self, fresh_matrix, tmp_path):
@@ -158,12 +159,12 @@ class TestResolveToolAddrs:
             tools=[f'http://localhost:5000/agents/1/agent_tools/{tool.id}'],
             addr='agents/3',
         )
-        addrs = agent._resolve_tool_addrs()
+        addrs = agent.tool_addrs()
         assert addrs == ['grants']
 
     def test_empty_tools(self, fresh_matrix):
         agent = AgentActor(name='Test', prompt='test', addr='agents/4')
-        assert agent._resolve_tool_addrs() == []
+        assert agent.tool_addrs() == []
 
 
 class TestAgentActorCRUD:
@@ -196,7 +197,7 @@ class TestAgentActorCRUD:
         assert fetched.constraints == {'max_iterations': 20}
         # tools are hydrated as href arrays
         assert len(fetched.tools) == 2
-        tool_addrs = fetched._resolve_tool_addrs()
+        tool_addrs = fetched.tool_addrs()
         assert 'grants' in tool_addrs
         assert 'web_tools' in tool_addrs
 
@@ -358,6 +359,52 @@ class TestAgentActorAgentic:
         result = json.loads(result_str)
         assert 'answer' in result
 
+    @pytest.mark.asyncio
+    async def test_agentic_returns_json_string_wrapper_of_sync_result(self, fresh_matrix, monkeypatch):
+        """agentic() JSON-serializes the shared internal sync result dict."""
+        captured = {}
+
+        async def fake_prepare(cls, target, call):
+            return PreparedCall(
+                root=fresh_matrix,
+                agent_addr='agents/1',
+                thread_id=55,
+                message_history=None,
+                ai_agent=None,
+                deps=None,
+                usage_limits=None,
+            )
+
+        async def fake_run(cls, prepared, task):
+            result = {
+                'answer': {'summary': 'done'},
+                'usage': {'input_tokens': 1, 'output_tokens': 2, 'requests': 3},
+                'messages': [{'kind': 'request'}, {'kind': 'response'}],
+                'message_count': 2,
+                'thread_id': prepared.thread_id,
+            }
+            captured['result'] = result
+            return result
+
+        monkeypatch.setattr(Agent, 'prepare', classmethod(fake_prepare))
+        monkeypatch.setattr(Agent, 'run', classmethod(fake_run))
+        monkeypatch.setattr(AgentActor, '_resolve_tool_addrs', lambda self: [])
+
+        agent = AgentActor(
+            name='JSON Wrapper Agent',
+            prompt='Agent prompt',
+            llm='test',
+            addr='agents/1',
+        )
+
+        result_str = await agent.agentic(task='Serialize me')
+
+        assert isinstance(result_str, str)
+        decoded = json.loads(result_str)
+        assert decoded == captured['result']
+        assert decoded['message_count'] == len(decoded['messages'])
+        assert decoded['thread_id'] == 55
+
 
 class TestAgentActorStream:
     """Tests for AgentActor.agentic_stream() — streaming with DB tool resolution."""
@@ -446,6 +493,121 @@ class TestAgentActorStream:
         methods = schema.get('methods', {})
         assert 'agentic_stream' in methods, f"agentic_stream not in: {list(methods.keys())}"
         assert methods['agentic_stream'].get('stream') is True
+
+
+class TestAgentActorAdapterParity:
+    """Regression fences for AgentActor sync/stream adapter parity."""
+
+    @pytest.mark.asyncio
+    async def test_agentic_and_agentic_stream_use_explicit_runtime_seam(self, fresh_matrix, monkeypatch):
+        captured = {}
+
+        async def fake_prepare(cls, target, call):
+            captured.setdefault('calls', []).append(call)
+            return PreparedCall(
+                root=fresh_matrix,
+                agent_addr='agents/1',
+                thread_id=call.thread_id,
+                message_history=None,
+                ai_agent=None,
+                deps=None,
+                usage_limits=None,
+            )
+
+        async def fake_run(cls, prepared, task):
+            captured['sync_task'] = task
+            captured['sync_thread_id'] = prepared.thread_id
+            return {'answer': 'sync', 'usage': {}, 'messages': [], 'message_count': 0}
+
+        async def fake_run_stream(cls, prepared, task):
+            captured['stream_task'] = task
+            captured['stream_thread_id'] = prepared.thread_id
+            yield {'name': 'done', 'data': {'answer': 'stream'}, 'meta': {'stream_end': True}}
+
+        monkeypatch.setattr(Agent, 'prepare', classmethod(fake_prepare))
+        monkeypatch.setattr(Agent, 'run', classmethod(fake_run))
+        monkeypatch.setattr(Agent, 'run_stream', classmethod(fake_run_stream))
+        monkeypatch.setattr(AgentActor, '_resolve_tool_addrs', lambda self: ['grants', 'sources'])
+
+        agent = AgentActor(
+            name='Parity Agent',
+            prompt='Agent prompt',
+            llm='test',
+            constraints={'max_iterations': 9},
+            addr='agents/1',
+        )
+
+        user = {'user_id': 42, 'role': 'admin'}
+
+        result = await agent.agentic(
+            task='Do it',
+            thread_id=77,
+            llm='override:model',
+            constraints={'max_iterations': 2},
+            user=user,
+            result_type=dict,
+        )
+
+        async for _chunk in agent.agentic_stream(
+            task='Do it',
+            thread_id=77,
+            llm='override:model',
+            constraints={'max_iterations': 2},
+            user=user,
+            result_type=dict,
+        ):
+            pass
+
+        assert json.loads(result)['answer'] == 'sync'
+        assert captured['sync_task'] == 'Do it'
+        assert captured['stream_task'] == 'Do it'
+        assert captured['sync_thread_id'] == 77
+        assert captured['stream_thread_id'] == 77
+
+        sync_call, stream_call = captured['calls']
+        for call in (sync_call, stream_call):
+            assert call.prompt == 'Agent prompt'
+            assert call.tools == ['grants', 'sources']
+            assert call.constraints == {'max_iterations': 2}
+            assert call.user == user
+            assert call.thread_id == 77
+            assert call.result_type is dict
+            assert call.llm == 'override:model'
+            assert call.has_llm_override is True
+
+    @pytest.mark.asyncio
+    async def test_agent_runtime_call_normalizes_zero_thread_id_to_none(self, fresh_matrix, monkeypatch):
+        captured = {}
+
+        async def fake_prepare(cls, target, call):
+            captured['call'] = call
+            return PreparedCall(
+                root=fresh_matrix,
+                agent_addr='agents/1',
+                thread_id=call.thread_id,
+                message_history=None,
+                ai_agent=None,
+                deps=None,
+                usage_limits=None,
+            )
+
+        async def fake_run(cls, prepared, task):
+            return {'answer': 'sync', 'usage': {}, 'messages': [], 'message_count': 0}
+
+        monkeypatch.setattr(Agent, 'prepare', classmethod(fake_prepare))
+        monkeypatch.setattr(Agent, 'run', classmethod(fake_run))
+        monkeypatch.setattr(AgentActor, '_resolve_tool_addrs', lambda self: [])
+
+        agent = AgentActor(
+            name='Zero Thread Agent',
+            prompt='Agent prompt',
+            llm='test',
+            addr='agents/1',
+        )
+
+        await agent.agentic(task='Do it', thread_id=0)
+
+        assert captured['call'].thread_id is None
 
 
 class TestAgentActorSchema:

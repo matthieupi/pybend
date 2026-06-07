@@ -24,7 +24,7 @@ from n3tx_core.utils.decorators import expose_route
 from n3tx_core.authorize import AUTHENTICATED
 from n3tx_core.utils.registrar import register_model
 from n3tx_agents.tools import _route_tool_call
-from n3tx_agents.deps import AgentDeps
+from n3tx_agents.agent import AgentDeps
 
 pytestmark = pytest.mark.unit
 

@@ -237,7 +237,7 @@ class TestRouteToolCall:
     async def test_error_response_raises_model_retry(self, fresh_matrix):
         """_route_tool_call raises ModelRetry when tool returns error TX."""
         from pydantic_ai import ModelRetry
-        from n3tx_agents.deps import AgentDeps
+        from n3tx_agents.agent import AgentDeps
 
         # Actor that returns an error for any 'do_something' message.
         # Non-exposed methods on class actors use (data, tx) signature.
@@ -263,7 +263,7 @@ class TestRouteToolCall:
     async def test_tool_call_to_missing_actor(self, fresh_matrix):
         """_route_tool_call to non-existent actor raises ModelRetry."""
         from pydantic_ai import ModelRetry
-        from n3tx_agents.deps import AgentDeps
+        from n3tx_agents.agent import AgentDeps
 
         deps = AgentDeps(user=None, agent_addr='test')
 
@@ -278,7 +278,7 @@ class TestRouteToolCall:
 
     @pytest.mark.asyncio
     async def test_streaming_tool_call_returns_done_payload(self, fresh_matrix):
-        from n3tx_agents.deps import AgentDeps
+        from n3tx_agents.agent import AgentDeps
 
         class StreamActor(ActorModel):
             __tablename__ = 'stream_actor'
@@ -308,7 +308,7 @@ class TestRouteToolCall:
 
     @pytest.mark.asyncio
     async def test_streaming_tool_call_falls_back_to_joined_text(self, fresh_matrix):
-        from n3tx_agents.deps import AgentDeps
+        from n3tx_agents.agent import AgentDeps
 
         class StreamActor(ActorModel):
             __tablename__ = 'stream_actor_text'

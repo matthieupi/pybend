@@ -31,6 +31,7 @@ from n3tx_actors.models.actor_model import ActorModel
 from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.models.ref import ListRef
 from n3tx_core.utils.decorators import expose_route
+from n3tx_agents.agent import Agent, CallConfig
 from n3tx_agents.tool_model import AgentTool
 
 logger = logging.getLogger('n3tx.agents')
@@ -96,7 +97,7 @@ class AgentActor(ActorModel):
     llm: str = Field(default='ollama:llama3.1')
     constraints: dict = Field(default={})
 
-    def _resolve_tool_addrs(self) -> list:
+    def tool_addrs(self) -> list:
         """Resolve tool addresses from ListRef hrefs or AgentTool instances.
 
         When loaded from DB, self.tools is hydrated as href arrays
@@ -137,14 +138,26 @@ class AgentActor(ActorModel):
 
         return tool_addrs
 
+    def call_config(self, task: str, thread_id: int = 0, **kwargs) -> CallConfig:
+        """Build a DB-backed resolved call for the shared runtime seam."""
+        return CallConfig(
+            task=task,
+            prompt=self.prompt,
+            tools=self.tool_addrs(),
+            user=kwargs.get('user'),
+            constraints={**self.constraints, **kwargs.get('constraints', {})},
+            thread_id=thread_id or None,
+            result_type=kwargs.get('result_type'),
+            llm=kwargs.get('llm', self.llm),
+            has_llm_override=True,
+        )
+
     @expose_route('/agentic', methods=['POST'])
     async def agentic(self, task: str, thread_id: int = 0, **kwargs) -> str:
         """Execute the agent's reasoning loop.
 
-        Override — resolves tools from DB instead of __agent__ config.
-        Calls AgentMixin.run() directly (pure engine), bypassing the
-        mixin's agentic() config cascade since AgentActor has its own config
-        (DB fields).
+        Override — resolves DB-backed config, then delegates to the shared
+        runtime seam used by mixin-based agents.
 
         Args:
             task: The user task / query to execute.
@@ -155,23 +168,9 @@ class AgentActor(ActorModel):
         Returns:
             JSON string with {answer, usage, messages, message_count}.
         """
-        from n3tx_agents.mixin import AgentMixin
-        tool_addrs = self._resolve_tool_addrs()
-        thread_id = thread_id or None
-        # Call the mixin's run engine directly via the descriptor's
-        # underlying function, bypassing the MRO override on self.
-        run_fn = AgentMixin.__dict__['run'].fn
-        result = await run_fn(
-            self,
-            task=task,
-            prompt=self.prompt,
-            tools=tool_addrs,
-            llm=kwargs.get('llm', self.llm),
-            constraints={**self.constraints, **kwargs.get('constraints', {})},
-            user=kwargs.get('user'),
-            thread_id=thread_id,
-            result_type=kwargs.get('result_type'),
-        )
+        call = self.call_config(task, thread_id=thread_id, **kwargs)
+        prepared = await Agent.prepare(self, call)
+        result = await Agent.call(prepared, call.task)
         return json.dumps(result, default=str)
 
     @expose_route('/agentic_stream', methods=['POST'], stream=True,
@@ -183,9 +182,8 @@ class AgentActor(ActorModel):
     async def agentic_stream(self, task: str, thread_id: int = 0, **kwargs):
         """Streaming agent execution — resolves tools from DB.
 
-        Override — same as agentic() but yields TX-aligned stream chunks.
-        Calls AgentMixin.run_stream() directly, bypassing the mixin's
-        agentic_stream() config cascade since AgentActor has its own config.
+        Override — same as agentic() but yields TX-aligned stream chunks via
+        the shared runtime seam.
 
         Args:
             task: The user task / query to execute.
@@ -196,19 +194,7 @@ class AgentActor(ActorModel):
         Yields:
             TX-aligned dicts: text, tool_call, tool_result, thinking, done, error.
         """
-        from n3tx_agents.mixin import AgentMixin
-        tool_addrs = self._resolve_tool_addrs()
-        thread_id = thread_id or None
-        run_stream_fn = AgentMixin.__dict__['run_stream'].fn
-        async for chunk in run_stream_fn(
-            self,
-            task=task,
-            prompt=self.prompt,
-            tools=tool_addrs,
-            llm=kwargs.get('llm', self.llm),
-            constraints={**self.constraints, **kwargs.get('constraints', {})},
-            user=kwargs.get('user'),
-            thread_id=thread_id,
-            result_type=kwargs.get('result_type'),
-        ):
+        call = self.call_config(task, thread_id=thread_id, **kwargs)
+        prepared = await Agent.prepare(self, call)
+        async for chunk in Agent.call_stream(prepared, call.task):
             yield chunk

@@ -18,8 +18,8 @@ from n3tx_core.models.proto_model import register_mixin
 register_mixin('__agent__', AgentMixin)
 
 from .actor import AgentActor
+from .agent import AgentDeps
 from .tool_model import AgentTool
-from .deps import AgentDeps
 from .tools import ToolSpec, discover_tools, make_tool
 from .thread import Thread
 from .app_agent import provision_app_agent
