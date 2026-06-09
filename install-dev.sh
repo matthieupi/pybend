@@ -6,6 +6,7 @@ pip install -e packages/n3tx-core \
             -e packages/n3tx-actors \
             -e packages/n3tx-ui \
             -e packages/n3tx-agents \
+            -e packages/n3tx-files \
             -e packages/n3tx
 
 # Install esbuild for SSR bundling
