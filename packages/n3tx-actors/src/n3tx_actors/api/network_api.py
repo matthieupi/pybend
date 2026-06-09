@@ -164,6 +164,14 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
         if callable(register_view_routes):
             register_view_routes(router, tag=tag)
 
+        # Optional model capabilities can mount package-owned API routes while
+        # keeping actor routing free of hard imports. n3tx-files uses this for
+        # multipart upload and binary download routes that cannot round-trip as
+        # JSON TX payloads.
+        register_extra_routes = getattr(model_class, 'register_extra_routes', None)
+        if callable(register_extra_routes):
+            register_extra_routes(router, tag=tag)
+
         # CRUD routes
         if is_storable:
             _register_class_read_mirror(router, api_adapter, model_class, tag)
@@ -579,7 +587,7 @@ def _add_custom_handler(
         ):
             user = _get_user(request)
             # Build data payload from body params
-            payload = _parse_method_args(_sig, _type_hints, data, request)
+            payload = await _parse_method_args(_sig, _type_hints, data, request)
             payload['id'] = id
 
             response = await api_adapter.request(
@@ -601,7 +609,7 @@ def _add_custom_handler(
             _type_hints=type_hints, _addr=addr, _cls=model_class,
         ):
             user = _get_user(request)
-            payload = _parse_method_args(_sig, _type_hints, data, request)
+            payload = await _parse_method_args(_sig, _type_hints, data, request)
 
             response = await api_adapter.request(
                 TX(
@@ -655,7 +663,7 @@ def _add_streaming_handler(
             _type_hints=type_hints, _addr=addr, _cls=model_class,
         ):
             user = _get_user(request)
-            payload = _parse_method_args(_sig, _type_hints, data, request)
+            payload = await _parse_method_args(_sig, _type_hints, data, request)
             payload['id'] = id
             tx = TX(
                 name=_attr_name, source=api_adapter.addr, target=_addr,
@@ -681,7 +689,7 @@ def _add_streaming_handler(
             _type_hints=type_hints, _addr=addr, _cls=model_class,
         ):
             user = _get_user(request)
-            payload = _parse_method_args(_sig, _type_hints, data, request)
+            payload = await _parse_method_args(_sig, _type_hints, data, request)
             tx = TX(
                 name=_attr_name, source=api_adapter.addr, target=_addr,
                 data=payload,
@@ -698,7 +706,7 @@ def _add_streaming_handler(
             )
 
 
-def _parse_method_args(sig, type_hints, data, request):
+async def _parse_method_args(sig, type_hints, data, request):
     """Parse method arguments from request body or query params.
 
     For GET requests the body is empty, so query string parameters are
@@ -717,14 +725,25 @@ def _parse_method_args(sig, type_hints, data, request):
         if raw is None:
             continue
         try:
+            from n3tx_core.utils.materialize import materialize_arg
+            raw = await materialize_arg(
+                raw,
+                param_type,
+                user=_get_user(request),
+                context={'param': name},
+            )
             if isinstance(param_type, type) and issubclass(param_type, BaseModel):
                 payload[name] = (
-                    param_type(**raw) if isinstance(raw, dict)
+                    raw if isinstance(raw, param_type)
+                    else param_type(**raw) if isinstance(raw, dict)
                     else param_type.model_validate(raw)
                 )
             else:
                 payload[name] = param_type(raw)
         except Exception as e:
+            from n3tx_core.utils.erroring import MethodError
+            if isinstance(e, MethodError):
+                raise HTTPException(status_code=e.status_code, detail=e.message)
             raise HTTPException(status_code=422, detail=f"Invalid field '{name}': {e}")
 
     # Inject user marker — handler_crud and custom handlers resolve this

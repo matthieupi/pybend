@@ -13,6 +13,7 @@ from n3tx_core.utils.erroring import get_traceback_info, MethodError
 from n3tx_core.utils.registrar import registered_models, join_models
 from n3tx_core.utils.typer import flatten_refs
 from n3tx_core.utils.populate import parse_populate
+from n3tx_core.utils.materialize import materialize_arg
 from n3tx_core.authorize import AccessContext, DefaultResolver, AccessDenied
 
 logger = logging.getLogger('n3tx.api')
@@ -373,11 +374,14 @@ def make_custom_post(attr, model_class, route_path):
             if raw is None:
                 raise HTTPException(status_code=400, detail=f"Missing field: {name}")
             try:
+                raw = await materialize_arg(raw, param_type, user=_get_user(request), context={'route': route_path, 'param': name})
                 if isinstance(param_type, type) and issubclass(param_type, BaseModel):
-                    parsed_args[name] = param_type(**raw) if isinstance(raw, dict) else param_type.parse_obj(raw)
+                    parsed_args[name] = raw if isinstance(raw, param_type) else param_type(**raw) if isinstance(raw, dict) else param_type.parse_obj(raw)
                 else:
                     parsed_args[name] = param_type(raw)
             except Exception as e:
+                if isinstance(e, MethodError):
+                    raise HTTPException(status_code=e.status_code, detail=e.message)
                 raise HTTPException(status_code=422, detail=f"Invalid field '{name}': {e}")
 
         if 'user' in sig.parameters:
@@ -418,11 +422,14 @@ def make_custom_post(attr, model_class, route_path):
             if raw is None:
                 raise HTTPException(status_code=400, detail=f"Missing field: {name}")
             try:
+                raw = await materialize_arg(raw, param_type, user=_get_user(request), context={'route': route_path, 'param': name})
                 if isinstance(param_type, type) and issubclass(param_type, BaseModel):
-                    parsed_args[name] = param_type(**raw) if isinstance(raw, dict) else param_type.parse_obj(raw)
+                    parsed_args[name] = raw if isinstance(raw, param_type) else param_type(**raw) if isinstance(raw, dict) else param_type.parse_obj(raw)
                 else:
                     parsed_args[name] = param_type(raw)
             except Exception as e:
+                if isinstance(e, MethodError):
+                    raise HTTPException(status_code=e.status_code, detail=e.message)
                 raise HTTPException(status_code=422, detail=f"Invalid field '{name}': {e}")
 
         if 'user' in sig.parameters:
@@ -529,6 +536,13 @@ def register_routes():
         register_view_routes = getattr(model_class, 'register_view_routes', None)
         if callable(register_view_routes):
             register_view_routes(router, tag=tag)
+
+        # Register package-owned API routes for optional capabilities.
+        # This mirrors the view-route hook while staying package-neutral:
+        # n3tx-core does not import optional packages such as n3tx-files.
+        register_extra_routes = getattr(model_class, 'register_extra_routes', None)
+        if callable(register_extra_routes):
+            register_extra_routes(router, tag=tag)
 
         # Register basic CRUD routes
         if is_storable:

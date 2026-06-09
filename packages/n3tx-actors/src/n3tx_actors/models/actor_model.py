@@ -118,9 +118,23 @@ class ActorModel(Actor, ProtoModel):
                         # @expose_route method: unpack data as kwargs.
                         # Instance methods need 'self' resolved from id in data.
                         from inspect import signature as get_sig
+                        from typing import get_type_hints
+                        from n3tx_core.utils.materialize import materialize_arg
                         sig = get_sig(method)
+                        type_hints = get_type_hints(method)
                         is_instance = 'self' in sig.parameters
                         kwargs = {k: v for k, v in data.items() if k != 'id'}
+                        user = tx.meta.get('user')
+                        for arg_name, arg_value in list(kwargs.items()):
+                            expected_type = type_hints.get(arg_name)
+                            if expected_type is None:
+                                continue
+                            kwargs[arg_name] = await materialize_arg(
+                                arg_value,
+                                expected_type,
+                                user=user,
+                                context={'tx': tx, 'param': arg_name},
+                            )
 
                         if is_instance:
                             entity_id = data.get('id')

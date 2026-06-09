@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "n3tx-files"
+version = "0.10.0"
+description = "N3TX files: addressable file resources, local stores, and actor-backed file capabilities."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Matthieu Pi", email = "qcpi@gmail.com"}]
+dependencies = [
+    "n3tx-core>=0.10.0",
+    "n3tx-actors>=0.10.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2", "pytest-cov>=6.0", "httpx>=0.27"]
+s3 = []
+r2 = []
+gcs = []
+cloudflare = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
