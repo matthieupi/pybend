@@ -64,6 +64,7 @@ PACKAGE_PATHS = (
     ROOT / "packages/n3tx-core/src",
     ROOT / "packages/n3tx-actors/src",
     ROOT / "packages/n3tx-agents/src",
+    ROOT / "packages/n3tx-files/src",
     ROOT / "packages/n3tx-ui/src",
     ROOT / "packages/n3tx/src",
 )
@@ -84,6 +85,11 @@ SUITES = (
         name="agents",
         cwd=ROOT,
         pytest_args=("packages/n3tx-agents/src/n3tx_agents/tests/",),
+    ),
+    Suite(
+        name="files",
+        cwd=ROOT,
+        pytest_args=("packages/n3tx-files/src/n3tx_files/tests/",),
     ),
     Suite(
         name="examples-core",
