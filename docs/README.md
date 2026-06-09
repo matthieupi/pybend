@@ -10,6 +10,7 @@
 - **Foreign Key Support** - Type-safe relationships between models
 - **Auto-Generated Documentation** - OpenAPI/Swagger compatible schemas
 - **Custom Endpoints** - Easily add custom business logic with decorators
+- **Optional File Capability** - `n3tx-files` adds `File(ActorModel)`, multipart upload, binary/range download, and typed file materialization
 - **Multiple Backend Support** - FastAPI or Flask (with easy extensibility)
 - **Auto-Migration** - Database schema updates automatically
 - **JSON-LD Style Responses** - All responses include `$schema` and `$id` metadata for self-describing resources
@@ -163,6 +164,27 @@ class MyStorage(AbstractStorage):
     def update(self, model_class, id_, data): ...
     def delete(self, model_class, id_): ...
 ```
+
+### Optional Files
+
+Install `n3tx-files` when your app needs uploaded documents, media, artifacts, or
+other byte resources:
+
+```python
+from n3tx_core.app import create_app
+from n3tx_files import File, LocalFileStore, configure_file_store
+
+configure_file_store(LocalFileStore('./file-blobs'))
+app = create_app(models=[File], storage='sqlite:///app.db')
+```
+
+`File` metadata is normal N3TX model data. Bytes live in a `FileStore` provider.
+The package adds:
+
+- `POST /files/upload` for multipart upload
+- `GET /files/{id}/download` and `/File/{id}/download` for binary/range reads
+- `File.resolve('/File/1')` and `n3tx://files/1` internal addresses
+- typed method materialization for parameters annotated as `File`
 
 ### Foreign Keys
 
