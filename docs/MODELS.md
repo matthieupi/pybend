@@ -14,7 +14,8 @@ API endpoints, JSON Schema, access control, UI rendering.
 4. [StorableMixin](#storablemixin)
 5. [BaseUser](#baseuser)
 6. [ActorModel](#actormodel)
-7. [File Layout](#file-layout)
+7. [Optional File Resource](#optional-file-resource-n3tx-files)
+8. [File Layout](#file-layout)
 
 ---
 
@@ -244,6 +245,82 @@ Non-CRUD messages fall through to Actor's generic `getattr` dispatch.
 After create/update/delete, `_publish_lifecycle()` sends a `LIFECYCLE`
 TX to registered subscribers (fire-and-forget). See the
 [actors README](../actors/README.md) for details.
+
+---
+
+## Optional File Resource (`n3tx-files`)
+
+**File**: `packages/n3tx-files/src/n3tx_files/file.py`
+
+`n3tx-files` provides `File(ActorModel)`, an optional model/capability for
+addressable files. The model carries authoritative metadata while bytes live in
+a separate `FileStore` provider.
+
+```python
+from n3tx_files import File, LocalFileStore, configure_file_store
+
+configure_file_store(LocalFileStore('./file-blobs'))
+app = create_app(models=[File], storage='sqlite:///app.db')
+```
+
+### Fields
+
+| Field | Purpose |
+|---|---|
+| `filename` | Original/display name |
+| `content_type` | MIME type, default `application/octet-stream` |
+| `size` | Byte size, protected from user writes |
+| `sha256` | Content checksum, protected from user writes |
+| `storage_key` | Provider key for blob bytes, protected from user writes |
+| `origin` | Optional origin/remote source marker |
+| `public` | App-level public/private hint |
+| `user_owner` | Owner id for `OWNER` access rules |
+| `meta` | Provider/app metadata |
+
+### Byte routes
+
+File byte IO is explicit package-owned API routing, not static-file serving:
+
+| Route | Purpose |
+|---|---|
+| `POST /files/upload` | Multipart upload with form field `upload`; creates File metadata |
+| `GET /files/{id}/download` | Binary download |
+| `GET /File/{id}/download` | Class-name download mirror |
+
+Download supports inclusive byte ranges with `Range: bytes=start-end` and
+returns `206` plus `Content-Range` for partial reads.
+
+### Address resolution and materialization
+
+`File.resolve(address)` supports internal addresses:
+
+```text
+n3tx://files/{id}
+/files/{id}
+/File/{id}
+```
+
+When `n3tx_files` is imported, it registers a typed argument materializer. A
+custom method annotated with `File` receives a resolved `File` instance when the
+payload contains one of the supported address strings:
+
+```python
+@expose_route('/transcribe', methods=['POST'])
+async def transcribe(audio: File) -> dict:
+    local = await audio.ensure_local()
+    ...
+```
+
+Plain `str` parameters are not materialized. This keeps remote IO explicit and
+type-gated.
+
+### Storage boundary
+
+- SQLite/N3TX storage owns metadata only.
+- `FileStore` providers own bytes (`LocalFileStore` is the default local provider).
+- Dynamic file downloads must not be mounted through the static asset catch-all.
+- Remote storage/CDN nodes are provider/deployment strategies behind the same
+  `File` contract.
 
 ---
 

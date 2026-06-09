@@ -21,10 +21,73 @@ Complete reference for all N3TX classes, methods, and decorators.
   - [AgentActor](#agentactor)
   - [AgentDeps](#agentdeps)
   - [ToolSpec](#toolspec)
+- [Files](#files-optional-n3tx-files)
+  - [File](#file)
+  - [LocalFileStore](#localfilestore)
 - [Backends](#backends)
   - [FastAPIBackend](#fastapibackend)
   - [FlaskBackend](#flaskbackend)
 - [Utilities](#utilities)
+
+---
+
+## Files (optional `n3tx-files`)
+
+### File
+
+Optional actor-backed file metadata model.
+
+**Module**: `n3tx_files.file`
+
+```python
+from n3tx_core.app import create_app
+from n3tx_files import File, LocalFileStore, configure_file_store
+
+configure_file_store(LocalFileStore('./file-blobs'))
+app = create_app(models=[File], storage='sqlite:///app.db')
+```
+
+Key fields:
+
+| Field | Purpose |
+|---|---|
+| `filename` | Display/original filename |
+| `content_type` | MIME type |
+| `size` | Byte size, provider-computed |
+| `sha256` | Content checksum, provider-computed |
+| `storage_key` | Provider key for bytes |
+| `user_owner` | Owner id for authorization |
+
+Package-owned byte routes:
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/files/upload` | Multipart upload using form field `upload` |
+| GET | `/files/{id}/download` | Binary download |
+| GET | `/File/{id}/download` | Class-name download mirror |
+
+Methods:
+
+| Method | Purpose |
+|---|---|
+| `File.resolve(address, user=None)` | Resolve `n3tx://files/{id}`, `/files/{id}`, or `/File/{id}` with read authorization |
+| `file.ensure_local(user=None)` | Return local path metadata for locally stored bytes |
+
+When `n3tx_files` is imported, parameters annotated as `File` are materialized
+from supported address strings in direct and actor custom-method routing.
+
+### LocalFileStore
+
+Filesystem-backed byte provider.
+
+**Module**: `n3tx_files.store`
+
+| Method | Purpose |
+|---|---|
+| `put_stream(source, key=None, meta=None)` | Stream bytes into storage and compute size/sha256 |
+| `open_stream(key, start=None, end=None)` | Async byte iterator with optional inclusive range |
+| `stat(key)` | Recompute size/checksum for stored bytes |
+| `delete(key)` | Remove stored bytes |
 
 ---
 

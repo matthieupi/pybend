@@ -112,6 +112,15 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 - `packages/n3tx-agents/src/n3tx_agents/schema_ext.py` - Schema extension for `__agent__` models
 - `packages/n3tx-agents/src/n3tx_agents/__init__.py` - Calls `register_mixin('__agent__', AgentMixin)` **before** importing AgentActor (import ordering requirement)
 
+### Files (n3tx-files)
+- `packages/n3tx-files/src/n3tx_files/file.py` - `File(ActorModel)` metadata resource; bytes live in a `FileStore`
+- `packages/n3tx-files/src/n3tx_files/store.py` - `FileStore` protocol and `LocalFileStore` filesystem byte provider
+- `packages/n3tx-files/src/n3tx_files/address.py` - Internal address parsing for `n3tx://files/{id}`, `/files/{id}`, and `/File/{id}`
+- `packages/n3tx-files/src/n3tx_files/materialize.py` - Registers `File`-typed method argument materialization when `n3tx_files` is imported
+- `packages/n3tx-files/src/n3tx_files/routes.py` - Package-local multipart upload and binary/range download adapters
+- `packages/n3tx-files/src/n3tx_files/config.py` - File package configuration such as `N3TX_FILE_STORE_DIR`
+- `packages/n3tx-files/docs/file.md` - File capability architecture and guardrails
+
 ### UI Mixin (n3tx-ui)
 - `packages/n3tx-ui/src/n3tx_ui/mixin.py` - `ViewableMixin` + `viewable` schema stage. Registers `__viewable__`/`__ui__` triggers via `register_mixin()`. **Must be imported before model files with `__ui__`.**
 

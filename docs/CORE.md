@@ -108,6 +108,8 @@ class Product(ProtoModel):
 | Pagination | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
 | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update |
 | Route view renderers | `__ui__.renderer` | `#Model/@view` and `/Model/@view` resolve semantic views to component tags |
+| File metadata + byte storage | Optional `n3tx_files.File` model + `FileStore` | Metadata in N3TX storage, bytes in provider-backed store |
+| File-typed method args | `param: File` annotation | `n3tx_files` materializer resolves `/File/{id}` or `n3tx://files/{id}` |
 
 If a model omits `__access__`, schema generation exposes a wildcard fallback
 (`access['*']`) that requires authentication for all actions. The Product
@@ -116,6 +118,34 @@ contract; the shipped `examples/core` Product currently uses the authenticated
 wildcard fallback, while Comment declares owner/admin rules and protected
 `user_owner` ownership metadata.
 | Auto-generated docs | Model + schema | `generate_docs.py` on startup |
+
+### Optional File Capability
+
+`n3tx-files` adds a first-class `File(ActorModel)` resource without making core
+depend on file storage. A file is represented as normal N3TX metadata plus a
+provider-owned byte object:
+
+```python
+from n3tx_files import File, LocalFileStore, configure_file_store
+
+configure_file_store(LocalFileStore('./file-blobs'))
+app = create_app(models=[File], storage='sqlite:///app.db')
+```
+
+Generated and package-owned behavior:
+
+| Concern | Contract |
+|---|---|
+| Metadata CRUD/schema | Normal `File` model endpoints and `File.schema()` |
+| Upload | `POST /files/upload` multipart form field named `upload` |
+| Download | `GET /files/{id}/download` and `GET /File/{id}/download` |
+| Range reads | `Range: bytes=start-end` returns `206` + `Content-Range` |
+| Address resolution | `File.resolve('/File/1')`, `File.resolve('n3tx://files/1')` |
+| Typed materialization | Method params annotated as `File` resolve address strings to `File` instances |
+
+Blob bytes are never stored in SQLite and dynamic user files are not served by
+the framework static-file catch-all. CDN/object-store/remote-node behavior is a
+provider strategy behind `FileStore`, not a separate app concept.
 
 ## Schema as Universal Contract
 

@@ -193,7 +193,7 @@ When multiple directories exist, a `_CascadingStaticFiles` ASGI handler searches
 ### Generated Route Grammar
 
 Direct routing registers table-name data routes, class-name schema/CRUD mirror
-routes, and optional model view routes:
+routes, optional model view routes, and optional package-owned capability routes:
 
 ```text
 GET    /{ClassName}                  # schema
@@ -218,6 +218,10 @@ GET    /{ClassName}/@{view}          # collection named HTML view, if viewable
 GET    /{ClassName}/{id:int}/@       # member default HTML view, if viewable
 GET    /{ClassName}/{id:int}/@{view} # member named HTML view, if viewable
 
+POST   /files/upload                 # n3tx-files multipart upload, if File is registered
+GET    /files/{id:int}/download      # n3tx-files binary download, if File is registered
+GET    /File/{id:int}/download       # n3tx-files class-name download mirror
+
 GET    /{tablename}                  # list
 POST   /{tablename}                  # create
 GET    /{tablename}/{id:int}         # read
@@ -230,8 +234,28 @@ The class-name mirrors delegate to table-name handlers, so authorization,
 population, error handling, and `$id` generation stay identical. `GET
 /{ClassName}` remains schema; `GET /{ClassName}/_` is the explicit JSON
 collection marker. HTML routes are registered through `register_view_routes()`
-when a model capability provides it; `n3tx-core` only depends on that small hook
-and remains UI-package neutral.
+when a model capability provides it. Package-owned API routes such as
+`n3tx-files` upload/download adapters are registered through
+`register_extra_routes()`. `n3tx-core` only depends on these small hooks and
+remains optional-package neutral.
+
+### Optional capability route hook
+
+Models can expose package-owned routes that cannot be expressed as normal JSON
+CRUD/custom-method routes:
+
+```python
+class File(ActorModel):
+    @classmethod
+    def register_extra_routes(cls, router, *, tag: str) -> None:
+        from .routes import register_file_routes
+        register_file_routes(router, cls, tag=tag)
+```
+
+The hook is invoked by both direct routing and actor routing. It is intended for
+capabilities like file upload/download where the wire format is multipart or
+binary. The package-owned route must still enforce the same model authorization
+contract before changing metadata or streaming bytes.
 
 Nested class-name mirrors are generated from join model metadata (`__owner__`,
 `__parent__`, and the generated parent FK field). They are only registered when a
@@ -249,4 +273,5 @@ exists.
 - **Streaming routes emit anti-buffered SSE frames.** Each frame includes a comment padding line so proxy/browser buffers flush progressive chunks instead of waiting for the stream to complete.
 - **CORS defaults to `["*"]`.** This is intentional for development. Set explicit origins in production. When `"*"` is in the origins list, `allow_credentials` is automatically set to `False`.
 - **Static files are mounted last.** `get_app()` mounts the framework static directory as a catch-all ASGI mount. All API routes and explicit file routes take precedence.
+- **Dynamic user files are not static assets.** `n3tx-files` download routes are explicit API routes with authorization and byte/range handling. Do not mount user upload directories through `static_dir`.
 - **`@` routes are HTML/view routes.** `/Product/@table` is a view shell, not a JSON data route. Invalid or unknown view names should fail before renderer tags are injected into HTML.

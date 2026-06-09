@@ -127,6 +127,40 @@ register_mixin('__viewable__', ViewableMixin, also_if=['__ui__'])
 
 ---
 
+## Typed Argument Materialization Registry
+
+Optional packages can register runtime method-argument materializers without
+making core depend on those packages.
+
+**File**: `n3tx_core.utils.materialize`
+
+```python
+from n3tx_core.utils.materialize import register_materializer
+
+@register_materializer
+async def materialize_file(value, expected_type, *, user=None, context=None):
+    if expected_type is File and isinstance(value, str):
+        return True, await File.resolve(value, user=user)
+    return False, value
+```
+
+`materialize_arg()` is called by direct custom-method routing, actor HTTP
+method routing, and actor exposed-method dispatch. This keeps Level 1/2 and
+Level 3 behavior aligned for typed capabilities.
+
+Current built-in optional registration:
+
+- `n3tx_files.__init__` imports `n3tx_files.materialize`, which registers a
+  materializer for parameters annotated as `File`.
+
+Rules:
+
+- Registration happens only when the optional package is imported.
+- Materializers are type-gated and should leave unrelated parameters untouched.
+- Materializers may enforce authorization using the supplied `user` context.
+
+---
+
 ## Usage Patterns
 
 ### Adding a ClassVar-Driven Feature

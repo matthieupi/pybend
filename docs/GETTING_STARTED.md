@@ -29,6 +29,9 @@ pip install pydantic fastapi uvicorn
 # For Flask backend
 pip install flask flasgger asgiref
 
+# For first-class file metadata + local byte storage
+pip install n3tx-files
+
 # For development
 pip install pytest black mypy
 ```
@@ -185,6 +188,56 @@ curl -X PUT http://localhost:8000/posts/1 \
 ```bash
 curl -X DELETE http://localhost:8000/users/1
 ```
+
+## Optional: Add File Uploads
+
+Install and import the optional `n3tx-files` package when your app needs user
+files, documents, audio, generated artifacts, or other byte resources.
+
+```python
+from n3tx_core.app import create_app
+from n3tx_files import File, LocalFileStore, configure_file_store
+
+configure_file_store(LocalFileStore('./file-blobs'))
+
+app = create_app(
+    models=[File],
+    storage='sqlite:///app.db',
+)
+```
+
+Upload a file:
+
+```bash
+curl -X POST http://localhost:5000/files/upload \
+  -H "x-access-token: $TOKEN" \
+  -F "upload=@./sample.txt;type=text/plain"
+```
+
+Download it:
+
+```bash
+curl http://localhost:5000/files/1/download -o sample.txt
+```
+
+Use it in a method by annotating a parameter as `File`:
+
+```python
+@expose_route('/process', methods=['POST'])
+async def process(file: File) -> dict:
+    local = await file.ensure_local()
+    return {'path': local['path']}
+```
+
+Then call the method with a file address:
+
+```json
+{"file": "/File/1"}
+```
+
+File metadata is stored in normal N3TX storage. Blob bytes are stored in the
+configured `FileStore` provider and are served through explicit authenticated
+download routes, not static file mounting.
 
 ## What Just Happened?
 

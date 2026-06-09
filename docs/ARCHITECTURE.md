@@ -59,6 +59,31 @@ N3TX follows a layered architecture with dependency injection for maximum flexib
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Optional File Capability (`n3tx-files`)
+
+N3TX file handling is packaged as an optional capability, not as core blob
+storage. Apps opt in by importing/registering `File` from `n3tx_files`:
+
+```python
+from n3tx_files import File, LocalFileStore, configure_file_store
+
+configure_file_store(LocalFileStore('./file-blobs'))
+app = create_app(models=[File, Job], storage='sqlite:///app.db')
+```
+
+`File(ActorModel)` is the single public primitive:
+
+```text
+File metadata row       -> normal N3TX storage, schema, auth, actor tools
+File bytes              -> FileStore provider (LocalFileStore by default)
+Upload/download bytes   -> package-owned explicit routes, not static assets
+File-typed method args  -> type-driven materialization via File.resolve()
+```
+
+This preserves the framework boundary: core does not import `n3tx_files`, blob
+bytes are not stored in SQLite, and dynamic user files are not served through the
+static asset catch-all.
+
 ## Core Components
 
 ### 1. ProtoModel

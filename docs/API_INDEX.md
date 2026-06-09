@@ -15,6 +15,7 @@ General conventions, setup, and concepts you need to understand before using any
 - Authentication patterns
 - Error handling
 - HTTP status codes
+- Optional file upload/download routes
 - Data types and formatting
 - Foreign keys and relationships
 - CORS configuration
@@ -110,6 +111,14 @@ For a model called `User` with `__tablename__ = 'users'`:
 | Get one | GET | `/users/{id}` | [CRUD](./API_CRUD_ENDPOINTS.md#get-single-resource) |
 | Update | PUT | `/users/{id}` | [CRUD](./API_CRUD_ENDPOINTS.md#update-resource) |
 | Delete | DELETE | `/users/{id}` | [CRUD](./API_CRUD_ENDPOINTS.md#delete-resource) |
+
+For optional `n3tx-files` apps:
+
+| Purpose | Method | Endpoint | Documentation |
+|---------|--------|----------|---------------|
+| Upload file bytes | POST | `/files/upload` | [Overview](./API_OVERVIEW.md#optional-file-api-n3tx-files) |
+| Download file bytes | GET | `/files/{id}/download` | [Overview](./API_OVERVIEW.md#optional-file-api-n3tx-files) |
+| Download mirror | GET | `/File/{id}/download` | [Overview](./API_OVERVIEW.md#optional-file-api-n3tx-files) |
 
 ### Custom Endpoint Patterns
 

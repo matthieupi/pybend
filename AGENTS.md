@@ -116,6 +116,7 @@ packages/
 ├── n3tx-actors/     # pip install n3tx-actors  (actor messaging, network adapters — backend only)
 ├── n3tx-ui/         # pip install n3tx-ui      (web components, widgets, themes — frontend only)
 ├── n3tx-agents/     # pip install n3tx-agents  (LLM reasoning, tool discovery)
+├── n3tx-files/      # pip install n3tx-files   (optional file metadata + byte stores)
 └── n3tx/            # pip install n3tx         (meta-package — installs all four)
 ```
 
@@ -125,6 +126,7 @@ n3tx-core              ← foundation, no N3TX deps
 n3tx-actors            ← depends on n3tx-core
 n3tx-ui                ← depends on n3tx-core
 n3tx-agents            ← depends on n3tx-core + n3tx-actors
+n3tx-files             ← depends on n3tx-core + n3tx-actors
 n3tx                   ← meta-package, depends on all four
 ```
 
@@ -146,6 +148,9 @@ from n3tx_actors.api import NetworkAPI, NetworkWebSocket
 # Agents
 from n3tx_agents import AgentMixin, AgentActor, AgentDeps
 from n3tx_agents.tools import discover_tools
+
+# Files (optional)
+from n3tx_files import File, LocalFileStore
 
 # UI (Python side — just path helper)
 from n3tx_ui import get_static_dir
@@ -361,6 +366,17 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 | `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js` | `<ntx-agent-live>` — real-time agent activity view (extends NTTStream) |
 | `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js` | `<ntx-chat>` — agent chat panel (extends NTTStream) |
 
+### n3tx-files — File Metadata + Byte Stores
+| File | Purpose |
+|------|---------|
+| `packages/n3tx-files/src/n3tx_files/file.py` | `File(ActorModel)` metadata resource and local file methods |
+| `packages/n3tx-files/src/n3tx_files/store.py` | `FileStore` protocol, `LocalFileStore`, checksum/stat helpers |
+| `packages/n3tx-files/src/n3tx_files/address.py` | Internal file address parsing |
+| `packages/n3tx-files/src/n3tx_files/materialize.py` | `File`-typed method argument materialization registration |
+| `packages/n3tx-files/src/n3tx_files/routes.py` | Multipart upload and binary/range download route adapters |
+| `packages/n3tx-files/src/n3tx_files/config.py` | File package configuration such as `N3TX_FILE_STORE_DIR` |
+| `packages/n3tx-files/docs/file.md` | File capability architecture and guardrails |
+
 ### n3tx-ui — Visual Components (Frontend Only)
 | File | Purpose |
 |------|---------|
@@ -568,6 +584,7 @@ cd /workspace && python3 scripts/test-backend.py --fail-fast -- -q  # optional: 
 | Core unit tests | `cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/` | Models, storage, auth, routes, schema |
 | Actor tests | `cd /workspace && python3 -m pytest packages/n3tx-actors/src/n3tx_actors/tests/` | Actor system, interceptors, auth |
 | Agent tests | `cd /workspace && python3 -m pytest packages/n3tx-agents/src/n3tx_agents/tests/` | AgentMixin, AgentActor, tools |
+| Files tests | `cd /workspace && python3 scripts/test-backend.py --suite files -- -q` | File metadata model and byte stores |
 | Core example (Level 1/2) | `cd /workspace && python3 -m pytest examples/core/tests/` | CRUD, auth flow, pagination, FK hydration |
 | Actors example (Level 3) | `cd /workspace && python3 -m pytest examples/actors/tests/` | Same coverage with actor routing |
 | Grants example (Agents) | `cd /workspace && python3 -m pytest examples/grants/tests/` | Agents, grants, sources |

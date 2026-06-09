@@ -178,6 +178,49 @@ This keeps the auth package decoupled from models while giving model methods acc
 
 ---
 
+## Type-Driven File Materialization
+
+When `n3tx_files` is imported, it registers a neutral argument materializer for
+parameters annotated as `File`. This lets model methods accept a file address in
+the request payload and receive an authorized `File` instance at invocation time.
+
+```python
+from n3tx_files import File
+
+class Transcriber(ActorModel):
+    __tablename__ = 'transcribers'
+    __storable__ = False
+
+    @expose_route('/transcribe', methods=['POST'])
+    async def transcribe(audio: File) -> dict:
+        local = await audio.ensure_local()
+        return {'path': local['path']}
+```
+
+Request body:
+
+```json
+{"audio": "/File/1"}
+```
+
+Supported internal addresses:
+
+```text
+n3tx://files/{id}
+/files/{id}
+/File/{id}
+```
+
+Rules:
+
+- Materialization is type-gated: only parameters annotated as `File` resolve.
+- Plain `str` parameters receive the original string unchanged.
+- `File.resolve()` enforces `read` access before returning the metadata record.
+- Byte download remains explicit through `download` routes or `ensure_local()`;
+  materialization itself resolves metadata, not arbitrary external bytes.
+
+---
+
 ## Request Format
 
 ### HTTP Method

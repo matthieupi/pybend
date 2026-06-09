@@ -3,7 +3,7 @@
 **Version**: 0.8.2
 **Base URL**: `http://localhost:8000` (default, configurable)  
 **Protocol**: REST over HTTP/HTTPS  
-**Content-Type**: `application/json`
+**Content-Type**: `application/json` for generated JSON APIs; optional file upload/download routes use multipart and binary responses.
 
 ## Purpose
 
@@ -80,6 +80,33 @@ Models can expose additional endpoints using the `@expose_route` decorator. Thes
 - Class methods -> `/{resource}{custom_path}`
 - Instance methods -> `/{resource}/{id}{custom_path}`
 
+Optional packages can also register package-owned routes through model capability
+hooks. For example, `n3tx-files` adds multipart/binary routes for `File` because
+file bytes cannot be represented as normal JSON method payloads.
+
+### Optional File API (`n3tx-files`)
+
+When an app registers `n3tx_files.File`, these routes are available in addition
+to normal File metadata CRUD/schema routes:
+
+| Operation | Method | Path | Body/Response |
+|---|---|---|---|
+| Upload bytes | POST | `/files/upload` | multipart form field `upload`; returns `File.model_response()` |
+| Download bytes | GET | `/files/{id}/download` | binary stream |
+| Download mirror | GET | `/File/{id}/download` | binary stream |
+
+Downloads support `Range: bytes=start-end`. Successful range reads return
+`206 Partial Content` and `Content-Range`.
+
+`File.resolve(address)` and typed method materialization support these internal
+addresses:
+
+```text
+n3tx://files/{id}
+/files/{id}
+/File/{id}
+```
+
 ### Nested Resources (Many-to-Many)
 
 When models have relationships, N3TX creates nested endpoints:
@@ -93,9 +120,15 @@ When models have relationships, N3TX creates nested endpoints:
 
 ### Request Format
 
-All requests must use:
+Most generated API requests use:
 - **Content-Type**: `application/json`
 - **Accept**: `application/json`
+
+Exceptions:
+- `POST /files/upload` uses `multipart/form-data` with a form field named
+  `upload`.
+- `GET /files/{id}/download` and `GET /File/{id}/download` return binary bytes,
+  not JSON.
 
 ### Response Format
 
