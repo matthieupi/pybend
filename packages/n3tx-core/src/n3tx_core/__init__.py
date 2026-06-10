@@ -5,6 +5,7 @@ from .models.proto_model import ProtoModel, generate_join_model
 from .models.storable_mixin import StorableMixin
 from .models.base_user import BaseUser
 from .models.ref import ListRef
+from .models.relationships import ManyToMany, Relationship
 from .utils.typer import Ref
 from .storage.abstract_storage import AbstractStorage
 from .storage.json_storage import JSONStorage

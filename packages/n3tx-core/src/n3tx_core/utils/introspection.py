@@ -141,6 +141,52 @@ def _unwrap_listref(field_type, field_metadata=None):
     return None
 
 
+def _unwrap_many_to_many(field_type, field_metadata=None):
+    """If field_type is ManyToMany[T], return (target, through).
+
+    Checks both the type's __metadata__ (Annotated) and Pydantic's
+    FieldInfo.metadata. Otherwise returns None.
+    """
+    metadata = []
+    if hasattr(field_type, '__metadata__'):
+        metadata.extend(field_type.__metadata__)
+    if field_metadata:
+        metadata.extend(field_metadata)
+
+    for meta in metadata:
+        if hasattr(meta, 'target_model'):
+            return meta.target_model, getattr(meta, 'through_model', None)
+    return None
+
+
+@functools.lru_cache(maxsize=None)
+def get_many_to_many_fields(model_class: Type[Any]) -> List[Tuple[str, Type, Type | None]]:
+    """Return (field_name, target_model, through_model) for ManyToMany fields."""
+    results = []
+    for field_name, field_info in model_class.model_fields.items():
+        field_type = field_info.annotation
+        origin = get_origin(field_type)
+        if origin is Union and type(None) in get_args(field_type):
+            field_type = get_args(field_type)[0]
+
+        relation = _unwrap_many_to_many(field_type, getattr(field_info, 'metadata', None))
+        if relation is None:
+            continue
+
+        target_model, through_model = relation
+        if isinstance(target_model, str):
+            import sys
+            module = sys.modules.get(model_class.__module__)
+            target_model = getattr(module, target_model, None) if module else None
+        if isinstance(through_model, str):
+            import sys
+            module = sys.modules.get(model_class.__module__)
+            through_model = getattr(module, through_model, None) if module else None
+        if target_model is not None:
+            results.append((field_name, target_model, through_model))
+    return results
+
+
 @functools.lru_cache(maxsize=None)
 def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
     """
@@ -234,6 +280,8 @@ def get_json_fields(model_class: Type[Any]) -> List[str]:
         if field_type is list or origin is list:
             ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
             if ref_model is not None:
+                continue
+            if _unwrap_many_to_many(field_type, getattr(field_info, 'metadata', None)) is not None:
                 continue
             args = get_args(field_type)
             if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):

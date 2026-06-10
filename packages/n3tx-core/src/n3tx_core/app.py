@@ -27,6 +27,7 @@ from n3tx_core.storage.abstract_storage import AbstractStorage
 from n3tx_core.utils.registrar import register_model, registered_models, join_models, prepare_model, apply_registration
 from n3tx_core.utils.logging import setup_logging
 from n3tx_core.models.proto_model import generate_join_model
+from n3tx_core.models.relationships import generate_relationship_models
 from n3tx_core.api.backend import FastAPIBackend
 from n3tx_core import config
 import n3tx_core.authorize as authorize
@@ -257,6 +258,13 @@ class N3TXApp:
         for parent, child in self._join_pairs:
             join_model = generate_join_model(parent, child)
             preparations.append(prepare_model(join_model, storage=self._storage))
+
+        # 3a. Generate and prepare field-declared relationship link models.
+        #     This follows the same prepare/apply flow as explicit join models:
+        #     generation is deterministic, registration/table side effects are
+        #     still centralized in apply_registration().
+        for relationship_model in generate_relationship_models(explicit_model_classes):
+            preparations.append(prepare_model(relationship_model, storage=self._storage))
 
         # 4. Apply all registrations (side effects: storage, tables, global dicts)
         #    Clear first so reloads (e.g. uvicorn --reload) start from a clean

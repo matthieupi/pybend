@@ -65,6 +65,29 @@ class SQLiteMigration:
         self.migrations_dir = migrations_dir
         self._ensure_migrations_table()
 
+    def _create_relationship_indexes(self, cursor: sqlite3.Cursor, model_class: Type[Any]):
+        """Create indexes for generated relationship link models."""
+        relationship = getattr(model_class, '__relationship__', None)
+        if not relationship or getattr(relationship, 'kind', None) != 'many_to_many':
+            return
+
+        table_name = model_class.__tablename__
+        owner_fk = relationship.owner_fk
+        target_fk = relationship.target_fk
+        if not owner_fk or not target_fk:
+            return
+
+        cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{owner_fk} ON {table_name} ({owner_fk})"
+        )
+        cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{target_fk} ON {table_name} ({target_fk})"
+        )
+        cursor.execute(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{table_name}_{owner_fk}_{target_fk}_unique "
+            f"ON {table_name} ({owner_fk}, {target_fk})"
+        )
+
     # ══════════════════════════════════════════════
     # Internal: migrations tracking table
     # ══════════════════════════════════════════════
@@ -195,6 +218,7 @@ class SQLiteMigration:
         for field_name, field_info in model_class.model_fields.items():
             if _is_self_ref(field_info.annotation):
                 cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{field_name} ON {table_name} ({field_name})")
+        self._create_relationship_indexes(cursor, model_class)
 
         conn.commit()
         conn.close()
@@ -349,6 +373,10 @@ class SQLiteMigration:
                     cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{field_name} ON {table_name} ({field_name})")
                 except sqlite3.OperationalError:
                     pass
+        try:
+            self._create_relationship_indexes(cursor, model_class)
+        except sqlite3.OperationalError:
+            pass
 
         conn.commit()
         conn.close()

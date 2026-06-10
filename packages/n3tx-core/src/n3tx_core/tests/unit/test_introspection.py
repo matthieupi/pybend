@@ -13,10 +13,12 @@ from n3tx_core.utils.introspection import (
     get_json_fields,
     get_list_fields,
     get_ref_fields,
+    get_many_to_many_fields,
     _unwrap_listref,
 )
 from n3tx_core.utils.typer import Ref, _SelfRefMarker
 from n3tx_core.models.ref import ListRef, _ListRefMarker
+from n3tx_core.models.relationships import ManyToMany
 from n3tx_core.models.proto_model import ProtoModel
 
 pytestmark = pytest.mark.unit
@@ -154,6 +156,42 @@ class TestGetListFields:
         names = [r[0] for r in result]
         assert 'items_a' in names
         assert 'items_b' in names
+
+
+class TestGetManyToManyFields:
+
+    def test_many_to_many_field(self):
+        class Tag(ProtoModel):
+            __tablename__ = 'tags'
+
+        class Product(ProtoModel):
+            __tablename__ = 'products'
+            tags: ManyToMany[Tag] = Field(default=[])
+
+        assert get_many_to_many_fields(Product) == [('tags', Tag, None)]
+
+    def test_many_to_many_is_not_json_field(self):
+        class Tag(ProtoModel):
+            __tablename__ = 'tags'
+
+        class Product(ProtoModel):
+            __tablename__ = 'products'
+            tags: ManyToMany[Tag] = Field(default=[])
+
+        assert 'tags' not in get_json_fields(Product)
+
+    def test_many_to_many_through_model_field(self):
+        class Tag(ProtoModel):
+            __tablename__ = 'tags'
+
+        class ProductTag(ProtoModel):
+            __tablename__ = 'product_tags'
+
+        class Product(ProtoModel):
+            __tablename__ = 'products'
+            tags: ManyToMany[Tag, ProductTag] = Field(default=[])
+
+        assert get_many_to_many_fields(Product) == [('tags', Tag, ProductTag)]
 
 
 class TestGetRefFields:
