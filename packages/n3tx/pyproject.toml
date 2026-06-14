@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "n3tx"
 version = "0.10.0"
-description = "N3TX meta-package: installs n3tx-core, n3tx-actors, n3tx-ui, n3tx-agents."
+description = "N3TX meta-package: installs N3TX core, actors, UI, agents, and files."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -15,6 +15,7 @@ dependencies = [
     "n3tx-actors>=0.10.0",
     "n3tx-ui>=0.10.0",
     "n3tx-agents>=0.10.0",
+    "n3tx-files>=0.10.0",
 ]
 
 [tool.setuptools.packages.find]
