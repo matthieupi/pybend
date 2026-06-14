@@ -44,6 +44,7 @@ Here's what you get out of the box -- no assembly required:
 - Typed end-to-end using Pydantic v2
 - Actor/Matrix/TX messaging system with multi-protocol adapters (HTTP, WS, MCP, ActivityPub)
 - LLM-powered agents via Pydantic AI -- dynamic agents as data, any model method can be agentic
+- Actor-backed file resources with metadata CRUD, byte stores, upload/download, and typed materialization
 - Streaming SSE endpoints with progressive frontend rendering
 - Schema-driven frontend Web Components (zero frontend code required)
 - Built-in tests via PyTest + Playwright frontend tests
@@ -73,13 +74,14 @@ If you want to hack on N3TX itself:
 
 ```bash
 # Automated (recommended)
-./dev-install.sh
+./install-dev.sh
 
 # Or manually (editable installs)
 pip install -e packages/n3tx-core \
             -e packages/n3tx-actors \
             -e packages/n3tx-ui \
             -e packages/n3tx-agents \
+            -e packages/n3tx-files \
             -e packages/n3tx
 ```
 
@@ -122,7 +124,7 @@ That's it. You didn't write a single route, form, or migration. They just exist.
 
 ## 📦 Package Landscape
 
-N3TX is four packages with clean dependency boundaries. Use what you need, ignore what you don't:
+N3TX is split into focused packages with clean dependency boundaries. Use what you need, ignore what you don't:
 
 ```
 n3tx (meta-package) <-- THIS PACKAGE
@@ -140,8 +142,13 @@ n3tx (meta-package) <-- THIS PACKAGE
   |    n3tx-actors)
   |
   +-- n3tx-ui          Frontend Web Components, form generators,
-      (depends on      widgets, themes (served as static assets)
-       n3tx-core)
+  |   (depends on      widgets, themes (served as static assets)
+  |    n3tx-core)
+  |
+  +-- n3tx-files       File metadata model, byte stores, upload/download,
+      (depends on      typed File materialization
+       n3tx-core,
+       n3tx-actors)
 ```
 
 ### When to use which package
@@ -154,6 +161,7 @@ Not sure what you need? This table has you covered:
 | Add actor messaging and routing | `n3tx-actors` | `Actor`, `Matrix`, `TX`, `ActorProxy`, `ActorModel` |
 | Add LLM-powered agent reasoning | `n3tx-agents` | `AgentMixin`, `AgentActor`, `AgentTool`, `discover_tools` |
 | Serve schema-driven frontend | `n3tx-ui` | Static assets (auto-discovered by the backend) |
+| Add file metadata and byte storage | `n3tx-files` | `File`, `FileStore`, `LocalFileStore`, `configure_file_store` |
 | Get everything at once | `n3tx` | Re-exports all of the above |
 
 ### Three bootstrapping levels
@@ -487,6 +495,7 @@ The meta-package's `n3tx_meta` module re-exports from all sub-packages via star-
 ```python
 from n3tx_core import *      # always
 from n3tx_actors import *    # always
+from n3tx_files import *     # always
 from n3tx_agents import *    # optional (skipped if pydantic-ai not installed)
 ```
 
@@ -513,6 +522,12 @@ from n3tx_agents import *    # optional (skipped if pydantic-ai not installed)
 | `Matrix` | n3tx-actors | class | Root actor and message router |
 | `matrix` | n3tx-actors | instance | Module-level Matrix singleton |
 | `ActorProxy` | n3tx-actors | class | Actor interface wrapper (no inheritance required) |
+| `File` | n3tx-files | class | Actor-backed file metadata model with byte-store methods |
+| `FileStore` | n3tx-files | protocol | Byte storage provider contract |
+| `FileStat` | n3tx-files | dataclass | Provider byte metadata such as size, checksum, and MIME type |
+| `LocalFileStore` | n3tx-files | class | Local filesystem byte provider |
+| `configure_file_store` | n3tx-files | function | Set the process-wide file byte provider |
+| `get_file_store` | n3tx-files | function | Resolve the active file byte provider |
 | `AgentMixin` | n3tx-agents | class | Injected via `__agent__ = True` (ctx/tools/agentic/run) |
 | `AgentActor` | n3tx-agents | class | Concrete agent model (config in DB fields) |
 | `AgentTool` | n3tx-agents | class | Tool registration model |
@@ -596,6 +611,7 @@ Each sub-package has its own README with API reference, patterns, and deep-dive 
 | n3tx-actors | [packages/n3tx-actors/README.md](packages/n3tx-actors/README.md) | Actor/Matrix/TX, ActorModel, interceptors, network adapters |
 | n3tx-agents | [packages/n3tx-agents/README.md](packages/n3tx-agents/README.md) | AgentMixin, AgentActor, tool discovery, LLM integration |
 | n3tx-ui | [packages/n3tx-ui/README.md](packages/n3tx-ui/README.md) | Web Components, form generators, widgets, themes |
+| n3tx-files | [packages/n3tx-files/README.md](packages/n3tx-files/README.md) | File metadata, byte stores, upload/download, typed materialization |
 
 For project-level architecture, conventions, and development workflow, see [CLAUDE.md](CLAUDE.md) at the repository root.
 

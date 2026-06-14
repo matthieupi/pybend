@@ -1,8 +1,8 @@
 # 🧬 N3TX: Define a Model, Get an App
 
-> One install gets the full schema-driven stack: models, actors, agents, and UI.
+> One install gets the full schema-driven stack: models, actors, agents, UI, and files.
 
-Hey, you. Yeah, you -- the one tired of wiring up the same CRUD routes, forms, and permission checks for the 47th time. N3TX is a schema-driven Python framework where your model definition is the single source of truth for the entire stack -- data structure, validation, API endpoints, JSON Schema, access control, and UI rendering. The `n3tx` meta-package installs all four sub-packages and re-exports their public APIs into a single namespace.
+Hey, you. Yeah, you -- the one tired of wiring up the same CRUD routes, forms, and permission checks for the 47th time. N3TX is a schema-driven Python framework where your model definition is the single source of truth for the entire stack -- data structure, validation, API endpoints, JSON Schema, access control, and UI rendering. The `n3tx` meta-package installs all N3TX sub-packages and re-exports their public APIs into a single namespace.
 
 Write a Python model, get a working full-stack application. No routes to add, no forms to build, no permissions to wire. Seriously.
 
@@ -74,13 +74,14 @@ If you want to hack on N3TX itself:
 
 ```bash
 # Automated
-./dev-install.sh
+./install-dev.sh
 
 # Or manually (editable installs)
 pip install -e packages/n3tx-core \
             -e packages/n3tx-actors \
             -e packages/n3tx-ui \
             -e packages/n3tx-agents \
+            -e packages/n3tx-files \
             -e packages/n3tx
 ```
 
@@ -121,7 +122,7 @@ Run with `uvicorn main:app --reload`. Visit `/Product` for the auto-generated JS
 
 ## 🧩 Package Landscape
 
-The N3TX ecosystem is four packages with clear dependency boundaries. Pick what you need, or grab the meta-package and get everything:
+The N3TX ecosystem is split into focused packages with clear dependency boundaries. Pick what you need, or grab the meta-package and get everything:
 
 ```
 n3tx (meta-package) <-- THIS PACKAGE
@@ -139,8 +140,13 @@ n3tx (meta-package) <-- THIS PACKAGE
   |    n3tx-actors)
   |
   +-- n3tx-ui          Frontend Web Components, form generators,
-      (depends on      widgets, themes (served as static assets)
-       n3tx-core)
+  |   (depends on      widgets, themes (served as static assets)
+  |    n3tx-core)
+  |
+  +-- n3tx-files       File metadata model, byte stores, upload/download,
+      (depends on      typed File materialization
+       n3tx-core,
+       n3tx-actors)
 ```
 
 ### When to use which package
@@ -151,6 +157,7 @@ n3tx (meta-package) <-- THIS PACKAGE
 | Add actor messaging and routing | `n3tx-actors` | `Actor`, `Matrix`, `TX`, `ActorProxy`, `ActorModel` |
 | Add LLM-powered agent reasoning | `n3tx-agents` | `AgentMixin`, `AgentActor`, `AgentTool`, `discover_tools` |
 | Serve schema-driven frontend | `n3tx-ui` | Static assets (auto-discovered by the backend) |
+| Add file metadata and byte storage | `n3tx-files` | `File`, `FileStore`, `LocalFileStore`, `configure_file_store` |
 | Get everything at once | `n3tx` | Re-exports all of the above |
 
 ### 🪜 Three bootstrapping levels
@@ -478,6 +485,7 @@ The meta-package's `n3tx_meta` module re-exports from all sub-packages via star-
 ```python
 from n3tx_core import *      # always
 from n3tx_actors import *    # always
+from n3tx_files import *     # always
 from n3tx_agents import *    # optional (skipped if pydantic-ai not installed)
 ```
 
@@ -504,6 +512,12 @@ from n3tx_agents import *    # optional (skipped if pydantic-ai not installed)
 | `Matrix` | n3tx-actors | class | Root actor and message router |
 | `matrix` | n3tx-actors | instance | Module-level Matrix singleton |
 | `ActorProxy` | n3tx-actors | class | Actor interface wrapper (no inheritance required) |
+| `File` | n3tx-files | class | Actor-backed file metadata model with byte-store methods |
+| `FileStore` | n3tx-files | protocol | Byte storage provider contract |
+| `FileStat` | n3tx-files | dataclass | Provider byte metadata such as size, checksum, and MIME type |
+| `LocalFileStore` | n3tx-files | class | Local filesystem byte provider |
+| `configure_file_store` | n3tx-files | function | Set the process-wide file byte provider |
+| `get_file_store` | n3tx-files | function | Resolve the active file byte provider |
 | `AgentMixin` | n3tx-agents | class | Injected via `__agent__ = True` (ctx/tools/agentic/run) |
 | `AgentActor` | n3tx-agents | class | Concrete agent model (config in DB fields) |
 | `AgentTool` | n3tx-agents | class | Tool registration model |
@@ -587,7 +601,7 @@ These are the principles that make N3TX click. Keep them in mind and everything 
 
 2. **Schema is the contract.** `GET /ClassName` returns a JSON Schema carrying types, validation, UI hints, access rules, and method signatures. The frontend reads this at runtime and adapts -- no frontend code changes needed.
 
-3. **Incremental adoption.** Start with `n3tx-core` alone (models + direct routes). Add `n3tx-actors` when you need messaging. Add `n3tx-agents` when you need LLM reasoning. Add `n3tx-ui` when you want the auto-generated frontend.
+3. **Incremental adoption.** Start with `n3tx-core` alone (models + direct routes). Add `n3tx-actors` when you need messaging. Add `n3tx-agents` when you need LLM reasoning. Add `n3tx-ui` when you want the auto-generated frontend. Add `n3tx-files` when your app needs uploaded documents, media, or artifacts.
 
 4. **Access control propagates.** Set `__access__` on a model, and the rules flow through schema to the frontend. Edit/delete buttons appear or disappear based on the authenticated user's permissions.
 
@@ -605,6 +619,7 @@ Each sub-package has its own README with API reference, patterns, and deep-dive 
 | n3tx-actors | [packages/n3tx-actors/README.md](../n3tx-actors/README.md) | Actor/Matrix/TX, ActorModel, interceptors, network adapters |
 | n3tx-agents | [packages/n3tx-agents/README.md](../n3tx-agents/README.md) | AgentMixin, AgentActor, tool discovery, LLM integration |
 | n3tx-ui | [packages/n3tx-ui/README.md](../n3tx-ui/README.md) | Web Components, form generators, widgets, themes |
+| n3tx-files | [packages/n3tx-files/README.md](../n3tx-files/README.md) | File metadata, byte stores, upload/download, typed materialization |
 
 For project-level architecture, conventions, and development workflow, see [CLAUDE.md](../../CLAUDE.md) at the repository root.
 

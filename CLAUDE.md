@@ -63,7 +63,8 @@ packages/
 ├── n3tx-actors/     # pip install n3tx-actors  (actor messaging, network adapters — backend only)
 ├── n3tx-ui/         # pip install n3tx-ui      (web components, widgets, themes — frontend only)
 ├── n3tx-agents/     # pip install n3tx-agents  (LLM reasoning, tool discovery)
-└── n3tx/            # pip install n3tx         (meta-package — installs all four)
+├── n3tx-files/      # pip install n3tx-files   (optional file metadata + byte stores)
+└── n3tx/            # pip install n3tx         (meta-package — installs all packages)
 ```
 
 **Dependency graph** (acyclic):
@@ -72,7 +73,8 @@ n3tx-core              ← foundation, no N3TX deps
 n3tx-actors            ← depends on n3tx-core
 n3tx-ui                ← depends on n3tx-core
 n3tx-agents            ← depends on n3tx-core + n3tx-actors
-n3tx                   ← meta-package, depends on all four
+n3tx-files             ← depends on n3tx-core + n3tx-actors
+n3tx                   ← meta-package, depends on all installable packages
 ```
 
 **Import style** (new — clean break from old `n3tx.core.*` paths):
