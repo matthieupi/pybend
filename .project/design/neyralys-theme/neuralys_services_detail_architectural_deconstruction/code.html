@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Neuralys AI - Services</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "inverse-surface": "#e5e2e1",
+                "on-tertiary": "#003824",
+                "secondary-fixed": "#e0e2e6",
+                "primary-fixed-dim": "#c8c6c5",
+                "primary-container": "#121212",
+                "on-secondary": "#2d3134",
+                "on-error": "#690005",
+                "surface-container": "#201f1f",
+                "surface-tint": "#c8c6c5",
+                "surface-bright": "#3a3939",
+                "surface-container-lowest": "#0e0e0e",
+                "tertiary-fixed-dim": "#4edea3",
+                "surface-variant": "#353434",
+                "primary": "#c8c6c5",
+                "secondary-fixed-dim": "#c4c7ca",
+                "on-primary": "#313030",
+                "tertiary-fixed": "#6ffbbe",
+                "on-primary-container": "#7e7d7d",
+                "surface": "#141313",
+                "inverse-on-surface": "#313030",
+                "error-container": "#93000a",
+                "on-tertiary-fixed-variant": "#005236",
+                "on-secondary-fixed-variant": "#44474a",
+                "surface-container-low": "#1c1b1b",
+                "outline": "#8e9192",
+                "on-surface-variant": "#c4c7c7",
+                "on-error-container": "#ffdad6",
+                "inverse-primary": "#5f5e5e",
+                "on-tertiary-fixed": "#002113",
+                "surface-container-high": "#2b2a2a",
+                "surface-dim": "#141313",
+                "background": "#141313",
+                "on-secondary-container": "#b6b8bc",
+                "on-background": "#e5e2e1",
+                "on-secondary-fixed": "#191c1f",
+                "surface-container-highest": "#353434",
+                "on-tertiary-container": "#008f62",
+                "on-surface": "#e5e2e1",
+                "error": "#ffb4ab",
+                "secondary": "#c4c7ca",
+                "on-primary-fixed": "#1c1b1b",
+                "on-primary-fixed-variant": "#474646",
+                "primary-fixed": "#e5e2e1",
+                "outline-variant": "#444748",
+                "tertiary": "#4edea3",
+                "tertiary-container": "#00160c",
+                "secondary-container": "#46494d"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "unit": "4px",
+                "container-max": "1440px",
+                "bevel-size": "8px",
+                "gutter": "16px",
+                "margin": "24px"
+        },
+        "fontFamily": {
+                "label-caps": [
+                        "JetBrains Mono"
+                ],
+                "code-sm": [
+                        "JetBrains Mono"
+                ],
+                "body-md": [
+                        "JetBrains Mono"
+                ],
+                "headline-xl": [
+                        "Geist"
+                ],
+                "headline-lg": [
+                        "Geist"
+                ],
+                "headline-lg-mobile": [
+                        "Geist"
+                ]
+        },
+        "fontSize": {
+                "label-caps": [
+                        "12px",
+                        {
+                                "lineHeight": "1.0",
+                                "letterSpacing": "0.1em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "code-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "1.4",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-md": [
+                        "14px",
+                        {
+                                "lineHeight": "1.6",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-xl": [
+                        "48px",
+                        {
+                                "lineHeight": "1.1",
+                                "letterSpacing": "-0.04em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "24px",
+                        {
+                                "lineHeight": "1.2",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        /* Custom styles for glowing effects */
+        .glow-hover:hover {
+            box-shadow: 0 0 20px 2px rgba(255, 255, 255, 0.1);
+        }
+        .glow-active {
+            box-shadow: 0 0 20px 2px rgba(255, 255, 255, 0.1);
+        }
+        .glass-panel {
+            background-color: rgba(32, 31, 31, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        
+        /* Architectural Deconstruction Clip Paths */
+        .clip-lozenge-1 {
+            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0% 100%);
+        }
+        .clip-lozenge-2 {
+            clip-path: polygon(0 0, 95% 5%, 100% 100%, 5% 95%);
+        }
+        .clip-lozenge-3 {
+            clip-path: polygon(5% 0, 100% 5%, 95% 100%, 0 95%);
+        }
+        .clip-skewed-btn {
+            clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+        }
+        .clip-arch-card {
+            clip-path: polygon(0 15px, 15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%);
+        }
+        .clip-arch-card-alt {
+            clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+        }
+
+        /* Diagonal Structural Lines */
+        .bg-diagonal-lines {
+            background-image: 
+                linear-gradient(45deg, transparent 49%, rgba(142, 145, 146, 0.05) 49%, rgba(142, 145, 146, 0.05) 51%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, rgba(142, 145, 146, 0.03) 49%, rgba(142, 145, 146, 0.03) 51%, transparent 51%);
+            background-size: 100px 100px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md text-body-md antialiased overflow-x-hidden min-h-screen flex flex-col bg-diagonal-lines relative">
+<!-- Background Structural Elements -->
+<div class="fixed top-0 left-0 w-px h-full bg-outline-variant/20 -z-10 ml-[10vw]"></div>
+<div class="fixed top-0 right-0 w-px h-full bg-outline-variant/20 -z-10 mr-[15vw]"></div>
+<div class="fixed top-1/3 left-0 w-full h-px bg-outline-variant/10 -z-10 transform -skew-y-3"></div>
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-b border-outline-variant shadow-none z-50">
+<div class="flex justify-between items-center max-w-container-max mx-auto px-margin md:px-margin h-20 relative">
+<div class="absolute bottom-0 left-1/4 w-32 h-px bg-tertiary"></div>
+<!-- Brand -->
+<div class="font-headline-xl text-headline-lg-mobile md:font-headline-xl md:text-headline-xl tracking-tighter text-primary transform -skew-x-6">
+                NEURALYS
+            </div>
+<!-- Navigation Links -->
+<div class="hidden md:flex items-center space-x-12 ml-12">
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-300 hover:-translate-y-1 transition-transform" href="#">SOLUTIONS</a>
+<div class="relative">
+<a class="font-label-caps text-label-caps text-primary pb-1 hover:text-primary transition-colors duration-300 hover:-translate-y-1 transition-transform relative z-10" href="#">SERVICES</a>
+<div class="absolute -bottom-2 -left-2 w-full h-1 bg-tertiary/30 transform skew-x-12"></div>
+</div>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-300 hover:-translate-y-1 transition-transform" href="#">RESOURCES</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors duration-300 hover:-translate-y-1 transition-transform" href="#">CASE STUDIES</a>
+</div>
+<!-- Trailing Action -->
+<button class="bg-primary text-on-primary font-label-caps text-label-caps px-8 py-3 rounded-none uppercase tracking-widest hover:scale-[0.98] transition-all duration-300 glow-hover hidden md:block border border-primary relative overflow-hidden group clip-skewed-btn ml-auto">
+                START PROJECT
+            </button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-32 pb-24 relative">
+<!-- Hero Section -->
+<section class="max-w-container-max mx-auto px-margin md:px-margin mb-32 relative">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter items-end relative z-10">
+<div class="md:col-span-9 relative">
+<div class="flex items-center space-x-4 mb-8 transform translate-x-4">
+<div class="w-12 h-px bg-tertiary"></div>
+<span class="w-2 h-2 rounded-none bg-tertiary animate-pulse transform rotate-45"></span>
+<span class="font-code-sm text-code-sm text-tertiary uppercase tracking-widest">System Capabilities Online</span>
+</div>
+<div class="relative inline-block">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-xl md:text-headline-xl text-primary mb-2 relative z-10">
+                        Architecting the
+                    </h1>
+<div class="absolute -inset-2 bg-surface-container-highest/40 -z-10 transform skew-x-12 clip-lozenge-2"></div>
+</div>
+<br/>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-xl md:text-headline-xl text-primary mb-8 ml-8 md:ml-16">
+                    Intelligence Layer.
+                </h1>
+<div class="relative pl-6 md:pl-12 border-l-2 border-outline-variant/30 ml-4">
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl transform translate-y-2">
+                        Rigorous data science and heavy-duty engineering combined to build scalable, secure AI infrastructure for technical decision-makers. No fluff. Just precision performance.
+                    </p>
+</div>
+</div>
+</div>
+<!-- Abstract background decorative element -->
+<div class="absolute top-0 right-0 w-2/3 h-[120%] -z-10 opacity-40 pointer-events-none mix-blend-screen clip-lozenge-1 transform translate-x-1/4 -translate-y-12" data-alt="A highly abstract, macro-level rendering of a dark metallic grid structure illuminated by subtle, glowing linear lights. The environment is vast and deep charcoal, with the metallic surfaces reflecting faint amber and industrial green highlights. The aesthetic is strictly precision engineering and high-end command console darkness. It conveys a sense of deep technical mastery and secure digital architecture." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBIWEgWJNow65ePK51pg9Q7aUyJhDTd63q8XFo3HKUuzJF-Gsn4LzkfTVa54cxv-K9awiOobP3yO-7Q5QLtIBtIkT_8Jk9OnvV3p0ahR8OHy9M6B_m9v0bdzBn9cuXqHGn50vBZNbKz5SgYN1y4KjdM8lsd27cMUIxV1HCdwQSQ1gmzAHgvBhiYLx3C6JyxU9Tz9CncWgdGcP7G75df6RWXt-6jgnehJHrkIFaVzBAMowryL2UOfjVX_qtBxX5cPVN53HJkEQC5GQE'); background-size: cover; background-position: center;">
+<div class="absolute inset-0 bg-gradient-to-l from-transparent via-background/50 to-background"></div>
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-background"></div>
+</div>
+</section>
+<!-- Services Bento Grid -->
+<section class="max-w-container-max mx-auto px-margin md:px-margin mb-40 relative">
+<div class="absolute left-0 top-1/2 w-32 h-px bg-outline-variant -translate-x-16"></div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 relative z-10">
+<!-- Strategy (Large) -->
+<div class="md:col-span-8 glass-panel bg-surface-container-low border-l-4 border-l-tertiary border-y border-r border-outline-variant/50 p-8 md:p-12 rounded-none group transition-all duration-300 relative overflow-hidden clip-arch-card transform md:-translate-x-4">
+<div class="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12 scale-150 translate-x-12 -translate-y-12">
+<span class="material-symbols-outlined text-9xl text-secondary" style="font-variation-settings: 'FILL' 0;">strategy</span>
+</div>
+<div class="relative z-10 flex flex-col md:flex-row gap-8 items-start">
+<div class="bg-surface p-4 border border-outline-variant/30 transform -skew-y-3">
+<span class="material-symbols-outlined text-tertiary text-4xl" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+</div>
+<div class="flex-1 transform md:translate-y-6">
+<h2 class="font-headline-lg text-headline-lg text-primary mb-4">AI Strategy &amp; Roadmapping</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-8 max-w-xl">
+                                We don't just build; we define the trajectory. Our advisory board maps out high-impact AI integration points within your existing architecture, prioritizing data security and measurable ROI.
+                            </p>
+<a class="inline-flex items-center space-x-4 bg-background border border-outline-variant px-6 py-3 font-label-caps text-label-caps text-primary hover:text-tertiary hover:border-tertiary transition-all clip-skewed-btn" href="#">
+<span>EXPLORE STRATEGY</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Automation (Medium) -->
+<div class="md:col-span-6 md:col-start-7 glass-panel bg-surface-container-low border-r-4 border-r-tertiary border-y border-l border-outline-variant/50 p-8 md:p-10 rounded-none group transition-all duration-300 relative overflow-hidden clip-arch-card-alt transform md:-translate-y-12 md:translate-x-8 z-20">
+<div class="flex items-start justify-between mb-8">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary w-2/3">Intelligent Automation</h2>
+<div class="bg-surface p-3 border border-outline-variant/30 transform skew-x-6">
+<span class="material-symbols-outlined text-tertiary text-3xl" style="font-variation-settings: 'FILL' 1;">precision_manufacturing</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-8 ml-4 border-l border-outline-variant/30 pl-4">
+                        Deploying autonomous agents and LLM-driven workflows to streamline operational bottlenecks. Heavy-duty reliability for mission-critical processes.
+                    </p>
+<div class="bg-surface/50 p-6 border border-outline-variant/20 clip-lozenge-3">
+<ul class="space-y-4 font-code-sm text-code-sm text-on-surface">
+<li class="flex items-center space-x-4">
+<div class="w-1.5 h-1.5 bg-tertiary transform rotate-45"></div>
+<span>Document Processing</span>
+</li>
+<li class="flex items-center space-x-4">
+<div class="w-1.5 h-1.5 bg-tertiary transform rotate-45"></div>
+<span>Predictive Maintenance</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Custom Dev (Medium) -->
+<div class="md:col-span-6 md:col-start-2 glass-panel bg-surface-container-low border-t-4 border-t-secondary border-x border-b border-outline-variant/50 p-8 md:p-10 rounded-none group transition-all duration-300 relative overflow-hidden clip-arch-card transform md:-translate-y-24 z-10">
+<div class="flex items-start justify-between mb-8">
+<div class="bg-surface p-3 border border-outline-variant/30 transform -rotate-6">
+<span class="material-symbols-outlined text-secondary text-3xl" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary text-right w-2/3">Custom Model Development</h2>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-8 mr-4 border-r border-outline-variant/30 pr-4 text-right">
+                        Fine-tuning and deploying proprietary models on your private infrastructure. Total data sovereignty and optimized inference performance.
+                    </p>
+<div class="bg-surface/50 p-6 border border-outline-variant/20 clip-lozenge-2">
+<ul class="space-y-4 font-code-sm text-code-sm text-on-surface">
+<li class="flex items-center space-x-4 justify-end">
+<span>Private LLM Deployment</span>
+<div class="w-1.5 h-1.5 bg-secondary transform rotate-45"></div>
+</li>
+<li class="flex items-center space-x-4 justify-end">
+<span>Computer Vision Systems</span>
+<div class="w-1.5 h-1.5 bg-secondary transform rotate-45"></div>
+</li>
+</ul>
+</div>
+</div>
+<!-- Advisory (Small/Info) -->
+<div class="md:col-span-8 md:col-start-4 bg-surface-container-lowest border-b-4 border-b-outline border-x border-t border-outline-variant/50 p-8 md:p-12 rounded-none relative overflow-hidden flex flex-col justify-center clip-arch-card-alt transform md:-translate-y-16 md:translate-x-4">
+<div class="absolute inset-0 bg-gradient-to-br from-transparent to-surface-container-high/30 pointer-events-none"></div>
+<div class="relative z-10 flex flex-col md:flex-row items-start md:items-end justify-between gap-8">
+<div class="max-w-md transform md:-translate-x-4">
+<div class="w-8 h-1 bg-outline mb-6"></div>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-4">Technical Advisory</h3>
+<p class="font-body-md text-body-md text-on-surface-variant pl-4 border-l-2 border-outline-variant/50">Ongoing support, security auditing, and performance tuning for deployed intelligence systems.</p>
+</div>
+<button class="bg-surface border border-outline-variant text-primary font-label-caps text-label-caps px-8 py-4 rounded-none hover:bg-surface-bright transition-colors duration-300 relative group overflow-hidden clip-skewed-btn transform md:translate-y-4">
+                             VIEW AUDIT PROTOCOLS
+                         </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Engagement Models (Metallic Inset) -->
+<section class="max-w-container-max mx-auto px-margin md:px-margin mb-40 relative">
+<div class="absolute right-0 top-0 w-64 h-px bg-outline-variant/50 transform rotate-45 origin-right"></div>
+<div class="mb-16 pb-6 flex flex-col md:flex-row items-start md:items-end justify-between border-b-2 border-outline-variant/30 relative">
+<div class="absolute bottom-0 left-0 w-1/3 h-0.5 bg-tertiary"></div>
+<h2 class="font-headline-lg text-headline-lg text-primary transform -skew-x-6">Engagement Protocols</h2>
+<div class="font-code-sm text-code-sm text-on-surface-variant hidden md:flex items-center space-x-4 transform translate-y-2">
+<span>SELECT</span>
+<span class="w-4 h-px bg-outline-variant"></span>
+<span>DEPLOY</span>
+<span class="w-4 h-px bg-outline-variant"></span>
+<span>SCALE</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 relative">
+<!-- Tier 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant/50 p-8 rounded-none relative overflow-hidden group clip-arch-card transform md:translate-y-8 transition-transform hover:-translate-y-2">
+<div class="font-code-sm text-code-sm text-tertiary mb-6 flex items-center space-x-2">
+<span class="w-2 h-2 border border-tertiary transform rotate-45"></span>
+<span>PROTOCOL // ALPHA</span>
+</div>
+<div class="pl-4 border-l border-outline-variant/30">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-4 transform -translate-x-2">Proof of Concept</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-8 min-h-[72px]">Rapid prototyping and validation of a specific AI use-case within a sandboxed environment.</p>
+</div>
+<div class="font-code-sm text-code-sm text-secondary bg-surface p-4 border border-outline-variant/30 clip-lozenge-3">DURATION: 4-6 WEEKS</div>
+</div>
+<!-- Tier 2 -->
+<div class="bg-surface-container-low border-l-2 border-l-tertiary border-y border-r border-outline-variant p-8 md:p-10 rounded-none relative overflow-hidden clip-arch-card-alt transform z-10 shadow-2xl shadow-black/50">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full"></div>
+<div class="font-code-sm text-code-sm text-primary mb-6 flex justify-between items-center">
+<div class="flex items-center space-x-2">
+<span class="w-2 h-2 bg-primary transform rotate-45"></span>
+<span>PROTOCOL // BETA</span>
+</div>
+<span class="text-tertiary flex items-center bg-tertiary/10 px-3 py-1 clip-skewed-btn"><span class="w-1.5 h-1.5 bg-tertiary rounded-none mr-2"></span>REC</span>
+</div>
+<div class="pl-4 border-l-2 border-tertiary/50">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-4 transform -translate-x-2">Enterprise Integration</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-8 min-h-[72px]">Full-scale development, integration, and deployment of custom models into production infrastructure.</p>
+</div>
+<div class="font-code-sm text-code-sm text-tertiary bg-surface p-4 border border-outline-variant/30 clip-lozenge-3">DURATION: 3-6 MONTHS</div>
+</div>
+<!-- Tier 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant/50 p-8 rounded-none relative overflow-hidden group clip-arch-card transform md:translate-y-16 transition-transform hover:translate-y-12">
+<div class="font-code-sm text-code-sm text-secondary mb-6 flex items-center space-x-2">
+<span class="w-2 h-2 border border-secondary transform rotate-45"></span>
+<span>PROTOCOL // GAMMA</span>
+</div>
+<div class="pl-4 border-l border-outline-variant/30">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-4 transform -translate-x-2">Dedicated Lab</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-8 min-h-[72px]">An embedded team of specialized data scientists and engineers acting as your proprietary AI R&amp;D wing.</p>
+</div>
+<div class="font-code-sm text-code-sm text-secondary bg-surface p-4 border border-outline-variant/30 clip-lozenge-3">DURATION: ONGOING</div>
+</div>
+</div>
+</section>
+<!-- Reference Document Section -->
+<section class="max-w-container-max mx-auto px-margin md:px-margin mb-40 relative">
+<div class="absolute -left-12 top-1/2 w-24 h-px bg-outline-variant/50"></div>
+<div class="glass-panel bg-surface-container-low border border-outline-variant/50 p-8 md:p-12 rounded-none flex flex-col md:flex-row items-center justify-between relative overflow-hidden clip-lozenge-1 transform md:rotate-1 max-w-5xl mx-auto">
+<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50"></div>
+<div class="flex items-start md:items-center space-x-8 mb-8 md:mb-0 relative z-10 w-full md:w-auto">
+<div class="p-5 bg-background border border-outline-variant/40 transform -rotate-3 shrink-0">
+<span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings: 'FILL' 1;">description</span>
+</div>
+<div class="transform md:translate-y-2">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-2">Detailed Services Matrix</h3>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-md">Review our comprehensive technical capabilities, security standards, and SLA specifications.</p>
+</div>
+</div>
+<a class="flex items-center justify-center space-x-3 bg-surface border border-outline-variant px-8 py-4 rounded-none hover:bg-surface-bright transition-colors text-primary font-label-caps text-label-caps relative z-10 clip-skewed-btn w-full md:w-auto transform md:-rotate-1 mt-6 md:mt-0" href="{{DATA:DOCUMENT:DOCUMENT_15}}">
+<span class="material-symbols-outlined text-sm">download</span>
+<span>DOWNLOAD PDF</span>
+</a>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="max-w-container-max mx-auto px-margin md:px-margin text-center py-24 border-t-2 border-outline-variant/30 relative overflow-hidden">
+<div class="absolute left-1/2 top-0 w-px h-12 bg-tertiary -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-0 w-full h-[200px] bg-primary/5 -skew-y-3 -z-10 blur-xl"></div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-xl md:text-headline-xl text-primary mb-12 relative z-10">
+                Ready to architect your<br/>
+<span class="transform inline-block translate-x-4">Intelligence Layer?</span>
+</h2>
+<button class="bg-primary text-on-primary font-label-caps text-label-caps px-10 py-5 rounded-none uppercase tracking-widest hover:scale-[0.98] transition-all duration-300 glow-hover relative overflow-hidden group clip-skewed-btn mx-auto block z-10">
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
+                INITIATE PROJECT SCOPING
+            </button>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full bg-surface border-t border-outline-variant/30 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-outline-variant/50 to-transparent"></div>
+<div class="max-w-container-max mx-auto px-margin md:px-margin py-16 flex flex-col md:flex-row justify-between items-start md:items-center gap-12 md:gap-0 relative z-10">
+<!-- Brand -->
+<div class="font-headline-xl text-headline-lg-mobile text-primary transform -skew-x-6">
+                NEURALYS
+            </div>
+<!-- Links -->
+<div class="flex flex-wrap gap-8 md:gap-12">
+<div class="flex flex-col space-y-4 border-l border-outline-variant/30 pl-4">
+<a class="font-code-sm text-code-sm text-on-surface-variant hover:text-tertiary transition-colors" href="#">PRIVACY POLICY</a>
+<a class="font-code-sm text-code-sm text-on-surface-variant hover:text-tertiary transition-colors" href="#">TERMS OF SERVICE</a>
+</div>
+<div class="flex flex-col space-y-4 border-l border-outline-variant/30 pl-4">
+<a class="font-code-sm text-code-sm text-on-surface-variant hover:text-tertiary transition-colors" href="#">SECURITY PROTOCOLS</a>
+<a class="font-code-sm text-code-sm text-on-surface-variant hover:text-tertiary transition-colors" href="#">CONTACT</a>
+</div>
+</div>
+<!-- Copyright -->
+<div class="font-code-sm text-code-sm text-on-surface-variant bg-surface-container-low p-4 border border-outline-variant/20 clip-lozenge-3 transform md:translate-y-4">
+                © 2024 NEURALYS INDUSTRIAL AI.<br/>ALL RIGHTS RESERVED.
+            </div>
+</div>
+</footer>
+</body></html>

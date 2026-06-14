@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>About Neuralys | Industrial AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "primary": "#ffffff",
+                      "background": "#131313",
+                      "inverse-primary": "#5d5f5f",
+                      "surface-container-low": "#1c1b1b",
+                      "error": "#ffb4ab",
+                      "tertiary": "#ffffff",
+                      "outline-variant": "#44474a",
+                      "on-primary": "#2f3131",
+                      "on-secondary-container": "#aeb6c1",
+                      "outline": "#8e9192",
+                      "on-secondary-fixed-variant": "#404751",
+                      "surface-container-highest": "#353534",
+                      "on-secondary": "#2a313a",
+                      "tertiary-container": "#d9e3f4",
+                      "on-background": "#e5e2e1",
+                      "inverse-surface": "#e5e2e1",
+                      "primary-fixed": "#e2e2e2",
+                      "tertiary-fixed-dim": "#bdc7d8",
+                      "surface-container-lowest": "#0e0e0e",
+                      "secondary-fixed": "#dce3ef",
+                      "on-primary-fixed-variant": "#454747",
+                      "on-tertiary": "#27313e",
+                      "inverse-on-surface": "#313030",
+                      "secondary-fixed-dim": "#c0c7d3",
+                      "on-error-container": "#ffdad6",
+                      "error-container": "#93000a",
+                      "on-surface": "#e5e2e1",
+                      "on-surface-variant": "#c4c7c8",
+                      "surface-tint": "#c6c6c7",
+                      "surface": "#131313",
+                      "on-tertiary-container": "#5b6574",
+                      "primary-fixed-dim": "#c6c6c7",
+                      "surface-container": "#201f1f",
+                      "on-tertiary-fixed-variant": "#3e4755",
+                      "primary-container": "#e2e2e2",
+                      "signal-green": "#4ade80",
+                      "on-primary-fixed": "#1a1c1c",
+                      "surface-bright": "#393939",
+                      "on-tertiary-fixed": "#121c28",
+                      "surface-container-high": "#2a2a2a",
+                      "on-error": "#690005",
+                      "surface-variant": "#353534",
+                      "tertiary-fixed": "#d9e3f4",
+                      "amber-orange": "#fbbf24",
+                      "secondary": "#c0c7d3",
+                      "on-primary-container": "#636565",
+                      "secondary-container": "#404751",
+                      "surface-dim": "#131313",
+                      "metallic-silver": "#cbd5e1",
+                      "on-secondary-fixed": "#151c25"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "20px",
+                      "unit": "8px",
+                      "container-max": "1280px",
+                      "gutter": "24px",
+                      "margin-desktop": "64px"
+              },
+              "fontFamily": {
+                      "label-caps": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-sm": [
+                              "Hanken Grotesk"
+                      ],
+                      "display-lg-mobile": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "label-code": [
+                              "JetBrains Mono"
+                      ],
+                      "headline-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "display-lg": [
+                              "Hanken Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "label-caps": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-sm": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg-mobile": [
+                              "40px",
+                              {
+                                      "lineHeight": "48px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-code": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-md": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "64px",
+                              {
+                                      "lineHeight": "72px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body { background-color: #131313; color: #e5e2e1; }
+        .glass-panel {
+            background: rgba(32, 31, 31, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid #44474a;
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 20px 2px rgba(255, 255, 255, 0.05);
+            border-color: #8e9192;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-xl border-b border-outline-variant shadow-[0_0_20px_2px_rgba(255,255,255,0.05)] flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
+<div class="font-headline-md text-headline-md font-bold tracking-tighter text-primary">NEURALYS</div>
+<nav class="hidden md:flex gap-8">
+<a class="font-label-caps text-label-caps tracking-widest text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:scale-95" href="#">SOLUTIONS</a>
+<a class="font-label-caps text-label-caps tracking-widest text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:scale-95" href="#">METHODOLOGY</a>
+<a class="font-label-caps text-label-caps tracking-widest text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:scale-95" href="#">RESOURCES</a>
+<a class="font-label-caps text-label-caps tracking-widest text-primary border-b-2 border-primary pb-1 cursor-pointer active:scale-95" href="#">ABOUT</a>
+</nav>
+<button class="hidden md:block bg-primary text-background font-label-caps text-label-caps tracking-widest px-6 py-3 rounded-DEFAULT hover:scale-[0.98] transition-transform duration-200 hover:shadow-[0_0_20px_2px_rgba(255,255,255,0.1)]">START_CONSULTATION</button>
+</header>
+<main class="flex-grow pt-32 pb-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full space-y-32">
+<!-- Hero Section -->
+<section class="grid grid-cols-1 md:grid-cols-12 gap-gutter items-center">
+<div class="md:col-span-7 space-y-6">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-signal-green animate-pulse"></span>
+<span class="font-label-code text-label-code text-signal-green uppercase">Mission &amp; Vision Protocol</span>
+</div>
+<h1 class="font-display-lg-mobile md:font-display-lg text-primary">ENGINEERING<br/><span class="text-on-surface-variant">CLARITY.</span></h1>
+<p class="font-body-lg text-on-surface-variant max-w-2xl">
+                    Our mission is to empower decision-makers across industries with highly reliable, meticulously engineered AI tools that extract actionable truth from complex data environments. We build systems that replace ambiguity with precision.
+                </p>
+<div class="pt-4 border-t border-outline-variant w-32"></div>
+<p class="font-body-md text-on-secondary-container">
+                    VISION: A future where enterprise intelligence is transparent, accountable, and flawlessly integrated into critical operations.
+                </p>
+</div>
+<div class="md:col-span-5 h-[400px] glass-panel rounded-lg relative overflow-hidden flex items-center justify-center glow-hover transition-all duration-300">
+<img alt="Technical Visualization" class="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-luminosity" data-alt="A highly complex, abstract rendering of an artificial neural network structure. The image features matte black and deep charcoal surfaces intertwined with brushed metallic silver circuitry. Subtle, localized pulses of industrial green light indicate data flow, while faint amber orange highlights mark critical junctions. The overall aesthetic is strictly technical, precise, and high-fidelity, resembling an expensive laboratory command console rather than consumer technology." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4-Y3UZK156AxRuzUPeFaNPyBLchu4YUi391fGYV9a7DZDhMVhSM59JY2PCzxSIuleJ4dRbppAtvTB3_U4XrY02VEp8-tKjIfaN6iGGU7bunD0U4nCna_n-p4xg95cr4wu9oJCgGlyQyQyNZrt0QNNgx1qqb4Tl8c0-kVo-8ughfl9yuQQNjF8kqlUYR18TenLcMnEiV2DSkLbviv4fTgB1Cm3RqCXrafXyJwCBo_p4Ao2vwVaCl0EhkWE4nePCQaxrp3dVWYo9Dg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background to-transparent"></div>
+</div>
+</section>
+<!-- Values Section -->
+<section class="space-y-12">
+<h2 class="font-headline-md text-primary flex items-center gap-4">
+<span class="material-symbols-outlined text-amber-orange" style="font-variation-settings: 'FILL' 1;">verified</span>
+                CORE AXIOMS
+            </h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="glass-panel p-8 rounded-lg space-y-4 glow-hover transition-all duration-300">
+<div class="w-12 h-12 rounded-full bg-surface-container-lowest border border-outline-variant flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</div>
+<h3 class="font-headline-sm text-primary">Truth Over Appearance</h3>
+<p class="font-body-md text-on-surface-variant">We prioritize raw accuracy and actionable data. Our interfaces are designed for brutal honesty, stripping away marketing fluff to reveal the underlying reality of the system.</p>
+</div>
+<div class="glass-panel p-8 rounded-lg space-y-4 glow-hover transition-all duration-300">
+<div class="w-12 h-12 rounded-full bg-surface-container-lowest border border-outline-variant flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">architecture</span>
+</div>
+<h3 class="font-headline-sm text-primary">Architecture Over Workaround</h3>
+<p class="font-body-md text-on-surface-variant">We build resilient foundations. Temporary fixes are liabilities in mission-critical environments. We engineer structural integrity into every deployment.</p>
+</div>
+<div class="glass-panel p-8 rounded-lg space-y-4 glow-hover transition-all duration-300">
+<div class="w-12 h-12 rounded-full bg-surface-container-lowest border border-outline-variant flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">shield_locked</span>
+</div>
+<h3 class="font-headline-sm text-primary">Security By Default</h3>
+<p class="font-body-md text-on-surface-variant">Data sovereignty is non-negotiable. Our protocols assume hostile environments, ensuring enterprise assets remain impenetrable and contained.</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 mt-24 bg-surface-container-lowest border-t border-outline-variant flex flex-col md:flex-row justify-between items-center px-margin-desktop max-w-container-max mx-auto gap-gutter">
+<div class="font-headline-sm text-headline-sm text-primary">NEURALYS</div>
+<div class="font-label-code text-label-code uppercase text-metallic-silver">
+            © 2024 NEURALYS INDUSTRIAL AI. ALL RIGHTS RESERVED.
+        </div>
+<div class="flex gap-6">
+<a class="font-label-code text-label-code uppercase text-on-secondary-container hover:text-primary transition-colors duration-200" href="#">PRIVACY_PROTOCOL</a>
+<a class="font-label-code text-label-code uppercase text-on-secondary-container hover:text-primary transition-colors duration-200" href="#">SECURITY_AUDIT</a>
+<a class="font-label-code text-label-code uppercase text-on-secondary-container hover:text-primary transition-colors duration-200" href="#">SYSTEM_STATUS</a>
+</div>
+</footer>
+</body></html>
