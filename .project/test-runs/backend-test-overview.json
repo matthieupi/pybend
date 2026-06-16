@@ -1,6 +1,6 @@
 {
-  "command": "scripts/test-backend.py --suite files -- -q",
-  "created_at": "2026-06-14T18:44:53.278790+00:00",
+  "command": "scripts/test-backend.py --suite actors -- -q packages/n3tx-actors/src/n3tx_actors/tests/test_remote_matrix.py packages/n3tx-actors/src/n3tx_actors/tests/test_remote_proxy.py",
+  "created_at": "2026-06-16T17:54:10.612923+00:00",
   "overview_file": "/workspace/.project/test-runs/backend-test-overview.json",
   "suites": [
     {
@@ -11,7 +11,7 @@
         "warnings": 0
       },
       "message": "",
-      "name": "files",
+      "name": "actors",
       "previous_status": null,
       "returncode": 1,
       "status": "failed"
