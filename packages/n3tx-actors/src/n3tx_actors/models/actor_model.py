@@ -65,6 +65,16 @@ class ActorModel(Actor, ProtoModel):
 
     _subscribers: ClassVar[list] = []
 
+    @classmethod
+    def ref(cls, address, *, matrix=None, user=None):
+        """Return an explicit handle for calling this model at a ref address.
+
+        This keeps model construction (`Artifact(...)`) distinct from remote or
+        distributed identity handles (`Artifact.ref('n3tx://...')`).
+        """
+        from n3tx_actors.remote_proxy import RemoteRef
+        return RemoteRef(address, model_cls=cls, matrix=matrix, user=user)
+
     # ── Handler override ──
 
     @fullmethod
