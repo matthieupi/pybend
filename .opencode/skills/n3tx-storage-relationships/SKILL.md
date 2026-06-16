@@ -1,6 +1,6 @@
 ---
 name: n3tx-storage-relationships
-description: N3TX storage, StorableMixin, SQLite JSON fields, pagination, ListRef parent-child relationships, ManyToMany shared relationships, nested routes, and ownership fields. Use when designing or debugging persistence and relationships.
+description: N3TX storage, StorableMixin, SQLite JSON fields, Ref/list[Ref] distributed pointers, pagination, ListRef parent-child relationships, ManyToMany shared relationships, nested routes, and ownership fields. Use when designing or debugging persistence and relationships.
 argument-hint: "<storage or relationship task>"
 ---
 
@@ -21,7 +21,8 @@ CRUD methods are provided by `StorableMixin`: `create`, `get`, `list`, `update`,
 
 ## JSON fields
 
-`dict`, `list`, and typed list fields are stored as JSON TEXT in SQLite and deserialized on read.
+`dict`, `list`, typed list fields, and `list[Ref[T]]` pointer arrays are stored
+as JSON TEXT in SQLite and deserialized on read.
 Use the dedicated `n3tx-json-fields` skill and `docs/JSON_FIELDS.md` when
 designing, debugging, or changing embedded JSON field behavior.
 
@@ -51,9 +52,15 @@ Use the relationship primitive that matches ownership and lifecycle:
 |---|---|---|
 | Parent owns or scopes child records | `ListRef[T]` | Nested routes, FK/join model hydration, parent-scoped identity |
 | Shared collection between two entities | `ManyToMany[T]` | Generated link model/table from the field declaration |
+| Local or distributed identity pointer | `Ref[T]` | Local id or canonical `n3tx://service/Class/id` ref |
+| Local/distributed pointer array | `list[Ref[T]]` | JSON TEXT array, optional best-effort populate |
 
 Do not use a plain JSON list for records that need independent identity, auth,
 routes, or lifecycle.
+
+`ListRef[T]` remains local-owned relationship semantics only. Do not overload it
+for remote/distributed pointers; use `list[Ref[T]]` when the parent stores
+identity addresses such as `n3tx://storage/File/12`.
 
 ## Parent-child relationships with ListRef
 
@@ -112,6 +119,26 @@ class Comment(ActorModel):
     parent_id: Ref['self'] | None = None
 ```
 
+## Distributed ref storage
+
+Single `Ref[T]` fields preserve local behavior while accepting distributed refs:
+
+```text
+local id / /File/12 / current API URL -> local id / local href response
+configured remote HTTP URL            -> n3tx://service/Class/id
+n3tx://service/Class/id               -> preserved canonical ref
+```
+
+Remote dereference is opt-in through storage injection:
+
+```python
+SQLiteStorage(reference_resolver=None)                       # local-only
+SQLiteStorage(reference_resolver=MatrixReferenceResolver(m))  # remote populate
+```
+
+Keep the boundary clean: core storage accepts an injected resolver; it must not
+import actors directly.
+
 ## Ownership fields
 
 For OWNER auth:
@@ -129,6 +156,7 @@ Protected fields are backend-owned: injected on create and hidden/stripped in ed
 
 - Do not query or mutate SQLite directly from app features.
 - Do not store relationships as duplicated arbitrary arrays if `ListRef` or `ManyToMany` represents the domain relationship.
+- Do not confuse `ListRef[T]` local ownership with `list[Ref[T]]` pointer arrays.
 - Do not confuse embedded JSON arrays with relationship fields: JSON fields have
   no child `$id`, href hydration, owner/auth boundary, lifecycle events, or
   independent update route.
@@ -141,6 +169,8 @@ Protected fields are backend-owned: injected on create and hidden/stripped in ed
 - CRUD works for parent and child.
 - Relationship fields appear in schema and responses as href arrays.
 - `ManyToMany` fields generate deterministic link models/tables during app bootstrap.
+- `Ref[T]` and `list[Ref[T]]` remote inputs canonicalize to `n3tx://...`.
+- Remote populate failures do not break parent reads; they report per-ref errors where supported.
 - Nested routes resolve correctly.
 - Pagination metadata is correct when `limit` is used.
 

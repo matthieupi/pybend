@@ -1,6 +1,6 @@
 ---
 name: n3tx-authorization
-description: N3TX authorization and authentication with BaseUser, JWT, ABAC access rules, OWNER, ROLE, Where, field protection, and frontend access adaptation. Use when working on auth/access behavior.
+description: N3TX authorization and authentication with BaseUser, JWT, service-token remote refs, ABAC access rules, OWNER, ROLE, Where, field protection, and frontend access adaptation. Use when working on auth/access behavior.
 argument-hint: "<auth or access task>"
 ---
 
@@ -79,12 +79,29 @@ Matrix -> ActorModel.handler_crud
    -> resource-aware OWNER check
 ```
 
+## Service-to-service auth for distributed refs
+
+`RemoteMatrix` sends trusted backend identity and optional user continuity:
+
+```text
+Authorization: Bearer <remote-or-service-token>
+X-N3TX-Service: <local-service-name>
+X-N3TX-User: <json-user-context>  # optional
+```
+
+The receiving backend accepts the request only when the bearer token matches its
+configured `SERVICE_TOKEN`. If `X-N3TX-User` is present, it must be a JSON object
+and becomes `request.state.user`, so generated routes and ActorModel ABAC remain
+the authoritative authorization path. Service auth establishes backend trust; it
+does not replace model `__access__` or method `access=` rules.
+
 ## Guardrails
 
 - Do not rely on UI-only auth.
 - Do not duplicate access logic in frontend code as source of truth.
 - Do not bypass `__access__` with custom routes.
 - Do not trust request body for protected ownership fields.
+- Do not treat service tokens as user permissions; forward user context and let ABAC evaluate it.
 
 ## Verification
 
@@ -92,6 +109,7 @@ Matrix -> ActorModel.handler_crud
 - OWNER succeeds for owned records and fails for others.
 - Admin/role rules behave as expected.
 - Schema `access` section reflects rules for frontend adaptation.
+- Service-token remote calls reject invalid tokens and preserve forwarded user context.
 
 ## Source-reading policy
 

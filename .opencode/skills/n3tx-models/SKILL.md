@@ -1,6 +1,6 @@
 ---
 name: n3tx-models
-description: N3TX model definitions with ProtoModel, ActorModel, BaseUser, schema, JSON dict/list fields, ListRef, ManyToMany, File fields, UI metadata, validation, and app data contracts. Use when defining or changing N3TX models.
+description: N3TX model definitions with ProtoModel, ActorModel, BaseUser, schema, Ref/list[Ref] distributed pointers, JSON dict/list fields, ListRef, ManyToMany, File fields, UI metadata, validation, and app data contracts. Use when defining or changing N3TX models.
 argument-hint: "<model or data contract>"
 ---
 
@@ -86,6 +86,8 @@ class User(BaseUser):
 
 - Use `ListRef[T]` for parent-scoped child collections such as product comments.
 - Use `ManyToMany[T]` for shared independent entities such as product tags.
+- Use `Ref[T]` for a single local or distributed identity pointer.
+- Use `list[Ref[T]]` for JSON-backed local/distributed pointer arrays.
 - Do not use `list[T]` or JSON arrays for relationships that need identity,
   nested routes, auth, or lifecycle.
 
@@ -98,6 +100,29 @@ class Product(ActorModel):
 
 `create_app()` / `N3TXApp` discover `ManyToMany` fields and generate link models
 during bootstrap.
+
+## Distributed refs
+
+`Ref[T]` means “a pointer to a T actor/model identity Matrix can resolve,” not
+necessarily an integer FK in this database.
+
+```python
+from n3tx_core.models.ref import Ref, ListRef
+
+class Job(ActorModel):
+    __tablename__ = 'jobs'
+    __storable__ = True
+
+    owner: Ref[User] | None = None       # local or remote identity pointer
+    files: list[Ref[File]] = []          # JSON-backed pointer array
+    comments: ListRef[Comment] = []      # local owned relationship only
+```
+
+Accepted ref inputs include local ids, local class-name paths (`/File/12`),
+current-service API URLs, configured remote HTTP URLs, and canonical distributed
+refs (`n3tx://storage/File/12`). Configured remote HTTP refs canonicalize to
+`n3tx://service/Class/id`; arbitrary HTTP(S) URLs remain external links, not
+Matrix refs.
 
 ## JSON fields
 
@@ -122,6 +147,7 @@ config: dict | None = None
 tags: list[str] = Field(default=[])
 scores: list[int] = Field(default=[])
 payloads: list = Field(default=[])
+files: list[Ref[File]] = Field(default=[])  # local/distributed pointer array
 ```
 
 Not JSON fields:
@@ -178,6 +204,7 @@ parameters.
 - Do not put frontend-only duplicate contracts in JS; put them in schema via fields/`__ui__`.
 - Do not implement storage manually for storable models.
 - Do not turn `ListRef[T]`, `ManyToMany[T]`, or model collections into JSON storage accidentally.
+- Do not use `ListRef[T]` for remote pointers; use `list[Ref[T]]`.
 - Do not query or mutate SQLite JSON text directly from app feature code.
 - Remember JSON-field updates replace the whole field; there is no deep merge.
 - Remember `json.dumps(..., default=str)` is lossy for non-JSON-native values.
@@ -191,6 +218,7 @@ parameters.
 - Check create/read/update/delete work through generated routes.
 - Check `model_response()`-backed responses include `$schema` and `$id`.
 - For JSON field changes, run or mirror `test_json_fields.py` and `test_introspection.py` coverage.
+- For distributed refs, verify canonical storage/response refs and populate behavior.
 
 ## Source-reading policy
 

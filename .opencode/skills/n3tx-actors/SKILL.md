@@ -1,6 +1,6 @@
 ---
 name: n3tx-actors
-description: N3TX actors, ActorModel, TX messages, Matrix routing, reusable compute capabilities, lifecycle events, and actor-oriented app design. Use when building actor-backed capabilities.
+description: N3TX actors, ActorModel, TX messages, Matrix routing, RemoteMatrix distributed refs, reusable compute capabilities, lifecycle events, and actor-oriented app design. Use when building actor-backed capabilities.
 argument-hint: "<actor capability>"
 ---
 
@@ -54,7 +54,32 @@ For storable `ActorModel`, CRUD TX names include `schema`, `create`, `get`, `lis
 | `ActorModel` non-storable | Tool/service capability with schema-discoverable methods |
 | Plain `Actor` | Low-level actor without model/schema/storage needs |
 | `ActorProxy` | Wrap third-party object as actor |
+| `RemoteRef` | Explicit async handle for a remote `n3tx://...` model identity |
 | `NetworkAdapter` | Protocol bridge or external network boundary |
+
+## Distributed actor refs
+
+Canonical distributed refs use class-name identity:
+
+```text
+n3tx://<service>/<ClassName>/<id>
+```
+
+`RemoteMatrix` routes those refs through existing remote class-name REST routes:
+
+```text
+TX(name='get', target='n3tx://storage/File/12')     -> GET  /File/12
+TX(name='process', target='n3tx://storage/File/12') -> POST /File/12/process
+```
+
+For explicit Python calls, use `ActorModel.ref()` rather than hidden network IO
+in normal field access:
+
+```python
+artifact = Artifact.ref('n3tx://storage/Artifact/42', matrix=matrix)
+data = await artifact.get()
+result = await artifact.call('process', mode='fast')
+```
 
 ## Lifecycle events
 
@@ -64,6 +89,7 @@ For storable `ActorModel`, CRUD TX names include `schema`, `create`, `get`, `lis
 
 - Put reusable compute in actors, not hidden helpers.
 - Do not route internal work through plain HTTP.
+- Do not hide remote network IO behind ordinary model field access; use populate or `RemoteRef`.
 - Do not bypass `ActorModel` CRUD when actor routing is the app architecture.
 - Do not make the actor system depend on UI/HTML concerns.
 
@@ -73,6 +99,7 @@ For storable `ActorModel`, CRUD TX names include `schema`, `create`, `get`, `lis
 - TX reaches the correct handler.
 - Errors return error TXs.
 - Exposed methods appear in schema and can be discovered as tools.
+- Remote refs route through Matrix adapter fallback and return TX replies/errors.
 
 ## Source-reading policy
 

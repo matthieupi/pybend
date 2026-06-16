@@ -1,6 +1,6 @@
 ---
 name: n3tx-backend
-description: N3TX backend index/workflow: models, storage, auth, methods, actors, agents, files, app bootstrap, external integrations, and backend verification. Use when backend scope is broad or unclear; delegate focused tasks to specialist N3TX skills.
+description: N3TX backend index/workflow: models, storage, distributed refs, auth, methods, actors, agents, files, app bootstrap, external integrations, and backend verification. Use when backend scope is broad or unclear; delegate focused tasks to specialist N3TX skills.
 argument-hint: "<backend feature>"
 ---
 
@@ -29,7 +29,7 @@ The backend is authoritative. It owns schema, validation, access control, routes
 from n3tx_core.app import create_app, N3TXApp
 from n3tx_core.models.proto_model import ProtoModel, generate_join_model
 from n3tx_core.models.base_user import BaseUser
-from n3tx_core.models.ref import ListRef
+from n3tx_core.models.ref import Ref, ListRef
 from n3tx_core.models.relationships import ManyToMany
 from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE, Where
 from n3tx_core.utils.decorators import expose_route
@@ -45,6 +45,7 @@ Use `ActorModel` when the model should participate in TX routing, agents, MCP, W
 |---|---|
 | Model fields/schema/validation | `n3tx-models` |
 | Relationships/pagination/ownership | `n3tx-storage-relationships` |
+| Distributed `Ref[T]`, `list[Ref[T]]`, remote populate | `n3tx-storage-relationships` + `n3tx-networking` |
 | Dict/list JSON storage | `n3tx-json-fields` |
 | File uploads/downloads/blob providers/materialization | `n3tx-files` |
 | Auth/access/JWT/protected fields | `n3tx-authorization` |
@@ -95,6 +96,26 @@ class Product(ActorModel):
 membership and is discovered by `create_app()` / `N3TXApp`, which generates the
 link model/table during bootstrap.
 
+## Distributed refs
+
+Use `Ref[T]` for a single local/distributed model identity and `list[Ref[T]]` for
+JSON-backed pointer arrays. Keep `ListRef[T]` for local owned relationships.
+
+```python
+class Job(ActorModel):
+    __tablename__ = 'jobs'
+    __storable__ = True
+
+    owner: Ref[User] | None = None
+    files: list[Ref[File]] = []
+    comments: ListRef[Comment] = []
+```
+
+Configured remote HTTP refs canonicalize to `n3tx://service/Class/id`. Actor
+routing with `remotes={...}` registers `RemoteMatrix` and injects a
+`MatrixReferenceResolver` so populate can best-effort resolve remote refs without
+making `n3tx-core` import actors.
+
 ## Files
 
 For detailed file behavior, load `n3tx-files`. This backend index only names the
@@ -127,6 +148,7 @@ not materialized.
 - Do not store file bytes in SQLite; files are metadata plus `FileStore` bytes.
 - Do not duplicate auth decisions outside `__access__`/`access=`.
 - Do not call internal N3TX HTTP endpoints from backend code; use TX/Matrix or direct model methods at the correct boundary.
+- Do not build ad hoc remote fetches for N3TX refs; use canonical `Ref[T]`, Matrix, and `RemoteMatrix`.
 - Do not place reusable compute in unaddressable helper functions.
 
 ## Backend verification
@@ -136,6 +158,7 @@ not materialized.
 - Check auth: unauthorized requests fail, authorized requests pass.
 - Check response identity: `$schema` and `$id` are present.
 - Check actor routing if `routing='actor'` is used.
+- Check distributed refs canonicalize and remote populate remains best-effort.
 - Check `ManyToMany` link models/routes when using shared relationships.
 - Check file upload/download/range behavior and File-typed method materialization when using `n3tx-files`.
 

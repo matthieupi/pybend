@@ -15,6 +15,7 @@ This skill protects the architecture from entropy. N3TX works because a small se
 | Data contract | `ProtoModel`/`ActorModel` fields and schema | Hand-maintained frontend/backend duplicates |
 | Persistence | `__storable__`, model CRUD, storage backend | Direct SQL in app feature code |
 | Relationships | `ListRef[T]` or `ManyToMany[T]` | JSON arrays or hand-maintained link tables |
+| Distributed refs | `Ref[T]`, `list[Ref[T]]`, Matrix, `RemoteMatrix` | Ad hoc URL fields/fetches or remote `ListRef` |
 | Files | `n3tx-files` `File` metadata + `FileStore` bytes | Blobs in SQLite or static upload folders |
 | API actions | `@expose_route` | Custom FastAPI routes for normal app behavior |
 | Internal networking | TX -> Matrix -> Actor/Adapter | Backend-to-backend plain HTTP calls |
@@ -50,6 +51,23 @@ Dedicated ActorModel / Actor / NetworkAdapter
    reused by
 UI, agents, workflows, MCP, other actors
 ```
+
+## Distributed ref boundary rule
+
+Distributed N3TX refs are still model/actor contracts:
+
+```text
+Model field (`Ref[T]` / `list[Ref[T]]`)
+  -> canonical `n3tx://service/Class/id`
+  -> Matrix adapter fallback
+  -> RemoteMatrix class-name REST call
+  -> normal remote generated routes + ABAC
+```
+
+Keep package boundaries acyclic: core may store/canonicalize refs and accept an
+injected `reference_resolver`; core must not import actors. Actor/app bootstrap
+wires `RemoteMatrix` and `MatrixReferenceResolver` when remote resolution is
+enabled.
 
 ## Escalation
 

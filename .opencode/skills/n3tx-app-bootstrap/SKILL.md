@@ -1,6 +1,6 @@
 ---
 name: n3tx-app-bootstrap
-description: N3TX application bootstrap with create_app, N3TXApp, routing levels, package imports, static files, storage, ManyToMany relationship generation, n3tx-files, and model registration. Use when creating or wiring an N3TX app entrypoint.
+description: N3TX application bootstrap with create_app, N3TXApp, routing levels, distributed remotes, package imports, static files, storage, ManyToMany relationship generation, n3tx-files, and model registration. Use when creating or wiring an N3TX app entrypoint.
 argument-hint: "<app bootstrap task>"
 ---
 
@@ -39,6 +39,34 @@ app = create_app(
 ```
 
 Use Level 3 when actor/network/agent integration matters. HTTP requests become TX messages routed through `NetworkAPI -> Matrix -> ActorModel`.
+
+## Distributed remotes
+
+Distributed refs use deployment config by default:
+
+```text
+N3TX_SERVICE_NAME=api
+N3TX_SERVICE_TOKEN=...
+N3TX_REMOTES={"storage":{"url":"http://storage:7100","token":"..."}}
+```
+
+Apps can override config during bootstrap:
+
+```python
+app = create_app(
+    models=[Job],
+    storage='sqlite:///app.db',
+    routing='actor',
+    remotes={'storage': {'url': 'http://storage:7100', 'token': '...'}},
+    service_name='api',
+    service_token='...',
+)
+```
+
+With `routing='actor'` and configured `remotes`, bootstrap registers
+`RemoteMatrix` and injects `MatrixReferenceResolver` into compatible storage
+backends. Direct routing can store/canonicalize distributed refs, but remote
+method calls and remote populate require actor routing/resolver wiring.
 
 ## Builder style
 
@@ -103,6 +131,7 @@ The browser sees one URL namespace.
 - Do not hand-register duplicate routes for normal model CRUD/actions.
 - Do not bypass `create_app()`/`N3TXApp` unless you need raw primitives.
 - Keep actor-routed apps on `ActorModel` for addressable capabilities.
+- Use actor routing when distributed refs must remote-populate or call methods.
 - Keep package import order explicit for UI/agent mixins.
 - Keep file byte storage behind `FileStore`; do not mount user uploads as static assets.
 
@@ -113,6 +142,7 @@ The browser sees one URL namespace.
 - `GET /{tablename}` returns data or auth-gated response.
 - Static shell loads frontend assets.
 - In actor routing, generated HTTP behavior matches direct routes.
+- With remotes configured, `RemoteMatrix` is registered and storage has a reference resolver.
 - `ManyToMany` link models/tables are present when declared.
 - File upload/download routes work when `File` is registered.
 

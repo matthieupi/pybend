@@ -1,6 +1,6 @@
 ---
 name: n3tx-networking
-description: N3TX networking through TX, Matrix, NetworkAPI, WebSocket, MCP, ActivityPub, adapters, and protocol boundaries. Use when designing internal/external network flows.
+description: N3TX networking through TX, Matrix, NetworkAPI, RemoteMatrix distributed refs, WebSocket, MCP, ActivityPub, adapters, and protocol boundaries. Use when designing internal/external network flows.
 argument-hint: "<networking task>"
 ---
 
@@ -30,10 +30,33 @@ No protocol is special. Adapters translate protocols to the actor system.
 | `NetworkWebSocket` | WebSocket | frontend Matrix bridge |
 | `NetworkMCP` | MCP JSON-RPC 2.0 | AI/tool clients |
 | `NetworkAP` | ActivityPub | federation |
+| `RemoteMatrix` | REST class-name routes | Distributed `n3tx://service/Class/id` refs |
 
 ## Internal networking rule
 
 Do not make internal backend components call each other through plain HTTP. Use direct model/actor calls at local boundaries or TX/Matrix when crossing actor boundaries.
+
+Distributed backend-to-backend refs are the exception that proves the boundary:
+code still sends TX to Matrix, and `RemoteMatrix` is the network adapter that
+translates canonical `n3tx://service/Class/id` targets into remote REST calls.
+
+```text
+TX(name='get', target='n3tx://storage/File/12')
+  -> Matrix adapter fallback
+  -> RemoteMatrix
+  -> GET http://storage:7100/File/12
+```
+
+Remote requests carry:
+
+```text
+Authorization: Bearer <remote-or-service-token>
+X-N3TX-Service: <local-service-name>
+X-N3TX-User: <json-user-context>  # optional
+```
+
+Remote response `$id` values pointing at the configured remote URL are
+canonicalized back to `n3tx://service/Class/id` before returning to callers.
 
 ## External networking rule
 
@@ -67,6 +90,7 @@ class WebTools(ActorModel):
 - Do not scatter external clients across app code.
 - Do not use raw frontend `fetch()` for N3TX entity behavior.
 - Do not create one-off internal HTTP bridges where TX/Matrix is the intended abstraction.
+- Do not bypass `RemoteMatrix` for distributed N3TX refs.
 - Do not bypass auth interceptors/ActorModel auth by custom transport paths.
 
 ## Verification
@@ -75,6 +99,7 @@ class WebTools(ActorModel):
 - Method appears in schema if it is a tool capability.
 - Agent/MCP/UI can reuse the same capability.
 - Auth and errors propagate through TX responses.
+- RemoteMatrix maps get/method TXs to class-name REST routes and preserves canonical refs.
 
 ## Source-reading policy
 
