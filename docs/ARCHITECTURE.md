@@ -218,7 +218,9 @@ class AbstractStorage(ABC):
 #### SQLiteStorage
 - Automatic schema migration
 - Foreign key handling
-- JSON serialization for complex types
+- JSON TEXT serialization for embedded `dict` and non-relationship `list`
+  fields; `ListRef[T]` and `List[BaseModel]` stay relationship fields, not JSON
+  columns. See [JSON Fields](JSON_FIELDS.md).
 
 #### JSONStorage
 - File-based storage

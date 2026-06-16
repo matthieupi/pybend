@@ -175,6 +175,31 @@ When `limit` is provided, `list()` returns
 `{"data": [...], "meta": {"total", "limit", "offset", "has_more"}}`.
 Without `limit`, returns a plain list (backward compatible).
 
+### JSON Fields
+
+Storable models may use embedded JSON fields for data owned entirely by the
+parent row:
+
+```python
+class AgentConfig(ProtoModel):
+    __tablename__ = 'agent_configs'
+    __storable__ = True
+
+    tools: list[str] = Field(default=[])
+    constraints: dict = Field(default={})
+```
+
+`dict`, `Dict[...]`, `list`, and primitive typed list fields are stored as
+SQLite `TEXT` columns using JSON serialization. They are deserialized before
+Pydantic model construction on reads. `ListRef[T]`, many-to-many fields, and
+`List[BaseModel]` remain relationship fields and must not be treated as JSON
+storage.
+
+Use JSON fields for metadata, settings, agent constraints, primitive tags, and
+external payload fragments. Use real models/relationships when nested data needs
+identity, auth, routes, pagination, lifecycle events, or independent updates.
+See [JSON Fields](JSON_FIELDS.md) for implementation details and tradeoffs.
+
 ---
 
 ## BaseUser

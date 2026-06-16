@@ -95,6 +95,7 @@ class Product(ProtoModel):
 | HTML/view entrypoints | `__ui__` / `ViewableMixin` | `GET /{ClassName}/@...` returns frontend shell HTML |
 | JSON Schema | Field types, validators, extras | `ProtoModel.schema()` via Pydantic |
 | DB table + auto-migration | `__storable__`, annotations | `StorableMixin` + `sqlite_migration.py` |
+| JSON TEXT fields | `dict`, `Dict[...]`, `list`, primitive `List[...]` | `sqlite_storage.py` serializes/deserializes with `json.dumps`/`json.loads`; see [JSON Fields](JSON_FIELDS.md) |
 | FK hydration (href arrays) | `ListRef[T]`, `__fk_models__` | `sqlite_storage.py` on read |
 | Backend access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth middleware |
 | Frontend access rules | `__access__` | `authorize/schema.py` serializes to JSON |
@@ -110,6 +111,7 @@ class Product(ProtoModel):
 | Route view renderers | `__ui__.renderer` | `#Model/@view` and `/Model/@view` resolve semantic views to component tags |
 | File metadata + byte storage | Optional `n3tx_files.File` model + `FileStore` | Metadata in N3TX storage, bytes in provider-backed store |
 | File-typed method args | `param: File` annotation | `n3tx_files` materializer resolves `/File/{id}` or `n3tx://files/{id}` |
+| Auto-generated docs | Model + schema | `generate_docs.py` on startup |
 
 If a model omits `__access__`, schema generation exposes a wildcard fallback
 (`access['*']`) that requires authentication for all actions. The Product
@@ -117,7 +119,12 @@ example above shows an explicit ownership policy as an illustrative model-level
 contract; the shipped `examples/core` Product currently uses the authenticated
 wildcard fallback, while Comment declares owner/admin rules and protected
 `user_owner` ownership metadata.
-| Auto-generated docs | Model + schema | `generate_docs.py` on startup |
+
+Embedded `dict` and non-relationship `list` fields are persisted as JSON TEXT
+columns. Use them for configuration, metadata, primitive arrays, and external
+payload fragments. Do not use JSON arrays to duplicate domain relationships that
+should be represented with `ListRef[T]`, ownership, routes, and href hydration.
+See [JSON Fields](JSON_FIELDS.md) for the full contract and tradeoffs.
 
 ### Optional File Capability
 

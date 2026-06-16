@@ -97,6 +97,8 @@ When `limit` is provided, `list()` returns a dict instead of a list:
 ### JSON Field Handling
 
 `dict` and `list` fields are transparently serialized to JSON TEXT columns. No model-level boilerplate needed.
+For the complete developer and agent guide, including tradeoffs and change
+checklists, see `/workspace/docs/JSON_FIELDS.md`.
 
 ```python
 class Config(ProtoModel):
@@ -108,10 +110,16 @@ class Config(ProtoModel):
     comments: ListRef[Comment] = Field(default=[])  # FK join table (NOT JSON)
 ```
 
-Detection: `get_json_fields(model_class)` in `introspection.py` returns fields for JSON treatment. It matches `dict`, `Dict[str, Any]`, `list`, `List[str]`, `List[int]` but excludes `ListRef[T]` and `List[BaseModel]`.
+Detection: `get_json_fields(model_class)` in `introspection.py` returns fields for JSON treatment. It matches `dict`, `Dict[str, Any]`, `list`, `List[str]`, `List[int]` but excludes `ListRef[T]`, many-to-many fields, and `List[BaseModel]`.
 
 Write path: `_coerce_value()` calls `json.dumps(v, default=str)` for dict/list values.
 Read path: `_deserialize_json_fields()` calls `json.loads()` on string values before model instantiation.
+
+Use JSON fields for metadata, settings, primitive arrays, and external payload
+fragments that do not need independent identity. If nested data needs routes,
+ownership, authorization, pagination, lifecycle events, or row-level updates,
+model it as a resource and connect it with `ListRef[T]` or another relationship
+primitive instead.
 
 The read path also normalizes legacy empty-string values before Pydantic
 validation. If a bool field contains `''` or the literal string `"''"` from an

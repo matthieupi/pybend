@@ -246,7 +246,19 @@ class Comment(ProtoModel):
 `Ref['self']` emits `{"type": "selfref"}` in JSON Schema. Stored as nullable `INTEGER` column.
 
 ### JSON Fields (dict/list in SQLite)
-The storage layer transparently handles `dict` and `list` fields as JSON TEXT columns. See `packages/n3tx-core/docs/storage.md` for the full mechanism.
+The storage layer transparently handles `dict`, `Dict[...]`, `list`, and
+primitive typed list fields as JSON TEXT columns. Write paths serialize with
+`json.dumps(value, default=str)`; read paths deserialize with `json.loads()`
+before Pydantic model construction.
+
+Use JSON fields for parent-owned embedded data such as metadata, settings,
+agent constraints, primitive tags, and external payload fragments. Do **not**
+use them for domain relationships: `ListRef[T]`, many-to-many fields, and
+`List[BaseModel]` are relationship boundaries backed by child tables/join
+tables, href hydration, routes, and auth.
+
+Full guide: `docs/JSON_FIELDS.md`. Package mechanism reference:
+`packages/n3tx-core/docs/storage.md`.
 
 ### Dump Pipeline
 ```python
