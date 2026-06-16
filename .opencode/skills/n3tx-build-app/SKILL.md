@@ -1,6 +1,6 @@
 ---
 name: n3tx-build-app
-description: Build complete N3TX applications and features. Use when creating an app, adding an end-to-end feature, choosing routing level, defining models, wiring UI, agents, storage, auth, and verification.
+description: Build complete N3TX applications and features. Use when creating an app, adding an end-to-end feature, choosing routing level, defining models, wiring UI, agents, storage, auth, ManyToMany relationships, files, and verification.
 argument-hint: "<app or feature to build>"
 ---
 
@@ -14,7 +14,7 @@ Use this skill for end-to-end application development on top of N3TX.
 1. Identify domain models and capabilities
 2. Define backend models as source of truth
 3. Choose routing level
-4. Add relationships, auth, methods, and UI hints
+4. Add relationships, files, auth, methods, and UI hints
 5. Wrap reusable/external compute in actors/adapters
 6. Bootstrap app with create_app() or N3TXApp
 7. Seed data if useful
@@ -62,6 +62,7 @@ Import capability packages **before** defining models that depend on their mixin
 ```python
 import n3tx_ui      # registers ViewableMixin for __ui__
 import n3tx_agents  # registers AgentMixin for __agent__
+import n3tx_files   # registers File typed-argument materialization, when used
 
 from n3tx_core.app import create_app
 from n3tx_actors.models.actor_model import ActorModel
@@ -78,7 +79,9 @@ app = create_app(models=[User, Product], storage='sqlite:///app.db', routing='ac
 - `__storable__ = True` only for persisted entities.
 - `__access__` declares backend authorization.
 - `__ui__` carries field order, groups, icons, renderers, and method UI hints.
-- Relationships use `ListRef[T]` and generated join models.
+- Parent/child relationships use `ListRef[T]`.
+- Shared relationships use `ManyToMany[T]` and are discovered during app bootstrap.
+- File workflows use `n3tx-files`: `File` metadata plus `FileStore` bytes.
 - Custom actions use `@expose_route`.
 - Reusable services are actors/tool actors.
 - External IO is wrapped in a dedicated actor or adapter.
@@ -95,6 +98,8 @@ PUT  /{tablename}/{id}      -> update
 DELETE /{tablename}/{id}    -> delete
 POST /{tablename}/{id}/{method} -> @expose_route method
 GET  /{ClassName}/@...      -> UI shell/view route
+POST /files/upload          -> multipart upload when n3tx-files File is registered
+GET  /File/{id}/download    -> binary download mirror when n3tx-files is registered
 ```
 
 Responses should include:

@@ -61,7 +61,9 @@ Prefer docs, skills, public API, and generated schemas. **Inspect framework sour
 | Data entity | `ProtoModel` or `ActorModel` | Model remains single source of truth |
 | Persistence | `__storable__ = True` | Storage and migration derive from schema |
 | Auth | `__access__` / `access=` | Backend authoritative, frontend adapts |
-| Relationship | `ListRef[T]` + join model registration | Relationship appears in schema and routes |
+| Parent-child relationship | `ListRef[T]` | Parent-scoped relationship appears in schema and nested routes |
+| Shared relationship | `ManyToMany[T]` | Field-declared association generates link model/table during bootstrap |
+| Files | `n3tx-files` `File` + `FileStore` | Metadata stays in N3TX; bytes stay in a provider |
 | Custom action | `@expose_route` method | Same method becomes API, UI action, agent tool |
 | Reusable compute | Actor / non-storable `ActorModel` | Addressable and reusable through Matrix |
 | External API | Dedicated actor or `NetworkAdapter` | Keeps IO inspectable and reusable |
@@ -72,6 +74,8 @@ Prefer docs, skills, public API, and generated schemas. **Inspect framework sour
 
 - Custom FastAPI routes for app behavior that should be `@expose_route`.
 - Direct database access from application features instead of model CRUD/storage.
+- Treating relationship fields (`ListRef[T]`, `ManyToMany[T]`) as arbitrary JSON arrays.
+- Storing file bytes in SQLite or serving dynamic user uploads through static assets.
 - Internal plain HTTP calls between N3TX components.
 - Frontend `fetch()` for N3TX entities/actions when runtime transport/entity methods apply.
 - Duplicating backend schema, access rules, or field metadata in frontend code.

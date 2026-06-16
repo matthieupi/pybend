@@ -1,6 +1,6 @@
 ---
 name: n3tx-storage-relationships
-description: N3TX storage, StorableMixin, SQLite JSON fields, pagination, ListRef relationships, join models, nested routes, and ownership fields. Use for persistence and relationship design.
+description: N3TX storage, StorableMixin, SQLite JSON fields, pagination, ListRef parent-child relationships, ManyToMany shared relationships, nested routes, and ownership fields. Use for persistence and relationship design.
 argument-hint: "<storage or relationship task>"
 ---
 
@@ -22,6 +22,8 @@ CRUD methods are provided by `StorableMixin`: `create`, `get`, `list`, `update`,
 ## JSON fields
 
 `dict`, `list`, and typed list fields are stored as JSON TEXT in SQLite and deserialized on read.
+Use the dedicated `n3tx-json-fields` skill and `docs/JSON_FIELDS.md` when
+designing, debugging, or changing embedded JSON field behavior.
 
 ```python
 class AgentConfig(ActorModel):
@@ -41,7 +43,19 @@ When `limit` is provided, list returns:
 
 Without `limit`, list returns a plain list for compatibility.
 
-## Parent-child relationships
+## Relationship primitives
+
+Use the relationship primitive that matches ownership and lifecycle:
+
+| Domain shape | Field type | Generated behavior |
+|---|---|---|
+| Parent owns or scopes child records | `ListRef[T]` | Nested routes, FK/join model hydration, parent-scoped identity |
+| Shared collection between two entities | `ManyToMany[T]` | Generated link model/table from the field declaration |
+
+Do not use a plain JSON list for records that need independent identity, auth,
+routes, or lifecycle.
+
+## Parent-child relationships with ListRef
 
 Use `ListRef[T]` on the parent:
 
@@ -60,6 +74,32 @@ N3TX generates a join model such as `ProductComment` with FK columns. Public nes
 Legacy:    /products/1/comments/2
 Canonical: /Product/1/Comment/2
 ```
+
+## Shared many-to-many relationships
+
+Use `ManyToMany[T]` when both sides are independent entities and the field
+represents membership/association rather than parent ownership:
+
+```python
+from pydantic import Field
+from n3tx_core.models.relationships import ManyToMany
+
+
+class Tag(ActorModel):
+    __tablename__ = 'tags'
+    __storable__ = True
+    name: str
+
+
+class Product(ActorModel):
+    __tablename__ = 'products'
+    __storable__ = True
+    tags: ManyToMany[Tag] = Field(default=[])
+```
+
+`create_app()` / `N3TXApp` discover `ManyToMany` declarations and generate the
+relationship link model during bootstrap. For lower-level/raw registration flows,
+use the relationship helpers deliberately rather than hand-rolling SQL tables.
 
 ## Self references
 
@@ -88,14 +128,19 @@ Protected fields are backend-owned: injected on create and hidden/stripped in ed
 ## Guardrails
 
 - Do not query or mutate SQLite directly from app features.
-- Do not store relationships as duplicated arbitrary arrays if `ListRef` represents the domain relationship.
+- Do not store relationships as duplicated arbitrary arrays if `ListRef` or `ManyToMany` represents the domain relationship.
+- Do not confuse embedded JSON arrays with relationship fields: JSON fields have
+  no child `$id`, href hydration, owner/auth boundary, lifecycle events, or
+  independent update route.
 - Do not expose generated join model names as the semantic public concept.
+- Do not treat `ManyToMany[T]` as a JSON field; it is relationship metadata.
 - Avoid `:memory:` SQLite for tests involving migrations; use a file database.
 
 ## Verification
 
 - CRUD works for parent and child.
 - Relationship fields appear in schema and responses as href arrays.
+- `ManyToMany` fields generate deterministic link models/tables during app bootstrap.
 - Nested routes resolve correctly.
 - Pagination metadata is correct when `limit` is used.
 

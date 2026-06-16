@@ -21,6 +21,7 @@ Use generated contracts:
 
 - `GET /{ClassName}` schema includes fields, methods, access, UI, `$defs`.
 - CRUD routes work and enforce auth.
+- Relationship routes/link models work for `ListRef[T]` and `ManyToMany[T]` contracts.
 - Custom methods work through generated routes.
 - Actor-routed apps preserve direct-route behavior.
 - Entity responses include `$schema` and `$id`.
@@ -53,6 +54,17 @@ result = await agent.run(task='List grants', llm=TestModel(call_tools=['grants_l
 ```
 
 Use file-based SQLite databases for migration/storage tests, not `:memory:`.
+
+## File capability checks
+
+For `n3tx-files` features:
+
+- `File` schema and CRUD routes are available when registered.
+- `POST /files/upload` returns a `File` metadata response.
+- `GET /files/{id}/download` and `GET /File/{id}/download` stream bytes.
+- Range requests return `206` with `Content-Range`.
+- `File`-typed method parameters materialize addresses into authorized `File` instances.
+- Bytes are written through `FileStore`, not SQLite/static assets.
 
 ## Streaming checks
 

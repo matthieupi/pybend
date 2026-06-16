@@ -1,6 +1,6 @@
 ---
 name: n3tx-models
-description: N3TX model definitions with ProtoModel, ActorModel, BaseUser, schema, fields, UI metadata, validation, and app data contracts. Use when defining or changing N3TX models.
+description: N3TX model definitions with ProtoModel, ActorModel, BaseUser, schema, JSON dict/list fields, ListRef, ManyToMany, File fields, UI metadata, validation, and app data contracts. Use when defining or changing N3TX models.
 argument-hint: "<model or data contract>"
 ---
 
@@ -27,7 +27,14 @@ from pydantic import Field
 from n3tx_actors.models.actor_model import ActorModel
 from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 from n3tx_core.models.ref import ListRef
+from n3tx_core.models.relationships import ManyToMany
 from n3tx_core.utils.decorators import expose_route
+
+
+class Tag(ActorModel):
+    __tablename__ = 'tags'
+    __storable__ = True
+    name: str
 
 
 class Product(ActorModel):
@@ -42,8 +49,8 @@ class Product(ActorModel):
     }
     __ui__ = {
         'icon': 'box',
-        'field_order': ['name', 'price', 'description', 'comments'],
-        'groups': {'main': ['name', 'price', 'description'], 'Social': ['comments']},
+        'field_order': ['name', 'price', 'description', 'comments', 'tags'],
+        'groups': {'main': ['name', 'price', 'description'], 'Social': ['comments', 'tags']},
         'renderer': {'item': 'ntx-item', 'list': 'ntx-list'},
     }
 
@@ -52,6 +59,7 @@ class Product(ActorModel):
     description: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
     user_owner: int | None = None
     comments: ListRef['Comment'] = Field(default=[])
+    tags: ManyToMany[Tag] = Field(default=[])
 
     @expose_route('/discount', methods=['POST'], access=OWNER | ROLE('admin'))
     def discount(self, percent: float) -> dict:
@@ -74,6 +82,86 @@ class User(BaseUser):
 
 `BaseUser` provides `name`, `email`, `role`, hidden `password_hash`, `login()`, and `register_user()`.
 
+## Relationship fields
+
+- Use `ListRef[T]` for parent-scoped child collections such as product comments.
+- Use `ManyToMany[T]` for shared independent entities such as product tags.
+- Do not use `list[T]` or JSON arrays for relationships that need identity,
+  nested routes, auth, or lifecycle.
+
+```python
+from n3tx_core.models.relationships import ManyToMany
+
+class Product(ActorModel):
+    tags: ManyToMany[Tag] = Field(default=[])
+```
+
+`create_app()` / `N3TXApp` discover `ManyToMany` fields and generate link models
+during bootstrap.
+
+## JSON fields
+
+Use JSON fields for embedded data owned by the parent row. JSON fields are
+stored as SQLite `TEXT`, serialized with `json.dumps(value, default=str)` on
+write, and deserialized with `json.loads()` on read.
+
+```text
+Model annotation
+  -> get_json_fields(model_class)
+  -> SQLite TEXT column
+  -> json.dumps(...) on write
+  -> json.loads(...) on read
+  -> Pydantic validation / model instance
+```
+
+Stored as JSON TEXT:
+
+```python
+metadata: dict = Field(default={})
+config: dict | None = None
+tags: list[str] = Field(default=[])
+scores: list[int] = Field(default=[])
+payloads: list = Field(default=[])
+```
+
+Not JSON fields:
+
+```python
+comments: ListRef[Comment] = Field(default=[])   # parent/child relationship
+tags: ManyToMany[Tag] = Field(default=[])        # shared relationship
+children: list[Comment] = Field(default=[])      # relationship-style collection
+```
+
+Use JSON fields for metadata blobs, agent constraints/config, primitive tag
+arrays, external API payload fragments, cache-like embedded data, and settings
+that do not need independent identity.
+
+Use relationships instead when values need `$id`, routes, owner/auth rules,
+lifecycle events, pagination, hydration, or independent rendering/updating.
+
+## File fields and file-capable methods
+
+Use `n3tx-files` when a model or method needs user files. Files are metadata
+records plus bytes in a `FileStore`, not blobs in SQLite.
+
+```python
+from n3tx_files import File
+
+class TranscriptJob(ActorModel):
+    __tablename__ = 'transcript_jobs'
+    __storable__ = True
+    source: File | None = None
+
+    @expose_route('/transcribe', methods=['POST'])
+    async def transcribe(self, audio: File) -> dict:
+        local_path = await audio.ensure_local()
+        return {'path': str(local_path)}
+```
+
+Importing `n3tx_files` registers typed argument materialization so payloads like
+`{"audio": "/File/1"}` resolve to authorized `File` instances for `File`-typed
+parameters.
+
 ## Schema output to expect
 
 `GET /Product` returns a JSON Schema with:
@@ -89,6 +177,11 @@ class User(BaseUser):
 
 - Do not put frontend-only duplicate contracts in JS; put them in schema via fields/`__ui__`.
 - Do not implement storage manually for storable models.
+- Do not turn `ListRef[T]`, `ManyToMany[T]`, or model collections into JSON storage accidentally.
+- Do not query or mutate SQLite JSON text directly from app feature code.
+- Remember JSON-field updates replace the whole field; there is no deep merge.
+- Remember `json.dumps(..., default=str)` is lossy for non-JSON-native values.
+- Do not store file bytes in model fields; use `n3tx-files` and `FileStore`.
 - Do not make model methods call internal HTTP endpoints.
 - Do not hide reusable app capabilities in free functions; expose them through actors/model methods.
 
@@ -97,6 +190,7 @@ class User(BaseUser):
 - Check `GET /{ClassName}` schema includes fields, UI, access, and methods.
 - Check create/read/update/delete work through generated routes.
 - Check `model_response()`-backed responses include `$schema` and `$id`.
+- For JSON field changes, run or mirror `test_json_fields.py` and `test_introspection.py` coverage.
 
 ## Source-reading policy
 

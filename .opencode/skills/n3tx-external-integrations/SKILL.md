@@ -16,6 +16,7 @@ External IO must be wrapped in a reusable N3TX boundary.
 | API client with saved credentials/config | Storable `ActorModel` | Config/state in DB and addressable |
 | Domain sync result | Storable domain `ActorModel` | Imported records become normal app data |
 | New protocol bridge | `NetworkAdapter` | Protocol -> TX translation |
+| External file/blob provider | `FileStore` for `n3tx-files` | Keeps file metadata/auth stable while bytes live elsewhere |
 | Agent tool | Actor/ActorModel with `@expose_route` | Tool discovery from schema |
 | Scheduled workflow | Actor invoking other actors | Reusable and observable through Matrix |
 
@@ -51,12 +52,28 @@ class StripeAccount(ActorModel):
         ...
 ```
 
+## File/blob integrations
+
+When the integration is about user files or blob storage, implement or configure
+a `FileStore` provider rather than storing bytes in app models:
+
+```python
+from n3tx_files import File, LocalFileStore, configure_file_store
+
+configure_file_store(LocalFileStore('./file-blobs'))
+```
+
+App code should pass `File` metadata or addresses (`/File/1`,
+`n3tx://files/1`) across actor/method boundaries. Provider-specific handles stay
+behind the `FileStore` implementation.
+
 ## Guardrails
 
 - Do not call third-party APIs from arbitrary model methods if the capability should be reused.
 - Do not expose secrets in schema or responses.
 - Do not let UI call external APIs directly when backend auth/audit/reuse matters.
 - Do not bypass actors for integrations used by agents.
+- Do not expose storage-provider internals as the app-level file contract.
 
 ## Verification
 

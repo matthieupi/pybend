@@ -14,6 +14,8 @@ This skill protects the architecture from entropy. N3TX works because a small se
 |---|---|---|
 | Data contract | `ProtoModel`/`ActorModel` fields and schema | Hand-maintained frontend/backend duplicates |
 | Persistence | `__storable__`, model CRUD, storage backend | Direct SQL in app feature code |
+| Relationships | `ListRef[T]` or `ManyToMany[T]` | JSON arrays or hand-maintained link tables |
+| Files | `n3tx-files` `File` metadata + `FileStore` bytes | Blobs in SQLite or static upload folders |
 | API actions | `@expose_route` | Custom FastAPI routes for normal app behavior |
 | Internal networking | TX -> Matrix -> Actor/Adapter | Backend-to-backend plain HTTP calls |
 | Frontend entity IO | N3TX entity/transport layer | Raw `fetch()` for CRUD/actions |
@@ -52,6 +54,16 @@ UI, agents, workflows, MCP, other actors
 ## Escalation
 
 If a feature cannot fit cleanly into these boundaries, do not patch around N3TX. Identify what extension point is missing: model schema metadata, actor capability, adapter, widget, component, or auth rule.
+
+## File boundary rule
+
+Dynamic files are not static assets and not JSON/blob fields. Use `n3tx-files`:
+
+```text
+File metadata model  -> normal N3TX schema/storage/auth/routes
+FileStore provider   -> local/object/remote bytes
+File-typed parameter -> authorized address materialization
+```
 
 ## Source-reading policy
 

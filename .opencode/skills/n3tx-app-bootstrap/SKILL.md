@@ -1,6 +1,6 @@
 ---
 name: n3tx-app-bootstrap
-description: N3TX application bootstrap with create_app, N3TXApp, routing levels, package imports, static files, storage, and model registration. Use when creating or wiring an N3TX app entrypoint.
+description: N3TX application bootstrap with create_app, N3TXApp, routing levels, package imports, static files, storage, ManyToMany relationship generation, n3tx-files, and model registration. Use when creating or wiring an N3TX app entrypoint.
 argument-hint: "<app bootstrap task>"
 ---
 
@@ -13,6 +13,7 @@ Import packages that register mixins before defining/importing models that use t
 ```python
 import n3tx_ui      # enables __ui__ / ViewableMixin hooks
 import n3tx_agents  # enables __agent__ / AgentMixin hooks
+import n3tx_files   # enables File typed-argument materialization, when used
 
 from models import Product, User
 ```
@@ -59,6 +60,33 @@ from n3tx_core.models.proto_model import generate_join_model
 ProductComment = generate_join_model(Product, Comment)
 ```
 
+For shared field-declared relationships, prefer `ManyToMany[T]`:
+
+```python
+from n3tx_core.models.relationships import ManyToMany
+
+class Product(ActorModel):
+    tags: ManyToMany[Tag] = []
+```
+
+`create_app()` / `N3TXApp` discover `ManyToMany` fields from the explicit model
+classes and generate/register link models in the same preparation flow as join
+models.
+
+## File capability bootstrap
+
+`n3tx-files` is absent by default. Add it only when the app uses files:
+
+```python
+from n3tx_files import File, LocalFileStore, configure_file_store
+
+configure_file_store(LocalFileStore('./file-blobs'))
+app = create_app(models=[File, Product], storage='sqlite:///app.db')
+```
+
+If `configure_file_store()` is omitted, `LocalFileStore` uses
+`N3TX_FILE_STORE_DIR` or `.n3tx-files/blobs`.
+
 ## Static files
 
 At runtime N3TX merges static directories from installed packages:
@@ -76,6 +104,7 @@ The browser sees one URL namespace.
 - Do not bypass `create_app()`/`N3TXApp` unless you need raw primitives.
 - Keep actor-routed apps on `ActorModel` for addressable capabilities.
 - Keep package import order explicit for UI/agent mixins.
+- Keep file byte storage behind `FileStore`; do not mount user uploads as static assets.
 
 ## Verification
 
@@ -84,6 +113,8 @@ The browser sees one URL namespace.
 - `GET /{tablename}` returns data or auth-gated response.
 - Static shell loads frontend assets.
 - In actor routing, generated HTTP behavior matches direct routes.
+- `ManyToMany` link models/tables are present when declared.
+- File upload/download routes work when `File` is registered.
 
 ## Source-reading policy
 
