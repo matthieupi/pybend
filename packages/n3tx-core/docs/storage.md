@@ -134,12 +134,32 @@ parsing.
 
 ### FK Hydration
 
-`Ref[T]` fields are stored as plain integers but serialized as href URLs in API responses:
+`Ref[T]` fields historically store local refs as plain integers and serialize
+them as href URLs in API responses:
 
 ```python
 # Stored in DB: user_owner = 3
 # Returned by get()/list(): user_owner = "http://localhost:5000/users/3"
 ```
+
+Distributed ref support keeps that local behavior and adds canonical string
+addresses for configured remote N3TX services. The reference helpers in
+`n3tx_core.models.ref` accept local ids, `/ClassName/{id}` paths,
+current-service API URLs, configured remote HTTP URLs, and canonical
+`n3tx://service/ClassName/id` refs. Configured remote HTTP refs canonicalize to
+`n3tx://...`; arbitrary HTTP(S) links are classified as external links rather
+than Matrix refs.
+
+Remote dereferencing is opt-in. `SQLiteStorage(reference_resolver=None)` is the
+default and preserves local-only populate behavior: remote refs are stored and
+returned as canonical strings but are not fetched. Actor-mode or app bootstrap
+can inject a Matrix-backed resolver with `SQLiteStorage(...,
+reference_resolver=resolver)` or `storage.set_reference_resolver(resolver)`.
+The resolver may expose `resolve(ref, target_cls=None, user=None, context=None)`
+or be directly callable with that signature.
+
+For distributed pointer arrays, use JSON-backed `list[Ref[T]]`. `ListRef[T]`
+remains the local owned relationship primitive backed by child/join tables.
 
 `ListRef[T]` fields are stored in join tables and serialized as href arrays:
 

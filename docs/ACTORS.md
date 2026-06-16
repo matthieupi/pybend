@@ -593,6 +593,51 @@ pending entry is a Future or Queue and dispatches accordingly.
 | `NetworkAP` | `ap` | ActivityPub | `api/network_ap.py` |
 | `NetworkAPI` | `api` | HTTP REST | v0.9 |
 | `NetworkWebSocket` | `ws` | WebSocket | v0.8.5 |
+| `RemoteMatrix` | `remote` | REST-backed distributed refs | `api/remote_matrix.py` |
+
+### RemoteMatrix Adapter
+
+`RemoteMatrix` handles canonical distributed refs by reusing existing
+class-name REST routes on configured remote N3TX services:
+
+```python
+from n3tx_actors.api.remote_matrix import RemoteMatrix, MatrixReferenceResolver
+
+remote = RemoteMatrix(remotes={'storage': {'url': 'http://storage:7100'}})
+matrix.register(remote)
+matrix.register_adapter(remote)
+storage.set_reference_resolver(MatrixReferenceResolver(matrix))
+```
+
+| TX | REST call |
+|---|---|
+| `TX(name='get', target='n3tx://storage/File/12')` | `GET http://storage:7100/File/12` |
+| `TX(name='process', target='n3tx://storage/File/12')` | `POST http://storage:7100/File/12/process` |
+
+Remote requests carry backend trust and user continuity through headers:
+
+```text
+Authorization: Bearer <remote-or-service-token>
+X-N3TX-Service: <local-service-name>
+X-N3TX-User: <json-user-context>  # optional
+```
+
+The receiving service accepts the request when the bearer token matches its
+configured `SERVICE_TOKEN`, then installs forwarded user JSON into
+`request.state.user` so generated routes and ActorModel ABAC remain the single
+authorization path. Remote response `$id` values are normalized to canonical
+`n3tx://service/Class/id` refs before returning to Matrix callers.
+
+For explicit Python calls to a remote model ref, use the model-centric handle:
+
+```python
+artifact = Artifact.ref('n3tx://storage/Artifact/42', matrix=matrix)
+result = await artifact.call('process', mode='fast')
+```
+
+Internally this returns a `RemoteRef`. `ActorProxy` is different: it wraps a
+local object as an actor; `RemoteRef` calls a remote `n3tx://...` identity
+through Matrix.
 
 ### MCP Adapter
 

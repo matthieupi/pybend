@@ -12,7 +12,7 @@ core/
 |-- models/              Model definitions and base classes
 |   |-- proto_model.py   Base model: schema generation, model_dump, StorableMixin injection
 |   |-- storable_mixin.py  CRUD operations (create/get/list/update/delete)
-|   |-- ref.py           ListRef[T] type for collection references
+|   |-- ref.py           Ref[T], ListRef[T], distributed ref helpers
 |   |-- product_model.py Example: Product with fields, UI hints, access rules, methods
 |   |-- comment_model.py Example: Comment with self-referencing (Ref['self'])
 |   |-- user_model.py    User model with authentication methods
@@ -34,8 +34,8 @@ core/
 |-- utils/
 |   |-- decorators.py    @expose_route() for custom method endpoints
 |   |-- registrar.py     Model registry (registered_models, join_models)
-|   |-- introspection.py Schema introspection, ListRef detection, model collection
-|   |-- typer.py         Ref type (Ref[T], Ref['self']), flatten_refs()
+|   |-- introspection.py Schema introspection, ListRef/list[Ref] detection, model collection
+|   |-- typer.py         Compatibility re-export for Ref, Ref['self'], flatten_refs()
 |   +-- generate_docs.py Auto-doc generator (runs on startup)
 |-- docs/                Auto-generated + handwritten API documentation
 +-- tests/               PyTest test suite
@@ -95,7 +95,7 @@ class Product(ProtoModel):
 | HTML/view entrypoints | `__ui__` / `ViewableMixin` | `GET /{ClassName}/@...` returns frontend shell HTML |
 | JSON Schema | Field types, validators, extras | `ProtoModel.schema()` via Pydantic |
 | DB table + auto-migration | `__storable__`, annotations | `StorableMixin` + `sqlite_migration.py` |
-| JSON TEXT fields | `dict`, `Dict[...]`, `list`, primitive `List[...]` | `sqlite_storage.py` serializes/deserializes with `json.dumps`/`json.loads`; see [JSON Fields](JSON_FIELDS.md) |
+| JSON TEXT fields | `dict`, `Dict[...]`, `list`, primitive `List[...]`, `list[Ref[T]]` | `sqlite_storage.py` serializes/deserializes with `json.dumps`/`json.loads`; see [JSON Fields](JSON_FIELDS.md) |
 | FK hydration (href arrays) | `ListRef[T]`, `__fk_models__` | `sqlite_storage.py` on read |
 | Backend access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth middleware |
 | Frontend access rules | `__access__` | `authorize/schema.py` serializes to JSON |
@@ -121,9 +121,10 @@ wildcard fallback, while Comment declares owner/admin rules and protected
 `user_owner` ownership metadata.
 
 Embedded `dict` and non-relationship `list` fields are persisted as JSON TEXT
-columns. Use them for configuration, metadata, primitive arrays, and external
-payload fragments. Do not use JSON arrays to duplicate domain relationships that
-should be represented with `ListRef[T]`, ownership, routes, and href hydration.
+columns. Use them for configuration, metadata, primitive arrays, distributed
+pointer arrays such as `list[Ref[File]]`, and external payload fragments. Do not
+use JSON arrays to duplicate domain relationships that should be represented
+with `ListRef[T]`, ownership, routes, and href hydration.
 See [JSON Fields](JSON_FIELDS.md) for the full contract and tradeoffs.
 
 ### Optional File Capability

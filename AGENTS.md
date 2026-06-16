@@ -295,8 +295,9 @@ class Product(ProtoModel):
 | JSON Schema | Field types, validators, `json_schema_extra` | `ProtoModel.schema()` via `proto_schema` pipeline |
 | Enriched JSON responses | `model_response()`, dump pipeline stages | `proto_dump` pipeline (`base` → `response` → extensions) |
 | DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
-| JSON field storage | `dict`, `list`, `List[str]` etc. fields | `sqlite_storage.py` auto-serializes to/from JSON TEXT |
+| JSON field storage | `dict`, `list`, `List[str]`, `list[Ref[T]]` etc. fields | `sqlite_storage.py` auto-serializes to/from JSON TEXT |
 | FK hydration (href arrays) | `ListRef[T]` fields, `__fk_models__` | `sqlite_storage.py` on read |
+| Distributed refs | `Ref[T]`, `list[Ref[T]]`, configured `N3TX_REMOTES` | `models/ref.py` canonicalizes refs; `SQLiteStorage.reference_resolver` + `RemoteMatrix` optionally populate remote refs |
 | Access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth injection |
 | Frontend entity classes | Schema properties, methods | `N3TX.SCHEMA()` → `prototype()` → DynamicClass |
 | Form rendering | `properties`, `ui.widget`, `ui.placeholder` | `Formidable.getForm()` reads schema |
@@ -322,14 +323,14 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 | File | Purpose |
 |------|---------|
 | `packages/n3tx-core/src/n3tx_core/app.py` | `N3TXApp` builder + `create_app()` factory |
-| `packages/n3tx-core/src/n3tx_core/config.py` | HOST, PORT, API_URL, SQLITE_DB_FILE, AGENT_DEFAULTS |
+| `packages/n3tx-core/src/n3tx_core/config.py` | HOST, PORT, API_URL, SQLITE_DB_FILE, AGENT_DEFAULTS, SERVICE_NAME, SERVICE_TOKEN, REMOTES |
 | `packages/n3tx-core/src/n3tx_core/models/proto_model.py` | Base model, `schema()`, `model_response()`, `generate_join_model()`, `register_mixin()` |
 | `packages/n3tx-core/src/n3tx_core/models/proto_schema.py` | Schema pipeline: 7 core stages + external extensions |
 | `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` | Dump pipeline for serialization |
 | `packages/n3tx-core/src/n3tx_core/models/base_user.py` | Abstract base user with login/register |
 | `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` | CRUD operations, pagination |
-| `packages/n3tx-core/src/n3tx_core/models/ref.py` | `ListRef[T]` type |
-| `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` | SQLite backend, FK hydration, JSON fields |
+| `packages/n3tx-core/src/n3tx_core/models/ref.py` | `Ref[T]`, `ListRef[T]`, distributed ref parser/canonicalizer helpers |
+| `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` | SQLite backend, FK hydration, JSON fields, optional `reference_resolver` for remote ref populate |
 | `packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py` | Auto-migration + manual migrations |
 | `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py` | Level 1/2 route generation |
 | `packages/n3tx-core/src/n3tx_core/api/backend.py` | FastAPIBackend, static file serving |
@@ -347,8 +348,10 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 | `packages/n3tx-actors/src/n3tx_actors/tx.py` | TX message envelope (dataclass) |
 | `packages/n3tx-actors/src/n3tx_actors/actor_proxy.py` | ActorProxy wrapper (actor interface without MI) |
 | `packages/n3tx-actors/src/n3tx_actors/models/actor_model.py` | `ActorModel(Actor, ProtoModel)` bridge |
+| `packages/n3tx-actors/src/n3tx_actors/remote_proxy.py` | `RemoteRef` explicit remote `n3tx://...` handle used by `ActorModel.ref()` |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_adapter.py` | Base adapter: `request()`, `stream()`, correlation |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_api.py` | HTTP REST bridge (Level 3 routing) |
+| `packages/n3tx-actors/src/n3tx_actors/api/remote_matrix.py` | REST-backed `RemoteMatrix` adapter + `MatrixReferenceResolver` for distributed refs |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_ws.py` | WebSocket bridge |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_mcp.py` | MCP JSON-RPC 2.0 bridge |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_ap.py` | ActivityPub federation bridge |

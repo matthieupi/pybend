@@ -14,8 +14,9 @@ API endpoints, JSON Schema, access control, UI rendering.
 4. [StorableMixin](#storablemixin)
 5. [BaseUser](#baseuser)
 6. [ActorModel](#actormodel)
-7. [Optional File Resource](#optional-file-resource-n3tx-files)
-8. [File Layout](#file-layout)
+7. [References](#references)
+8. [Optional File Resource](#optional-file-resource-n3tx-files)
+9. [File Layout](#file-layout)
 
 ---
 
@@ -189,16 +190,64 @@ class AgentConfig(ProtoModel):
     constraints: dict = Field(default={})
 ```
 
-`dict`, `Dict[...]`, `list`, and primitive typed list fields are stored as
-SQLite `TEXT` columns using JSON serialization. They are deserialized before
-Pydantic model construction on reads. `ListRef[T]`, many-to-many fields, and
-`List[BaseModel]` remain relationship fields and must not be treated as JSON
-storage.
+`dict`, `Dict[...]`, `list`, primitive typed list fields, and `list[Ref[T]]`
+fields are stored as SQLite `TEXT` columns using JSON serialization. They are
+deserialized before Pydantic model construction on reads. `ListRef[T]`,
+many-to-many fields, and `List[BaseModel]` remain relationship fields and must
+not be treated as JSON storage.
 
 Use JSON fields for metadata, settings, agent constraints, primitive tags, and
 external payload fragments. Use real models/relationships when nested data needs
 identity, auth, routes, pagination, lifecycle events, or independent updates.
 See [JSON Fields](JSON_FIELDS.md) for implementation details and tradeoffs.
+
+---
+
+## References
+
+**File**: `models/ref.py`
+
+`Ref[T]` is the typed identity pointer primitive. Local apps can continue to
+use it as an integer-backed FK, but the canonical model is now broader:
+
+```text
+Ref[T] means “a pointer to a T actor/model identity Matrix can resolve.”
+```
+
+Accepted reference inputs include local integer ids, local class-name paths such
+as `/File/12`, current-service API URLs, configured remote HTTP URLs, and
+canonical distributed refs such as `n3tx://storage/File/12`. Configured remote
+HTTP refs are canonicalized to `n3tx://<service>/<ClassName>/<id>`; arbitrary
+external URLs are classified as external links rather than Matrix refs.
+
+`ListRef[T]` remains the local owned relationship primitive backed by child or
+join tables. Distributed pointer arrays should use `list[Ref[T]]` instead of
+`ListRef[T]`.
+
+Remote dereference is opt-in. Storage with no `reference_resolver` preserves and
+returns canonical remote refs without fetching them. Actor-mode bootstrap can
+inject a `MatrixReferenceResolver` so populated remote refs resolve through
+`RemoteMatrix`. For explicit Python calls to a remote `ActorModel` identity, use
+the model-centric handle:
+
+```python
+artifact = Artifact.ref('n3tx://storage/Artifact/42')
+result = await artifact.call('process', mode='fast')
+```
+
+Reference helpers live with the model primitives in `models/ref.py`:
+
+| Helper | Purpose |
+|---|---|
+| `parse_ref_string()` | Parse canonical `n3tx://service/Class/id` or local `/Class/id` strings. |
+| `canonicalize_ref()` | Convert local/current refs to ids and configured remote URLs to canonical `n3tx://` refs. |
+| `local_ref_id()` | Return an integer only when a ref targets the current service. |
+| `public_ref()` | Return response-facing local class-name URLs or distributed refs. |
+| `is_distributed_ref()` | Detect canonical N3TX distributed refs. |
+| `is_external_link()` | Detect HTTP(S) links that are not configured N3TX refs. |
+
+The historical `n3tx_core.utils.typer.Ref` import remains as a compatibility
+surface and re-exports `Ref` from `models/ref.py`.
 
 ---
 

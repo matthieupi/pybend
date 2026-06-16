@@ -4,7 +4,7 @@
 
 ## What This Covers
 
-The NetworkAdapter base class and its four concrete adapters: NetworkAPI (HTTP), NetworkWebSocket, NetworkMCP, NetworkAP. Covers the request/response bridging mechanism, protocol translation, streaming, and route generation. Does not cover the auth interceptor in detail (see [interceptors.md](interceptors.md)).
+The NetworkAdapter base class and its concrete adapters: NetworkAPI (HTTP), NetworkWebSocket, NetworkMCP, NetworkAP, and RemoteMatrix. Covers the request/response bridging mechanism, protocol translation, streaming, distributed refs, and route generation. Does not cover the auth interceptor in detail (see [interceptors.md](interceptors.md)).
 
 ## Architecture
 
@@ -26,8 +26,12 @@ MCP JSON-RPC         -->  NetworkMCP                  --> matrix.inbox(tx)
                      <--  JSON-RPC response
 
 AP Activity          -->  NetworkAP                   --> matrix.inbox(tx)
-                          .handle_inbox(activity)
-                     <--  AP response
+                           .handle_inbox(activity)
+                      <--  AP response
+
+n3tx://storage/File/1
+                    -->  RemoteMatrix.send(tx)     --> GET remote /File/1
+                    <--  TX reply/error            <-- REST JSON/error
 ```
 
 All adapters extend `NetworkAdapter(Actor, auto_register=False)`. They register as Matrix children via `matrix.register(adapter)`. Response TXs route back through normal Matrix routing -- the adapter's `inbox()` checks for pending correlation before falling through to normal dispatch.
@@ -109,6 +113,55 @@ app.include_router(router)
 
 Endpoints: `GET /.well-known/webfinger`, `GET /{tablename}/outbox`, `POST /{tablename}/inbox`. Models with `__federated__ = True` get AP actor documents, outbox recording, Follow/Unfollow handling.
 
+### RemoteMatrix
+
+```python
+from n3tx_actors.api.remote_matrix import RemoteMatrix, MatrixReferenceResolver
+
+remote = RemoteMatrix(remotes={'storage': {'url': 'http://storage:7100', 'token': '...'}})
+matrix.register(remote)
+matrix.register_adapter(remote)
+storage.set_reference_resolver(MatrixReferenceResolver(matrix))
+```
+
+`RemoteMatrix` handles canonical distributed refs via existing class-name REST routes:
+
+| TX | REST call |
+|---|---|
+| `TX(name='get', target='n3tx://storage/File/12')` | `GET http://storage:7100/File/12` |
+| `TX(name='process', target='n3tx://storage/File/12', data={...})` | `POST http://storage:7100/File/12/process` |
+
+It attaches service/user context headers:
+
+```text
+Authorization: Bearer <remote-or-service-token>
+X-N3TX-Service: <local-service-name>
+X-N3TX-User: <json-user-context>  # when tx.meta.user is present
+```
+
+The receiving N3TX service accepts those headers through the core auth
+middleware when `Authorization` matches its configured `SERVICE_TOKEN`. The
+forwarded `X-N3TX-User` JSON becomes `request.state.user`, so generated routes
+and ActorModel handlers continue through the normal ABAC path. Remote response
+`$id` values that point back at the configured remote URL are normalized to the
+canonical `n3tx://service/Class/id` identity before returning to Matrix callers.
+
+`MatrixReferenceResolver` is the storage-facing adapter: `SQLiteStorage` can
+receive it as `reference_resolver` and keep core independent from actors.
+
+For explicit Python method calls, prefer the model-centric `ActorModel.ref()`
+helper:
+
+```python
+artifact = Artifact.ref('n3tx://storage/Artifact/42', matrix=matrix)
+data = await artifact.get()
+result = await artifact.call('process', mode='fast')
+```
+
+Internally this returns a `RemoteRef` handle. `ActorProxy` is different: it wraps
+a local Python object/class as an actor; `RemoteRef` calls a remote `n3tx://...`
+identity through Matrix.
+
 ## Usage Patterns
 
 ### Level 3 wiring (full actor routing)
@@ -147,3 +200,5 @@ small model-generated chunks and preserves progressive first-token delivery.
 - **WebSocket protocol translation strips API_URL prefix** from targets and maps frontend UPPERCASE names. If `config.API_URL` is not set correctly, routing will fail silently.
 - **MCP tool names use `rsplit('_', 1)`** to parse `{tablename}_{action}`. Model tablenames containing underscores will be parsed incorrectly (e.g., `product_reviews_list` splits as `product_reviews` + `list`, which is correct, but `my_products_list` would also work if tablename is `my_products`).
 - **NetworkAP stores outbox in memory** (`_outbox` dict). Activities are lost on restart. Persistent outbox storage is deferred to Wave 4+.
+- **RemoteMatrix is REST-backed in the first slice.** It intentionally reuses
+  existing class-name routes instead of introducing generic `/_tx` ingress.

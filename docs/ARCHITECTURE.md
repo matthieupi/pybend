@@ -229,9 +229,10 @@ class AbstractStorage(ABC):
 
 ### 4. Ref Type
 
-**Location**: `utils/typer.py`
+**Location**: `models/ref.py` (`utils/typer.py` remains a compatibility import surface)
 
-Type-safe foreign key wrapper with OpenAPI schema generation.
+Type-safe model/actor identity pointer with JSON Schema generation and local or
+distributed address parsing.
 
 ```python
 class Ref(Generic[T]):
@@ -242,6 +243,8 @@ class Ref(Generic[T]):
         elif isinstance(value, int):
             self.id = value
             self._model = None
+        elif isinstance(value, str):
+            self.id = canonicalize_ref(value)
     
     # Custom Pydantic schema for OpenAPI
     @classmethod
@@ -256,7 +259,14 @@ class Ref(Generic[T]):
 **Purpose**:
 - Maintains type safety in the model layer
 - Generates proper `$ref` in OpenAPI schemas
-- Serializes as integer for storage
+- Serializes local refs as ids where possible
+- Preserves canonical distributed refs such as `n3tx://storage/File/12`
+- Keeps `ListRef[T]` local relationship semantics separate from JSON-backed
+  pointer arrays such as `list[Ref[T]]`
+
+Reference parsing/canonicalization is core behavior. Remote dereference is not:
+storage defaults to local-only populate and can optionally receive a
+Matrix-backed `reference_resolver` from actor-mode bootstrap.
 
 ### 5. Model Registry
 
@@ -298,12 +308,40 @@ class NetworkMCP(NetworkAdapter):    # MCP JSON-RPC 2.0
 class NetworkAP(NetworkAdapter):     # ActivityPub federation
 class NetworkAPI(NetworkAdapter):    # HTTP REST (Level 3 actor routing)
 class NetworkWebSocket(NetworkAdapter): # Frontend Matrix bridge
+class RemoteMatrix(NetworkAdapter):  # n3tx:// refs -> remote class-name REST
 # Transient adapters created per agent_run() for tool call correlation
 ```
 
 **Pattern**: Adapter Pattern (protocol translation) + Correlation Pattern (request/response over async messaging)
 
 **Key Design Decision**: The HTTP API itself is a NetworkAdapter (`NetworkAPI`), meaning ALL external interaction — REST, MCP, ActivityPub, WebSocket — flows through the same architecture. No protocol is special.
+
+#### Distributed refs through RemoteMatrix
+
+```text
+Model field value: Ref[T] / list[Ref[T]]
+        |
+        v
+models/ref.py canonicalizes configured remote URLs
+        |
+        v
+SQLiteStorage stores/returns canonical n3tx:// refs
+        |
+        v
+populate with injected MatrixReferenceResolver (optional)
+        |
+        v
+Matrix request -> RemoteMatrix adapter fallback
+        |
+        +-- GET  http://remote/ClassName/id
+        +-- POST http://remote/ClassName/id/method
+```
+
+Default storage behavior remains local-only. Without a resolver, remote refs are
+preserved as strings; populated `list[Ref[T]]` fields include per-ref errors
+instead of failing the parent read. In actor routing, `create_app(...,
+routing='actor', remotes={...})` registers `RemoteMatrix` and injects a
+`MatrixReferenceResolver` into compatible storage backends.
 
 ### 6b. Interceptors (`use()`)
 

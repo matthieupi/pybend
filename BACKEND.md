@@ -61,8 +61,8 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 - `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` - Dump pipeline for serialization. Extensible via `@dump_extension` decorator.
 - `packages/n3tx-core/src/n3tx_core/models/base_user.py` - Abstract base user with `login()` and `register_user()` endpoints
 - `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` - CRUD operations. `list()` supports `limit`/`offset` pagination.
-- `packages/n3tx-core/src/n3tx_core/models/ref.py` - `ListRef[T]` type for collection references
-- `packages/n3tx-core/src/n3tx_core/utils/typer.py` - `Ref` type (`Ref[T]`, `Ref['self']`), `flatten_refs()`
+- `packages/n3tx-core/src/n3tx_core/models/ref.py` - Canonical `Ref[T]`, `ListRef[T]`, distributed ref parser/canonicalizer helpers
+- `packages/n3tx-core/src/n3tx_core/utils/typer.py` - Compatibility re-export for historical `Ref`, `_SelfRefMarker`, and `flatten_refs()` imports
 
 ### Storage (n3tx-core)
 - `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` - SQLite backend with FK hydration, JSON field serialization (`_coerce_value()` + `_deserialize_json_fields()`)
@@ -90,6 +90,8 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 ### Network Adapters (n3tx-actors)
 - `packages/n3tx-actors/src/n3tx_actors/api/network_adapter.py` - `NetworkAdapter(Actor)` base class. `request()` for req/resp correlation, `stream()` for multi-reply streaming.
 - `packages/n3tx-actors/src/n3tx_actors/api/network_api.py` - `NetworkAPI`: HTTP REST bridge for Level 3 actor routing. `create_api_routes()` generates FastAPI routes.
+- `packages/n3tx-actors/src/n3tx_actors/api/remote_matrix.py` - `RemoteMatrix`: REST-backed distributed ref adapter and `MatrixReferenceResolver` for storage populate.
+- `packages/n3tx-actors/src/n3tx_actors/remote_proxy.py` - `RemoteRef`: explicit remote `n3tx://...` handle returned by `ActorModel.ref()`.
 - `packages/n3tx-actors/src/n3tx_actors/api/auth_interceptor.py` - Tier 1 auth interceptor. `async (TX) -> TX` function.
 - `packages/n3tx-actors/src/n3tx_actors/api/network_ws.py` - `NetworkWebSocket`: WebSocket bridge for frontend Matrix.
 - `packages/n3tx-actors/src/n3tx_actors/api/network_mcp.py` - `NetworkMCP`: MCP JSON-RPC 2.0 bridge.
@@ -102,7 +104,7 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 ### App Bootstrap (n3tx-core)
  - `packages/n3tx-core/src/n3tx_core/app.py` - `N3TXApp` builder + `create_app()` factory. Supports `routing='direct'` and `routing='actor'`. In actor mode, re-syncs Matrix children to the finalized registered actor model classes after storage registration.
 - `packages/n3tx-core/src/n3tx_core/__init__.py` - Public API re-exports
-- `packages/n3tx-core/src/n3tx_core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE, AGENT_DEFAULTS
+- `packages/n3tx-core/src/n3tx_core/config.py` - HOST, PORT, API_URL, SQLITE_DB_FILE, AGENT_DEFAULTS, SERVICE_NAME, SERVICE_TOKEN, REMOTES
 
 ### Agents (n3tx-agents)
 - `packages/n3tx-agents/src/n3tx_agents/mixin.py` - AgentMixin: `ctx()`, `tools()`, `agentic()`, `run()`, streaming variants
@@ -245,9 +247,53 @@ class Comment(ProtoModel):
 ```
 `Ref['self']` emits `{"type": "selfref"}` in JSON Schema. Stored as nullable `INTEGER` column.
 
+### Distributed Ref Configuration
+
+Distributed backend-to-backend reference helpers read process config by default:
+
+```text
+N3TX_SERVICE_NAME=api
+N3TX_SERVICE_TOKEN=...
+N3TX_REMOTES={"storage":{"url":"http://storage:7100","token":"..."}}
+```
+
+Apps can override deployment defaults during bootstrap:
+
+```python
+app = create_app(
+    models=[Job],
+    routing='actor',
+    remotes={'storage': {'url': 'http://storage:7100', 'token': '...'}},
+    service_name='api',
+    service_token='...',
+)
+```
+
+`Ref[T]` accepts local ids, local class-name paths such as `/File/12`, current
+API URLs, configured remote HTTP URLs, and canonical `n3tx://service/Class/id`
+refs. Configured remote HTTP refs canonicalize to `n3tx://...`; unconfigured
+HTTP(S) URLs are external links, not Matrix refs.
+
+Remote dereference/populate is opt-in. `SQLiteStorage(reference_resolver=None)`
+preserves local-only behavior. Actor routing with configured `remotes` registers
+`RemoteMatrix` and injects `MatrixReferenceResolver` into compatible storage
+backends. For explicit Python calls to a remote model identity, use:
+
+```python
+artifact = Artifact.ref('n3tx://storage/Artifact/42')
+result = await artifact.call('process', mode='fast')
+```
+
+`RemoteMatrix` sends `Authorization: Bearer <token>`, `X-N3TX-Service`, and
+optional `X-N3TX-User` headers. A receiving N3TX backend accepts service calls
+when the bearer token matches its configured `SERVICE_TOKEN`; forwarded user JSON
+is installed as `request.state.user` so existing route and ActorModel ABAC
+behavior remains authoritative. Remote HTTP `$id` values are canonicalized back
+to `n3tx://service/Class/id` before returning through Matrix/populate.
+
 ### JSON Fields (dict/list in SQLite)
-The storage layer transparently handles `dict`, `Dict[...]`, `list`, and
-primitive typed list fields as JSON TEXT columns. Write paths serialize with
+The storage layer transparently handles `dict`, `Dict[...]`, `list`, primitive
+typed list fields, and `list[Ref[T]]` pointer arrays as JSON TEXT columns. Write paths serialize with
 `json.dumps(value, default=str)`; read paths deserialize with `json.loads()`
 before Pydantic model construction.
 
