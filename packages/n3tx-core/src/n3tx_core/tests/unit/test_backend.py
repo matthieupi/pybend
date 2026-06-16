@@ -5,9 +5,12 @@ Tests BaseBackend abstract interface and FastAPIBackend initialization.
 """
 
 import pytest
+from fastapi import Request
+from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 from typing import ClassVar
 
+from n3tx_core import config
 from n3tx_core.api.backend import BaseBackend, FastAPIBackend
 
 pytestmark = pytest.mark.unit
@@ -75,6 +78,59 @@ class TestFastAPIBackendAuthExempt:
 
     def test_exempt_extensions_include_css(self):
         assert ".css" in FastAPIBackend.AUTH_EXEMPT_EXTENSIONS
+
+
+class TestFastAPIBackendServiceAuth:
+    """Service token requests can forward user context for distributed refs."""
+
+    def test_service_token_sets_forwarded_user_context(self):
+        old_token = config.SERVICE_TOKEN
+        config.configure(service_token='service-secret')
+        try:
+            backend = FastAPIBackend(name="test", description="test", version="1.0.0")
+
+            @backend.app.get('/service-whoami')
+            async def service_whoami(request: Request):
+                return {
+                    'user': getattr(request.state, 'user', {}),
+                    'service': getattr(request.state, 'service', None),
+                }
+
+            client = TestClient(backend.app)
+            response = client.get('/service-whoami', headers={
+                'Authorization': 'Bearer service-secret',
+                'X-N3TX-Service': 'api-test',
+                'X-N3TX-User': '{"user_id": 7, "role": "admin"}',
+            })
+
+            assert response.status_code == 200
+            assert response.json() == {
+                'user': {'user_id': 7, 'role': 'admin'},
+                'service': 'api-test',
+            }
+        finally:
+            config.configure(service_token=old_token)
+
+    def test_service_header_requires_configured_token(self):
+        old_token = config.SERVICE_TOKEN
+        config.configure(service_token='service-secret')
+        try:
+            backend = FastAPIBackend(name="test", description="test", version="1.0.0")
+
+            @backend.app.get('/service-protected')
+            async def service_protected():
+                return {'ok': True}
+
+            client = TestClient(backend.app)
+            response = client.get('/service-protected', headers={
+                'Authorization': 'Bearer wrong',
+                'X-N3TX-Service': 'api-test',
+            })
+
+            assert response.status_code == 401
+            assert response.json() == {'detail': 'Invalid service token'}
+        finally:
+            config.configure(service_token=old_token)
 
 
 class TestFastAPIBackendGetApp:

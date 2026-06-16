@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from .sqlite_helpers import get_parent_fk_columns
 from n3tx_core.utils.introspection import _is_self_ref, _unwrap_listref
+from n3tx_core.models.ref import Ref
 
 logger = logging.getLogger('n3tx.storage')
 
@@ -157,6 +158,11 @@ class SQLiteMigration:
                 field_type = get_args(field_type)[0]
                 origin_type = getattr(field_type, '__origin__', None)
 
+            # Ref[T] may store local ids or canonical distributed ref strings.
+            if origin_type is Ref:
+                columns.append(f"{field_name} TEXT")
+                continue
+
             # List fields: skip ListRef[T] and List[BaseModel] (FK join table),
             # but create TEXT column for bare list/dict (JSON serialized)
             if origin_type is list:
@@ -270,6 +276,17 @@ class SQLiteMigration:
             if origin_type is Union and type(None) in get_args(field_type):
                 field_type = get_args(field_type)[0]
                 origin_type = getattr(field_type, '__origin__', None)
+
+            # Ref[T] may store local ids or canonical distributed ref strings.
+            if origin_type is Ref:
+                if field_name != 'id' and field_name not in existing_columns:
+                    try:
+                        alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} TEXT DEFAULT NULL"
+                        cursor.execute(alter_sql)
+                        logger.info("Added Ref column '%s' to '%s' as TEXT", field_name, table_name)
+                    except sqlite3.OperationalError as e:
+                        logger.warning("Failed to add Ref column %s to %s: %s", field_name, table_name, e)
+                continue
 
             # List fields: skip ListRef[T] and List[BaseModel] (FK join table),
             # but add TEXT column for bare list (JSON serialized)

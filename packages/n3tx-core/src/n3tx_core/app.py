@@ -121,6 +121,18 @@ def _resolve_ssr(ssr) -> str:
     raise TypeError(f"ssr must be bool, str, or None; got {type(ssr).__name__}")
 
 
+def _set_reference_resolver(storages, resolver) -> None:
+    """Inject an optional reference resolver into storage backends that support it."""
+    seen = set()
+    for storage in storages:
+        if storage is None or id(storage) in seen:
+            continue
+        seen.add(id(storage))
+        setter = getattr(storage, 'set_reference_resolver', None)
+        if callable(setter):
+            setter(resolver)
+
+
 class N3TXApp:
     """Builder for N3TX applications.
 
@@ -144,6 +156,9 @@ class N3TXApp:
         ssr: Union[bool, str, None] = None,
         app_agent: Optional[dict] = None,
         app_meta: Optional[dict] = None,
+        remotes: Optional[dict] = None,
+        service_name: Optional[str] = None,
+        service_token: Optional[str] = None,
     ):
         """
         Args:
@@ -169,8 +184,21 @@ class N3TXApp:
             app_agent: Optional dict describing a framework-provisioned static
                 app assistant. Requires ``n3tx-agents`` models to be registered.
             app_meta: Optional app-specific metadata exposed via ``/_meta``.
+            remotes: Optional distributed N3TX service map. Overrides
+                ``config.REMOTES`` when provided.
+            service_name: Optional local distributed service name. Overrides
+                ``config.SERVICE_NAME`` when provided.
+            service_token: Optional local service token. Overrides
+                ``config.SERVICE_TOKEN`` when provided.
         """
         setup_logging()
+        if remotes is not None:
+            config.configure(remotes=remotes)
+        if service_name is not None:
+            config.configure(service_name=service_name)
+        if service_token is not None:
+            config.configure(service_token=service_token)
+
         self._storage = _resolve_storage(storage)
         self._routing = routing
         self._ws = ws
@@ -183,6 +211,7 @@ class N3TXApp:
         self._ssr_mode = _resolve_ssr(ssr)
         self._app_agent = app_agent
         self._app_meta = app_meta or {}
+        self._remotes = remotes if remotes is not None else config.REMOTES
 
         self._models: List[Tuple[Type, Optional[AbstractStorage]]] = []
         self._join_pairs: List[Tuple[Type, Type]] = []
@@ -307,6 +336,25 @@ class N3TXApp:
             api = NetworkAPI()
             matrix.register(api)
             api.use(auth_interceptor, on='request')
+
+            if self._remotes:
+                from n3tx_actors.api.remote_matrix import RemoteMatrix, MatrixReferenceResolver
+
+                remote = RemoteMatrix(
+                    remotes=self._remotes,
+                    service_name=config.SERVICE_NAME,
+                    service_token=config.SERVICE_TOKEN,
+                )
+                matrix.register(remote)
+                matrix.register_adapter(remote)
+                resolver = MatrixReferenceResolver(matrix)
+                _set_reference_resolver(
+                    [self._storage]
+                    + [storage for _model, storage in self._models]
+                    + [getattr(model_cls, 'storage', None) for model_cls in registered_models.values()],
+                    resolver,
+                )
+
             backend.app.include_router(
                 create_api_routes(api, registered_models)
             )
@@ -370,6 +418,9 @@ def create_app(
     ssr=None,
     app_agent=None,
     app_meta=None,
+    remotes=None,
+    service_name=None,
+    service_token=None,
     name="N3TX",
     version="1.0.0",
     description="",
@@ -395,6 +446,10 @@ def create_app(
         app_agent: Optional dict describing a framework-provisioned static
             app assistant.
         app_meta: Optional app-specific metadata exposed via ``/_meta``.
+        remotes: Optional distributed N3TX service map. Overrides
+            ``config.REMOTES`` for this process.
+        service_name: Optional local distributed service name.
+        service_token: Optional local service token.
         name: Application name (appears in OpenAPI docs).
         version: Application version string.
         description: Application description.
@@ -413,6 +468,9 @@ def create_app(
         ssr=ssr,
         app_agent=app_agent,
         app_meta=app_meta,
+        remotes=remotes,
+        service_name=service_name,
+        service_token=service_token,
     )
     for m in (models or []):
         builder.model(m)

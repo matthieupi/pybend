@@ -2,6 +2,7 @@ import functools
 import inspect
 import json
 import logging
+from types import UnionType
 from typing import Dict, Any, Callable, List, Tuple, Type, get_type_hints, get_args, get_origin, Union
 
 from pydantic import BaseModel, create_model
@@ -206,7 +207,7 @@ def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
 
         origin = get_origin(field_type)
         # Unwrap Optional[...]
-        if origin is Union and type(None) in get_args(field_type):
+        if origin in (Union, UnionType) and type(None) in get_args(field_type):
             field_type = get_args(field_type)[0]
             origin = get_origin(field_type)
 
@@ -243,7 +244,7 @@ def get_ref_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
         field_type = field_info.annotation
         origin = get_origin(field_type)
         # Unwrap Optional[...]
-        if origin is Union and type(None) in get_args(field_type):
+        if origin in (Union, UnionType) and type(None) in get_args(field_type):
             field_type = get_args(field_type)[0]
             origin = get_origin(field_type)
         # Skip self-refs
@@ -254,6 +255,39 @@ def get_ref_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
             args = get_args(field_type)
             if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
                 results.append((field_name, args[0]))
+    return results
+
+
+@functools.lru_cache(maxsize=None)
+def get_ref_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
+    """Return fields typed as ``list[Ref[T]]`` / ``Optional[list[Ref[T]]]``.
+
+    ``list[Ref[T]]`` is a JSON-backed identity pointer array. It is distinct
+    from ``ListRef[T]``, which remains a local owned relationship backed by
+    child/join tables.
+    """
+    results = []
+    for field_name, field_info in model_class.model_fields.items():
+        field_type = field_info.annotation
+        origin = get_origin(field_type)
+
+        if origin in (Union, UnionType) and type(None) in get_args(field_type):
+            field_type = get_args(field_type)[0]
+            origin = get_origin(field_type)
+
+        if origin is not list:
+            continue
+
+        args = get_args(field_type)
+        if not args:
+            continue
+
+        item_type = args[0]
+        if get_origin(item_type) is Ref:
+            ref_args = get_args(item_type)
+            if ref_args and isinstance(ref_args[0], type) and issubclass(ref_args[0], BaseModel):
+                results.append((field_name, ref_args[0]))
+
     return results
 
 
@@ -276,7 +310,9 @@ def get_json_fields(model_class: Type[Any]) -> List[str]:
         if field_type is dict or origin is dict:
             results.append(field_name)
             continue
-        # list — only if NOT ListRef and NOT List[BaseModel]
+        # list — only if NOT ListRef and NOT List[BaseModel]. list[Ref[T]] is
+        # intentionally JSON-backed: it stores local/remote identity pointers,
+        # not owned child records.
         if field_type is list or origin is list:
             ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
             if ref_model is not None:

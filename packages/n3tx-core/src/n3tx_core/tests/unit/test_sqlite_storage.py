@@ -8,8 +8,10 @@ from unittest.mock import patch
 
 from pydantic import Field, BaseModel, AnyHttpUrl
 
+from n3tx_core import config
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.ref import Ref
 from n3tx_core.utils.populate import PopulateSpec
 from n3tx_core.widgets import UrlField
 
@@ -42,6 +44,16 @@ def _make_model(tablename, storage_backend):
     return M
 
 
+class FakeReferenceResolver:
+    def __init__(self, responses):
+        self.responses = responses
+        self.calls = []
+
+    def resolve(self, ref, *, target_cls=None, user=None, context=None):
+        self.calls.append((ref, target_cls, context))
+        return self.responses.get(ref)
+
+
 class TestSQLiteStorageInit:
 
     def test_init_default(self):
@@ -72,6 +84,191 @@ class TestCreate:
         M = _make_model('test_create3', storage)
         result = storage.create(M, {'name': '', 'value': 0})
         assert result.id == 1
+
+    def test_remote_ref_stores_and_returns_canonical_ref(self, storage, tmp_db):
+        class File(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_ref_files'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Job(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_ref_jobs'
+            __storable__: ClassVar[bool] = True
+            file: Ref[File] | None = Field(default=None)
+
+        old_remotes = config.REMOTES
+        config.configure(remotes={'storage': {'url': 'http://storage:7100'}})
+        try:
+            File.set_storage(storage)
+            Job.set_storage(storage)
+            storage.create_table(File)
+            storage.create_table(Job)
+
+            created = storage.create(Job, {'file': 'http://storage:7100/File/12'})
+            assert created.file == 'n3tx://storage/File/12'
+
+            row = sqlite3.connect(tmp_db).execute('SELECT file FROM test_ref_jobs').fetchone()
+            assert row[0] == 'n3tx://storage/File/12'
+
+            fetched = storage.get(Job, created.id)
+            assert fetched.file == 'n3tx://storage/File/12'
+        finally:
+            config.configure(remotes=old_remotes)
+
+    def test_ref_list_stores_json_canonical_refs(self, storage, tmp_db):
+        class File(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_ref_list_files'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Job(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_ref_list_jobs'
+            __storable__: ClassVar[bool] = True
+            files: list[Ref[File]] = Field(default=[])
+
+        old_remotes = config.REMOTES
+        config.configure(remotes={'storage': {'url': 'http://storage:7100'}})
+        try:
+            File.set_storage(storage)
+            Job.set_storage(storage)
+            storage.create_table(File)
+            storage.create_table(Job)
+
+            created = storage.create(Job, {'files': ['http://storage:7100/File/12']})
+            assert created.files == ['n3tx://storage/File/12']
+
+            row = sqlite3.connect(tmp_db).execute('SELECT files FROM test_ref_list_jobs').fetchone()
+            assert row[0] == '["n3tx://storage/File/12"]'
+
+            fetched = storage.get(Job, created.id)
+            assert fetched.files == ['n3tx://storage/File/12']
+        finally:
+            config.configure(remotes=old_remotes)
+
+    def test_explicit_ref_rejects_unconfigured_external_url(self, storage, tmp_db):
+        class File(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_external_ref_files'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Job(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_external_ref_jobs'
+            __storable__: ClassVar[bool] = True
+            file: Ref[File] | None = Field(default=None)
+
+        File.set_storage(storage)
+        Job.set_storage(storage)
+        storage.create_table(File)
+        storage.create_table(Job)
+
+        with pytest.raises(ValueError, match='Invalid external Ref value'):
+            storage.create(Job, {'file': 'https://example.com/file.pdf'})
+
+    def test_ref_list_populate_without_resolver_preserves_parent_read(self, storage, tmp_db):
+        class File(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_ref_list_no_resolver_files'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Job(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_ref_list_no_resolver_jobs'
+            __storable__: ClassVar[bool] = True
+            files: list[Ref[File]] = Field(default=[])
+
+        File.set_storage(storage)
+        Job.set_storage(storage)
+        storage.create_table(File)
+        storage.create_table(Job)
+
+        old_remotes = config.REMOTES
+        config.configure(remotes={'storage': {'url': 'http://storage:7100'}})
+        try:
+            created = storage.create(Job, {'files': ['http://storage:7100/File/12']})
+            fetched = storage.get(
+                Job,
+                created.id,
+                populate=PopulateSpec(fields={'files': PopulateSpec()}),
+            )
+            populated = fetched.__dict__['_populated']['files']
+            assert populated['refs'] == ['n3tx://storage/File/12']
+            assert populated['data'] == []
+            assert populated['errors'][0]['ref'] == 'n3tx://storage/File/12'
+        finally:
+            config.configure(remotes=old_remotes)
+
+    def test_ref_list_populate_uses_injected_resolver(self, storage, tmp_db):
+        class File(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_ref_list_resolver_files'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Job(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_ref_list_resolver_jobs'
+            __storable__: ClassVar[bool] = True
+            files: list[Ref[File]] = Field(default=[])
+
+        resolver = FakeReferenceResolver({
+            'n3tx://storage/File/12': {'$id': 'n3tx://storage/File/12', 'name': 'remote-file'},
+        })
+        storage.set_reference_resolver(resolver)
+        File.set_storage(storage)
+        Job.set_storage(storage)
+        storage.create_table(File)
+        storage.create_table(Job)
+
+        old_remotes = config.REMOTES
+        config.configure(remotes={'storage': {'url': 'http://storage:7100'}})
+        try:
+            created = storage.create(Job, {'files': ['http://storage:7100/File/12']})
+            fetched = storage.get(
+                Job,
+                created.id,
+                populate=PopulateSpec(fields={'files': PopulateSpec()}),
+            )
+            populated = fetched.__dict__['_populated']['files']
+            assert populated['data'] == [{'$id': 'n3tx://storage/File/12', 'name': 'remote-file'}]
+            assert populated['errors'] == []
+            assert resolver.calls[0][0] == 'n3tx://storage/File/12'
+        finally:
+            storage.set_reference_resolver(None)
+            config.configure(remotes=old_remotes)
+
+    def test_single_remote_ref_populate_uses_injected_resolver(self, storage, tmp_db):
+        class File(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_single_ref_resolver_files'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Job(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_single_ref_resolver_jobs'
+            __storable__: ClassVar[bool] = True
+            file: Ref[File] | None = Field(default=None)
+
+        resolver = FakeReferenceResolver({
+            'n3tx://storage/File/12': {'$id': 'n3tx://storage/File/12', 'name': 'remote-file'},
+        })
+        storage.set_reference_resolver(resolver)
+        File.set_storage(storage)
+        Job.set_storage(storage)
+        storage.create_table(File)
+        storage.create_table(Job)
+
+        old_remotes = config.REMOTES
+        config.configure(remotes={'storage': {'url': 'http://storage:7100'}})
+        try:
+            created = storage.create(Job, {'file': 'http://storage:7100/File/12'})
+            fetched = storage.get(
+                Job,
+                created.id,
+                populate=PopulateSpec(fields={'file': PopulateSpec()}),
+            )
+            assert fetched.__dict__['_populated']['file'] == {
+                '$id': 'n3tx://storage/File/12',
+                'name': 'remote-file',
+            }
+        finally:
+            storage.set_reference_resolver(None)
+            config.configure(remotes=old_remotes)
 
 
 class TestList:

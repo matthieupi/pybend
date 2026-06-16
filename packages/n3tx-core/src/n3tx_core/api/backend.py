@@ -125,9 +125,11 @@ class FastAPIBackend(BaseBackend):
             self._add_debug_logging_middleware()
 
     def _add_auth_middleware(self):
+        import json
         from starlette.responses import JSONResponse
         from starlette.types import ASGIApp, Receive, Scope, Send
         from n3tx_core.authorize import decode_token
+        from n3tx_core import config
 
         exempt_extensions = self.AUTH_EXEMPT_EXTENSIONS
 
@@ -156,10 +158,12 @@ class FastAPIBackend(BaseBackend):
 
                 # Extract and validate token if present.
                 headers = dict(
-                    (k.decode(), v.decode())
+                    (k.decode().lower(), v.decode())
                     for k, v in scope.get("headers", [])
                 )
                 token = headers.get("x-access-token")
+                service = headers.get("x-n3tx-service")
+                authorization = headers.get("authorization", "")
                 state = scope.setdefault("state", {})
 
                 if token:
@@ -173,6 +177,34 @@ class FastAPIBackend(BaseBackend):
                         )
                         await response(scope, receive, send)
                         return
+                elif service:
+                    expected = getattr(config, "SERVICE_TOKEN", "")
+                    bearer = authorization.removeprefix("Bearer ").strip()
+                    if not expected or bearer != expected:
+                        response = JSONResponse(
+                            status_code=401,
+                            content={"detail": "Invalid service token"},
+                        )
+                        await response(scope, receive, send)
+                        return
+
+                    forwarded_user = headers.get("x-n3tx-user")
+                    if forwarded_user:
+                        try:
+                            user = json.loads(forwarded_user)
+                            if not isinstance(user, dict):
+                                raise ValueError("Forwarded user context must be an object")
+                            state["user"] = user
+                        except (json.JSONDecodeError, ValueError):
+                            response = JSONResponse(
+                                status_code=400,
+                                content={"detail": "Invalid forwarded user context"},
+                            )
+                            await response(scope, receive, send)
+                            return
+                    else:
+                        state["user"] = {}
+                    state["service"] = service
                 else:
                     state["user"] = {}
 

@@ -1,5 +1,6 @@
 import logging
 import os
+import json as _json
 
 # Configure root 'n3tx' logger so all child loggers emit to console.
 # Default level: WARNING. Set N3TX_LOG_LEVEL=DEBUG (or INFO, ERROR, etc.) to change.
@@ -10,6 +11,11 @@ VERSION = "0.7.0"
 HOST = "0.0.0.0"
 PORT = 5000
 API_URL = f"http://localhost:{PORT}"
+
+# Distributed service identity / remote service configuration
+SERVICE_NAME = os.getenv("N3TX_SERVICE_NAME", "api")
+SERVICE_TOKEN = os.getenv("N3TX_SERVICE_TOKEN", "")
+REMOTES = _json.loads(os.getenv("N3TX_REMOTES", "{}") or "{}")
 
 # Filesystem configuration
 SQLITE_DB_FILE = "n3tx.db"
@@ -36,7 +42,6 @@ AGENT_DEFAULTS = {
 }
 
 if os.getenv("N3TX_AGENT_DEFAULTS"):
-    import json as _json
     AGENT_DEFAULTS.update(_json.loads(os.environ["N3TX_AGENT_DEFAULTS"]))
 
 # Apply N3TX_* environment variable overrides (if set)
@@ -49,6 +54,12 @@ if os.getenv("N3TX_PORT"):
     API_URL = f"http://localhost:{PORT}"
 if os.getenv("N3TX_API_URL"):
     API_URL = os.environ["N3TX_API_URL"]
+if os.getenv("N3TX_SERVICE_NAME"):
+    SERVICE_NAME = os.environ["N3TX_SERVICE_NAME"]
+if os.getenv("N3TX_SERVICE_TOKEN"):
+    SERVICE_TOKEN = os.environ["N3TX_SERVICE_TOKEN"]
+if os.getenv("N3TX_REMOTES"):
+    REMOTES = _json.loads(os.environ["N3TX_REMOTES"] or "{}")
 if os.getenv("N3TX_SQLITE_DB"):
     SQLITE_DB_FILE = os.environ["N3TX_SQLITE_DB"]
 if os.getenv("N3TX_SSR"):

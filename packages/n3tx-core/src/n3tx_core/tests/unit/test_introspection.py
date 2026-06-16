@@ -12,6 +12,7 @@ from n3tx_core.utils.introspection import (
     _is_self_ref,
     get_json_fields,
     get_list_fields,
+    get_ref_list_fields,
     get_ref_fields,
     get_many_to_many_fields,
     _unwrap_listref,
@@ -212,6 +213,45 @@ class TestGetRefFields:
         # parent_id is a self-ref, should NOT appear
         field_names = [r[0] for r in result]
         assert 'parent_id' not in field_names
+
+
+class TestGetRefListFields:
+
+    def test_list_ref_field_detected_as_pointer_array(self):
+        class File(BaseModel):
+            id: int = 0
+
+        class Job(BaseModel):
+            files: list[Ref[File]] = Field(default=[])
+
+        assert get_ref_list_fields(Job) == [('files', File)]
+
+    def test_optional_list_ref_field_detected(self):
+        class File(BaseModel):
+            id: int = 0
+
+        class Job(BaseModel):
+            files: Optional[list[Ref[File]]] = Field(default=[])
+
+        assert get_ref_list_fields(Job) == [('files', File)]
+
+    def test_list_ref_is_not_local_relationship_field(self):
+        class File(BaseModel):
+            id: int = 0
+
+        class Job(BaseModel):
+            files: list[Ref[File]] = Field(default=[])
+
+        assert get_list_fields(Job) == []
+
+    def test_list_ref_is_json_backed(self):
+        class File(BaseModel):
+            id: int = 0
+
+        class Job(BaseModel):
+            files: list[Ref[File]] = Field(default=[])
+
+        assert 'files' in get_json_fields(Job)
 
 
 class TestUnwrapListref:

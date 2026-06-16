@@ -1,6 +1,8 @@
 # app/storage/sqlite_storage.py
 
 import contextlib
+import asyncio
+import inspect
 import json
 import logging
 import queue
@@ -13,8 +15,9 @@ from pydantic import BaseModel
 
 from n3tx_core import config
 from n3tx_core.utils.registrar import registered_models
-from n3tx_core.utils.introspection import get_json_fields, get_list_fields, get_ref_fields
+from n3tx_core.utils.introspection import get_json_fields, get_list_fields, get_ref_fields, get_ref_list_fields
 from n3tx_core.utils.populate import PopulateSpec
+from n3tx_core.models.ref import canonicalize_ref, is_distributed_ref, is_external_link, local_ref_id
 from .abstract_storage import AbstractStorage
 from .sqlite_migration import SQLiteMigration
 
@@ -121,6 +124,58 @@ def _deserialize_json_fields(model_class, record):
                 pass
 
 
+def _normalize_ref_storage_values(model_class, data):
+    """Canonicalize Ref[T] and list[Ref[T]] values before SQLite writes."""
+    for field_name, target_cls in get_ref_fields(model_class):
+        if field_name in data and data[field_name] is not None:
+            value = canonicalize_ref(data[field_name], target_cls=target_cls)
+            if is_external_link(value):
+                raise ValueError(f"Invalid external Ref value for {field_name}: {value}")
+            data[field_name] = value
+
+    for field_name, target_cls in get_ref_list_fields(model_class):
+        if field_name not in data or data[field_name] is None:
+            continue
+        value = data[field_name]
+        if isinstance(value, list):
+            refs = []
+            for item in value:
+                ref = canonicalize_ref(item, target_cls=target_cls)
+                if is_external_link(ref):
+                    raise ValueError(f"Invalid external Ref value for {field_name}: {ref}")
+                refs.append(ref)
+            data[field_name] = refs
+
+
+def _local_ref_href(value, target_cls):
+    """Return existing local table-name href behavior for local refs."""
+    target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
+    return f"{config.API_URL}/{target_table}/{value}"
+
+
+def _public_storage_ref(value, target_cls):
+    """Return API-facing ref without corrupting distributed refs."""
+    if value is None:
+        return None
+    if is_distributed_ref(value):
+        return value
+    return _local_ref_href(value, target_cls)
+
+
+def _public_ref_list(value, target_cls):
+    """Return API-facing refs for a JSON-backed list[Ref[T]] field."""
+    if not isinstance(value, list):
+        return value
+    refs = []
+    for item in value:
+        if is_distributed_ref(item):
+            refs.append(item)
+            continue
+        local_id = local_ref_id(item, target_cls=target_cls)
+        refs.append(_local_ref_href(local_id, target_cls) if local_id is not None else item)
+    return refs
+
+
 class SQLiteStorage(AbstractStorage):
     """
     SQLite storage backend implementing the AbstractStorage.
@@ -130,8 +185,9 @@ class SQLiteStorage(AbstractStorage):
     and enables WAL mode so concurrent readers don't block on a writer.
     """
 
-    def __init__(self, database: str = 'database.db', pool_size: int = 4):
+    def __init__(self, database: str = 'database.db', pool_size: int = 4, reference_resolver=None):
         self.database = database
+        self.reference_resolver = reference_resolver
         self._migration = SQLiteMigration(database=database)
 
         # Connection pool: reuse connections instead of open/close per operation.
@@ -143,6 +199,113 @@ class SQLiteStorage(AbstractStorage):
         init_conn.execute("PRAGMA journal_mode=WAL")
         init_conn.execute("PRAGMA busy_timeout=5000")
         self._pool.put(init_conn)
+
+    def set_reference_resolver(self, reference_resolver):
+        """Set the optional resolver used for non-local Ref populate.
+
+        The default ``None`` preserves local-only Ref behavior. A resolver may
+        expose ``resolve(ref, target_cls=None, user=None, context=None)`` or be a
+        callable with the same signature. This keeps storage independent from
+        actors while letting actor-mode bootstrap inject a Matrix-backed resolver.
+        """
+        self.reference_resolver = reference_resolver
+
+    def _resolve_reference(self, ref, *, target_cls=None, context=None):
+        """Best-effort optional reference resolution for non-local refs."""
+        if self.reference_resolver is None:
+            return None, {
+                'ref': ref,
+                'message': 'No reference resolver configured',
+            }
+
+        resolver = self.reference_resolver
+        resolve = getattr(resolver, 'resolve', resolver)
+        try:
+            result = resolve(ref, target_cls=target_cls, context=context)
+            if inspect.isawaitable(result):
+                try:
+                    asyncio.get_running_loop()
+                except RuntimeError:
+                    result = asyncio.run(result)
+                else:
+                    return None, {
+                        'ref': ref,
+                        'message': 'Async reference resolver cannot run from synchronous storage context',
+                    }
+            return result, None
+        except Exception as exc:
+            return None, {'ref': ref, 'message': str(exc)}
+
+    def _populate_ref_list_field(self, field_name, target_cls, instances, conn):
+        """Populate a JSON-backed list[Ref[T]] field best-effort."""
+        refs_by_instance = []
+        local_ids = set()
+
+        for inst in instances:
+            refs = getattr(inst, field_name, None) or []
+            if not isinstance(refs, list):
+                refs = []
+            refs_by_instance.append((inst, refs))
+            for ref in refs:
+                local_id = local_ref_id(ref, target_cls=target_cls)
+                if local_id is not None:
+                    local_ids.add(local_id)
+
+        local_lookup = {}
+        if local_ids:
+            target_table = _validate_identifier(getattr(target_cls, '__tablename__', target_cls.__name__.lower()))
+            placeholders = ','.join(['?'] * len(local_ids))
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    f"SELECT * FROM {target_table} WHERE id IN ({placeholders})",
+                    list(local_ids),
+                )
+                rows = cursor.fetchall()
+                columns = [col[0] for col in cursor.description]
+                for row in rows:
+                    record = dict(zip(columns, row))
+                    _deserialize_json_fields(target_cls, record)
+                    try:
+                        ref_inst = target_cls(**record)
+                        local_lookup[record['id']] = ref_inst.model_response()
+                    except Exception:
+                        pass
+            except sqlite3.OperationalError:
+                pass
+
+        for inst, refs in refs_by_instance:
+            data = []
+            errors = []
+            for ref in refs:
+                local_id = local_ref_id(ref, target_cls=target_cls)
+                if local_id is not None:
+                    local_data = local_lookup.get(local_id)
+                    if local_data is not None:
+                        data.append(local_data)
+                    else:
+                        errors.append({'ref': ref, 'message': 'Local reference not found'})
+                    continue
+
+                resolved, error = self._resolve_reference(
+                    ref,
+                    target_cls=target_cls,
+                    context={'field': field_name, 'model': inst.__class__.__name__},
+                )
+                if error:
+                    errors.append(error)
+                elif resolved is not None:
+                    if hasattr(resolved, 'model_response'):
+                        resolved = resolved.model_response()
+                    data.append(resolved)
+
+            if not hasattr(inst, '_populated') or inst._populated is None:
+                inst.__dict__['_populated'] = {}
+            inst.__dict__['_populated'][field_name] = {
+                'data': data,
+                'refs': refs,
+                'errors': errors,
+            }
 
     def _get_conn(self):
         """Get a connection from the pool, or create a new one if empty."""
@@ -188,6 +351,7 @@ class SQLiteStorage(AbstractStorage):
     def create(self, model_class: Type[Any], data: Dict[str, Any]) -> Any:
         logger.info("Creating new %s record", model_class.__name__)
         table_name = _validate_identifier(model_class.__tablename__)
+        _normalize_ref_storage_values(model_class, data)
 
         # Identify List[BaseModel] fields — these are NOT columns on this table
         collection_field_names = {name for name, _cls in get_list_fields(model_class)}
@@ -290,8 +454,11 @@ class SQLiteStorage(AbstractStorage):
                 for field_name, target_cls in ref_fields:
                     val = record.get(field_name)
                     if val is not None:
-                        target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
-                        record[field_name] = f"{config.API_URL}/{target_table}/{val}"
+                        record[field_name] = _public_storage_ref(val, target_cls)
+
+                for field_name, target_cls in get_ref_list_fields(model_class):
+                    if field_name in record:
+                        record[field_name] = _public_ref_list(record.get(field_name), target_cls)
 
                 records.append(record)
 
@@ -395,8 +562,7 @@ class SQLiteStorage(AbstractStorage):
             for field_name, target_cls in get_ref_fields(model_class):
                 val = data.get(field_name)
                 if val is not None:
-                    target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
-                    data[field_name] = f"{config.API_URL}/{target_table}/{val}"
+                    data[field_name] = _public_storage_ref(val, target_cls)
 
             # ── Hydrate collection fields as href arrays ──
             for field_name, child_class in get_list_fields(model_class):
@@ -421,6 +587,9 @@ class SQLiteStorage(AbstractStorage):
 
             # Deserialize JSON TEXT fields (dict/list) before model instantiation
             _deserialize_json_fields(model_class, data)
+            for field_name, target_cls in get_ref_list_fields(model_class):
+                if field_name in data:
+                    data[field_name] = _public_ref_list(data.get(field_name), target_cls)
 
             instance = model_class(**data) if not as_dict else None
 
@@ -454,6 +623,7 @@ class SQLiteStorage(AbstractStorage):
 
         list_fields = get_list_fields(model_class)
         ref_fields = get_ref_fields(model_class)
+        ref_list_fields = get_ref_list_fields(model_class)
         cursor = conn.cursor()
 
         # ── Populate ListRef fields (collections) ──
@@ -521,8 +691,7 @@ class SQLiteStorage(AbstractStorage):
                     for ref_name, target_cls in child_ref_fields:
                         val = rec.get(ref_name)
                         if val is not None:
-                            target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
-                            rec[ref_name] = f"{config.API_URL}/{target_table}/{val}"
+                            rec[ref_name] = _public_storage_ref(val, target_cls)
 
                 # Batch-hydrate child's own ListRef fields (one query per field,
                 # not per child instance — same N+1 fix as in list()).
@@ -560,6 +729,9 @@ class SQLiteStorage(AbstractStorage):
                 # Deserialize JSON TEXT fields on child records
                 for rec in capped:
                     _deserialize_json_fields(effective_cls, rec)
+                    for ref_list_name, ref_list_target in get_ref_list_fields(effective_cls):
+                        if ref_list_name in rec:
+                            rec[ref_list_name] = _public_ref_list(rec.get(ref_list_name), ref_list_target)
 
                 # Build child model instances and serialize
                 child_dicts = []
@@ -602,6 +774,14 @@ class SQLiteStorage(AbstractStorage):
                         if nested_pop:
                             child_dict.update(nested_pop)
 
+        # ── Populate list[Ref[T]] fields (JSON-backed pointer arrays) ──
+        for field_name, target_cls in ref_list_fields:
+            if not populate.should_populate(field_name):
+                continue
+            if target_cls.__name__ in _visited:
+                continue
+            self._populate_ref_list_field(field_name, target_cls, instances, conn)
+
         # ── Populate Ref fields (single FK) ──
         for field_name, target_cls in ref_fields:
             if not populate.should_populate(field_name):
@@ -615,17 +795,26 @@ class SQLiteStorage(AbstractStorage):
             fk_ids = []
             for inst in instances:
                 val = getattr(inst, field_name, None)
-                if val is not None:
-                    if isinstance(val, str) and '/' in val:
-                        fk_id = val.rsplit('/', 1)[-1]
-                    else:
-                        fk_id = val
-                    try:
-                        fk_ids.append(int(fk_id))
-                    except (ValueError, TypeError):
-                        pass
+                fk_id = local_ref_id(val, target_cls=target_cls)
+                if fk_id is not None:
+                    fk_ids.append(fk_id)
 
             if not fk_ids:
+                for inst in instances:
+                    val = getattr(inst, field_name, None)
+                    if val is None or self.reference_resolver is None:
+                        continue
+                    resolved, _error = self._resolve_reference(
+                        val,
+                        target_cls=target_cls,
+                        context={'field': field_name, 'model': inst.__class__.__name__},
+                    )
+                    if resolved is not None:
+                        if hasattr(resolved, 'model_response'):
+                            resolved = resolved.model_response()
+                        if not hasattr(inst, '_populated') or inst._populated is None:
+                            inst.__dict__['_populated'] = {}
+                        inst.__dict__['_populated'][field_name] = resolved
                 continue
 
             unique_ids = list(set(fk_ids))
@@ -653,16 +842,26 @@ class SQLiteStorage(AbstractStorage):
 
             for inst in instances:
                 val = getattr(inst, field_name, None)
-                if val is not None:
-                    if isinstance(val, str) and '/' in val:
-                        fk_id = int(val.rsplit('/', 1)[-1])
-                    else:
-                        fk_id = int(val)
-                    ref_data = lookup.get(fk_id)
-                    if ref_data:
-                        if not hasattr(inst, '_populated') or inst._populated is None:
-                            inst.__dict__['_populated'] = {}
-                        inst.__dict__['_populated'][field_name] = ref_data
+                fk_id = local_ref_id(val, target_cls=target_cls)
+                if fk_id is None:
+                    if val is not None and self.reference_resolver is not None:
+                        resolved, _error = self._resolve_reference(
+                            val,
+                            target_cls=target_cls,
+                            context={'field': field_name, 'model': inst.__class__.__name__},
+                        )
+                        if resolved is not None:
+                            if hasattr(resolved, 'model_response'):
+                                resolved = resolved.model_response()
+                            if not hasattr(inst, '_populated') or inst._populated is None:
+                                inst.__dict__['_populated'] = {}
+                            inst.__dict__['_populated'][field_name] = resolved
+                    continue
+                ref_data = lookup.get(fk_id)
+                if ref_data:
+                    if not hasattr(inst, '_populated') or inst._populated is None:
+                        inst.__dict__['_populated'] = {}
+                    inst.__dict__['_populated'][field_name] = ref_data
 
     # ──────────────────────────────────────────────
     # UPDATE
@@ -675,6 +874,7 @@ class SQLiteStorage(AbstractStorage):
         Prevents SQL injection by using parameterized queries.
         """
         table_name = _validate_identifier(model_class.__tablename__)
+        _normalize_ref_storage_values(model_class, data)
 
         # Identify List[BaseModel] fields — these are NOT columns on this table
         collection_field_names = {name for name, _cls in get_list_fields(model_class)}

@@ -75,7 +75,7 @@ class StorableMixin:
                     join_data = {**data._storage_dict(exclude_unset=True), fk_field: parent.id}
                     for k, v in join_data.items():
                         if isinstance(v, Ref):
-                            join_data[k] = int(v)  # unwrap FK to plain int
+                            join_data[k] = v.model_dump()  # unwrap FK/ref address for storage
                     return join_cls.create(join_cls(**join_data))
 
 
@@ -83,7 +83,7 @@ class StorableMixin:
         data_dict = data._storage_dict(exclude_unset=True)
         for k, v in data_dict.items():
             if isinstance(v, Ref):
-                data_dict[k] = int(v)  # unwrap FK to plain int
+                data_dict[k] = v.model_dump()  # unwrap FK/ref address for storage
 
         logger.debug("Creating %s with data: %s", cls.__name__, data_dict)
         return cls.storage.create(cls, data_dict)

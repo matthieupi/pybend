@@ -70,3 +70,8 @@ class TestConfig:
 
     def test_api_url_contains_port(self):
         assert str(config.PORT) in config.API_URL
+
+    def test_distributed_service_defaults(self):
+        assert isinstance(config.SERVICE_NAME, str)
+        assert isinstance(config.SERVICE_TOKEN, str)
+        assert isinstance(config.REMOTES, dict)
