@@ -1,12 +1,15 @@
 ---
 name: n3tx-frontend
-description: Broad N3TX frontend application development. Use for schema-driven UI, Web Components, routes, forms, widgets, transport, streaming UI, and frontend verification without duplicating backend contracts.
+description: N3TX frontend index/workflow: schema-driven UI, Web Components, route views, forms, widgets, transport, streaming UI, theme/shell/topbar/sidebar, and frontend verification. Use when frontend scope is broad or unclear; delegate focused tasks to UI schema/components/widgets/streaming skills.
 argument-hint: "<frontend feature>"
 ---
 
 # N3TX Frontend
 
 The N3TX frontend is schema-driven. It should adapt to backend contracts instead of re-declaring them.
+
+If the task is focused, prefer the specialist skill directly. Use
+`n3tx-skill-routing` when skill choice is ambiguous.
 
 ## Frontend mental model
 
@@ -45,6 +48,10 @@ The browser receives a complete model contract. Use that contract.
 
 The `@` segment always means view/presentation, never data or method invocation.
 
+Theme, shell, topbar, sidebar, profile routes, route-template mounting, icons,
+and token contracts are frontend concerns too. Treat `FRONTEND.md` and
+`packages/n3tx-ui/docs/styling.md` as the canonical references for those areas.
+
 ## What schema controls
 
 | Schema section | Frontend use |
@@ -60,6 +67,18 @@ The `@` segment always means view/presentation, never data or method invocation.
 | `methods` | method buttons/streams |
 | `methods[m].events` | typed stream event handlers |
 | `$defs` | nested DynamicClass registration |
+
+## Delegate focused work
+
+| Frontend task | Prefer |
+|---|---|
+| `__ui__`, field metadata, schema access adaptation | `n3tx-ui-schema` |
+| Custom Web Components/renderers/lifecycle | `n3tx-ui-components` |
+| Formidable field display/input widgets | `n3tx-widgets` |
+| Streaming method output or typed stream events | `n3tx-streaming` |
+| Agent chat/live/stream-agent UI | `n3tx-agents` |
+| Theme, shell slots, topbar/sidebar/profile/routing chrome | this skill + `n3tx-ui-components` |
+| Browser/unit/E2E verification | `n3tx-testing` |
 
 ## Frontend boundaries
 
@@ -80,4 +99,7 @@ Prefer Vitest for static component/schema behavior and Playwright for browser/au
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. If source resolves a gap, update or propose docs/skills.
+Read `AGENTS.md`, frontend docs, package UI docs, and `FRONTEND.md` first.
+Inspect framework source only when docs/skills are insufficient, stale, or
+contradicted by observed behavior. If source resolves a gap, update or propose
+docs/skills.

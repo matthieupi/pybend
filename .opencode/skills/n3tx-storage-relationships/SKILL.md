@@ -1,6 +1,6 @@
 ---
 name: n3tx-storage-relationships
-description: N3TX storage, StorableMixin, SQLite JSON fields, pagination, ListRef parent-child relationships, ManyToMany shared relationships, nested routes, and ownership fields. Use for persistence and relationship design.
+description: N3TX storage, StorableMixin, SQLite JSON fields, pagination, ListRef parent-child relationships, ManyToMany shared relationships, nested routes, and ownership fields. Use when designing or debugging persistence and relationships.
 argument-hint: "<storage or relationship task>"
 ---
 

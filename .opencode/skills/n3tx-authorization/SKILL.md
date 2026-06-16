@@ -1,6 +1,6 @@
 ---
 name: n3tx-authorization
-description: N3TX authorization and authentication with BaseUser, JWT, ABAC access rules, OWNER, ROLE, Where, field protection, and frontend access adaptation. Use for auth/access work.
+description: N3TX authorization and authentication with BaseUser, JWT, ABAC access rules, OWNER, ROLE, Where, field protection, and frontend access adaptation. Use when working on auth/access behavior.
 argument-hint: "<auth or access task>"
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: n3tx-streaming
-description: N3TX streaming methods, SSE, TX stream protocol, @expose_route(stream=True), schema-declared events, NTTStream, NTTStreamAgent, and progressive UI. Use for long-running or realtime output.
+description: N3TX streaming methods, SSE, TX stream protocol, @expose_route(stream=True), schema-declared events, NTTStream, NTTStreamAgent, and progressive UI. Use when building or debugging long-running or realtime output.
 argument-hint: "<streaming feature>"
 ---
 

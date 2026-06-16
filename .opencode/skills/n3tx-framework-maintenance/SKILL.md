@@ -1,6 +1,6 @@
 ---
 name: n3tx-framework-maintenance
-description: Improve or modify the N3TX framework itself. Use only when changing packages/n3tx-core, n3tx-actors, n3tx-ui, n3tx-agents, framework docs, architecture, tests, or extension internals.
+description: N3TX framework internals: packages/n3tx-core, n3tx-actors, n3tx-ui, n3tx-agents, n3tx-files, schema/storage/routes/components/tests/docs. Use ONLY when modifying framework packages, public contracts, extension internals, framework docs, or first-party test harnesses.
 argument-hint: "<framework change>"
 ---
 
@@ -11,7 +11,7 @@ Use this skill only for modifying N3TX internals, not normal app development.
 ## Maintenance principles
 
 - Preserve the model-as-contract architecture.
-- Keep package dependencies acyclic: `core <- actors/ui <- agents`, meta-package depends on all.
+- Keep package dependencies acyclic: `core <- actors/ui <- agents`, `files <- core + actors`, meta-package depends on all.
 - Prefer extension points over special cases.
 - Keep backend authoritative and frontend schema-driven.
 - Keep protocol IO behind network adapters.
@@ -25,6 +25,7 @@ n3tx-core      models, schema, storage, auth, route factories, JS runtime
 n3tx-actors    Actor/TX/Matrix, ActorModel, network adapters
 n3tx-ui        visual Web Components, widgets, themes, ViewableMixin
 n3tx-agents    AgentMixin, AgentActor, tool discovery, agent UI
+n3tx-files     File metadata model, byte stores, upload/download route adapters
 n3tx           meta-package
 ```
 
@@ -39,7 +40,9 @@ n3tx           meta-package
 
 ## When source inspection is expected
 
-Framework maintenance normally requires reading source. Still start from docs to preserve intent, then inspect source to implement precise changes.
+Framework maintenance normally requires reading source. Still start from
+`AGENTS.md`, `/workspace/docs/`, `BACKEND.md`, `FRONTEND.md`, and package docs
+to preserve intent, then inspect source to implement precise changes.
 
 ## Verification examples
 

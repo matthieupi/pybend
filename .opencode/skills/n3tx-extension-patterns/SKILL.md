@@ -1,6 +1,6 @@
 ---
 name: n3tx-extension-patterns
-description: N3TX extension patterns for schema/dump extensions, mixins, custom storage, widgets, components, network adapters, and auth rules. Use when normal model/UI/actor customization is not enough.
+description: N3TX extension patterns for schema/dump extensions, mixins, custom storage, widgets, components, network adapters, and auth rules. Use ONLY when normal model/UI/actor customization is not enough and an additive extension point is required.
 argument-hint: "<extension need>"
 ---
 

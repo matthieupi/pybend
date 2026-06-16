@@ -1,12 +1,15 @@
 ---
 name: n3tx-backend
-description: Broad N3TX backend application development. Use for models, storage, auth, routes, actors, agents, ManyToMany relationships, n3tx-files, app bootstrap, external integrations, and backend verification without framework source lookup.
+description: N3TX backend index/workflow: models, storage, auth, methods, actors, agents, files, app bootstrap, external integrations, and backend verification. Use when backend scope is broad or unclear; delegate focused tasks to specialist N3TX skills.
 argument-hint: "<backend feature>"
 ---
 
 # N3TX Backend
 
 Backend work in N3TX starts from models and actor boundaries, not hand-written controllers.
+
+If the task is focused, prefer the specialist skill directly. Use
+`n3tx-skill-routing` when skill choice is ambiguous.
 
 ## Backend mental model
 
@@ -35,6 +38,22 @@ from n3tx_files import File, LocalFileStore, configure_file_store
 ```
 
 Use `ActorModel` when the model should participate in TX routing, agents, MCP, WebSocket, federation, lifecycle events, or reusable compute.
+
+## Delegate focused work
+
+| Backend task | Prefer |
+|---|---|
+| Model fields/schema/validation | `n3tx-models` |
+| Relationships/pagination/ownership | `n3tx-storage-relationships` |
+| Dict/list JSON storage | `n3tx-json-fields` |
+| File uploads/downloads/blob providers/materialization | `n3tx-files` |
+| Auth/access/JWT/protected fields | `n3tx-authorization` |
+| `@expose_route` methods/user injection/route grammar | `n3tx-methods-routes` |
+| Actor/TX/Matrix/lifecycle | `n3tx-actors` |
+| NetworkAPI/WebSocket/MCP/AP protocol bridges | `n3tx-networking` |
+| AgentMixin/AgentActor/tool discovery | `n3tx-agents` |
+| App bootstrap/static/import ordering | `n3tx-app-bootstrap` |
+| External APIs/webhooks/scraping/cloud services | `n3tx-external-integrations` |
 
 ## Backend feature shape
 
@@ -78,7 +97,9 @@ link model/table during bootstrap.
 
 ## Files
 
-Use `n3tx-files` for first-class file metadata and byte storage:
+For detailed file behavior, load `n3tx-files`. This backend index only names the
+boundary: files are first-class metadata records and bytes live behind a
+`FileStore` provider.
 
 ```python
 from n3tx_files import File, LocalFileStore, configure_file_store
@@ -120,4 +141,7 @@ not materialized.
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or behavior contradicts docs. If source resolves a gap, update or propose docs/skills.
+Read `AGENTS.md` and relevant `/workspace/docs/` or package docs first. Then
+read `BACKEND.md`. Read `FRONTEND.md` too for full-stack behavior. Inspect
+framework source only when docs/skills are insufficient, stale, or contradicted
+by observed behavior. If source resolves a gap, update or propose docs/skills.

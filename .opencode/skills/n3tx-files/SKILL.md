@@ -1,6 +1,6 @@
 ---
 name: n3tx-files
-description: N3TX file capability with n3tx-files, File metadata, FileStore providers, multipart upload, binary/range download, file addresses, and File-typed method materialization. Use when adding user files, blob storage, uploads, downloads, or file arguments.
+description: N3TX uploads/downloads/blob storage: n3tx-files, File metadata, FileStore providers, /files/upload, /File/{id}/download, Range, file addresses, and File-typed method materialization. Use ONLY when adding or debugging user files, attachments, blob providers, upload/download routes, or file arguments.
 argument-hint: "<file/upload/blob task>"
 ---
 
@@ -9,6 +9,10 @@ argument-hint: "<file/upload/blob task>"
 `n3tx-files` adds a first-class file resource without making core depend on
 file storage. Files are normal N3TX metadata records; bytes live behind a
 `FileStore` provider.
+
+Use this skill instead of generic backend guidance whenever the task mentions
+uploads, downloads, blobs, attachments, `FileStore`, file addresses, range
+requests, or passing files into exposed methods.
 
 ## App integration
 
@@ -96,4 +100,6 @@ before the method runs. Plain `str` parameters are not materialized.
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Read `AGENTS.md`, `BACKEND.md`, and `packages/n3tx-files/docs/file.md` first.
+Inspect source only when docs/skills are insufficient, stale, or contradicted by
+observed behavior. Update or propose docs/skills when gaps are found.

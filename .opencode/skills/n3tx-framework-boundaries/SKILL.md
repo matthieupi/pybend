@@ -1,6 +1,6 @@
 ---
 name: n3tx-framework-boundaries
-description: N3TX framework boundary guardrails and anti-patterns. Use when a design might bypass schemas, actors, generated routes, N3TX transport, authorization, or reusable actor capabilities.
+description: N3TX framework boundary guardrails and anti-patterns. Use ONLY when a design might bypass schemas, actors, generated routes, N3TX transport, authorization, files, or reusable actor capabilities.
 argument-hint: "<design or implementation concern>"
 ---
 

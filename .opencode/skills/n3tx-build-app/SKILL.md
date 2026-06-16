@@ -1,6 +1,6 @@
 ---
 name: n3tx-build-app
-description: Build complete N3TX applications and features. Use when creating an app, adding an end-to-end feature, choosing routing level, defining models, wiring UI, agents, storage, auth, ManyToMany relationships, files, and verification.
+description: N3TX end-to-end app or feature workflow: choose routing level, define models, bootstrap app, wire UI/auth/storage/agents/files, and verify. Use when creating a new app or vertical feature; delegate focused work to specialist skills.
 argument-hint: "<app or feature to build>"
 ---
 
@@ -29,7 +29,12 @@ Use this skill for end-to-end application development on top of N3TX.
 | Level 2 | `ActorModel` + direct routes | App needs actor capabilities but plain HTTP route layer is enough |
 | Level 3 | `ActorModel` + `routing='actor'` | Networking, agents, MCP, WebSocket, federation, or strict actor routing matters |
 
-Default recommendation for new serious N3TX apps: **use `ActorModel` and Level 3** unless there is a reason to stay simpler. It keeps capabilities inside the actor system from the beginning.
+Default recommendation: **use the lowest routing level that satisfies the requirement**.
+Level 1 is enough for pure CRUD/schema-driven apps, Level 2 is enough when a
+model needs actor capabilities but direct HTTP routing is still sufficient, and
+Level 3 is for TX/protocol routing, agents, MCP, WebSocket, federation, or
+strict actor routing. This preserves N3TX's zero-to-working path without
+blocking later promotion to actors or network adapters.
 
 ## Minimal app
 
@@ -37,10 +42,10 @@ Default recommendation for new serious N3TX apps: **use `ActorModel` and Level 3
 from pydantic import Field
 
 from n3tx_core.app import create_app
-from n3tx_actors.models.actor_model import ActorModel
+from n3tx_core.models.proto_model import ProtoModel
 
 
-class Product(ActorModel):
+class Product(ProtoModel):
     __tablename__ = 'products'
     __storable__ = True
 
@@ -51,9 +56,27 @@ class Product(ActorModel):
 app = create_app(
     models=[Product],
     storage='sqlite:///app.db',
-    routing='actor',
 )
 ```
+
+Use `ActorModel` and `routing='actor'` only when actor routing is part of the
+capability being built.
+
+## Delegate focused work
+
+| Need | Load |
+|---|---|
+| Model fields, schema, validation | `n3tx-models` |
+| Relationships, pagination, ownership | `n3tx-storage-relationships` |
+| Dict/list JSON TEXT fields | `n3tx-json-fields` |
+| Uploads, downloads, `FileStore`, file materialization | `n3tx-files` |
+| Auth/access/protected fields | `n3tx-authorization` |
+| Custom methods/routes | `n3tx-methods-routes` |
+| Actor-backed reusable compute | `n3tx-actors` |
+| Protocol routing/WebSocket/MCP/AP | `n3tx-networking` |
+| LLM agents/tools/chat | `n3tx-agents` |
+| Schema-driven UI | `n3tx-ui-schema`, `n3tx-ui-components`, `n3tx-widgets` |
+| Tests and verification | `n3tx-testing` |
 
 ## App with UI and agents
 
@@ -121,4 +144,8 @@ When working in an example app, run from that example directory when starting th
 
 ## Source-reading policy
 
-Prefer these skills and project docs. Inspect framework source only when documentation is insufficient, does not cover the intended implementation, or observed behavior contradicts docs. If that happens, update or propose updates to docs/skills.
+Read `AGENTS.md` and relevant `/workspace/docs/` or package docs first. Then
+read `BACKEND.md`, `FRONTEND.md`, or both based on the affected surface.
+Inspect framework source only when documentation is insufficient, stale, or
+contradicted by observed behavior. If source resolves a gap, update or propose
+updates to docs/skills.

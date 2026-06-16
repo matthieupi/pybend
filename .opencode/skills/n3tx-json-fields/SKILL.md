@@ -1,6 +1,6 @@
 ---
 name: n3tx-json-fields
-description: N3TX JSON fields for dict/list model fields, SQLite TEXT serialization, schema/storage detection, migrations, usage tradeoffs, and relationship boundaries. Use when designing, debugging, or changing dict/list nested field persistence.
+description: N3TX JSON fields for dict/list model fields, SQLite TEXT serialization, schema/storage detection, migrations, usage tradeoffs, and relationship boundaries. Use ONLY when designing, debugging, or changing embedded dict/list nested field persistence.
 argument-hint: "<json field or nested data task>"
 ---
 

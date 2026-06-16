@@ -118,4 +118,7 @@ The browser sees one URL namespace.
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Read `AGENTS.md`, app-bootstrap docs, `BACKEND.md`, and `FRONTEND.md` as
+appropriate before source. Inspect framework source only when docs/skills are
+insufficient, stale, or contradicted by observed behavior. Update or propose
+docs/skills when gaps are found.
