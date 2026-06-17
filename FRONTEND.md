@@ -164,7 +164,12 @@ tags such as `ntx-agents` receive the same `model`, `router`, `headless`, and
 without forking the sidebar. Plain sidebar links follow router semantics too:
 `href="#"` navigates to the router home route (empty route, no hash), while
 `href="#profile"` maps to the app route `@profile`; already-explicit app links
-such as `href="#@settings"` stay `@settings` and are not double-prefixed.
+such as `href="#@settings"` stay `@settings` and are not double-prefixed. Those
+plain links can also set `icon="..."` to render a per-link `<ntx-icon>` token,
+for example `<a href="#@upload" icon="upload">UPLOAD</a>`; links without an
+`icon` attribute keep the generic link glyph. The framework ships built-in SVG
+tokens for the common `dashboard`, `upload`, and `user` sidebar entries, and
+apps can add more with `registerIcons({...})`.
 
 Standard wide `ntx-list` card views now pack uneven card heights more tightly.
 `ListElement` keeps CSS grid source ordering, but when children resolve to

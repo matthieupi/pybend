@@ -74,6 +74,8 @@ mount a registered `<ntx-profile>` element instead of an empty unknown tag.
 `NTTSidebar` supports `brand`, `subtitle`, and optional `brand-logo` attributes so app shells can place a custom mark in the sidebar brand section without forking the component.
 Template children can also declare `sidebar-label="..."` to override the nav
 label shown in the sidebar without changing the mounted view or route params.
+Plain `<a>` sidebar children can declare `icon="..."` to render a per-link
+`<ntx-icon>` token while links without `icon` keep the generic link icon.
 Sidebar model navigation emits explicit frontend view routes (`#Model/@` or
 `#Model/@table` for table templates), and compact dropdown record links use
 member default view routes such as `#Model/5/@`. Legacy `#Model` and
@@ -83,7 +85,8 @@ member default view routes such as `#Model/5/@`. Legacy `#Model` and
 sidebar avatars, and collection headers. It resolves icon tokens through
 `static/utils/icon-resolver.js` and supports inline SVG lookup entries,
 emoji, image URLs/paths, and custom lookup keys registered at runtime with
-`registerIcons({...})`.
+`registerIcons({...})`. Built-in lookup keys include common app navigation
+tokens such as `dashboard`, `upload`, and `user`.
 
 **Agent components** (n3tx-agents):
 
