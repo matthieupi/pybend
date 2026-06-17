@@ -27,7 +27,7 @@
  *     <ntx-list model="AgentActor" sidebar-label="Agents"></ntx-list>
  *     <ntx-list  model="Source"></ntx-list>                 <!-- model: expandable list -->
  *     <ntx-item  model="Organization"></ntx-item>           <!-- item: singleton nav -->
- *     <a href="#settings">Settings</a>                      <!-- link: hash navigation -->
+ *     <a href="#settings" icon="settings">Settings</a>      <!-- link: hash navigation -->
  *     <ntx-theme-button slot="footer"></ntx-theme-button>   <!-- footer: manual shell action -->
  *   </ntx-sidebar>
  *
@@ -118,6 +118,7 @@ class NTTSidebar extends HTMLElement {
           type: 'link',
           label: child.textContent.trim(),
           href: child.getAttribute('href'),
+          icon: child.getAttribute('icon') || '',
         });
         child.hidden = true;
       }
@@ -651,10 +652,14 @@ class NTTSidebar extends HTMLElement {
   }
 
   #renderLinkEntry(entry) {
+    const icon = entry.icon
+      ? iconMarkup(entry.icon, { label: entry.label, className: 'sidebar-link-icon' })
+      : ICON_LINK;
+
     return `
       <div class="sidebar-link" data-href="${entry.href}">
         <button class="model-header">
-          <div class="link-icon">${ICON_LINK}</div>
+          <div class="link-icon">${icon}</div>
           <span class="model-name">${entry.label}</span>
         </button>
       </div>

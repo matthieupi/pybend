@@ -19,9 +19,12 @@ function normalizeRegistryValue(value) {
 }
 
 const _registry = new Map([
+  ['dashboard', svgIcon('<rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" />')],
   ['heart', svgIcon('<path d="m20.84 4.61-1.45-1.45a5.5 5.5 0 0 0-7.78 0L12 3.56l.39-.4a5.5 5.5 0 0 0-7.78 7.78l1.45 1.45L12 18.33l5.94-5.94 1.45-1.45a5.5 5.5 0 0 0 0-7.78Z" />')],
   ['star', svgIcon('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />')],
   ['reply', svgIcon('<polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" />')],
+  ['upload', svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />')],
+  ['user', svgIcon('<path d="M20 21a8 8 0 0 0-16 0" /><circle cx="12" cy="7" r="4" />')],
 ]);
 
 const PATH_PREFIX = /^(https?:\/\/|\/|\.\/?|\.\.\/)/i;

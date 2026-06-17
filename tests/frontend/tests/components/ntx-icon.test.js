@@ -27,6 +27,20 @@ describe('ntx-icon.js', () => {
     document.body.removeChild(el);
   });
 
+  it('renders built-in app navigation tokens as svg', () => {
+    for (const token of ['dashboard', 'upload', 'user']) {
+      const el = document.createElement('ntx-icon');
+      el.setAttribute('value', token);
+      document.body.appendChild(el);
+
+      const html = el.shadowRoot.innerHTML;
+      expect(html).toContain('icon--svg');
+      expect(html).toContain('role="img"');
+
+      document.body.removeChild(el);
+    }
+  });
+
   it('renders URL values as images', () => {
     const el = document.createElement('ntx-icon');
     el.setAttribute('value', '/static/icons/books.svg');

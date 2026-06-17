@@ -387,6 +387,43 @@ describe('ntx-sidebar.js (NTTSidebar)', () => {
 
       document.body.removeChild(el);
     });
+
+    it('should render declarative icons for plain sidebar links', () => {
+      const el = document.createElement('ntx-sidebar');
+      const link = document.createElement('a');
+      link.setAttribute('href', '#@dashboard');
+      link.setAttribute('icon', 'dashboard');
+      link.textContent = 'Dashboard';
+      el.appendChild(link);
+
+      document.body.appendChild(el);
+
+      const icon = el.shadowRoot.querySelector('.sidebar-link .link-icon ntx-icon');
+      expect(icon).toBeTruthy();
+      expect(icon.getAttribute('value')).toBe('dashboard');
+      expect(icon.getAttribute('label')).toBe('Dashboard');
+      expect(icon.getAttribute('class')).toBe('sidebar-link-icon');
+
+      document.body.removeChild(el);
+    });
+
+    it('should keep the generic link icon fallback for plain links without icon', () => {
+      const el = document.createElement('ntx-sidebar');
+      const link = document.createElement('a');
+      link.setAttribute('href', '#@profile');
+      link.textContent = 'Profile';
+      el.appendChild(link);
+
+      document.body.appendChild(el);
+
+      const icon = el.shadowRoot.querySelector('.sidebar-link .link-icon');
+      expect(icon).toBeTruthy();
+      expect(icon.querySelector('ntx-icon')).toBeNull();
+      expect(icon.innerHTML).toContain('<svg');
+      expect(icon.innerHTML).toContain('M10 13');
+
+      document.body.removeChild(el);
+    });
   });
 
   describe('render output', () => {
