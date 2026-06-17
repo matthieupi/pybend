@@ -1,6 +1,6 @@
 {
-  "command": "scripts/test-backend.py --suite actors -- -q packages/n3tx-actors/src/n3tx_actors/tests/test_remote_matrix.py packages/n3tx-actors/src/n3tx_actors/tests/test_remote_proxy.py",
-  "created_at": "2026-06-16T17:54:10.612923+00:00",
+  "command": "scripts/test-backend.py --suite core -- packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py::TestClassNameCrudMirrors::test_static_exposed_method_schema_reports_static_scope packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py::TestClassNameCrudMirrors::test_class_exposed_method_schema_and_routes_are_collection_scoped -q",
+  "created_at": "2026-06-17T18:10:49.635872+00:00",
   "overview_file": "/workspace/.project/test-runs/backend-test-overview.json",
   "suites": [
     {
@@ -11,7 +11,7 @@
         "warnings": 0
       },
       "message": "",
-      "name": "actors",
+      "name": "core",
       "previous_status": null,
       "returncode": 1,
       "status": "failed"

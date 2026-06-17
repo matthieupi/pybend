@@ -176,6 +176,49 @@ class TestRemoteMatrix:
         assert '"user_id": 7' in requests[1][2]['x-n3tx-user']
 
     @pytest.mark.asyncio
+    async def test_stream_uses_schema_route_for_static_method_without_instance_id(self):
+        requests = []
+
+        def handler(request):
+            requests.append((request.method, str(request.url)))
+            if request.method == 'GET':
+                return httpx.Response(200, json={
+                    'methods': {
+                        'upload_to_splat': {
+                            'route': '/upload-to-splat',
+                            'scope': 'staticmethod',
+                            'stream': True,
+                            'methods': ['POST'],
+                        }
+                    }
+                })
+            if str(request.url).endswith('/ComputePipeline/0/upload_to_splat'):
+                return httpx.Response(405, text='wrong fallback route')
+            return httpx.Response(
+                200,
+                content=(
+                    'event: done\n'
+                    f'data: {json.dumps(TX(name="STREAM", source="remote", target="app", data={}, meta={"stream_end": True, "stream": True}).__dict__)}\n\n'
+                ),
+            )
+
+        adapter = RemoteMatrix(remotes={'compute': {'url': 'http://compute:7200', 'token': 'token'}})
+        adapter._transport = httpx.MockTransport(handler)
+        tx = TX(
+            name='upload_to_splat',
+            source='app',
+            target='n3tx://compute/ComputePipeline/0',
+            data={'run_id': 'run-1'},
+            meta={'stream': True},
+        )
+
+        chunks = [chunk async for chunk in adapter.stream(tx, timeout=1)]
+
+        assert chunks[-1].meta['stream_end'] is True
+        assert requests[0] == ('GET', 'http://compute:7200/ComputePipeline')
+        assert requests[1] == ('POST', 'http://compute:7200/ComputePipeline/upload-to-splat')
+
+    @pytest.mark.asyncio
     async def test_stream_yields_error_tx_for_remote_error_frame(self):
         adapter = RemoteMatrix(remotes={'compute': 'http://compute:7200'})
         tx = TX(name='generate', source='app', target='n3tx://compute/ComputePipeline/0')

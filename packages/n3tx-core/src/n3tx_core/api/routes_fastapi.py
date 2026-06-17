@@ -14,6 +14,7 @@ from n3tx_core.utils.registrar import registered_models, join_models
 from n3tx_core.utils.typer import flatten_refs
 from n3tx_core.utils.populate import parse_populate
 from n3tx_core.utils.materialize import materialize_arg
+from n3tx_core.utils.decorators import exposed_method_info
 from n3tx_core.authorize import AccessContext, DefaultResolver, AccessDenied
 
 logger = logging.getLogger('n3tx.api')
@@ -579,14 +580,14 @@ def register_routes():
 
         # Custom @expose_route handlers
         for attr_name in dir(model_class):
-            attr = getattr(model_class, attr_name)
-            if callable(attr) and hasattr(attr, '__endpoint__'):
+            exposed = exposed_method_info(model_class, attr_name)
+            if exposed is not None:
+                attr = exposed.bound
                 # Check if method needs an instance (has 'self' param) → needs {id}
-                route_info = attr.__endpoint__
+                route_info = exposed.endpoint
                 route = route_info['route']
                 methods = route_info['methods']
-                sig = signature(attr)
-                is_instance_method = 'self' in sig.parameters
+                is_instance_method = exposed.requires_instance
                 if is_instance_method:
                     full_route = f"{endpoint_base}/{{id:int}}{route}"
                 else:

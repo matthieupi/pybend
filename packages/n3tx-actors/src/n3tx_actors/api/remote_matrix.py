@@ -127,9 +127,10 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
         try:
             route_info = await self._method_route_for(service, class_name, tx.name)
         except Exception as exc:
-            logger.debug(
-                "RemoteMatrix schema route lookup failed for %s.%s: %s; falling back",
-                class_name, tx.name, exc,
+            logger.warning(
+                "RemoteMatrix schema route lookup failed for %s.%s at %s/%s: %s; "
+                "falling back to synthesized remote URL",
+                class_name, tx.name, base, class_name, exc,
             )
             return self._url_for(tx)
 

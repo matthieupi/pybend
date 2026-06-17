@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict
 
 from n3tx_actors.actor import Actor
 from n3tx_core.utils.descriptors import fullmethod, fullproperty
+from n3tx_core.utils.decorators import exposed_method_info
 from n3tx_actors.tx import TX
 from n3tx_core.models.proto_model import ProtoModel
 
@@ -102,10 +103,13 @@ class ActorModel(Actor, ProtoModel):
         else:
             # Generic fallback for custom @expose_route methods and other messages.
             method = getattr(target, tx.name, None)
+            exposed = exposed_method_info(cls, tx.name)
+            if exposed is not None:
+                method = exposed.bound
             if method and callable(method):
                 try:
                     data = tx.data or {}
-                    is_exposed = hasattr(method, '__endpoint__')
+                    is_exposed = exposed is not None or hasattr(method, '__endpoint__')
 
                     if is_exposed:
                         # Tier 2 auth: check @expose_route access before execution
@@ -130,9 +134,10 @@ class ActorModel(Actor, ProtoModel):
                         from inspect import signature as get_sig
                         from typing import get_type_hints
                         from n3tx_core.utils.materialize import materialize_arg
-                        sig = get_sig(method)
-                        type_hints = get_type_hints(method)
-                        is_instance = 'self' in sig.parameters
+                        signature_target = exposed.func if exposed is not None else method
+                        sig = get_sig(signature_target)
+                        type_hints = get_type_hints(signature_target)
+                        is_instance = exposed.requires_instance if exposed is not None else 'self' in sig.parameters
                         kwargs = {k: v for k, v in data.items() if k != 'id'}
                         user = tx.meta.get('user')
                         for arg_name, arg_value in list(kwargs.items()):

@@ -155,6 +155,39 @@ annotations`, route registration resolves return annotations through
 `typing.get_type_hints()` before passing them to FastAPI's `response_model`, so
 patterns such as `Product.comment(...) -> Comment` remain valid and validated.
 
+### Custom Method Scope
+
+`@expose_route` method scope is descriptor-aware and published in schema as both
+`scope` and `requires_instance`. Route generation, actor dispatch, tool
+discovery, and remote streaming should use `requires_instance` for routing
+decisions:
+
+| Python declaration | Schema `scope` | `requires_instance` | Route shape |
+|---|---|---:|---|
+| `def action(self, ...)` | `instancemethod` | `true` | `POST /{ClassName}/{id}/{route}` |
+| `@classmethod def action(cls, ...)` | `classmethod` | `false` | `POST /{ClassName}/{route}` |
+| `@staticmethod def action(...)` | `staticmethod` | `false` | `POST /{ClassName}/{route}` |
+| `def action(...)` with no `self`/`cls` | `actormethod` | `false` | `POST /{ClassName}/{route}` |
+
+For decorator order, prefer the normal Python descriptor shape:
+
+```python
+@staticmethod
+@expose_route('/upload-to-splat', methods=['POST'], stream=True)
+async def upload_to_splat(...):
+    ...
+
+@classmethod
+@expose_route('/rebuild', methods=['POST'])
+def rebuild(cls):
+    ...
+```
+
+The schema-declared route path is authoritative for distributed calls. For
+example, `RemoteMatrix.stream()` resolves `POST /ComputePipeline/upload-to-splat`
+from schema metadata instead of synthesizing `/ComputePipeline/0/upload_to_splat`
+when `requires_instance` is false.
+
 ### API Response Format
 All entity responses include `$schema` (schema URL) and `$id` (instance URL), injected by `model_response()` via the dump pipeline.
 

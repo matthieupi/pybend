@@ -14,7 +14,7 @@ from n3tx_core import config
 import n3tx_core.models.proto_schema as proto_schema
 import n3tx_core.models.proto_dump as proto_dump
 from n3tx_core.utils.registrar import register_model
-from n3tx_core.utils.decorators import expose_route
+from n3tx_core.utils.decorators import expose_route, exposed_method_info
 from n3tx_core.utils.introspection import pydantic_schema_for_type, record_model_type, _is_self_ref
 from n3tx_core.utils.typer import Ref, _SelfRefMarker
 from .storable_mixin import StorableMixin
@@ -160,13 +160,14 @@ class ProtoModel(PydanticBaseModel):
         methods = {}
 
         for method_name in dir(cls):
-            method = getattr(cls, method_name)
-            if not (callable(method) and hasattr(method, '__endpoint__')):
+            exposed = exposed_method_info(cls, method_name)
+            if exposed is None:
                 continue
 
+            method = exposed.func
             sig = inspect.signature(method)
             type_hints = get_type_hints(method, globalns=method.__globals__, localns=locals())
-            endpoint_info = method.__endpoint__
+            endpoint_info = exposed.endpoint
 
             # Extract parameter schemas and record model types
             parameters = {}
@@ -184,18 +185,11 @@ class ProtoModel(PydanticBaseModel):
             rtype = type_hints.get('return', None)
             return_type_schema = pydantic_schema_for_type(rtype) if rtype else {}
             record_model_type(cls, rtype)
-            # save method type (classmethod, staticmethod, or instance method)
-            if isinstance(method, classmethod):
-                method_type = 'classmethod'
-            elif isinstance(method, staticmethod):
-                method_type = 'staticmethod'
-            else:
-                method_type = 'instancemethod'
-
             method_entry = {
                 'route': endpoint_info['route'],
                 'methods': endpoint_info['methods'],
-                'scope': method_type,
+                'scope': exposed.scope,
+                'requires_instance': exposed.requires_instance,
                 'parameters': parameters,
                 'required': required_params,
                 'returns': return_type_schema,

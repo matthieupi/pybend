@@ -3,11 +3,87 @@ import inspect
 import time
 import json
 import logging
+from dataclasses import dataclass
 from functools import wraps
+from typing import Callable
 
 from n3tx_core import config
 
 logger = logging.getLogger('n3tx.debug')
+
+
+@dataclass(frozen=True)
+class ExposedMethodInfo:
+    """Normalized metadata for a model method marked with @expose_route.
+
+    Python descriptor lookup hides whether a method was declared with
+    ``@staticmethod`` or ``@classmethod``: ``getattr(cls, name)`` returns the
+    bound/callable object, not the raw descriptor. Schema generation, route
+    registration, and actor dispatch need the raw declaration shape so they can
+    decide whether an entity id is required.
+    """
+    name: str
+    raw: object
+    func: Callable
+    bound: Callable
+    endpoint: dict
+    scope: str
+    requires_instance: bool
+
+
+def exposed_method_info(cls, name: str) -> ExposedMethodInfo | None:
+    """Return descriptor-aware @expose_route metadata for ``cls.name``.
+
+    Scopes are intentionally behavioral:
+    - ``instancemethod`` requires an entity instance/id
+    - ``classmethod`` and ``staticmethod`` are collection/class capabilities
+    - ``actormethod`` is a service-style actor capability with no self/cls
+    """
+    try:
+        raw = inspect.getattr_static(cls, name)
+        bound = getattr(cls, name)
+    except AttributeError:
+        return None
+
+    if isinstance(raw, classmethod):
+        func = raw.__func__
+        scope = 'classmethod'
+        requires_instance = False
+    elif isinstance(raw, staticmethod):
+        func = raw.__func__
+        scope = 'staticmethod'
+        requires_instance = False
+    else:
+        func = raw
+        if not callable(func):
+            return None
+        try:
+            sig = inspect.signature(func)
+        except (TypeError, ValueError):
+            return None
+        if 'self' in sig.parameters:
+            scope = 'instancemethod'
+            requires_instance = True
+        elif 'cls' in sig.parameters:
+            scope = 'classmethod'
+            requires_instance = False
+        else:
+            scope = 'actormethod'
+            requires_instance = False
+
+    endpoint = getattr(func, '__endpoint__', None) or getattr(bound, '__endpoint__', None)
+    if endpoint is None or not callable(bound):
+        return None
+
+    return ExposedMethodInfo(
+        name=name,
+        raw=raw,
+        func=func,
+        bound=bound,
+        endpoint=endpoint,
+        scope=scope,
+        requires_instance=requires_instance,
+    )
 
 
 def expose_route(route, methods=["POST"], access=None, stream=False, events=None):

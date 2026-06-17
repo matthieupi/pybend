@@ -543,6 +543,101 @@ class TestClassNameCrudMirrors:
             registered_models.clear()
             registered_models.update(saved)
 
+    def test_static_exposed_method_schema_reports_static_scope(self):
+        class MirrorStaticScopeProduct(ProtoModel):
+            __tablename__: ClassVar[str] = 'mirror_static_scope_products'
+
+            @staticmethod
+            @expose_route('/summarize', methods=['POST'], access=ANYONE, stream=True)
+            async def summarize(value: int):
+                yield {'value': value}
+
+        method = MirrorStaticScopeProduct.schema()['methods']['summarize']
+
+        assert method['route'] == '/summarize'
+        assert method['scope'] == 'staticmethod'
+        assert method['stream'] is True
+
+    def test_class_exposed_method_schema_and_routes_are_collection_scoped(self, tmp_path):
+        saved = dict(registered_models)
+        registered_models.clear()
+        try:
+            class MirrorClassMethodProduct(ProtoModel):
+                __tablename__: ClassVar[str] = 'mirror_class_method_products'
+                __storable__: ClassVar[bool] = True
+                __access__: ClassVar[dict] = {
+                    'create': ANYONE,
+                    'read': ANYONE,
+                    'update': ANYONE,
+                    'delete': ANYONE,
+                }
+                name: str = Field(default='')
+
+                @classmethod
+                @expose_route('/summarize', methods=['POST'], access=ANYONE)
+                def summarize(cls, value: int) -> dict:
+                    return {'model': cls.__name__, 'value': value}
+
+            method = MirrorClassMethodProduct.schema()['methods']['summarize']
+            assert method['route'] == '/summarize'
+            assert method['scope'] == 'classmethod'
+
+            app = create_app(
+                models=[MirrorClassMethodProduct],
+                storage=SQLiteStorage(str(tmp_path / 'mirror_class_methods.db')),
+                static_dir=None,
+            )
+            client = TestClient(app)
+
+            table_response = client.post('/mirror_class_method_products/summarize', json={'value': 3})
+            class_response = client.post('/MirrorClassMethodProduct/summarize', json={'value': 3})
+
+            assert table_response.status_code == 200
+            assert class_response.status_code == 200
+            assert class_response.json() == table_response.json() == {
+                'model': 'MirrorClassMethodProduct',
+                'value': 3,
+            }
+            assert client.post('/MirrorClassMethodProduct/1/summarize', json={'value': 3}).status_code == 405
+        finally:
+            registered_models.clear()
+            registered_models.update(saved)
+
+    def test_actor_style_exposed_method_without_self_is_collection_scoped(self, tmp_path):
+        saved = dict(registered_models)
+        registered_models.clear()
+        try:
+            class MirrorActorMethodProduct(ProtoModel):
+                __tablename__: ClassVar[str] = 'mirror_actor_method_products'
+                __storable__: ClassVar[bool] = False
+                __access__: ClassVar[dict] = {'run': ANYONE}
+
+                @expose_route('/run-task', methods=['POST'], access=ANYONE)
+                def run_task(value: int) -> dict:
+                    return {'value': value, 'doubled': value * 2}
+
+            method = MirrorActorMethodProduct.schema()['methods']['run_task']
+            assert method['route'] == '/run-task'
+            assert method['scope'] == 'actormethod'
+            assert method['requires_instance'] is False
+
+            app = create_app(
+                models=[MirrorActorMethodProduct],
+                storage=SQLiteStorage(str(tmp_path / 'mirror_actor_methods.db')),
+                static_dir=None,
+            )
+            client = TestClient(app)
+
+            table_response = client.post('/mirror_actor_method_products/run-task', json={'value': 4})
+            class_response = client.post('/MirrorActorMethodProduct/run-task', json={'value': 4})
+
+            assert table_response.status_code == 200
+            assert class_response.status_code == 200
+            assert class_response.json() == table_response.json() == {'value': 4, 'doubled': 8}
+        finally:
+            registered_models.clear()
+            registered_models.update(saved)
+
     def test_class_name_method_mirror_does_not_capture_member_view_routes(self, tmp_path):
         import n3tx_ui  # noqa: F401 - registers ViewableMixin before model definition
 
