@@ -100,7 +100,7 @@ class Product(ProtoModel):
 | Backend access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth middleware |
 | Frontend access rules | `__access__` | `authorize/schema.py` serializes to JSON |
 | Method endpoints | `@expose_route()` | `routes_fastapi.py` custom route registration |
-| Method signatures in schema | `__endpoint__`, type hints | `__n3tx_methods_json_signature__()` |
+| Method signatures in schema | `__endpoint__`, type hints, descriptor scope | `__n3tx_methods_json_signature__()` |
 | UI rendering hints | `__ui__`, `json_schema_extra` | Embedded in schema, read by frontend |
 | Method UI hints | `__ui__.methods` (icon, layout, count_field) | Injected into `$defs` method entries |
 | Toggle endpoints | `@expose_route` + join table logic | Like/favorite via create/delete on join models |
@@ -126,6 +126,13 @@ pointer arrays such as `list[Ref[File]]`, and external payload fragments. Do not
 use JSON arrays to duplicate domain relationships that should be represented
 with `ListRef[T]`, ownership, routes, and href hydration.
 See [JSON Fields](JSON_FIELDS.md) for the full contract and tradeoffs.
+
+`@expose_route` methods publish descriptor-aware scope metadata in schema.
+Instance methods (`self`) set `requires_instance: true` and route through
+`/{ClassName}/{id}{route}`. Class methods, static methods, and service-style
+actor methods without `self`/`cls` set `requires_instance: false` and route
+through `/{ClassName}{route}`. Distributed adapters use this schema route and
+scope instead of deriving URLs from Python method names.
 
 ### Optional File Capability
 
