@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import asyncio
+import json
 import threading
 from typing import Any
 
@@ -47,6 +48,8 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
     _service_name: str = PrivateAttr(default='api')
     _service_token: str = PrivateAttr(default='')
     _timeout: float = PrivateAttr(default=30.0)
+    _method_route_cache: dict = PrivateAttr(default_factory=dict)
+    _transport: Any = PrivateAttr(default=None)
 
     def __init__(self, remotes=None, service_name=None, service_token=None, timeout: float = 30.0, **kwargs):
         kwargs.setdefault('addr', 'remote')
@@ -82,6 +85,64 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
         if tx.name == 'get':
             return f'{base}/{class_name}/{ident}'
         return f'{base}/{class_name}/{ident}/{tx.name}'
+
+    async def _method_route_for(self, service: str, class_name: str, method: str) -> dict[str, Any] | None:
+        """Resolve a remote exposed method from the model schema, caching results.
+
+        The schema is the authoritative N3TX contract. It carries decorator route
+        paths such as ``/upload-to-splat`` that cannot be derived safely from a
+        Python method name like ``upload_to_splat``.
+        """
+        key = (service, class_name, method)
+        if key in self._method_route_cache:
+            return self._method_route_cache[key]
+
+        remote = self._remotes[service]
+        url = f"{remote['url']}/{class_name}"
+        headers = {'Accept': 'application/json', 'X-N3TX-Service': self._service_name}
+        token = remote.get('token') or self._service_token
+        if token:
+            headers['Authorization'] = f'Bearer {token}'
+
+        client_kwargs = {'timeout': self._timeout}
+        if self._transport is not None:
+            client_kwargs['transport'] = self._transport
+
+        async with httpx.AsyncClient(**client_kwargs) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            schema = response.json()
+
+        route_info = (schema.get('methods') or {}).get(method)
+        self._method_route_cache[key] = route_info
+        return route_info
+
+    async def _stream_url_for(self, tx: TX) -> str:
+        """Resolve the remote streaming URL using schema metadata when possible."""
+        service, class_name, ident = parse_ref_string(tx.target)
+        if service not in self._remotes:
+            raise ValueError(f"Remote service not configured: {service}")
+        base = self._remotes[service]['url']
+
+        try:
+            route_info = await self._method_route_for(service, class_name, tx.name)
+        except Exception as exc:
+            logger.debug(
+                "RemoteMatrix schema route lookup failed for %s.%s: %s; falling back",
+                class_name, tx.name, exc,
+            )
+            return self._url_for(tx)
+
+        if not route_info:
+            return self._url_for(tx)
+
+        route = str(route_info.get('route') or f'/{tx.name}')
+        if not route.startswith('/'):
+            route = f'/{route}'
+        scope = route_info.get('scope')
+        if scope in ('instancemethod', 'instance', 'self'):
+            return f'{base}/{class_name}/{ident}{route}'
+        return f'{base}/{class_name}{route}'
 
     def _canonicalize_remote_id(self, value: Any, service: str) -> Any:
         """Convert remote-local response identities into canonical n3tx refs."""
@@ -119,7 +180,11 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
         url = self._url_for(tx)
         headers = self._headers(tx, remote)
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        client_kwargs = {'timeout': self._timeout}
+        if self._transport is not None:
+            client_kwargs['transport'] = self._transport
+
+        async with httpx.AsyncClient(**client_kwargs) as client:
             if tx.name == 'get':
                 response = await client.get(url, headers=headers)
             else:
@@ -129,6 +194,86 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
         if not response.content:
             return {}
         return self._canonicalize_response_ids(response.json(), service)
+
+    async def _stream_response_text(self, tx: TX, url: str, headers: dict[str, str], timeout: float | None):
+        """Yield text chunks from a remote SSE response."""
+        client_kwargs = {'timeout': None if timeout is None else httpx.Timeout(timeout, read=timeout)}
+        if self._transport is not None:
+            client_kwargs['transport'] = self._transport
+
+        async with httpx.AsyncClient(**client_kwargs) as client:
+            async with client.stream(
+                'POST',
+                url,
+                json=tx.data or {},
+                headers={**headers, 'Accept': 'text/event-stream', 'Content-Type': 'application/json'},
+            ) as response:
+                response.raise_for_status()
+                async for text in response.aiter_text():
+                    yield text
+
+    async def _iter_sse_payloads(self, text_iter):
+        """Parse SSE frames and yield JSON payload objects from ``data:`` lines."""
+        buffer = ''
+        async for text in text_iter:
+            buffer += text.replace('\r\n', '\n')
+            frames = buffer.split('\n\n')
+            buffer = frames.pop()
+            for frame in frames:
+                data_lines = []
+                for line in frame.split('\n'):
+                    if line.startswith(':') or not line:
+                        continue
+                    if line.startswith('data:'):
+                        data_lines.append(line[5:].strip())
+                if data_lines:
+                    yield json.loads('\n'.join(data_lines))
+
+    def _tx_from_payload(self, payload: Any, fallback: TX, service: str) -> TX:
+        """Reconstruct a TX envelope from remote SSE payload data."""
+        if isinstance(payload, TX):
+            return payload
+        if isinstance(payload, dict) and {'name', 'source', 'target'}.issubset(payload):
+            data = self._canonicalize_response_ids(payload.get('data') or {}, service)
+            tx_kwargs = dict(
+                name=payload.get('name') or 'STREAM',
+                source=payload.get('source') or fallback.target,
+                target=payload.get('target') or fallback.source,
+                data=data,
+                meta=payload.get('meta') or {},
+            )
+            if payload.get('timestamp') is not None:
+                tx_kwargs['timestamp'] = payload['timestamp']
+            if payload.get('uuid') is not None:
+                tx_kwargs['uuid'] = payload['uuid']
+            return TX(**tx_kwargs)
+        return fallback.chunk(payload if isinstance(payload, dict) else {'chunk': payload}, seq=0)
+
+    async def stream(self, tx: TX, timeout: float = 120.0):
+        """Stream a remote generated SSE route and yield TX chunks.
+
+        Unlike the base ``NetworkAdapter.stream()``, this adapter does not route
+        the TX locally and wait on ``inbox()`` correlation. It is itself the
+        remote transport boundary for canonical distributed refs.
+        """
+        service, _class_name, _ident = parse_ref_string(tx.target)
+        remote = self._remotes[service]
+        try:
+            url = await self._stream_url_for(tx)
+            headers = self._headers(tx, remote)
+            text_iter = self._stream_response_text(tx, url, headers, timeout)
+            async for payload in self._iter_sse_payloads(text_iter):
+                chunk = self._tx_from_payload(payload, tx, service)
+                yield chunk
+                if chunk.is_error or chunk.meta.get('stream_end'):
+                    return
+        except httpx.HTTPStatusError as exc:
+            yield tx.error(str(exc), code=exc.response.status_code)
+        except httpx.TimeoutException as exc:
+            yield tx.error(str(exc) or f"Stream timed out after {timeout}s", code=504)
+        except Exception as exc:
+            logger.warning("RemoteMatrix stream failed for %s: %s", tx.target, exc)
+            yield tx.error(str(exc), code=502)
 
     async def send(self, tx: TX) -> None:
         try:

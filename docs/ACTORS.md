@@ -613,6 +613,16 @@ storage.set_reference_resolver(MatrixReferenceResolver(matrix))
 |---|---|
 | `TX(name='get', target='n3tx://storage/File/12')` | `GET http://storage:7100/File/12` |
 | `TX(name='process', target='n3tx://storage/File/12')` | `POST http://storage:7100/File/12/process` |
+| `TX(name='generate', target='n3tx://compute/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
+
+`RemoteMatrix.stream(tx)` provides distributed streaming for canonical remote
+refs. It calls the remote generated SSE route, parses `event: chunk|done|error`
+frames into full TX envelopes, and yields chunks until an error TX or
+`meta.stream_end` is received. Streaming route resolution is schema-first:
+`GET /{ClassName}` supplies `schema.methods[tx.name].route`, so decorator routes
+such as `/upload-to-splat` do not need to be guessed from Python method names.
+If the schema route cannot be resolved, the adapter falls back to the legacy
+`/{ClassName}/{id}/{tx.name}` shape.
 
 Remote requests carry backend trust and user continuity through headers:
 

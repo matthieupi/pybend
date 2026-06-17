@@ -130,6 +130,27 @@ storage.set_reference_resolver(MatrixReferenceResolver(matrix))
 |---|---|
 | `TX(name='get', target='n3tx://storage/File/12')` | `GET http://storage:7100/File/12` |
 | `TX(name='process', target='n3tx://storage/File/12', data={...})` | `POST http://storage:7100/File/12/process` |
+| `TX(name='generate', target='n3tx://compute/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
+
+Remote streaming uses the same TX stream contract as local `NetworkAdapter.stream()`.
+`RemoteMatrix.stream(tx)` opens the remote generated SSE route, parses
+`event: chunk|done|error` frames incrementally, reconstructs the serialized TX
+envelopes, and yields TX chunks until an error or `meta.stream_end` terminates
+the stream.
+
+Streaming method URLs are resolved schema-first. The adapter fetches
+`GET /{ClassName}`, reads `schema.methods[tx.name].route`, and uses method
+`scope` to choose the route shape:
+
+```text
+classmethod/staticmethod: /{ClassName}{route}
+instance method:          /{ClassName}/{id}{route}
+```
+
+If schema lookup fails or the method is not present, `RemoteMatrix` falls back to
+the original method route shape `/{ClassName}/{id}/{tx.name}` for compatibility.
+This preserves N3TX's model/schema authority while keeping existing simple
+remote method calls working.
 
 It attaches service/user context headers:
 

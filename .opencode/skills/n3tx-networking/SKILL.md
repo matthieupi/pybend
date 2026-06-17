@@ -30,7 +30,7 @@ No protocol is special. Adapters translate protocols to the actor system.
 | `NetworkWebSocket` | WebSocket | frontend Matrix bridge |
 | `NetworkMCP` | MCP JSON-RPC 2.0 | AI/tool clients |
 | `NetworkAP` | ActivityPub | federation |
-| `RemoteMatrix` | REST class-name routes | Distributed `n3tx://service/Class/id` refs |
+| `RemoteMatrix` | REST class-name routes + SSE | Distributed `n3tx://service/Class/id` refs and remote streaming |
 
 ## Internal networking rule
 
@@ -45,6 +45,12 @@ TX(name='get', target='n3tx://storage/File/12')
   -> Matrix adapter fallback
   -> RemoteMatrix
   -> GET http://storage:7100/File/12
+
+TX(name='generate', target='n3tx://compute/Job/12', meta={'stream': True})
+  -> Matrix adapter fallback
+  -> RemoteMatrix.stream()
+  -> POST remote generated SSE route
+  -> yields TX stream chunks/errors/end
 ```
 
 Remote requests carry:
@@ -57,6 +63,12 @@ X-N3TX-User: <json-user-context>  # optional
 
 Remote response `$id` values pointing at the configured remote URL are
 canonicalized back to `n3tx://service/Class/id` before returning to callers.
+
+For remote streaming methods, prefer schema-first route resolution. `RemoteMatrix`
+fetches `GET /{ClassName}` and reads `schema.methods[tx.name].route`, so
+decorator routes such as `/upload-to-splat` are not guessed from Python method
+names such as `upload_to_splat`. If schema lookup fails, it falls back to the
+legacy `/{ClassName}/{id}/{tx.name}` shape for compatibility.
 
 ## External networking rule
 
@@ -100,6 +112,7 @@ class WebTools(ActorModel):
 - Agent/MCP/UI can reuse the same capability.
 - Auth and errors propagate through TX responses.
 - RemoteMatrix maps get/method TXs to class-name REST routes and preserves canonical refs.
+- RemoteMatrix streaming parses `event: chunk|done|error` SSE frames into TX envelopes and terminates on error or `meta.stream_end`.
 
 ## Source-reading policy
 

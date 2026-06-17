@@ -48,6 +48,36 @@ event: chunk|done|error
 data: {json}\n\n
 ```
 
+Generated N3TX SSE routes serialize the full TX envelope in `data`, not only
+`chunk.data`. Consumers should reconstruct or dispatch TXs and stop on an error
+TX or `meta.stream_end`.
+
+## Distributed streaming
+
+For backend-to-backend streaming across services, use `RemoteMatrix.stream(tx)`
+instead of ad hoc HTTP/SSE clients:
+
+```python
+tx = TX(
+    name='generate',
+    source='app',
+    target='n3tx://compute/Job/12',
+    data={'prompt': '...'},
+    meta={'stream': True, 'user': user},
+)
+async for chunk in matrix.stream(tx, timeout=120.0):
+    if chunk.is_error:
+        ...
+    elif chunk.meta.get('stream_end'):
+        break
+    else:
+        ...
+```
+
+Remote streaming resolves method routes from schema first:
+`GET /{ClassName}` -> `schema.methods[tx.name].route`. This preserves decorator
+routes such as `/upload-to-splat` and avoids guessing from Python method names.
+
 ## Frontend components
 
 | Component | Use |
@@ -78,12 +108,14 @@ class MyStream extends NTTStreamAgent {
 
 - Declare event schemas with `events=` for typed frontend contracts.
 - Do not invent a parallel streaming protocol for app methods.
+- Do not hand-roll backend-to-backend SSE clients for N3TX methods; use TX/Matrix/RemoteMatrix.
 - Do not duplicate stream event shapes in frontend code; read method schema.
 
 ## Verification
 
 - Schema method has `stream: true` and `events`.
 - SSE or WebSocket chunks arrive in order and terminate.
+- RemoteMatrix streaming preserves TX chunks, error TXs, service/user headers, and `stream_end` termination.
 - Frontend handlers render each event type and clean up on disconnect.
 
 ## Source-reading policy

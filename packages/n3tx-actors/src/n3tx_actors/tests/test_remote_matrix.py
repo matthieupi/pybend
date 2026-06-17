@@ -1,5 +1,8 @@
 """Tests for RemoteMatrix distributed reference adapter."""
 
+import json
+
+import httpx
 import pytest
 
 from n3tx_actors.api.remote_matrix import MatrixReferenceResolver, RemoteMatrix, normalize_remotes
@@ -83,6 +86,113 @@ class TestRemoteMatrix:
 
         assert response.is_error is False
         assert response.data == {'$id': 'n3tx://storage/File/12', 'name': 'remote-file'}
+
+    @pytest.mark.asyncio
+    async def test_stream_parses_remote_sse_tx_envelopes(self):
+        adapter = RemoteMatrix(remotes={'compute': 'http://compute:7200'})
+        tx = TX(
+            name='generate',
+            source='app',
+            target='n3tx://compute/ComputePipeline/0',
+            data={'prompt': 'hi'},
+            meta={'stream': True},
+        )
+
+        payloads = [
+            tx.chunk({'text': 'one'}, seq=0),
+            tx.chunk({'text': 'two'}, seq=1),
+            tx.end({'summary': 'done'}, seq=2),
+        ]
+        body = ''.join(
+            f': padding\n'
+            f'event: {"done" if item.meta.get("stream_end") else "chunk"}\n'
+            f'data: {json.dumps(item.__dict__)}\n\n'
+            for item in payloads
+        )
+
+        async def fake_stream_response(_tx, url, headers, timeout):
+            assert url == 'http://compute:7200/ComputePipeline/0/generate'
+            yield body
+
+        adapter._stream_response_text = fake_stream_response
+
+        chunks = []
+        async for chunk in adapter.stream(tx, timeout=1):
+            chunks.append(chunk)
+
+        assert [chunk.data for chunk in chunks] == [
+            {'text': 'one'},
+            {'text': 'two'},
+            {'summary': 'done'},
+        ]
+        assert chunks[-1].meta['stream_end'] is True
+
+    @pytest.mark.asyncio
+    async def test_stream_uses_schema_route_for_class_method(self):
+        requests = []
+
+        def handler(request):
+            requests.append((request.method, str(request.url), dict(request.headers)))
+            if request.method == 'GET':
+                return httpx.Response(200, json={
+                    'methods': {
+                        'upload_to_splat': {
+                            'route': '/upload-to-splat',
+                            'scope': 'class',
+                            'stream': True,
+                        }
+                    }
+                })
+            return httpx.Response(
+                200,
+                content=(
+                    'event: done\n'
+                    f'data: {json.dumps(TX(name="STREAM", source="remote", target="app", data={}, meta={"stream_end": True, "stream": True}).__dict__)}\n\n'
+                ),
+            )
+
+        adapter = RemoteMatrix(
+            remotes={'compute': {'url': 'http://compute:7200', 'token': 'remote-token'}},
+            service_name='app-service',
+        )
+        adapter._transport = httpx.MockTransport(handler)
+        tx = TX(
+            name='upload_to_splat',
+            source='app',
+            target='n3tx://compute/ComputePipeline/0',
+            data={'run_id': 'run-1'},
+            meta={'stream': True, 'user': {'user_id': 7}},
+        )
+
+        chunks = []
+        async for chunk in adapter.stream(tx, timeout=1):
+            chunks.append(chunk)
+
+        assert chunks[-1].meta['stream_end'] is True
+        assert requests[0][:2] == ('GET', 'http://compute:7200/ComputePipeline')
+        assert requests[1][:2] == ('POST', 'http://compute:7200/ComputePipeline/upload-to-splat')
+        assert requests[1][2]['authorization'] == 'Bearer remote-token'
+        assert requests[1][2]['x-n3tx-service'] == 'app-service'
+        assert '"user_id": 7' in requests[1][2]['x-n3tx-user']
+
+    @pytest.mark.asyncio
+    async def test_stream_yields_error_tx_for_remote_error_frame(self):
+        adapter = RemoteMatrix(remotes={'compute': 'http://compute:7200'})
+        tx = TX(name='generate', source='app', target='n3tx://compute/ComputePipeline/0')
+        error = tx.error('remote failed', code=500)
+
+        async def fake_stream_response(_tx, url, headers, timeout):
+            yield f'event: error\ndata: {json.dumps(error.__dict__)}\n\n'
+
+        adapter._stream_response_text = fake_stream_response
+
+        chunks = []
+        async for chunk in adapter.stream(tx, timeout=1):
+            chunks.append(chunk)
+
+        assert len(chunks) == 1
+        assert chunks[0].is_error
+        assert chunks[0].data['message'] == 'remote failed'
 
 
 class TestMatrixReferenceResolver:

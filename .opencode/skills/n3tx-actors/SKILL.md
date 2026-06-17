@@ -70,7 +70,14 @@ n3tx://<service>/<ClassName>/<id>
 ```text
 TX(name='get', target='n3tx://storage/File/12')     -> GET  /File/12
 TX(name='process', target='n3tx://storage/File/12') -> POST /File/12/process
+TX(name='generate', target='n3tx://compute/Job/12', meta={'stream': True})
+  -> RemoteMatrix.stream() -> remote generated SSE route -> TX chunks
 ```
+
+For distributed streaming, keep the capability as an exposed actor/model method
+with `@expose_route(..., stream=True)`. `RemoteMatrix.stream()` reads the remote
+schema method route before falling back to the legacy method-name URL shape, so
+custom decorator routes remain the source of truth.
 
 For explicit Python calls, use `ActorModel.ref()` rather than hidden network IO
 in normal field access:
@@ -100,6 +107,7 @@ result = await artifact.call('process', mode='fast')
 - Errors return error TXs.
 - Exposed methods appear in schema and can be discovered as tools.
 - Remote refs route through Matrix adapter fallback and return TX replies/errors.
+- Remote streaming refs yield TX chunks/errors/end through `RemoteMatrix.stream()`.
 
 ## Source-reading policy
 
