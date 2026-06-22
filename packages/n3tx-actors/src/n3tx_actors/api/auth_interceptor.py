@@ -16,6 +16,7 @@ Tier 1 handles:
 
 from n3tx_actors.tx import TX
 from n3tx_core.authorize import AccessContext, DefaultResolver, AccessDenied
+from n3tx_core.utils.decorators import exposed_method_info
 
 _resolver = DefaultResolver()
 
@@ -35,6 +36,28 @@ def _get_method_access(model_cls, method_name):
     if attr and callable(attr) and hasattr(attr, '__endpoint__'):
         return attr.__endpoint__.get('access')
     return None
+
+
+def _method_requires_instance(model_cls, method_name):
+    """Return True when a custom method needs a resource instance.
+
+    Actor routing cannot make a final resource-aware auth decision in Tier 1
+    because the NetworkAPI boundary has not loaded the target row. Use the
+    same exposed-method metadata as schema/tool routing when available, and
+    fall back to signature inspection for plain decorated methods.
+    """
+    exposed = exposed_method_info(model_cls, method_name)
+    if exposed is not None:
+        return exposed.requires_instance
+
+    attr = getattr(model_cls, method_name, None)
+    if not callable(attr):
+        return False
+    try:
+        import inspect
+        return 'self' in inspect.signature(attr).parameters
+    except (TypeError, ValueError):
+        return False
 
 
 async def auth_interceptor(tx: TX) -> TX:
@@ -58,6 +81,15 @@ async def auth_interceptor(tx: TX) -> TX:
         method_access = _get_method_access(model_cls, action)
         if method_access is not None:
             ctx = AccessContext(user=user, action=action, model_class=model_cls)
+            if _method_requires_instance(model_cls, action):
+                # Instance-method access can depend on the target resource.
+                # Tier 1 only rejects anonymous callers when the rule cannot
+                # allow them without a resource; authenticated users continue
+                # to Tier 2, where ActorModel.handler loads the instance and
+                # evaluates the final AccessContext(resource=instance).
+                if not user.get('user_id') and not method_access.evaluate(ctx):
+                    return _deny(tx, user)
+                return tx
             if not method_access.evaluate(ctx):
                 return _deny(tx, user)
             return tx

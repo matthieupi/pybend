@@ -112,7 +112,30 @@ class ActorModel(Actor, ProtoModel):
                     is_exposed = exposed is not None or hasattr(method, '__endpoint__')
 
                     if is_exposed:
-                        # Tier 2 auth: check @expose_route access before execution
+                        # @expose_route method: unpack data as kwargs.
+                        # Instance methods need 'self' resolved from id in data.
+                        from inspect import signature as get_sig
+                        from typing import get_type_hints
+                        from n3tx_core.utils.materialize import materialize_arg
+                        signature_target = exposed.func if exposed is not None else method
+                        sig = get_sig(signature_target)
+                        type_hints = get_type_hints(signature_target)
+                        is_instance = exposed.requires_instance if exposed is not None else 'self' in sig.parameters
+
+                        instance = None
+                        if is_instance:
+                            entity_id = data.get('id')
+                            if not entity_id:
+                                await target.send(tx.error("'id' required for instance method", code=400))
+                                return
+                            instance = cls.get(entity_id)
+                            if not instance:
+                                await target.send(tx.error(f"{cls.__name__} {entity_id} not found", code=404))
+                                return
+
+                        # Tier 2 auth: final method access check happens after
+                        # instance resolution so resource-dependent rules such
+                        # as OWNER and Where evaluate against the target row.
                         endpoint_info = getattr(method, '__endpoint__', {})
                         method_access = endpoint_info.get('access')
                         if method_access is not None:
@@ -123,21 +146,13 @@ class ActorModel(Actor, ProtoModel):
                                 ctx = AccessContext(
                                     user=user,
                                     action=tx.name, model_class=cls,
+                                    resource=instance,
                                 )
                                 if not method_access.evaluate(ctx):
                                     await target.send(tx.error("Access denied", code=403))
                                     return
                             # user is None → internal message, no auth context (matches _authorize())
 
-                        # @expose_route method: unpack data as kwargs.
-                        # Instance methods need 'self' resolved from id in data.
-                        from inspect import signature as get_sig
-                        from typing import get_type_hints
-                        from n3tx_core.utils.materialize import materialize_arg
-                        signature_target = exposed.func if exposed is not None else method
-                        sig = get_sig(signature_target)
-                        type_hints = get_type_hints(signature_target)
-                        is_instance = exposed.requires_instance if exposed is not None else 'self' in sig.parameters
                         kwargs = {k: v for k, v in data.items() if k != 'id'}
                         user = tx.meta.get('user')
                         for arg_name, arg_value in list(kwargs.items()):
@@ -152,14 +167,6 @@ class ActorModel(Actor, ProtoModel):
                             )
 
                         if is_instance:
-                            entity_id = data.get('id')
-                            if not entity_id:
-                                await target.send(tx.error("'id' required for instance method", code=400))
-                                return
-                            instance = cls.get(entity_id)
-                            if not instance:
-                                await target.send(tx.error(f"{cls.__name__} {entity_id} not found", code=404))
-                                return
                             result = method(instance, **kwargs)
                         else:
                             result = method(**kwargs)

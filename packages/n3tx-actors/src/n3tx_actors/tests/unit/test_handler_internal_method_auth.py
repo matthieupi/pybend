@@ -25,7 +25,7 @@ from n3tx_actors.actor import Actor
 from n3tx_actors.matrix import Matrix
 from n3tx_core.utils.descriptors import fullmethod
 from n3tx_core.utils.decorators import expose_route
-from n3tx_core.authorize import AUTHENTICATED, ROLE
+from n3tx_core.authorize import AUTHENTICATED, OWNER, ROLE, Where
 
 pytestmark = pytest.mark.unit
 
@@ -49,6 +49,30 @@ class _AuthMethodModel(ActorModel, auto_register=False):
         return {'action': action, 'done': True}
 
 
+class _OwnedMethodModel(ActorModel, auto_register=False):
+    __tablename__: ClassVar[str] = 'owned_method_test'
+    __owner_field__: ClassVar[str] = 'user_owner'
+    __access__: ClassVar[dict] = {'read': OWNER | ROLE('admin')}
+
+    name: str = Field(default='')
+    secret: str = Field(default='')
+    status: str = Field(default='draft')
+    user_owner: int | None = None
+    executed: ClassVar[bool] = False
+
+    @expose_route('/reveal', methods=['GET'], access=OWNER | ROLE('admin'))
+    def reveal(self) -> dict:
+        """Instance method guarded by resource ownership."""
+        type(self).executed = True
+        return {'secret': self.secret}
+
+    @expose_route('/draft-secret', methods=['GET'], access=OWNER & Where(status='draft'))
+    def draft_secret(self) -> dict:
+        """Instance method guarded by ownership and a resource attribute."""
+        type(self).executed = True
+        return {'secret': self.secret, 'status': self.status}
+
+
 # ===================================================================
 # Fixtures
 # ===================================================================
@@ -59,11 +83,14 @@ def reset_actor_state():
     saved_actor_children = Actor.__children__.copy()
     saved_matrix_children = Matrix.__children__.copy()
     saved_handler_children = _AuthMethodModel.__children__.copy()
+    saved_owned_children = _OwnedMethodModel.__children__.copy()
     yield
     Actor.__matrix__ = saved_matrix
     Actor.__children__ = saved_actor_children
     Matrix.__children__ = saved_matrix_children
     _AuthMethodModel.__children__ = saved_handler_children
+    _OwnedMethodModel.__children__ = saved_owned_children
+    _OwnedMethodModel.executed = False
 
 
 @pytest.fixture
@@ -82,6 +109,24 @@ def capture_send():
         type.__setattr__(_AuthMethodModel, 'send', original)
     else:
         type.__delattr__(_AuthMethodModel, 'send')
+
+
+@pytest.fixture
+def capture_owned_send():
+    """Replace owned-model send with a capturing mock, restore after test."""
+    sent = []
+
+    @fullmethod
+    async def mock_send(target, tx):
+        sent.append(tx)
+
+    original = _OwnedMethodModel.__dict__.get('send')
+    type.__setattr__(_OwnedMethodModel, 'send', mock_send)
+    yield sent
+    if original:
+        type.__setattr__(_OwnedMethodModel, 'send', original)
+    else:
+        type.__delattr__(_OwnedMethodModel, 'send')
 
 
 # ===================================================================
@@ -184,3 +229,123 @@ class TestInternalTxCustomMethodAuth:
         reply = capture_send[0]
         assert not reply.is_error
         assert reply.data.get('url') == 'https://example.com'
+
+
+class TestInstanceCustomMethodResourceAuth:
+    """Instance @expose_route access must evaluate against the target resource."""
+
+    @pytest.fixture
+    def owned_doc(self):
+        return _OwnedMethodModel(id=7, name='Plan', secret='classified', user_owner=10)
+
+    @pytest.mark.asyncio
+    async def test_owner_can_call_owner_guarded_instance_method(
+        self, capture_owned_send, monkeypatch, owned_doc,
+    ):
+        monkeypatch.setattr(_OwnedMethodModel, 'get', classmethod(lambda cls, id: owned_doc), raising=False)
+
+        tx = TX(
+            name='reveal',
+            source='api',
+            target='owned_method_test',
+            data={'id': owned_doc.id},
+            meta={'user': {'user_id': 10, 'role': 'user'}},
+        )
+        await _OwnedMethodModel.handler(tx)
+
+        assert len(capture_owned_send) == 1
+        reply = capture_owned_send[0]
+        assert not reply.is_error, reply.data
+        assert reply.data == {'secret': 'classified'}
+        assert _OwnedMethodModel.executed is True
+
+    @pytest.mark.asyncio
+    async def test_admin_can_call_owner_or_admin_guarded_instance_method(
+        self, capture_owned_send, monkeypatch, owned_doc,
+    ):
+        monkeypatch.setattr(_OwnedMethodModel, 'get', classmethod(lambda cls, id: owned_doc), raising=False)
+
+        tx = TX(
+            name='reveal',
+            source='api',
+            target='owned_method_test',
+            data={'id': owned_doc.id},
+            meta={'user': {'user_id': 99, 'role': 'admin'}},
+        )
+        await _OwnedMethodModel.handler(tx)
+
+        assert len(capture_owned_send) == 1
+        reply = capture_owned_send[0]
+        assert not reply.is_error, reply.data
+        assert reply.data == {'secret': 'classified'}
+        assert _OwnedMethodModel.executed is True
+
+    @pytest.mark.asyncio
+    async def test_authenticated_non_owner_is_denied_before_method_execution(
+        self, capture_owned_send, monkeypatch, owned_doc,
+    ):
+        monkeypatch.setattr(_OwnedMethodModel, 'get', classmethod(lambda cls, id: owned_doc), raising=False)
+
+        tx = TX(
+            name='reveal',
+            source='api',
+            target='owned_method_test',
+            data={'id': owned_doc.id},
+            meta={'user': {'user_id': 20, 'role': 'user'}},
+        )
+        await _OwnedMethodModel.handler(tx)
+
+        assert len(capture_owned_send) == 1
+        reply = capture_owned_send[0]
+        assert reply.is_error
+        assert reply.data.get('code') == 403
+        assert _OwnedMethodModel.executed is False
+
+    @pytest.mark.asyncio
+    async def test_missing_instance_returns_404_before_method_execution(
+        self, capture_owned_send, monkeypatch,
+    ):
+        monkeypatch.setattr(_OwnedMethodModel, 'get', classmethod(lambda cls, id: None), raising=False)
+
+        tx = TX(
+            name='reveal',
+            source='api',
+            target='owned_method_test',
+            data={'id': 999},
+            meta={'user': {'user_id': 10, 'role': 'user'}},
+        )
+        await _OwnedMethodModel.handler(tx)
+
+        assert len(capture_owned_send) == 1
+        reply = capture_owned_send[0]
+        assert reply.is_error
+        assert reply.data.get('code') == 404
+        assert _OwnedMethodModel.executed is False
+
+    @pytest.mark.asyncio
+    async def test_resource_where_rule_is_denied_before_method_execution(
+        self, capture_owned_send, monkeypatch,
+    ):
+        published_doc = _OwnedMethodModel(
+            id=8,
+            name='Published',
+            secret='not-a-draft',
+            status='published',
+            user_owner=10,
+        )
+        monkeypatch.setattr(_OwnedMethodModel, 'get', classmethod(lambda cls, id: published_doc), raising=False)
+
+        tx = TX(
+            name='draft_secret',
+            source='api',
+            target='owned_method_test',
+            data={'id': published_doc.id},
+            meta={'user': {'user_id': 10, 'role': 'user'}},
+        )
+        await _OwnedMethodModel.handler(tx)
+
+        assert len(capture_owned_send) == 1
+        reply = capture_owned_send[0]
+        assert reply.is_error
+        assert reply.data.get('code') == 403
+        assert _OwnedMethodModel.executed is False

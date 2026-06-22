@@ -70,6 +70,7 @@ from typing import ClassVar
 from n3tx_actors.api.auth_interceptor import auth_interceptor, _get_method_access
 from n3tx_actors.tx import TX
 from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
+from n3tx_core.utils.decorators import expose_route
 
 pytestmark = pytest.mark.unit
 
@@ -416,6 +417,29 @@ class TestCustomMethods:
         result = await auth_interceptor(tx)
         assert result.is_error
         assert result.data.get('code') == 401
+
+    @pytest.mark.asyncio
+    async def test_authenticated_instance_method_defers_resource_dependent_access_to_tier_2(self):
+        """Tier 1 must not make final decisions for authenticated instance methods.
+
+        Resource-dependent rules can evaluate differently once ActorModel.handler
+        loads the instance. For example, ~OWNER is false with resource=None for
+        an authenticated user, but can be true for a real non-owner resource.
+        """
+        class CustomModel:
+            __name__ = 'CustomModel'
+
+            @expose_route('/not-owned', methods=['GET'], access=~OWNER)
+            def not_owned(self) -> dict:
+                return {'ok': True}
+
+        tx = TX(name='not_owned', source='api', target='custommodel', data={'id': 7},
+                meta={'model_cls': CustomModel, 'user': {'user_id': 20, 'role': 'user'}})
+
+        result = await auth_interceptor(tx)
+
+        assert result == tx
+        assert not result.is_error
 
     @pytest.mark.asyncio
     async def test_custom_method_without_access_defaults_to_authenticated(self):
