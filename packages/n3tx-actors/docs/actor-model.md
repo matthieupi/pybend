@@ -27,8 +27,10 @@ handler_crud(tx)  -- checks if tx.name in {schema, create, get, list, update, de
           getattr(target, tx.name) -> method
           |
           +-- has __endpoint__ (@expose_route):
-          |     Tier 2 auth check on method-level access
           |     resolve 'self' from data['id'] if instance method
+          |     Tier 2 auth check on method-level access
+          |       - instance methods: AccessContext(resource=instance)
+          |       - class/static methods: AccessContext(resource=None)
           |     inject 'user' from tx.meta if declared
           |     call method(**kwargs)
           |     if async generator -> stream chunks via tx.chunk()/tx.end()
@@ -45,13 +47,20 @@ Tier 1: auth_interceptor on NetworkAdapter.request()
     - list: compute sql_filter (WHERE clause for OWNER rules)
     - create: full rule check (no resource needed)
     - read/update/delete: identity gate (has user_id?)
-    - custom methods: check @expose_route access= param
+    - custom methods: boundary precheck for @expose_route access= param
+      (instance methods defer final resource-aware decisions to Tier 2)
 
 Tier 2: ActorModel._authorize() inside handler_crud()
     - Runs AFTER resource instance is fetched from storage
     - Evaluates __access__ rules WITH resource context
     - Enables OWNER checks (user_owner == current user)
     - Internal messages (no meta.user) pass unchecked
+
+Tier 2: ActorModel.handler() for @expose_route custom methods
+    - Instance methods load data['id'] before final method access evaluation
+    - Evaluates method access with AccessContext(resource=instance)
+    - Prevents OWNER / Where rules from passing with resource=None
+    - Internal messages (no meta.user) preserve the actor-to-actor bypass
 ```
 
 Both tiers are required for correct authorization. Tier 1 is fast rejection at the boundary. Tier 2 handles resource-dependent rules that Tier 1 cannot evaluate.
@@ -141,7 +150,7 @@ Product._subscribers.append('ws')  # lifecycle events broadcast to WS clients
 
 - **`handler_crud` is a `@classmethod`, not a `@fullmethod`.** It always operates on the class, even when the handler is invoked on an instance. CRUD operations are always class-level (create, get, list, etc.).
 - **`_NOT_HANDLED` sentinel distinguishes "not CRUD" from "CRUD returned None".** The handler checks `result is not _NOT_HANDLED`, not truthiness. Do not return `None` from custom code paths that should indicate "not handled".
-- **Custom `@expose_route` methods on ActorModel use kwargs dispatch**, not `(data, tx)`. The handler unpacks `tx.data` as keyword arguments, resolves `self` from `data['id']`, and injects `user` from `tx.meta`. This differs from plain Actor handler methods which receive `(data, tx)`.
+- **Custom `@expose_route` methods on ActorModel use kwargs dispatch**, not `(data, tx)`. The handler unpacks `tx.data` as keyword arguments, resolves `self` from `data['id']`, evaluates method-level access with `resource=self` for instance methods, and injects `user` from `tx.meta`. This differs from plain Actor handler methods which receive `(data, tx)`.
 - **Streaming error handling**: if an async generator raises mid-stream, the handler catches the exception and sends `tx.exception(e)`. The client receives the error as a stream event, not a clean stream-end.
 - **`_authorize` returns `None` for internal messages** (no `tx.meta['user']`). This means actor-to-actor messages bypass auth. If you route external input without setting `meta.user`, it will pass Tier 2 unchecked.
 - **Lifecycle `_publish_lifecycle` uses `asyncio.create_task`** -- fire-and-forget. Failures in subscriber delivery are not propagated back to the CRUD operation.

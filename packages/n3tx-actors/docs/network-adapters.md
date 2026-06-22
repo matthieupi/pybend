@@ -124,12 +124,14 @@ matrix.register_adapter(remote)
 storage.set_reference_resolver(MatrixReferenceResolver(matrix))
 ```
 
-`RemoteMatrix` handles canonical distributed refs via existing class-name REST routes:
+`RemoteMatrix` handles canonical distributed refs and remote class actor targets
+via existing class-name REST routes:
 
 | TX | REST call |
 |---|---|
 | `TX(name='get', target='n3tx://storage/File/12')` | `GET http://storage:7100/File/12` |
 | `TX(name='process', target='n3tx://storage/File/12', data={...})` | `POST http://storage:7100/File/12/process` |
+| `TX(name='reindex', target='n3tx://compute/Job', data={...})` | `POST http://compute:7200/Job/<schema route>` |
 | `TX(name='generate', target='n3tx://compute/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
 
 Remote streaming uses the same TX stream contract as local `NetworkAdapter.stream()`.
@@ -138,19 +140,22 @@ Remote streaming uses the same TX stream contract as local `NetworkAdapter.strea
 envelopes, and yields TX chunks until an error or `meta.stream_end` terminates
 the stream.
 
-Streaming method URLs are resolved schema-first. The adapter fetches
+Method URLs are resolved schema-first for both normal requests and streaming
+requests. The adapter fetches
 `GET /{ClassName}`, reads `schema.methods[tx.name].route`, and uses method
 `scope` to choose the route shape:
 
 ```text
-classmethod/staticmethod: /{ClassName}{route}
+classmethod/staticmethod: /{ClassName}{route}      # target n3tx://service/Class
 instance method:          /{ClassName}/{id}{route}
 ```
 
 If schema lookup fails or the method is not present, `RemoteMatrix` falls back to
 the original method route shape `/{ClassName}/{id}/{tx.name}` for compatibility.
-This preserves N3TX's model/schema authority while keeping existing simple
-remote method calls working.
+ID-less class/static targets do not have a legacy fallback because static
+capabilities should not invent placeholder ids. This preserves N3TX's
+model/schema authority while keeping existing simple instance method calls
+working.
 
 It attaches service/user context headers:
 

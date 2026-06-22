@@ -100,6 +100,8 @@ api.use(auth_interceptor, on='request')
 
 The `auth_interceptor` reads `tx.meta['model_cls']` and `tx.meta['user']`, checks `__access__` rules, computes `sql_filter` for list operations, and returns error TX for unauthorized requests. Schema requests always pass through.
 
+For custom `@expose_route` methods, the interceptor is a boundary precheck, not always the final authority. Class/static methods have no resource, so their explicit `access=` rule can be evaluated at Tier 1. Instance methods may use resource-dependent rules such as `OWNER`, `Where(...)`, or composed rules; authenticated requests for those methods pass through to `ActorModel.handler()`, which loads the target instance and evaluates final method access with `AccessContext(resource=instance)`. Anonymous requests are still rejected at Tier 1 when the rule cannot allow anonymous access.
+
 ### Logging interceptor
 
 ```python
