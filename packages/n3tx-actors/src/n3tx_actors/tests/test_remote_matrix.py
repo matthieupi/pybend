@@ -30,6 +30,7 @@ class TestRemoteMatrix:
     def test_can_handle_only_canonical_distributed_refs(self):
         adapter = RemoteMatrix(remotes={'storage': 'http://storage:7100'})
         assert adapter.can_handle(TX(name='get', source='test', target='n3tx://storage/File/12')) is True
+        assert adapter.can_handle(TX(name='reindex', source='test', target='n3tx://storage/File')) is True
         assert adapter.can_handle(TX(name='get', source='test', target='/File/12')) is False
         assert adapter.can_handle(TX(name='get', source='test', target='https://example.com/File/12')) is False
 
@@ -159,7 +160,7 @@ class TestRemoteMatrix:
         tx = TX(
             name='upload_to_splat',
             source='app',
-            target='n3tx://compute/ComputePipeline/0',
+            target='n3tx://compute/ComputePipeline',
             data={'run_id': 'run-1'},
             meta={'stream': True, 'user': {'user_id': 7}},
         )
@@ -207,7 +208,7 @@ class TestRemoteMatrix:
         tx = TX(
             name='upload_to_splat',
             source='app',
-            target='n3tx://compute/ComputePipeline/0',
+            target='n3tx://compute/ComputePipeline',
             data={'run_id': 'run-1'},
             meta={'stream': True},
         )
@@ -217,6 +218,41 @@ class TestRemoteMatrix:
         assert chunks[-1].meta['stream_end'] is True
         assert requests[0] == ('GET', 'http://compute:7200/ComputePipeline')
         assert requests[1] == ('POST', 'http://compute:7200/ComputePipeline/upload-to-splat')
+
+    @pytest.mark.asyncio
+    async def test_send_uses_schema_route_for_static_method_without_instance_id(self):
+        requests = []
+
+        def handler(request):
+            requests.append((request.method, str(request.url), json.loads(request.content or b'{}')))
+            if request.method == 'GET':
+                return httpx.Response(200, json={
+                    'methods': {
+                        'reindex': {
+                            'route': '/reindex',
+                            'scope': 'staticmethod',
+                            'methods': ['POST'],
+                        }
+                    }
+                })
+            if str(request.url).endswith('/ComputePipeline/0/reindex'):
+                return httpx.Response(405, text='wrong instance route')
+            return httpx.Response(200, json={'ok': True})
+
+        adapter = RemoteMatrix(remotes={'compute': 'http://compute:7200'})
+        adapter._transport = httpx.MockTransport(handler)
+        tx = TX(
+            name='reindex',
+            source='app',
+            target='n3tx://compute/ComputePipeline',
+            data={'force': True},
+        )
+
+        result = await adapter._request_remote_rest(tx)
+
+        assert result == {'ok': True}
+        assert requests[0][:2] == ('GET', 'http://compute:7200/ComputePipeline')
+        assert requests[1] == ('POST', 'http://compute:7200/ComputePipeline/reindex', {'force': True})
 
     @pytest.mark.asyncio
     async def test_stream_yields_error_tx_for_remote_error_frame(self):
