@@ -8,7 +8,7 @@ class isolation, no-subscriber no-op, task creation, event types, TX shape.
 import asyncio
 import pytest
 from typing import ClassVar
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from pydantic import Field
 
@@ -339,3 +339,76 @@ class TestPublishLifecycleTXShape:
 
         assert sent[0].data['entity'] == entity_data
         loop.close()
+
+
+# ===================================================================
+# TestUpdateLifecycleCentralization
+# ===================================================================
+
+class TestUpdateLifecycleCentralization:
+    """Regression coverage for centralized after_update lifecycle publishing."""
+
+    def test_class_update_publishes_after_update_for_actor_model(self):
+        class _M(ActorModel, auto_register=False):
+            __tablename__: ClassVar[str] = 'lc_update_class'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        _M.storage = MagicMock()
+        _M.storage.get.return_value = _M(id=1, name='updated')
+
+        with patch.object(_M, '_publish_lifecycle') as publish:
+            result = _M.update(1, {'name': 'updated'})
+
+        _M.storage.update.assert_called_once_with(_M, 1, {'name': 'updated'})
+        assert result.name == 'updated'
+        publish.assert_called_once_with('after_update', result.model_response())
+
+    def test_instance_update_patch_publishes_after_update_for_actor_model(self):
+        class _M(ActorModel, auto_register=False):
+            __tablename__: ClassVar[str] = 'lc_update_instance'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        _M.storage = MagicMock()
+        _M.storage.get.return_value = _M(id=2, name='changed')
+
+        with patch.object(_M, '_publish_lifecycle') as publish:
+            result = _M(id=2, name='old').update({'name': 'changed'})
+
+        _M.storage.update.assert_called_once_with(_M, 2, {'name': 'changed'})
+        assert result.name == 'changed'
+        publish.assert_called_once_with('after_update', result.model_response())
+
+    def test_handler_crud_update_publishes_after_update_once(self):
+        class _M(ActorModel, auto_register=False):
+            __tablename__: ClassVar[str] = 'lc_update_crud'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        _M.storage = MagicMock()
+        _M.storage.get.return_value = _M(id=3, name='after')
+        tx = TX(name='update', source='client', target='lc_update_crud', data={'id': 3, 'name': 'after'})
+
+        with patch.object(_M, '_publish_lifecycle') as publish:
+            response = _M.handler_crud(tx)
+
+        _M.storage.update.assert_called_once_with(_M, 3, {'name': 'after'})
+        assert response['id'] == 3
+        assert response['name'] == 'after'
+        publish.assert_called_once_with('after_update', _M.storage.get.return_value.model_response())
+
+    def test_failed_update_does_not_publish_after_update(self):
+        class _M(ActorModel, auto_register=False):
+            __tablename__: ClassVar[str] = 'lc_update_failed'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        _M.storage = MagicMock()
+        _M.storage.get.return_value = None
+
+        with patch.object(_M, '_publish_lifecycle') as publish:
+            result = _M.update(4, {'name': 'missing'})
+
+        assert result is None
+        publish.assert_not_called()

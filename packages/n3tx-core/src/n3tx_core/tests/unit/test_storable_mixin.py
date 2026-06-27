@@ -5,6 +5,7 @@ from typing import ClassVar
 from pydantic import Field
 from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.models.storable_mixin import StorableMixin
+from n3tx_core.utils.descriptors import fullmethod
 
 pytestmark = pytest.mark.unit
 
@@ -42,6 +43,12 @@ class TestStorageDict:
         m = M(name='test', secret='my_secret')
         d = m._storage_dict(exclude_unset=False)
         assert d['secret'] == 'my_secret'
+
+
+class TestDescriptorConfig:
+    def test_proto_model_ignores_fullmethod_descriptors(self):
+        ignored = ProtoModel.model_config.get('ignored_types', ())
+        assert fullmethod in ignored
 
 
 class TestSave:
@@ -153,6 +160,55 @@ class TestUpdate:
         M.storage.get.return_value = M(id=1, name='updated')
         M.update(1, {'name': 'updated'})
         M.storage.update.assert_called_once()
+
+    def test_instance_update_uses_instance_id(self):
+        class M(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_instance'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+        M.storage = MagicMock()
+        M.storage.get.return_value = M(id=7, name='updated')
+
+        result = M(id=7, name='old').update({'name': 'updated'})
+
+        M.storage.update.assert_called_once_with(M, 7, {'name': 'updated'})
+        assert result.name == 'updated'
+
+    def test_instance_update_preserves_explicit_id_compatibility(self):
+        class M(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_instance_explicit'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+        M.storage = MagicMock()
+        M.storage.get.return_value = M(id=8, name='updated')
+
+        M(id=7, name='old').update(8, {'name': 'updated'})
+
+        M.storage.update.assert_called_once_with(M, 8, {'name': 'updated'})
+
+    def test_instance_update_rejects_unsaved_instance(self):
+        class M(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_unsaved'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+        M.storage = MagicMock()
+
+        with pytest.raises(ValueError, match="Cannot update unsaved instance"):
+            M(name='new').update({'name': 'updated'})
+
+        M.storage.update.assert_not_called()
+
+    def test_class_update_requires_data(self):
+        class M(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_missing_data'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+        M.storage = MagicMock()
+
+        with pytest.raises(ValueError, match="Missing update data"):
+            M.update(1)
+
+        M.storage.update.assert_not_called()
 
     def test_invalid_type_raises(self):
         class M(ProtoModel):

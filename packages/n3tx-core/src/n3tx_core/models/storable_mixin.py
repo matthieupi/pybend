@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from n3tx_core.storage.abstract_storage import AbstractStorage as StorageInterface
 from n3tx_core.utils.registrar import join_models
 from n3tx_core.utils.typer import Ref
+from n3tx_core.utils.descriptors import fullmethod
 
 logger = logging.getLogger('n3tx.models')
 
@@ -110,20 +111,49 @@ class StorableMixin:
         """
         return cls.storage.get(cls, id, as_dict=as_dict, populate=populate)
 
-    @classmethod
-    def update(cls, id: int, data: Union[BaseModel, dict]):
+    @fullmethod
+    def update(target, id_or_data: Union[int, BaseModel, dict], data: Union[BaseModel, dict, None] = None):
         """
         Updates a record using the storage backend.
+
+        Supports both class-level and instance-level call shapes:
+        - Model.update(id, patch)
+        - instance.update(patch)
+        - instance.update(id, patch)  # compatibility
+
+        ActorModel subclasses centralize after_update lifecycle publication here
+        so direct actor updates and TX-routed updates behave consistently.
         """
-        logger.debug("Updating %s ID=%s", cls.__name__, id)
-        if isinstance(data, BaseModel):
-            data_dict = data.model_dump(exclude_unset=True)
-        elif isinstance(data, dict):
-            data_dict = data
+        cls = target if isinstance(target, type) else target.__class__
+        if isinstance(target, type):
+            if data is None:
+                raise ValueError(f"[UPDATING {cls.__name__}] Missing update data")
+            id = id_or_data
+            update_payload = data
         else:
-            raise ValueError(f"[UPDATING {cls.__name__}-{id}] Invalid data type for update: {type(data)}")
+            if data is None:
+                id = getattr(target, 'id', None)
+                update_payload = id_or_data
+            else:
+                id = id_or_data
+                update_payload = data
+
+            if not id:
+                raise ValueError(f"[UPDATING {cls.__name__}] Cannot update unsaved instance without an id")
+
+        logger.debug("Updating %s ID=%s", cls.__name__, id)
+        if isinstance(update_payload, BaseModel):
+            data_dict = update_payload.model_dump(exclude_unset=True)
+        elif isinstance(update_payload, dict):
+            data_dict = update_payload
+        else:
+            raise ValueError(f"[UPDATING {cls.__name__}-{id}] Invalid data type for update: {type(update_payload)}")
         cls.storage.update(cls, id, data_dict)
-        return cls.get(id)
+        result = cls.get(id)
+        if result and hasattr(cls, '_publish_lifecycle'):
+            entity = result.model_response() if hasattr(result, 'model_response') else result
+            cls._publish_lifecycle('after_update', entity)
+        return result
 
     @classmethod
     def delete(cls, id: int):

@@ -15,6 +15,7 @@ import n3tx_core.models.proto_schema as proto_schema
 import n3tx_core.models.proto_dump as proto_dump
 from n3tx_core.utils.registrar import register_model
 from n3tx_core.utils.decorators import expose_route, exposed_method_info
+from n3tx_core.utils.descriptors import fullmethod
 from n3tx_core.utils.introspection import pydantic_schema_for_type, record_model_type, _is_self_ref
 from n3tx_core.utils.typer import Ref, _SelfRefMarker
 from .storable_mixin import StorableMixin
@@ -82,6 +83,7 @@ class ProtoModel(PydanticBaseModel):
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,  # allows Ref through
+        ignored_types=(fullmethod,),
         extra='allow',  # allows $schema/$id to pass through FastAPI response model
         json_encoders={
             Ref: lambda fk: int(fk),

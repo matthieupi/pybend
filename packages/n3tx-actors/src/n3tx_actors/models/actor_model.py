@@ -334,7 +334,6 @@ class ActorModel(Actor, ProtoModel):
                 update_data = {k: v for k, v in data.items() if k != 'id'}
                 result = cls.update(entity_id, update_data)
                 if result:
-                    cls._publish_lifecycle('after_update', result.model_response())
                     return result.model_response()
                 return tx.error("Update failed", code=409)
 
