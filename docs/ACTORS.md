@@ -51,6 +51,18 @@ Instance addresses are derived automatically when possible:
 - persisted instances with a truthy `id` use `"{__addr__}/{id}"`
 - unsaved instances fall back to the class namespace such as `products`
 
+For storable `ActorModel` instances, storage update also supports the actor
+instance shape:
+
+```python
+Product.update(1, {'status': 'done'})   # class-level storage API
+product.update({'status': 'done'})      # instance-level actor API
+```
+
+Both paths publish the same `after_update` lifecycle event for `ActorModel`
+subclasses. This keeps internal actor methods and external TX-routed CRUD on the
+same mutation boundary.
+
 Two descriptors (`actormethod` and `actorproperty`) make this
 possible. The method implementation is written once. The descriptor
 resolves whether `target` is the class or the instance. No

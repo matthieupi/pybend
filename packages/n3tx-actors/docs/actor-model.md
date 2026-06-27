@@ -21,7 +21,9 @@ handler_crud(tx)  -- checks if tx.name in {schema, create, get, list, update, de
     |     list    -> cls.list(sql_filter=meta['sql_filter']) -> serialize
     |     update  -> cls.get(id) -> Tier 2 auth -> cls.update(id, data)
     |     delete  -> cls.get(id) -> Tier 2 auth -> cls.delete(id)
-    |     lifecycle events published after create/update/delete
+    |     lifecycle events published after create/delete; update lifecycle is
+    |     centralized in the storage update primitive so direct actor updates
+    |     and TX-routed updates behave consistently
     |
     +-- NOT_HANDLED: fall through to generic dispatch
           getattr(target, tx.name) -> method
@@ -97,6 +99,16 @@ class ActorModel(Actor, ProtoModel):
 | `update` | `cls.update(id, data)` | Tier 2 update (with resource) |
 | `delete` | `cls.delete(id)` | Tier 2 delete (with resource) |
 
+`update` lifecycle publication is centralized in `StorableMixin.update()` for
+actor models. This means all mutation paths publish the same `after_update`
+event exactly once:
+
+```python
+Product.update(1, {'name': 'new'})   # class-level storage API
+product.update({'name': 'new'})      # instance actor-friendly API
+product.update(1, {'name': 'new'})   # explicit-id compatibility
+```
+
 ### Lifecycle Events
 
 After successful create/update/delete, `_publish_lifecycle(event, data)` fires TX to subscriber addresses:
@@ -107,6 +119,10 @@ TX(name='LIFECYCLE', source=cls.__addr__, target=subscriber_addr,
 ```
 
 Subscribers are future consumers (federation, agents, audit, WebSocket broadcast). Registered via `cls._subscribers.append('ws')`.
+
+`after_update` is emitted by the shared update primitive rather than only by the
+TX CRUD adapter, so internal actor methods can call `self.update(patch)` and get
+the same lifecycle behavior as external `update` messages.
 
 ## Usage Patterns
 
@@ -149,6 +165,10 @@ Product._subscribers.append('ws')  # lifecycle events broadcast to WS clients
 ## Gotchas
 
 - **`handler_crud` is a `@classmethod`, not a `@fullmethod`.** It always operates on the class, even when the handler is invoked on an instance. CRUD operations are always class-level (create, get, list, etc.).
+- **`update` lifecycle is centralized.** `ActorModel` subclasses publish
+  `after_update` from `StorableMixin.update()`, not from `handler_crud()`.
+  Direct `Product.update(id, patch)`, `product.update(patch)`, and TX-routed
+  updates therefore emit one lifecycle event consistently.
 - **`_NOT_HANDLED` sentinel distinguishes "not CRUD" from "CRUD returned None".** The handler checks `result is not _NOT_HANDLED`, not truthiness. Do not return `None` from custom code paths that should indicate "not handled".
 - **Custom `@expose_route` methods on ActorModel use kwargs dispatch**, not `(data, tx)`. The handler unpacks `tx.data` as keyword arguments, resolves `self` from `data['id']`, evaluates method-level access with `resource=self` for instance methods, and injects `user` from `tx.meta`. This differs from plain Actor handler methods which receive `(data, tx)`.
 - **Streaming error handling**: if an async generator raises mid-stream, the handler catches the exception and sends `tx.exception(e)`. The client receives the error as a stream event, not a clean stream-end.
