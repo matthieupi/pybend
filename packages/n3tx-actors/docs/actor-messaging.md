@@ -70,9 +70,11 @@ Unhandled messages (no matching method) produce `tx.error("Unhandled message: {n
 
 `ERROR` remains a normal routable message when the target actor explicitly
 implements an `ERROR(data, tx)` handler. That lets fire-and-forget messages
-still bubble failures back to their issuer. The terminal rule is narrower: if
-an `ERROR` handler itself raises, the framework logs and drops that failure
-instead of synthesizing another `ERROR` in response to an `ERROR`.
+still bubble failures back to their issuer. `ERROR` handlers are one-way catch
+blocks: they may update local state, but returned values are ignored and no
+`ERROR_RESPONSE` or other reply is emitted. If an `ERROR` handler itself raises,
+the framework logs and drops that failure instead of synthesizing another
+`ERROR` in response to an `ERROR`.
 
 ### Address Resolution
 

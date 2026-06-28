@@ -277,6 +277,12 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
                 await target.send(tx.exception(e))
                 return
 
+            if tx.is_error:
+                # ERROR handlers are actor-level catch blocks: side effects only.
+                # Ignore returned values so ERROR never creates ERROR_RESPONSE
+                # or any other reply that can recurse through remote adapters.
+                return
+
             # If the function returned a TX, we can propagate it
             if isinstance(result, TX):
                 await target.send(result)

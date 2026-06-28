@@ -104,6 +104,10 @@ class ActorModel(Actor, ProtoModel):
                     # response fails, do not generate another ERROR in return.
                     return
                 await target.send(tx.error(str(e)))
+            if tx.is_error:
+                # ERROR dispatch is one-way even when a CRUD/internal path
+                # returns data; returned values are ignored to prevent loops.
+                return
         else:
             # Generic fallback for custom @expose_route methods and other messages.
             method = getattr(target, tx.name, None)
@@ -192,6 +196,12 @@ class ActorModel(Actor, ProtoModel):
                 # If result is a coroutine, await it first
                 if asyncio.iscoroutine(result):
                     result = await result
+
+                if tx.is_error:
+                    # ERROR handlers are actor-level catch blocks: side effects
+                    # only. Ignore returned values so ERROR never emits
+                    # ERROR_RESPONSE, stream chunks, or any other reply.
+                    return
 
                 # Streaming: handler returned an async generator
                 if inspect.isasyncgen(result):

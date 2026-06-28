@@ -389,3 +389,70 @@ class TestErrorHandlerTerminalGuard:
 
         assert len(errors_received) == 1
         assert errors_received[0]['message'] == 'normal handler failed'
+
+    @pytest.mark.asyncio
+    async def test_actor_error_handler_return_value_does_not_emit_response(self, fresh_matrix):
+        caught_errors = []
+        response_messages = []
+
+        class SourceActor(Actor, auto_register=False):
+            __addr__ = 'source_actor'
+
+            @classmethod
+            def ERROR_RESPONSE(cls, data, tx):
+                response_messages.append((data, tx))
+
+        class CatchingHandler(Actor, auto_register=False):
+            __addr__ = 'catching_handler'
+
+            @classmethod
+            def ERROR(cls, data, tx):
+                caught_errors.append(data)
+                return {'handled': True}
+
+        fresh_matrix.register(SourceActor)
+        fresh_matrix.register(CatchingHandler)
+
+        await fresh_matrix.inbox(TX(
+            name='ERROR',
+            source='source_actor',
+            target='catching_handler',
+            data={'message': 'remote failure', 'code': 502},
+            meta={'error': True},
+        ))
+
+        assert caught_errors == [{'message': 'remote failure', 'code': 502}]
+        assert response_messages == []
+
+    @pytest.mark.asyncio
+    async def test_actor_model_error_handler_return_value_does_not_emit_response(self, fresh_matrix):
+        caught_errors = []
+        response_messages = []
+
+        class SourceModel(ActorModel):
+            __tablename__: ClassVar[str] = 'source_model'
+            __storable__: ClassVar[bool] = False
+
+            @classmethod
+            def ERROR_RESPONSE(cls, data, tx):
+                response_messages.append((data, tx))
+
+        class CatchingModel(ActorModel):
+            __tablename__: ClassVar[str] = 'catching_model'
+            __storable__: ClassVar[bool] = False
+
+            @classmethod
+            def ERROR(cls, data, tx):
+                caught_errors.append(data)
+                return {'handled': True}
+
+        await fresh_matrix.inbox(TX(
+            name='ERROR',
+            source='source_model',
+            target='catching_model',
+            data={'message': 'remote failure', 'code': 502},
+            meta={'error': True},
+        ))
+
+        assert caught_errors == [{'message': 'remote failure', 'code': 502}]
+        assert response_messages == []
