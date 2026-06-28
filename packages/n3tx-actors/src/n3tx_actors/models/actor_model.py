@@ -99,6 +99,10 @@ class ActorModel(Actor, ProtoModel):
                     await target.send(tx.reply())
             except Exception as e:
                 logger.error(f"[{target.addr}] Error dispatching {tx.name}: {e}")
+                if tx.is_error:
+                    # ERROR is routable, but terminal. If dispatching an ERROR
+                    # response fails, do not generate another ERROR in return.
+                    return
                 await target.send(tx.error(str(e)))
         else:
             # Generic fallback for custom @expose_route methods and other messages.
@@ -178,6 +182,10 @@ class ActorModel(Actor, ProtoModel):
                             result = method(data, tx)
                 except Exception as e:
                     logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
+                    if tx.is_error:
+                        # ERROR remains catchable by actors, but failed ERROR
+                        # handlers are terminal to prevent recursive bounce loops.
+                        return
                     await target.send(tx.exception(e))
                     return
 

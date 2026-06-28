@@ -269,6 +269,11 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
                     result = method(tx.data, tx)
             except Exception as e:
                 logger.error(f"[{target.addr}] Error in {tx.name}: {e}")
+                if tx.is_error:
+                    # ERROR remains a routable message so issuers can catch it,
+                    # but ERROR handling is terminal: a failed ERROR handler must
+                    # not synthesize another ERROR and start a bounce loop.
+                    return
                 await target.send(tx.exception(e))
                 return
 

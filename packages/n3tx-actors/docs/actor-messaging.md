@@ -68,6 +68,12 @@ Required: `name`, `source`, `target`. Optional: `data` (default `{}`), `meta` (d
 
 Unhandled messages (no matching method) produce `tx.error("Unhandled message: {name}")`. Exception: error TXs and `*_RESPONSE` TXs with no handler are silently dropped to prevent infinite bounce loops.
 
+`ERROR` remains a normal routable message when the target actor explicitly
+implements an `ERROR(data, tx)` handler. That lets fire-and-forget messages
+still bubble failures back to their issuer. The terminal rule is narrower: if
+an `ERROR` handler itself raises, the framework logs and drops that failure
+instead of synthesizing another `ERROR` in response to an `ERROR`.
+
 ### Address Resolution
 
 `ActorMeta.__new__` sets `__addr__` on each subclass:

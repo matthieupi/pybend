@@ -289,3 +289,103 @@ class TestErrorPropagation:
 
         assert response.is_error, "Expected error, not timeout"
         assert 'Unhandled message' in response.data.get('message', '')
+
+
+class TestErrorHandlerTerminalGuard:
+    """ERROR is routable, but ERROR handling is terminal.
+
+    If an actor's ERROR handler itself fails, the framework must not synthesize
+    another ERROR and bounce it back to the original sender forever.
+    """
+
+    @pytest.mark.asyncio
+    async def test_actor_error_handler_failure_does_not_emit_recursive_error(self, fresh_matrix):
+        recursive_errors = []
+
+        class SourceActor(Actor, auto_register=False):
+            __addr__ = 'source_actor'
+
+            @classmethod
+            def ERROR(cls, data, tx):
+                recursive_errors.append(data)
+
+        class FailingHandler(Actor, auto_register=False):
+            __addr__ = 'failing_handler'
+
+            @classmethod
+            def ERROR(cls, data, tx):
+                raise RuntimeError('error handler failed')
+
+        fresh_matrix.register(SourceActor)
+        fresh_matrix.register(FailingHandler)
+
+        await fresh_matrix.inbox(TX(
+            name='ERROR',
+            source='source_actor',
+            target='failing_handler',
+            data={'message': 'original failure', 'code': 500},
+            meta={'error': True},
+        ))
+
+        assert recursive_errors == []
+
+    @pytest.mark.asyncio
+    async def test_actor_model_error_handler_failure_does_not_emit_recursive_error(self, fresh_matrix):
+        recursive_errors = []
+
+        class SourceModel(ActorModel):
+            __tablename__: ClassVar[str] = 'source_model'
+            __storable__: ClassVar[bool] = False
+
+            @classmethod
+            def ERROR(cls, data, tx):
+                recursive_errors.append(data)
+
+        class FailingModel(ActorModel):
+            __tablename__: ClassVar[str] = 'failing_model'
+            __storable__: ClassVar[bool] = False
+
+            @classmethod
+            def ERROR(cls, data, tx):
+                raise RuntimeError('error handler failed')
+
+        await fresh_matrix.inbox(TX(
+            name='ERROR',
+            source='source_model',
+            target='failing_model',
+            data={'message': 'original failure', 'code': 500},
+            meta={'error': True},
+        ))
+
+        assert recursive_errors == []
+
+    @pytest.mark.asyncio
+    async def test_normal_handler_failure_still_emits_error(self, fresh_matrix):
+        errors_received = []
+
+        class SourceActor(Actor, auto_register=False):
+            __addr__ = 'source_actor'
+
+            @classmethod
+            def ERROR(cls, data, tx):
+                errors_received.append(data)
+
+        class FailingHandler(Actor, auto_register=False):
+            __addr__ = 'failing_handler'
+
+            @classmethod
+            def RUN(cls, data, tx):
+                raise RuntimeError('normal handler failed')
+
+        fresh_matrix.register(SourceActor)
+        fresh_matrix.register(FailingHandler)
+
+        await fresh_matrix.inbox(TX(
+            name='RUN',
+            source='source_actor',
+            target='failing_handler',
+            data={},
+        ))
+
+        assert len(errors_received) == 1
+        assert errors_received[0]['message'] == 'normal handler failed'
