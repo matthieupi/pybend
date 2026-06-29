@@ -277,12 +277,6 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
                 await target.send(tx.exception(e))
                 return
 
-            if tx.is_error:
-                # ERROR handlers are actor-level catch blocks: side effects only.
-                # Ignore returned values so ERROR never creates ERROR_RESPONSE
-                # or any other reply that can recurse through remote adapters.
-                return
-
             # If the function returned a TX, we can propagate it
             if isinstance(result, TX):
                 await target.send(result)
@@ -312,6 +306,11 @@ class Actor(PydanticBaseModel, metaclass=ActorMeta, auto_register=False):
         Class:    route through children or bubble to parent (matrix)
         Instance: route through parent chain
         """
+        if tx.name == 'ERROR_RESPONSE':
+            # ERROR is a terminal catch notification, not a request that should
+            # participate in the generic *_RESPONSE reply convention.
+            return
+
         interceptors = Actor._get_interceptors(target, 'send')
         if interceptors:
             tx = await Actor._run_interceptors(interceptors, tx)

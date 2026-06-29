@@ -12,6 +12,7 @@ import asyncio
 import sys
 import pytest
 from typing import ClassVar
+from pydantic import BaseModel
 
 from n3tx_actors.actor import Actor
 from n3tx_actors.matrix import Matrix
@@ -423,6 +424,166 @@ class TestErrorHandlerTerminalGuard:
 
         assert caught_errors == [{'message': 'remote failure', 'code': 502}]
         assert response_messages == []
+
+    @pytest.mark.asyncio
+    async def test_actor_error_handler_return_value_never_calls_send(self, fresh_matrix):
+        """Direct regression for remote-source loops.
+
+        A successful ERROR handler must be terminal at the receiving actor.
+        It should not emit ERROR_RESPONSE toward an id-less remote source such
+        as n3tx://compute/Process.
+        """
+        sent = []
+
+        class Catcher(Actor, auto_register=False):
+            __addr__ = 'catcher'
+            caught = None
+
+            @classmethod
+            def ERROR(cls, data, tx):
+                cls.caught = data
+                return {'handled': True}
+
+            @classmethod
+            async def send(cls, tx):
+                sent.append(tx)
+
+        await Catcher.inbox(TX(
+            name='ERROR',
+            source='n3tx://compute/Process',
+            target='catcher',
+            data={'message': 'boom'},
+            meta={'error': True},
+        ))
+
+        assert Catcher.caught == {'message': 'boom'}
+        assert sent == []
+
+    @pytest.mark.asyncio
+    async def test_actor_model_error_handler_return_value_never_calls_send(self, fresh_matrix):
+        sent = []
+
+        class CatcherModel(ActorModel):
+            __tablename__: ClassVar[str] = 'catcher_models'
+            __storable__: ClassVar[bool] = False
+            caught: ClassVar[dict | None] = None
+
+            @classmethod
+            def ERROR(cls, data, tx):
+                cls.caught = data
+                return {'handled': True}
+
+            @classmethod
+            async def send(cls, tx):
+                sent.append(tx)
+
+        await CatcherModel.inbox(TX(
+            name='ERROR',
+            source='n3tx://compute/Process',
+            target='catcher_models',
+            data={'message': 'boom'},
+            meta={'error': True},
+        ))
+
+        assert CatcherModel.caught == {'message': 'boom'}
+        assert sent == []
+
+    @pytest.mark.asyncio
+    async def test_actor_model_error_handler_ignores_model_tx_string_and_none_results(self, fresh_matrix):
+        """All ERROR handler result shapes are side-effect only."""
+
+        class Payload(BaseModel):
+            ok: bool = True
+
+        cases = [
+            ('dict', {'handled': True}),
+            ('model', Payload()),
+            ('tx', TX(name='CUSTOM', source='catcher_models', target='source', data={})),
+            ('string', 'handled'),
+            ('none', None),
+        ]
+
+        for label, result in cases:
+            sent = []
+
+            class CatcherModel(ActorModel):
+                __tablename__: ClassVar[str] = f'catcher_models_{label}'
+                __storable__: ClassVar[bool] = False
+                caught: ClassVar[dict | None] = None
+
+                @classmethod
+                def ERROR(cls, data, tx):
+                    cls.caught = data
+                    return result
+
+                @classmethod
+                async def send(cls, tx):
+                    sent.append(tx)
+
+            await CatcherModel.inbox(TX(
+                name='ERROR',
+                source='n3tx://compute/Process',
+                target=CatcherModel.__tablename__,
+                data={'message': label},
+                meta={'error': True},
+            ))
+
+            assert CatcherModel.caught == {'message': label}
+            assert sent == []
+
+    @pytest.mark.asyncio
+    async def test_actor_send_drops_error_response(self, fresh_matrix):
+        """ERROR_RESPONSE is an accidental generic-reply artifact, not protocol."""
+        received = []
+
+        class SourceActor(Actor, auto_register=False):
+            __addr__ = 'source_actor'
+
+            @classmethod
+            def ERROR_RESPONSE(cls, data, tx):
+                received.append((data, tx))
+
+        class SenderActor(Actor, auto_register=False):
+            __addr__ = 'sender_actor'
+
+        fresh_matrix.register(SourceActor)
+        fresh_matrix.register(SenderActor)
+
+        await SenderActor.send(TX(
+            name='ERROR_RESPONSE',
+            source='sender_actor',
+            target='source_actor',
+            data={'handled': True},
+            meta={'error': True, 'req': 'original-error'},
+        ))
+
+        assert received == []
+
+    @pytest.mark.asyncio
+    async def test_actor_model_send_drops_error_response(self, fresh_matrix):
+        received = []
+
+        class SourceModel(ActorModel):
+            __tablename__: ClassVar[str] = 'source_model'
+            __storable__: ClassVar[bool] = False
+
+            @classmethod
+            def ERROR_RESPONSE(cls, data, tx):
+                received.append((data, tx))
+
+        class SenderModel(ActorModel):
+            __tablename__: ClassVar[str] = 'sender_model'
+            __storable__: ClassVar[bool] = False
+
+        await SenderModel.send(TX(
+            name='ERROR_RESPONSE',
+            source='sender_model',
+            target='source_model',
+            data={'handled': True},
+            meta={'error': True, 'req': 'original-error'},
+        ))
+
+        assert received == []
 
     @pytest.mark.asyncio
     async def test_actor_model_error_handler_return_value_does_not_emit_response(self, fresh_matrix):
