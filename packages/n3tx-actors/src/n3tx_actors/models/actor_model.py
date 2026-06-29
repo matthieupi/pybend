@@ -193,6 +193,12 @@ class ActorModel(Actor, ProtoModel):
                 if asyncio.iscoroutine(result):
                     result = await result
 
+                if tx.name == 'ERROR':
+                    # ERROR handlers are catch blocks. Run them for side
+                    # effects, but never wrap returned values into
+                    # ERROR_RESPONSE or other outbound replies.
+                    return
+
                 # Streaming: handler returned an async generator
                 if inspect.isasyncgen(result):
                     seq = 0
