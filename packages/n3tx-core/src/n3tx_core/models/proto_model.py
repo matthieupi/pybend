@@ -47,6 +47,7 @@ def register_mixin(flag: str, mixin_cls: type, *, also_if: list[str] = None) -> 
 
 _AUTO_HIDE_FIELDS = {'id', 'image', 'created_at', 'updated_at'}
 
+
 def _apply_field_exclusion(schema: dict):
     """Apply ui.display=false convention to *_id, id, and timestamp fields."""
     if 'properties' not in schema:
@@ -140,6 +141,7 @@ class ProtoModel(PydanticBaseModel):
                 logger.debug("Retrieving %s with id %s from storage", self.__class__.__name__, kwargs['id'])
                 params = self.__class__.get(kwargs['id'], as_dict=True)  # This will call the get method of StorableMixin
                 logger.debug("Retrieved params: %s", params)
+        params = self.__class__.hydrate_fk(params)
         super().__init__(*args, **params)
         # Set __owner__ if it exists in kwargs
         self.__owner__ = kwargs.get('__owner__', None)
@@ -254,6 +256,29 @@ class ProtoModel(PydanticBaseModel):
 
         return schema
 
+    @classmethod
+    def hydrate_fk(cls, data):
+        """Hydrate local FK fields (``field: T`` and ``field: list[T]``)."""
+        if not isinstance(data, dict):
+            return data
+
+        from n3tx_core.utils.introspection import get_fk_fields, get_fk_list_fields, get_json_fields
+
+        updated = dict(data)
+        json_fields = set(get_json_fields(cls))
+
+        for field_name, target_cls in get_fk_fields(cls):
+            if field_name in updated:
+                updated[field_name] = _hydrate_fk_value(target_cls, updated.get(field_name))
+
+        for field_name, target_cls in get_fk_list_fields(cls):
+            if field_name not in json_fields:
+                continue
+            if field_name in updated:
+                updated[field_name] = _hydrate_fk_list(target_cls, updated.get(field_name))
+
+        return updated
+
 
     @classmethod
     def __get_pydantic_json_schema__(
@@ -317,8 +342,8 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
     # Resolve field_name before creating the model — it determines the URL
     # segment used in routes (e.g., "favorites" vs "likes")
     if not field_name:
-        from n3tx_core.utils.introspection import get_list_fields
-        for fname, child_cls in get_list_fields(owner_cls):
+        from n3tx_core.utils.introspection import get_fk_list_fields
+        for fname, child_cls in get_fk_list_fields(owner_cls):
             if child_cls is ref_model:
                 field_name = fname
                 break
@@ -345,3 +370,41 @@ def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel]
         owner_cls.__fk_models__[field_name] = join_model
 
     return join_model
+
+def _hydrate_fk_value(target_cls: Type[PydanticBaseModel], value: Any) -> Any:
+    """Hydrate one local model relationship value through the target model."""
+    # Prevent re-hydration if value already cls instance
+    if value is None or isinstance(value, target_cls):
+        return value
+    # Hydrate dict value
+    if isinstance(value, dict):
+        if 'id' in value:
+            value = value.get('id')
+        elif '$id' in value:
+            value = value.get('$id')
+        else:
+            return target_cls(**value)
+    # Hydrate from direct target id
+    from n3tx_core.models.ref import local_ref_id
+    target_id = local_ref_id(value, target_cls=target_cls)
+    if target_id is None:
+        return value
+    try:
+        return target_cls(id=target_id)
+    except Exception:
+        return None
+
+
+def _hydrate_fk_list(target_cls: Type[PydanticBaseModel], values: Any) -> list:
+    """Hydrate an ordered local model relationship list."""
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        values = [values]
+
+    hydrated = []
+    for value in values:
+        item = _hydrate_fk_value(target_cls, value)
+        if isinstance(item, target_cls):
+            hydrated.append(item)
+    return hydrated

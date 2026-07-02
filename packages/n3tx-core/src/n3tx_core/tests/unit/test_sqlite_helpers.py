@@ -8,7 +8,6 @@ from pydantic import Field, BaseModel
 
 from n3tx_core.storage.sqlite_helpers import get_parent_fk_columns
 from n3tx_core.models.proto_model import ProtoModel
-from n3tx_core.models.ref import ListRef
 
 pytestmark = pytest.mark.unit
 
@@ -22,7 +21,7 @@ class TestGetParentFkColumns:
 
         class Parent(BaseModel):
             __tablename__: ClassVar[str] = 'helpers_parents'
-            children: ListRef[Child] = Field(default=[])
+            children: list[Child] = Field(default=[])
 
         Parent.__name__ = 'Parent'
 
@@ -47,12 +46,12 @@ class TestGetParentFkColumns:
 
         class ParentA(BaseModel):
             __tablename__: ClassVar[str] = 'helpers_pa'
-            items: ListRef[SharedChild] = Field(default=[])
+            items: list[SharedChild] = Field(default=[])
         ParentA.__name__ = 'ParentA'
 
         class ParentB(BaseModel):
             __tablename__: ClassVar[str] = 'helpers_pb'
-            items: ListRef[SharedChild] = Field(default=[])
+            items: list[SharedChild] = Field(default=[])
         ParentB.__name__ = 'ParentB'
 
         with patch('n3tx_core.storage.sqlite_helpers.registered_models',

@@ -3,14 +3,11 @@
 `Ref[T]` is the typed identity pointer primitive. Historically it represented
 an integer FK in the local database; distributed N3TX extends that meaning to a
 string address Matrix can resolve, while preserving local integer behavior.
-
-`ListRef[T]` remains the local owned relationship primitive. For distributed
-pointer arrays, use `list[Ref[T]]` instead.
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Generic, List, Optional, TypeVar, Union, get_args
+from typing import Annotated, Any, Generic, Optional, TypeVar, get_args
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, GetCoreSchemaHandler
@@ -24,12 +21,6 @@ T = TypeVar("T", bound=BaseModel)
 class _SelfRefMarker:
     """Metadata tag to identify Ref['self'] fields during schema generation and migration."""
     pass
-
-
-class _ListRefMarker:
-    """Metadata tag to identify ListRef fields during schema generation."""
-    def __init__(self, model_type):
-        self.model_type = model_type
 
 
 def _api_url(api_url: str | None = None) -> str:
@@ -342,15 +333,8 @@ class Ref(Generic[T]):
         return {"type": "$ref", "$ref": f"#/$defs/{target.__name__}"}
 
 
-class ListRef:
-    """Type alias factory for local owned collection reference fields."""
-
-    def __class_getitem__(cls, model_type):
-        return Annotated[List[Union[model_type, str]], _ListRefMarker(model_type)]
-
-
 __all__ = [
-    'Ref', 'ListRef', '_SelfRefMarker', '_ListRefMarker', 'flatten_refs',
+    'Ref', '_SelfRefMarker', 'flatten_refs',
     'is_distributed_ref', 'is_external_link', 'parse_ref_string',
     'canonicalize_ref', 'local_ref_id', 'public_ref',
 ]

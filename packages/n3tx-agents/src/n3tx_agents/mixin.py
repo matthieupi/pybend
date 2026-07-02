@@ -44,7 +44,7 @@ import logging
 from n3tx_core.models.proto_schema import run_pipeline
 from n3tx_core import config
 from n3tx_core.utils.descriptors import fullmethod
-from n3tx_core.utils.introspection import get_list_fields
+from n3tx_core.utils.introspection import get_fk_list_fields
 
 from n3tx_agents.agent import Agent, CallConfig
 from n3tx_agents.utils import (
@@ -127,7 +127,7 @@ class AgentMixin:
 
         # Neighbor tools (ListRef relationships)
         if conf.get('neighbors', True):
-            for field_name, model_cls in get_list_fields(cls):
+            for field_name, model_cls in get_fk_list_fields(cls):
                 if hasattr(model_cls, '__tablename__'):
                     addrs.append(model_cls.__tablename__)
 

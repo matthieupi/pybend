@@ -220,6 +220,8 @@ so we can review them together.
 
 **Present the overview before implementation.** Before starting edits, present a concise overview of what is about to change: the main files or subsystems involved, the implementation approach, the invariants that must be preserved, the likely side effects, and how the result will be verified. This is a grouped overview of the planned change set, not a request to review or approve edits one by one.
 
+**Use Step Review after changes, not manual diff dumps.** Pseudo-diffs are useful before implementation when they clarify the intended code shape. After changes are complete, do not paste full manual diffs by default. Instead, include a concise **Step Review** section with the meaningful snippets, signature/interface changes, files touched, behavior changed, and verification results. Use actual git diffs for your own inspection, but only surface them to the user when they specifically ask or when a small diff is the clearest possible review artifact.
+
 **Plans must be implementation-grade.** When producing a plan, do not stop at high-level intent. Plans must be detailed enough that another engineer could execute them without guessing. Include the specific files, classes, functions, routes, or components to change; the expected data-flow or control-flow updates; representative code sketches, signatures, or pseudo-diffs for the core implementation; the tests and docs that need updating; and any assumptions, risks, or compatibility concerns. If a plan lacks concrete implementation detail, it is too shallow.
 
 ### Bug Fixes
@@ -612,25 +614,40 @@ For **example apps**, run from the example directory (e.g., `examples/core/`).
 For **framework code**, the relevant package directory under `packages/`.
 
 ### Tests
+Use the repository-managed Python virtual environment at `/workspace/.venv-agents` for backend and example test execution. Invoke Python tools through that environment explicitly so agents share one predictable dependency surface:
+
+```bash
+cd /workspace && .venv-agents/bin/python scripts/test-backend.py --list
+cd /workspace && .venv-agents/bin/python -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/
+```
+
+If a test suite fails because a Python package is missing, agents may install the missing dependency into `.venv-agents` and retry the same verification command:
+
+```bash
+cd /workspace && .venv-agents/bin/python -m pip install <package>
+```
+
+Do not install missing test dependencies globally or into unrelated virtual environments. Prefer the narrowest dependency needed by the failing suite, and report any dependency installation in the final verification summary.
+
 Use the backend runner when checking multiple backend suites from one command. It executes each suite in a separate process with the correct working directory and `PYTHONPATH`, avoiding root-level pytest import collisions between example apps:
 
 ```bash
-cd /workspace && python3 scripts/test-backend.py --list
-cd /workspace && python3 scripts/test-backend.py --suite core -- -q
-cd /workspace && python3 scripts/test-backend.py --short
-cd /workspace && python3 scripts/test-backend.py -- -q
-cd /workspace && python3 scripts/test-backend.py --fail-fast -- -q  # optional: stop after first failing suite
+cd /workspace && .venv-agents/bin/python scripts/test-backend.py --list
+cd /workspace && .venv-agents/bin/python scripts/test-backend.py --suite core -- -q
+cd /workspace && .venv-agents/bin/python scripts/test-backend.py --short
+cd /workspace && .venv-agents/bin/python scripts/test-backend.py -- -q
+cd /workspace && .venv-agents/bin/python scripts/test-backend.py --fail-fast -- -q  # optional: stop after first failing suite
 ```
 
 | Test suite | Command | What it covers |
 |-----------|---------|---------------|
-| Core unit tests | `cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/` | Models, storage, auth, routes, schema |
-| Actor tests | `cd /workspace && python3 -m pytest packages/n3tx-actors/src/n3tx_actors/tests/` | Actor system, interceptors, auth |
-| Agent tests | `cd /workspace && python3 -m pytest packages/n3tx-agents/src/n3tx_agents/tests/` | AgentMixin, AgentActor, tools |
-| Files tests | `cd /workspace && python3 scripts/test-backend.py --suite files -- -q` | File metadata model and byte stores |
-| Core example (Level 1/2) | `cd /workspace && python3 -m pytest examples/core/tests/` | CRUD, auth flow, pagination, FK hydration |
-| Actors example (Level 3) | `cd /workspace && python3 -m pytest examples/actors/tests/` | Same coverage with actor routing |
-| Grants example (Agents) | `cd /workspace && python3 -m pytest examples/grants/tests/` | Agents, grants, sources |
+| Core unit tests | `cd /workspace && .venv-agents/bin/python -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/` | Models, storage, auth, routes, schema |
+| Actor tests | `cd /workspace && .venv-agents/bin/python -m pytest packages/n3tx-actors/src/n3tx_actors/tests/` | Actor system, interceptors, auth |
+| Agent tests | `cd /workspace && .venv-agents/bin/python -m pytest packages/n3tx-agents/src/n3tx_agents/tests/` | AgentMixin, AgentActor, tools |
+| Files tests | `cd /workspace && .venv-agents/bin/python scripts/test-backend.py --suite files -- -q` | File metadata model and byte stores |
+| Core example (Level 1/2) | `cd /workspace && .venv-agents/bin/python -m pytest examples/core/tests/` | CRUD, auth flow, pagination, FK hydration |
+| Actors example (Level 3) | `cd /workspace && .venv-agents/bin/python -m pytest examples/actors/tests/` | Same coverage with actor routing |
+| Grants example (Agents) | `cd /workspace && .venv-agents/bin/python -m pytest examples/grants/tests/` | Agents, grants, sources |
 | Frontend unit tests | `cd /workspace/tests/frontend && npx vitest run` | JS runtime, components, theme helpers, widgets |
 | Frontend E2E tests | `cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js` | Browser verification against seeded `examples/core` |
 

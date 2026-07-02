@@ -10,7 +10,7 @@ Configuration lives in fields (DB-storable). Agents are data, not code.
         llm="anthropic:claude-sonnet-4-5-20250929",
     )
 
-    # Via API (tools via join table)
+    # Via API (tools via local relationship field)
     # POST /agents {"name": "Grant Scanner", "prompt": "...", "llm": "..."}
     # POST /agents/1/agent_tools {"addr": "grants"}
 
@@ -29,7 +29,6 @@ from pydantic import Field
 
 from n3tx_actors.models.actor_model import ActorModel
 from n3tx_core.models.proto_model import ProtoModel
-from n3tx_core.models.ref import ListRef
 from n3tx_core.utils.decorators import expose_route
 from n3tx_agents.agent import Agent, CallConfig
 from n3tx_agents.tool_model import AgentTool
@@ -72,12 +71,12 @@ class AgentActor(ActorModel):
     Fields:
         name: Human-readable agent name.
         prompt: System prompt for the LLM.
-        tools: Collection of AgentTool records (via ListRef join table).
+        tools: Collection of AgentTool records.
         llm: Pydantic AI provider:model string (e.g., 'ollama:llama3.1').
         constraints: Budget/safety limits dict.
 
     Storage: constraints is serialized to JSON TEXT for SQLite.
-             tools uses the standard ListRef join-table pattern.
+             tools uses the standard local model-list relationship pattern.
     """
 
     __tablename__ = 'agents'
@@ -93,12 +92,12 @@ class AgentActor(ActorModel):
     )
     name: str = Field(min_length=1, max_length=200)
     prompt: str = Field(default='')
-    tools: ListRef[AgentTool] = Field(default=[])
+    tools: list[AgentTool] = Field(default=[])
     llm: str = Field(default='ollama:llama3.1')
     constraints: dict = Field(default={})
 
     def tool_addrs(self) -> list:
-        """Resolve tool addresses from ListRef hrefs or AgentTool instances.
+        """Resolve tool addresses from relationship hrefs or AgentTool instances.
 
         When loaded from DB, self.tools is hydrated as href arrays
         (e.g., ["http://.../agents/1/agent_tools/1", ...]). This method

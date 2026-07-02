@@ -340,6 +340,68 @@ class TestGet:
         assert isinstance(result, dict)
         assert result['name'] == 'test'
 
+    def test_model_list_field_hydrates_ordered_children(self, storage, tmp_db):
+        class Child(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_model_list_children'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Parent(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_model_list_parents'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+            children: list[Child] = Field(default=[])
+
+        Child.set_storage(storage)
+        Parent.set_storage(storage)
+        storage.create_table(Child)
+        storage.create_table(Parent)
+
+        first = storage.create(Child, {'name': 'first'})
+        second = storage.create(Child, {'name': 'second'})
+        parent = storage.create(Parent, {
+            'name': 'parent',
+            'children': [second, first],
+        })
+
+        row = sqlite3.connect(tmp_db).execute(
+            'SELECT children FROM test_model_list_parents WHERE id = ?',
+            (parent.id,),
+        ).fetchone()
+        assert row[0] == f'[{second.id}, {first.id}]'
+
+        fetched = storage.get(Parent, parent.id)
+        assert [child.id for child in fetched.children] == [second.id, first.id]
+        assert [child.name for child in fetched.children] == ['second', 'first']
+        assert all(isinstance(child, Child) for child in fetched.children)
+
+    def test_model_list_field_skips_missing_children_and_preserves_order(self, storage, tmp_db):
+        class Child(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_model_list_missing_children'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Parent(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_model_list_missing_parents'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+            children: list[Child] = Field(default=[])
+
+        Child.set_storage(storage)
+        Parent.set_storage(storage)
+        storage.create_table(Child)
+        storage.create_table(Parent)
+
+        first = storage.create(Child, {'name': 'first'})
+        second = storage.create(Child, {'name': 'second'})
+        parent = storage.create(Parent, {
+            'name': 'parent',
+            'children': [second.id, 9999, first.id],
+        })
+
+        fetched = storage.get(Parent, parent.id)
+        assert [child.id for child in fetched.children] == [second.id, first.id]
+
 
 class TestUpdate:
 

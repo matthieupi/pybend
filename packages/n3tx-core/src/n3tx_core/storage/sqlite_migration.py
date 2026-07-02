@@ -11,7 +11,7 @@ from typing import Any, List, Type, Union, get_args, get_origin
 from pydantic import BaseModel
 
 from .sqlite_helpers import get_parent_fk_columns
-from n3tx_core.utils.introspection import _is_self_ref, _unwrap_listref
+from n3tx_core.utils.introspection import _is_self_ref
 from n3tx_core.models.ref import Ref
 
 logger = logging.getLogger('n3tx.storage')
@@ -163,15 +163,9 @@ class SQLiteMigration:
                 columns.append(f"{field_name} TEXT")
                 continue
 
-            # List fields: skip ListRef[T] and List[BaseModel] (FK join table),
-            # but create TEXT column for bare list/dict (JSON serialized)
+            # List fields are JSON serialized. list[BaseModel] stores ordered
+            # local ids; list[Ref[T]] stores pointer strings.
             if origin_type is list:
-                ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
-                if ref_model is not None:
-                    continue  # ListRef[T] — FK join table
-                args = get_args(field_type)
-                if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
-                    continue  # List[BaseModel] — FK join table
                 columns.append(f"{field_name} TEXT")
                 continue
 
@@ -288,18 +282,11 @@ class SQLiteMigration:
                         logger.warning("Failed to add Ref column %s to %s: %s", field_name, table_name, e)
                 continue
 
-            # List fields: skip ListRef[T] and List[BaseModel] (FK join table),
-            # but add TEXT column for bare list (JSON serialized)
+            # List fields are JSON serialized. list[BaseModel] stores ordered
+            # local ids; list[Ref[T]] stores pointer strings.
             if origin_type is list:
-                ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
-                if ref_model is not None:
-                    model_columns.pop(field_name, None)
-                    continue  # ListRef[T] — FK join table
-                args = get_args(field_type)
-                if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
-                    model_columns.pop(field_name, None)
-                    continue  # List[BaseModel] — FK join table
                 # Bare list (e.g. list, List[str]) — falls through to add TEXT column
+                pass
 
             # dict fields → TEXT column (JSON serialized)
             if field_type is dict or origin_type is dict:

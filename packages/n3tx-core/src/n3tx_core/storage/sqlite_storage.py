@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from n3tx_core import config
 from n3tx_core.utils.registrar import registered_models
-from n3tx_core.utils.introspection import get_json_fields, get_list_fields, get_ref_fields, get_ref_list_fields
+from n3tx_core.utils.introspection import get_json_fields, get_fk_list_fields, get_ref_fields, get_ref_list_fields
 from n3tx_core.utils.populate import PopulateSpec
 from n3tx_core.models.ref import canonicalize_ref, is_distributed_ref, is_external_link, local_ref_id
 from .abstract_storage import AbstractStorage
@@ -145,6 +145,24 @@ def _normalize_ref_storage_values(model_class, data):
                     raise ValueError(f"Invalid external Ref value for {field_name}: {ref}")
                 refs.append(ref)
             data[field_name] = refs
+
+
+def _normalize_fk_list_storage_values(model_class, data):
+    """Convert list[T] runtime values to ordered local id lists for storage."""
+    for field_name, target_cls in get_fk_list_fields(model_class):
+        if field_name not in data or data[field_name] is None:
+            continue
+        value = data[field_name]
+        if not isinstance(value, list):
+            data[field_name] = []
+            continue
+
+        ids = []
+        for item in value:
+            local_id = local_ref_id(item, target_cls=target_cls)
+            if local_id is not None:
+                ids.append(local_id)
+        data[field_name] = ids
 
 
 def _local_ref_href(value, target_cls):
@@ -352,9 +370,14 @@ class SQLiteStorage(AbstractStorage):
         logger.info("Creating new %s record", model_class.__name__)
         table_name = _validate_identifier(model_class.__tablename__)
         _normalize_ref_storage_values(model_class, data)
+        _normalize_fk_list_storage_values(model_class, data)
 
-        # Identify List[BaseModel] fields — these are NOT columns on this table
-        collection_field_names = {name for name, _cls in get_list_fields(model_class)}
+        # list[T] fields are JSON-backed columns and remain in the field set.
+        json_field_names = set(get_json_fields(model_class))
+        collection_field_names = {
+            name for name, _cls in get_fk_list_fields(model_class)
+            if name not in json_field_names
+        }
 
         fields = [f for f in model_class.model_fields.keys()
                   if f != 'id' and f not in collection_field_names]
@@ -388,7 +411,11 @@ class SQLiteStorage(AbstractStorage):
              limit: int = None, offset: int = None, populate: PopulateSpec = None,
              ids: list = None) -> List[Any]:
         table_name = _validate_identifier(model_class.__tablename__)
-        list_fields = get_list_fields(model_class)
+        json_field_names = set(get_json_fields(model_class))
+        list_fields = [
+            (name, cls_) for name, cls_ in get_fk_list_fields(model_class)
+            if name not in json_field_names
+        ]
         ref_fields = get_ref_fields(model_class)
 
         select_sql = f"SELECT * FROM {table_name}"
@@ -462,7 +489,7 @@ class SQLiteStorage(AbstractStorage):
 
                 records.append(record)
 
-            # Batch-hydrate collection fields: one query per ListRef field
+            # Batch-hydrate collection fields: one query per relationship field
             # instead of one query per parent row per field (N×M → M queries).
             if list_fields:
                 parent_ids = [r['id'] for r in records if r.get('id') is not None]
@@ -565,7 +592,10 @@ class SQLiteStorage(AbstractStorage):
                     data[field_name] = _public_storage_ref(val, target_cls)
 
             # ── Hydrate collection fields as href arrays ──
-            for field_name, child_class in get_list_fields(model_class):
+            json_field_names = set(get_json_fields(model_class))
+            for field_name, child_class in get_fk_list_fields(model_class):
+                if field_name in json_field_names:
+                    continue
                 effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
                 child_table = _validate_identifier(effective_cls.__tablename__)
                 if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
@@ -621,12 +651,16 @@ class SQLiteStorage(AbstractStorage):
             _visited = set()
         _visited = _visited | {model_class.__name__}  # immutable copy per branch
 
-        list_fields = get_list_fields(model_class)
+        json_field_names = set(get_json_fields(model_class))
+        list_fields = [
+            (name, cls_) for name, cls_ in get_fk_list_fields(model_class)
+            if name not in json_field_names
+        ]
         ref_fields = get_ref_fields(model_class)
         ref_list_fields = get_ref_list_fields(model_class)
         cursor = conn.cursor()
 
-        # ── Populate ListRef fields (collections) ──
+        # ── Populate relationship collection fields ──
         for field_name, child_class in list_fields:
             if not populate.should_populate(field_name):
                 continue
@@ -680,7 +714,7 @@ class SQLiteStorage(AbstractStorage):
 
                 # Coerce NULLs and hydrate Ref fields on all children first
                 child_ref_fields = get_ref_fields(effective_cls)
-                child_list_fields = get_list_fields(effective_cls)
+                child_list_fields = get_fk_list_fields(effective_cls)
                 for rec in capped:
                     for key, val in rec.items():
                         if val is None and key in effective_cls.model_fields:
@@ -693,7 +727,7 @@ class SQLiteStorage(AbstractStorage):
                         if val is not None:
                             rec[ref_name] = _public_storage_ref(val, target_cls)
 
-                # Batch-hydrate child's own ListRef fields (one query per field,
+                # Batch-hydrate child's own relationship fields (one query per field,
                 # not per child instance — same N+1 fix as in list()).
                 if child_list_fields and capped:
                     child_ids = [r['id'] for r in capped if r.get('id') is not None]
@@ -875,9 +909,14 @@ class SQLiteStorage(AbstractStorage):
         """
         table_name = _validate_identifier(model_class.__tablename__)
         _normalize_ref_storage_values(model_class, data)
+        _normalize_fk_list_storage_values(model_class, data)
 
-        # Identify List[BaseModel] fields — these are NOT columns on this table
-        collection_field_names = {name for name, _cls in get_list_fields(model_class)}
+        # list[T] fields are JSON-backed columns and remain updateable.
+        json_field_names = set(get_json_fields(model_class))
+        collection_field_names = {
+            name for name, _cls in get_fk_list_fields(model_class)
+            if name not in json_field_names
+        }
 
         # Validate and filter the fields based on model annotations
         valid_fields = [f for f in model_class.model_fields.keys()

@@ -12,7 +12,6 @@ from n3tx_core import config
 from n3tx_core.models.proto_model import ProtoModel, _apply_field_exclusion, _AUTO_HIDE_FIELDS, generate_join_model
 from n3tx_core.models.storable_mixin import StorableMixin
 from n3tx_core.utils.typer import Ref
-from n3tx_core.models.ref import ListRef
 
 pytestmark = pytest.mark.unit
 

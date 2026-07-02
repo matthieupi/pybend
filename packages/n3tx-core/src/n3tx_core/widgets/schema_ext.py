@@ -102,7 +102,7 @@ def widget(cls, schema: dict) -> dict:
 def _collect_def_models(cls, seen=None) -> set:
     """Collect all model classes that appear in $defs.
 
-    Walks ListRef[T], Ref[T] fields, and _referenced_models recursively.
+    Walks list[T], Ref[T] fields, and _referenced_models recursively.
     """
     if seen is None:
         seen = set()
@@ -129,16 +129,16 @@ def _collect_def_models(cls, seen=None) -> set:
 
 
 def _extract_model_from_annotation(ann):
-    """Extract a ProtoModel class from a type annotation (ListRef, Ref, etc.)."""
+    """Extract a ProtoModel class from a type annotation."""
     origin = get_origin(ann)
 
-    # Annotated[List[Union[T, str]], _ListRefMarker] (ListRef pattern)
+    # Annotated wrappers such as relationship metadata.
     if origin is Annotated:
         inner_args = get_args(ann)
         if inner_args:
             return _extract_model_from_annotation(inner_args[0])
 
-    # List[Union[T, str]] or List[T]
+    # list[Union[T, str]] or list[T]
     if origin is list:
         args = get_args(ann)
         if args:

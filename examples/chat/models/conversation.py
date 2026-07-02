@@ -20,7 +20,6 @@ from typing import ClassVar, Optional
 from pydantic import Field
 
 from n3tx_agents.actor import AgentActor
-from n3tx_core.models.ref import ListRef
 from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 from n3tx_core.utils.decorators import expose_route
 
@@ -57,13 +56,13 @@ class Conversation(AgentActor):
     name: str = Field(default='New Conversation', min_length=1, max_length=200)
     prompt: str = Field(default='You are a helpful assistant.')
     llm: str = Field(default='', description='LLM model string (empty = default)')
-    # Override AgentActor's ListRef[AgentTool] — chat doesn't use agent tools.
+    # Override AgentActor's list[AgentTool] — chat doesn't use agent tools.
     # Must be defined on this class to prevent AgentMixin.tools fullmethod
     # descriptor from shadowing the Pydantic field default.
     tools: list = Field(default_factory=list)
 
     # Chat-specific fields
-    messages: Optional[ListRef[Message]] = Field(default=[])
+    messages: Optional[list[Message]] = Field(default=[])
     user_owner: Optional[int] = Field(default=None)
 
     def _get_message_model(self):

@@ -47,7 +47,7 @@ class ManyToMany:
 
     Produces Annotated[list[Union[T, str]], _ManyToManyMarker(T)] so Pydantic
     accepts a list of model instances or href strings while N3TX can distinguish
-    the relationship from owned ListRef[T] collections.
+    this shared relationship from owned local model-list relationships.
     """
 
     def __class_getitem__(cls, args):

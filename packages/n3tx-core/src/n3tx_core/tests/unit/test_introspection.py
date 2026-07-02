@@ -2,8 +2,6 @@
 
 import pytest
 from typing import Dict, Optional, List, Any
-from unittest.mock import MagicMock
-
 from pydantic import BaseModel, Field
 
 from n3tx_core.utils.introspection import (
@@ -11,14 +9,12 @@ from n3tx_core.utils.introspection import (
     record_model_type,
     _is_self_ref,
     get_json_fields,
-    get_list_fields,
+    get_fk_list_fields,
     get_ref_list_fields,
     get_ref_fields,
     get_many_to_many_fields,
-    _unwrap_listref,
 )
 from n3tx_core.utils.typer import Ref, _SelfRefMarker
-from n3tx_core.models.ref import ListRef, _ListRefMarker
 from n3tx_core.models.relationships import ManyToMany
 from n3tx_core.models.proto_model import ProtoModel
 
@@ -128,12 +124,12 @@ class TestIsSelfRef:
 
 class TestGetListFields:
 
-    def test_listref_field(self):
+    def test_model_list_field(self):
         class Child(BaseModel):
             name: str = ''
         class Parent(BaseModel):
-            children: ListRef[Child] = Field(default=[])
-        result = get_list_fields(Parent)
+            children: list[Child] = Field(default=[])
+        result = get_fk_list_fields(Parent)
         assert len(result) == 1
         assert result[0][0] == 'children'
         assert result[0][1] is Child
@@ -142,7 +138,7 @@ class TestGetListFields:
         class M(BaseModel):
             name: str = ''
             value: int = 0
-        result = get_list_fields(M)
+        result = get_fk_list_fields(M)
         assert result == []
 
     def test_multiple_list_fields(self):
@@ -151,9 +147,9 @@ class TestGetListFields:
         class B(BaseModel):
             name: str = ''
         class Parent(BaseModel):
-            items_a: ListRef[A] = Field(default=[])
-            items_b: ListRef[B] = Field(default=[])
-        result = get_list_fields(Parent)
+            items_a: list[A] = Field(default=[])
+            items_b: list[B] = Field(default=[])
+        result = get_fk_list_fields(Parent)
         names = [r[0] for r in result]
         assert 'items_a' in names
         assert 'items_b' in names
@@ -242,7 +238,7 @@ class TestGetRefListFields:
         class Job(BaseModel):
             files: list[Ref[File]] = Field(default=[])
 
-        assert get_list_fields(Job) == []
+        assert get_fk_list_fields(Job) == []
 
     def test_list_ref_is_json_backed(self):
         class File(BaseModel):
@@ -252,29 +248,6 @@ class TestGetRefListFields:
             files: list[Ref[File]] = Field(default=[])
 
         assert 'files' in get_json_fields(Job)
-
-
-class TestUnwrapListref:
-
-    def test_listref_marker(self):
-        class M(BaseModel):
-            pass
-        marker = _ListRefMarker(M)
-        field_type = MagicMock()
-        field_type.__metadata__ = [marker]
-        result = _unwrap_listref(field_type)
-        assert result is M
-
-    def test_no_marker(self):
-        result = _unwrap_listref(int)
-        assert result is None
-
-    def test_pydantic_metadata(self):
-        class M(BaseModel):
-            pass
-        marker = _ListRefMarker(M)
-        result = _unwrap_listref(str, field_metadata=[marker])
-        assert result is M
 
 
 # ===================================================================
@@ -343,25 +316,25 @@ class TestRecordModelTypeEdgeCases:
 
 
 class TestGetListFieldsEdgeCases:
-    """CG-7: Edge cases for get_list_fields."""
+    """CG-7: Edge cases for get_fk_list_fields."""
 
-    def test_optional_listref(self):
-        """Optional[ListRef[T]] should still be detected."""
+    def test_optional_model_list(self):
+        """Optional[list[T]] should still be detected."""
         class Child(BaseModel):
             name: str = ''
         class Parent(BaseModel):
-            children: Optional[ListRef[Child]] = Field(default=[])
-        result = get_list_fields(Parent)
+            children: Optional[list[Child]] = Field(default=[])
+        result = get_fk_list_fields(Parent)
         assert len(result) == 1
         assert result[0][1] is Child
 
     def test_plain_list_of_basemodel(self):
-        """List[BaseModel] without ListRef marker should still be detected."""
+        """List[BaseModel] should be detected."""
         class Child(BaseModel):
             name: str = ''
         class Parent(BaseModel):
             items: List[Child] = Field(default=[])
-        result = get_list_fields(Parent)
+        result = get_fk_list_fields(Parent)
         assert len(result) == 1
         assert result[0][1] is Child
 
@@ -369,7 +342,7 @@ class TestGetListFieldsEdgeCases:
         """List[str] should NOT be returned."""
         class Parent(BaseModel):
             tags: List[str] = Field(default=[])
-        result = get_list_fields(Parent)
+        result = get_fk_list_fields(Parent)
         assert result == []
 
 
@@ -428,21 +401,21 @@ class TestGetJsonFields:
         result = get_json_fields(M)
         assert 'scores' in result
 
-    def test_listref_not_detected(self):
+    def test_model_list_detected(self):
         class Child(BaseModel):
             name: str = ''
         class M(BaseModel):
-            children: ListRef[Child] = Field(default=[])
+            children: list[Child] = Field(default=[])
         result = get_json_fields(M)
-        assert 'children' not in result
+        assert 'children' in result
 
-    def test_list_basemodel_not_detected(self):
+    def test_list_basemodel_detected(self):
         class Child(BaseModel):
             name: str = ''
         class M(BaseModel):
             items: List[Child] = Field(default=[])
         result = get_json_fields(M)
-        assert 'items' not in result
+        assert 'items' in result
 
     def test_no_json_fields(self):
         class M(BaseModel):
@@ -458,9 +431,9 @@ class TestGetJsonFields:
             name: str = ''
             tags: list = Field(default=[])
             metadata: dict = Field(default={})
-            children: ListRef[Child] = Field(default=[])
+            children: list[Child] = Field(default=[])
         result = get_json_fields(M)
         assert 'tags' in result
         assert 'metadata' in result
-        assert 'children' not in result
+        assert 'children' in result
         assert 'name' not in result

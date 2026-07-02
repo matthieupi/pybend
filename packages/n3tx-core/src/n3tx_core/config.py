@@ -36,8 +36,8 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 # Agent configuration (global defaults, overridable per-model via __agent__)
 AGENT_DEFAULTS = {
     'self_tools': True,       # auto-discover own CRUD + methods
-    'neighbors': True,        # auto-discover ListRef neighbor tools
-    'neighbor_depth': 1,      # levels of ListRef relationships to follow
+    'neighbors': True,        # auto-discover relationship neighbor tools
+    'neighbor_depth': 1,      # levels of relationships to follow
     'llm': 'ollama:llama3.1', # default LLM provider:model string
 }
 

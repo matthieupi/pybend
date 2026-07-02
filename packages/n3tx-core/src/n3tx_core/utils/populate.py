@@ -63,7 +63,7 @@ def parse_populate(populate_param: Optional[str], depth_param: Optional[int]) ->
 
     Args:
         populate_param: Comma-separated field paths, e.g. "comments,tags" or "comments.likes"
-        depth_param: Max depth for auto-populating all ListRef/Ref fields
+        depth_param: Max depth for auto-populating relationship/ref fields
     """
     spec = PopulateSpec(depth=depth_param or 0)
 

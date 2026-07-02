@@ -1,18 +1,18 @@
 {
-  "command": "scripts/test-backend.py --suite core -- packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py::TestClassNameCrudMirrors::test_static_exposed_method_schema_reports_static_scope packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py::TestClassNameCrudMirrors::test_class_exposed_method_schema_and_routes_are_collection_scoped -q",
-  "created_at": "2026-06-17T18:10:49.635872+00:00",
+  "command": "scripts/test-backend.py --suite core -- -q",
+  "created_at": "2026-07-02T21:26:27.061663+00:00",
   "overview_file": "/workspace/.project/test-runs/backend-test-overview.json",
   "suites": [
     {
       "counts": {
         "errors": 0,
-        "failed": 0,
-        "passed": 0,
-        "warnings": 0
+        "failed": 5,
+        "passed": 1127,
+        "warnings": 24
       },
       "message": "",
       "name": "core",
-      "previous_status": null,
+      "previous_status": "failed",
       "returncode": 1,
       "status": "failed"
     }
@@ -21,10 +21,10 @@
     "errors": 0,
     "failed": 1,
     "passed": 0,
-    "tests_failed": 0,
-    "tests_passed": 0,
+    "tests_failed": 5,
+    "tests_passed": 1127,
     "total": 1,
     "warning": 0,
-    "warnings": 0
+    "warnings": 24
   }
 }

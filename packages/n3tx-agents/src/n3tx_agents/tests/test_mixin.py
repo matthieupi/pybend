@@ -8,7 +8,6 @@ from n3tx_actors.actor import Actor
 from n3tx_actors.matrix import Matrix
 from n3tx_actors.models.actor_model import ActorModel
 from n3tx_core.models.proto_model import ProtoModel
-from n3tx_core.models.ref import ListRef
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.utils.decorators import expose_route
 from n3tx_core.utils.registrar import register_model
@@ -45,7 +44,7 @@ class AgenticProduct(ActorModel):
     name: str = Field(default='Test Product', min_length=1, max_length=200)
     price: float = Field(default=9.99, gt=0)
     description: str = Field(default='A test product')
-    comments: ListRef[Comment] = Field(default=[])
+    comments: list[Comment] = Field(default=[])
 
 
 class AgenticWithPrompt(ActorModel):
@@ -73,7 +72,7 @@ class AgenticNoNeighbors(ActorModel):
     __agent__ = {'neighbors': False}
 
     name: str = Field(default='Test')
-    comments: ListRef[Comment] = Field(default=[])
+    comments: list[Comment] = Field(default=[])
 
 
 class AgenticExtraTools(ActorModel):

@@ -17,7 +17,6 @@ from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.models.proto_schema import (
     run_pipeline, get_pipeline, _stages,
 )
-from n3tx_core.models.ref import ListRef
 from n3tx_core.widgets.widget import (
     Widget, MarkdownField, UrlField, EmailField,
     DateField, CurrencyField, TextareaField, ConsoleField,
@@ -327,7 +326,7 @@ class TestDefsWidgetInjection:
         class ParentDef(ProtoModel):
             __tablename__: ClassVar[str] = 'wtest_parent_def'
             name: str = Field(default='')
-            children: ListRef[ChildDef] = Field(default=[])
+            children: list[ChildDef] = Field(default=[])
 
         ParentDef.invalidate_schema_cache()
         schema = run_pipeline(ParentDef)
@@ -350,7 +349,7 @@ class TestDefsWidgetInjection:
         class ParentCfg(ProtoModel):
             __tablename__: ClassVar[str] = 'wtest_parent_cfg'
             name: str = Field(default='')
-            items: ListRef[ChildCfg] = Field(default=[])
+            items: list[ChildCfg] = Field(default=[])
 
         ParentCfg.invalidate_schema_cache()
         schema = run_pipeline(ParentCfg)

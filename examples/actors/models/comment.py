@@ -6,7 +6,7 @@ from datetime import datetime
 from pydantic import Field
 
 from n3tx_actors.models.actor_model import ActorModel
-from n3tx_core.models.ref import ListRef, Ref
+from n3tx_core.models.ref import Ref
 from models.like import Like
 from typing import ClassVar, Optional
 from models.user import User
@@ -40,7 +40,7 @@ class Comment(ActorModel):
     user_owner: User = Field(default=None, alias='user_owner', description="User who owns the comment",
                              json_schema_extra={'access': {'view': 'authenticated', 'edit': 'owner'}})
     parent_id: Optional[Ref['self']] = Field(default=None, description="Parent comment for nesting")
-    likes: ListRef[Like] = Field(default=[], description="Likes on this comment")
+    likes: list[Like] = Field(default=[], description="Likes on this comment")
 
     @expose_route('/like', methods=['POST'], access=AUTHENTICATED)
     def like(self, user: User = None) -> dict:

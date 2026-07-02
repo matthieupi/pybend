@@ -11,7 +11,6 @@ from models.comment import Comment
 from models.like import Like
 from n3tx_actors.models.actor_model import ActorModel
 from models.user import User
-from n3tx_core.models.ref import ListRef
 from typing import ClassVar, Any, AsyncGenerator
 from n3tx_core.utils.decorators import expose_route
 from n3tx_core.utils.registrar import join_models
@@ -62,8 +61,8 @@ class Product(ActorModel):
     name: str = Field(min_length=1, max_length=200, json_schema_extra={'ui': {'placeholder': 'Product name...'}})
     price: CurrencyField = Field(gt=0, json_schema_extra={'access': {'view': 'anyone', 'edit': 'admin'}})
     description: TextareaField = Field(default='')
-    comments: ListRef[Comment] = Field(default=[], alias='comments', description="List of comments associated with the product")
-    favorites: ListRef[Like] = Field(default=[], description="Users who favorited this product")
+    comments: list[Comment] = Field(default=[], alias='comments', description="List of comments associated with the product")
+    favorites: list[Like] = Field(default=[], description="Users who favorited this product")
 
 
     @expose_route('/comment', methods=['POST'])

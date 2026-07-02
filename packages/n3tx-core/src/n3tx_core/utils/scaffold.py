@@ -52,7 +52,7 @@ def _field_html(key: str, field_def: dict, model_name: str, mode: str = 'display
     t = field_def.get('type', 'string')
     widget = field_def.get('ui', {}).get('widget')
 
-    # ListRef array fields
+    # Relationship array fields
     if t == 'array' and field_def.get('items'):
         ref = field_def['items'].get('$ref', '')
         ref_model = ref.split('/')[-1] if ref else 'item'

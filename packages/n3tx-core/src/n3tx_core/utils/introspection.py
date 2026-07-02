@@ -87,9 +87,9 @@ def collect_all_referenced_models(cls_, seen: set = None) -> set:
     for field_name, target_cls in get_ref_fields(cls_):
         cls_._referenced_models.add(target_cls)
 
-    # Also collect ListRef[T] targets (collection references) so their
+    # Also collect local FK-list targets (collection references) so their
     # schemas get the Ref[T] patching treatment in the defs() stage.
-    for field_name, target_cls in get_list_fields(cls_):
+    for field_name, target_cls in get_fk_list_fields(cls_):
         cls_._referenced_models.add(target_cls)
 
     # Recurse into referenced models
@@ -123,23 +123,6 @@ def pydantic_method_signature(method: Callable) -> Dict[str, Any]:
         'parameters': parameters,
         'returns': return_type_schema
     }
-
-
-def _unwrap_listref(field_type, field_metadata=None):
-    """If field_type is ListRef[T] (Annotated with a model_type marker), return T.
-    Checks both the type's __metadata__ (Annotated) and Pydantic's FieldInfo.metadata.
-    Otherwise return None."""
-    # Check type-level Annotated metadata
-    if hasattr(field_type, '__metadata__'):
-        for meta in field_type.__metadata__:
-            if hasattr(meta, 'model_type'):
-                return meta.model_type
-    # Check Pydantic FieldInfo.metadata (Pydantic v2 separates Annotated metadata here)
-    if field_metadata:
-        for meta in field_metadata:
-            if hasattr(meta, 'model_type'):
-                return meta.model_type
-    return None
 
 
 def _unwrap_many_to_many(field_type, field_metadata=None):
@@ -189,17 +172,43 @@ def get_many_to_many_fields(model_class: Type[Any]) -> List[Tuple[str, Type, Typ
 
 
 @functools.lru_cache(maxsize=None)
-def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
-    """
-    Returns a list of (field_name, child_model_class) for every
-    field typed as ListRef[SomeBaseModel] or List[SomeBaseModel]
-    on *model_class*.  Unwraps Optional transparently.
+def get_fk_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
+    """Return list of tuples with the form (field_name, field_type).
+
+    These are distinct from explicit pointer fields (``Ref[T]``) and local
+    ordered relationship lists (``list[T]``).
 
     Example:
         class Product(BaseModel):
-            comments: Optional[ListRef[Comment]] = []
+            top_comment: Comment
 
-        get_list_fields(Product)  ->  [("comments", Comment)]
+        get_fk_fields(Product) -> [("top_comment", Comment)]
+    """
+    results = []
+    for field_name, field_info in model_class.model_fields.items():
+        field_type = field_info.annotation
+        origin = get_origin(field_type)
+
+        if origin in (Union, UnionType) and type(None) in get_args(field_type):
+            field_type = get_args(field_type)[0]
+            origin = get_origin(field_type)
+
+        if origin is not None:
+            continue
+        if isinstance(field_type, type) and issubclass(field_type, BaseModel):
+            results.append((field_name, field_type))
+    return results
+
+
+@functools.lru_cache(maxsize=None)
+def get_fk_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
+    """Return local ordered relationship fields typed as ``list[T]``.
+
+    Example:
+        class Product(BaseModel):
+            comments: Optional[list[Comment]] = []
+
+        get_fk_list_fields(Product)  ->  [("comments", Comment)]
     """
     results = []
     for field_name, field_info in model_class.model_fields.items():
@@ -211,20 +220,6 @@ def get_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
             field_type = get_args(field_type)[0]
             origin = get_origin(field_type)
 
-        # Check for ListRef[T] (Annotated with _ListRefMarker)
-        ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
-        if ref_model is not None:
-            # Resolve forward reference strings to actual classes
-            if isinstance(ref_model, str):
-                import sys
-                module = sys.modules.get(model_class.__module__)
-                ref_model = getattr(module, ref_model, None) if module else None
-                if ref_model is None:
-                    continue
-            results.append((field_name, ref_model))
-            continue
-
-        # Fallback: plain List[BaseModel]
         if origin is list:
             args = get_args(field_type)
             if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
@@ -262,9 +257,7 @@ def get_ref_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
 def get_ref_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
     """Return fields typed as ``list[Ref[T]]`` / ``Optional[list[Ref[T]]]``.
 
-    ``list[Ref[T]]`` is a JSON-backed identity pointer array. It is distinct
-    from ``ListRef[T]``, which remains a local owned relationship backed by
-    child/join tables.
+    ``list[Ref[T]]`` is a JSON-backed identity pointer array.
     """
     results = []
     for field_name, field_info in model_class.model_fields.items():
@@ -295,8 +288,9 @@ def get_ref_list_fields(model_class: Type[Any]) -> List[Tuple[str, Type]]:
 def get_json_fields(model_class: Type[Any]) -> List[str]:
     """Return field names that should be stored as JSON TEXT in SQLite.
 
-    Matches dict (any variant) and list (bare or typed like List[str], List[int])
-    but NOT ListRef[T] or List[BaseModel] which use FK join tables.
+    Matches dict (any variant) and list fields. ``list[T: BaseModel]`` stores
+    ordered local ids; ``list[Ref[T]]`` stores pointer strings. ManyToMany stays
+    a separate relationship primitive and is not JSON-backed here.
     """
     results = []
     for field_name, field_info in model_class.model_fields.items():
@@ -310,17 +304,12 @@ def get_json_fields(model_class: Type[Any]) -> List[str]:
         if field_type is dict or origin is dict:
             results.append(field_name)
             continue
-        # list — only if NOT ListRef and NOT List[BaseModel]. list[Ref[T]] is
-        # intentionally JSON-backed: it stores local/remote identity pointers,
-        # not owned child records.
+        # list fields are JSON-backed in SQLite. list[Ref[T]] stores pointer
+        # strings, while list[BaseModel] stores ordered local ids and is
+        # hydrated by storage/model construction. ManyToMany remains a separate
+        # relationship primitive and is not JSON-backed here.
         if field_type is list or origin is list:
-            ref_model = _unwrap_listref(field_type, getattr(field_info, 'metadata', None))
-            if ref_model is not None:
-                continue
             if _unwrap_many_to_many(field_type, getattr(field_info, 'metadata', None)) is not None:
-                continue
-            args = get_args(field_type)
-            if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
                 continue
             results.append(field_name)
     return results
