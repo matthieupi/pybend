@@ -23,8 +23,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(messag
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', '..', 'examples', 'core'))
 from models import Product, Comment, Like, User, Bot
-from n3tx_core.models.proto_model import generate_join_model
-from n3tx_core.utils.registrar import register_model, join_models
+from n3tx_core.utils.registrar import register_model
 from n3tx_core.authorize import hash_password
 
 # Database path — use the example app's location for compatibility
@@ -129,11 +128,10 @@ def tier_record_count(tier):
 
 def seed(tier='full'):
     storage = SQLiteStorage(DB_PATH)
-    register_model(Product, storage=storage)
     register_model(User, storage=storage)
-    register_model(generate_join_model(Product, Comment), storage=storage)
-    register_model(generate_join_model(Comment, Like), storage=storage)
-    register_model(generate_join_model(Product, Like), storage=storage)
+    register_model(Comment, storage=storage)
+    register_model(Like, storage=storage)
+    register_model(Product, storage=storage)
 
     num_users, num_products, cmt_per_prod, reply_ratio, likes_per_cmt, favs_per_prod = TIERS[tier]
 
@@ -177,8 +175,11 @@ def seed(tier='full'):
                 description=COMMENT_BODIES[idx % len(COMMENT_BODIES)],
                 user_owner=user.id,
             )
-            comment.__owner__ = product
-            created = comment.save()
+            created = Comment.create(comment)
+            comments = list(product.comments or [])
+            comments.append(created)
+            product = Product.update(product.id, {'comments': comments})
+            created_products[pi] = product
             created_comments.append(created)
     logger.info("  Created %d comments", len(created_comments))
 
@@ -196,8 +197,10 @@ def seed(tier='full'):
                 user_owner=user.id,
                 parent_id=parent.id,
             )
-            reply.__owner__ = product
-            reply.save()
+            created_reply = Comment.create(reply)
+            comments = list(product.comments or [])
+            comments.append(created_reply)
+            created_products[prod_idx % len(created_products)] = Product.update(product.id, {'comments': comments})
             reply_count += 1
     logger.info("  Created %d replies", reply_count)
 
@@ -208,8 +211,11 @@ def seed(tier='full'):
             for li in range(likes_per_cmt):
                 user = created_users[(ci + li + 1) % len(created_users)]
                 like = Like(user=user.id, created_at=datetime.now().isoformat())
-                like.__owner__ = comment
-                like.save()
+                created_like = Like.create(like)
+                likes = list(comment.likes or [])
+                likes.append(created_like)
+                comment = Comment.update(comment.id, {'likes': likes})
+                created_comments[ci] = comment
                 like_count += 1
     logger.info("  Created %d comment likes", like_count)
 
@@ -220,8 +226,11 @@ def seed(tier='full'):
             for fi in range(favs_per_prod):
                 user = created_users[(pi + fi) % len(created_users)]
                 fav = Like(user=user.id, created_at=datetime.now().isoformat())
-                fav.__owner__ = product
-                fav.save()
+                created_fav = Like.create(fav)
+                favorites = list(product.favorites or [])
+                favorites.append(created_fav)
+                product = Product.update(product.id, {'favorites': favorites})
+                created_products[pi] = product
                 fav_count += 1
     logger.info("  Created %d product favorites", fav_count)
 

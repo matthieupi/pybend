@@ -1,14 +1,14 @@
 """Tests for utils/registrar.py — Model registry and registration."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from typing import ClassVar
 
 from pydantic import Field
 
 from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.utils.registrar import (
-    register_model, registered_models, join_models,
+    register_model, registered_models,
     prepare_model, apply_registration, RegistrationResult,
 )
 
@@ -46,30 +46,6 @@ class TestRegisterModel:
         register_model(M)
         assert 'reg_t3' in registered_models
 
-    def test_join_model_registered(self):
-        class Owner(ProtoModel):
-            __tablename__: ClassVar[str] = 'reg_own'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class Child(ProtoModel):
-            __tablename__: ClassVar[str] = 'reg_ch'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-
-        # Create join model manually
-        class OwnerChild(Child):
-            __tablename__: ClassVar[str] = 'reg_own_reg_ch'
-            __storable__: ClassVar[bool] = True
-            __owner__ = Owner
-            owner_id: int = Field(default=0)
-
-        mock_storage = MagicMock()
-        mock_storage.create_table.return_value = None
-        mock_storage.migrate_table.return_value = None
-        register_model(OwnerChild, storage=mock_storage)
-        # join_models should contain the mapping
-        assert ('Owner', 'Child') in join_models or 'reg_own_reg_ch' in registered_models
-
     def test_migrate_table_called(self):
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'reg_t5'
@@ -92,12 +68,6 @@ class TestRegisteredModelsDict:
         # At minimum we should be able to check it's a dict
         for key in registered_models:
             assert isinstance(key, str)
-
-
-class TestJoinModelsDict:
-
-    def test_is_dict(self):
-        assert isinstance(join_models, dict)
 
 
 # ===================================================================
@@ -155,25 +125,6 @@ class TestPrepareModel:
         assert result.is_storable is False
         assert result.storage is None
 
-    def test_join_model_detected(self):
-        class Owner(ProtoModel):
-            __tablename__: ClassVar[str] = 'prep_own'
-            name: str = Field(default='')
-        class Child(ProtoModel):
-            __tablename__: ClassVar[str] = 'prep_ch'
-            text: str = Field(default='')
-        class OwnerChild(Child):
-            __tablename__: ClassVar[str] = 'prep_own_ch'
-            __storable__: ClassVar[bool] = True
-            __owner__ = Owner
-            owner_id: int = Field(default=0)
-
-        mock_storage = MagicMock()
-        result = prepare_model(OwnerChild, storage=mock_storage)
-        assert result.is_join is True
-        assert result.join_key == ('Owner', 'Child')
-
-
 # ===================================================================
 # TestApplyRegistration — executes side effects
 # ===================================================================
@@ -186,7 +137,7 @@ class TestApplyRegistration:
             name: str = Field(default='')
         result = RegistrationResult(
             model_class=M, tablename='apply_t1', storage=None,
-            is_storable=False, is_join=False, join_key=None,
+            is_storable=False,
         )
         apply_registration(result)
         assert 'apply_t1' in registered_models
@@ -201,32 +152,9 @@ class TestApplyRegistration:
         mock_storage.migrate_table.return_value = None
         result = RegistrationResult(
             model_class=M, tablename='apply_t2', storage=mock_storage,
-            is_storable=True, is_join=False, join_key=None,
+            is_storable=True,
         )
         apply_registration(result)
         mock_storage.create_table.assert_called_once()
         mock_storage.migrate_table.assert_called_once_with(M)
         assert M.storage is mock_storage
-
-    def test_adds_join_model(self):
-        class Owner(ProtoModel):
-            __tablename__: ClassVar[str] = 'apply_own'
-            name: str = Field(default='')
-        class Child(ProtoModel):
-            __tablename__: ClassVar[str] = 'apply_ch'
-            text: str = Field(default='')
-        class OwnerChild(Child):
-            __tablename__: ClassVar[str] = 'apply_own_ch'
-            __storable__: ClassVar[bool] = True
-            __owner__ = Owner
-            owner_id: int = Field(default=0)
-
-        mock_storage = MagicMock()
-        mock_storage.create_table.return_value = None
-        mock_storage.migrate_table.return_value = None
-        result = RegistrationResult(
-            model_class=OwnerChild, tablename='apply_own_ch', storage=mock_storage,
-            is_storable=True, is_join=True, join_key=('Owner', 'Child'),
-        )
-        apply_registration(result)
-        assert ('Owner', 'Child') in join_models

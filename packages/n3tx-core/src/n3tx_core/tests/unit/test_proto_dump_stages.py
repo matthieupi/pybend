@@ -1,5 +1,5 @@
 """
-Tests for models/proto_dump.py — built-in pipeline stages (base, response)
+Tests for models/proto_dump.py — built-in serialization pipeline stages
 and ProtoModel.model_response() integration.
 """
 
@@ -26,22 +26,18 @@ class _DumpSimple(ProtoModel):
 class _DumpOther(ProtoModel):
     __tablename__: ClassVar[str] = 'pd_other'
     label: str = Field(default='other')
+    secret: str = Field(default='hidden')
+
+
+class _DumpParent(ProtoModel):
+    __tablename__: ClassVar[str] = 'pd_parent'
+    child: _DumpOther | None = Field(default=None)
+    children: list[_DumpOther] = Field(default=[])
 
 
 class _DumpNoTable(ProtoModel):
     """Model without __tablename__ — should fall back to lowercase class name."""
     name: str = Field(default='')
-
-
-class DumpOwner(ProtoModel):
-    __tablename__: ClassVar[str] = 'pd_owners'
-
-
-class DumpChild(ProtoModel):
-    __tablename__: ClassVar[str] = 'pd_owners_children'
-    __tagname__: ClassVar[str] = 'children'
-    __owner__ = DumpOwner
-    dumpowner_id: int = Field(default=0)
 
 
 # ===================================================================
@@ -93,6 +89,79 @@ class TestBaseStage:
         assert 'name' in d
         assert 'value' not in d
         assert 'id' not in d
+
+    def test_nested_models_remain_plain_pydantic_data(self):
+        child = _DumpOther(id=2, label='child')
+        parent = _DumpParent(id=1, child=child, children=[child])
+
+        d = proto_dump.base(parent)
+
+        assert '$schema' not in d['child']
+        assert '$id' not in d['child']
+        assert '$schema' not in d['children'][0]
+        assert '$id' not in d['children'][0]
+
+
+# ===================================================================
+# TestRelationshipsStage
+# ===================================================================
+
+class TestRelationshipsStage:
+    """Tests for relationship resource enrichment as a named stage."""
+
+    def test_enriches_single_and_list_relationships(self):
+        child = _DumpOther(id=2, label='child')
+        parent = _DumpParent(id=1, child=child, children=[child])
+
+        d = proto_dump.relationships(parent, proto_dump.base(parent))
+
+        assert d['child']['$schema'] == f'{config.API_URL}/_DumpOther'
+        assert d['child']['$id'] == f'{config.API_URL}/_DumpOther/2'
+        assert d['children'][0]['$schema'] == f'{config.API_URL}/_DumpOther'
+        assert d['children'][0]['$id'] == f'{config.API_URL}/_DumpOther/2'
+
+    def test_nested_relationships_run_registered_extensions(self):
+        child = _DumpOther(id=2, label='child')
+        parent = _DumpParent(id=1, child=child)
+
+        def nested_marker(instance, d):
+            d['extension_marker'] = instance.__class__.__name__
+            return d
+
+        proto_dump.register_stage('nested_marker', nested_marker, after='instance_url')
+        try:
+            d = parent.model_response()
+        finally:
+            proto_dump.remove_stage('nested_marker')
+
+        assert d['child']['extension_marker'] == '_DumpOther'
+
+    def test_preserves_nested_exclude_projection(self):
+        child = _DumpOther(id=2, label='child', secret='classified')
+        parent = _DumpParent(id=1, child=child, children=[child])
+
+        d = parent.model_response(exclude={
+            'child': {'secret'},
+            'children': {'__all__': {'secret'}},
+        })
+
+        assert 'secret' not in d['child']
+        assert 'secret' not in d['children'][0]
+        assert '$schema' in d['child']
+        assert '$id' in d['child']
+
+    def test_preserves_nested_include_projection(self):
+        child = _DumpOther(id=2, label='child', secret='classified')
+        parent = _DumpParent(id=1, child=child, children=[child])
+
+        d = parent.model_response(include={
+            'child': {'label'},
+            'children': {'__all__': {'label'}},
+        })
+
+        assert d['child']['label'] == 'child'
+        assert set(d['child']) == {'label', '$schema', '$id'}
+        assert set(d['children'][0]) == {'label', '$schema', '$id'}
 
 
 # ===================================================================
@@ -200,7 +269,7 @@ class TestModelResponse:
     def test_calls_run_pipeline(self):
         m = _DumpSimple(id=1, name='pipeline', value=5)
         d = m.model_response()
-        # model_response delegates to run_pipeline which runs base + response
+        # model_response delegates to the complete registered pipeline.
         assert isinstance(d, dict)
         assert '$schema' in d
         assert '$id' in d
@@ -237,6 +306,17 @@ class TestModelResponse:
         assert d['value'] == 88
         assert d['id'] == 4
         assert 'image' in d  # inherited field from ProtoModel
+
+    def test_embedded_local_relationships_keep_identity_metadata(self):
+        child = _DumpOther(id=2, label='child')
+        parent = _DumpParent(id=1, child=child, children=[child])
+
+        d = parent.model_response()
+
+        assert d['child']['$schema'] == f'{config.API_URL}/_DumpOther'
+        assert d['child']['$id'] == f'{config.API_URL}/_DumpOther/2'
+        assert d['children'][0]['$schema'] == f'{config.API_URL}/_DumpOther'
+        assert d['children'][0]['$id'] == f'{config.API_URL}/_DumpOther/2'
 
 
 # ===================================================================
@@ -374,68 +454,3 @@ class TestInstanceUrlCache:
         cached_after_first = proto_dump._instance_url_cache[_DumpSimple]
         proto_dump.instance_url(m2, {})
         assert proto_dump._instance_url_cache[_DumpSimple] is cached_after_first
-
-
-# ===================================================================
-# TestInstanceUrlJoinModel
-# ===================================================================
-
-class TestInstanceUrlJoinModel:
-    """Tests for instance_url() with join models (__owner__ + __tagname__)."""
-
-    def setup_method(self):
-        proto_dump._instance_url_cache.clear()
-        proto_dump._schema_url_cache.clear()
-
-    def test_join_model_uses_parent_scoped_url(self):
-        m = DumpChild(id=5, dumpowner_id=3)
-        d = proto_dump.instance_url(m, {'id': 5, 'dumpowner_id': 3})
-        assert d['$id'] == f'{config.API_URL}/DumpOwner/3/DumpChild/5'
-        assert '$href' not in d
-        assert 'links' not in d
-
-    def test_join_model_reads_fk_from_instance(self):
-        m = DumpChild(id=10, dumpowner_id=7)
-        d = proto_dump.instance_url(m, {})
-        assert d['$id'] == f'{config.API_URL}/DumpOwner/7/DumpChild/10'
-
-    def test_join_model_reads_fk_from_dict_fallback(self):
-        m = DumpChild(id=10, dumpowner_id=0)
-        # dumpowner_id=0 is falsy, so falls back to d dict
-        d = proto_dump.instance_url(m, {'dumpowner_id': 7})
-        assert d['$id'] == f'{config.API_URL}/DumpOwner/7/DumpChild/10'
-
-    def test_join_model_missing_parent_id_returns_none(self):
-        m = DumpChild(id=10, dumpowner_id=0)
-        # No FK on instance (0 is falsy) and not in dict -> None
-        d = proto_dump.instance_url(m, {})
-        assert d['$id'] is None
-
-    def test_join_model_schema_url_uses_classname(self):
-        m = DumpChild(id=1, dumpowner_id=1)
-        d = proto_dump.schema_url(m, {})
-        assert d['$schema'] == f'{config.API_URL}/DumpChild'
-
-    def test_regular_model_unaffected(self):
-        m = _DumpSimple(id=42)
-        d = proto_dump.instance_url(m, {})
-        assert d['$id'] == f'{config.API_URL}/_DumpSimple/42'
-
-    def test_join_model_cache_contains_owner_metadata(self):
-        m = DumpChild(id=1, dumpowner_id=1)
-        proto_dump.instance_url(m, {})
-        cached = proto_dump._instance_url_cache[DumpChild]
-        assert 'owner_base' in cached
-        assert 'child_name' in cached
-        assert 'fk_field' in cached
-        assert cached['owner_base'] == f'{config.API_URL}/DumpOwner'
-        assert cached['child_name'] == 'DumpChild'
-        assert cached['fk_field'] == 'dumpowner_id'
-
-    def test_join_model_full_pipeline(self):
-        """model_response() produces parent-scoped $id for join models."""
-        m = DumpChild(id=3, dumpowner_id=2)
-        d = m.model_response()
-        assert d['$schema'] == f'{config.API_URL}/DumpChild'
-        assert d['$id'] == f'{config.API_URL}/DumpOwner/2/DumpChild/3'
-        assert d['dumpowner_id'] == 2

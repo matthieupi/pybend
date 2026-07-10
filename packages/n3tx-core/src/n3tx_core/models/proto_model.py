@@ -13,7 +13,6 @@ from pydantic_core import CoreSchema
 from n3tx_core import config
 import n3tx_core.models.proto_schema as proto_schema
 import n3tx_core.models.proto_dump as proto_dump
-from n3tx_core.utils.registrar import register_model
 from n3tx_core.utils.decorators import expose_route, exposed_method_info
 from n3tx_core.utils.descriptors import fullmethod
 from n3tx_core.utils.introspection import pydantic_schema_for_type, record_model_type, _is_self_ref
@@ -106,8 +105,6 @@ class ProtoModel(PydanticBaseModel):
                     # If is list, get origin and args
                     if isinstance(annotation, type) and issubclass(annotation, BaseModel) and annotation != cls:
                         new_annotations[name] = Ref[annotation]
-                        # TODO - Differentiate between join model and ForeignKey and generate model programatically
-                        #generate_join_model(owner_cls=cls, ref_model=annotation, field_name=name)
                 # Rewrite annotations dynamically
                 if new_annotations:
                     cls.__annotations__ = dict(cls.__annotations__)  # make a copy
@@ -126,9 +123,7 @@ class ProtoModel(PydanticBaseModel):
 
 
     def __init__(self, *args, **kwargs):
-        """
-        Initializes the model and sets the __owner__ attribute if provided.
-        """
+        """Initialize the model and hydrate local relationship fields."""
         params = kwargs
         if getattr(self, '__storable__', False):
             # If the model is storable, it can be created by simply passing an id and it will be retrieved from the
@@ -143,15 +138,13 @@ class ProtoModel(PydanticBaseModel):
                 logger.debug("Retrieved params: %s", params)
         params = self.__class__.hydrate_fk(params)
         super().__init__(*args, **params)
-        # Set __owner__ if it exists in kwargs
-        self.__owner__ = kwargs.get('__owner__', None)
 
 
     def model_response(self, **kwargs) -> Dict[str, Any]:
         """Enriched data via dump pipeline. For HTTP API responses.
 
-        Runs proto_dump stages: base (plain data) → response ($schema/$id)
-        → any registered extensions (federation, MCP, etc.).
+        Runs proto_dump stages: base → relationships → schema_url →
+        instance_url → populate, plus registered extensions.
         """
         return proto_dump.run_pipeline(self, **kwargs)
 
@@ -295,8 +288,6 @@ class ProtoModel(PydanticBaseModel):
         schema['$schema'] = f"{config.API_URL}/Schema"
         schema['$id'] = f"{config.API_URL}/{cls.__name__}"
         schema['__name__'] = cls.__name__
-        schema['__owner__'] = cls.__owner__.__name__ if hasattr(cls, '__owner__') else None
-        schema['__parent__'] = cls.__parent__.__name__ if hasattr(cls, '__parent__') else None
         schema['__tablename__'] = cls.__tablename__ if hasattr(cls, '__tablename__') else ""
         # Reset referenced models for the next call
         for field_name, field_info in cls.model_fields.items():
@@ -321,55 +312,6 @@ class ProtoModel(PydanticBaseModel):
             blueprint[model_name] = model_cls.schema()
         return blueprint
 
-
-def generate_join_model(owner_cls: Type[ProtoModel], ref_model: Type[ProtoModel], field_name: str = None):
-    assert issubclass(owner_cls, ProtoModel), \
-        f"[{owner_cls.__name__}.{ref_model.__name__}] Join Model - owner_cls must be a subclass of ProtoModel"
-    assert issubclass(ref_model, ProtoModel), \
-        f"[{owner_cls.__name__}.{ref_model.__name__}] Join Model - ref_model must be a subclass of ProtoModel"
-    assert hasattr(owner_cls, 'storage'), \
-        f"[{owner_cls.__name__}.{ref_model.__name__}] Join Model - owner_cls must have a storage backend set"
-    owner_name = owner_cls.__name__
-    owner_tablename = owner_cls.__tablename__
-    ref_tablename = ref_model.__tablename__
-    class_name = f"{owner_name}{ref_model.__name__}"
-    tablename = f"{owner_tablename}_{ref_tablename}"
-    fk_field = f"{owner_name.lower()}_id"
-
-    logger.info("[%s.%s] Generating join model '%s' with table '%s'",
-                owner_cls.__name__, ref_model.__name__, class_name, tablename)
-
-    # Resolve field_name before creating the model — it determines the URL
-    # segment used in routes (e.g., "favorites" vs "likes")
-    if not field_name:
-        from n3tx_core.utils.introspection import get_fk_list_fields
-        for fname, child_cls in get_fk_list_fields(owner_cls):
-            if child_cls is ref_model:
-                field_name = fname
-                break
-
-    # Only annotate the new FK field — inherited fields keep their defaults
-    annotations = {fk_field: int}
-
-    fields = {
-        "__tablename__": tablename,
-        "__tagname__": field_name or ref_model.__tablename__,
-        "__storable__": True,
-        "__owner__": owner_cls,
-        "__parent__": ref_model,
-        "__module__": ref_model.__module__,
-        "__annotations__": annotations,
-        fk_field: Field(..., alias=fk_field, description=f"FK to {owner_name}")
-    }
-    join_model = type(class_name, (ref_model,), fields)
-
-    # Cache join model on the parent class for FK hydration
-    if field_name:
-        if not hasattr(owner_cls, '__fk_models__') or owner_cls.__fk_models__ is ProtoModel.__fk_models__:
-            owner_cls.__fk_models__ = {}
-        owner_cls.__fk_models__[field_name] = join_model
-
-    return join_model
 
 def _hydrate_fk_value(target_cls: Type[PydanticBaseModel], value: Any) -> Any:
     """Hydrate one local model relationship value through the target model."""
@@ -402,9 +344,35 @@ def _hydrate_fk_list(target_cls: Type[PydanticBaseModel], values: Any) -> list:
     if not isinstance(values, list):
         values = [values]
 
-    hydrated = []
+    from n3tx_core.models.ref import local_ref_id
+
+    # Keep already-hydrated instances and inline child payloads without fetching
+    # them again. Inline dicts without id/$id are construction payloads, not refs.
+    hydrated = [value for value in values if isinstance(value, target_cls)]
     for value in values:
-        item = _hydrate_fk_value(target_cls, value)
-        if isinstance(item, target_cls):
-            hydrated.append(item)
+        if isinstance(value, dict) and 'id' not in value and '$id' not in value:
+            try:
+                hydrated.append(target_cls(**value))
+            except Exception:
+                pass
+
+    # Extract local ids from raw ids, dicts, refs, and current-service URLs.
+    ids = [
+        local_id for local_id in (
+            local_ref_id(value, target_cls=target_cls)
+            for value in values
+            if not isinstance(value, target_cls)
+            and not (isinstance(value, dict) and 'id' not in value and '$id' not in value)
+        )
+        if local_id is not None
+    ]
+
+    # Batch-load ids once, then restore the JSON-stored order.
+    try:
+        fetched = target_cls.list(ids=ids) if ids else []
+    except Exception:
+        fetched = []
+    fetched = fetched.get('data', []) if isinstance(fetched, dict) else fetched
+    by_id = {getattr(item, 'id', None): item for item in fetched}
+    hydrated.extend(by_id[id_] for id_ in ids if id_ in by_id)
     return hydrated

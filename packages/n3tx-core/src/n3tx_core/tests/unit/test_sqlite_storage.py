@@ -375,6 +375,23 @@ class TestGet:
         assert [child.name for child in fetched.children] == ['second', 'first']
         assert all(isinstance(child, Child) for child in fetched.children)
 
+    def test_model_list_field_preserves_inline_child_payloads(self, storage, tmp_db):
+        class Child(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_model_list_inline_children'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Parent(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_model_list_inline_parents'
+            __storable__: ClassVar[bool] = True
+            children: list[Child] = Field(default=[])
+
+        parent = Parent(children=[{'name': 'inline'}])
+
+        assert len(parent.children) == 1
+        assert isinstance(parent.children[0], Child)
+        assert parent.children[0].name == 'inline'
+
     def test_model_list_field_skips_missing_children_and_preserves_order(self, storage, tmp_db):
         class Child(ProtoModel):
             __tablename__: ClassVar[str] = 'test_model_list_missing_children'
@@ -401,6 +418,28 @@ class TestGet:
 
         fetched = storage.get(Parent, parent.id)
         assert [child.id for child in fetched.children] == [second.id, first.id]
+
+    def test_model_list_field_rejects_non_local_refs(self, storage, tmp_db):
+        class Child(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_model_list_reject_children'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Parent(ProtoModel):
+            __tablename__: ClassVar[str] = 'test_model_list_reject_parents'
+            __storable__: ClassVar[bool] = True
+            children: list[Child] = Field(default=[])
+
+        Child.set_storage(storage)
+        Parent.set_storage(storage)
+        storage.create_table(Child)
+        storage.create_table(Parent)
+
+        with pytest.raises(ValueError, match='Invalid non-local relationship value'):
+            storage.create(Parent, {'children': ['n3tx://remote/Child/1']})
+
+        with pytest.raises(ValueError, match='Invalid non-local relationship value'):
+            storage.create(Parent, {'children': ['https://example.com/Child/1']})
 
 
 class TestUpdate:

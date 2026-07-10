@@ -3,6 +3,7 @@
 Each function is a pure dict → dict transformation:
 
     d = proto_dump.base(instance)
+    d = proto_dump.relationships(instance, d)
     d = proto_dump.schema_url(instance, d)
     d = proto_dump.instance_url(instance, d)
     d = proto_dump.populate(instance, d)
@@ -28,6 +29,7 @@ import logging
 from pydantic import BaseModel as PydanticBaseModel
 
 from n3tx_core import config
+from n3tx_core.utils.introspection import get_fk_fields, get_fk_list_fields
 
 logger = logging.getLogger('n3tx.dump')
 
@@ -153,8 +155,80 @@ def remove_stage(name: str):
 # ── Default pipeline stages ───────────────────────────────────────
 
 def base(instance, **kwargs) -> dict:
-    """Plain Pydantic data extraction."""
+    """Seed the pipeline with plain Pydantic data extraction."""
     return PydanticBaseModel.model_dump(instance, **kwargs)
+
+
+def relationships(instance, d: dict) -> dict:
+    """Enrich hydrated local relationships as self-describing resources.
+
+    Pydantic serializes nested models as plain dictionaries. N3TX-owned local
+    relationships (``T`` and ``list[T]``) instead run through the complete dump
+    pipeline so child resources retain identity metadata and extensions.
+    """
+
+    for field_name, _target_cls in get_fk_fields(instance.__class__):
+        if field_name not in d:
+            continue
+        value = getattr(instance, field_name, None)
+        d[field_name] = _relationship_response(value, d[field_name])
+
+    for field_name, _target_cls in get_fk_list_fields(instance.__class__):
+        if field_name not in d:
+            continue
+        values = getattr(instance, field_name, None)
+        projections = d[field_name]
+        if not isinstance(values, list) or not isinstance(projections, list):
+            continue
+        d[field_name] = [
+            _relationship_response(value, projection)
+            for value, projection in zip(values, projections)
+        ]
+
+    return d
+
+
+def _relationship_response(value, projection):
+    if not hasattr(value, 'model_response'):
+        return projection
+
+    return _project_model_response(value, value.model_response(), projection)
+
+
+def _project_model_response(value, response, projection):
+    """Apply Pydantic's field projection while preserving pipeline metadata."""
+    if not isinstance(response, dict) or not isinstance(projection, dict):
+        return response
+
+    model_fields = value.__class__.model_fields
+    projected = {
+        key: field_value
+        for key, field_value in response.items()
+        if key not in model_fields or key in projection
+    }
+
+    for key, field_projection in projection.items():
+        if key not in projected:
+            continue
+        nested_value = getattr(value, key, None)
+        if hasattr(nested_value, 'model_response'):
+            projected[key] = _project_model_response(
+                nested_value,
+                projected[key],
+                field_projection,
+            )
+        elif isinstance(nested_value, list) and isinstance(field_projection, list):
+            projected[key] = [
+                _project_model_response(item, item_response, item_projection)
+                if hasattr(item, 'model_response') else item_response
+                for item, item_response, item_projection in zip(
+                    nested_value,
+                    projected[key],
+                    field_projection,
+                )
+            ]
+
+    return projected
 
 
 def schema_url(instance, d: dict) -> dict:
@@ -168,37 +242,17 @@ def schema_url(instance, d: dict) -> dict:
 def instance_url(instance, d: dict) -> dict:
     """Inject $id — the resolvable URL to this specific instance.
 
-    Join models (with __owner__) get parent-scoped class-name URLs:
-        {API_URL}/{OwnerClass}/{parent_id}/{ChildClass}/{id}
-    Regular models get flat URLs:
+    Entity identity is always the flat class-name URL:
         {API_URL}/{ClassName}/{id}
     """
     cls = instance.__class__
     if cls not in _instance_url_cache:
-        owner_cls = getattr(cls, '__owner__', None)
-        if owner_cls:
-            child_cls = getattr(cls, '__parent__', cls)
-            _instance_url_cache[cls] = {
-                'owner_base': f"{config.API_URL}/{owner_cls.__name__}",
-                'child_name': child_cls.__name__,
-                'fk_field': f"{owner_cls.__name__.lower()}_id",
-            }
-        else:
-            _instance_url_cache[cls] = {
-                'base_url': f"{config.API_URL}/{cls.__name__}",
-            }
+        _instance_url_cache[cls] = {
+            'base_url': f"{config.API_URL}/{cls.__name__}",
+        }
     meta = _instance_url_cache[cls]
     instance_id = getattr(instance, 'id', None)
-
-    if 'fk_field' in meta:
-        parent_id = getattr(instance, meta['fk_field'], None) or d.get(meta['fk_field'])
-        url = (
-            f"{meta['owner_base']}/{parent_id}/{meta['child_name']}/{instance_id}"
-            if instance_id is not None and parent_id is not None
-            else None
-        )
-    else:
-        url = f"{meta['base_url']}/{instance_id}" if instance_id is not None else None
+    url = f"{meta['base_url']}/{instance_id}" if instance_id is not None else None
 
     d['$id'] = url
     return d
@@ -223,6 +277,7 @@ def populate(instance, d: dict) -> dict:
 # Order matters: base seeds, the rest transform sequentially.
 # Extensions insert relative to these names via @dump_extension.
 register_stage('base', base)
+register_stage('relationships', relationships)
 register_stage('schema_url', schema_url)
 register_stage('instance_url', instance_url)
 register_stage('populate', populate)

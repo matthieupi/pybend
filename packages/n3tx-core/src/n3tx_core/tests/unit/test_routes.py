@@ -22,7 +22,7 @@ from n3tx_core.models.storable_mixin import StorableMixin
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.utils.decorators import expose_route
 from n3tx_core.utils.erroring import MethodError
-from n3tx_core.utils.registrar import registered_models, join_models
+from n3tx_core.utils.registrar import registered_models
 
 
 def _route_methods(app, path):
@@ -99,13 +99,6 @@ class TestBuildContext:
         resource = MagicMock()
         ctx = _build_context(request, MagicMock(), 'read', resource=resource)
         assert ctx.resource is resource
-
-    def test_sets_parent_id(self):
-        request = MagicMock()
-        request.state.user = {'user_id': 1}
-        ctx = _build_context(request, MagicMock(), 'read', parent_id=42)
-        assert ctx.parent_id == 42
-
 
 class TestSerialize:
 
@@ -683,127 +676,30 @@ class TestClassNameCrudMirrors:
             registered_models.clear()
             registered_models.update(saved)
 
-    def test_nested_class_name_routes_generated_for_join_models(self, tmp_path):
+    def test_create_app_rejects_removed_join_models_argument(self, tmp_path):
         saved_models = dict(registered_models)
-        saved_joins = dict(join_models)
         registered_models.clear()
-        join_models.clear()
         try:
-            class NestedRouteParent(ProtoModel):
-                __tablename__: ClassVar[str] = 'nested_route_parents'
+            class RemovedJoinParent(ProtoModel):
+                __tablename__: ClassVar[str] = 'removed_join_parents'
                 __storable__: ClassVar[bool] = True
-                __access__: ClassVar[dict] = {
-                    'create': ANYONE,
-                    'read': ANYONE,
-                    'update': ANYONE,
-                    'delete': ANYONE,
-                }
                 name: str = Field(default='')
 
-            class NestedRouteChild(ProtoModel):
-                __tablename__: ClassVar[str] = 'nested_route_children'
+            class RemovedJoinChild(ProtoModel):
+                __tablename__: ClassVar[str] = 'removed_join_children'
                 __storable__: ClassVar[bool] = True
-                __access__: ClassVar[dict] = {
-                    'create': ANYONE,
-                    'read': ANYONE,
-                    'update': ANYONE,
-                    'delete': ANYONE,
-                }
                 name: str = Field(default='')
 
-            app = create_app(
-                models=[NestedRouteParent],
-                join_models=[(NestedRouteParent, NestedRouteChild)],
-                storage=SQLiteStorage(str(tmp_path / 'nested_route_generation.db')),
-                static_dir=None,
-            )
-
-            collection_methods = _route_methods(app, '/NestedRouteParent/{parent_id:int}/NestedRouteChild')
-            member_methods = _route_methods(app, '/NestedRouteParent/{parent_id:int}/NestedRouteChild/{id:int}')
-
-            assert {'GET', 'POST'} <= collection_methods
-            assert {'GET', 'PUT', 'DELETE'} <= member_methods
-            assert {'GET', 'POST'} <= _route_methods(app, '/nested_route_parents/{parent_id:int}/nested_route_children')
-            assert {'GET', 'PUT', 'DELETE'} <= _route_methods(app, '/nested_route_parents/{parent_id:int}/nested_route_children/{id:int}')
+            with pytest.raises(TypeError, match='join_models'):
+                create_app(
+                    models=[RemovedJoinParent, RemovedJoinChild],
+                    join_models=[(RemovedJoinParent, RemovedJoinChild)],
+                    storage=SQLiteStorage(str(tmp_path / 'removed_join_models.db')),
+                    static_dir=None,
+                )
         finally:
             registered_models.clear()
             registered_models.update(saved_models)
-            join_models.clear()
-            join_models.update(saved_joins)
-
-    def test_nested_class_name_routes_mirror_legacy_join_behavior(self, tmp_path):
-        saved_models = dict(registered_models)
-        saved_joins = dict(join_models)
-        registered_models.clear()
-        join_models.clear()
-        try:
-            class NestedMirrorParent(ProtoModel):
-                __tablename__: ClassVar[str] = 'nested_mirror_parents'
-                __storable__: ClassVar[bool] = True
-                __access__: ClassVar[dict] = {
-                    'create': ANYONE,
-                    'read': ANYONE,
-                    'update': ANYONE,
-                    'delete': ANYONE,
-                }
-                name: str = Field(default='')
-
-            class NestedMirrorChild(ProtoModel):
-                __tablename__: ClassVar[str] = 'nested_mirror_children'
-                __storable__: ClassVar[bool] = True
-                __access__: ClassVar[dict] = {
-                    'create': ANYONE,
-                    'read': ANYONE,
-                    'update': ANYONE,
-                    'delete': ANYONE,
-                }
-                name: str = Field(default='')
-
-            app = create_app(
-                models=[NestedMirrorParent],
-                join_models=[(NestedMirrorParent, NestedMirrorChild)],
-                storage=SQLiteStorage(str(tmp_path / 'nested_mirror_behavior.db')),
-                static_dir=None,
-            )
-            client = TestClient(app)
-            parent = NestedMirrorParent.create(NestedMirrorParent(name='Parent'))
-
-            class_create = client.post(f'/NestedMirrorParent/{parent.id}/NestedMirrorChild', json={'name': 'Child'})
-            assert class_create.status_code == 201
-            created = class_create.json()
-            assert created['nestedmirrorparent_id'] == parent.id
-            assert created['$id'].endswith(f'/NestedMirrorParent/{parent.id}/NestedMirrorChild/{created["id"]}')
-
-            legacy_read = client.get(f'/nested_mirror_parents/{parent.id}/nested_mirror_children/{created["id"]}')
-            class_read = client.get(f'/NestedMirrorParent/{parent.id}/NestedMirrorChild/{created["id"]}')
-            assert class_read.status_code == legacy_read.status_code == 200
-            assert class_read.json() == legacy_read.json()
-
-            legacy_list = client.get(f'/nested_mirror_parents/{parent.id}/nested_mirror_children')
-            class_list = client.get(f'/NestedMirrorParent/{parent.id}/NestedMirrorChild')
-            assert class_list.status_code == legacy_list.status_code == 200
-            assert class_list.json() == legacy_list.json()
-
-            class_update = client.put(
-                f'/NestedMirrorParent/{parent.id}/NestedMirrorChild/{created["id"]}',
-                json={'name': 'Updated'},
-            )
-            legacy_update = client.put(
-                f'/nested_mirror_parents/{parent.id}/nested_mirror_children/{created["id"]}',
-                json={'name': 'Updated Again'},
-            )
-            assert class_update.status_code == legacy_update.status_code == 200
-            assert class_update.json()['nestedmirrorparent_id'] == parent.id
-            assert legacy_update.json()['nestedmirrorparent_id'] == parent.id
-
-            class_delete = client.delete(f'/NestedMirrorParent/{parent.id}/NestedMirrorChild/{created["id"]}')
-            assert class_delete.status_code == 200
-            assert client.get(f'/NestedMirrorParent/{parent.id}/NestedMirrorChild/{created["id"]}').status_code == 404
-        finally:
-            registered_models.clear()
-            registered_models.update(saved_models)
-            join_models.clear()
-            join_models.update(saved_joins)
 
     def test_class_name_read_mirror_preserves_not_found_and_is_get_only(self, tmp_path):
         saved = dict(registered_models)
@@ -851,102 +747,8 @@ class TestClassNameCrudMirrors:
             assert client.get('/NonStorableMirror/1').status_code == 404
             assert client.get('/NonStorableMirror/_').status_code == 404
             assert client.post('/NonStorableMirror', json={'name': 'Nope'}).status_code == 405
-            assert client.put('/NonStorableMirror/1', json={'name': 'Nope'}).status_code == 404
-            assert client.delete('/NonStorableMirror/1').status_code == 404
-        finally:
-            registered_models.clear()
-            registered_models.update(saved)
-
-    def test_nested_class_name_routes_mirror_legacy_join_routes(self, tmp_path):
-        saved = dict(registered_models)
-        registered_models.clear()
-        try:
-            class DirectNestedParent(ProtoModel):
-                __tablename__: ClassVar[str] = 'direct_nested_parents'
-                __storable__: ClassVar[bool] = True
-                __access__: ClassVar[dict] = {
-                    'create': ANYONE,
-                    'read': ANYONE,
-                    'update': ANYONE,
-                    'delete': ANYONE,
-                    'list': ANYONE,
-                }
-                name: str = Field(default='')
-
-            class DirectNestedChild(ProtoModel):
-                __tablename__: ClassVar[str] = 'direct_nested_children'
-                __storable__: ClassVar[bool] = True
-                __access__: ClassVar[dict] = {
-                    'create': ANYONE,
-                    'read': ANYONE,
-                    'update': ANYONE,
-                    'delete': ANYONE,
-                    'list': ANYONE,
-                }
-                name: str = Field(default='')
-
-                @expose_route('/mark', methods=['POST'], access=ANYONE)
-                def mark(self, value: str) -> dict:
-                    return {'id': self.id, 'value': value}
-
-            class DirectNestedParentChild(DirectNestedChild):
-                __tablename__: ClassVar[str] = 'direct_nested_parent_children'
-                __tagname__: ClassVar[str] = 'children'
-                __storable__: ClassVar[bool] = True
-                __owner__ = DirectNestedParent
-                __parent__ = DirectNestedChild
-                directnestedparent_id: int = Field(...)
-
-            app = create_app(
-                models=[DirectNestedParent, DirectNestedParentChild],
-                storage=SQLiteStorage(str(tmp_path / 'direct_nested.db')),
-                static_dir=None,
-            )
-            client = TestClient(app)
-            parent = DirectNestedParent.create(DirectNestedParent(name='Parent'))
-
-            legacy_create = client.post(
-                f'/direct_nested_parents/{parent.id}/children',
-                json={'name': 'Child'},
-            )
-            assert legacy_create.status_code == 201
-            child_id = legacy_create.json()['id']
-
-            class_list = client.get(f'/DirectNestedParent/{parent.id}/DirectNestedChild')
-            legacy_list = client.get(f'/direct_nested_parents/{parent.id}/children')
-            assert class_list.status_code == legacy_list.status_code == 200
-            assert class_list.json() == legacy_list.json()
-
-            class_read = client.get(f'/DirectNestedParent/{parent.id}/DirectNestedChild/{child_id}')
-            legacy_read = client.get(f'/direct_nested_parents/{parent.id}/children/{child_id}')
-            assert class_read.status_code == legacy_read.status_code == 200
-            assert class_read.json() == legacy_read.json()
-            assert class_read.json()['$id'].endswith(
-                f'/DirectNestedParent/{parent.id}/DirectNestedChild/{child_id}'
-            )
-
-            class_update = client.put(
-                f'/DirectNestedParent/{parent.id}/DirectNestedChild/{child_id}',
-                json={'name': 'Updated'},
-            )
-            legacy_after_update = client.get(f'/direct_nested_parents/{parent.id}/children/{child_id}')
-            assert class_update.status_code == 200
-            assert legacy_after_update.json()['name'] == 'Updated'
-
-            class_method = client.post(
-                f'/DirectNestedParent/{parent.id}/DirectNestedChild/{child_id}/mark',
-                json={'value': 'ok'},
-            )
-            legacy_method = client.post(
-                f'/direct_nested_parents/{parent.id}/children/{child_id}/mark',
-                json={'value': 'ok'},
-            )
-            assert class_method.status_code == legacy_method.status_code == 200
-            assert class_method.json() == legacy_method.json() == {'id': child_id, 'value': 'ok'}
-
-            class_delete = client.delete(f'/DirectNestedParent/{parent.id}/DirectNestedChild/{child_id}')
-            assert class_delete.status_code == 200
-            assert client.get(f'/direct_nested_parents/{parent.id}/children/{child_id}').status_code == 404
+            assert client.put('/NonStorableMirror/1', json={'name': 'Nope'}).status_code == 405
+            assert client.delete('/NonStorableMirror/1').status_code == 405
         finally:
             registered_models.clear()
             registered_models.update(saved)

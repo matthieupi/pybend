@@ -2,14 +2,12 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple, Type, Any
+from typing import Dict, Optional, Type, Any
 from n3tx_core.storage.abstract_storage import AbstractStorage as StorageInterface
 
 logger = logging.getLogger('n3tx.utils')
 
 registered_models: Dict[str, Type[Any]] = {}
-
-join_models: Dict[tuple[str, str], Type[Any]] = {}
 
 
 @dataclass
@@ -19,8 +17,6 @@ class RegistrationResult:
     tablename: str
     storage: Optional[StorageInterface]
     is_storable: bool
-    is_join: bool
-    join_key: Optional[Tuple[str, str]]
 
 
 def prepare_model(model_class: Type[Any], storage: StorageInterface = None) -> RegistrationResult:
@@ -29,20 +25,11 @@ def prepare_model(model_class: Type[Any], storage: StorageInterface = None) -> R
     if is_storable and storage is None:
         raise ValueError(f"Storage backend must be provided for model '{model_class.__name__}'")
 
-    is_join = hasattr(model_class, '__owner__')
-    join_key = None
-    if is_join:
-        parent = model_class.__owner__
-        base = model_class.__bases__[-1]
-        join_key = (parent.__name__, base.__name__)
-
     return RegistrationResult(
         model_class=model_class,
         tablename=model_class.__tablename__,
         storage=storage,
         is_storable=is_storable,
-        is_join=is_join,
-        join_key=join_key,
     )
 
 
@@ -50,9 +37,6 @@ def apply_registration(result: RegistrationResult) -> None:
     """Execute the side effects described by a RegistrationResult."""
     model = result.model_class
     logger.info("Registering model: %s", model.__name__)
-
-    if result.is_join and result.join_key:
-        join_models[result.join_key] = model
 
     if result.is_storable:
         model.set_storage(result.storage)

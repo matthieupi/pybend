@@ -4,15 +4,11 @@ N3TX application builder and factory.
 Provides three levels of bootstrapping:
 
     Level 1 -- One-liner via create_app():
-        app = create_app(
-            models=[Product, User],
-            join_models=[(Product, Comment)],
-            storage="sqlite:///app.db",
-        )
+        app = create_app(models=[Product, User], storage="sqlite:///app.db")
 
     Level 2 -- Builder via N3TXApp:
         pb = N3TXApp(storage="sqlite:///app.db")
-        pb.model(Product).model(User).join(Product, Comment)
+        pb.model(Product).model(User)
         app = pb.build()
 
     Level 3 -- Raw primitives (existing code in main.py, unchanged).
@@ -24,9 +20,8 @@ _SSR_MODES = ('off', 'schema', 'bundle', 'full')
 
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.storage.abstract_storage import AbstractStorage
-from n3tx_core.utils.registrar import register_model, registered_models, join_models, prepare_model, apply_registration
+from n3tx_core.utils.registrar import registered_models, prepare_model, apply_registration
 from n3tx_core.utils.logging import setup_logging
-from n3tx_core.models.proto_model import generate_join_model
 from n3tx_core.models.relationships import generate_relationship_models
 from n3tx_core.api.backend import FastAPIBackend
 from n3tx_core import config
@@ -214,7 +209,6 @@ class N3TXApp:
         self._remotes = remotes if remotes is not None else config.REMOTES
 
         self._models: List[Tuple[Type, Optional[AbstractStorage]]] = []
-        self._join_pairs: List[Tuple[Type, Type]] = []
         self._static_dirs: List[str] = []
 
     # ── Builder methods (chainable) ──────────────────────
@@ -228,16 +222,6 @@ class N3TXApp:
                 the builder-level storage is used.
         """
         self._models.append((model_class, storage))
-        return self
-
-    def join(self, parent: Type, child: Type) -> "N3TXApp":
-        """Register a parent-child join relationship.  Returns ``self``
-        for chaining.
-
-        This calls ``generate_join_model(parent, child)`` during
-        :meth:`build` and registers the resulting model.
-        """
-        self._join_pairs.append((parent, child))
         return self
 
     def static(self, directory: str) -> "N3TXApp":
@@ -283,15 +267,9 @@ class N3TXApp:
         for model_class in _agent_infrastructure_models(explicit_model_classes):
             preparations.append(prepare_model(model_class, storage=self._storage))
 
-        # 3. Generate and prepare join models
-        for parent, child in self._join_pairs:
-            join_model = generate_join_model(parent, child)
-            preparations.append(prepare_model(join_model, storage=self._storage))
-
-        # 3a. Generate and prepare field-declared relationship link models.
-        #     This follows the same prepare/apply flow as explicit join models:
-        #     generation is deterministic, registration/table side effects are
-        #     still centralized in apply_registration().
+        # 3. Generate and prepare field-declared relationship link models.
+        #    Generation is deterministic; registration/table side effects are
+        #    still centralized in apply_registration().
         for relationship_model in generate_relationship_models(explicit_model_classes):
             preparations.append(prepare_model(relationship_model, storage=self._storage))
 
@@ -300,7 +278,6 @@ class N3TXApp:
         #    slate.  Using .clear() preserves dict identity — existing references
         #    (e.g. FastAPIBackend.registered_models) see the updated contents.
         registered_models.clear()
-        join_models.clear()
         for result in preparations:
             apply_registration(result)
 
@@ -406,7 +383,6 @@ class N3TXApp:
 
 def create_app(
     models=None,
-    join_models=None,
     storage=None,
     routing='direct',
     ws=False,
@@ -431,8 +407,6 @@ def create_app(
 
     Args:
         models: List of ``ProtoModel`` subclasses to register.
-        join_models: List of ``(parent, child)`` tuples for join
-            relationships.
         storage: Storage backend or URI string (see :class:`N3TXApp`).
         routing: ``'direct'`` for plain FastAPI routes (Level 1/2),
             ``'actor'`` for full actor routing via NetworkAPI (Level 3).
@@ -457,6 +431,12 @@ def create_app(
     Returns:
         A configured FastAPI application instance.
     """
+    if 'join_models' in kwargs:
+        raise TypeError(
+            "create_app() no longer accepts join_models; declare owned "
+            "collections as list[T] on the parent model instead."
+        )
+
     builder = N3TXApp(
         storage=storage,
         routing=routing,
@@ -474,8 +454,6 @@ def create_app(
     )
     for m in (models or []):
         builder.model(m)
-    for parent, child in (join_models or []):
-        builder.join(parent, child)
     if static_dir:
         builder.static(static_dir)
     return builder.build(name=name, version=version, description=description)

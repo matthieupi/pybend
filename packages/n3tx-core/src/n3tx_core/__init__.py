@@ -1,7 +1,7 @@
 import logging
 logging.getLogger('n3tx').addHandler(logging.NullHandler())
 
-from .models.proto_model import ProtoModel, generate_join_model
+from .models.proto_model import ProtoModel
 from .models.storable_mixin import StorableMixin
 from .models.base_user import BaseUser
 from .models.relationships import ManyToMany, Relationship

@@ -8,7 +8,7 @@ from n3tx_core.app import create_app
 from n3tx_core.models.proto_model import ProtoModel
 from n3tx_core.models.relationships import ManyToMany, generate_relationship_model
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
-from n3tx_core.utils.registrar import registered_models, join_models
+from n3tx_core.utils.registrar import registered_models
 
 
 class TestGenerateRelationshipModel:
@@ -65,9 +65,7 @@ class TestRelationshipAppBootstrap:
 
     def test_create_app_registers_many_to_many_link_model(self, tmp_path):
         saved_registered = dict(registered_models)
-        saved_join_models = dict(join_models)
         registered_models.clear()
-        join_models.clear()
         try:
             class Tag(ProtoModel):
                 __tablename__ = 'tags'
@@ -99,14 +97,10 @@ class TestRelationshipAppBootstrap:
         finally:
             registered_models.clear()
             registered_models.update(saved_registered)
-            join_models.clear()
-            join_models.update(saved_join_models)
 
     def test_create_app_creates_many_to_many_link_table_indexes(self, tmp_path):
         saved_registered = dict(registered_models)
-        saved_join_models = dict(join_models)
         registered_models.clear()
-        join_models.clear()
         db_path = tmp_path / 'relationships_indexes.db'
         try:
             class Tag(ProtoModel):
@@ -142,5 +136,3 @@ class TestRelationshipAppBootstrap:
         finally:
             registered_models.clear()
             registered_models.update(saved_registered)
-            join_models.clear()
-            join_models.update(saved_join_models)

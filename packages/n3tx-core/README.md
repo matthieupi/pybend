@@ -29,7 +29,6 @@ Here's the fun part — you write a couple of classes and get a working API with
 from n3tx_core import ProtoModel, expose_route, register_model, SQLiteStorage
 from n3tx_core.app import create_app
 from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
-from n3tx_core.models.ref import ListRef
 from pydantic import Field
 
 class Comment(ProtoModel):
@@ -43,7 +42,7 @@ class Product(ProtoModel):
     __access__ = {'read': ANYONE, 'create': AUTHENTICATED, 'update': OWNER, 'delete': ROLE('admin')}
     name: str = Field(min_length=1, max_length=200)
     price: float = Field(gt=0)
-    comments: ListRef[Comment] = Field(default=[])
+    comments: list[Comment] = Field(default=[])
 
     @expose_route('/like', methods=['POST'], access=AUTHENTICATED)
     def like(self, user=None) -> str:
@@ -52,7 +51,6 @@ class Product(ProtoModel):
 # One-liner: creates storage, registers models, generates routes, returns ASGI app
 app = create_app(
     models=[Product, Comment],
-    join_models=[(Product, Comment)],
     storage="sqlite:///app.db",
 )
 ```
@@ -71,7 +69,7 @@ A `ProtoModel` subclass with `__storable__ = True` gets: a database table, CRUD 
 
 ### Dump Pipeline
 
-`instance.model_response()` runs a parallel pipeline for serialization: `base -> schema_url -> instance_url -> populate`. This injects `$schema` and `$id` metadata into API responses. Extended via `@dump_extension`. Same composable pattern, different direction — schema describes the shape, dump fills it with data.
+`instance.model_response()` runs a parallel pipeline for serialization: `base -> relationships -> schema_url -> instance_url -> populate`. The `relationships` stage enriches hydrated `T` and `list[T]` children through their own dump pipelines; the URL stages inject `$schema` and `$id`. Extended via `@dump_extension`. Same composable pattern, different direction — schema describes the shape, dump fills it with data.
 
 ### 🔐 Authorization (ABAC)
 
@@ -81,7 +79,7 @@ The `authorize` subpackage is standalone (zero N3TX imports). Rules compose alge
 
 Your models don't exist in isolation — they talk to each other:
 
-`Ref[T]` for single FK fields (stored as int, serialized as href URL). `ListRef[T]` for collection fields (stored in join tables, serialized as href arrays). `Ref['self']` for self-referential nesting. `generate_join_model()` creates the bridge model automatically.
+`Ref[T]` for pointer fields (stored as local ids or canonical distributed refs, serialized as resolvable refs). `list[T]` for owned local collections (stored as ordered local ids, hydrated as child objects). `Ref['self']` for self-referential nesting. For shared relationship data, prefer explicit link models; `ManyToMany[T]` is a legacy helper for existing shared-link cases.
 
 ## 📋 API Reference
 
@@ -90,11 +88,9 @@ Here's everything n3tx-core exports — your toolkit for building schema-driven 
 | Export | Type | Purpose |
 |--------|------|---------|
 | `ProtoModel` | class | Base model — schema generation, serialization, FK rewriting, StorableMixin injection |
-| `generate_join_model` | function | Create a join model from parent-child relationship |
 | `StorableMixin` | class | CRUD operations: `create`, `get`, `list`, `update`, `delete`, `save` |
 | `ViewableMixin` | class | UI resource mixin with `name`, `desc`, `src`, `href` |
 | `BaseUser` | class | Abstract user model with login, register, password hashing |
-| `ListRef` | type alias | `ListRef[T]` — collection reference field type |
 | `Ref` | type alias | `Ref[T]` — single FK reference; `Ref['self']` for self-ref |
 | `AbstractStorage` | ABC | Storage interface: `create_table`, `create`, `get`, `list`, `update`, `delete` |
 | `JSONStorage` | class | JSON file storage backend |
@@ -145,6 +141,12 @@ class StorableMixin:
     def set_storage(cls, storage): ...
 ```
 
+`Model.update(id, data)` is patch-oriented, but generated direct and actor HTTP
+`PUT` routes currently validate complete model bodies. HTTP callers must send
+all required writable fields and preserve current defaulted collections/JSON
+values; omitted defaults may be materialized and persisted. See
+[storage update boundaries](docs/storage.md#update-boundary-contract).
+
 ### `BaseUser`
 
 Need users? Subclass this and you're off to the races:
@@ -164,13 +166,11 @@ A few things worth knowing before you dive deeper:
 
 2. **`model_dump()` for storage, `model_response()` for API.** `model_dump()` produces a plain dict. `model_response()` adds `$schema` and `$id` metadata via the dump pipeline. Never use `model_response()` data for storage writes.
 
-3. **Register join models after both parent and child.** `generate_join_model(Parent, Child)` requires the parent to have `storage` set (be registered first). The join model must also be registered separately.
+3. **Register every storable model.** `list[T]` collections store child ids, so both parent and child models need storage-backed registration.
 
 ```python
 register_model(Product, storage=db)
 register_model(Comment, storage=db)
-join = generate_join_model(Product, Comment)
-register_model(join, storage=db)
 ```
 
 4. **Storable models require a storage backend.** Calling `register_model(M)` on a `__storable__ = True` model without passing `storage=` raises `ValueError`. Non-storable models can be registered without storage.

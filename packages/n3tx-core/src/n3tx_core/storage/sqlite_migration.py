@@ -10,7 +10,6 @@ from typing import Any, List, Type, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from .sqlite_helpers import get_parent_fk_columns
 from n3tx_core.utils.introspection import _is_self_ref
 from n3tx_core.models.ref import Ref
 
@@ -135,9 +134,7 @@ class SQLiteMigration:
     def create_table(self, model_class: Type[Any]):
         """
         Creates a table for the given Pydantic model class.
-        Automatically adds FK columns for parent List[BaseModel] relationships.
-        Raises ValueError if an auto-generated FK column conflicts with a
-        column already declared on the model.
+        Plain list fields are stored on the owner row as JSON TEXT.
         """
         table_name = model_class.__tablename__
         columns = []
@@ -188,19 +185,6 @@ class SQLiteMigration:
                 sql_type = 'TEXT'
             columns.append(f"{field_name} {sql_type}")
 
-        # Auto-add FK columns for any parent that declares List[this_model]
-        existing_col_names = {c.split()[0] for c in columns}
-        for _parent_name, fk_col in get_parent_fk_columns(model_class):
-            if fk_col in existing_col_names:
-                raise ValueError(
-                    f"Duplicate FK column '{fk_col}' on model '{model_class.__name__}': "
-                    f"the column is both declared on the model and auto-generated from a "
-                    f"List[{model_class.__name__}] relationship. Remove the explicit "
-                    f"declaration or rename it to avoid conflicts."
-                )
-            columns.append(f"{fk_col} INTEGER")
-            existing_col_names.add(fk_col)
-
         columns_sql = ", ".join(columns)
         create_table_sql = f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
@@ -212,9 +196,6 @@ class SQLiteMigration:
         cursor = conn.cursor()
         cursor.execute(create_table_sql)
 
-        # Create indexes on FK columns for efficient hydration queries
-        for _parent_name, fk_col in get_parent_fk_columns(model_class):
-            cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{fk_col} ON {table_name} ({fk_col})")
         for field_name, field_info in model_class.model_fields.items():
             if _is_self_ref(field_info.annotation):
                 cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{field_name} ON {table_name} ({field_name})")
@@ -231,8 +212,7 @@ class SQLiteMigration:
         """
         Adds missing columns to existing tables based on the model definition.
         Removes orphaned columns that no longer exist on the model.
-        Automatically adds FK columns for parent List[BaseModel] relationships.
-        Raises ValueError on FK column conflicts.
+        Plain list fields are stored on the owner row as JSON TEXT.
         """
         table_name = model_class.__tablename__
         existing_columns = set()
@@ -347,30 +327,6 @@ class SQLiteMigration:
                 except sqlite3.OperationalError as e:
                     logger.warning("Failed to remove column %s from %s: %s", col, table_name, e)
 
-        # Auto-add FK columns for parent List[BaseModel] relationships
-        model_col_names = set(model_columns.keys())
-        for _parent_name, fk_col in get_parent_fk_columns(model_class):
-            if fk_col in model_col_names:
-                raise ValueError(
-                    f"Duplicate FK column '{fk_col}' on model '{model_class.__name__}': "
-                    f"the column is both declared on the model and auto-generated from a "
-                    f"List[{model_class.__name__}] relationship. Remove the explicit "
-                    f"declaration or rename it to avoid conflicts."
-                )
-            if fk_col not in existing_columns:
-                try:
-                    alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {fk_col} INTEGER DEFAULT 0"
-                    cursor.execute(alter_sql)
-                    logger.info("Added parent FK column '%s' to '%s' as INTEGER", fk_col, table_name)
-                except sqlite3.OperationalError as e:
-                    logger.warning("FK column %s already exists or error: %s", fk_col, e)
-
-        # Ensure FK columns have indexes for efficient hydration queries
-        for _parent_name, fk_col in get_parent_fk_columns(model_class):
-            try:
-                cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{fk_col} ON {table_name} ({fk_col})")
-            except sqlite3.OperationalError:
-                pass
         for field_name, field_info in model_class.model_fields.items():
             if _is_self_ref(field_info.annotation):
                 try:

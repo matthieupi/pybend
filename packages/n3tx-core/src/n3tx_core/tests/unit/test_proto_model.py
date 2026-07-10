@@ -3,13 +3,13 @@ Tests for models/proto_model.py — ProtoModel base class.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from typing import ClassVar, Optional
 
 from pydantic import Field, BaseModel
 
 from n3tx_core import config
-from n3tx_core.models.proto_model import ProtoModel, _apply_field_exclusion, _AUTO_HIDE_FIELDS, generate_join_model
+from n3tx_core.models.proto_model import ProtoModel, _apply_field_exclusion, _AUTO_HIDE_FIELDS
 from n3tx_core.models.storable_mixin import StorableMixin
 from n3tx_core.utils.typer import Ref
 
@@ -84,20 +84,6 @@ class TestInit:
         assert m.name == 'test'
         assert m.value == 42
 
-    def test_owner_from_kwargs(self):
-        class M(ProtoModel):
-            __tablename__: ClassVar[str] = 'init_t2'
-            name: str = Field(default='')
-        m = M(name='test', __owner__='ref')
-        assert m.__owner__ == 'ref'
-
-    def test_owner_none_by_default(self):
-        class M(ProtoModel):
-            __tablename__: ClassVar[str] = 'init_t3'
-            name: str = Field(default='')
-        m = M(name='test')
-        assert m.__owner__ is None
-
     def test_empty_kwargs(self):
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'init_t4'
@@ -139,7 +125,7 @@ class TestModelDump:
         m = M(id=1, name='hi')
         data = m.model_response()
         assert data['$schema'] == f'{config.API_URL}/M'
-        assert data['$id'] == f'{config.API_URL}/dump_t2/1'
+        assert data['$id'] == f'{config.API_URL}/M/1'
 
     def test_response_id_zero(self):
         class M(ProtoModel):
@@ -147,7 +133,7 @@ class TestModelDump:
             name: str = Field(default='')
         m = M(id=0, name='test')
         data = m.model_response()
-        assert data['$id'] == f'{config.API_URL}/dump_t3/0'
+        assert data['$id'] == f'{config.API_URL}/M/0'
 
     def test_idempotent(self):
         class M(ProtoModel):
@@ -162,7 +148,7 @@ class TestModelDump:
             name: str = Field(default='')
         m = MyModel(id=1, name='test')
         data = m.model_response()
-        assert 'mymodel' in data['$id']
+        assert data['$id'] == f'{config.API_URL}/MyModel/1'
 
 
 # ===================================================================
@@ -315,6 +301,8 @@ class TestSchema:
         assert '*' in schema['access']
 
     def test_ui_config(self):
+        import n3tx_ui  # registers the __ui__ schema extension before class definition
+
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'sc_t9'
             __ui__: ClassVar[dict] = {'field_order': ['name', 'value']}
@@ -377,162 +365,6 @@ class TestReferencedJsonSchema:
             parent_id: Optional[Ref['self']] = Field(default=None)
         schema = M.referenced_json_schema()
         assert schema['properties']['parent_id'] == {'type': 'selfref'}
-
-
-# ===================================================================
-# generate_join_model
-# ===================================================================
-
-class TestGenerateJoinModel:
-
-    def test_correct_name(self):
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_owners'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_children'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-        O.storage = MagicMock()
-        jm = generate_join_model(O, C)
-        assert jm.__name__ == 'OC'
-
-    def test_tablename(self):
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_own2'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_ch2'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-        O.storage = MagicMock()
-        jm = generate_join_model(O, C)
-        assert jm.__tablename__ == 'gj_own2_gj_ch2'
-
-    def test_owner_and_parent(self):
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_own3'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_ch3'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-        O.storage = MagicMock()
-        jm = generate_join_model(O, C)
-        assert jm.__owner__ is O
-        assert jm.__parent__ is C
-
-    def test_fk_field(self):
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_own4'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_ch4'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-        O.storage = MagicMock()
-        jm = generate_join_model(O, C)
-        assert 'o_id' in jm.model_fields
-
-    def test_assert_not_protomodel(self):
-        class NotModel:
-            pass
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_ch5'
-            text: str = Field(default='')
-        with pytest.raises(AssertionError):
-            generate_join_model(NotModel, C)
-
-    def test_ref_model_not_protomodel(self):
-        """UT-2: ref_model must also be a ProtoModel."""
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_own5'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class NotModel:
-            pass
-        O.storage = MagicMock()
-        with pytest.raises(AssertionError):
-            generate_join_model(O, NotModel)
-
-    def test_owner_without_storable_raises(self):
-        """UT-2: Owner without __storable__ (non-storable) has no storage attr."""
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_own6'
-            # __storable__ NOT set => no StorableMixin => no storage attr
-            name: str = Field(default='')
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_ch6'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-        with pytest.raises(AssertionError, match="storage"):
-            generate_join_model(O, C)
-
-    def test_join_model_inherits_from_ref(self):
-        """UT-2: Join model is a subclass of the ref_model."""
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_own7'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_ch7'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-        O.storage = MagicMock()
-        jm = generate_join_model(O, C)
-        assert issubclass(jm, C)
-
-    def test_join_model_is_storable(self):
-        """UT-2: Join model should have __storable__ = True."""
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_own8'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_ch8'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-        O.storage = MagicMock()
-        jm = generate_join_model(O, C)
-        assert jm.__storable__ is True
-
-    def test_join_model_tagname(self):
-        """UT-2: __tagname__ should be set to child tablename."""
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_own9'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_ch9'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-        O.storage = MagicMock()
-        jm = generate_join_model(O, C)
-        assert jm.__tagname__ == 'gj_ch9'
-
-    def test_join_model_inherits_methods(self):
-        """UT-2: Join model inherits exposed methods from ref_model."""
-        from n3tx_core.utils.decorators import expose_route
-        class O(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_own10'
-            __storable__: ClassVar[bool] = True
-            name: str = Field(default='')
-        class C(ProtoModel):
-            __tablename__: ClassVar[str] = 'gj_ch10'
-            __storable__: ClassVar[bool] = True
-            text: str = Field(default='')
-            @expose_route('/custom', methods=['POST'])
-            def custom(self) -> str:
-                return 'inherited'
-        O.storage = MagicMock()
-        jm = generate_join_model(O, C)
-        assert hasattr(jm, 'custom')
-        assert hasattr(jm.custom, '__endpoint__')
-
 
 # ===================================================================
 # _apply_field_exclusion

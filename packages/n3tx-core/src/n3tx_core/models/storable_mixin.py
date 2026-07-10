@@ -6,7 +6,6 @@ from typing import ClassVar, Any, List, Union
 from pydantic import BaseModel
 
 from n3tx_core.storage.abstract_storage import AbstractStorage as StorageInterface
-from n3tx_core.utils.registrar import join_models
 from n3tx_core.utils.typer import Ref
 from n3tx_core.utils.descriptors import fullmethod
 
@@ -63,24 +62,6 @@ class StorableMixin:
 
     @classmethod
     def create(cls, data: Any) -> Any:
-        parent = getattr(data, '__owner__', None)
-
-        if parent:
-            # Walk MRO to find matching join key — handles join model instances
-            # (e.g. ProductComment → Comment) where direct class name doesn't match.
-            for ancestor in parent.__class__.__mro__:
-                key = (ancestor.__name__, cls.__name__)
-                if key in join_models:
-                    join_cls = join_models[key]
-                    fk_field = f"{ancestor.__name__.lower()}_id"
-                    join_data = {**data._storage_dict(exclude_unset=True), fk_field: parent.id}
-                    for k, v in join_data.items():
-                        if isinstance(v, Ref):
-                            join_data[k] = v.model_dump()  # unwrap FK/ref address for storage
-                    return join_cls.create(join_cls(**join_data))
-
-
-        # Fallback to normal behavior
         data_dict = data._storage_dict(exclude_unset=True)
         for k, v in data_dict.items():
             if isinstance(v, Ref):

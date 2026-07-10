@@ -14,7 +14,6 @@ from typing import Any, Dict, List, Type, get_args, get_origin, Union
 from pydantic import BaseModel
 
 from n3tx_core import config
-from n3tx_core.utils.registrar import registered_models
 from n3tx_core.utils.introspection import get_json_fields, get_fk_list_fields, get_ref_fields, get_ref_list_fields
 from n3tx_core.utils.populate import PopulateSpec
 from n3tx_core.models.ref import canonicalize_ref, is_distributed_ref, is_external_link, local_ref_id
@@ -162,13 +161,24 @@ def _normalize_fk_list_storage_values(model_class, data):
             local_id = local_ref_id(item, target_cls=target_cls)
             if local_id is not None:
                 ids.append(local_id)
+                continue
+            if isinstance(item, dict):
+                ref_value = item.get('$id') or item.get('id')
+            else:
+                ref_value = item
+            if isinstance(ref_value, str) and (
+                ref_value.startswith('n3tx://')
+                or ref_value.startswith('http://')
+                or ref_value.startswith('https://')
+                or ref_value.startswith('/')
+            ):
+                raise ValueError(f"Invalid non-local relationship value for {field_name}: {ref_value}")
         data[field_name] = ids
 
 
 def _local_ref_href(value, target_cls):
-    """Return existing local table-name href behavior for local refs."""
-    target_table = getattr(target_cls, '__tablename__', target_cls.__name__.lower())
-    return f"{config.API_URL}/{target_table}/{value}"
+    """Return the canonical flat class-name URL for a local ref."""
+    return f"{config.API_URL}/{target_cls.__name__}/{value}"
 
 
 def _public_storage_ref(value, target_cls):
@@ -411,11 +421,6 @@ class SQLiteStorage(AbstractStorage):
              limit: int = None, offset: int = None, populate: PopulateSpec = None,
              ids: list = None) -> List[Any]:
         table_name = _validate_identifier(model_class.__tablename__)
-        json_field_names = set(get_json_fields(model_class))
-        list_fields = [
-            (name, cls_) for name, cls_ in get_fk_list_fields(model_class)
-            if name not in json_field_names
-        ]
         ref_fields = get_ref_fields(model_class)
 
         select_sql = f"SELECT * FROM {table_name}"
@@ -489,41 +494,6 @@ class SQLiteStorage(AbstractStorage):
 
                 records.append(record)
 
-            # Batch-hydrate collection fields: one query per relationship field
-            # instead of one query per parent row per field (N×M → M queries).
-            if list_fields:
-                parent_ids = [r['id'] for r in records if r.get('id') is not None]
-                for field_name, child_class in list_fields:
-                    effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
-                    child_table = _validate_identifier(effective_cls.__tablename__)
-                    if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
-                        fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
-                    else:
-                        fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
-
-                    # Single batch query for all parents
-                    grouped = {}
-                    if parent_ids:
-                        placeholders = ",".join(["?"] * len(parent_ids))
-                        try:
-                            cursor.execute(
-                                f"SELECT id, {fk_col} FROM {child_table} WHERE {fk_col} IN ({placeholders})",
-                                parent_ids
-                            )
-                            for child_id, parent_fk in cursor.fetchall():
-                                grouped.setdefault(parent_fk, []).append(child_id)
-                        except sqlite3.OperationalError:
-                            pass
-
-                    # Assign href arrays to each record
-                    for record in records:
-                        pid = record.get('id')
-                        child_ids = grouped.get(pid, [])
-                        record[field_name] = [
-                            f"{config.API_URL}/{model_class.__tablename__}/{pid}/{field_name}/{cid}"
-                            for cid in child_ids
-                        ]
-
             results = [model_class(**record) for record in records]
 
             if populate and not populate.is_empty:
@@ -580,8 +550,7 @@ class SQLiteStorage(AbstractStorage):
 
                     if fk_value is not None:
                         try:
-                            fk_model = registered_models[field_type.__tablename__]
-                            data[field_name] = fk_model(id=fk_value)
+                            data[field_name] = field_type(id=fk_value)
                         except Exception:
                             pass
 
@@ -590,30 +559,6 @@ class SQLiteStorage(AbstractStorage):
                 val = data.get(field_name)
                 if val is not None:
                     data[field_name] = _public_storage_ref(val, target_cls)
-
-            # ── Hydrate collection fields as href arrays ──
-            json_field_names = set(get_json_fields(model_class))
-            for field_name, child_class in get_fk_list_fields(model_class):
-                if field_name in json_field_names:
-                    continue
-                effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
-                child_table = _validate_identifier(effective_cls.__tablename__)
-                if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
-                    fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
-                else:
-                    fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
-                try:
-                    cursor.execute(
-                        f"SELECT id FROM {child_table} WHERE {fk_col} = ?", (id,)
-                    )
-                    child_rows = cursor.fetchall()
-                    data[field_name] = [
-                        f"{config.API_URL}/{model_class.__tablename__}/{id}/{field_name}/{row[0]}"
-                        for row in child_rows
-                    ]
-                except sqlite3.OperationalError:
-                    # Child table or FK column may not exist yet
-                    data[field_name] = []
 
             # Deserialize JSON TEXT fields (dict/list) before model instantiation
             _deserialize_json_fields(model_class, data)
@@ -651,162 +596,9 @@ class SQLiteStorage(AbstractStorage):
             _visited = set()
         _visited = _visited | {model_class.__name__}  # immutable copy per branch
 
-        json_field_names = set(get_json_fields(model_class))
-        list_fields = [
-            (name, cls_) for name, cls_ in get_fk_list_fields(model_class)
-            if name not in json_field_names
-        ]
         ref_fields = get_ref_fields(model_class)
         ref_list_fields = get_ref_list_fields(model_class)
         cursor = conn.cursor()
-
-        # ── Populate relationship collection fields ──
-        for field_name, child_class in list_fields:
-            if not populate.should_populate(field_name):
-                continue
-
-            effective_cls = getattr(model_class, '__fk_models__', {}).get(field_name, child_class)
-            actual_child_class = getattr(effective_cls, '__parent__', effective_cls)
-
-            # Cycle check
-            if actual_child_class.__name__ in _visited:
-                continue
-
-            child_table = _validate_identifier(effective_cls.__tablename__)
-            if hasattr(effective_cls, '__owner__') and effective_cls.__owner__ is not None:
-                fk_col = _validate_identifier(f"{effective_cls.__owner__.__name__.lower()}_id")
-            else:
-                fk_col = _validate_identifier(f"{model_class.__name__.lower()}_id")
-
-            # Collect parent IDs
-            parent_ids = [getattr(inst, 'id', None) for inst in instances]
-            parent_ids = [pid for pid in parent_ids if pid is not None]
-            if not parent_ids:
-                continue
-
-            # Batch query: SELECT * FROM child_table WHERE fk_col IN (?, ?, ...)
-            placeholders = ",".join(["?"] * len(parent_ids))
-            try:
-                cursor.execute(
-                    f"SELECT * FROM {child_table} WHERE {fk_col} IN ({placeholders})",
-                    parent_ids
-                )
-                rows = cursor.fetchall()
-                columns = [col[0] for col in cursor.description]
-            except sqlite3.OperationalError:
-                continue
-
-            # Group by parent FK
-            grouped = {}
-            for row in rows:
-                record = dict(zip(columns, row))
-                parent_fk = record.get(fk_col)
-                grouped.setdefault(parent_fk, []).append(record)
-
-            child_spec = populate.child_spec(field_name)
-
-            # Build child instances, apply per-parent limit, build {data, meta} wrapper
-            for inst in instances:
-                pid = getattr(inst, 'id', None)
-                child_records = grouped.get(pid, [])
-                total = len(child_records)
-                capped = child_records[:child_spec.limit]
-
-                # Coerce NULLs and hydrate Ref fields on all children first
-                child_ref_fields = get_ref_fields(effective_cls)
-                child_list_fields = get_fk_list_fields(effective_cls)
-                for rec in capped:
-                    for key, val in rec.items():
-                        if val is None and key in effective_cls.model_fields:
-                            field_info = effective_cls.model_fields[key]
-                            if field_info.default is not None:
-                                rec[key] = field_info.default
-
-                    for ref_name, target_cls in child_ref_fields:
-                        val = rec.get(ref_name)
-                        if val is not None:
-                            rec[ref_name] = _public_storage_ref(val, target_cls)
-
-                # Batch-hydrate child's own relationship fields (one query per field,
-                # not per child instance — same N+1 fix as in list()).
-                if child_list_fields and capped:
-                    child_ids = [r['id'] for r in capped if r.get('id') is not None]
-                    for child_list_name, child_list_cls in child_list_fields:
-                        child_effective = getattr(effective_cls, '__fk_models__', {}).get(child_list_name, child_list_cls)
-                        child_list_table = _validate_identifier(child_effective.__tablename__)
-                        if hasattr(child_effective, '__owner__') and child_effective.__owner__ is not None:
-                            child_fk = _validate_identifier(f"{child_effective.__owner__.__name__.lower()}_id")
-                        else:
-                            child_fk = _validate_identifier(f"{effective_cls.__name__.lower()}_id")
-
-                        sub_grouped = {}
-                        if child_ids:
-                            ph = ",".join(["?"] * len(child_ids))
-                            try:
-                                cursor.execute(
-                                    f"SELECT id, {child_fk} FROM {child_list_table} WHERE {child_fk} IN ({ph})",
-                                    child_ids
-                                )
-                                for sub_id, sub_fk in cursor.fetchall():
-                                    sub_grouped.setdefault(sub_fk, []).append(sub_id)
-                            except sqlite3.OperationalError:
-                                pass
-
-                        for rec in capped:
-                            rid = rec.get('id')
-                            sub_ids = sub_grouped.get(rid, [])
-                            rec[child_list_name] = [
-                                f"{config.API_URL}/{effective_cls.__tablename__}/{rid}/{child_list_name}/{sid}"
-                                for sid in sub_ids
-                            ]
-
-                # Deserialize JSON TEXT fields on child records
-                for rec in capped:
-                    _deserialize_json_fields(effective_cls, rec)
-                    for ref_list_name, ref_list_target in get_ref_list_fields(effective_cls):
-                        if ref_list_name in rec:
-                            rec[ref_list_name] = _public_ref_list(rec.get(ref_list_name), ref_list_target)
-
-                # Build child model instances and serialize
-                child_dicts = []
-                child_instances = []
-                for rec in capped:
-                    try:
-                        child_inst = effective_cls(**rec)
-                        child_instances.append(child_inst)
-                        dumped = child_inst.model_response()
-                        # Use parent-scoped class-name URL for $id.
-                        child_cls = getattr(effective_cls, '__parent__', effective_cls)
-                        dumped['$id'] = (
-                            f"{config.API_URL}/{model_class.__name__}/{pid}"
-                            f"/{child_cls.__name__}/{rec.get('id')}"
-                        )
-                        child_dicts.append(dumped)
-                    except Exception:
-                        pass
-
-                populated_wrapper = {
-                    'data': child_dicts,
-                    'meta': {
-                        'total': total,
-                        'limit': child_spec.limit,
-                        'offset': 0,
-                        'has_more': total > child_spec.limit,
-                    }
-                }
-
-                if not hasattr(inst, '_populated') or inst._populated is None:
-                    inst.__dict__['_populated'] = {}
-                inst.__dict__['_populated'][field_name] = populated_wrapper
-
-                # Recurse for nested populate
-                if child_instances and not child_spec.is_empty:
-                    self._populate_fields(effective_cls, child_instances, child_spec, conn, _visited)
-                    # Overlay recursive population onto already-serialized dicts
-                    for child_inst, child_dict in zip(child_instances, child_dicts):
-                        nested_pop = getattr(child_inst, '_populated', None) or child_inst.__dict__.get('_populated')
-                        if nested_pop:
-                            child_dict.update(nested_pop)
 
         # ── Populate list[Ref[T]] fields (JSON-backed pointer arrays) ──
         for field_name, target_cls in ref_list_fields:

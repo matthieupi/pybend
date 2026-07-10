@@ -13,8 +13,8 @@ create_app() / N3TXApp.build()
   |
   1. Configure auth (jwt_secret, expiry)
   2. Prepare model registrations (pure -- no side effects)
-  3. Generate join models
-  4. Apply registrations (storage, tables, migrations, global dicts)
+  3. Generate field-declared relationship helper models (for ManyToMany only)
+  4. Apply registrations (storage, tables, migrations, global registry)
   5. Provision app assistant (optional, if app_agent=...)
   6. Create FastAPIBackend (JWT middleware, CORS, SSR)
   7. Register routes (direct or actor)
@@ -36,7 +36,6 @@ from n3tx_core.app import create_app
 
 app = create_app(
     models=[Product, User, Comment],
-    join_models=[(Product, Comment)],
     storage="sqlite:///app.db",      # URI string or AbstractStorage instance
     routing='direct',                 # 'direct' (Level 1/2) or 'actor' (Level 3)
     ws=False,                         # WebSocket bridge (requires routing='actor')
@@ -66,7 +65,6 @@ builder = N3TXApp(
 )
 builder.model(Product)
 builder.model(User)
-builder.join(Product, Comment)
 builder.static('./static')
 app = builder.build(name='MyApp')
 ```
@@ -77,9 +75,21 @@ All builder methods return `self` for chaining:
 app = (N3TXApp(storage="sqlite:///app.db")
     .model(Product)
     .model(User)
-    .join(Product, Comment)
     .static('./static')
     .build())
+```
+
+Register every storable model explicitly. Owned local collections are declared
+on the model itself as `list[T]` fields; there is no builder-level relationship
+registration step:
+
+```python
+class Product(ProtoModel):
+    __tablename__ = 'products'
+    __storable__ = True
+    comments: list[Comment] = Field(default=[])
+
+app = create_app(models=[Product, Comment, User], storage="sqlite:///app.db")
 ```
 
 ### Level 3 -- Raw Primitives
@@ -160,7 +170,6 @@ persistent conversation history, so applications do not need to list it in
 ```python
 app = create_app(
     models=[Grant, Source, AgentTool, AgentActor],
-    join_models=[(AgentActor, AgentTool)],
     storage="sqlite:///app.db",
     app_agent={
         "key": "assistant",
@@ -203,16 +212,6 @@ GET    /{ClassName}/{id:int}         # read mirror
 PUT    /{ClassName}/{id:int}         # update mirror
 DELETE /{ClassName}/{id:int}         # delete mirror
 POST   /{ClassName}/{id:int}/method  # literal custom method mirror
-GET    /{ParentClass}/{parent_id:int}/{ChildClass}
-                                      # nested JSON collection mirror
-POST   /{ParentClass}/{parent_id:int}/{ChildClass}
-                                      # nested create mirror with parent FK injection
-GET    /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}
-                                      # nested read mirror / canonical nested identity
-PUT    /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}
-                                      # nested update mirror
-DELETE /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}
-                                      # nested delete mirror
 GET    /{ClassName}/@                # collection default HTML view, if viewable
 GET    /{ClassName}/@{view}          # collection named HTML view, if viewable
 GET    /{ClassName}/{id:int}/@       # member default HTML view, if viewable
@@ -239,6 +238,12 @@ when a model capability provides it. Package-owned API routes such as
 `register_extra_routes()`. `n3tx-core` only depends on these small hooks and
 remains optional-package neutral.
 
+Local owned collections are not represented as generated nested routes. Declare
+them as `list[T]` fields on the owner model. SQLite stores the ordered child ids
+in the parent row as JSON, then the read path hydrates those ids into
+self-describing child objects. Child identity remains flat and class-name based,
+for example `GET /Comment/5` and `$id: "http://localhost:5000/Comment/5"`.
+
 ### Optional capability route hook
 
 Models can expose package-owned routes that cannot be expressed as normal JSON
@@ -257,15 +262,11 @@ capabilities like file upload/download where the wire format is multipart or
 binary. The package-owned route must still enforce the same model authorization
 contract before changing metadata or streaming bytes.
 
-Nested class-name mirrors are generated from join model metadata (`__owner__`,
-`__parent__`, and the generated parent FK field). They are only registered when a
-`(ParentClass, ChildClass)` pair is unique; duplicate same-child relationships
-continue to use legacy relation/tag routes until a relation-aware alias grammar
-exists.
-
 ## Gotchas
 
-- **`build()` clears global registries.** `registered_models.clear()` and `join_models.clear()` are called at the start of `build()` to support uvicorn `--reload`. This means multiple `build()` calls do not accumulate models.
+- **`build()` clears global registries.** `registered_models.clear()` is called at the start of `build()` to support uvicorn `--reload`. This means multiple `build()` calls do not accumulate models.
+- **`join_models` and `N3TXApp.join()` are removed.** Declare owned collections as `list[T]` fields and register both model classes. `create_app(join_models=...)` now raises `TypeError` so stale bootstrap code fails loudly.
+- **Legacy join-backed data needs an explicit migration.** The framework no longer reads generated join tables to populate `list[T]` fields. Move old relationship rows into the parent's JSON id-array column before deploying this contract to an existing database.
 - **Actor routing re-registers finalized actor models into Matrix.** Actor subclasses may auto-register with the root Matrix at import time, before storage/test bootstrap is finalized. During `build(routing='actor')`, the finalized `registered_models` actor classes are re-registered into Matrix so routing uses the same live classes that storage was attached to.
 - **Storage URI parsing is limited.** Only `sqlite:///path` is currently supported. Passing an unrecognized URI raises `ValueError`.
 - **SSR parameter accepts multiple types.** `None` reads from config, `True` maps to `"schema"`, `False` maps to `"off"`, strings are validated against `('off', 'schema', 'bundle', 'full')`.

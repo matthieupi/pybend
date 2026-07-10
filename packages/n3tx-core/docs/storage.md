@@ -78,6 +78,35 @@ Product.delete(1)
 product.save()
 ```
 
+### Update boundary contract
+
+Storage and `StorableMixin.update()` are patch-oriented: only keys present in
+the supplied dictionary are written.
+
+```python
+Product.update(1, {'price': 19.99})  # all omitted fields remain unchanged
+```
+
+Generated HTTP `PUT` routes currently have a stricter boundary: they validate a
+complete model before calling `update()`. Callers must send all required fields
+and include current values for defaulted collections/JSON fields they need to
+preserve. Otherwise model validation may materialize omitted defaults such as
+`[]` or `{}` and storage will correctly treat those values as explicit
+replacements.
+
+For every collection field, storage replacement semantics are:
+
+| Payload state | Storage behavior |
+|---|---|
+| Field omitted from a direct Python/TX patch | Leave field unchanged |
+| Field supplied with values | Replace the complete stored field |
+| Field supplied as `[]` or `{}` | Clear the complete stored field |
+
+`list[T]` stores ordered local child IDs; `list[Ref[T]]` stores ordered
+local/distributed pointers. Neither performs an atomic append/remove operation.
+Read-modify-write updates are last-write-wins, so use domain-specific methods for
+concurrency-sensitive relationship mutations.
+
 ### Pagination Response Shape
 
 When `limit` is provided, `list()` returns a dict instead of a list:
@@ -107,19 +136,19 @@ class Config(ProtoModel):
     tags: list = Field(default=[])           # TEXT column, json.dumps/loads
     metadata: dict = Field(default={})       # TEXT column, json.dumps/loads
     scores: List[int] = Field(default=[])    # TEXT column, json.dumps/loads
-    comments: ListRef[Comment] = Field(default=[])  # FK join table (NOT JSON)
+    related_refs: list[Ref[Comment]] = Field(default=[])  # TEXT column, json.dumps/loads
 ```
 
-Detection: `get_json_fields(model_class)` in `introspection.py` returns fields for JSON treatment. It matches `dict`, `Dict[str, Any]`, `list`, `List[str]`, `List[int]` but excludes `ListRef[T]`, many-to-many fields, and `List[BaseModel]`.
+Detection: `get_json_fields(model_class)` in `introspection.py` returns fields for JSON treatment. It matches `dict`, `Dict[str, Any]`, `list`, `List[str]`, `List[int]`, and distributed pointer arrays such as `list[Ref[T]]`.
 
 Write path: `_coerce_value()` calls `json.dumps(v, default=str)` for dict/list values.
 Read path: `_deserialize_json_fields()` calls `json.loads()` on string values before model instantiation.
 
-Use JSON fields for metadata, settings, primitive arrays, and external payload
-fragments that do not need independent identity. If nested data needs routes,
-ownership, authorization, pagination, lifecycle events, or row-level updates,
-model it as a resource and connect it with `ListRef[T]` or another relationship
-primitive instead.
+Use JSON fields for metadata, settings, primitive arrays, external payload
+fragments, distributed pointer arrays, and local owned `list[T]` relationship
+ids. If nested data needs independent routes, authorization, lifecycle events,
+or row-level updates, model the child as its own storable resource and store its
+ids in a parent `list[T]` field.
 
 The read path also normalizes legacy empty-string values before Pydantic
 validation. If a bool field contains `''` or the literal string `"''"` from an
@@ -158,13 +187,13 @@ reference_resolver=resolver)` or `storage.set_reference_resolver(resolver)`.
 The resolver may expose `resolve(ref, target_cls=None, user=None, context=None)`
 or be directly callable with that signature.
 
-For distributed pointer arrays, use JSON-backed `list[Ref[T]]`. `ListRef[T]`
-remains the local owned relationship primitive backed by child/join tables.
-
-`ListRef[T]` fields are stored in join tables and serialized as href arrays:
+For distributed pointer arrays, use JSON-backed `list[Ref[T]]`. For local owned
+collections, use `list[T]`: SQLite stores the parent column as a JSON array of
+local child ids and hydrates it into self-describing child objects on read.
 
 ```python
-# Returned: comments = ["http://localhost:5000/products/1/comments/5", ...]
+# Stored in DB: comments = [5, 9]
+# Returned by get()/list(): comments = [{"id": 5, "$id": "/Comment/5", ...}, ...]
 ```
 
 ### Eager Loading (Populate)
@@ -194,7 +223,6 @@ Populated data is attached to `instance.__dict__['_populated']` and merged into 
 - **`list()` return type changes with pagination.** Without `limit`, returns `list[Model]`. With `limit`, returns `dict` with `data` and `meta` keys. Always check `isinstance(result, dict)` if the caller might pass optional pagination.
 - **SQLite `:memory:` with separate connections.** `create_table()` opens a pooled connection. If tests use `:memory:`, each connection gets a separate database. Use file-based SQLite in tests via `tmp_path` fixture.
 - **`_coerce_value()` converts non-native types to string.** Any value that is not `int`, `float`, `str`, `bytes`, `bool`, `None`, `datetime`, `dict`, or `list` gets `str()` applied. This includes Pydantic types like `AnyHttpUrl`.
-- **Collection fields are excluded from INSERT/UPDATE.** `get_list_fields()` identifies `ListRef[T]` and `List[BaseModel]` fields. These are excluded from column lists because they live in join tables, not as columns on the parent table.
-- **Join model FK column naming:** `{ParentClassName.lower()}_id`. The FK column on `ProductComment` is `product_id`. Aliasing the `id` field on models can cause naming clashes.
+- **Collection fields are JSON columns.** Local `list[T]` fields store child ids in the parent row and hydrate to objects on read. Updates replace the stored id list for that field.
 - **`_validate_identifier()` rejects unsafe SQL identifiers.** Table and column names must match `^[a-zA-Z_][a-zA-Z0-9_]*$`. This prevents SQL injection but also means table names cannot contain hyphens or special characters.
 - **Populate cycle prevention.** `_populate_fields` tracks visited model names in `_visited` to prevent infinite recursion on circular relationships. Each branch gets an immutable copy of the visited set.

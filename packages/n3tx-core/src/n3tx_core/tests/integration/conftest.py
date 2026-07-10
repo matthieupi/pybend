@@ -36,7 +36,7 @@ os.environ["GENERATE_DOCS"] = "false"  # Skip doc generation during tests
 from main import app  # noqa: triggers model registration
 
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
-from n3tx_core.utils.registrar import registered_models, join_models
+from n3tx_core.utils.registrar import registered_models
 from models import Product, Comment, Like, User
 from n3tx_core.authorize import create_token
 
@@ -138,8 +138,8 @@ def _seed_comments(users, products):
         product = products[c["product_idx"]]
         user = users[c["user_key"]]
         comment = Comment(name=c["name"], description=c["description"], user_owner=user.id)
-        comment.__owner__ = product
-        result = comment.save()
+        result = Comment.create(comment)
+        products[c["product_idx"]] = Product.update(product.id, {'comments': list(product.comments or []) + [result]})
         created.append(result)
     return created
 
@@ -166,8 +166,8 @@ def _seed_replies(users, products, comments):
             user_owner=user.id,
             parent_id=parent.id,
         )
-        reply.__owner__ = product
-        result = reply.save()
+        result = Comment.create(reply)
+        products[r["product_idx"]] = Product.update(product.id, {'comments': list(product.comments or []) + [result]})
         created.append(result)
     return created
 
@@ -189,8 +189,8 @@ def _seed_likes(users, comments):
         comment = comments[ld["comment_idx"]]
         user = users[ld["user_key"]]
         like = Like(user=user.id, created_at=datetime.now().isoformat())
-        like.__owner__ = comment
-        result = like.save()
+        result = Like.create(like)
+        comments[ld["comment_idx"]] = Comment.update(comment.id, {'likes': list(comment.likes or []) + [result]})
         created.append(result)
     return created
 
@@ -212,8 +212,8 @@ def _seed_favorites(users, products):
         product = products[fd["product_idx"]]
         user = users[fd["user_key"]]
         fav = Like(user=user.id, created_at=datetime.now().isoformat())
-        fav.__owner__ = product
-        result = fav.save()
+        result = Like.create(fav)
+        products[fd["product_idx"]] = Product.update(product.id, {'favorites': list(product.favorites or []) + [result]})
         created.append(result)
     return created
 

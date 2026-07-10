@@ -4,13 +4,13 @@ import json
 import logging
 import traceback
 
-from fastapi import APIRouter, Request, HTTPException, status, Body, Path, Query
+from fastapi import APIRouter, Request, HTTPException, Body, Path, Query
 from fastapi.responses import StreamingResponse
 from typing import Dict, Type, Any, List
 from n3tx_core import config
 from n3tx_core.models.storable_mixin import StorableMixin
 from n3tx_core.utils.erroring import get_traceback_info, MethodError
-from n3tx_core.utils.registrar import registered_models, join_models
+from n3tx_core.utils.registrar import registered_models
 from n3tx_core.utils.typer import flatten_refs
 from n3tx_core.utils.populate import parse_populate
 from n3tx_core.utils.materialize import materialize_arg
@@ -46,13 +46,12 @@ def _get_user(request: Request) -> dict:
     return getattr(request.state, 'user', {}) or {}
 
 
-def _build_context(request, model_class, action, resource=None, parent_id=None):
+def _build_context(request, model_class, action, resource=None):
     return AccessContext(
         user=_get_user(request),
         action=action,
         model_class=model_class,
         resource=resource,
-        parent_id=parent_id,
     )
 
 def _serialize(instance):
@@ -80,24 +79,19 @@ def register_route(path, fn, method='GET'):
 
 # --- Route factories ---
 def make_create_instance(model_class):
-    param_class = model_class.__parent__ if hasattr(model_class, '__parent__') else model_class
-
-    async def create_instance(request: Request, data: param_class, parent_id: int = None) -> model_class:
-        ctx = _build_context(request, model_class, "create", parent_id=parent_id)
+    async def create_instance(request: Request, data: model_class) -> model_class:
+        ctx = _build_context(request, model_class, "create")
         try:
             _resolver.authorize(ctx)
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e))
-        logger.info("Creating %s with parent_id=%s", model_class.__name__, parent_id)
+        logger.info("Creating %s", model_class.__name__)
         try:
             data_dict = flatten_refs(data)
-            if parent_id:
-                fk_field = f"{model_class.__owner__.__name__.lower()}_id"
-                data_dict[fk_field] = parent_id
 
             # Auto-inject user_owner from JWT on create
             protected = getattr(model_class, '__protected_fields__', None) or \
-                        getattr(param_class, '__protected_fields__', set())
+                        set()
             if 'user_owner' in protected:
                 user = _get_user(request)
                 if user and user.get('user_id'):
@@ -117,55 +111,6 @@ def make_create_instance(model_class):
 def make_get_all_instances(model_class):
     async def list_all_instances(
         request: Request,
-        parent_id: int = None,
-        limit: int = Query(default=None, ge=1, le=100),
-        offset: int = Query(default=None, ge=0),
-        populate: str = Query(default=None),
-        depth: int = Query(default=None, ge=0, le=3),
-    ):
-        ctx = _build_context(request, model_class, "list", parent_id=parent_id)
-        try:
-            auth_filter = _resolver.sql_filter_for(ctx)
-        except AccessDenied as e:
-            raise HTTPException(status_code=403, detail=str(e))
-
-        pop_spec = parse_populate(populate, depth)
-        target_cls = model_class
-
-        if parent_id:
-            # Resolve join model based on registration
-            for (parent_name, child_name), join_cls in join_models.items():
-                if child_name == model_class.__name__:
-                    target_cls = join_cls
-                    break
-
-        result = target_cls.list(sql_filter=auth_filter, limit=limit, offset=offset, populate=pop_spec)
-
-        # Paginated response: {data: [...], meta: {...}}
-        if isinstance(result, dict) and 'data' in result:
-            items = result['data']
-            if parent_id:
-                fk_field = f"{target_cls.__owner__.__name__.lower()}_id"
-                items = [r for r in items if getattr(r, fk_field, None) == parent_id]
-            return {
-                'data': [_serialize(r) for r in items],
-                'meta': result['meta'],
-            }
-
-        # Unpaginated response: plain array (backward compatible)
-        if parent_id:
-            fk_field = f"{target_cls.__owner__.__name__.lower()}_id"
-            return [_serialize(r) for r in result if getattr(r, fk_field, None) == parent_id]
-
-        return [_serialize(r) for r in result]
-
-    return list_all_instances
-
-
-def make_collection_list(model_class):
-    """GET-only collection route for join models — lists all records across parents."""
-    async def collection_list(
-        request: Request,
         limit: int = Query(default=None, ge=1, le=100),
         offset: int = Query(default=None, ge=0),
         populate: str = Query(default=None),
@@ -180,14 +125,17 @@ def make_collection_list(model_class):
         pop_spec = parse_populate(populate, depth)
         result = model_class.list(sql_filter=auth_filter, limit=limit, offset=offset, populate=pop_spec)
 
+        # Paginated response: {data: [...], meta: {...}}
         if isinstance(result, dict) and 'data' in result:
             return {
                 'data': [_serialize(r) for r in result['data']],
                 'meta': result['meta'],
             }
+
+        # Unpaginated response: plain array (backward compatible)
         return [_serialize(r) for r in result]
 
-    return collection_list
+    return list_all_instances
 
 
 def make_get_schema(model_class):
@@ -227,12 +175,11 @@ def make_get_instance(model_class):
 
 
 def make_update_instance(model_class):
-    param_class = model_class.__parent__ if hasattr(model_class, '__parent__') else model_class
-    async def update_instance(request: Request, id: int, data: param_class, parent_id: int = None) -> model_class:
+    async def update_instance(request: Request, id: int, data: model_class) -> model_class:
         instance = model_class.get(id)
         if not instance:
             raise HTTPException(status_code=404, detail="Not found")
-        ctx = _build_context(request, model_class, "update", resource=instance, parent_id=parent_id)
+        ctx = _build_context(request, model_class, "update", resource=instance)
         try:
             _resolver.authorize(ctx)
         except AccessDenied as e:
@@ -241,12 +188,9 @@ def make_update_instance(model_class):
             data_dict = flatten_refs(data)
             # Strip backend-owned fields that cannot be modified via API
             protected = getattr(model_class, '__protected_fields__', None) or \
-                        getattr(param_class, '__protected_fields__', set())
+                        set()
             for field in protected:
                 data_dict.pop(field, None)
-            if parent_id:
-                fk_field = f"{model_class.__owner__.__name__.lower()}_id"
-                data_dict[fk_field] = parent_id
             logger.info("Updating %s ID=%s", model_class.__name__, id)
             updated = model_class.update(id, data_dict)
             return updated.model_response()
@@ -357,7 +301,6 @@ def make_custom_post(attr, model_class, route_path):
 
     async def post_with_id(
         request: Request,
-        parent_id: int = None,
         id: int = Path(..., description=f"{model_class.__name__} ID"),
         data: Dict[str, Any] = Body(default={}),
     ):
@@ -476,57 +419,13 @@ async def auth_me(request: Request):
 
 
 def register_routes():
-    nested_class_pairs = {}
-    for candidate in registered_models.values():
-        owner_cls = getattr(candidate, '__owner__', None)
-        child_cls = getattr(candidate, '__parent__', None)
-        if owner_cls and child_cls:
-            nested_class_pairs.setdefault((owner_cls.__name__, child_cls.__name__), []).append(candidate)
-
-    def nested_class_base_for(model_class):
-        owner_cls = getattr(model_class, '__owner__', None)
-        child_cls = getattr(model_class, '__parent__', None)
-        if not owner_cls or not child_cls:
-            return None
-        matches = nested_class_pairs.get((owner_cls.__name__, child_cls.__name__), [])
-        if len(matches) != 1:
-            logger.warning(
-                "Skipping ambiguous nested class-name routes for %s/%s: %s",
-                owner_cls.__name__, child_cls.__name__,
-                [m.__name__ for m in matches],
-            )
-            return None
-        return f"/{owner_cls.__name__}/{{parent_id:int}}/{child_cls.__name__}"
-
-    # Pass 1: Register static collection routes for join models FIRST.
-    # These must come before parent model's /{table}/{id:int} routes because
-    # FastAPI matches routes by registration order, and {id:int} would match
-    # "comments" before the static /products/comments route gets a chance.
-    # Route path uses __tablename__ to match the DynamicClass href the frontend
-    # constructs from the schema's __tablename__ field.
-    for model_name, model_class in registered_models.items():
-        parent_class = getattr(model_class, '__owner__', None)
-        if parent_class and issubclass(model_class, StorableMixin):
-            tag = parent_class.__tablename__.capitalize()
-            collection_path = f"/{model_class.__tablename__}"
-            router.get(collection_path, tags=[tag])(make_collection_list(model_class))
-            logger.info("Collection route: GET %s", collection_path)
-
-    # Pass 2: Register all model routes (schema, CRUD, custom methods)
     for model_name, model_class in registered_models.items():
         # Extract model metadata
         logger.info("Registering routes for model: %s (%s)", model_name, model_class.__name__)
         model_title = model_name.capitalize()
         is_storable = issubclass(model_class, StorableMixin)
-        parent_class = getattr(model_class, '__owner__', None)
-        # Check if has parent
-        if not parent_class:
-            tag = model_class.__tablename__.capitalize()
-            endpoint_base = f"/{model_name}"
-        else:
-            tag = model_class.__owner__.__tablename__.capitalize()
-            parent_name = parent_class.__name__.lower()
-            endpoint_base = f"/{parent_class.__tablename__}/{{parent_id:int}}/{model_class.__tagname__}"
+        tag = model_class.__tablename__.capitalize()
+        endpoint_base = f"/{model_name}"
 
         # Register basic GET route for schema
         router.get(f"/{model_class.__name__}", tags=[tag])(make_get_schema(model_class))
@@ -563,20 +462,11 @@ def register_routes():
             router.put(f"{endpoint_base}/{{id:int}}", tags=[tag])(update_instance)
             router.delete(f"{endpoint_base}/{{id:int}}", tags=[tag])(delete_instance)
 
-            if not parent_class:
-                class_base = f"/{model_class.__name__}"
-                router.post(class_base, tags=[tag], status_code=201)(create_instance)
-                router.get(f"{class_base}/_", tags=[tag])(list_instances)
-                router.put(f"{class_base}/{{id:int}}", tags=[tag])(update_instance)
-                router.delete(f"{class_base}/{{id:int}}", tags=[tag])(delete_instance)
-            else:
-                nested_class_base = nested_class_base_for(model_class)
-                if nested_class_base:
-                    router.post(nested_class_base, tags=[tag], status_code=201)(create_instance)
-                    router.get(nested_class_base, tags=[tag])(list_instances)
-                    router.get(f"{nested_class_base}/{{id:int}}", tags=[tag])(read_instance)
-                    router.put(f"{nested_class_base}/{{id:int}}", tags=[tag])(update_instance)
-                    router.delete(f"{nested_class_base}/{{id:int}}", tags=[tag])(delete_instance)
+            class_base = f"/{model_class.__name__}"
+            router.post(class_base, tags=[tag], status_code=201)(create_instance)
+            router.get(f"{class_base}/_", tags=[tag])(list_instances)
+            router.put(f"{class_base}/{{id:int}}", tags=[tag])(update_instance)
+            router.delete(f"{class_base}/{{id:int}}", tags=[tag])(delete_instance)
 
         # Custom @expose_route handlers
         for attr_name in dir(model_class):
@@ -595,38 +485,6 @@ def register_routes():
 
                 return_type = _resolve_custom_return_type(attr, model_class)
 
-                custom_method = None
-                if isinstance(attr, (classmethod, staticmethod)):
-                    if 'GET' in methods:
-                        async def custom_get(attr=attr) -> return_type:
-                            logger.debug("Custom GET handler for %s", attr.__name__)
-                            return attr()
-                        router.add_api_route(full_route, custom_get, methods=['GET'], tags=[model_title], name=attr.__name__)
-                        custom_method = custom_get
-                    elif 'POST' in methods:
-                        async def custom_post(data: Dict[str, Any] = Body(default={}), attr=attr) -> return_type:
-                            logger.debug("Custom POST handler for %s", attr.__name__)
-                            return attr(**data)
-                        custom_method = custom_post
-                else:
-                    if 'GET' in methods:
-                        async def custom_get(id: int = Path(..., description=f"{model_name.capitalize()} primary key"), attr=attr) -> return_type:
-                            logger.debug("Custom GET handler for %s ID=%s", attr.__name__, id)
-                            instance = parent_class.get(id)
-                            return attr(instance)
-                        custom_method = custom_get
-
-                    elif 'POST' in methods:
-                        async def custom_post(
-                                id: int = Path(..., description=f"{model_name.capitalize()} primary key"),
-                                data: Dict[str, Any] = Body(default={}),
-                                attr=attr
-                        ) -> return_type:
-                            logger.debug("Custom POST handler for %s ID=%s", attr.__name__, id)
-                            instance = parent_class.get(id)
-                            return attr(instance, **data)
-                        custom_method = custom_post
-
                 handler = make_custom_post(attr, model_class, full_route)
                 # In DEBUG mode, @expose_route wraps results in a dict envelope,
                 # so response_model validation would reject non-dict return types.
@@ -635,30 +493,16 @@ def register_routes():
                                      methods=methods, tags=[model_title], name=attr.__name__,
                                      response_model=resp_model,
                                      )
-                if not parent_class:
-                    if is_instance_method:
-                        class_route = f"/{model_class.__name__}/{{id:int}}{route}"
-                    else:
-                        class_route = f"/{model_class.__name__}{route}"
-                    router.add_api_route(
-                        class_route, handler,
-                        methods=methods, tags=[model_title],
-                        name=f"{attr.__name__}_class",
-                        response_model=resp_model,
-                    )
+                if is_instance_method:
+                    class_route = f"/{model_class.__name__}/{{id:int}}{route}"
                 else:
-                    nested_class_base = nested_class_base_for(model_class)
-                    if nested_class_base:
-                        if is_instance_method:
-                            nested_class_route = f"{nested_class_base}/{{id:int}}{route}"
-                        else:
-                            nested_class_route = f"{nested_class_base}{route}"
-                        router.add_api_route(
-                            nested_class_route, handler,
-                            methods=methods, tags=[model_title],
-                            name=f"{attr.__name__}_nested_class",
-                            response_model=resp_model,
-                        )
+                    class_route = f"/{model_class.__name__}{route}"
+                router.add_api_route(
+                    class_route, handler,
+                    methods=methods, tags=[model_title],
+                    name=f"{attr.__name__}_class",
+                    response_model=resp_model,
+                )
 
 
 

@@ -22,7 +22,7 @@ from n3tx_core.models.proto_dump import (
 pytestmark = pytest.mark.unit
 
 # Default pipeline stage names registered at import time
-DEFAULT_STAGES = ['base', 'schema_url', 'instance_url', 'populate']
+DEFAULT_STAGES = ['base', 'relationships', 'schema_url', 'instance_url', 'populate']
 
 
 @pytest.fixture(autouse=True)
@@ -45,12 +45,16 @@ class TestFindStage:
         assert idx == 0
 
     def test_finds_second_stage(self):
-        idx = _find_stage('schema_url')
+        idx = _find_stage('relationships')
         assert idx == 1
 
     def test_finds_third_stage(self):
-        idx = _find_stage('instance_url')
+        idx = _find_stage('schema_url')
         assert idx == 2
+
+    def test_finds_fourth_stage(self):
+        idx = _find_stage('instance_url')
+        assert idx == 3
 
     def test_unknown_name_raises(self):
         with pytest.raises(ValueError, match="not found"):
@@ -287,7 +291,7 @@ class TestGetPipeline:
 
     def test_reflects_insertions(self):
         register_stage('mid', lambda inst, d: d, after='base')
-        assert get_pipeline() == ['base', 'mid', 'schema_url', 'instance_url', 'populate']
+        assert get_pipeline() == ['base', 'mid', 'relationships', 'schema_url', 'instance_url', 'populate']
 
     def test_empty_after_clear(self):
         clear_pipeline()
@@ -350,4 +354,4 @@ class TestRemoveStage:
 
     def test_remove_default_stage(self):
         remove_stage('instance_url')
-        assert get_pipeline() == ['base', 'schema_url', 'populate']
+        assert get_pipeline() == ['base', 'relationships', 'schema_url', 'populate']
