@@ -189,7 +189,7 @@ class TestCtx:
         assert ctx.startswith('You are a product expert.')
 
     def test_ctx_includes_relationships(self, fresh_matrix):
-        """ctx() includes ListRef relationships."""
+        """ctx() includes local model-list relationships."""
         ctx = AgenticProduct.ctx()
         assert 'comments' in ctx.lower()
         assert 'Comment' in ctx
@@ -220,7 +220,7 @@ class TestTools:
         assert 'agentic_products' in addrs
 
     def test_neighbor_tools(self, fresh_matrix):
-        """Discovers ListRef neighbor tablenames."""
+        """Discovers local model-list neighbor tablenames."""
         addrs = AgenticProduct.tools()
         assert 'comments' in addrs
 

@@ -97,11 +97,11 @@ class AgentActor(ActorModel):
     constraints: dict = Field(default={})
 
     def tool_addrs(self) -> list:
-        """Resolve tool addresses from relationship hrefs or AgentTool instances.
+        """Resolve tool addresses from AgentTool records or plain addr strings.
 
-        When loaded from DB, self.tools is hydrated as href arrays
-        (e.g., ["http://.../agents/1/agent_tools/1", ...]). This method
-        extracts the actor target from each tool reference.
+        When loaded from DB, ``self.tools`` is a shallow-hydrated
+        ``list[AgentTool]``. Plain strings are accepted for in-memory
+        construction and tests.
 
         Returns:
             List of actor address strings (e.g., ['grants', 'sources']).
@@ -109,40 +109,26 @@ class AgentActor(ActorModel):
         tool_addrs = []
         if not self.tools:
             return tool_addrs
-        # Use the join model (from __fk_models__) for lookups since records
-        # live in the join table, not the base agent_tools table.
-        fk_models = getattr(self.__class__, '__fk_models__', {})
-        tool_cls = fk_models.get('tools', AgentTool)
-
-        # Collect href IDs for batch fetch instead of N+1 individual gets
-        href_ids = []
         for item in self.tools:
             if isinstance(item, AgentTool):
                 tool_addrs.append(item.target)
-            elif isinstance(item, str) and '/' in item:
-                try:
-                    href_ids.append(int(item.rstrip('/').split('/')[-1]))
-                except (ValueError, TypeError):
-                    logger.warning("Could not resolve tool href: %s", item)
+            elif isinstance(item, dict) and item.get('target'):
+                tool_addrs.append(item['target'])
             elif isinstance(item, str):
-                # plain addr string (e.g., from in-memory construction)
                 tool_addrs.append(item)
 
-        # Batch fetch all href-referenced tools in one query
-        if href_ids:
-            tools = tool_cls.list(ids=href_ids)
-            records = tools['data'] if isinstance(tools, dict) else tools
-            for tool in records:
-                tool_addrs.append(tool.target)
+        return list(dict.fromkeys(tool_addrs))
 
-        return tool_addrs
+    def _resolve_tool_addrs(self) -> list:
+        """Compatibility alias for the agent runtime seam."""
+        return self.tool_addrs()
 
     def call_config(self, task: str, thread_id: int = 0, **kwargs) -> CallConfig:
         """Build a DB-backed resolved call for the shared runtime seam."""
         return CallConfig(
             task=task,
             prompt=self.prompt,
-            tools=self.tool_addrs(),
+            tools=self._resolve_tool_addrs(),
             user=kwargs.get('user'),
             constraints={**self.constraints, **kwargs.get('constraints', {})},
             thread_id=thread_id or None,
@@ -169,7 +155,7 @@ class AgentActor(ActorModel):
         """
         call = self.call_config(task, thread_id=thread_id, **kwargs)
         prepared = await Agent.prepare(self, call)
-        result = await Agent.call(prepared, call.task)
+        result = await Agent.run(prepared, call.task)
         return json.dumps(result, default=str)
 
     @expose_route('/agentic_stream', methods=['POST'], stream=True,
@@ -195,5 +181,5 @@ class AgentActor(ActorModel):
         """
         call = self.call_config(task, thread_id=thread_id, **kwargs)
         prepared = await Agent.prepare(self, call)
-        async for chunk in Agent.call_stream(prepared, call.task):
+        async for chunk in Agent.run_stream(prepared, call.task):
             yield chunk

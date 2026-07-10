@@ -109,6 +109,12 @@ Matrix with a `schema()` method contributes tools:
 - All `@expose_route` methods become callable tools
 - Instance methods auto-include an `id` parameter
 
+Generated agent `update` tools are patch-oriented: only `id` is required and
+supplied collection fields replace their complete stored value. This differs
+from generated HTTP `PUT`, which currently requires a complete writable model
+representation. Do not make an agent fetch and resend unrelated fields merely
+to imitate the HTTP compatibility constraint.
+
 ```python
 # Auto-discovered from schema relationships
 Product.tools()  # -> ['products', 'comments']
@@ -180,7 +186,7 @@ class AgentActor(ActorModel):
 
     name: str           # Human-readable name
     prompt: str         # System prompt for the LLM
-    tools: ListRef[AgentTool]  # Tool references (join table)
+    tools: list[AgentTool]     # Ordered hydrated tool records
     llm: str            # Provider:model string (default: 'ollama:llama3.1')
     constraints: dict   # Budget/safety limits
 

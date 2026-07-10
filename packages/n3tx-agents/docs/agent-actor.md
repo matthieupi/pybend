@@ -30,11 +30,11 @@ cards, not fake `AgentActor` records.
 AgentActor (DB record)
     |
     +-- name, prompt, llm, constraints  (DB fields)
-    +-- tools: ListRef[AgentTool]       (join table)
+    +-- tools: list[AgentTool]          (ordered local id list)
     |
     +-- agentic(task)          @expose_route('/agentic', POST)
     |      |
-    |      | _resolve_tool_addrs()  -- DB lookup
+    |      | tool_addrs()  -- hydrated AgentTool records to actor addresses
     |      v
     |   CallConfig  -- DB-backed adapter input (mixin.py)
     |      |
@@ -43,7 +43,7 @@ AgentActor (DB record)
     |
     +-- agentic_stream(task)   @expose_route('/agentic_stream', POST, stream=True, events={...})
            |
-           | _resolve_tool_addrs()  -- same DB lookup
+           | tool_addrs()  -- same hydrated record handling
            v
         CallConfig -> Agent.prepare(...) -> Agent.run_stream(...)  (agent.py)
 ```
@@ -81,7 +81,7 @@ shape of each event type.
 | `prompt` | str | `''` | TEXT |
 | `llm` | str | `'ollama:llama3.1'` | TEXT |
 | `constraints` | dict | `{}` | TEXT (JSON serialized) |
-| `tools` | ListRef[AgentTool] | `[]` | FK join table |
+| `tools` | list[AgentTool] | `[]` | TEXT (ordered local ids, hydrated records) |
 
 `system_key` is a stable machine identifier for framework-provisioned app
 agents. It allows bootstrap code to create or update a static Assistant
@@ -97,7 +97,7 @@ class AgentTool(ActorModel):
     description: str  # Human-readable description
 ```
 
-Linked to AgentActor via `ListRef` + auto-generated join table.
+Linked to AgentActor through `tools: list[AgentTool]`.
 
 ### `agentic(self, task: str, **kwargs) -> str`
 
@@ -112,16 +112,12 @@ serializes the same sync result dict used by `AgentMixin.agentic()` with
 **kwargs accepted**: `llm`, `constraints`, `user`, `thread_id`,
 `result_type`.
 
-**Tool resolution**: Calls `_resolve_tool_addrs()` which handles three
-input formats for the `tools` field:
-- `AgentTool` instances (in-memory construction)
-- Plain strings (e.g. `'grants'`)
-- Href strings from FK hydration (e.g. `http://localhost:5000/agents/1/agent_tools/3`)
+**Tool resolution**: Calls `tool_addrs()` which handles hydrated `AgentTool`
+records, dicts with `target`, and plain actor-address strings.
 
-### `_resolve_tool_addrs(self) -> list[str]`
+### `tool_addrs(self) -> list[str]`
 
-Internal. Resolves tool addresses from the `tools` ListRef field.
-Batch-fetches href-referenced tools in one query to avoid N+1.
+Internal. Resolves actor addresses from the `tools: list[AgentTool]` field.
 
 ## Usage Patterns
 
@@ -131,13 +127,23 @@ Batch-fetches href-referenced tools in one query to avoid N+1.
 # Create agent
 curl -X POST /agents -d '{"name": "Scanner", "prompt": "Find grants.", "llm": "anthropic:claude-sonnet-4-5-20250929"}'
 
-# Add tools via join table
-curl -X POST /agents/1/agent_tools -d '{"target": "grants", "description": "Grant CRUD"}'
-curl -X POST /agents/1/agent_tools -d '{"target": "web_tools", "description": "Web scraping"}'
+# Generated HTTP PUT requires the complete writable AgentActor representation.
+curl -X PUT /agents/1 -d '{
+  "system_key": "",
+  "name": "Scanner",
+  "prompt": "Find grants.",
+  "tools": [1, 2],
+  "llm": "anthropic:claude-sonnet-4-5-20250929",
+  "constraints": {}
+}'
 
 # Trigger reasoning
 curl -X POST /agents/1/agentic -d '{"task": "Find new grants"}'
 ```
+
+By contrast, `AgentActor.update(id, {"tools": [1, 2]})` and generated agent
+update tools are patch-oriented. Supplied `tools` replaces the complete ordered
+relationship list; omission from a Python/TX patch leaves it unchanged.
 
 ### Create agent in code
 
@@ -157,16 +163,13 @@ result = json.loads(result_str)
 print(result['answer'])
 ```
 
-### Join table setup
+### App setup
 
 ```python
-from n3tx_core.models.proto_model import generate_join_model
 from n3tx_core.utils.registrar import register_model
 
 register_model(AgentTool, storage=storage)
 register_model(AgentActor, storage=storage)
-join_cls = generate_join_model(AgentActor, AgentTool)
-register_model(join_cls, storage=storage)
 ```
 
 ## Gotchas

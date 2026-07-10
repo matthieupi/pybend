@@ -7,7 +7,6 @@ from pydantic import Field
 from n3tx_actors.actor import Actor
 from n3tx_actors.matrix import Matrix
 from n3tx_actors.models.actor_model import ActorModel
-from n3tx_core.models.proto_model import generate_join_model
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.utils.decorators import expose_route
 from n3tx_core.utils.registrar import register_model
@@ -135,30 +134,25 @@ class TestResolveToolAddrs:
         addrs = agent.tool_addrs()
         assert addrs == ['grants', 'sources']
 
-    def test_from_plain_strings(self, fresh_matrix):
+    def test_from_dicts(self, fresh_matrix):
         agent = AgentActor(
             name='Test',
             prompt='test',
-            tools=['grants', 'sources'],
+            tools=[{'target': 'grants'}, {'target': 'sources'}],
             addr='agents/2',
         )
         addrs = agent.tool_addrs()
         assert addrs == ['grants', 'sources']
 
-    def test_from_hrefs(self, fresh_matrix, tmp_path):
-        """Resolve tool addrs from href strings (as returned by FK hydration)."""
+    def test_from_hydrated_list_relationship(self, fresh_matrix, tmp_path):
+        """Resolve tool addrs from a hydrated list[AgentTool] relationship."""
         storage = SQLiteStorage(str(tmp_path / 'tools.db'))
         register_model(AgentTool, storage=storage)
-        storage.create_table(AgentTool)
+        register_model(AgentActor, storage=storage)
 
         tool = AgentTool.create(AgentTool(target='grants', description='Grant ops'))
-
-        agent = AgentActor(
-            name='Test',
-            prompt='test',
-            tools=[f'http://localhost:5000/agents/1/agent_tools/{tool.id}'],
-            addr='agents/3',
-        )
+        created = AgentActor.create(AgentActor(name='Test', prompt='test', tools=[tool], addr='agents/3'))
+        agent = AgentActor.get(created.id)
         addrs = agent.tool_addrs()
         assert addrs == ['grants']
 
@@ -174,8 +168,6 @@ class TestAgentActorCRUD:
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         agent = AgentActor(
             name='Stored Agent',
@@ -186,16 +178,17 @@ class TestAgentActorCRUD:
         created = AgentActor.create(agent)
         assert created.id is not None
 
-        # Create tools via join table
-        join_cls.create(join_cls(target='grants', description='Grant ops', agentactor_id=created.id))
-        join_cls.create(join_cls(target='web_tools', description='Web ops', agentactor_id=created.id))
+        # Create tools via list[T]
+        tool_grants = AgentTool.create(AgentTool(target='grants', description='Grant ops'))
+        tool_web = AgentTool.create(AgentTool(target='web_tools', description='Web ops'))
+        AgentActor.update(created.id, {'tools': [tool_grants, tool_web]})
 
         fetched = AgentActor.get(created.id)
         assert fetched.name == 'Stored Agent'
         assert fetched.prompt == 'You help find grants.'
         assert fetched.llm == 'ollama:llama3.1'
         assert fetched.constraints == {'max_iterations': 20}
-        # tools are hydrated as href arrays
+        # tools are hydrated as AgentTool objects
         assert len(fetched.tools) == 2
         tool_addrs = fetched.tool_addrs()
         assert 'grants' in tool_addrs
@@ -205,8 +198,6 @@ class TestAgentActorCRUD:
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         AgentActor.create(AgentActor(name='Agent 1', prompt='p1'))
         AgentActor.create(AgentActor(name='Agent 2', prompt='p2'))
@@ -219,8 +210,6 @@ class TestAgentActorCRUD:
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(
             AgentActor(name='Original', prompt='original prompt')
@@ -232,8 +221,6 @@ class TestAgentActorCRUD:
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(AgentActor(name='ToDelete', prompt='bye'))
         AgentActor.delete(agent.id)
@@ -251,8 +238,6 @@ class TestAgentActorAgentic:
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(AgentActor(
             name='Runner',
@@ -273,7 +258,7 @@ class TestAgentActorAgentic:
 
     @pytest.mark.asyncio
     async def test_agentic_with_tools(self, fresh_matrix, tmp_path):
-        """agentic() discovers tools from actor addresses via join table."""
+        """agentic() discovers tools from actor addresses via list[T]."""
         from pydantic_ai.models.test import TestModel
 
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
@@ -286,15 +271,14 @@ class TestAgentActorAgentic:
         register_model(Grant, storage=storage)
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(AgentActor(
             name='Grant Scanner',
             prompt='List all grants.',
         ))
-        # Add tool via join table
-        join_cls.create(join_cls(target='grants', agentactor_id=agent.id))
+        # Add tool via list[T]
+        tool = AgentTool.create(AgentTool(target='grants'))
+        AgentActor.update(agent.id, {'tools': [tool]})
 
         agent = AgentActor.get(agent.id)
 
@@ -314,8 +298,6 @@ class TestAgentActorAgentic:
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(AgentActor(
             name='User Agent',
@@ -340,8 +322,6 @@ class TestAgentActorAgentic:
         storage = SQLiteStorage(str(tmp_path / 'agents.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         agent = AgentActor.create(AgentActor(
             name='Constrained Agent',
@@ -417,8 +397,6 @@ class TestAgentActorStream:
         storage = SQLiteStorage(str(tmp_path / 'test.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         agent = AgentActor(
             name='Test Streamer',
@@ -453,8 +431,6 @@ class TestAgentActorStream:
         register_model(Item, storage=storage)
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        join_cls = generate_join_model(AgentActor, AgentTool)
-        register_model(join_cls, storage=storage)
 
         agent = AgentActor(
             name='Tool Streamer',
@@ -463,11 +439,11 @@ class TestAgentActorStream:
         )
         created = AgentActor.create(agent)
 
-        # Add tool record via join table
-        tool_record = join_cls(target='items', description='Item CRUD', agentactor_id=created.id)
-        join_cls.create(tool_record)
+        # Add tool record via list[T]
+        tool_record = AgentTool.create(AgentTool(target='items', description='Item CRUD'))
+        AgentActor.update(created.id, {'tools': [tool_record]})
 
-        # Reload to get tool hrefs
+        # Reload to get hydrated tool records
         agent = AgentActor.get(created.id)
 
         chunks = []

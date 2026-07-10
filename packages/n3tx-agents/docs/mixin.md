@@ -67,7 +67,7 @@ Builds LLM context string from the model schema.
 Returns actor addresses for tool discovery. Same result for class and instance.
 
 - `self_tools` (default `True`): includes own `__tablename__`
-- `neighbors` (default `True`): includes `ListRef` relationship tablenames
+- `neighbors` (default `True`): includes local `list[T]` relationship tablenames
 - `__agent__['tools']`: appends extra addresses
 - Deduplicates, preserves order
 

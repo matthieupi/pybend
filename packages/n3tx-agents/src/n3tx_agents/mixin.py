@@ -125,7 +125,7 @@ class AgentMixin:
             tablename = getattr(cls, '__tablename__', cls.__name__)
             addrs.append(tablename)
 
-        # Neighbor tools (ListRef relationships)
+        # Neighbor tools from local model-list relationships.
         if conf.get('neighbors', True):
             for field_name, model_cls in get_fk_list_fields(cls):
                 if hasattr(model_cls, '__tablename__'):
@@ -229,7 +229,7 @@ class AgentMixin:
             has_llm_override='llm' in kwargs,
         )
         prepared = await Agent.prepare(target, call)
-        return await Agent.call(prepared, call.task)
+        return await Agent.run(prepared, call.task)
 
     @fullmethod
     async def agentic_stream(target, task: str, **kwargs):
@@ -280,7 +280,7 @@ class AgentMixin:
         )
         try:
             prepared = await Agent.prepare(target, call)
-            async for chunk in Agent.call_stream(prepared, call.task):
+            async for chunk in Agent.run_stream(prepared, call.task):
                 yield chunk
         except Exception as e:
             yield {

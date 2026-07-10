@@ -17,12 +17,6 @@ def provision_app_agent(app_agent: dict[str, Any], registered_models: dict[str, 
     if tool_cls is None:
         raise RuntimeError("app_agent provisioning requires registered AgentTool model")
 
-    join_cls = _resolve_agent_tool_join(agent_cls)
-    if join_cls is None:
-        raise RuntimeError(
-            "app_agent provisioning requires the AgentActor -> AgentTool join model"
-        )
-
     _validate_app_agent_config(app_agent)
     _validate_tool_targets(app_agent, registered_models)
 
@@ -32,20 +26,8 @@ def provision_app_agent(app_agent: dict[str, Any], registered_models: dict[str, 
     else:
         agent = _update_agent(agent_cls, existing, app_agent)
 
-    _reconcile_tool_links(join_cls, agent.id, app_agent.get('tools', []))
-    return agent
-
-
-def _resolve_agent_tool_join(agent_cls):
-    fk_models = getattr(agent_cls, '__fk_models__', {}) or {}
-    join_cls = fk_models.get('tools')
-    if join_cls is not None:
-        return join_cls
-
-    for value in fk_models.values():
-        if getattr(value, '__owner__', None) is agent_cls and AgentTool in value.__mro__[1:]:
-            return value
-    return None
+    _reconcile_agent_tools(agent_cls, tool_cls, agent.id, app_agent.get('tools', []))
+    return agent_cls.get(agent.id)
 
 
 def _validate_app_agent_config(app_agent: dict[str, Any]):
@@ -108,26 +90,22 @@ def _update_agent(agent_cls, existing, app_agent: dict[str, Any]):
     return agent_cls.update(existing.id, _agent_payload(app_agent))
 
 
-def _reconcile_tool_links(join_cls, agent_id: int, tool_specs: list[dict[str, Any]]):
-    fk_field = f"{getattr(join_cls, '__owner__').__name__.lower()}_id"
-    existing = join_cls.list(sql_filter=(f"{fk_field} = ?", [agent_id]))
-    rows = existing.get('data', existing) if isinstance(existing, dict) else existing
-    rows = rows or []
+def _reconcile_agent_tools(agent_cls, tool_cls, agent_id: int, tool_specs: list[dict[str, Any]]) -> None:
+    """Create/update AgentTool rows and store their ordered ids on AgentActor.tools."""
+    ordered_tools = []
+    for spec in tool_specs:
+        target = spec['target']
+        description = spec.get('description', '')
+        existing = tool_cls.list(sql_filter=("target = ?", [target]))
+        rows = existing.get('data', existing) if isinstance(existing, dict) else existing
+        rows = rows or []
 
-    desired = {
-        spec['target']: spec.get('description', '')
-        for spec in tool_specs
-    }
-    current = {row.target: row for row in rows}
+        if rows:
+            tool = rows[0]
+            if getattr(tool, 'description', '') != description:
+                tool = tool_cls.update(tool.id, {'description': description})
+        else:
+            tool = tool_cls.create(tool_cls(target=target, description=description))
+        ordered_tools.append(tool)
 
-    for target, description in desired.items():
-        row = current.get(target)
-        if row is None:
-            join_cls.create(join_cls(**{fk_field: agent_id, 'target': target, 'description': description}))
-            continue
-        if row.description != description:
-            join_cls.update(row.id, {'description': description})
-
-    for target, row in current.items():
-        if target not in desired:
-            join_cls.delete(row.id)
+    agent_cls.update(agent_id, {'tools': ordered_tools})

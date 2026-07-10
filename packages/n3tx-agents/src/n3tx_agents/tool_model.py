@@ -1,11 +1,10 @@
 """AgentTool — a tool reference for AgentActor.
 
 Each AgentTool record stores an actor address (e.g. 'grants', 'web_tools')
-that the agent can call. Linked to AgentActor via ListRef + join table,
-following the standard N3TX collection pattern.
+that the agent can call. AgentActor keeps an ordered list[AgentTool] collection.
 
     # Via API
-    # POST /agents/1/agent_tools {"target": "grants", "description": "Grant CRUD"}
+    # POST /AgentActor/1 with tools containing AgentTool refs or objects
 
     # From code
     tool = AgentTool(target="grants", description="Grant CRUD operations")

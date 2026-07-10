@@ -485,13 +485,11 @@ class TestLoopDetection:
         """AgentActor subclass's run method is auto-excluded from tools."""
         from n3tx_agents.actor import AgentActor
         from n3tx_agents.tool_model import AgentTool
-        from n3tx_core.models.proto_model import generate_join_model
 
         m = fresh_matrix
         storage = SQLiteStorage(str(tmp_path / 'test.db'))
         register_model(AgentTool, storage=storage)
         register_model(AgentActor, storage=storage)
-        generate_join_model(AgentActor, AgentTool)
 
         # AgentActor was defined at import time (before this test's Matrix),
         # so manually register it as a child of this test's Matrix.

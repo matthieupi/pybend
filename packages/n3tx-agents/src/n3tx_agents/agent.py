@@ -85,6 +85,11 @@ class PreparedCall:
 class Agent:
     """Internal runtime owner for prepared agent execution."""
 
+    @staticmethod
+    def _value_or_call(obj, name, default=None):
+        value = getattr(obj, name, default)
+        return value() if callable(value) else value
+
     @classmethod
     async def _get_thread(cls, root, thread_id, user=None):
         auth_user = _thread_user(user)
@@ -237,7 +242,7 @@ class Agent:
         )
 
     @classmethod
-    async def call(cls, prepared: PreparedCall, task: str) -> dict:
+    async def run(cls, prepared: PreparedCall, task: str) -> dict:
         run_kwargs = {'deps': prepared.deps}
         if prepared.usage_limits:
             run_kwargs['usage_limits'] = prepared.usage_limits
@@ -246,8 +251,8 @@ class Agent:
 
         result = await prepared.ai_agent.run(task, **run_kwargs)
 
-        usage = result.usage()
-        all_messages = result.all_messages()
+        usage = cls._value_or_call(result, 'usage')
+        all_messages = cls._value_or_call(result, 'all_messages', [])
 
         if prepared.thread_id is not None:
             await cls._update_thread(
@@ -273,8 +278,10 @@ class Agent:
             result_dict['thread_id'] = prepared.thread_id
         return result_dict
 
+    call = run
+
     @classmethod
-    async def call_stream(cls, prepared: PreparedCall, task: str):
+    async def run_stream(cls, prepared: PreparedCall, task: str):
         seq = 0
         try:
             run_kwargs = {'deps': prepared.deps}
@@ -347,23 +354,27 @@ class Agent:
                         async with node.stream(agent_run.ctx) as tools_stream:
                             async for event in tools_stream:
                                 if isinstance(event, FunctionToolResultEvent):
+                                    result_part = getattr(event, 'result', None) or getattr(event, 'part', None)
+                                    tool_name = getattr(result_part, 'tool_name', '')
+                                    content = getattr(result_part, 'content', getattr(event, 'content', ''))
+                                    call_id = getattr(result_part, 'tool_call_id', getattr(event, 'tool_call_id', ''))
                                     yield {
                                         'name': 'tool_result',
                                         'data': {
-                                            'tool': event.result.tool_name,
-                                            'result': str(event.result.content),
-                                            'call_id': event.result.tool_call_id,
+                                            'tool': tool_name,
+                                            'result': str(content),
+                                            'call_id': call_id,
                                         },
                                         'meta': {'stream': True, 'seq': seq},
                                     }
                                     seq += 1
 
                 run_result = agent_run.result
-                usage = agent_run.usage()
+                usage = cls._value_or_call(agent_run, 'usage')
                 output = run_result.output if run_result else ''
                 if not output and streamed_text:
                     output = streamed_text
-                all_messages = agent_run.all_messages()
+                all_messages = cls._value_or_call(agent_run, 'all_messages', [])
 
                 if prepared.thread_id is not None:
                     await cls._update_thread(
@@ -403,3 +414,5 @@ class Agent:
                 'data': {'message': str(e), 'code': 500},
                 'meta': {'stream': True, 'error': True, 'seq': seq},
             }
+
+    call_stream = run_stream

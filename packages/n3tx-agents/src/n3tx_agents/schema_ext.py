@@ -50,7 +50,7 @@ def agent(cls, schema: dict) -> dict:
 # ── LLM pipeline: clean schema for LLM consumption ───────────────
 
 # Keys that are frontend-only noise for the LLM
-_LLM_STRIP_KEYS = {'ui', '$id', '$schema', '__owner__', '__parent__', 'additionalProperties'}
+_LLM_STRIP_KEYS = {'ui', '$id', '$schema', 'additionalProperties'}
 # Method keys that are routing/frontend concerns
 _METHOD_STRIP_KEYS = {'route', 'methods', 'scope', 'ui', 'access'}
 
