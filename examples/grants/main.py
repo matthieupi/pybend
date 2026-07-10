@@ -34,7 +34,6 @@ DB_PATH = os.environ.get('N3TX_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
 storage = SQLiteStorage(DB_PATH)
 app = create_app(
     models=[User, Grant, Source, WebTools, AgentTool, AgentActor],
-    join_models=[(AgentActor, AgentTool)],
     storage=storage,
     routing='actor',
     static_dir=os.path.join(_HERE, 'static'),

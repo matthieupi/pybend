@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import config
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.utils.registrar import register_model
-from n3tx_core.models.proto_model import generate_join_model
 from models import User, Conversation, Message
 
 logger = logging.getLogger('n3tx.seed')
@@ -28,9 +27,6 @@ def seed():
 
     for model in [User, Conversation, Message]:
         register_model(model, storage=storage)
-
-    join_cls = generate_join_model(Conversation, Message)
-    register_model(join_cls, storage=storage)
 
     # ── Users ──
     users_data = [

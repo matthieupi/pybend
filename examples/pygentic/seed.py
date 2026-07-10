@@ -13,7 +13,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import config
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.utils.registrar import register_model
-from n3tx_core.models.proto_model import generate_join_model
 from n3tx_agents.actor import AgentActor
 from n3tx_agents.tool_model import AgentTool
 from models import User, Task, Memory
@@ -29,9 +28,6 @@ def seed():
 
     for model in [User, Task, Memory, AgentTool, AgentActor]:
         register_model(model, storage=storage)
-
-    join_cls = generate_join_model(AgentActor, AgentTool)
-    register_model(join_cls, storage=storage)
 
     # ── Users ──
     users = [
@@ -88,10 +84,12 @@ def seed():
         (created_analyzer.id, [('tasks', 'Task CRUD')]),
     ]
     for agent_id, tools in tool_data:
+        agent_tools = []
         for target, desc in tools:
-            record = join_cls(target=target, description=desc, agentactor_id=agent_id)
-            join_cls.create(record)
+            record = AgentTool.create(AgentTool(target=target, description=desc))
+            agent_tools.append(record)
             logger.info('  + Tool: %s -> agent %s', target, agent_id)
+        AgentActor.update(agent_id, {'tools': agent_tools})
 
     logger.info('Seeding complete.')
 

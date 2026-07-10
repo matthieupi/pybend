@@ -7,7 +7,6 @@ sys.path.insert(0, os.path.dirname(__file__))
 import config  # noqa: E402
 
 from n3tx_core.storage.sqlite_storage import SQLiteStorage  # noqa: E402
-from n3tx_core.models.proto_model import generate_join_model  # noqa: E402
 from n3tx_core.utils.registrar import register_model  # noqa: E402
 from n3tx_agents.actor import AgentActor  # noqa: E402
 from n3tx_agents.tool_model import AgentTool  # noqa: E402
@@ -28,8 +27,6 @@ def seed():
     register_model(Grant, storage=storage)
     register_model(AgentTool, storage=storage)
     register_model(AgentActor, storage=storage)
-    join_cls = generate_join_model(AgentActor, AgentTool)
-    register_model(join_cls, storage=storage)
 
     # Admin user
     admin = User(name='Admin', email='admin@veille.local')
@@ -168,9 +165,11 @@ def seed():
         {'target': 'sources', 'description': 'Source listing and management'},
         {'target': 'web_tools', 'description': 'Web scraping utilities'},
     ]
+    tools = []
     for tool in tool_data:
-        join_cls.create(join_cls(**tool, agentactor_id=created_agent.id))
+        tools.append(AgentTool.create(AgentTool(**tool)))
         logger.info("Linked agent tool: %s", tool['target'])
+    AgentActor.update(created_agent.id, {'tools': tools})
 
 
 if __name__ == '__main__':

@@ -139,14 +139,6 @@ def _seed_grants(users):
 
 
 def _seed_agent():
-    # Look up the join model for AgentActor -> AgentTool
-    join_cls = None
-    for model_cls in registered_models.values():
-        if (getattr(model_cls, '__owner__', None) is AgentActor
-                and issubclass(model_cls, AgentTool)):
-            join_cls = model_cls
-            break
-
     agent = AgentActor(
         name="Grant Scanner",
         prompt="You are a grant discovery agent. List sources, scrape them, create grants.",
@@ -154,16 +146,13 @@ def _seed_agent():
     )
     created_agent = AgentActor.create(agent)
 
-    # Create tool records via the join table
-    if join_cls:
-        tool_data = [
-            {"target": "grants", "description": "Grant CRUD"},
-            {"target": "sources", "description": "Source listing"},
-            {"target": "web_tools", "description": "Web scraping"},
-        ]
-        for t in tool_data:
-            record = join_cls(**t, agentactor_id=created_agent.id)
-            join_cls.create(record)
+    tool_data = [
+        {"target": "grants", "description": "Grant CRUD"},
+        {"target": "sources", "description": "Source listing"},
+        {"target": "web_tools", "description": "Web scraping"},
+    ]
+    tools = [AgentTool.create(AgentTool(**t)) for t in tool_data]
+    created_agent = AgentActor.update(created_agent.id, {'tools': tools})
 
     return created_agent
 

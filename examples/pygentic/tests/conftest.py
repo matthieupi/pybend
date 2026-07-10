@@ -110,13 +110,6 @@ def _seed_tasks(users):
 
 
 def _seed_agent():
-    join_cls = None
-    for model_cls in registered_models.values():
-        if (getattr(model_cls, '__owner__', None) is AgentActor
-                and issubclass(model_cls, AgentTool)):
-            join_cls = model_cls
-            break
-
     agent = AgentActor(
         name='Test Agent',
         prompt='You are a helpful test agent.',
@@ -124,14 +117,11 @@ def _seed_agent():
     )
     created_agent = AgentActor.create(agent)
 
-    if join_cls:
-        tool_data = [
-            {'target': 'tasks', 'description': 'Task CRUD'},
-            {'target': 'memories', 'description': 'Memory store'},
-        ]
-        for t in tool_data:
-            record = join_cls(**t, agentactor_id=created_agent.id)
-            join_cls.create(record)
+    tools = [
+        AgentTool.create(AgentTool(target='tasks', description='Task CRUD')),
+        AgentTool.create(AgentTool(target='memories', description='Memory store')),
+    ]
+    created_agent = AgentActor.update(created_agent.id, {'tools': tools})
 
     return created_agent
 

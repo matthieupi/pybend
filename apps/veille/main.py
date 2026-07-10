@@ -29,7 +29,6 @@ DB_PATH = os.path.join(_HERE, config.SQLITE_DB_FILE)
 storage = SQLiteStorage(DB_PATH)
 app = create_app(
     models=[User, Organization, Source, Grant, Run, WebTools, AgentTool, AgentActor, Thread],
-    join_models=[(AgentActor, AgentTool)],
     storage=storage,
     routing='actor',
     jwt_secret=config.JWT_SECRET,

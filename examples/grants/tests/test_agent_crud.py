@@ -17,18 +17,19 @@ class TestAgentCRUD:
         assert resp.status_code == 200
         data = resp.json()
         assert data["name"] == "Grant Scanner"
-        # tools are now hydrated as href arrays (ListRef pattern)
+        # tools are hydrated from the agent's list[AgentTool] collection
         assert isinstance(data["tools"], list)
         assert len(data["tools"]) == 3
 
-    def test_get_agent_tools_are_hrefs(self, client, seed_data, alice_token):
-        """Tools field should contain href strings pointing to join table records."""
+    def test_get_agent_tools_are_objects(self, client, seed_data, alice_token):
+        """Tools field should contain hydrated tool objects."""
         agent = seed_data["agent"]
         resp = client.get(f"/agents/{agent.id}", headers=auth_header(alice_token))
         data = resp.json()
-        for tool_href in data["tools"]:
-            assert isinstance(tool_href, str)
-            assert "/tools/" in tool_href
+        for tool in data["tools"]:
+            assert isinstance(tool, dict)
+            assert "$id" in tool
+            assert "target" in tool
 
     def test_create_agent_via_api(self, client, alice_token):
         resp = client.post("/agents", json={

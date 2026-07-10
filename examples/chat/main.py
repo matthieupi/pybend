@@ -44,7 +44,6 @@ DB_PATH = os.environ.get('N3TX_SQLITE_DB') or os.path.join(_HERE, 'chat.db')
 storage = SQLiteStorage(DB_PATH)
 app = create_app(
     models=[User, Conversation, Message, AgentTool],
-    join_models=[(Conversation, Message), (Conversation, AgentTool)],
     storage=storage,
     routing='actor',
     ws=True,

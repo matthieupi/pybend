@@ -2,7 +2,7 @@
 
 The Conversation extends AgentActor, inheriting agent capabilities (name,
 prompt, llm, tools, constraints) and adding chat-specific fields (messages,
-user_owner). Messages are stored as Message records (via join table) that
+user_owner). Messages are stored as Message records via list[T] that
 mirror pydantic-ai's format.
 
 Chat uses SSE streaming via @expose_route('/chat', stream=True):
@@ -34,7 +34,7 @@ class Conversation(AgentActor):
 
     Extends AgentActor to inherit agent fields (name, prompt, llm, tools,
     constraints) and adds chat-specific fields (messages, user_owner).
-    Messages are stored as Message records via a join table, preserving
+    Messages are stored as Message records via a list[T] relationship, preserving
     the full pydantic-ai message format for lossless multi-turn history.
     """
 
@@ -62,23 +62,23 @@ class Conversation(AgentActor):
     tools: list = Field(default_factory=list)
 
     # Chat-specific fields
-    messages: Optional[list[Message]] = Field(default=[])
+    messages: list[Message] = Field(default=[])
     user_owner: Optional[int] = Field(default=None)
-
-    def _get_message_model(self):
-        """Get the join model class for messages (ConversationMessage)."""
-        fk_models = getattr(self.__class__, '__fk_models__', {})
-        return fk_models.get('messages', Message)
 
     def _load_messages(self):
         """Load all messages for this conversation, ordered by id."""
-        msg_cls = self._get_message_model()
-        result = msg_cls.list(
-            sql_filter=(f"conversation_id = ?", [self.id]),
-        )
-        if isinstance(result, dict):
-            return result.get('data', [])
-        return result
+        conv = self.__class__.get(self.id)
+        messages = list(getattr(conv, 'messages', None) or [])
+        return sorted(messages, key=lambda msg: getattr(msg, 'id', 0))
+
+    def _append_message(self, message: Message) -> Message:
+        """Persist a message and append it to the ordered messages list."""
+        saved = Message.create(message)
+        messages = list(self.messages or [])
+        messages.append(saved)
+        type(self).update(self.id, {'messages': messages})
+        self.messages = messages
+        return saved
 
     def _load_history(self):
         """Load messages and convert to pydantic-ai ModelMessage list."""
@@ -104,8 +104,6 @@ class Conversation(AgentActor):
         if conv.user_owner and user_id and conv.user_owner != user_id:
             raise Exception("Access denied")
 
-        msg_cls = conv._get_message_model()
-
         # Always store the user message before streaming — it should persist
         # regardless of whether the LLM responds successfully.
         user_msg = Message(
@@ -113,8 +111,7 @@ class Conversation(AgentActor):
             parts=[{'part_kind': 'user-prompt', 'content': content}],
             user_owner=user_id,
         )
-        setattr(user_msg, 'conversation_id', conv.id)
-        msg_cls.create(user_msg)
+        conv._append_message(user_msg)
 
         history = conv._load_history()
         streamed_text = ''
@@ -139,8 +136,7 @@ class Conversation(AgentActor):
                     parts=[{'part_kind': 'text', 'content': answer}],
                     user_owner=user_id,
                 )
-                setattr(asst_msg, 'conversation_id', conv.id)
-                msg_cls.create(asst_msg)
+                conv._append_message(asst_msg)
             elif name == 'error':
                 error_msg = chunk['data'].get('message', 'Unknown error')
                 raise Exception(error_msg)

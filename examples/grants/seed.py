@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import config
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from n3tx_core.utils.registrar import register_model
-from n3tx_core.models.proto_model import generate_join_model
 from n3tx_agents.actor import AgentActor
 from n3tx_agents.tool_model import AgentTool
 from models import User, Grant, Source, WebTools
@@ -28,13 +27,8 @@ DB_PATH = os.environ.get('N3TX_SQLITE_DB') or os.path.join(_HERE, 'grants.db')
 def seed():
     storage = SQLiteStorage(DB_PATH)
 
-    # Register models (AgentTool before AgentActor so join model works)
     for model in [User, Grant, Source, WebTools, AgentTool, AgentActor]:
         register_model(model, storage=storage)
-
-    # Register join model for AgentActor -> AgentTool
-    join_cls = generate_join_model(AgentActor, AgentTool)
-    register_model(join_cls, storage=storage)
 
     # ── Users ──
     users = [
@@ -112,16 +106,18 @@ def seed():
     created_agent = AgentActor.create(scanner)
     logger.info("  + Agent: %s (id=%s)", created_agent.name, created_agent.id)
 
-    # ── Link tools to agent via join table ──
+    # ── Link tools to agent via list[T] ──
     tool_data = [
         {"target": "grants", "description": "Grant CRUD operations"},
         {"target": "sources", "description": "Source listing and management"},
         {"target": "web_tools", "description": "Web scraping utilities"},
     ]
+    tools = []
     for t in tool_data:
-        record = join_cls(**t, agentactor_id=created_agent.id)
-        created = join_cls.create(record)
+        created = AgentTool.create(AgentTool(**t))
+        tools.append(created)
         logger.info("  + AgentTool: %s (id=%s)", created.target, created.id)
+    AgentActor.update(created_agent.id, {'tools': tools})
 
     logger.info("Seeding complete.")
 
