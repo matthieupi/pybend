@@ -87,6 +87,12 @@ This is where the magic lives. `ActorModel(Actor, ProtoModel)` gives your models
 
 One import change. Zero other changes. Your model just became an actor.
 
+Raw actor `update` TX messages are patch-oriented. Generated actor HTTP `PUT`
+routes are not: they currently validate a complete model body before creating
+the TX. HTTP callers must preserve all required/defaulted writable fields,
+especially `list[T]`, `list[Ref[T]]`, lists, and dictionaries. See
+[the canonical CRUD update contract](../../docs/API_CRUD_ENDPOINTS.md#update-resource).
+
 ### 🛡️ Interceptors -- Composable Middleware
 
 TX interceptors registered via `actor.use(fn, on='inbox')`. They run before the method body. Return an error TX to short-circuit. Class + instance chains combine (class first, FIFO). Targets: `inbox`, `send`, `request`.
@@ -223,6 +229,7 @@ Want to go deeper? Each of these docs covers a specific area in detail:
 | Interceptor Pattern | [docs/interceptors.md](docs/interceptors.md) | Adding middleware, auth gates, TX transformation |
 | Network Adapters | [docs/network-adapters.md](docs/network-adapters.md) | HTTP, WebSocket, MCP, ActivityPub protocol bridging |
 | ActorModel and Two-Tier Auth | [docs/actor-model.md](docs/actor-model.md) | CRUD handling, lifecycle events, authorization flow |
+| Release Notes | [RELEASE_NOTES.md](../../RELEASE_NOTES.md) | Breaking changes, migration notes, route grammar updates |
 
 ---
 

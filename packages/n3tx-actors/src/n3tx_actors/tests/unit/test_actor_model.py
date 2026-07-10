@@ -243,7 +243,7 @@ class TestProtoModelProperties:
         assert '$schema' in data
         assert '$id' in data
         assert data['$schema'] == f'{config.API_URL}/_TestProduct'
-        assert data['$id'] == f'{config.API_URL}/am_products/5'
+        assert data['$id'] == f'{config.API_URL}/_TestProduct/5'
 
     def test_id_field_exists_with_default_zero(self):
         p = _TestProduct()

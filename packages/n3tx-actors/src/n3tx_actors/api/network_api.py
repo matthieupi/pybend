@@ -88,32 +88,9 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
     Returns:
         A FastAPI APIRouter with all CRUD and custom method routes.
     """
-    from n3tx_core.utils.registrar import join_models
     from n3tx_core.utils.typer import flatten_refs
 
     router = APIRouter()
-
-    nested_class_pairs = {}
-    for candidate in models_dict.values():
-        owner_cls = getattr(candidate, '__owner__', None)
-        child_cls = getattr(candidate, '__parent__', None)
-        if owner_cls and child_cls:
-            nested_class_pairs.setdefault((owner_cls.__name__, child_cls.__name__), []).append(candidate)
-
-    def nested_class_base_for(model_class):
-        owner_cls = getattr(model_class, '__owner__', None)
-        child_cls = getattr(model_class, '__parent__', None)
-        if not owner_cls or not child_cls:
-            return None
-        matches = nested_class_pairs.get((owner_cls.__name__, child_cls.__name__), [])
-        if len(matches) != 1:
-            logger.warning(
-                "Skipping ambiguous nested class-name actor routes for %s/%s: %s",
-                owner_cls.__name__, child_cls.__name__,
-                [m.__name__ for m in matches],
-            )
-            return None
-        return f"/{owner_cls.__name__}/{{parent_id:int}}/{child_cls.__name__}"
 
     # Utility routes (not model-specific, no actor routing needed)
     @router.get("/auth/me", tags=["Auth"])
@@ -128,30 +105,10 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
             "role": user.get("role", "user"),
         }
 
-    # Pass 1: Static collection routes for join models (must come first)
     for model_name, model_class in models_dict.items():
-        parent_class = getattr(model_class, '__owner__', None)
-        if parent_class and issubclass(model_class, StorableMixin):
-            tag = parent_class.__tablename__.capitalize()
-            collection_path = f"/{model_class.__tablename__}"
-            _register_collection_route(
-                router, api_adapter, model_class, collection_path, tag,
-            )
-
-    # Pass 2: All model routes (schema, CRUD, custom methods)
-    for model_name, model_class in models_dict.items():
-        parent_class = getattr(model_class, '__owner__', None)
         is_storable = issubclass(model_class, StorableMixin)
-
-        if not parent_class:
-            tag = model_class.__tablename__.capitalize()
-            endpoint_base = f"/{model_name}"
-        else:
-            tag = parent_class.__tablename__.capitalize()
-            endpoint_base = (
-                f"/{parent_class.__tablename__}/{{parent_id:int}}"
-                f"/{model_class.__tagname__}"
-            )
+        tag = model_class.__tablename__.capitalize()
+        endpoint_base = f"/{model_name}"
 
         # Schema route: GET /{ClassName}
         _register_schema_route(router, api_adapter, model_class, tag)
@@ -177,14 +134,11 @@ def create_api_routes(api_adapter: NetworkAPI, models_dict: dict):
             _register_class_read_mirror(router, api_adapter, model_class, tag)
             _register_crud_routes(
                 router, api_adapter, model_class, endpoint_base, tag,
-                has_parent=parent_class is not None,
-                nested_class_base=nested_class_base_for(model_class),
             )
 
         # Custom @expose_route methods
         _register_custom_routes(
             router, api_adapter, model_class, endpoint_base, tag,
-            nested_class_base=nested_class_base_for(model_class),
         )
 
     return router
@@ -221,41 +175,6 @@ def _register_schema_route(router, api_adapter, model_class, tag):
         return _response_or_raise(response)
 
 
-def _register_collection_route(router, api_adapter, model_class, path, tag):
-    """GET /{join_tablename} -> list all records across parents."""
-    addr = model_class.__tablename__
-
-    @router.get(path, tags=[tag], name=f"collection_{addr}")
-    async def collection_list(
-        request: Request,
-        limit: int = Query(default=None, ge=1, le=100),
-        offset: int = Query(default=None, ge=0),
-        populate: str = Query(default=None),
-        depth: int = Query(default=None, ge=0, le=3),
-        _addr=addr, _cls=model_class,
-    ):
-        user = _get_user(request)
-        data = {}
-        if limit is not None:
-            data['limit'] = limit
-        if offset is not None:
-            data['offset'] = offset
-        if populate is not None:
-            data['populate'] = populate
-        if depth is not None:
-            data['depth'] = depth
-
-        response = await api_adapter.request(
-            TX(
-                name='list', source=api_adapter.addr, target=_addr,
-                data=data,
-                meta={'user': user, 'model_cls': _cls},
-            ),
-            timeout=30.0,
-        )
-        return _response_or_raise(response)
-
-
 def _register_class_read_mirror(router, api_adapter, model_class, tag):
     """GET /{ClassName}/{id:int} -> actor get TX to table-name address."""
     class_name = model_class.__name__
@@ -282,16 +201,11 @@ def _register_class_read_mirror(router, api_adapter, model_class, tag):
 
 
 def _register_crud_routes(
-    router, api_adapter, model_class, endpoint_base, tag, has_parent=False,
-    nested_class_base=None,
+    router, api_adapter, model_class, endpoint_base, tag,
 ):
     """Register POST, GET (list), GET (item), PUT, DELETE routes."""
     addr = model_class.__tablename__
-    param_class = (
-        model_class.__parent__
-        if hasattr(model_class, '__parent__')
-        else model_class
-    )
+    param_class = model_class
 
     # POST - create
     @router.post(endpoint_base, tags=[tag], status_code=201,
@@ -299,17 +213,11 @@ def _register_crud_routes(
     async def create_instance(
         request: Request,
         data: param_class,
-        parent_id: int = None,
         _addr=addr, _cls=model_class, _param_cls=param_class,
     ):
         from n3tx_core.utils.typer import flatten_refs
         user = _get_user(request)
         data_dict = flatten_refs(data)
-
-        # Inject parent FK
-        if parent_id and has_parent:
-            fk_field = f"{_cls.__owner__.__name__.lower()}_id"
-            data_dict[fk_field] = parent_id
 
         # Auto-inject user_owner from JWT on create
         protected = (
@@ -334,12 +242,11 @@ def _register_crud_routes(
     @router.get(endpoint_base, tags=[tag], name=f"list_{addr}")
     async def list_instances(
         request: Request,
-        parent_id: int = None,
         limit: int = Query(default=None, ge=1, le=100),
         offset: int = Query(default=None, ge=0),
         populate: str = Query(default=None),
         depth: int = Query(default=None, ge=0, le=3),
-        _addr=addr, _cls=model_class, _has_parent=has_parent,
+        _addr=addr, _cls=model_class,
     ):
         user = _get_user(request)
         data = {}
@@ -347,8 +254,6 @@ def _register_crud_routes(
             data['limit'] = limit
         if offset is not None:
             data['offset'] = offset
-        if parent_id and _has_parent:
-            data['parent_id'] = parent_id
         if populate is not None:
             data['populate'] = populate
         if depth is not None:
@@ -364,15 +269,6 @@ def _register_crud_routes(
         )
         result = _response_or_raise(response)
 
-        # Post-filter by parent FK (mirrors Level 1/2 routes_fastapi.py behavior)
-        if parent_id and _has_parent:
-            fk_field = f"{_cls.__owner__.__name__.lower()}_id"
-            if isinstance(result, list):
-                result = [r for r in result if r.get(fk_field) == parent_id]
-            elif isinstance(result, dict) and 'data' in result:
-                result['data'] = [
-                    r for r in result['data'] if r.get(fk_field) == parent_id
-                ]
         return result
 
     # GET - single item
@@ -403,7 +299,6 @@ def _register_crud_routes(
         request: Request,
         id: int,
         data: param_class,
-        parent_id: int = None,
         _addr=addr, _cls=model_class, _param_cls=param_class,
     ):
         from n3tx_core.utils.typer import flatten_refs
@@ -417,10 +312,6 @@ def _register_crud_routes(
         )
         for field in protected:
             data_dict.pop(field, None)
-
-        if parent_id and has_parent:
-            fk_field = f"{_cls.__owner__.__name__.lower()}_id"
-            data_dict[fk_field] = parent_id
 
         data_dict['id'] = id
 
@@ -453,55 +344,31 @@ def _register_crud_routes(
         )
         return _response_or_raise(response)
 
-    if not has_parent:
-        class_base = f"/{model_class.__name__}"
-        router.post(
-            class_base, tags=[tag], status_code=201,
-            name=f"create_{addr}_class",
-        )(create_instance)
-        router.get(
-            f"{class_base}/_", tags=[tag],
-            name=f"list_{addr}_class",
-        )(list_instances)
-        router.put(
-            f"{class_base}/{{id:int}}", tags=[tag],
-            name=f"update_{addr}_class",
-        )(update_instance)
-        router.delete(
-            f"{class_base}/{{id:int}}", tags=[tag],
-            name=f"delete_{addr}_class",
-        )(delete_instance)
-    elif nested_class_base:
-        router.post(
-            nested_class_base, tags=[tag], status_code=201,
-            name=f"create_{addr}_nested_class",
-        )(create_instance)
-        router.get(
-            nested_class_base, tags=[tag],
-            name=f"list_{addr}_nested_class",
-        )(list_instances)
-        router.get(
-            f"{nested_class_base}/{{id:int}}", tags=[tag],
-            name=f"get_{addr}_nested_class",
-        )(get_instance)
-        router.put(
-            f"{nested_class_base}/{{id:int}}", tags=[tag],
-            name=f"update_{addr}_nested_class",
-        )(update_instance)
-        router.delete(
-            f"{nested_class_base}/{{id:int}}", tags=[tag],
-            name=f"delete_{addr}_nested_class",
-        )(delete_instance)
+    class_base = f"/{model_class.__name__}"
+    router.post(
+        class_base, tags=[tag], status_code=201,
+        name=f"create_{addr}_class",
+    )(create_instance)
+    router.get(
+        f"{class_base}/_", tags=[tag],
+        name=f"list_{addr}_class",
+    )(list_instances)
+    router.put(
+        f"{class_base}/{{id:int}}", tags=[tag],
+        name=f"update_{addr}_class",
+    )(update_instance)
+    router.delete(
+        f"{class_base}/{{id:int}}", tags=[tag],
+        name=f"delete_{addr}_class",
+    )(delete_instance)
 
 
-def _register_custom_routes(router, api_adapter, model_class, endpoint_base, tag, nested_class_base=None):
+def _register_custom_routes(router, api_adapter, model_class, endpoint_base, tag):
     """Register @expose_route custom method routes."""
     from inspect import signature as get_sig
     from typing import get_type_hints
 
     addr = model_class.__tablename__
-    parent_class = getattr(model_class, '__owner__', None)
-
     for attr_name in dir(model_class):
         attr = getattr(model_class, attr_name, None)
         if not callable(attr) or not hasattr(attr, '__endpoint__'):
@@ -531,36 +398,20 @@ def _register_custom_routes(router, api_adapter, model_class, endpoint_base, tag
                 full_route, methods, tag, is_instance_method, addr,
             )
 
-        if not parent_class:
-            if is_instance_method:
-                class_route = f"/{model_class.__name__}/{{id:int}}{route}"
-            else:
-                class_route = f"/{model_class.__name__}{route}"
-            if is_stream:
-                _add_streaming_handler(
-                    router, api_adapter, model_class, attr, attr_name,
-                    class_route, methods, tag, is_instance_method, addr,
-                )
-            else:
-                _add_custom_handler(
-                    router, api_adapter, model_class, attr, attr_name,
-                    class_route, methods, tag, is_instance_method, addr,
-                )
-        elif nested_class_base:
-            if is_instance_method:
-                nested_class_route = f"{nested_class_base}/{{id:int}}{route}"
-            else:
-                nested_class_route = f"{nested_class_base}{route}"
-            if is_stream:
-                _add_streaming_handler(
-                    router, api_adapter, model_class, attr, attr_name,
-                    nested_class_route, methods, tag, is_instance_method, addr,
-                )
-            else:
-                _add_custom_handler(
-                    router, api_adapter, model_class, attr, attr_name,
-                    nested_class_route, methods, tag, is_instance_method, addr,
-                )
+        if is_instance_method:
+            class_route = f"/{model_class.__name__}/{{id:int}}{route}"
+        else:
+            class_route = f"/{model_class.__name__}{route}"
+        if is_stream:
+            _add_streaming_handler(
+                router, api_adapter, model_class, attr, attr_name,
+                class_route, methods, tag, is_instance_method, addr,
+            )
+        else:
+            _add_custom_handler(
+                router, api_adapter, model_class, attr, attr_name,
+                class_route, methods, tag, is_instance_method, addr,
+            )
 
 
 def _add_custom_handler(
@@ -579,7 +430,6 @@ def _add_custom_handler(
                           name=f"custom_{addr}_{attr_name}")
         async def custom_with_id(
             request: Request,
-            parent_id: int = None,
             id: int = Path(...),
             data: Dict[str, Any] = Body(default={}),
             _attr=attr, _attr_name=attr_name, _sig=sig,
@@ -656,7 +506,6 @@ def _add_streaming_handler(
                           name=f"stream_{addr}_{attr_name}")
         async def stream_with_id(
             request: Request,
-            parent_id: int = None,
             id: int = Path(...),
             data: Dict[str, Any] = Body(default={}),
             _attr=attr, _attr_name=attr_name, _sig=sig,

@@ -427,7 +427,7 @@ class TestActorModelModelResponse:
         assert '$schema' in data
         assert '$id' in data
         assert data['$schema'] == f'{config.API_URL}/M'
-        assert data['$id'] == f'{config.API_URL}/resp_test/7'
+        assert data['$id'] == f'{config.API_URL}/M/7'
         assert data['name'] == 'hello'
 
     def test_model_response_id_none_when_zero(self):
@@ -439,7 +439,7 @@ class TestActorModelModelResponse:
         m = M(name='test')
         m.id = 0
         data = m.model_response()
-        assert data['$id'] == f'{config.API_URL}/resp_zero/0'
+        assert data['$id'] == f'{config.API_URL}/M/0'
 
 
 # ===================================================================
@@ -1086,8 +1086,8 @@ class TestDumpSchemaConsistency:
         # And they differ from each other
         assert a.model_response()['$schema'] != b.model_response()['$schema']
 
-    def test_id_url_uses_tablename(self):
-        """model_response() $id uses __tablename__, schema() $id uses class name."""
+    def test_id_url_uses_class_name(self):
+        """Schema and response identity use the model class name."""
         class Widget(ActorModel, auto_register=False):
             __tablename__: ClassVar[str] = 'widgets'
             name: str = Field(default='')
@@ -1101,8 +1101,8 @@ class TestDumpSchemaConsistency:
 
         # schema $id uses class name: .../Widget
         assert schema['$id'] == f'{config.API_URL}/Widget'
-        # response $id uses tablename + instance id: .../widgets/5
-        assert response['$id'] == f'{config.API_URL}/widgets/5'
+        # response $id extends the class-name identity with the instance id.
+        assert response['$id'] == f'{config.API_URL}/Widget/5'
         # response $schema points to schema $id
         assert response['$schema'] == f'{config.API_URL}/Widget'
 

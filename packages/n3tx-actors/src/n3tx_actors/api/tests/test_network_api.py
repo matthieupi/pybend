@@ -34,13 +34,10 @@ INTEGRATION TESTS (partial) — route generation
   - test_create_api_routes_generates_schema_route
   - test_create_api_routes_generates_crud_routes
   - test_create_api_routes_generates_custom_method_routes
-  - test_create_api_routes_generates_collection_routes_for_join_models
-  - test_create_api_routes_parent_child_path_structure
   - test_schema_route_sends_schema_tx
   - test_schema_route_scaffold_parameter
   - test_create_route_sends_create_tx
   - test_create_route_injects_user_owner
-  - test_create_route_injects_parent_fk
   - test_list_route_sends_list_tx
   - test_list_route_handles_pagination
   - test_get_route_sends_get_tx
@@ -202,7 +199,7 @@ class MockUser(StorableMixin, Actor, auto_register=False):
 
 
 class MockChildModel(StorableMixin, Actor, auto_register=False):
-    """Mock child model with parent relationship."""
+    """Mock model proving legacy join metadata no longer shapes routes."""
     __tablename__: ClassVar[str] = 'mock_children'
     __tagname__: ClassVar[str] = 'children'
     __storable__: ClassVar[bool] = True
@@ -210,7 +207,6 @@ class MockChildModel(StorableMixin, Actor, auto_register=False):
     __parent__ = None
 
     content: str = Field(min_length=1)
-    mockmodel_id: Optional[int] = Field(default=None)
 
     @expose_route('/mark', methods=['POST'])
     def mark(self, value: str) -> dict:
@@ -218,7 +214,6 @@ class MockChildModel(StorableMixin, Actor, auto_register=False):
 
 
 MockChildModel.__parent__ = MockChildModel
-
 
 # ===================================================================
 # TestNetworkAPIInit
@@ -335,7 +330,8 @@ class TestResponseOrRaise:
 class TestParseMethodArgs:
     """_parse_method_args() helper function."""
 
-    def test_parse_method_args_extracts_simple_params(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_extracts_simple_params(self):
         def test_method(self, name: str, count: int):
             pass
 
@@ -344,11 +340,12 @@ class TestParseMethodArgs:
         data = {'name': 'widget', 'count': '5'}
         request = make_mock_request()
 
-        result = _parse_method_args(sig, type_hints, data, request)
+        result = await _parse_method_args(sig, type_hints, data, request)
 
         assert result == {'name': 'widget', 'count': 5}
 
-    def test_parse_method_args_handles_pydantic_models(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_handles_pydantic_models(self):
         class TestData(BaseModel):
             title: str
             value: int
@@ -361,14 +358,15 @@ class TestParseMethodArgs:
         data = {'data': {'title': 'Test', 'value': 42}}
         request = make_mock_request()
 
-        result = _parse_method_args(sig, type_hints, data, request)
+        result = await _parse_method_args(sig, type_hints, data, request)
 
         assert 'data' in result
         assert isinstance(result['data'], TestData)
         assert result['data'].title == 'Test'
         assert result['data'].value == 42
 
-    def test_parse_method_args_injects_user_dict(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_injects_user_dict(self):
         """If user param exists and type is not StorableMixin, inject dict."""
         def test_method(self, user: dict):
             pass
@@ -378,12 +376,13 @@ class TestParseMethodArgs:
         data = {}
         request = make_mock_request(user={'user_id': 1, 'email': 'test@example.com'})
 
-        result = _parse_method_args(sig, type_hints, data, request)
+        result = await _parse_method_args(sig, type_hints, data, request)
 
         assert 'user' in result
         assert result['user'] == {'user_id': 1, 'email': 'test@example.com'}
 
-    def test_parse_method_args_resolves_storable_user(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_resolves_storable_user(self):
         """If user param type is StorableMixin subclass, resolve full instance."""
         def test_method(self, user: MockUser):
             pass
@@ -399,7 +398,7 @@ class TestParseMethodArgs:
         MockUser.get = lambda user_id: mock_user
 
         try:
-            result = _parse_method_args(sig, type_hints, data, request)
+            result = await _parse_method_args(sig, type_hints, data, request)
 
             assert 'user' in result
             assert isinstance(result['user'], MockUser)
@@ -407,7 +406,8 @@ class TestParseMethodArgs:
         finally:
             MockUser.get = original_get
 
-    def test_parse_method_args_skips_self_cls_user(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_skips_self_cls_user(self):
         """Should not include self, cls, or user in param extraction from data."""
         def test_method(self, arg1: str, user: dict):
             pass
@@ -417,11 +417,12 @@ class TestParseMethodArgs:
         data = {'arg1': 'value', 'self': 'ignored', 'cls': 'ignored', 'user': 'ignored'}
         request = make_mock_request(user={'user_id': 1})
 
-        result = _parse_method_args(sig, type_hints, data, request)
+        result = await _parse_method_args(sig, type_hints, data, request)
 
         assert result == {'arg1': 'value', 'user': {'user_id': 1}}
 
-    def test_parse_method_args_with_empty_data(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_with_empty_data(self):
         """Should handle empty data dict."""
         def test_method(self):
             pass
@@ -431,11 +432,12 @@ class TestParseMethodArgs:
         data = {}
         request = make_mock_request()
 
-        result = _parse_method_args(sig, type_hints, data, request)
+        result = await _parse_method_args(sig, type_hints, data, request)
 
         assert result == {}
 
-    def test_parse_method_args_with_missing_optional_param(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_with_missing_optional_param(self):
         """Should skip params not present in data."""
         def test_method(self, required: str, optional: int = 10):
             pass
@@ -445,11 +447,12 @@ class TestParseMethodArgs:
         data = {'required': 'value'}
         request = make_mock_request()
 
-        result = _parse_method_args(sig, type_hints, data, request)
+        result = await _parse_method_args(sig, type_hints, data, request)
 
         assert result == {'required': 'value'}
 
-    def test_parse_method_args_user_without_user_id(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_user_without_user_id(self):
         """Should not inject user if user_id is missing."""
         def test_method(self, user: dict):
             pass
@@ -459,12 +462,13 @@ class TestParseMethodArgs:
         data = {}
         request = make_mock_request(user={'email': 'test@example.com'})  # No user_id
 
-        result = _parse_method_args(sig, type_hints, data, request)
+        result = await _parse_method_args(sig, type_hints, data, request)
 
         # User param not in signature, so should not be in result
         assert result == {}
 
-    def test_parse_method_args_raises_on_invalid_field(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_raises_on_invalid_field(self):
         """Should raise HTTPException on type conversion failure."""
         def test_method(self, count: int):
             pass
@@ -475,12 +479,13 @@ class TestParseMethodArgs:
         request = make_mock_request()
 
         with pytest.raises(HTTPException) as exc_info:
-            _parse_method_args(sig, type_hints, data, request)
+            await _parse_method_args(sig, type_hints, data, request)
 
         assert exc_info.value.status_code == 422
         assert 'count' in exc_info.value.detail
 
-    def test_parse_method_args_invalid_pydantic_model(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_invalid_pydantic_model(self):
         """Should raise HTTPException on Pydantic validation failure."""
         class TestData(BaseModel):
             required: str
@@ -494,11 +499,12 @@ class TestParseMethodArgs:
         request = make_mock_request()
 
         with pytest.raises(HTTPException) as exc_info:
-            _parse_method_args(sig, type_hints, data, request)
+            await _parse_method_args(sig, type_hints, data, request)
 
         assert exc_info.value.status_code == 422
 
-    def test_parse_method_args_type_conversion_failure(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_type_conversion_failure(self):
         """Should raise HTTPException when type conversion fails."""
         def test_method(self, value: float):
             pass
@@ -509,7 +515,7 @@ class TestParseMethodArgs:
         request = make_mock_request()
 
         with pytest.raises(HTTPException) as exc_info:
-            _parse_method_args(sig, type_hints, data, request)
+            await _parse_method_args(sig, type_hints, data, request)
 
         assert exc_info.value.status_code == 422
 
@@ -582,8 +588,8 @@ class TestCreateAPIRoutesRouteGeneration:
         assert 'GET' in methods_by_path['/MockModel/@']
         assert 'GET' in methods_by_path['/MockModel/{id:int}/@{view}']
 
-    def test_create_api_routes_generates_collection_routes_for_join_models(self):
-        """Join models should get static collection routes first."""
+    def test_create_api_routes_generates_flat_routes_for_each_model(self):
+        """Every storable model gets its own flat table and class routes."""
         api = NetworkAPI()
         models = {
             'mock_models': MockModel,
@@ -592,11 +598,12 @@ class TestCreateAPIRoutesRouteGeneration:
         router = create_api_routes(api, models)
 
         routes = {r.path for r in router.routes}
-        # Static collection route for join model
         assert '/mock_children' in routes
+        assert '/mock_children/{id:int}' in routes
+        assert '/MockChildModel/{id:int}' in routes
 
-    def test_create_api_routes_parent_child_path_structure(self):
-        """Child models should have parent ID in path."""
+    def test_create_api_routes_does_not_generate_nested_paths(self):
+        """Parent-scoped nested identity routes are not generated."""
         api = NetworkAPI()
         models = {
             'mock_models': MockModel,
@@ -605,12 +612,11 @@ class TestCreateAPIRoutesRouteGeneration:
         router = create_api_routes(api, models)
 
         routes = {r.path for r in router.routes}
-        # Parent-child path structure
-        assert '/mock_models/{parent_id:int}/children' in routes
-        assert '/mock_models/{parent_id:int}/children/{id:int}' in routes
-        assert '/MockModel/{parent_id:int}/MockChildModel' in routes
-        assert '/MockModel/{parent_id:int}/MockChildModel/{id:int}' in routes
-        assert '/MockModel/{parent_id:int}/MockChildModel/{id:int}/mark' in routes
+        assert '/mock_models/{parent_id:int}/children' not in routes
+        assert '/mock_models/{parent_id:int}/children/{id:int}' not in routes
+        assert '/MockModel/{parent_id:int}/MockChildModel' not in routes
+        assert '/MockModel/{parent_id:int}/MockChildModel/{id:int}' not in routes
+        assert '/MockModel/{parent_id:int}/MockChildModel/{id:int}/mark' not in routes
 
 
 # ===================================================================
@@ -753,134 +759,6 @@ class TestCRUDRoutes:
 
         assert response.status_code == 201
         assert captured_tx.data.get('user_owner') == 123
-
-    @pytest.mark.asyncio
-    async def test_create_route_injects_parent_fk(self):
-        """POST on child route should inject parent FK."""
-        Actor.__matrix__ = None
-        m = Matrix()
-        api = NetworkAPI()
-        m.register(api)
-        m.register(MockModel)
-        m.register(MockChildModel)
-
-        models = {
-            'mock_models': MockModel,
-            'mock_children': MockChildModel,
-        }
-        router = create_api_routes(api, models)
-
-        captured_tx = None
-
-        async def mock_request(tx, timeout=30.0):
-            nonlocal captured_tx
-            captured_tx = tx
-            return tx.reply(data={'id': 1, 'content': 'Child content', 'mockmodel_id': 5})
-
-        with mock_method(api, 'request', mock_request):
-            from fastapi import FastAPI
-            app = FastAPI()
-            app.include_router(router)
-            client = TestClient(app)
-
-            response = client.post(
-                '/mock_models/5/children',
-                json={'content': 'Child content'}
-            )
-
-        assert response.status_code == 201
-        assert captured_tx.data.get('mockmodel_id') == 5
-
-    @pytest.mark.asyncio
-    async def test_nested_class_name_routes_match_legacy_join_tx_contracts(self):
-        """Nested class-name actor routes should dispatch the same TXs as join routes."""
-        Actor.__matrix__ = None
-        m = Matrix()
-        api = NetworkAPI()
-        m.register(api)
-        m.register(MockModel)
-        m.register(MockChildModel)
-
-        router = create_api_routes(api, {
-            'mock_models': MockModel,
-            'mock_children': MockChildModel,
-        })
-        captured = []
-
-        async def mock_request(tx, timeout=30.0):
-            captured.append(tx)
-            if tx.name == 'list':
-                return tx.reply(data=[])
-            if tx.name == 'delete':
-                return tx.reply(data={'message': 'Deleted successfully'})
-            return tx.reply(data={'id': tx.data.get('id', 1), **tx.data})
-
-        from fastapi import FastAPI
-        app = FastAPI()
-
-        @app.middleware("http")
-        async def add_user_to_state(request, call_next):
-            request.state.user = {'user_id': 42, 'email': 'actor@example.com'}
-            return await call_next(request)
-
-        app.include_router(router)
-
-        def assert_tx_pair(table_tx, class_tx, *, name, data):
-            assert table_tx.name == class_tx.name == name
-            assert table_tx.source == class_tx.source == 'api'
-            assert table_tx.target == class_tx.target == 'mock_children'
-            assert table_tx.data == class_tx.data == data
-            assert table_tx.meta['user'] == class_tx.meta['user'] == {
-                'user_id': 42,
-                'email': 'actor@example.com',
-            }
-            assert table_tx.meta['model_cls'] is class_tx.meta['model_cls'] is MockChildModel
-
-        with mock_method(api, 'request', mock_request):
-            client = TestClient(app)
-
-            client.post('/mock_models/5/children', json={'content': 'Child content'})
-            client.post('/MockModel/5/MockChildModel', json={'content': 'Child content'})
-            assert_tx_pair(captured[-2], captured[-1], name='create', data={
-                'content': 'Child content',
-                'mockmodel_id': 5,
-            })
-
-            client.get('/mock_models/5/children?limit=2&populate=items&depth=1')
-            client.get('/MockModel/5/MockChildModel?limit=2&populate=items&depth=1')
-            assert_tx_pair(captured[-2], captured[-1], name='list', data={
-                'limit': 2,
-                'parent_id': 5,
-                'populate': 'items',
-                'depth': 1,
-            })
-
-            client.get('/mock_models/5/children/7?populate=items&depth=1')
-            client.get('/MockModel/5/MockChildModel/7?populate=items&depth=1')
-            assert_tx_pair(captured[-2], captured[-1], name='get', data={
-                'id': 7,
-                'populate': 'items',
-                'depth': 1,
-            })
-
-            client.put('/mock_models/5/children/7', json={'content': 'Updated'})
-            client.put('/MockModel/5/MockChildModel/7', json={'content': 'Updated'})
-            assert_tx_pair(captured[-2], captured[-1], name='update', data={
-                'content': 'Updated',
-                'mockmodel_id': 5,
-                'id': 7,
-            })
-
-            client.post('/mock_models/5/children/7/mark', json={'value': 'ok'})
-            client.post('/MockModel/5/MockChildModel/7/mark', json={'value': 'ok'})
-            assert_tx_pair(captured[-2], captured[-1], name='mark', data={
-                'value': 'ok',
-                'id': 7,
-            })
-
-            client.delete('/mock_models/5/children/7')
-            client.delete('/MockModel/5/MockChildModel/7')
-            assert_tx_pair(captured[-2], captured[-1], name='delete', data={'id': 7})
 
     @pytest.mark.asyncio
     async def test_list_route_sends_list_tx(self):
@@ -1617,7 +1495,8 @@ class TestOutputShape:
         result = _response_or_raise(tx)
         assert result == {'key': 'value', 'nested': {'data': 123}}
 
-    def test_parse_method_args_output_structure(self):
+    @pytest.mark.asyncio
+    async def test_parse_method_args_output_structure(self):
         """Should return dict with parsed arguments."""
         def test_method(self, arg1: str, arg2: int):
             pass
@@ -1627,7 +1506,7 @@ class TestOutputShape:
         data = {'arg1': 'test', 'arg2': 42}
         request = make_mock_request()
 
-        result = _parse_method_args(sig, type_hints, data, request)
+        result = await _parse_method_args(sig, type_hints, data, request)
 
         assert isinstance(result, dict)
         assert set(result.keys()) == {'arg1', 'arg2'}

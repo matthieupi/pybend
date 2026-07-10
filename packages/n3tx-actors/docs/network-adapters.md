@@ -61,7 +61,7 @@ router = create_api_routes(api, registered_models)
 app.include_router(router)
 ```
 
-`create_api_routes()` generates: schema routes (`GET /{ClassName}`), class-name JSON mirrors for storable root models (`GET /{ClassName}/_`, `POST /{ClassName}`, `GET/PUT/DELETE /{ClassName}/{id:int}`), nested class-name mirrors for unique join pairs (`/{ParentClass}/{parent_id:int}/{ChildClass}[/{child_id:int}]`), legacy table-name CRUD routes (`POST/GET/PUT/DELETE /{tablename}/...`), literal custom method routes from `@expose_route` under both table-name and class-name paths, and streaming routes (SSE for `stream=True` methods). Data/API routes create TXs, call `api.request()` or `api.stream()`, and convert responses via `_response_or_raise()` or SSE framing.
+`create_api_routes()` generates: schema routes (`GET /{ClassName}`), class-name JSON mirrors for storable models (`GET /{ClassName}/_`, `POST /{ClassName}`, `GET/PUT/DELETE /{ClassName}/{id:int}`), table-name CRUD routes (`POST/GET/PUT/DELETE /{tablename}/...`), literal custom method routes from `@expose_route` under both table-name and class-name paths, and streaming routes (SSE for `stream=True` methods). Data/API routes create TXs, call `api.request()` or `api.stream()`, and convert responses via `_response_or_raise()` or SSE framing.
 
 Models may also expose optional HTML/view routes through a package-neutral capability hook:
 
@@ -78,7 +78,7 @@ class Product(ActorModel):
 - `GET /{ClassName}/{id}/@`
 - `GET /{ClassName}/{id}/@{view}`
 
-These HTML/view routes are served directly by the capability hook and do not dispatch CRUD or method TXs. Class-name JSON mirrors still dispatch normal CRUD or literal method TXs to the table-name actor address, preserving payload shape, `populate`, `depth`, authenticated user metadata, `model_cls` metadata, Tier 1/Tier 2 authorization, lifecycle hooks, and streaming metadata. Nested class-name mirrors dispatch to the generated join model actor address, not to the parent or child root model. `GET /{ClassName}` remains the schema endpoint; `GET /{ClassName}/_` is the explicit JSON collection mirror. There is no generic class-name method catch-all.
+These HTML/view routes are served directly by the capability hook and do not dispatch CRUD or method TXs. Class-name JSON mirrors still dispatch normal CRUD or literal method TXs to the table-name actor address, preserving payload shape, `populate`, `depth`, authenticated user metadata, `model_cls` metadata, Tier 1/Tier 2 authorization, lifecycle hooks, and streaming metadata. `GET /{ClassName}` remains the schema endpoint; `GET /{ClassName}/_` is the explicit JSON collection mirror. There is no generic class-name method catch-all. Parent-scoped join/nested route synthesis is no longer part of NetworkAPI; see the global [release notes](../../../RELEASE_NOTES.md) for migration notes.
 
 ### NetworkWebSocket
 
