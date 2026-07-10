@@ -125,17 +125,20 @@ Mirrors `proto_schema` -- same pattern, same extension mechanism.
 | # | Stage | Input | Output |
 |---|-------|-------|--------|
 | 1 | `base` | `instance` | Plain Pydantic `model_dump()` |
-| 2 | `response` | `instance, data` | Injects `$schema` and `$id` for HTTP responses |
+| 2 | `relationships` | `instance, data` | Enriches hydrated `T` and `list[T]` children through their dump pipelines |
+| 3 | `schema_url` | `instance, data` | Injects the model `$schema` URL |
+| 4 | `instance_url` | `instance, data` | Injects the resource `$id` URL |
+| 5 | `populate` | `instance, data` | Overlays explicitly populated storage relationships |
 
-The `response` stage caches per-class URL metadata (`_response_meta_cache`)
-so it does not rebuild on every serialization.
+The URL stages cache per-class metadata so they do not rebuild URL prefixes on
+every serialization.
 
 ### Extension Protocol
 
 ```python
-from n3tx.core.models.proto_dump import dump_extension
+from n3tx_core.models.proto_dump import dump_extension
 
-@dump_extension(after='response')
+@dump_extension(after='instance_url')
 def activity(instance, d: dict) -> dict:
     if getattr(instance.__class__, '__federated__', False):
         d['@context'] = 'https://www.w3.org/ns/activitystreams'
@@ -167,7 +170,7 @@ Injected into model `__bases__` by `ProtoModel.__init_subclass__` when
 | `create(data)` | classmethod | Insert new record |
 | `get(id)` | classmethod | Fetch by primary key |
 | `list(sql_filter, limit, offset)` | classmethod | Query with optional pagination |
-| `update(id, data)` | classmethod | Partial update |
+| `update(id, data)` | classmethod | Partial Python/storage update (generated HTTP `PUT` requires a complete writable body) |
 | `delete(id)` | classmethod | Remove record |
 
 ### Pagination
@@ -175,6 +178,12 @@ Injected into model `__bases__` by `ProtoModel.__init_subclass__` when
 When `limit` is provided, `list()` returns
 `{"data": [...], "meta": {"total", "limit", "offset", "has_more"}}`.
 Without `limit`, returns a plain list (backward compatible).
+
+`StorableMixin.update(id, data)` writes only supplied dictionary keys. Do not
+infer the same request shape for generated HTTP routes: current direct and actor
+`PUT` handlers validate a complete model first, so HTTP callers must preserve
+required and defaulted collection/JSON fields. See
+[API CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource).
 
 ### JSON Fields
 
@@ -190,15 +199,17 @@ class AgentConfig(ProtoModel):
     constraints: dict = Field(default={})
 ```
 
-`dict`, `Dict[...]`, `list`, primitive typed list fields, and `list[Ref[T]]`
+`dict`, `Dict[...]`, primitive typed list fields, `list[T]`, and `list[Ref[T]]`
 fields are stored as SQLite `TEXT` columns using JSON serialization. They are
-deserialized before Pydantic model construction on reads. `ListRef[T]`,
-many-to-many fields, and `List[BaseModel]` remain relationship fields and must
-not be treated as JSON storage.
+deserialized before Pydantic model construction on reads. `list[T]` stores local
+child ids and hydrates them into model objects; `list[Ref[T]]` stores pointer
+refs. `ManyToMany[T]` is a legacy shared-link helper and should not be used as
+the default owned collection primitive.
 
-Use JSON fields for metadata, settings, agent constraints, primitive tags, and
-external payload fragments. Use real models/relationships when nested data needs
-identity, auth, routes, pagination, lifecycle events, or independent updates.
+Use JSON fields for metadata, settings, agent constraints, primitive tags,
+ordered local model collections, pointer arrays, and external payload fragments.
+Use explicit models and custom methods when nested data needs identity, auth,
+pagination, lifecycle events, or independent updates.
 See [JSON Fields](JSON_FIELDS.md) for implementation details and tradeoffs.
 
 ---
@@ -220,9 +231,8 @@ canonical distributed refs such as `n3tx://storage/File/12`. Configured remote
 HTTP refs are canonicalized to `n3tx://<service>/<ClassName>/<id>`; arbitrary
 external URLs are classified as external links rather than Matrix refs.
 
-`ListRef[T]` remains the local owned relationship primitive backed by child or
-join tables. Distributed pointer arrays should use `list[Ref[T]]` instead of
-`ListRef[T]`.
+Local owned collections use `list[T]` and are stored as ordered local ids on the
+parent row. Distributed pointer arrays use `list[Ref[T]]`.
 
 Remote dereference is opt-in. Storage with no `reference_resolver` preserves and
 returns canonical remote refs without fetching them. Actor-mode bootstrap can
@@ -403,11 +413,11 @@ type-gated.
 ```
 models/
     __init__.py          Public API: BaseUser, ActorModel
-    proto_model.py       ProtoModel base class, generate_join_model()
+    proto_model.py       ProtoModel base class, schema(), model_response()
     proto_schema.py      Schema pipeline: 7 composable stages + extension protocol
     proto_dump.py        Dump pipeline: composable stages + extension protocol
     storable_mixin.py    CRUD operations (create/get/list/update/delete)
     base_user.py         Abstract base user with login/register endpoints
     actor_model.py       ActorModel bridge (Actor + ProtoModel)
-    ref.py               ListRef[T] type for collection references
+    ref.py               Ref[T] distributed/local reference helpers
 ```

@@ -146,15 +146,22 @@ GET /users
 
 ### Update User
 
-**Request** (partial update):
+**Request** (complete writable representation):
 ```bash
 PUT /users/1
 Content-Type: application/json
 
 {
+  "name": "Alice Johnson",
+  "email": "alice@example.com",
   "age": 29
 }
 ```
+
+Generated `PUT` routes validate the full model. Preserve all current writable
+values, especially defaulted lists and dictionaries. A narrow payload such as
+`{"age": 29}` is valid for `User.update(1, {"age": 29})` in Python, but may fail
+HTTP validation or materialize omitted defaults at the generated route boundary.
 
 **Response** (200 OK):
 ```json
@@ -347,8 +354,8 @@ Products available in the system.
 | `name` | string | Yes | - | Product name |
 | `price` | float | Yes | Must be positive | Price in USD |
 | `description` | string | No | - | Product description |
-| `comments` | array | No | ListRef[Comment] href array | Related comments |
-| `favorites` | array | No | ListRef[Like] href array | Users who favorited |
+| `comments` | array | No | `list[Comment]` hydrated objects | Related comments |
+| `favorites` | array | No | `list[Like]` hydrated objects | Users who favorited |
 
 ### Create Product
 
@@ -576,7 +583,7 @@ Comments on products. The Comment model uses `id` as its primary key field (cons
 | `description` | string | No | - | Comment text |
 | `user_owner` | integer | Yes (protected) | Must be valid User ID | Comment author (auto-injected from JWT) |
 | `parent_id` | integer | No | Ref['self'] | Parent comment ID for nesting (replies) |
-| `likes` | array | No | ListRef[Like] href array | Users who liked this comment |
+| `likes` | array | No | `list[Like]` hydrated objects | Users who liked this comment |
 | `product_id` | integer | Auto | Set from parent | Product this comment belongs to |
 
 **Important**: `product_id` is automatically set from the URL path parameter when creating comments. `user_owner` is a protected field — auto-injected from JWT on create, stripped from update payloads.

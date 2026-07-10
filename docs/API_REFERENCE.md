@@ -202,7 +202,10 @@ Serializes the model through the composable dump pipeline (`proto_dump`). Used f
 
 Runs `proto_dump.run_pipeline(self)` with stages:
 1. `base` -- plain Pydantic `model_dump()`
-2. `response` -- injects `$schema` and `$id` metadata
+2. `relationships` -- enriches hydrated `T` and `list[T]` children
+3. `schema_url` -- injects `$schema`
+4. `instance_url` -- injects `$id`
+5. `populate` -- overlays explicitly populated relationship data
 
 Extensions can add stages via `@dump_extension` (e.g., federation, MCP).
 
@@ -762,7 +765,7 @@ Concrete `ActorModel` whose instances ARE agents. Configuration lives in fields 
 |-------|------|---------|-------------|
 | `name` | `str` | (required) | Human-readable agent name |
 | `prompt` | `str` | `''` | System prompt for the LLM |
-| `tools` | `ListRef[AgentTool]` | `[]` | Tool references via join table |
+| `tools` | `list[AgentTool]` | `[]` | Ordered hydrated tool records |
 | `llm` | `str` | `'ollama:llama3.1'` | Pydantic AI `provider:model` string |
 | `constraints` | `dict` | `{}` | Budget/safety limits |
 
@@ -936,11 +939,10 @@ register_model(
 - `storage`: Storage backend (required if `__storable__` is True)
 
 **Actions**:
-1. Detects join models (has `__owner__`)
-2. Sets storage backend
-3. Creates table
-4. Runs auto-migration
-5. Adds to global registry
+1. Sets storage backend
+2. Creates table
+3. Runs auto-migration
+4. Adds to global registry
 
 **Example**:
 ```python
@@ -952,36 +954,25 @@ register_model(User, storage=storage)
 register_model(Product, storage=storage)
 ```
 
-### generate_join_model
+### Local model collections
 
-Programmatically generates a join model for many-to-many relationships.
+Owned child collections are declared directly on the parent model:
 
-**Module**: `models.proto_model`
-
-**Signature**:
 ```python
-generate_join_model(
-    owner_cls: Type[ProtoModel],
-    ref_model: Type[ProtoModel],
-    field_name: str = None
-) -> Type[ProtoModel]
+class Product(ProtoModel):
+    __tablename__ = 'products'
+    __storable__ = True
+
+    comments: list[Comment] = Field(default=[])
 ```
 
-**Parameters**:
-- `owner_cls`: Owner model (e.g., Product)
-- `ref_model`: Referenced model (e.g., Comment)
-- `field_name`: Optional field name
+`list[T]` stores an ordered JSON list of local child ids and hydrates those ids
+into self-describing child objects in responses. Updates replace the ordered
+list; child records keep their own flat class-name CRUD routes.
 
-**Returns**: Dynamically created join model class
-
-**Example**:
-```python
-ProductComment = generate_join_model(Product, Comment)
-register_model(ProductComment, storage=storage)
-
-# Creates table: products_comments
-# With columns: id, product_id, comment fields...
-```
+For shared relationship data, prefer an explicit link model. `ManyToMany[T]` is
+a legacy helper for existing shared-link cases rather than the default
+relationship primitive.
 
 ### get_traceback_info
 

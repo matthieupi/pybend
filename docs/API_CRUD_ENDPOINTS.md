@@ -438,7 +438,13 @@ if (user) {
 
 ## Update Resource
 
-Update an existing resource. This is a **partial update** - only fields included in the request body are updated.
+Update an existing resource.
+
+> **Current generated-route contract:** HTTP `PUT` validates the request body
+> against the full model. Send a complete writable representation containing all
+> required fields and the current values of defaulted collection/JSON fields you
+> intend to preserve. This differs from the Python `Model.update(id, patch)` API,
+> actor TX updates, and generated agent update tools, which are patch-oriented.
 
 ### Request
 
@@ -454,19 +460,29 @@ PUT /{resource}/{id}
 **Request Headers**:
 - `Content-Type: application/json` (required)
 
-**Request Body**: JSON object with fields to update
+**Request Body**: Complete writable model representation
 
 ```json
 {
+  "name": "Alice Johnson",
+  "email": "alice@example.com",
   "age": 29
 }
 ```
 
 **Update Behavior**:
-- Only fields present in request body are updated
-- Other fields remain unchanged
-- Cannot update `id` field
+- All model-required fields must pass validation
+- Omitted fields with defaults may be materialized by model validation and written
+- Include current `list[T]`, `list[Ref[T]]`, JSON list, and `dict` values to preserve them
+- An explicit `[]` or `{}` replaces/clears the complete stored field
+- Do not send the `id` field; identity comes from the route
+- Backend-owned protected fields are stripped
 - Foreign keys can be updated by passing new ID
+
+Do not build update payloads from schema defaults or partially populated
+responses. Fetch the complete entity, modify it, and send its complete writable
+values. For append/remove/toggle behavior on relationship collections, prefer a
+domain-specific `@expose_route` method instead of client-side array replacement.
 
 ### Response
 
@@ -498,14 +514,14 @@ PUT /{resource}/{id}
 ```javascript
 // Update user's email
 async function updateUserEmail(userId, newEmail) {
+  const current = await getUser(userId);
+  const { id, $id, $schema, ...writable } = current;
   const response = await fetch(`http://localhost:8000/users/${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      email: newEmail
-    })
+    body: JSON.stringify({ ...writable, email: newEmail })
   });
   
   if (!response.ok) {
@@ -517,16 +533,21 @@ async function updateUserEmail(userId, newEmail) {
   return await response.json(); // Complete updated object with $schema and $id
 }
 
-// Update multiple fields
+// Update multiple fields while preserving the complete current representation
 await fetch('http://localhost:8000/users/1', {
   method: 'PUT',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
+    name: 'Alice Johnson',
     age: 29,
     email: 'alice.new@example.com'
   })
 });
 ```
+
+**Concurrency warning**: updates are last-write-wins. A stale complete object can
+overwrite a newer scalar or collection value. Re-fetch before updating when
+concurrent writers are possible.
 
 **Idempotency**: PUT requests are idempotent - making the same request multiple times produces the same result.
 

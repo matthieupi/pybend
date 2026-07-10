@@ -262,7 +262,7 @@ app = create_app(models=[Product, User], storage="sqlite:///app.db")
 
 # Level 2 — Builder via N3TXApp:
 pb = N3TXApp(storage="sqlite:///app.db")
-pb.model(Product).model(User).join(Product, Comment)
+pb.model(Product).model(User).model(Comment)
 app = pb.build()
 
 # Level 3 — Raw primitives (full manual control):
@@ -299,7 +299,6 @@ For full details, read `docs/CORE.md`.
 
 ```python
 from n3tx_core.models.proto_model import ProtoModel
-from n3tx_core.models.ref import ListRef
 from n3tx_core.utils.decorators import expose_route
 from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 
@@ -323,7 +322,7 @@ class Product(ProtoModel):
                                             'access': {'view': 'anyone', 'edit': 'admin'}})
     description: str = Field(default='',
                              json_schema_extra={'ui': {'widget': 'textarea'}})
-    comments: ListRef[Comment] = Field(default=[])
+    comments: list[Comment] = Field(default=[])
 
     @expose_route('/comment', methods=['POST'])
     def comment(self, comment: Comment) -> str: ...
@@ -335,10 +334,10 @@ class Product(ProtoModel):
 |---------|---------------|-----------------|
 | CRUD API endpoints | `__tablename__`, model fields | `register_routes()` in `routes_fastapi.py` |
 | JSON Schema | Field types, validators, `json_schema_extra` | `ProtoModel.schema()` via `proto_schema` pipeline |
-| Enriched JSON responses | `model_response()`, dump pipeline stages | `proto_dump` pipeline (`base` → `response` → extensions) |
+| Enriched JSON responses | `model_response()`, dump pipeline stages | `proto_dump` pipeline (`base` → `relationships` → `schema_url` → `instance_url` → `populate` → extensions) |
 | DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
-| JSON field storage | `dict`, `list`, `List[str]`, `list[Ref[T]]` etc. fields | `sqlite_storage.py` auto-serializes to/from JSON TEXT |
-| FK hydration (href arrays) | `ListRef[T]` fields, `__fk_models__` | `sqlite_storage.py` on read |
+| JSON field storage | `dict`, primitive lists, `list[T]`, `list[Ref[T]]` etc. fields | `sqlite_storage.py` auto-serializes to/from JSON TEXT |
+| Local relationship hydration | `T` and `list[T]` model fields | Stored as local ids, hydrated as self-describing model objects on read |
 | Distributed refs | `Ref[T]`, `list[Ref[T]]`, configured `N3TX_REMOTES` | `models/ref.py` canonicalizes refs; `SQLiteStorage.reference_resolver` + `RemoteMatrix` optionally populate remote refs |
 | Access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth injection |
 | Frontend entity classes | Schema properties, methods | `N3TX.SCHEMA()` → `prototype()` → DynamicClass |
@@ -366,12 +365,12 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 |------|---------|
 | `packages/n3tx-core/src/n3tx_core/app.py` | `N3TXApp` builder + `create_app()` factory |
 | `packages/n3tx-core/src/n3tx_core/config.py` | HOST, PORT, API_URL, SQLITE_DB_FILE, AGENT_DEFAULTS, SERVICE_NAME, SERVICE_TOKEN, REMOTES |
-| `packages/n3tx-core/src/n3tx_core/models/proto_model.py` | Base model, `schema()`, `model_response()`, `generate_join_model()`, `register_mixin()` |
+| `packages/n3tx-core/src/n3tx_core/models/proto_model.py` | Base model, `schema()`, `model_response()`, relationship hydration, `register_mixin()` |
 | `packages/n3tx-core/src/n3tx_core/models/proto_schema.py` | Schema pipeline: 7 core stages + external extensions |
 | `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` | Dump pipeline for serialization |
 | `packages/n3tx-core/src/n3tx_core/models/base_user.py` | Abstract base user with login/register |
 | `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` | CRUD operations, pagination |
-| `packages/n3tx-core/src/n3tx_core/models/ref.py` | `Ref[T]`, `ListRef[T]`, distributed ref parser/canonicalizer helpers |
+| `packages/n3tx-core/src/n3tx_core/models/ref.py` | `Ref[T]`, distributed ref parser/canonicalizer helpers |
 | `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` | SQLite backend, FK hydration, JSON fields, optional `reference_resolver` for remote ref populate |
 | `packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py` | Auto-migration + manual migrations |
 | `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py` | Level 1/2 route generation |
@@ -597,6 +596,20 @@ Level 1/2 use `routes_fastapi.py`'s single-pass authorization.
 
 ### JSON Fields (dict/list Storage)
 `dict` and `list` fields are transparently serialized to JSON TEXT in SQLite. See `packages/n3tx-core/docs/storage.md` for details.
+
+### Generated HTTP Update Quirk
+
+Generated direct and actor HTTP `PUT` routes currently validate complete model
+bodies. HTTP callers must fetch and send the complete writable entity, including
+current `list[T]`, `list[Ref[T]]`, plain list, and `dict` values. Omitted
+defaulted fields may be materialized as empty values and persisted.
+
+Direct `Model.update(id, patch)`, raw actor TX updates, and agent update tools
+remain patch-oriented. Supplied collection fields are complete replacements and
+writes are last-write-wins. Prefer domain-specific `@expose_route` methods for
+append/remove/toggle mutations. Do not describe generated HTTP `PUT` as partial
+until the route validation contract is changed. Canonical guidance:
+`docs/API_CRUD_ENDPOINTS.md#update-resource`.
 
 ### Widget Pattern
 Widget fields map Python types to specialized frontend renderers. See `BACKEND.md` for Python details, `FRONTEND.md` for JS details, `packages/n3tx-ui/docs/widgets.md` for the full widget system.

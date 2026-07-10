@@ -180,9 +180,19 @@ curl -X POST http://localhost:8000/posts \
 curl -X PUT http://localhost:8000/posts/1 \
   -H "Content-Type: application/json" \
   -d '{
-    "published": true
+    "title": "My First Post",
+    "content": "Hello N3TX!",
+    "published": true,
+    "author": 1
   }'
 ```
+
+Generated HTTP `PUT` routes currently validate complete model bodies. Fetch the
+current entity and preserve every writable required/defaulted value in the
+request. This is especially important for list and dictionary fields, whose
+omitted defaults may otherwise be persisted as empty values. Direct Python
+`Model.update(id, patch)` calls remain patch-oriented. See
+[CRUD update semantics](API_CRUD_ENDPOINTS.md#update-resource).
 
 **Delete a user**:
 ```bash
@@ -430,20 +440,20 @@ class Tag(ProtoModel):
 
 class Post(ProtoModel):
     # ... existing fields ...
-    tags: Optional[List[Tag]] = []
+    tags: list[Tag] = Field(default=[])
 ```
 
-### Step 2: Generate Join Model
+### Step 2: Register Models
 
 ```python
-from models.proto_model import generate_join_model
-
-# In app.py, after registering Post and Tag:
-PostTag = generate_join_model(Post, Tag)
-register_model(PostTag, storage=storage)
+register_model(Post, storage=storage)
+register_model(Tag, storage=storage)
 ```
 
-This creates a `posts_tags` join table automatically.
+N3TX stores `Post.tags` as an ordered JSON list of local `Tag` ids and hydrates
+the field into `Tag` objects in API responses. For shared relationship metadata,
+prefer an explicit link model; `ManyToMany[T]` is a legacy helper for existing
+shared-link cases.
 
 ### Step 3: Add Tags to Posts
 
@@ -457,10 +467,16 @@ curl -X POST http://localhost:8000/tags \
   -H "Content-Type: application/json" \
   -d '{"name": "tutorial", "color": "#ff6b6b"}'
 
-# Add tag to post (via join table)
-curl -X POST http://localhost:8000/posts/1/tags \
+# Update post tags by replacing the ordered list
+curl -X PUT http://localhost:8000/Post/1 \
   -H "Content-Type: application/json" \
-  -d '{"name": "python", "color": "#3776ab"}'
+  -d '{
+    "title": "My First Post",
+    "content": "Hello N3TX!",
+    "published": true,
+    "author": 1,
+    "tags": [1, 2]
+  }'
 ```
 
 ## Switching Storage Backends

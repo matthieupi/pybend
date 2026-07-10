@@ -371,6 +371,32 @@ logout, chevron, and hamburger are inline SVG constants defined directly in
 
 ## Frontend Patterns
 
+### Complete-object update compatibility
+
+Generated direct and actor HTTP `PUT` routes currently validate a complete
+model, even though the Python model/storage update APIs are patch-oriented. The
+first-party entity flow therefore sends the current complete value on save:
+
+```javascript
+this.send(new TX({
+  name: 'UPDATE',
+  source: this.addr,
+  target: this.ref,
+  data: this.value,
+}));
+```
+
+Custom components and clients must preserve current `list[T]`, `list[Ref[T]]`,
+plain list, and dictionary fields. Do not build an update from schema defaults or
+a partially populated/projection response: omitted defaulted fields can become
+empty values during backend validation and overwrite stored collections.
+
+Sending complete objects is a compatibility measure, not concurrency control.
+Updates replace supplied collections as a whole and are last-write-wins. Prefer
+schema-declared domain methods for append/remove/toggle actions when multiple
+writers may update the same relationship. See
+`docs/API_CRUD_ENDPOINTS.md#update-resource` for the canonical HTTP contract.
+
 ### Hash Route Grammar and View Resolution
 
 The frontend router uses an explicit `@` segment for model view routes. This

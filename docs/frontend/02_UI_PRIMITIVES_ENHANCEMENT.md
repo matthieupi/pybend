@@ -42,7 +42,7 @@ The core philosophy: **the model definition is the single source of truth**. Eve
 |---|---|
 | `src/n3tx/core/models/proto_model.py` | Base model class. Generates JSON Schema via `schema()` (delegates to `proto_schema` pipeline). Injects `StorableMixin` for DB ops. `model_response()` adds `$schema`/`$id` metadata via the `proto_dump` pipeline. |
 | `src/n3tx/core/models/storable_mixin.py` | CRUD operations (create/get/list/update/delete) |
-| `src/n3tx/core/models/ref.py` | `ListRef[T]` type for collection references |
+| `src/n3tx/core/models/ref.py` | `Ref[T]` distributed/local reference helpers |
 | `src/n3tx/core/utils/typer.py` | `Ref[T]` type for foreign keys, `Ref['self']` for self-referencing |
 | `src/n3tx/core/utils/decorators.py` | `@expose_route()` marks methods as API endpoints |
 | `src/n3tx/core/api/routes_fastapi.py` | Auto-generates CRUD routes from registered models |
@@ -77,7 +77,7 @@ class Product(ProtoModel):
     name: str
     price: float
     description: str = ''
-    comments: Optional[ListRef[Comment]] = Field(default=[], description="List of comments")
+    comments: list[Comment] = Field(default=[], description="List of comments")
     id: Optional[int] = Field(default=None)
 
     @expose_route('/comment', methods=['POST'])
@@ -581,7 +581,7 @@ class Product(ProtoModel):
 
 ### Implementation — DONE
 
-**Frontend**: `ListElement.childTag` checks `this.schema?.ui?.renderer?.item` at priority level 4 in the resolution chain. Formidable's `getListInput()` also resolves the child tag from `$defs[modelName].ui.renderer.item` when rendering inline ListRef fields.
+**Frontend**: `ListElement.childTag` checks `this.schema?.ui?.renderer?.item` at priority level 4 in the resolution chain. Formidable's `getListInput()` also resolves the child tag from `$defs[modelName].ui.renderer.item` when rendering inline relationship fields.
 
 **Backend**: Product model includes `renderer` in `__ui__`:
 ```python
@@ -909,7 +909,7 @@ The scaffolding reads the model's `schema()` output and generates code:
 - Respects `ui.field_order` for field rendering order
 - Applies `ui.widget` hints: `currency` → `$X.XX` formatting, `textarea` → `<p>` blocks
 - Applies `ui.display: false` → skips hidden fields
-- Detects `ListRef` fields via `items.$ref` → renders as nested `<ntx-item>` (or custom tag from renderer hints)
+- Detects relationship array fields via `items.$ref` → renders as nested `<ntx-item>` (or custom tag from renderer hints)
 - Generates `<ntx-method>` buttons for schema methods
 - Header fields (`name`, `description`) rendered as `<h2>` / `<p>`, body fields with `<label>` + display element
 - CSS includes glass morphism base card, field-specific selectors, and stagger animation
@@ -1029,7 +1029,7 @@ user_owner: User = Field(json_schema_extra={
 
 ### Goal
 
-When Formidable encounters a `ListRef[Comment]` field, auto-render it as a proper nested list component with schema-aware child resolution.
+When Formidable encounters a `list[Comment]` relationship field, auto-render it as a proper nested list component with schema-aware child resolution.
 
 ### Implementation
 

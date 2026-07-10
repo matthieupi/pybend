@@ -184,7 +184,7 @@ All error responses return:
 |--------|---------|------------|------|
 | GET | Retrieve resource(s) | Yes | Yes |
 | POST | Create resource or trigger action | No | No |
-| PUT | Update entire resource | Yes | No |
+| PUT | Update complete writable resource representation (generated routes) | Yes | No |
 | DELETE | Remove resource | Yes | No |
 
 ### Status Codes
@@ -233,38 +233,44 @@ class Comment(ProtoModel):
 **To Get Full Object** - Make a separate request:
 ```javascript
 // First, get the comment
-const comment = await fetch('/products/5/comments/1').then(r => r.json());
+const comment = await fetch('/Comment/1').then(r => r.json());
 
 // Then, get the full user object
 const user = await fetch(`/users/${comment.user}`).then(r => r.json());
 ```
 
-### Nested Resources (Many-to-Many)
+### Local Model Collections
 
-When models have list relationships, N3TX creates join tables and nested endpoints:
+When models have local owned collections, N3TX stores ordered child ids on the
+parent and returns hydrated child objects in the parent response:
 
 ```python
 class Product(ProtoModel):
-    comments: Optional[List[Comment]] = []
+    comments: list[Comment] = Field(default=[])
 ```
 
-This creates:
-- `POST /products/{parent_id}/comments` - Add comment to product
-- `GET /products/{parent_id}/comments` - List product's comments
-- `PUT /products/{parent_id}/comments/{id}` - Update comment
-- `DELETE /products/{parent_id}/comments/{id}` - Remove comment from product
+Example response:
 
-**Important**: The child resource gets additional foreign key field automatically:
 ```json
 {
-  "$schema": "http://localhost:8000/Comment",
-  "$id": "http://localhost:8000/Product/5/Comment/1",
-  "id": 1,
-  "text": "Great!",
-  "product_id": 5,
-  "user": 1
+  "$schema": "http://localhost:8000/Product",
+  "$id": "http://localhost:8000/Product/5",
+  "id": 5,
+  "comments": [
+    {
+      "$schema": "http://localhost:8000/Comment",
+      "$id": "http://localhost:8000/Comment/1",
+      "id": 1,
+      "text": "Great!",
+      "user": "http://localhost:8000/User/1"
+    }
+  ]
 }
 ```
+
+Use custom model methods for domain-specific append/toggle actions. Shared
+relationships should be modeled with explicit link models; `ManyToMany[T]` is a
+legacy helper for existing shared-link cases.
 
 ---
 
@@ -533,6 +539,15 @@ GET  /User/_   -> class-name collection mirror
 POST /User     -> class-name create mirror
 PUT  /User/1   -> class-name update mirror
 ```
+
+Both update route grammars currently validate a complete model body. Callers
+must include every required field and preserve current defaulted collection/JSON
+values (`list[T]`, `list[Ref[T]]`, plain lists, and dictionaries). Omitted
+defaulted fields may be materialized as `[]`, `{}`, or another default and then
+persisted. This HTTP behavior is intentionally documented as a compatibility
+constraint; Python `Model.update(id, patch)`, actor TX updates, and agent update
+tools accept narrow patches. See [CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource)
+for safe usage guidance.
 
 Entity payloads keep `$schema` pointing to `/{ClassName}` and now advertise
 `$id` as `/{ClassName}/{id}`, even when fetched through the legacy table-name

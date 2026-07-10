@@ -542,12 +542,13 @@ product.call('DELETE', {});
 
 ---
 
-## 8. FK Hydration — Collection Fields as Hrefs
+## 8. Local Relationship Hydration — Collection Fields as Objects
 
-When a model has a collection field (e.g., `Product.comments` which is a
-`List[Comment]`), the backend does **not** embed the child objects inline.
-Instead, it returns an array of **href strings** — fully qualified URLs that
-the frontend can resolve independently.
+When a model has a local owned collection field (for example
+`Product.comments: list[Comment]`), SQLite stores an ordered JSON array of child
+ids on the parent row. On read, the backend hydrates those ids into
+self-describing child objects. The frontend can render the relationship directly
+while each child still carries its own flat class-name identity URL.
 
 ### What the Data Looks Like
 
@@ -557,76 +558,84 @@ the frontend can resolve independently.
   "name": "Keyboard",
   "price": 49.99,
   "comments": [
-    "http://localhost:5000/products/1/comments/1",
-    "http://localhost:5000/products/1/comments/2"
+    {
+      "$schema": "http://localhost:5000/Comment",
+      "$id": "http://localhost:5000/Comment/1",
+      "id": 1,
+      "name": "Great!",
+      "description": "Love it"
+    },
+    {
+      "$schema": "http://localhost:5000/Comment",
+      "$id": "http://localhost:5000/Comment/2",
+      "id": 2,
+      "name": "Useful",
+      "description": "Bought one too"
+    }
   ]
 }
 ```
 
-Each href follows the format:
+Each child object has the same identity shape as a top-level entity:
 
 ```
-{API_URL}/{parent_table}/{parent_id}/{field_name}/{child_id}
+{API_URL}/{ChildClassName}/{child_id}
 ```
 
 | Segment | Source | Example |
 |---------|--------|---------|
 | `API_URL` | `config.API_URL` | `http://localhost:5000` |
-| `parent_table` | `Product.__tablename__` | `products` |
-| `parent_id` | Parent record ID | `1` |
-| `field_name` | Field name on the parent model | `comments` |
-| `child_id` | Child record ID from join table | `2` |
+| `ChildClassName` | Child model class name | `Comment` |
+| `child_id` | Child record ID | `2` |
 
-### Resolving Hrefs
+### Resolving Child Objects
 
-Each href is a standard URL. Fetching it returns the full child object:
+Each child's `$id` is a standard class-name URL. Fetching it returns the full
+child object:
 
 ```
-GET /products/1/comments/1
--> { "id": 1, "name": "Great!", "description": "Love it", "product_id": 1 }
+GET /Comment/1
+-> { "$schema": "http://localhost:5000/Comment", "$id": "http://localhost:5000/Comment/1", "id": 1, "name": "Great!" }
 ```
 
-No new routes are needed — these match the nested routes already registered
-by the backend.
+No generated nested routes are needed. Relationship ownership is represented by
+the model field and storage contract, not by a parent-scoped URL segment.
 
-### Why Hrefs Instead of Embedded Objects
+### Why Hydrated Objects
 
-- **Lazy loading** — child data is only fetched when needed, not on every parent read
-- **Independent resolution** — each href can be resolved via the N3TX actor system like any other entity
-- **Decentralization-ready** — hrefs carry their own origin, so child entities could live on different backends
-- **Consistent with the actor model** — entities are always referenced by address, never embedded inline
+- **Schema-driven rendering** — relationship values already include `$schema` and `$id` metadata.
+- **Flat identity** — every entity resolves through `/{ClassName}/{id}` regardless of where it appears.
+- **Simpler storage** — owned local collection order is the parent row's JSON id array.
+- **Model-first behavior** — app-specific append/toggle rules live in `@expose_route` methods.
 
-### Backend Type: `ListRef[T]`
+### Backend Type: `list[T]`
 
-On the backend, collection fields use the `ListRef[T]` type instead of `List[T]`:
+On the backend, local owned collection fields use normal Python list typing:
 
 ```python
-from n3tx.core.models.ref import ListRef
-
 class Product(ProtoModel):
-    comments: Optional[ListRef[Comment]] = []
+    comments: list[Comment] = Field(default=[])
 ```
 
-`ListRef[T]` tells Pydantic to accept both model instances and href strings,
-and the storage layer hydrates by constructing href URLs from child record IDs.
+`list[T]` stores local child ids in SQLite and hydrates them into `T` instances
+when the parent is read. Use `list[Ref[T]]` instead when the field is a pointer
+array that may include distributed references.
 
 ### Schema Representation
 
-The JSON schema for a `ListRef` field uses `anyOf`:
+The JSON schema for a local `list[T]` field is an array of the child schema:
 
 ```json
 {
   "comments": {
-    "anyOf": [
-      { "$ref": "#/$defs/Comment" },
-      { "type": "string" }
-    ]
+    "type": "array",
+    "items": { "$ref": "#/$defs/Comment" }
   }
 }
 ```
 
-This tells the frontend that `comments` values can be either Comment objects
-or strings (hrefs). In practice, the backend always returns strings.
+This tells the frontend that `comments` values are child objects. The backend
+keeps those objects self-describing in API responses.
 
 ---
 

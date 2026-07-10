@@ -64,9 +64,9 @@ JSON field detection is implemented by
 | `list` | Yes | Stored with `json.dumps()` |
 | `List[str]`, `list[str]` | Yes | Primitive typed lists are JSON fields |
 | `List[int]`, `list[int]` | Yes | Primitive typed lists are JSON fields |
-| `ListRef[T]` | No | Relationship field, backed by FK/join table |
-| `List[BaseModel]` | No | Relationship-style collection, not JSON |
-| many-to-many field marker | No | Relationship field |
+| `list[T: ProtoModel]` | Yes | Ordered local id list, hydrated into child objects |
+| `list[Ref[T]]` | Yes | Pointer/ref list |
+| `ManyToMany[T]` | No | Legacy shared-link helper; prefer explicit link models |
 
 Use the current, test-backed style for nullable JSON fields:
 
@@ -89,17 +89,17 @@ identity and lifecycle.
 tags: list[str] = Field(default=[])
 payload: dict = Field(default={})
 
-# Relationship field: child resources, routes, identity, auth, hydration
-comments: ListRef[Comment] = Field(default=[])
+# Local relationship field: child resources with identity, auth, hydration
+comments: list[Comment] = Field(default=[])
 ```
 
-| Concern | JSON field | Relationship / `ListRef` |
+| Concern | Embedded JSON | `list[T]` local relationship |
 |---|---|---|
-| Storage | One SQLite `TEXT` column | Child table / join table |
-| API identity | No nested `$id` | Child resources get route identity |
+| Storage | One SQLite `TEXT` column | JSON id list on the parent row |
+| API identity | No nested `$id` | Child resources keep flat class-name `$id` |
 | Access control | Whole field only | Per child resource possible |
-| Updates | Replace whole field | Row/resource-level updates |
-| Querying | No first-class nested query API | Normal row/filter patterns |
+| Updates | Replace whole field | Replace ordered id list; child rows update independently |
+| Querying | No first-class nested query API | Query child model through its own collection route |
 | Schema | Pydantic property schema | Full model schema and `$defs` |
 | Good for | Config, metadata, payloads | Comments, likes, children, owned records |
 
@@ -190,9 +190,10 @@ packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py
 During table creation:
 
 - `dict` fields become `TEXT` columns.
-- non-relationship `list` fields become `TEXT` columns.
-- `ListRef[T]` and `List[BaseModel]` are skipped because they are relationship
-  fields, not parent-table JSON columns.
+- `list` fields become `TEXT` columns.
+- `list[T: ProtoModel]` stores ordered local child ids in the parent row.
+- `ManyToMany[T]` is a legacy shared-link helper and is not stored as a parent
+  JSON list.
 
 During auto-migration:
 
@@ -258,7 +259,7 @@ Nested JSON values do not get routes, `$id`, lifecycle events, ownership, or
 per-item authorization.
 
 If a nested value should be a resource, model it as a `ProtoModel`/`ActorModel`
-and connect it with `ListRef` or another relationship primitive.
+and reference it with `list[T]`, `Ref[T]`, or an explicit link model.
 
 ### Updates replace the whole field
 
@@ -270,6 +271,33 @@ Job.update(1, {"payload": {"status": "done"}})
 
 This replaces `payload`; it does not preserve other keys from the previous
 payload unless the caller includes them.
+
+### Generated HTTP PUT requires collection preservation
+
+The Python update API is patch-oriented, so omitting a JSON field leaves it
+unchanged:
+
+```python
+Job.update(1, {"title": "Renamed"})  # payload is not supplied or replaced
+```
+
+Generated HTTP `PUT` routes currently validate a complete model. During that
+validation, an omitted field with `Field(default=[])` or `Field(default={})` can
+be materialized and forwarded to storage. Downstream HTTP clients should fetch
+the complete entity and include current JSON fields in the update body:
+
+```json
+{
+  "title": "Renamed",
+  "tags": ["queued", "priority"],
+  "metadata": {"provider": "example"}
+}
+```
+
+Do not construct HTTP update bodies from schema defaults or projections. An
+explicit `[]` or `{}` means replace the complete stored field with an empty
+value. The same preservation rule applies to JSON-backed `list[T]` local
+relationship IDs and `list[Ref[T]]` pointer arrays.
 
 ### There is no first-class nested JSON query API
 
@@ -327,13 +355,14 @@ Start with these files when investigating or changing JSON-field behavior:
 
 When changing JSON-field behavior:
 
-1. Preserve the relationship boundary: `ListRef[T]`, many-to-many fields, and
-   `List[BaseModel]` must not become JSON fields accidentally.
+1. Preserve the relationship boundary: `list[T]` stores ordered local ids,
+   `list[Ref[T]]` stores pointer refs, and `ManyToMany[T]` remains a legacy
+   shared-link helper.
 2. Update both storage and migration behavior if detection rules change.
 3. Add tests for detection, migration, create/get/list/update, and populate if
    the change affects related records.
-4. Verify existing relationship hydration still returns href arrays for
-   relationship fields.
+4. Verify local relationship hydration returns self-describing child objects for
+   `list[T]` fields.
 5. Update this guide and `packages/n3tx-core/docs/storage.md` if the public
    behavior changes.
 

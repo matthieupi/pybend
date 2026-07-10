@@ -536,10 +536,10 @@ product.name              // -> this.value.name (typed getter)
 product.price = 29.99     // -> type-checked, calls notify() (Observable)
 product.comment({...})    // -> this.call('comment', {...}) -> remote POST
 
-// FK Hydration: collection fields contain href arrays:
+// Relationship hydration: collection fields contain child objects:
 product.comments
-// -> ["http://localhost:5000/products/1/comments/1", ...]
-// Each href is independently resolvable via GET.
+// -> [{id: 1, $id: "/Comment/1", text: "..."}, ...]
+// Each child object is self-describing via $schema/$id.
 ```
 
 ### Mixins Applied

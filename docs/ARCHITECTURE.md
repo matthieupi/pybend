@@ -130,7 +130,7 @@ class ProtoModel(PydanticBaseModel):
     # Enriched serialization via composable pipeline (proto_dump)
     def model_response(self, **kwargs) -> dict:
         # Runs proto_dump.run_pipeline(self) — stages:
-        # base (plain Pydantic) -> response ($schema/$id)
+        # base -> relationships -> schema_url -> instance_url -> populate
         # Extensions add stages via @dump_extension
         # Injects:
         # - $schema: URL to model's JSON Schema
@@ -218,9 +218,9 @@ class AbstractStorage(ABC):
 #### SQLiteStorage
 - Automatic schema migration
 - Foreign key handling
-- JSON TEXT serialization for embedded `dict` and non-relationship `list`
-  fields; `ListRef[T]` and `List[BaseModel]` stay relationship fields, not JSON
-  columns. See [JSON Fields](JSON_FIELDS.md).
+- JSON TEXT serialization for embedded `dict`, primitive lists, `list[T]`, and
+  `list[Ref[T]]`; local model collections store ordered child ids and hydrate
+  to child objects. See [JSON Fields](JSON_FIELDS.md).
 
 #### JSONStorage
 - File-based storage
@@ -261,8 +261,8 @@ class Ref(Generic[T]):
 - Generates proper `$ref` in OpenAPI schemas
 - Serializes local refs as ids where possible
 - Preserves canonical distributed refs such as `n3tx://storage/File/12`
-- Keeps `ListRef[T]` local relationship semantics separate from JSON-backed
-  pointer arrays such as `list[Ref[T]]`
+- Keeps local object relationships (`T`, `list[T]`) separate from pointer refs
+  (`Ref[T]`, `list[Ref[T]]`)
 
 Reference parsing/canonicalization is core behavior. Remote dereference is not:
 storage defaults to local-only populate and can optionally receive a
@@ -272,18 +272,16 @@ Matrix-backed `reference_resolver` from actor-mode bootstrap.
 
 **Location**: `utils/registrar.py`
 
-Central registry for models and join tables.
+Central registry for model classes.
 
 ```python
 registered_models: Dict[str, Type[Any]] = {}
-join_models: Dict[tuple[str, str], Type[Any]] = {}
 
 def register_model(model_class: Type[Any], storage: StorageInterface = None):
-    # 1. Detect join models (has __owner__)
-    # 2. Set storage backend
-    # 3. Create table
-    # 4. Run migrations
-    # 5. Add to registry
+    # 1. Set storage backend
+    # 2. Create table
+    # 3. Run migrations
+    # 4. Add to registry
 ```
 
 **Pattern**: Registry Pattern
@@ -459,7 +457,7 @@ class AgentActor(ActorModel):
 
     name: str               # Human-readable name
     prompt: str             # System prompt
-    tools: ListRef[AgentTool]  # Actor addresses via join table
+    tools: list[AgentTool]     # Ordered hydrated tool records
     llm: str                # Pydantic AI provider:model string
     constraints: dict       # {max_iterations, ...}
 
@@ -807,6 +805,31 @@ Pass 2: CRUD routes (parameterized segments)
 
 This ensures `/products/comments` is matched as a collection route, not as `/products/{id}` with `id="comments"`.
 
+#### Generated update boundary
+
+The current generated FastAPI update handlers bind the body to the complete
+model class before calling the patch-oriented model/storage APIs:
+
+```text
+HTTP PUT body
+  -> full ProtoModel validation
+  -> model dump / ref flattening
+  -> Model.update(id, data)
+  -> storage writes every supplied/materialized field
+```
+
+This creates an intentional compatibility constraint for downstream callers:
+HTTP clients must send a complete writable representation, while direct
+`Model.update(id, patch)`, raw actor TX updates, and agent update tools can send
+narrow patches. In particular, omitted fields with defaults such as `[]` or `{}`
+may be materialized at the HTTP boundary and replace stored `list[T]`,
+`list[Ref[T]]`, plain list, or dictionary values.
+
+The first-party frontend avoids this by sending the current complete entity on
+save. Custom clients must do the same and should not construct update payloads
+from schema defaults or partially populated responses. See
+[API CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource).
+
 ### 7. Adapter Pattern
 
 Backend adapters translate between frameworks:
@@ -988,21 +1011,26 @@ register_model(User, storage=storage)
 
 ### Toggle Endpoints
 
-Like/favorite actions use a toggle pattern: POST with empty body creates or deletes a join table record.
+Like/favorite actions use a toggle pattern: POST with empty body creates or
+deletes a child record and replaces the parent `list[T]` field.
 
 ```python
 @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
 def favorite(self, user: User = None) -> str:
-    # Query join table for existing record
+    # Find existing Like in self.favorites
     # If exists → delete → return {"action": "unfavorited"}
     # If not → create → return {"action": "favorited"}
 ```
 
-The route layer uses `join_models` registry to resolve the correct join model (e.g., `ProductLike`), queries by parent + user, and creates/deletes accordingly. `Body(default={})` allows empty POST bodies.
+The model method owns the domain update: create/delete the child record, update
+the parent collection field, and return an action payload. `Body(default={})`
+allows empty POST bodies.
 
 ### Self-Referential Nesting (Replies)
 
-Comments support nesting via `parent_id: Ref['self']`. The `reply()` method creates a child comment with `parent_id` set, resolves the product parent for join table insertion, and restricts access to `AUTHENTICATED` users.
+Comments support nesting via `parent_id: Ref['self']`. The `reply()` method
+creates a child comment with `parent_id` set, appends it to the owning product's
+`comments: list[Comment]`, and restricts access to `AUTHENTICATED` users.
 
 ## Future Enhancements
 

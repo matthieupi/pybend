@@ -140,7 +140,7 @@ class NTTElement extends Component {
     // Message handlers (called by Actor inbox dispatch)
     UPDATE(data);     // Receives entity data push. Requires data.$schema.
     DESCRIBE(data);   // Receives {proto, data}. Subscribes to entity signal.
-    READ(data);       // Receives data from URL fetch (ListRef href resolution).
+    READ(data);       // Receives data from URL fetch or hydrated relationship rendering.
     ERROR(event);     // Handles errors. Extracts validation errors from 422.
 
     // Override points

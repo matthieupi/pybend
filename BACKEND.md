@@ -26,7 +26,8 @@ ProtoModel           Base class: injects StorableMixin, rewrites FK fields,
      +-- schema()              Orchestrates proto_schema.* pipeline (base → strip_hidden →
      |                         methods → defs → access → widget → ui → [viewable] → [agent] → metadata)
      |                         [ ] = registered by external packages at import time
-     +-- model_dump()          Plain dict (DB). model_response() adds $schema/$id via dump pipeline
+     +-- model_dump()          Plain dict (DB). model_response() runs base → relationships →
+     |                         schema_url → instance_url → populate
      +-- __init_subclass__()   Auto-injects StorableMixin for __storable__=True models;
      |                         loops _mixin_registry for external mixins (ViewableMixin, AgentMixin)
      +-- register_mixin()      Module-level API — external packages register mixins at import time
@@ -56,19 +57,18 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 ## Key Files
 
 ### Models & Serialization (n3tx-core)
-- `packages/n3tx-core/src/n3tx_core/models/proto_model.py` - Base model, `model_response()`, `generate_join_model()`, `register_mixin()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
+- `packages/n3tx-core/src/n3tx_core/models/proto_model.py` - Base model, `model_response()`, local relationship hydration, `register_mixin()`. Schema orchestrator (`schema()` calls `proto_schema.*` pipeline)
 - `packages/n3tx-core/src/n3tx_core/models/proto_schema.py` - Schema pipeline: 7 core stages + external extensions. Extensible via `@schema_extension` and `register_mixin()`.
 - `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` - Dump pipeline for serialization. Extensible via `@dump_extension` decorator.
 - `packages/n3tx-core/src/n3tx_core/models/base_user.py` - Abstract base user with `login()` and `register_user()` endpoints
 - `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` - CRUD operations. `list()` supports `limit`/`offset` pagination.
-- `packages/n3tx-core/src/n3tx_core/models/ref.py` - Canonical `Ref[T]`, `ListRef[T]`, distributed ref parser/canonicalizer helpers
+- `packages/n3tx-core/src/n3tx_core/models/ref.py` - Canonical `Ref[T]`, distributed ref parser/canonicalizer helpers
 - `packages/n3tx-core/src/n3tx_core/utils/typer.py` - Compatibility re-export for historical `Ref`, `_SelfRefMarker`, and `flatten_refs()` imports
 
 ### Storage (n3tx-core)
-- `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` - SQLite backend with FK hydration, JSON field serialization (`_coerce_value()` + `_deserialize_json_fields()`)
+- `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` - SQLite backend with Ref hydration, JSON/list field serialization (`_coerce_value()` + `_deserialize_json_fields()`)
 - `packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py` - Auto-migration + Rails-style manual migrations
-- `packages/n3tx-core/src/n3tx_core/storage/sqlite_helpers.py` - `get_parent_fk_columns()` for auto FK column detection
-- `packages/n3tx-core/src/n3tx_core/utils/introspection.py` - `get_json_fields()`, `get_list_fields()`, `get_ref_fields()`, `_unwrap_listref()`
+- `packages/n3tx-core/src/n3tx_core/utils/introspection.py` - `get_json_fields()`, `get_fk_list_fields()`, `get_ref_fields()`, `get_ref_list_fields()`
 
 ### Authorization & Authentication (n3tx-core)
 - `packages/n3tx-core/src/n3tx_core/authorize/` - Standalone auth package (JWT + ABAC, zero N3TX imports)
@@ -85,7 +85,7 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 - `packages/n3tx-core/src/n3tx_core/api/routes_flask.py` - Flask alternative
 - `packages/n3tx-core/src/n3tx_core/api/discovery.py` - `/_meta`, `/.well-known/agent.json`
 - `packages/n3tx-core/src/n3tx_core/utils/decorators.py` - `@expose_route()` for custom method endpoints
-- `packages/n3tx-core/src/n3tx_core/utils/registrar.py` - `registered_models` dict, `join_models` dict
+- `packages/n3tx-core/src/n3tx_core/utils/registrar.py` - `registered_models` registry and model registration helpers
 
 ### Network Adapters (n3tx-actors)
 - `packages/n3tx-actors/src/n3tx_actors/api/network_adapter.py` - `NetworkAdapter(Actor)` base class. `request()` for req/resp correlation, `stream()` for multi-reply streaming.
@@ -139,14 +139,17 @@ class User(BaseUser):
 ```
 `BaseUser` provides: `name`, `email`, `role`, `password_hash`, plus `login()` and `register_user()` endpoints. The method was renamed from `register()` to `register_user()` to avoid MRO collision with `Actor.register()`.
 
-### Parent-Child Relationships
+### Local Model Collections
 ```python
 class Product(ProtoModel):
-    comments: Optional[ListRef[Comment]] = Field(default=[])
-
-register_model(generate_join_model(Product, Comment), storage=storage_backend)
+    comments: list[Comment] = Field(default=[])
 ```
-Creates a `ProductComment` join model with auto-generated FK column. Legacy compatibility routes use `/products/{parent_id}/comments/{id}`. The canonical nested class-name identity shape is `/Product/{parent_id}/Comment/{id}`; generated join model names are implementation details, not public URL segments.
+
+`list[T]` stores an ordered JSON list of local child ids on the parent row and
+hydrates those ids into self-describing child objects in responses. Use custom
+methods such as `Product.comment(...)` for domain-specific append/toggle actions.
+For shared relationships, prefer an explicit link model; `ManyToMany[T]` remains
+a legacy helper for existing shared-link use cases.
 
 ### Custom Method Return Types
 `@expose_route` methods may return any import-resolvable model type, including a
@@ -212,11 +215,6 @@ HTML/view entrypoints.
 | `PUT /{ClassName}/{id:int}` | class-name mirror | JSON entity | Update mirror |
 | `DELETE /{ClassName}/{id:int}` | class-name mirror | JSON status/payload | Delete mirror |
 | `POST /{ClassName}/{id:int}/{method}` | class-name mirror | JSON/SSE | Literal `@expose_route` method mirror |
-| `GET /{ParentClass}/{parent_id:int}/{ChildClass}` | nested class-name mirror | JSON list | Mirror of relation/tag child list |
-| `POST /{ParentClass}/{parent_id:int}/{ChildClass}` | nested class-name mirror | JSON entity | Mirror of nested create with parent FK injection |
-| `GET /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}` | nested class-name mirror | JSON entity | Canonical nested identity/read shape |
-| `PUT /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}` | nested class-name mirror | JSON entity | Nested update mirror |
-| `DELETE /{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}` | nested class-name mirror | JSON status/payload | Nested delete mirror |
 | `GET /{ClassName}/@` | view/html | HTML | Collection default view shell |
 | `GET /{ClassName}/@{view}` | view/html | HTML | Collection named view shell |
 | `GET /{ClassName}/{id:int}/@` | view/html | HTML | Member default view shell |
@@ -234,21 +232,37 @@ Response identity is class-name based: a response fetched through either
 `$id` ending in `/Product/1`. Method mirrors are registered only for literal
 `@expose_route` declarations; there is no generic class-name method catch-all.
 
-Nested response identity is parent-scoped and class-name based. A legacy route
-such as `GET /products/1/comments/2` and its class-name mirror
-`GET /Product/1/Comment/2` identify the same generated join record. The public
-URL exposes the semantic child class (`Comment`), while the generated join model
-(`ProductComment`) remains the concrete storage and serialization type. A nested
-response therefore uses `$id=/Product/1/Comment/2`; `$schema` may identify the
-generated join model if that is the concrete response shape. No `$href` or
-`links` metadata is emitted.
+#### Current HTTP update compatibility constraint
 
-The nested class-name grammar intentionally omits the relationship/tag segment.
-If a parent has multiple relationships to the same child class, for example
-`comments: ListRef[Comment]` and `reviews: ListRef[Comment]`, route generation
-must fail or skip the ambiguous class-name nested mirror and leave the legacy
-relation/tag routes as the supported transport until a relation-aware alias
-grammar is introduced.
+Generated `PUT /{tablename}/{id}` and `PUT /{ClassName}/{id}` handlers in both
+direct and actor routing validate a complete model body. Downstream HTTP callers
+must send all required writable fields and preserve current defaulted collection
+and JSON values. An omitted `list[T]`, `list[Ref[T]]`, plain list, or `dict` field
+may be materialized as `[]`/`{}` and then persisted as a complete replacement.
+
+This differs from direct backend calls and raw TX updates:
+
+```python
+Product.update(product.id, {'name': 'Renamed'})  # patch; other fields unchanged
+TX(name='update', target='products', data={'id': product.id, 'name': 'Renamed'})
+```
+
+When writing HTTP clients, fetch the complete entity immediately before editing
+and send its complete writable representation. Do not build updates from schema
+defaults or projected/populated subsets. Supplied collections are replaced as a
+whole and writes are last-write-wins; use domain-specific `@expose_route`
+methods for append/remove/toggle operations where concurrent mutation matters.
+Canonical details: `docs/API_CRUD_ENDPOINTS.md#update-resource` and
+`packages/n3tx-core/docs/storage.md#update-boundary-contract`.
+
+Local owned collections are declared as `list[T]` fields on the parent. SQLite
+stores an ordered JSON list of child ids and hydrates those ids into
+self-describing child objects on read. Public child identity remains flat and
+class-name based, e.g. `$id=/Comment/2`; nested route identity is not a storage
+primitive. If a parent has multiple relationships to the same child class, for
+example `comments: list[Comment]` and `reviews: list[Comment]`, the relationship
+field name remains local schema/UI metadata on the parent while the child model
+continues to own its flat CRUD route and identity.
 
 HTML/view routes are owned by optional model capability hooks such as
 `ViewableMixin.register_view_routes()` from `n3tx-ui`. Core and actor routing
@@ -326,15 +340,16 @@ to `n3tx://service/Class/id` before returning through Matrix/populate.
 
 ### JSON Fields (dict/list in SQLite)
 The storage layer transparently handles `dict`, `Dict[...]`, `list`, primitive
-typed list fields, and `list[Ref[T]]` pointer arrays as JSON TEXT columns. Write paths serialize with
-`json.dumps(value, default=str)`; read paths deserialize with `json.loads()`
-before Pydantic model construction.
+typed list fields, local owned `list[T]` id arrays, and `list[Ref[T]]` pointer
+arrays as JSON TEXT columns. Write paths serialize with `json.dumps(value,
+default=str)`; read paths deserialize with `json.loads()` before Pydantic model
+construction and hydrate local `list[T]` ids into objects.
 
 Use JSON fields for parent-owned embedded data such as metadata, settings,
-agent constraints, primitive tags, and external payload fragments. Do **not**
-use them for domain relationships: `ListRef[T]`, many-to-many fields, and
-`List[BaseModel]` are relationship boundaries backed by child tables/join
-tables, href hydration, routes, and auth.
+agent constraints, primitive tags, external payload fragments, distributed
+pointer arrays, and local owned relationship id lists. Model children that need
+independent auth, lifecycle, or row-level updates as first-class storable models
+and point to them from parent `list[T]` fields.
 
 Full guide: `docs/JSON_FIELDS.md`. Package mechanism reference:
 `packages/n3tx-core/docs/storage.md`.

@@ -228,26 +228,22 @@ class User(ProtoModel):
 
 This creates a `POST /users/login` endpoint automatically.
 
-### Join Models (Many-to-Many)
+### Local Model Collections
 
-N3TX can automatically generate join tables for many-to-many relationships:
+Owned child collections are normal model fields:
 
 ```python
-from models.proto_model import generate_join_model
-
-# Product has many Comments
 class Product(ProtoModel):
     __storable__: ClassVar[bool] = True
     __tablename__: ClassVar[str] = 'products'
-    
-    comments: Optional[List[Comment]] = []
 
-# Generate join model
-ProductComment = generate_join_model(Product, Comment)
-register_model(ProductComment, storage=storage)
+    comments: list[Comment] = Field(default=[])
 ```
 
-This creates a `products_comments` table with proper foreign keys.
+N3TX stores an ordered list of local child ids on the parent row and hydrates
+them into child objects in responses. Shared relationship data should use an
+explicit link model; `ManyToMany[T]` is a legacy helper for existing shared-link
+cases.
 
 ## Architecture
 
@@ -283,7 +279,7 @@ N3TX follows a modular architecture with clear separation of concerns:
 - **ProtoModel**: Base model with schema generation, optional storage, and `model_response()` for metadata injection via the dump pipeline
 - **StorableMixin**: Provides CRUD operations via dependency injection
 - **AbstractStorage**: Interface for storage backends (SQLite, JSON, etc.)
-- **Registrar**: Central registry for models and join tables
+- **Registrar**: Central registry for models
 - **Backend Adapters**: FastAPI/Flask integration layer
 - **Ref**: Type-safe foreign key wrapper with schema generation
 

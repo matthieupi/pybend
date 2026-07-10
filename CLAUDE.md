@@ -221,7 +221,7 @@ class Product(ProtoModel):
 |---------|---------------|-----------------|
 | CRUD API endpoints | `__tablename__`, model fields | `register_routes()` in `routes_fastapi.py` |
 | JSON Schema | Field types, validators, `json_schema_extra` | `ProtoModel.schema()` via `proto_schema` pipeline |
-| Enriched JSON responses | `model_response()`, dump pipeline stages | `proto_dump` pipeline (`base` → `response` → extensions) |
+| Enriched JSON responses | `model_response()`, dump pipeline stages | `proto_dump` pipeline (`base` → `relationships` → `schema_url` → `instance_url` → `populate` → extensions) |
 | DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
 | JSON field storage | `dict`, `list`, `List[str]` etc. fields | `sqlite_storage.py` auto-serializes to/from JSON TEXT |
 | FK hydration (href arrays) | `ListRef[T]` fields, `__fk_models__` | `sqlite_storage.py` on read |

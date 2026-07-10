@@ -33,13 +33,12 @@ Here's what you get out of the box -- no assembly required:
 
 - FastAPI and Flask backend support with adapter architecture
 - Model auto-registration with dynamic CRUD + custom endpoint generation via `@expose_route`
-- Automatic join model generation for relationships with FK hydration (href arrays)
+- Local `list[T]` relationships stored as ordered JSON id arrays and hydrated into self-describing child objects
 - Integrated OpenAPI (Swagger) docs
 - Pluggable storage backends (SQLite, JSON) with auto-migration
 - Schema introspection at runtime via `GET /ModelName`
 - ABAC access control with composable rules (`ANYONE`, `AUTHENTICATED`, `OWNER`, `ROLE`)
-- Toggle endpoints (like/favorite) with join table lookups
-- Collection routes for join models (`GET /products/comments`)
+- Toggle endpoints (like/favorite) implemented as model methods that update relationship fields
 - Pagination with `?limit=N&offset=M` on list endpoints
 - Typed end-to-end using Pydantic v2
 - Actor/Matrix/TX messaging system with multi-protocol adapters (HTTP, WS, MCP, ActivityPub)
@@ -93,7 +92,7 @@ Here's your "zero to working app" moment. Define two models, call `create_app`, 
 
 ```python
 from n3tx_core.app import create_app
-from n3tx_meta import ProtoModel, BaseUser, expose_route, ListRef
+from n3tx_core import ProtoModel, BaseUser, expose_route
 from pydantic import Field
 
 class User(BaseUser):
@@ -175,7 +174,7 @@ app = create_app(models=[Product, User], storage="sqlite:///app.db")
 # Level 2 -- Builder (chainable configuration)
 from n3tx_core.app import N3TXApp
 pb = N3TXApp(storage="sqlite:///app.db")
-pb.model(Product).model(User).join(Product, Comment)
+pb.model(Product).model(User).model(Comment)
 app = pb.build()
 
 # Level 3 -- Actor routing (full messaging via Matrix)
@@ -217,8 +216,8 @@ class Product(ProtoModel):
                                             'access': {'view': 'anyone', 'edit': 'admin'}})
     description: str = Field(default='',
                              json_schema_extra={'ui': {'widget': 'textarea'}})
-    comments: ListRef[Comment] = Field(default=[])
-    favorites: ListRef[Like] = Field(default=[], description="Users who favorited this product")
+    comments: list[Comment] = Field(default=[])
+    favorites: list[Like] = Field(default=[], description="Users who favorited this product")
 
     @expose_route('/comment', methods=['POST'])
     def comment(self, comment: Comment, user: User = None) -> str: ...
@@ -238,7 +237,7 @@ Here's the fun part -- you wrote one class, and you got all of this for free:
 | CRUD API endpoints | `__tablename__`, model fields | Routes auto-registered |
 | JSON Schema | Field types, validators, `json_schema_extra` | Pydantic generates it |
 | DB table + migrations | `__storable__`, field annotations | SQLite auto-migrates |
-| FK hydration (href arrays) | `ListRef[T]` fields | Storage resolves on read |
+| Local collection hydration | `list[T]` fields | SQLite stores child ids as JSON and hydrates on read |
 | Access control (backend) | `__access__`, `@expose_route(access=...)` | Middleware enforces |
 | Access control (frontend) | `access` in schema | UI hides/shows controls |
 | Frontend entity classes | Schema properties, methods | DynamicClass created at runtime |
@@ -246,8 +245,8 @@ Here's the fun part -- you wrote one class, and you got all of this for free:
 | Field ordering + grouping | `ui.field_order`, `ui.groups` | Fieldsets rendered automatically |
 | Edit/delete button visibility | `access.update`, `access.delete` | Permissions checked from schema |
 | Method action buttons | `schema.methods` | `<ntx-method>` renders them |
-| Toggle endpoints | `@expose_route` + join table logic | Like/favorite via join models |
-| Collection routes | Join model `__tablename__` | `GET /products/comments` across all parents |
+| Toggle endpoints | `@expose_route` + model method logic | Like/favorite updates relationship fields |
+| Relationship reads | `list[T]` + optional `populate` | Parent responses include self-describing child objects |
 | Component tag resolution | `ui.renderer.item`, `ui.renderer.detail` | Router resolves on navigation |
 
 ### The workflow
@@ -318,7 +317,7 @@ Here's the full journey, from Python class to rendered UI:
 6. Entity Responses
    model_response() injects $schema + $id per record (via proto_dump pipeline)
    |  Every entity is self-describing and independently resolvable
-   |  Collection fields return href arrays for lazy resolution
+   |  Local list[T] fields return hydrated, self-describing child objects
 ```
 
 ---
@@ -350,17 +349,17 @@ Register models with `create_app()` (recommended) or go manual if you need full 
 ```python
 # Recommended: one-liner
 app = create_app(
-    models=[User, Product],
-    join_models=[(Product, Comment), (Comment, Like), (Product, Like)],
+    models=[User, Product, Comment, Like],
     storage="sqlite:///app.db",
 )
 
 # Or manual registration (Level 3):
-from n3tx_core import register_model, generate_join_model
+from n3tx_core import register_model
 
 register_model(Product, storage=storage_backend)
 register_model(User, storage=storage_backend)
-register_model(generate_join_model(Product, Comment), storage=storage_backend)
+register_model(Comment, storage=storage_backend)
+register_model(Like, storage=storage_backend)
 ```
 
 ---
@@ -391,28 +390,31 @@ API documentation is available at:
 
 ## 🔗 Model Relationships
 
-N3TX makes relationships between models effortless. Define the link, register the join model, and you're done:
+N3TX keeps relationships model-first. Define the relationship on the model and
+register every storable class:
 
-- `ListRef[T]` for collection fields (stored in join tables, serialized as href arrays)
-- `Ref[T]` for single FK fields (stored as int, serialized as href URL)
-- `generate_join_model(Parent, Child)` creates the bridge model automatically
+- `list[T]` for owned local collections. SQLite stores ordered child ids as JSON on the parent row and hydrates them into child objects on read.
+- `Ref[T]` for single identity pointers. Local refs are stored as ids and serialized as class-name URLs.
+- Explicit link models or `ManyToMany[T]` for shared relationships that need their own row identity.
 
 ```python
 class Product(ProtoModel):
     __storable__ = True
     __tablename__ = 'products'
-    comments: ListRef[Comment] = Field(default=[])
+    comments: list[Comment] = Field(default=[])
 
 class Comment(ProtoModel):
     __storable__ = True
     __tablename__ = 'comments'
     text: str = Field(min_length=1)
 
-# Register the join model
-register_model(generate_join_model(Product, Comment), storage=backend)
+register_model(Product, storage=backend)
+register_model(Comment, storage=backend)
 ```
 
-That's it -- `GET /products/1` now returns comments as href arrays, and `GET /products/comments` gives you a collection route across all products.
+That's it -- `GET /products/1` now returns `comments` as hydrated child objects
+with `$schema`/`$id`, and each child remains independently resolvable at flat
+class-name routes such as `GET /Comment/5`.
 
 ---
 
@@ -428,9 +430,9 @@ GET  /products/1                         # Get product by ID
 POST /products                           # Create product (auth required)
 POST /products/1/comment                 # Comment on product
 POST /products/1/favorite                # Toggle favorite
-POST /products/1/comments/3/like         # Toggle like on comment
-POST /products/1/comments/3/reply        # Reply to comment
-GET  /products/comments                  # Collection route: all comments across products
+POST /comments/3/like                    # Toggle like on comment
+POST /comments/3/reply                   # Reply to comment
+GET  /Comment/3                          # Class-name read mirror for a comment
 GET  /Product                            # Schema endpoint (no auth)
 ```
 
@@ -507,9 +509,7 @@ from n3tx_agents import *    # optional (skipped if pydantic-ai not installed)
 | `BaseUser` | n3tx-core | class | User model with auth (login, register, JWT) |
 | `StorableMixin` | n3tx-core | class | Injected when `__storable__ = True` (save/get/list/delete) |
 | `ViewableMixin` | n3tx-core | class | View count tracking mixin |
-| `ListRef` | n3tx-core | type | FK reference type (`ListRef[Comment]`) |
 | `Ref` | n3tx-core | type | Single FK reference type |
-| `generate_join_model` | n3tx-core | function | Create join table model from parent/child pair |
 | `expose_route` | n3tx-core | decorator | Declare custom API endpoints on models |
 | `register_model` | n3tx-core | function | Register model with storage and route generation |
 | `registered_models` | n3tx-core | dict | Global registry of all registered models |
@@ -566,8 +566,44 @@ N3TX is built to be extended. Here's how you grow your app.
 ### Add Relationships
 
 ```python
-register_model(generate_join_model(OwnerModel, SubModel), storage=backend)
+class OwnerModel(ProtoModel):
+    __tablename__ = 'owners'
+    __storable__ = True
+    children: list[SubModel] = Field(default=[])
+
+register_model(OwnerModel, storage=backend)
+register_model(SubModel, storage=backend)
 ```
+
+### Update Safety: Generated PUT Requires Full Objects
+
+Generated direct and actor HTTP `PUT` routes currently validate a complete
+model. Fetch the current entity, modify it, and send its complete writable
+representation—including current `list[T]`, `list[Ref[T]]`, plain list, and
+dictionary values. Omitted defaulted fields may be materialized as empty values
+and persisted.
+
+```python
+# Python calls are patch-oriented: children remain unchanged.
+OwnerModel.update(owner.id, {'name': 'Renamed'})
+```
+
+```javascript
+// HTTP calls should preserve the complete current writable representation.
+const current = await fetch(`/OwnerModel/${id}`).then(r => r.json());
+const {id: storedId, $id, $schema, ...writable} = current;
+await fetch(`/OwnerModel/${id}`, {
+  method: 'PUT',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({...writable, name: 'Renamed'}),
+});
+```
+
+Updates replace a supplied collection as a whole and are last-write-wins. Use a
+domain-specific `@expose_route` method for append/remove/toggle operations when
+concurrent writers are possible. See
+[CRUD update semantics](docs/API_CRUD_ENDPOINTS.md#update-resource) for the full
+compatibility guidance.
 
 ### Add a Storage Backend
 

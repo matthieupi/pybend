@@ -131,11 +131,11 @@ from .user_model import User
 
 class Product(ProtoModel):
     @expose_route('/comment', methods=['POST'])
-    def comment(self, comment: Comment, user: User = None) -> str:
+    def comment(self, comment: Comment, user: User = None) -> Comment:
         comment.user_owner = user.id if user else 1
-        comment.__owner__ = self
-        comment.save()
-        return comment.model_dump_json()
+        created = Comment.create(comment)
+        self.update({'comments': [*(self.comments or []), created]})
+        return created
 ```
 
 **Frontend** — `user` is NOT included in the request body:
@@ -680,18 +680,21 @@ console.log(`Updated ${result.updated} products`);
 
 ### 6. Toggle Actions (Like/Favorite)
 
-Toggle endpoints create or delete a join table record. Empty body allowed — no payload needed.
+Toggle endpoints create or delete a child record and replace the parent
+`list[T]` collection. Empty body allowed — no payload needed.
 
 ```python
 @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
 def favorite(self, user: User = None) -> str:
     """Toggle — create if not favorited, remove if already favorited."""
-    existing = ProductLike.find(product_id=self.id, user_id=user.id)
+    existing = next((like for like in self.favorites if like.user == user.id), None)
     if existing:
-        existing.delete()
+        Like.delete(existing.id)
+        type(self).update(self.id, {'favorites': [f for f in self.favorites if f.id != existing.id]})
         return json.dumps({"action": "unfavorited"})
     else:
-        ProductLike.create(...)
+        saved = Like.create(Like(user=user.id))
+        type(self).update(self.id, {'favorites': [*self.favorites, saved]})
         return json.dumps({"action": "favorited"})
 ```
 

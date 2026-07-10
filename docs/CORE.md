@@ -12,7 +12,7 @@ core/
 |-- models/              Model definitions and base classes
 |   |-- proto_model.py   Base model: schema generation, model_dump, StorableMixin injection
 |   |-- storable_mixin.py  CRUD operations (create/get/list/update/delete)
-|   |-- ref.py           Ref[T], ListRef[T], distributed ref helpers
+|   |-- ref.py           Ref[T], distributed ref helpers
 |   |-- product_model.py Example: Product with fields, UI hints, access rules, methods
 |   |-- comment_model.py Example: Comment with self-referencing (Ref['self'])
 |   |-- user_model.py    User model with authentication methods
@@ -23,7 +23,6 @@ core/
 |-- storage/
 |   |-- sqlite_storage.py   SQLite backend with FK hydration
 |   |-- sqlite_migration.py Auto-migration + Rails-style manual migrations
-|   +-- sqlite_helpers.py   FK column detection helpers
 |-- authorize/           Standalone auth package (zero N3TX imports)
 |   |-- auth.py          JWT: password hashing, token create/decode
 |   |-- rules.py         AccessRule base + built-in rules (ANYONE, AUTHENTICATED, OWNER, ROLE, Where)
@@ -33,8 +32,8 @@ core/
 |   +-- errors.py        AccessDenied exception
 |-- utils/
 |   |-- decorators.py    @expose_route() for custom method endpoints
-|   |-- registrar.py     Model registry (registered_models, join_models)
-|   |-- introspection.py Schema introspection, ListRef/list[Ref] detection, model collection
+|   |-- registrar.py     Model registry (registered_models)
+|   |-- introspection.py Schema introspection, list[T]/list[Ref[T]] detection, model collection
 |   |-- typer.py         Compatibility re-export for Ref, Ref['self'], flatten_refs()
 |   +-- generate_docs.py Auto-doc generator (runs on startup)
 |-- docs/                Auto-generated + handwritten API documentation
@@ -74,8 +73,8 @@ class Product(ProtoModel):
                                             'access': {'view': 'anyone', 'edit': 'admin'}})
     description: str = Field(default='',
                              json_schema_extra={'ui': {'widget': 'textarea'}})
-    comments: ListRef[Comment] = Field(default=[])
-    favorites: ListRef[Like] = Field(default=[], description="Users who favorited")
+    comments: list[Comment] = Field(default=[])
+    favorites: list[Like] = Field(default=[], description="Users who favorited")
 
     @expose_route('/comment', methods=['POST'])
     def comment(self, comment: Comment, user: User = None) -> str: ...
@@ -95,17 +94,16 @@ class Product(ProtoModel):
 | HTML/view entrypoints | `__ui__` / `ViewableMixin` | `GET /{ClassName}/@...` returns frontend shell HTML |
 | JSON Schema | Field types, validators, extras | `ProtoModel.schema()` via Pydantic |
 | DB table + auto-migration | `__storable__`, annotations | `StorableMixin` + `sqlite_migration.py` |
-| JSON TEXT fields | `dict`, `Dict[...]`, `list`, primitive `List[...]`, `list[Ref[T]]` | `sqlite_storage.py` serializes/deserializes with `json.dumps`/`json.loads`; see [JSON Fields](JSON_FIELDS.md) |
-| FK hydration (href arrays) | `ListRef[T]`, `__fk_models__` | `sqlite_storage.py` on read |
+| JSON TEXT fields | `dict`, `Dict[...]`, primitive lists, `list[T]`, `list[Ref[T]]` | `sqlite_storage.py` serializes/deserializes with `json.dumps`/`json.loads`; see [JSON Fields](JSON_FIELDS.md) |
+| Local relationship hydration | `T`, `list[T]` | Stored as local ids and hydrated into model objects on read |
 | Backend access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth middleware |
 | Frontend access rules | `__access__` | `authorize/schema.py` serializes to JSON |
 | Method endpoints | `@expose_route()` | `routes_fastapi.py` custom route registration |
 | Method signatures in schema | `__endpoint__`, type hints, descriptor scope | `__n3tx_methods_json_signature__()` |
 | UI rendering hints | `__ui__`, `json_schema_extra` | Embedded in schema, read by frontend |
 | Method UI hints | `__ui__.methods` (icon, layout, count_field) | Injected into `$defs` method entries |
-| Toggle endpoints | `@expose_route` + join table logic | Like/favorite via create/delete on join models |
-| Collection routes | Join model `__tablename__` | `GET /products/comments`, `GET /products/likes` |
-| Nested class-name identity | Join model `__owner__` + `__parent__` | Canonical nested `$id`: `/Product/1/Comment/2` |
+| Toggle endpoints | `@expose_route` + `list[T]` updates | Like/favorite via create/delete child record + parent list replacement |
+| Relationship collections | `list[T]` fields | Ordered hydrated object arrays in parent responses |
 | Pagination | `?limit=N&offset=M` query params | `sqlite_storage.py` COUNT + LIMIT/OFFSET |
 | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update |
 | Route view renderers | `__ui__.renderer` | `#Model/@view` and `/Model/@view` resolve semantic views to component tags |
@@ -120,11 +118,12 @@ contract; the shipped `examples/core` Product currently uses the authenticated
 wildcard fallback, while Comment declares owner/admin rules and protected
 `user_owner` ownership metadata.
 
-Embedded `dict` and non-relationship `list` fields are persisted as JSON TEXT
-columns. Use them for configuration, metadata, primitive arrays, distributed
-pointer arrays such as `list[Ref[File]]`, and external payload fragments. Do not
-use JSON arrays to duplicate domain relationships that should be represented
-with `ListRef[T]`, ownership, routes, and href hydration.
+Embedded `dict`, primitive lists, `list[T]`, and `list[Ref[T]]` fields are
+persisted as JSON TEXT columns. Use them for configuration, metadata, primitive
+arrays, local owned model collections, distributed pointer arrays such as
+`list[Ref[File]]`, and external payload fragments. Use explicit models and
+custom methods when nested data needs identity, authorization, lifecycle events,
+or domain-specific append/toggle behavior.
 See [JSON Fields](JSON_FIELDS.md) for the full contract and tradeoffs.
 
 `@expose_route` methods publish descriptor-aware scope metadata in schema.
@@ -235,15 +234,19 @@ Every entity response includes JSON Schema instance metadata via `model_response
   "name": "Wireless Headphones",
   "price": 79.99,
   "comments": [
-    "http://localhost:5000/products/1/comments/1",
-    "http://localhost:5000/products/1/comments/2"
+    {
+      "$schema": "http://localhost:5000/Comment",
+      "$id": "http://localhost:5000/Comment/1",
+      "id": 1,
+      "name": "Great sound"
+    }
   ]
 }
 ```
 
 - `$schema` points to the model's schema (the contract)
 - `$id` is the instance's canonical class-name URL (self-link, independently resolvable)
-- Collection fields (`ListRef[T]`) return href arrays rather than embedded objects
+- `list[T]` fields return hydrated child objects with their own `$schema`/`$id`
 
 ### Model-Centric Route Grammar
 
@@ -257,8 +260,6 @@ schema, read mirrors, and HTML/view shells:
 /{ClassName}/{id:int}  JSON instance mirror of /{tablename}/{id:int}
 /{ClassName}/{id:int}/{method}
                        literal method mirror of /{tablename}/{id:int}/{method}
-/{ParentClass}/{parent_id:int}/{ChildClass}/{child_id:int}
-                       canonical nested class-name identity/read shape
 /{ClassName}/@...      HTML/view entrypoints
 #{ClassName}/@...      frontend hash-router view routes
 ```
@@ -280,55 +281,34 @@ table-name route:
 }
 ```
 
-Legacy table-name routes remain available for compatibility while response
-identity moves to the class-name grammar.
-
-### Nested Class-Name Identity
-
-Parent-child relationships generated from `ListRef[T]` keep their legacy
-relation/tag routes for compatibility, but canonical nested identity uses class
-names:
-
-```text
-Legacy table route:       /products/1/comments/2
-Canonical class route:    /Product/1/Comment/2
-Concrete storage model:   ProductComment
-```
-
-The public URL exposes the semantic child class (`Comment`), not the generated
-join class (`ProductComment`). The generated join model remains the concrete
-implementation type for storage, FK injection, authorization, and serialization.
-After the class-name identity migration, nested responses use `$id` directly:
-
-```json
-{
-  "$schema": "http://localhost:5000/ProductComment",
-  "$id": "http://localhost:5000/Product/1/Comment/2",
-  "id": 2,
-  "product_id": 1
-}
-```
-
-No `$href` or `links` metadata is emitted. If a parent declares multiple
-relationships to the same child class, for example both `comments` and `reviews`
-as `ListRef[Comment]`, the class-name nested route is ambiguous. Implementations
-must fail or skip that nested mirror deterministically and keep using the legacy
-relation/tag routes until a relation-aware alias grammar exists.
+Table-name routes remain available for JSON compatibility while response
+identity uses the class-name grammar.
 
 ## Key Patterns
 
-### Parent-Child Relationships
+### Local Model Collections
 
 ```python
 # Model defines the relationship
 class Product(ProtoModel):
-    comments: ListRef[Comment] = Field(default=[])
-
-# main.py registers the join model
-register_model(generate_join_model(Product, Comment), storage=storage_backend)
+    comments: list[Comment] = Field(default=[])
 ```
 
-This creates a `ProductComment` join model with auto-generated `product_id` FK column. Legacy compatibility routes use the relation/tag segment (`/products/{parent_id}/comments/{id}`), while the canonical class-name identity shape is `/Product/{parent_id}/Comment/{id}`.
+`list[T]` stores an ordered JSON list of local child ids on the parent row and
+hydrates those ids into child objects in responses. Domain actions update the
+collection through model methods:
+
+```python
+@expose_route('/comment', methods=['POST'])
+def comment(self, comment: Comment, user: User = None) -> Comment:
+    saved = Comment.create(comment)
+    type(self).update(self.id, {'comments': [*self.comments, saved]})
+    return saved
+```
+
+For shared relationship data, prefer an explicit link model. `ManyToMany[T]` is
+a legacy helper for existing shared-link cases, not the default collection
+primitive.
 
 ### Authorization (ABAC)
 
@@ -348,7 +328,8 @@ Rules produce SQL WHERE clauses for efficient list filtering (SQL pushdown). The
 
 ### Toggle Endpoints (Like/Favorite)
 
-Toggle methods use join tables to track state. Empty body allowed -- no payload needed:
+Toggle methods create/delete the child record and replace the parent `list[T]`.
+Empty body allowed -- no payload needed:
 
 ```python
 @expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
@@ -357,18 +338,7 @@ def favorite(self, user: User = None) -> str:
     ...
 ```
 
-Returns a structured action payload such as `{"action": "favorited", "_field": "favorites", "id": 123, "user": 1}` or `{"action": "unfavorited", "_field": "favorites", "id": 123}`. The `_field` + `id` pair lets the frontend update the affected collection locally without an extra entity fetch. The route layer queries the join table (`ProductLike`) and creates or deletes the record.
-
-### Collection Routes
-
-Join models automatically get collection routes that return all records across parents:
-
-```
-GET /products/comments    -> all comments across all products
-GET /products/likes       -> all likes (favorites) across all products
-```
-
-Collection routes are registered in Pass 1 (before CRUD routes) to avoid path conflicts with `{id:int}` segments.
+Returns a structured action payload such as `{"action": "favorited", "_field": "favorites", "id": 123, "user": 1}` or `{"action": "unfavorited", "_field": "favorites", "id": 123}`. The `_field` + `id` pair lets the frontend update the affected collection locally without an extra entity fetch.
 
 ### Custom Methods
 
@@ -396,4 +366,4 @@ python3 test_social.py         # Playwright: social features (15 checks)
 python3 test_routing.py        # Playwright: URL path correctness
 ```
 
-Tests cover: CRUD API, schema endpoints, storage, custom methods, social toggles (like/favorite), reply creation, collection routes, and frontend rendering (star/heart/reply buttons, reply indent, favorites navigation).
+Tests cover: CRUD API, schema endpoints, storage, custom methods, social toggles (like/favorite), reply creation, hydrated local collections, and frontend rendering (star/heart/reply buttons, reply indent, favorites navigation).

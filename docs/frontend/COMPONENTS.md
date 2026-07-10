@@ -477,7 +477,7 @@ Built-in zero-config single entity component. Extends NTTElement with adaptive s
 - **Edit/display toggle**: Click edit button → inputs, click save → sends UPDATE TX (md+ sizes only).
 - **Delete button**: Trash icon button, gated by `permissions.canAction(schema.access, 'delete', this.value)`. Shows confirmation dialog, then routes DELETE through DynamicClass for proper registry cleanup. Uses `ref` (actual API endpoint URL) for nested entities where `$id` may point to the schema-derived URL.
 - **Method buttons**: Renders `<ntx-method>` for each method in schema (md+ sizes only).
-- **Show-more toggle**: Nested ListRef fields collapse after 2 items with expand button.
+- **Show-more toggle**: Nested relationship arrays collapse after 2 items with expand button.
 
 ### Size Methods
 
@@ -929,7 +929,7 @@ Fields with `ui.protected === true` are backend-owned and cannot be modified via
 
 ### Relationship Rendering
 
-`getListInput()` handles `ListRef` array fields:
+`getListInput()` handles relationship array fields:
 
 - Extracts referenced model name from `items.$ref`
 - Resolves child tag from `$defs[model].ui.renderer.item` (falls back to `ntx-item`)
@@ -985,7 +985,7 @@ GET /Product?scaffold=list-css   → List CSS
 - Explicit `render()` with destructured fields from schema
 - Header fields (`name`, `description`) as `<h2>` / `<p>`
 - Widget-aware display (currency → `$X.XX`, textarea → `<p>`)
-- ListRef fields → nested `<ntx-item>` components
+- Relationship array fields → nested `<ntx-item>` components
 - `<ntx-method>` buttons for schema methods
 - `get styles()` pointing to companion CSS
 

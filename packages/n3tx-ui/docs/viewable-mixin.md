@@ -241,7 +241,7 @@ without changing the schema shape.
 }
 ```
 
-For `$defs` models (referenced via `ListRef[T]`), `__ui__` is also emitted
+For `$defs` models (referenced by relationship fields), `__ui__` is also emitted
 into `schema['$defs'][ModelName]['ui']`.
 
 ## Usage Patterns

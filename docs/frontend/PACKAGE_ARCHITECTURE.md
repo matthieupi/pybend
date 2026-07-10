@@ -510,7 +510,7 @@ The following enhancements are planned (see UI_SEPARATION_CONCERNS.md for compon
 | Template scaffolding | `@ntt/scaffold` CLI tool | Generates starter component files from schema. Dev customizes from working code instead of writing from scratch. |
 | Schema-driven validation | `@ntt/kit` (Formidable) | Auto-applies HTML5 validation attributes (required, min, max, pattern) from schema constraints. |
 | Field-level permissions | `@ntt/components` + backend | Schema `access` per field. Component disables/hides fields based on user role. |
-| Relationship rendering | `@ntt/kit` (Formidable) | ListRef fields auto-render as nested `<ntx-list>` scoped to parent. |
+| Relationship rendering | `@ntt/kit` (Formidable) | `list[T]` fields render hydrated child objects with schema-aware item components. |
 
 ---
 
