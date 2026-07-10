@@ -11,9 +11,9 @@ from models.comment import Comment
 from models.like import Like
 from n3tx_actors.models.actor_model import ActorModel
 from models.user import User
+from n3tx_core.models.ref import local_ref_id
 from typing import ClassVar, Any, AsyncGenerator
 from n3tx_core.utils.decorators import expose_route
-from n3tx_core.utils.registrar import join_models
 from n3tx_core.authorize import ANYONE, AUTHENTICATED
 from n3tx_core.utils.erroring import MethodError
 from n3tx_core.widgets import CurrencyField, TextareaField
@@ -71,9 +71,11 @@ class Product(ActorModel):
         Add a comment to the product.
         """
         comment.user_owner = user.id if user else 1
-        comment.__owner__ = self
-        comment.save()
-        return comment
+        saved = Comment.create(comment)
+        comments = list(self.comments or [])
+        comments.append(saved)
+        type(self).update(self.id, {'comments': comments})
+        return saved
 
     @expose_route('/countdown', methods=['POST'], stream=True, access=ANYONE)
     async def countdown(self, n: int = 5):
@@ -88,18 +90,21 @@ class Product(ActorModel):
         """Toggle favorite — add if not favorited, remove if already favorited."""
         if not user:
             raise MethodError("authentication required", 401)
-        join_cls = join_models.get(('Product', 'Like'))
-        if not join_cls:
-            raise MethodError("ProductLike join model not registered", 500)
-        existing = join_cls.list(sql_filter=("product_id = ? AND user = ?", [self.id, user.id]))
-        items = existing if isinstance(existing, list) else existing.get('data', [])
-        if items:
-            deleted_id = items[0].id
-            join_cls.delete(deleted_id)
+        favorites = list(self.favorites or [])
+        existing = next(
+            (fav for fav in favorites if local_ref_id(getattr(fav, 'user', None), target_cls=User) == user.id),
+            None,
+        )
+        if existing:
+            deleted_id = existing.id
+            Like.delete(deleted_id)
+            favorites = [fav for fav in favorites if getattr(fav, 'id', None) != deleted_id]
+            type(self).update(self.id, {'favorites': favorites})
             return {'action': 'unfavorited', 'id': deleted_id, '_field': 'favorites'}
         new_like = Like(user=user.id, created_at=datetime.now().isoformat())
-        new_like.__owner__ = self
-        saved = new_like.save()
+        saved = Like.create(new_like)
+        favorites.append(saved)
+        type(self).update(self.id, {'favorites': favorites})
         return {
             'action': 'favorited', '_field': 'favorites',
             'id': saved.id, 'user': user.id,

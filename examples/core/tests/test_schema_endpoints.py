@@ -150,15 +150,14 @@ class TestProductSchema:
 
 
 class TestCommentSchema:
-    """GET /ProductComment -- verify Comment schema (registered as join model ProductComment)."""
+    """GET /Comment -- verify flat Comment schema."""
 
     def test_comment_schema_returns_200(self, client):
-        # Comment is registered as ProductComment join model, not standalone
-        resp = client.get("/ProductComment")
+        resp = client.get("/Comment")
         assert resp.status_code == 200
 
     def test_comment_schema_has_access_rules(self, client):
-        schema = client.get("/ProductComment").json()
+        schema = client.get("/Comment").json()
         access = schema.get("access", {})
         assert access.get("read", {}).get("rule") == "anyone"
         assert access.get("create", {}).get("rule") == "authenticated"
@@ -171,46 +170,45 @@ class TestCommentSchema:
         assert delete_rule.get("op") == "or"
 
     def test_comment_schema_parent_id_is_selfref(self, client):
-        schema = client.get("/ProductComment").json()
+        schema = client.get("/Comment").json()
         parent_prop = schema.get("properties", {}).get("parent_id", {})
         assert parent_prop.get("type") == "selfref"
 
     def test_comment_schema_has_likes_field(self, client):
-        schema = client.get("/ProductComment").json()
+        schema = client.get("/Comment").json()
         props = schema.get("properties", {})
         assert "likes" in props
 
     def test_comment_schema_user_owner_protected(self, client):
-        schema = client.get("/ProductComment").json()
+        schema = client.get("/Comment").json()
         user_owner_prop = schema.get("properties", {}).get("user_owner", {})
         assert user_owner_prop.get("ui", {}).get("protected") is True
 
-    def test_standalone_comment_returns_404(self, client):
-        """GET /Comment returns 404 -- Comment is not registered standalone."""
-        resp = client.get("/Comment")
+    def test_product_comment_join_schema_returns_404(self, client):
+        """GET /ProductComment returns 404 -- join schemas are removed."""
+        resp = client.get("/ProductComment")
         assert resp.status_code == 404
 
 
 class TestLikeSchema:
-    """GET /CommentLike and /ProductLike -- verify Like schemas (registered as join models)."""
+    """GET /Like -- verify flat Like schema."""
 
     def test_like_schema_returns_200(self, client):
-        # Like is registered as CommentLike and ProductLike, not standalone
-        resp = client.get("/CommentLike")
+        resp = client.get("/Like")
         assert resp.status_code == 200
 
     def test_like_schema_user_field_protected(self, client):
-        schema = client.get("/CommentLike").json()
+        schema = client.get("/Like").json()
         user_prop = schema.get("properties", {}).get("user", {})
         assert user_prop.get("ui", {}).get("protected") is True
 
-    def test_product_like_schema_returns_200(self, client):
+    def test_product_like_join_schema_returns_404(self, client):
         resp = client.get("/ProductLike")
-        assert resp.status_code == 200
+        assert resp.status_code == 404
 
-    def test_standalone_like_returns_404(self, client):
-        """GET /Like returns 404 -- Like is not registered standalone."""
-        resp = client.get("/Like")
+    def test_comment_like_join_schema_returns_404(self, client):
+        """GET /CommentLike returns 404 -- join schemas are removed."""
+        resp = client.get("/CommentLike")
         assert resp.status_code == 404
 
 
@@ -250,14 +248,14 @@ class TestAllSchemaEndpoints:
     """SD-1: Parametrized schema endpoint tests for all registered models."""
 
     @pytest.mark.parametrize("model_name", [
-        "Product", "ProductComment", "CommentLike", "ProductLike", "User",
+        "Product", "Comment", "Like", "User",
     ])
     def test_schema_returns_200(self, client, model_name):
         resp = client.get(f"/{model_name}")
         assert resp.status_code == 200
 
     @pytest.mark.parametrize("model_name", [
-        "Product", "ProductComment", "CommentLike", "ProductLike", "User",
+        "Product", "Comment", "Like", "User",
     ])
     def test_schema_has_metadata(self, client, model_name):
         schema = client.get(f"/{model_name}").json()
@@ -266,7 +264,7 @@ class TestAllSchemaEndpoints:
         assert schema["$id"].endswith(f"/{model_name}")
 
     @pytest.mark.parametrize("model_name", [
-        "Comment", "Like", "Nonexistent",
+        "ProductComment", "CommentLike", "ProductLike", "Nonexistent",
     ])
     def test_unregistered_schema_returns_404(self, client, model_name):
         resp = client.get(f"/{model_name}")

@@ -66,46 +66,36 @@ class TestCommentLike:
         with pytest.raises(MethodError):
             c.like(user=None)
 
-    def test_like_join_model_not_registered(self):
-        c = Comment(id=1, name='test')
-        mock_user = MagicMock()
-        mock_user.id = 1
-
-        with patch('models.comment.join_models', {}):
-            with pytest.raises(MethodError):
-                c.like(user=mock_user)
-
     def test_like_creates_new(self):
         c = Comment(id=1, name='test')
         mock_user = MagicMock()
         mock_user.id = 1
 
-        mock_join = MagicMock()
-        mock_join.list.return_value = []
-
-        with patch('models.comment.join_models', {('Comment', 'Like'): mock_join}):
-            with patch.object(Like, 'save', return_value=Like(user=1)):
-                result = c.like(user=mock_user)
-                assert result['action'] == 'liked'
-                assert result['_field'] == 'likes'
-                assert result['id'] == 0
-                assert result['user'] == 1
-                assert 'created_at' in result
+        saved_like = Like(id=5, user=1)
+        with patch.object(Like, 'create', return_value=saved_like), \
+             patch.object(Comment, 'update', return_value=c) as update:
+            result = c.like(user=mock_user)
+            assert result['action'] == 'liked'
+            assert result['_field'] == 'likes'
+            assert result['id'] == 5
+            assert result['user'] == 1
+            assert 'created_at' in result
+            update.assert_called_once_with(1, {'likes': [saved_like]})
 
     def test_unlike_existing(self):
         c = Comment(id=1, name='test')
         mock_user = MagicMock()
         mock_user.id = 1
 
-        existing = MagicMock()
-        existing.id = 5
-        mock_join = MagicMock()
-        mock_join.list.return_value = [existing]
+        existing = Like(id=5, user=1)
+        c.likes = [existing]
 
-        with patch('models.comment.join_models', {('Comment', 'Like'): mock_join}):
+        with patch.object(Like, 'delete') as delete, \
+             patch.object(Comment, 'update', return_value=c) as update:
             result = c.like(user=mock_user)
             assert result == {'action': 'unliked', '_field': 'likes', 'id': 5}
-            mock_join.delete.assert_called_once_with(5)
+            delete.assert_called_once_with(5)
+            update.assert_called_once_with(1, {'likes': []})
 
 
 class TestCommentReply:
@@ -116,13 +106,13 @@ class TestCommentReply:
         mock_user.id = 2
 
         reply_comment = Comment(id=11, name='reply text', parent_id=10)
-        with patch.object(Comment, 'save', return_value=reply_comment):
+        with patch.object(Comment, 'create', return_value=reply_comment):
             result = c.reply(text='reply text', user=mock_user)
             assert isinstance(result, Comment)
 
     def test_reply_no_user(self):
         c = Comment(id=10, name='parent')
         reply_comment = Comment(id=11, name='reply text', parent_id=10)
-        with patch.object(Comment, 'save', return_value=reply_comment):
+        with patch.object(Comment, 'create', return_value=reply_comment):
             result = c.reply(text='reply text', user=None)
             assert isinstance(result, Comment)

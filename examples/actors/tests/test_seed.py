@@ -29,14 +29,9 @@ class TestSeedFunction:
 
     def test_imports_registrar(self):
         assert hasattr(seed_module, 'register_model')
-        assert hasattr(seed_module, 'join_models')
 
     def test_imports_hash_password(self):
         assert hasattr(seed_module, 'hash_password')
-
-    def test_imports_generate_join_model(self):
-        assert hasattr(seed_module, 'generate_join_model')
-
 
 class TestSeedData:
     """UT-11: Verify seed data definitions (counts, structure)."""

@@ -103,7 +103,7 @@ class TestReadProduct:
         assert "$id" in data
         assert data["$id"].endswith(f"/Product/{product.id}")
 
-    def test_read_product_comments_are_href_array(self, client, alice_token, seed_data):
+    def test_read_product_comments_are_hydrated_objects(self, client, alice_token, seed_data):
         product = seed_data["products"][0]
         resp = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
         data = resp.json()
@@ -111,10 +111,10 @@ class TestReadProduct:
         assert isinstance(comments, list)
         # Seed data has comments on product 0
         if comments:
-            assert isinstance(comments[0], str)
-            assert "/Product/" in comments[0]
+            assert isinstance(comments[0], dict)
+            assert comments[0]["$id"].endswith(f"/Comment/{comments[0]['id']}")
 
-    def test_read_product_favorites_are_href_array(self, client, alice_token, seed_data):
+    def test_read_product_favorites_are_hydrated_objects(self, client, alice_token, seed_data):
         product = seed_data["products"][0]
         resp = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
         data = resp.json()

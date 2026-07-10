@@ -10,6 +10,13 @@ from helpers import auth_header
 pytestmark = pytest.mark.integration
 
 
+def _create_comment(client, token, product_id, name="Auth comment", description="Auth test"):
+    resp = client.post(f"/Product/{product_id}/comment", json={
+        "comment": {"name": name, "description": description},
+    }, headers=auth_header(token))
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
 
 class TestAnyoneRule:
     """ANYONE rule -- no authentication required."""
@@ -20,15 +27,13 @@ class TestAnyoneRule:
 
     def test_comment_read_anyone_no_auth(self, client, seed_data):
         """Comment __access__.read = ANYONE."""
-        product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.get(f"/Product/{product.id}/Comment/{comment.id}")
+        resp = client.get(f"/Comment/{comment.id}")
         assert resp.status_code == 200
 
     def test_comment_list_anyone_no_auth(self, client, seed_data):
         """Comment list should also work without auth (ANYONE for read/list)."""
-        product = seed_data["products"][0]
-        resp = client.get(f"/Product/{product.id}/Comment")
+        resp = client.get("/Comment/_?limit=100")
         assert resp.status_code == 200
 
 
@@ -49,17 +54,17 @@ class TestAuthenticatedRule:
 
     def test_create_comment_no_token_401(self, client, seed_data):
         product = seed_data["products"][0]
-        resp = client.post(f"/Product/{product.id}/Comment", json={
-            "name": "No auth", "description": "Should fail",
+        resp = client.post(f"/Product/{product.id}/comment", json={
+            "comment": {"name": "No auth", "description": "Should fail"},
         })
         assert resp.status_code == 401
 
     def test_create_comment_with_token_201(self, client, alice_token, seed_data):
         product = seed_data["products"][0]
-        resp = client.post(f"/Product/{product.id}/Comment", json={
-            "name": "Auth OK", "description": "Should pass",
+        resp = client.post(f"/Product/{product.id}/comment", json={
+            "comment": {"name": "Auth OK", "description": "Should pass"},
         }, headers=auth_header(alice_token))
-        assert resp.status_code == 201
+        assert resp.status_code == 200
 
 
 class TestOwnerRule:
@@ -68,8 +73,7 @@ class TestOwnerRule:
     def test_owner_can_update_own_comment(self, client, bob_token, seed_data):
         """Comment 0 was created by bob. Owner can update."""
         comment = seed_data["comments"][0]
-        product = seed_data["products"][0]
-        resp = client.put(f"/Product/{product.id}/Comment/{comment.id}", json={
+        resp = client.put(f"/Comment/{comment.id}", json={
             "name": "Owner update",
         }, headers=auth_header(bob_token))
         assert resp.status_code == 200
@@ -77,8 +81,7 @@ class TestOwnerRule:
     def test_non_owner_cannot_update_comment(self, client, charlie_token, seed_data):
         """Comment 0 was created by bob. Charlie is not owner."""
         comment = seed_data["comments"][0]
-        product = seed_data["products"][0]
-        resp = client.put(f"/Product/{product.id}/Comment/{comment.id}", json={
+        resp = client.put(f"/Comment/{comment.id}", json={
             "name": "Not my comment",
         }, headers=auth_header(charlie_token))
         assert resp.status_code == 403
@@ -86,25 +89,17 @@ class TestOwnerRule:
     def test_owner_can_delete_own_comment(self, client, alice_token, seed_data):
         """Create then delete own comment."""
         product = seed_data["products"][3]
-        create_resp = client.post(f"/Product/{product.id}/Comment", json={
-            "name": "Delete me", "description": "Owner delete test",
-        }, headers=auth_header(alice_token))
-        comment_id = create_resp.json()["id"]
+        comment = _create_comment(client, alice_token, product.id, name="Delete me")
 
-        resp = client.delete(f"/Product/{product.id}/Comment/{comment_id}",
-                             headers=auth_header(alice_token))
+        resp = client.delete(f"/Comment/{comment['id']}", headers=auth_header(alice_token))
         assert resp.status_code == 200
 
     def test_non_owner_cannot_delete_comment(self, client, alice_token, bob_token, seed_data):
         """Create as alice, bob cannot delete."""
         product = seed_data["products"][3]
-        create_resp = client.post(f"/Product/{product.id}/Comment", json={
-            "name": "Alice only", "description": "Bob can't delete",
-        }, headers=auth_header(alice_token))
-        comment_id = create_resp.json()["id"]
+        comment = _create_comment(client, alice_token, product.id, name="Alice only")
 
-        resp = client.delete(f"/Product/{product.id}/Comment/{comment_id}",
-                             headers=auth_header(bob_token))
+        resp = client.delete(f"/Comment/{comment['id']}", headers=auth_header(bob_token))
         assert resp.status_code == 403
 
 
@@ -114,8 +109,7 @@ class TestRoleRule:
     def test_admin_can_update_any_comment(self, client, admin_token, seed_data):
         """Admin has ROLE('admin'), which is part of OWNER | ROLE('admin')."""
         comment = seed_data["comments"][2]
-        product = seed_data["products"][1]
-        resp = client.put(f"/Product/{product.id}/Comment/{comment.id}", json={
+        resp = client.put(f"/Comment/{comment.id}", json={
             "name": "Admin override",
         }, headers=auth_header(admin_token))
         assert resp.status_code == 200
@@ -123,13 +117,9 @@ class TestRoleRule:
     def test_admin_can_delete_any_comment(self, client, admin_token, alice_token, seed_data):
         """Admin should be able to delete any comment."""
         product = seed_data["products"][3]
-        create_resp = client.post(f"/Product/{product.id}/Comment", json={
-            "name": "Admin deletable", "description": "admin test",
-        }, headers=auth_header(alice_token))
-        comment_id = create_resp.json()["id"]
+        comment = _create_comment(client, alice_token, product.id, name="Admin deletable")
 
-        resp = client.delete(f"/Product/{product.id}/Comment/{comment_id}",
-                             headers=auth_header(admin_token))
+        resp = client.delete(f"/Comment/{comment['id']}", headers=auth_header(admin_token))
         assert resp.status_code == 200
 
 
@@ -139,8 +129,7 @@ class TestCompositeOrRule:
     def test_owner_passes_or_rule(self, client, bob_token, seed_data):
         """Bob owns comment 0. OWNER | ROLE('admin') should pass for bob."""
         comment = seed_data["comments"][0]
-        product = seed_data["products"][0]
-        resp = client.put(f"/Product/{product.id}/Comment/{comment.id}", json={
+        resp = client.put(f"/Comment/{comment.id}", json={
             "name": "Or rule owner",
         }, headers=auth_header(bob_token))
         assert resp.status_code == 200
@@ -148,8 +137,7 @@ class TestCompositeOrRule:
     def test_admin_passes_or_rule(self, client, admin_token, seed_data):
         """Admin passes via ROLE('admin') even though not owner."""
         comment = seed_data["comments"][0]
-        product = seed_data["products"][0]
-        resp = client.put(f"/Product/{product.id}/Comment/{comment.id}", json={
+        resp = client.put(f"/Comment/{comment.id}", json={
             "name": "Or rule admin",
         }, headers=auth_header(admin_token))
         assert resp.status_code == 200
@@ -157,8 +145,7 @@ class TestCompositeOrRule:
     def test_non_owner_non_admin_fails_or_rule(self, client, charlie_token, seed_data):
         """Charlie is neither owner nor admin. Should fail."""
         comment = seed_data["comments"][0]
-        product = seed_data["products"][0]
-        resp = client.put(f"/Product/{product.id}/Comment/{comment.id}", json={
+        resp = client.put(f"/Comment/{comment.id}", json={
             "name": "Or rule fail",
         }, headers=auth_header(charlie_token))
         assert resp.status_code == 403
@@ -176,11 +163,10 @@ class TestSQLPushdownForLists:
 
     def test_comment_list_returns_all_for_anyone(self, client, seed_data):
         """Comments have read=ANYONE — list should work without auth."""
-        product = seed_data["products"][0]
-        resp = client.get(f"/Product/{product.id}/Comment?limit=100")
+        resp = client.get("/Comment/_?limit=100")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["meta"]["total"] >= 2
+        assert data["meta"]["total"] >= 8
 
 
 # IT-8: TestProtectedFieldsAuthorization moved to test_protected_fields.py

@@ -62,7 +62,7 @@ from main import app  # noqa: triggers model registration
 n3tx_config.DEBUG = False
 
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
-from n3tx_core.utils.registrar import registered_models, join_models
+from n3tx_core.utils.registrar import registered_models
 from models import Product, Comment, Like, User
 from n3tx_core.authorize import create_token
 
@@ -164,8 +164,10 @@ def _seed_comments(users, products):
         product = products[c["product_idx"]]
         user = users[c["user_key"]]
         comment = Comment(name=c["name"], description=c["description"], user_owner=user.id)
-        comment.__owner__ = product
-        result = comment.save()
+        result = Comment.create(comment)
+        comments = list(product.comments or [])
+        comments.append(result)
+        products[c["product_idx"]] = Product.update(product.id, {'comments': comments})
         created.append(result)
     return created
 
@@ -192,8 +194,10 @@ def _seed_replies(users, products, comments):
             user_owner=user.id,
             parent_id=parent.id,
         )
-        reply.__owner__ = product
-        result = reply.save()
+        result = Comment.create(reply)
+        comments = list(product.comments or [])
+        comments.append(result)
+        products[r["product_idx"]] = Product.update(product.id, {'comments': comments})
         created.append(result)
     return created
 
@@ -212,17 +216,19 @@ def _seed_likes(users, comments):
 
     created = []
     for ld in likes_data:
-        comment = comments[ld["comment_idx"]]
+        comment = Comment.get(comments[ld["comment_idx"]].id)
         user = users[ld["user_key"]]
         like = Like(user=user.id, created_at=datetime.now().isoformat())
-        like.__owner__ = comment
-        result = like.save()
+        result = Like.create(like)
+        likes = list(comment.likes or [])
+        likes.append(result)
+        comments[ld["comment_idx"]] = Comment.update(comment.id, {'likes': likes})
         created.append(result)
     return created
 
 
 def _seed_favorites(users, products):
-    """Create favorites (ProductLike) on products."""
+    """Create favorite Like records on products."""
     from datetime import datetime
 
     fav_data = [
@@ -235,11 +241,13 @@ def _seed_favorites(users, products):
 
     created = []
     for fd in fav_data:
-        product = products[fd["product_idx"]]
+        product = Product.get(products[fd["product_idx"]].id)
         user = users[fd["user_key"]]
         fav = Like(user=user.id, created_at=datetime.now().isoformat())
-        fav.__owner__ = product
-        result = fav.save()
+        result = Like.create(fav)
+        favorites = list(product.favorites or [])
+        favorites.append(result)
+        products[fd["product_idx"]] = Product.update(product.id, {'favorites': favorites})
         created.append(result)
     return created
 
@@ -262,9 +270,9 @@ def _make_comment(client, token, product_id, name="Factory Comment",
     """Create a comment on a product via the API and return the response data dict."""
     from helpers import auth_header
     payload = {"name": name, "description": description, **overrides}
-    resp = client.post(f"/Product/{product_id}/Comment", json=payload,
+    resp = client.post(f"/Product/{product_id}/comment", json={"comment": payload},
                        headers=auth_header(token))
-    assert resp.status_code == 201, f"Failed to create comment: {resp.text}"
+    assert resp.status_code == 200, f"Failed to create comment: {resp.text}"
     return resp.json()
 
 

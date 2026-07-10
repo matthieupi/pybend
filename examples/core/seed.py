@@ -18,8 +18,7 @@ import config
 logger = logging.getLogger('n3tx.seed')
 from n3tx_core.storage.sqlite_storage import SQLiteStorage
 from models import Product, Comment, Like, User, Bot
-from n3tx_core.models.proto_model import generate_join_model
-from n3tx_core.utils.registrar import register_model, join_models
+from n3tx_core.utils.registrar import register_model
 from n3tx_core.authorize import hash_password
 
 # Database path — resolve relative to this file so it's stable regardless of CWD
@@ -30,11 +29,10 @@ DB_PATH = os.path.join(_HERE, config.SQLITE_DB_FILE)
 def seed():
     # ── Storage & model registration ──
     storage = SQLiteStorage(DB_PATH)
-    register_model(Product, storage=storage)
     register_model(User, storage=storage)
-    register_model(generate_join_model(Product, Comment), storage=storage)
-    register_model(generate_join_model(Comment, Like), storage=storage)
-    register_model(generate_join_model(Product, Like), storage=storage)
+    register_model(Comment, storage=storage)
+    register_model(Like, storage=storage)
+    register_model(Product, storage=storage)
 
     # ── Users (6) ──
     users = [
@@ -232,8 +230,10 @@ def seed():
         product = created_products[c["product_idx"]]
         user = created_users[c["user_idx"]]
         comment = Comment(name=c["name"], description=c["description"], user_owner=user.id)
-        comment.__owner__ = product
-        created = comment.save()
+        created = Comment.create(comment)
+        product_comments = list(product.comments or [])
+        product_comments.append(created)
+        created_products[c["product_idx"]] = Product.update(product.id, {'comments': product_comments})
         created_comments.append(created)
         logger.info("  + Comment on '%s' by %s: %s", product.name, user.name, c['name'])
 
@@ -274,8 +274,10 @@ def seed():
             user_owner=user.id,
             parent_id=parent.id,
         )
-        reply.__owner__ = product
-        reply.save()
+        created_reply = Comment.create(reply)
+        product_comments = list(product.comments or [])
+        product_comments.append(created_reply)
+        created_products[r["product_idx"]] = Product.update(product.id, {'comments': product_comments})
         logger.info("  + Reply to '%s' by %s: %s", parent.name, user.name, r['name'])
 
     # ── Likes on comments (50) ──
@@ -352,11 +354,13 @@ def seed():
     ]
 
     for ld in like_data:
-        comment = created_comments[ld["comment_idx"]]
+        comment = Comment.get(created_comments[ld["comment_idx"]].id)
         user = created_users[ld["user_idx"]]
         like = Like(user=user.id, created_at=datetime.now().isoformat())
-        like.__owner__ = comment
-        like.save()
+        created_like = Like.create(like)
+        likes = list(comment.likes or [])
+        likes.append(created_like)
+        created_comments[ld["comment_idx"]] = Comment.update(comment.id, {'likes': likes})
         logger.info("  + Like on '%s' by %s", comment.name, user.name)
 
     # ── Favorites on products (45) ──
@@ -429,11 +433,13 @@ def seed():
     ]
 
     for fd in fav_data:
-        product = created_products[fd["product_idx"]]
+        product = Product.get(created_products[fd["product_idx"]].id)
         user = created_users[fd["user_idx"]]
         fav = Like(user=user.id, created_at=datetime.now().isoformat())
-        fav.__owner__ = product
-        fav.save()
+        created_fav = Like.create(fav)
+        favorites = list(product.favorites or [])
+        favorites.append(created_fav)
+        created_products[fd["product_idx"]] = Product.update(product.id, {'favorites': favorites})
         logger.info("  + Favorite '%s' by %s", product.name, user.name)
 
     logger.info(

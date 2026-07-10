@@ -21,8 +21,7 @@ DB_PATH = os.path.join(_HERE, config.SQLITE_DB_FILE)
 # Create the application
 storage = SQLiteStorage(DB_PATH)
 app = create_app(
-    models=[User, Product],
-    join_models=[(Product, Comment), (Comment, Like), (Product, Like)],
+    models=[User, Product, Comment, Like],
     storage=storage,
     jwt_secret=config.JWT_SECRET,
     static_dir=os.path.join(os.path.dirname(__file__), 'static'),

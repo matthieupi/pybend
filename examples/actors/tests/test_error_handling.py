@@ -19,8 +19,7 @@ class TestNotFound404:
         assert resp.status_code == 404
 
     def test_get_nonexistent_comment(self, client, seed_data):
-        product = seed_data["products"][0]
-        resp = client.get(f"/Product/{product.id}/Comment/99999")
+        resp = client.get("/Comment/99999")
         assert resp.status_code == 404
 
     def test_put_nonexistent_product(self, client, alice_token):
@@ -98,17 +97,14 @@ class TestForbidden403:
     def test_update_comment_non_owner(self, client, charlie_token, seed_data):
         """Comment 0 owned by bob, charlie cannot update."""
         comment = seed_data["comments"][0]
-        product = seed_data["products"][0]
-        resp = client.put(f"/Product/{product.id}/Comment/{comment.id}", json={
+        resp = client.put(f"/Comment/{comment.id}", json={
             "name": "Forbidden",
         }, headers=auth_header(charlie_token))
         assert resp.status_code == 403
 
     def test_delete_comment_non_owner(self, client, charlie_token, seed_data):
         comment = seed_data["comments"][0]
-        product = seed_data["products"][0]
-        resp = client.delete(f"/Product/{product.id}/Comment/{comment.id}",
-                             headers=auth_header(charlie_token))
+        resp = client.delete(f"/Comment/{comment.id}", headers=auth_header(charlie_token))
         assert resp.status_code == 403
 
     def test_custom_method_no_token(self, client, seed_data):
@@ -178,10 +174,9 @@ class TestBadRequest400:
         assert resp.status_code == 400
 
     def test_reply_missing_text_field(self, client, alice_token, seed_data):
-        """POST /Product/{pid}/Comment/{cid}/reply without text field."""
-        product = seed_data["products"][0]
+        """POST /Comment/{cid}/reply without text field."""
         comment = seed_data["comments"][0]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/reply",
+        resp = client.post(f"/Comment/{comment.id}/reply",
                            json={}, headers=auth_header(alice_token))
         assert resp.status_code == 400
 
@@ -225,8 +220,7 @@ class TestSpecialCharacters:
 
     def test_create_comment_with_empty_description(self, client, alice_token, seed_data):
         product = seed_data["products"][0]
-        resp = client.post(f"/Product/{product.id}/Comment", json={
-            "name": "No description",
-            "description": "",
+        resp = client.post(f"/Product/{product.id}/comment", json={
+            "comment": {"name": "No description", "description": ""},
         }, headers=auth_header(alice_token))
-        assert resp.status_code == 201
+        assert resp.status_code == 200

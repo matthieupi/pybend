@@ -77,9 +77,8 @@ class TestJWTMiddleware:
 
     def test_no_token_on_public_endpoint(self, client, seed_data):
         """Public endpoint (Comment read = ANYONE) should work without token."""
-        product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.get(f"/Product/{product.id}/Comment/{comment.id}")
+        resp = client.get(f"/Comment/{comment.id}")
         assert resp.status_code == 200
 
 

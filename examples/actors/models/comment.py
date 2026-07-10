@@ -6,12 +6,11 @@ from datetime import datetime
 from pydantic import Field
 
 from n3tx_actors.models.actor_model import ActorModel
-from n3tx_core.models.ref import Ref
+from n3tx_core.models.ref import Ref, local_ref_id
 from models.like import Like
 from typing import ClassVar, Optional
 from models.user import User
 from n3tx_core.utils.decorators import expose_route
-from n3tx_core.utils.registrar import join_models
 from n3tx_core.authorize import ANYONE, AUTHENTICATED, OWNER, ROLE
 from n3tx_core.utils.erroring import MethodError
 from n3tx_core.widgets import TextareaField
@@ -47,18 +46,21 @@ class Comment(ActorModel):
         """Toggle like — create if not liked, delete if already liked."""
         if not user:
             raise MethodError("authentication required", 401)
-        join_cls = join_models.get(('Comment', 'Like'))
-        if not join_cls:
-            raise MethodError("CommentLike join model not registered", 500)
-        existing = join_cls.list(sql_filter=(f"comment_id = ? AND user = ?", [self.id, user.id]))
-        items = existing if isinstance(existing, list) else existing.get('data', [])
-        if items:
-            deleted_id = items[0].id
-            join_cls.delete(deleted_id)
+        likes = list(self.likes or [])
+        existing = next(
+            (like for like in likes if local_ref_id(getattr(like, 'user', None), target_cls=User) == user.id),
+            None,
+        )
+        if existing:
+            deleted_id = existing.id
+            Like.delete(deleted_id)
+            likes = [like for like in likes if getattr(like, 'id', None) != deleted_id]
+            type(self).update(self.id, {'likes': likes})
             return {'action': 'unliked', 'id': deleted_id, '_field': 'likes'}
         new_like = Like(user=user.id, created_at=datetime.now().isoformat())
-        new_like.__owner__ = self
-        saved = new_like.save()
+        saved = Like.create(new_like)
+        likes.append(saved)
+        type(self).update(self.id, {'likes': likes})
         return {
             'action': 'liked', '_field': 'likes',
             'id': saved.id, 'user': user.id,
@@ -69,12 +71,19 @@ class Comment(ActorModel):
     def reply(self, text: str, user: User = None) -> Comment:
         """Add a reply to this comment."""
         comment = Comment(name=text, user_owner=user.id if user else None, parent_id=self.id)
-        # Find the product parent so the reply goes into the same ProductComment join table
-        product_id = getattr(self, 'product_id', None)
-        if product_id:
+        created = Comment.create(comment)
+        try:
             from models.product import Product
-            comment.__owner__ = Product.get(product_id)
-        created = comment.save()
-        return created if created else comment
+            products = Product.list()
+            products = products.get('data', products) if isinstance(products, dict) else products
+            for product in products:
+                comments = list(product.comments or [])
+                if any(getattr(item, 'id', None) == self.id for item in comments):
+                    comments.append(created)
+                    Product.update(product.id, {'comments': comments})
+                    break
+        except Exception:
+            pass
+        return created
 
 Comment.model_rebuild()

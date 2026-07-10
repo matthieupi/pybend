@@ -112,8 +112,8 @@ class TestPaginationDefaults:
     """IT-10: Default limit behavior and edge cases."""
 
     def test_default_limit_returns_all(self, client, alice_token, seed_data):
-        """No limit/offset params returns plain array (default behavior)."""
-        resp = client.get("/Product", headers=auth_header(alice_token))
+        """No limit/offset params on table collection returns plain array."""
+        resp = client.get("/products", headers=auth_header(alice_token))
         data = resp.json()
         assert isinstance(data, list)
         assert len(data) >= 5
@@ -148,19 +148,16 @@ class TestPaginationDefaults:
 
 
 class TestPaginationWithComments:
-    """Pagination also works on nested comment routes."""
+    """Pagination works on flat comment collection routes."""
 
     def test_comments_paginated(self, client, seed_data):
-        product = seed_data["products"][0]
-        resp = client.get(f"/Product/{product.id}/Comment?limit=1")
+        resp = client.get("/Comment/_?limit=1")
         data = resp.json()
         assert "data" in data
         assert "meta" in data
         assert len(data["data"]) <= 1
 
     def test_comments_total_count(self, client, seed_data):
-        product = seed_data["products"][0]
-        resp = client.get(f"/Product/{product.id}/Comment?limit=1")
+        resp = client.get("/Comment/_?limit=1")
         meta = resp.json()["meta"]
-        # Product 0 has at least 2 comments plus replies
-        assert meta["total"] >= 2
+        assert meta["total"] >= 8

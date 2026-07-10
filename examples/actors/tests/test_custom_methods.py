@@ -100,12 +100,11 @@ class TestProductFavorite:
 
 
 class TestCommentLike:
-    """POST /Product/{pid}/Comment/{cid}/like -- toggle like."""
+    """POST /Comment/{id}/like -- toggle like."""
 
     def test_like_comment_returns_action(self, client, alice_token, seed_data):
-        product = seed_data["products"][1]
         comment = seed_data["comments"][3]  # comment on product 1
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
+        resp = client.post(f"/Comment/{comment.id}/like",
                            json={}, headers=auth_header(alice_token))
         assert resp.status_code == 200
         data = resp.json()
@@ -114,33 +113,30 @@ class TestCommentLike:
 
     def test_like_toggle(self, client, bob_token, seed_data):
         """Two consecutive likes should toggle."""
-        product = seed_data["products"][1]
         comment = seed_data["comments"][3]
 
-        resp1 = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
-                            json={}, headers=auth_header(bob_token))
+        resp1 = client.post(f"/Comment/{comment.id}/like",
+                             json={}, headers=auth_header(bob_token))
         data1 = resp1.json()
 
-        resp2 = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
-                            json={}, headers=auth_header(bob_token))
+        resp2 = client.post(f"/Comment/{comment.id}/like",
+                             json={}, headers=auth_header(bob_token))
         data2 = resp2.json()
 
         assert data1["action"] != data2["action"]
 
     def test_like_unauthenticated_returns_401(self, client, seed_data):
-        product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/like", json={})
+        resp = client.post(f"/Comment/{comment.id}/like", json={})
         assert resp.status_code == 401
 
 
 class TestCommentReply:
-    """POST /Product/{pid}/Comment/{cid}/reply -- reply to comment."""
+    """POST /Comment/{id}/reply -- reply to comment."""
 
     def test_reply_returns_created_comment(self, client, alice_token, seed_data):
-        product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/reply",
+        resp = client.post(f"/Comment/{comment.id}/reply",
                            json={"text": "Great point!"},
                            headers=auth_header(alice_token))
         assert resp.status_code == 200
@@ -148,19 +144,17 @@ class TestCommentReply:
         assert data.get("name") == "Great point!"
 
     def test_reply_has_parent_id(self, client, bob_token, seed_data):
-        product = seed_data["products"][0]
         comment = seed_data["comments"][1]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/reply",
+        resp = client.post(f"/Comment/{comment.id}/reply",
                            json={"text": "Reply with parent_id"},
                            headers=auth_header(bob_token))
         data = resp.json()
         assert data.get("parent_id") == comment.id
 
     def test_reply_has_user_owner(self, client, alice_token, seed_data):
-        product = seed_data["products"][0]
         comment = seed_data["comments"][0]
         alice = seed_data["users"]["alice"]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/reply",
+        resp = client.post(f"/Comment/{comment.id}/reply",
                            json={"text": "Reply owner test"},
                            headers=auth_header(alice_token))
         data = resp.json()
@@ -170,18 +164,16 @@ class TestCommentReply:
         assert user_owner == alice.id
 
     def test_reply_has_nonzero_id(self, client, charlie_token, seed_data):
-        product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/reply",
+        resp = client.post(f"/Comment/{comment.id}/reply",
                            json={"text": "ID check reply"},
                            headers=auth_header(charlie_token))
         data = resp.json()
         assert data.get("id", 0) > 0
 
     def test_reply_unauthenticated_returns_401(self, client, seed_data):
-        product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/reply",
+        resp = client.post(f"/Comment/{comment.id}/reply",
                            json={"text": "No auth"})
         assert resp.status_code == 401
 
@@ -195,8 +187,8 @@ class TestCustomMethodPersistence:
         (id=0), so we verify persistence by listing the product's comments."""
         product = seed_data["products"][2]
         # Get before count
-        before = client.get(f"/Product/{product.id}/Comment?limit=100")
-        before_items = before.json().get("data", []) if "data" in before.json() else before.json()
+        before = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
+        before_items = before.json().get("comments", [])
         before_count = len(before_items)
 
         resp = client.post(f"/Product/{product.id}/comment", json={
@@ -208,8 +200,8 @@ class TestCustomMethodPersistence:
         assert resp.status_code == 200
 
         # Verify a new comment was created
-        after = client.get(f"/Product/{product.id}/Comment?limit=100")
-        after_items = after.json().get("data", []) if "data" in after.json() else after.json()
+        after = client.get(f"/Product/{product.id}", headers=auth_header(alice_token))
+        after_items = after.json().get("comments", [])
         assert len(after_items) == before_count + 1
         # Find the new comment
         new_comments = [c for c in after_items if c["name"] == "Persist check"]
@@ -217,9 +209,8 @@ class TestCustomMethodPersistence:
 
     def test_reply_method_creates_persisted_record(self, client, alice_token, seed_data):
         """After calling /reply, the reply should be fetchable."""
-        product = seed_data["products"][0]
         comment = seed_data["comments"][1]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/reply",
+        resp = client.post(f"/Comment/{comment.id}/reply",
                            json={"text": "Persist reply"},
                            headers=auth_header(alice_token))
         assert resp.status_code == 200
@@ -227,25 +218,24 @@ class TestCustomMethodPersistence:
         reply_id = data.get("id")
         assert reply_id is not None
 
-        get_resp = client.get(f"/Product/{product.id}/Comment/{reply_id}")
+        get_resp = client.get(f"/Comment/{reply_id}")
         assert get_resp.status_code == 200
         assert get_resp.json()["parent_id"] == comment.id
 
     def test_like_method_persists_like_record(self, client, bob_token, seed_data):
         """After calling /like, the like count should change."""
-        product = seed_data["products"][2]
         comment = seed_data["comments"][4]
 
-        before = client.get(f"/Product/{product.id}/Comment/{comment.id}")
+        before = client.get(f"/Comment/{comment.id}")
         before_likes = len(before.json().get("likes", []))
 
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
+        resp = client.post(f"/Comment/{comment.id}/like",
                            json={}, headers=auth_header(bob_token))
         assert resp.status_code == 200
         data = resp.json()
         action = data["action"]
 
-        after = client.get(f"/Product/{product.id}/Comment/{comment.id}")
+        after = client.get(f"/Comment/{comment.id}")
         after_likes = len(after.json().get("likes", []))
 
         if action == "liked":
@@ -258,7 +248,7 @@ class TestCustomMethodNegativeCases:
     """SD-5: Negative authorization tests for custom methods."""
 
     def test_anonymous_comment_returns_401(self, client, seed_data):
-        """Anonymous user gets 401 on custom method."""
+        """Tier 1 rejects an anonymous custom-method request."""
         product = seed_data["products"][0]
         resp = client.post(f"/Product/{product.id}/comment", json={
             "comment": {"name": "Anon", "description": "test"},
@@ -271,16 +261,14 @@ class TestCustomMethodNegativeCases:
         assert resp.status_code == 401
 
     def test_anonymous_like_returns_401(self, client, seed_data):
-        product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/like",
+        resp = client.post(f"/Comment/{comment.id}/like",
                            json={})
         assert resp.status_code == 401
 
     def test_anonymous_reply_returns_401(self, client, seed_data):
-        product = seed_data["products"][0]
         comment = seed_data["comments"][0]
-        resp = client.post(f"/Product/{product.id}/Comment/{comment.id}/reply",
+        resp = client.post(f"/Comment/{comment.id}/reply",
                            json={"text": "nope"})
         assert resp.status_code == 401
 

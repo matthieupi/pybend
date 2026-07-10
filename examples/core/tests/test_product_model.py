@@ -67,12 +67,16 @@ class TestProductFields:
 
 class TestProductComment:
 
-    def test_comment_sets_owner(self):
+    def test_comment_persists_and_attaches_to_product(self):
         p = Product(id=1, name='Test', price=10.0)
         c = Comment(name='Hello', description='world')
 
-        with patch.object(Comment, 'save', return_value=c):
+        with patch.object(Comment, 'create', return_value=c) as create, \
+             patch.object(Product, 'update', return_value=p) as update:
             result = p.comment(c, user=None)
+            assert result is c
+            create.assert_called_once_with(c)
+            update.assert_called_once_with(1, {'comments': [c]})
 
     def test_comment_user_owner_set_with_user(self):
         p = Product(id=1, name='Test', price=10.0)
@@ -80,7 +84,8 @@ class TestProductComment:
         mock_user = MagicMock()
         mock_user.id = 42
 
-        with patch.object(Comment, 'save', return_value=c):
+        with patch.object(Comment, 'create', return_value=c), \
+             patch.object(Product, 'update', return_value=p):
             p.comment(c, user=mock_user)
             assert c.user_owner == 42
 
@@ -88,7 +93,8 @@ class TestProductComment:
         p = Product(id=1, name='Test', price=10.0)
         c = Comment(name='Hello')
 
-        with patch.object(Comment, 'save', return_value=c):
+        with patch.object(Comment, 'create', return_value=c), \
+             patch.object(Product, 'update', return_value=p):
             p.comment(c, user=None)
             assert c.user_owner == 1
 
@@ -100,43 +106,33 @@ class TestProductFavorite:
         with pytest.raises(MethodError):
             p.favorite(user=None)
 
-    def test_favorite_join_model_not_registered(self):
-        p = Product(id=1, name='Test', price=10.0)
-        mock_user = MagicMock()
-        mock_user.id = 1
-
-        with patch('models.product.join_models', {}):
-            with pytest.raises(MethodError):
-                p.favorite(user=mock_user)
-
     def test_favorite_creates_new(self):
         p = Product(id=1, name='Test', price=10.0)
         mock_user = MagicMock()
         mock_user.id = 1
 
-        mock_join = MagicMock()
-        mock_join.list.return_value = []
-
-        with patch('models.product.join_models', {('Product', 'Like'): mock_join}):
-            with patch.object(Like, 'save', return_value=Like(user=1)):
-                result = p.favorite(user=mock_user)
-                assert result['action'] == 'favorited'
-                assert result['_field'] == 'favorites'
-                assert result['id'] == 0
-                assert result['user'] == 1
-                assert 'created_at' in result
+        saved_like = Like(id=7, user=1)
+        with patch.object(Like, 'create', return_value=saved_like), \
+             patch.object(Product, 'update', return_value=p) as update:
+            result = p.favorite(user=mock_user)
+            assert result['action'] == 'favorited'
+            assert result['_field'] == 'favorites'
+            assert result['id'] == 7
+            assert result['user'] == 1
+            assert 'created_at' in result
+            update.assert_called_once_with(1, {'favorites': [saved_like]})
 
     def test_unfavorite_existing(self):
         p = Product(id=1, name='Test', price=10.0)
         mock_user = MagicMock()
         mock_user.id = 1
 
-        existing_like = MagicMock()
-        existing_like.id = 10
-        mock_join = MagicMock()
-        mock_join.list.return_value = [existing_like]
+        existing_like = Like(id=10, user=1)
+        p.favorites = [existing_like]
 
-        with patch('models.product.join_models', {('Product', 'Like'): mock_join}):
+        with patch.object(Like, 'delete') as delete, \
+             patch.object(Product, 'update', return_value=p) as update:
             result = p.favorite(user=mock_user)
             assert result == {'action': 'unfavorited', '_field': 'favorites', 'id': 10}
-            mock_join.delete.assert_called_once_with(10)
+            delete.assert_called_once_with(10)
+            update.assert_called_once_with(1, {'favorites': []})

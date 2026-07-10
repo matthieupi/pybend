@@ -28,7 +28,7 @@ class TestLikeResponseIncludesEntityData:
         comment = make_comment(product.id, name="Fresh response contract comment")
 
         resp = client.post(
-            f"/Product/{product.id}/Comment/{comment['id']}/like",
+            f"/Comment/{comment['id']}/like",
             json={}, headers=auth_header(charlie_token),
         )
         assert resp.status_code == 200
@@ -74,11 +74,11 @@ class TestLikeResponseIncludesEntityData:
         comment = make_comment(product.id, name="Fresh count contract comment")
 
         # Get the count before
-        before = client.get(f"/Product/{product.id}/Comment/{comment['id']}")
+        before = client.get(f"/Comment/{comment['id']}")
         before_likes = before.json().get("likes", [])
 
         resp = client.post(
-            f"/Product/{product.id}/Comment/{comment['id']}/like",
+            f"/Comment/{comment['id']}/like",
             json={}, headers=auth_header(bob_token),
         )
         assert resp.status_code == 200
