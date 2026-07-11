@@ -190,7 +190,7 @@ export class NtxAgent extends NTTItem {
   }
 
   /**
-   * Tool chips derived from the tools ListRef array.
+   * Tool chips derived from the hydrated tools model list.
    * Each element is an href string (e.g. "http://.../agent_tools/3").
    * _toolName() extracts a human-readable label.
    */
@@ -199,10 +199,7 @@ export class NtxAgent extends NTTItem {
     if (tools.length === 0) {
       return `<div class="agent-tools-row"><span class="agent-no-tools">No tools</span></div>`;
     }
-    const chips = tools.map(href => {
-      const label = this._toolName(href);
-      return `<span class="tool-chip">${this._esc(label)}</span>`;
-    }).join('');
+    const chips = tools.map(tool => this._renderToolChip(tool)).join('');
     return `<div class="agent-tools-row">${chips}</div>`;
   }
 
@@ -242,10 +239,9 @@ export class NtxAgent extends NTTItem {
     }
     const { provider } = this._parseLlm(this.value.llm || '');
     const baseHue = { anthropic: 270, ollama: 160, openai: 200, groq: 240, google: 45 }[provider] ?? 195;
-    const chips = tools.map((href, i) => {
+    const chips = tools.map((tool, i) => {
       const hue = (baseHue + i * 43) % 360;
-      const label = this._toolName(href);
-      return `<span class="tool-chip-colored" style="--ch:${hue}">${this._esc(label)}</span>`;
+      return this._renderToolChip(tool, { colored: true, hue });
     }).join('');
     return `<div class="agent-tools-colored">${chips}</div>`;
   }
@@ -331,11 +327,30 @@ export class NtxAgent extends NTTItem {
    * Plain addr string (e.g. "grants") → shown as-is.
    * URL href (e.g. ".../agent_tools/3") → "⚙ #3".
    */
-  _toolName(href) {
-    if (typeof href !== 'string') return String(href);
-    if (!href.includes('/')) return href;
-    const parts = href.replace(/\/$/, '').split('/');
+  _toolName(tool) {
+    if (tool && typeof tool === 'object') {
+      return tool.target || tool.name || `\u2699 #${tool.id ?? '?'}`;
+    }
+    return this._legacyToolName(String(tool ?? ''));
+  }
+
+  _legacyToolName(value) {
+    if (!value.includes('/')) return value;
+    const parts = value.replace(/\/$/, '').split('/');
     return `\u2699 #${parts[parts.length - 1]}`;
+  }
+
+  _toolDescription(tool) {
+    return tool && typeof tool === 'object' ? tool.description || '' : '';
+  }
+
+  _renderToolChip(tool, { colored = false, hue = null } = {}) {
+    const label = this._esc(this._toolName(tool));
+    const description = this._esc(this._toolDescription(tool));
+    const className = colored ? 'tool-chip-colored' : 'tool-chip';
+    const style = colored ? ` style="--ch:${hue}"` : '';
+    const title = description ? ` title="${description}"` : '';
+    return `<span class="${className}"${style}${title}>${label}</span>`;
   }
 
   /**

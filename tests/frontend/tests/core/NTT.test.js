@@ -396,7 +396,7 @@ describe('NTT.js', () => {
         sendSpy.mockRestore();
       });
 
-      it('normalizes populated children while preserving class-name nested $id refs', () => {
+      it('preserves hydrated children with backend-authoritative flat $id refs', () => {
         const childSchema = {
           type: 'object',
           __name__: 'AuditComment',
@@ -433,7 +433,7 @@ describe('NTT.js', () => {
             data: [{
               id: 2,
               $schema: 'http://localhost:5000/AuditComment',
-              $id: 'http://localhost:5000/AuditProduct/1/AuditComment/2',
+            $id: 'http://localhost:5000/AuditComment/2',
               name: 'Child',
             }],
             meta: { total: 1, limit: 20, offset: 0, has_more: false },
@@ -443,8 +443,11 @@ describe('NTT.js', () => {
         const parent = ParentDC.instances.get('1');
         const ChildDC = NTT.get('AuditComment');
 
-        expect(parent.value.comments).toEqual(['http://localhost:5000/AuditProduct/1/AuditComment/2']);
-        expect(ChildDC.instances.get('2').href).toBe('http://localhost:5000/AuditProduct/1/AuditComment/2');
+        expect(parent.value.comments[0]).toMatchObject({
+          id: 2,
+          $id: 'http://localhost:5000/AuditComment/2',
+        });
+        expect(ChildDC.instances.get('2').href).toBe('http://localhost:5000/AuditComment/2');
       });
     });
 

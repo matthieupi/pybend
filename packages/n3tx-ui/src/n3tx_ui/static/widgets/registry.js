@@ -37,6 +37,13 @@ export function getWidgetForField(fieldSchema) {
     if (fieldSchema?.type === 'boolean' && _widgets.bool) {
         return { widget: _widgets.bool, config: {}, name: 'bool' };
     }
+    if (fieldSchema?.['x-ref'] && _widgets.reference) {
+        return {
+            widget: _widgets.reference,
+            config: { model: fieldSchema['x-ref'] },
+            name: 'reference',
+        };
+    }
     return { widget: null, config: {}, name: null };
 }
 

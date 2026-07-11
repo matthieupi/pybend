@@ -121,7 +121,11 @@ describe('_response_ should not trigger network pull for action responses', () =
 
     // _response_ with structured action data should NOT call pull()
     expect(pullCalled).toBe(false);
-    expect(instance.value?.favorites).toContain(`${API_URL}/Product/1/favorites/99`);
+    expect(instance.value?.favorites[0]).toMatchObject({
+      id: 99,
+      $id: `${API_URL}/Like/99`,
+    });
+    expect(JSON.stringify(instance.value.favorites)).not.toContain('/Product/1/favorites/');
 
     // No network requests should have been made
     const gets = global.fetch.mock.calls.filter(([u, o]) => (o?.method || 'GET').toUpperCase() === 'GET');

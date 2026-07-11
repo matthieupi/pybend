@@ -1,7 +1,7 @@
 /**
  * Nested Entities — Integration Tests
  *
- * Tests: ListRef rendering, populated data normalization, nested CRUD
+ * Tests: hydrated owned relationships and explicit pointer normalization
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ProductSchema, CommentSchema, makeProductData, makeCommentData, API_URL } from './helpers/mock-schemas.js';
@@ -28,7 +28,7 @@ beforeEach(async () => {
 
 describe('Nested Entities', () => {
 
-  it('Product comments href array stored after normalization', () => {
+  it('preserves legacy pointer strings when the backend returns them', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
 
@@ -47,13 +47,13 @@ describe('Nested Entities', () => {
     expect(product.value.comments[0]).toContain('/Comment/1');
   });
 
-  it('populated collection {data, meta} normalized to href array', () => {
+  it('preserves hydrated owned collection objects and registers child instances', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     const CommentDC = NTT.get('Comment');
 
-    const comment1 = { ...makeCommentData(1, 1), $id: `${API_URL}/Product/1/Comment/1` };
-    const comment2 = { ...makeCommentData(2, 1), $id: `${API_URL}/Product/1/Comment/2` };
+    const comment1 = makeCommentData(1, 1);
+    const comment2 = makeCommentData(2, 1);
 
     const productData = {
       ...makeProductData(1),
@@ -66,42 +66,43 @@ describe('Nested Entities', () => {
     DC.READ([productData]);
     const product = DC.instances.get('1');
 
-    // Comments should be normalized to hrefs
+    // Owned relationship values remain hydrated objects in backend order.
     expect(Array.isArray(product.value.comments)).toBe(true);
     expect(product.value.comments).toHaveLength(2);
-    expect(typeof product.value.comments[0]).toBe('string');
+    expect(product.value.comments).toEqual([comment1, comment2]);
 
     // Child instances should be pre-registered in Comment DynamicClass
     expect(CommentDC.instances.has('1')).toBe(true);
     expect(CommentDC.instances.has('2')).toBe(true);
+    expect(CommentDC.instances.get('1').href).toBe(`${API_URL}/Comment/1`);
   });
 
-  it('populated single Ref normalized to href string', () => {
-    // Create a schema with a single $ref field
-    const refSchema = {
-      ...ProductSchema,
-      __name__: 'RefTest',
-      __tablename__: 'reftests',
-      properties: {
-        ...ProductSchema.properties,
-        author: { $ref: '#/$defs/Comment', title: 'Author' },
-      },
-      $defs: { ...ProductSchema.$defs },
-    };
+  it('preserves a hydrated owned scalar object', () => {
+    NTT.SCHEMA(ProductSchema);
+    const DC = NTT.get('Product');
+    const child = makeCommentData(1, 1);
 
-    NTT.SCHEMA(refSchema);
-    const DC = NTT.get('RefTest');
+    DC.READ([{ ...makeProductData(1), featured_comment: child }]);
 
-    const entityData = {
+    expect(DC.instances.get('1').value.featured_comment).toEqual(child);
+    expect(NTT.get('Comment').instances.get('1').href).toBe(child.$id);
+  });
+
+  it('retains pointer semantics for explicit Ref fields', () => {
+    NTT.SCHEMA(ProductSchema);
+    const DC = NTT.get('Product');
+    const child1 = makeCommentData(1, 1);
+    const child2 = makeCommentData(2, 1);
+
+    DC.READ([{
       ...makeProductData(1),
-      author: { ...makeCommentData(1, 1), $id: `${API_URL}/comments/1` },
-    };
+      featured_comment_ref: child1,
+      comment_refs: { data: [child1, child2], meta: { total: 2 } },
+    }]);
 
-    DC.READ([entityData]);
-    const entity = DC.instances.get('1');
-    // author should be normalized to href string
-    expect(typeof entity.value.author).toBe('string');
-    expect(entity.value.author).toBe(`${API_URL}/comments/1`);
+    const product = DC.instances.get('1');
+    expect(product.value.featured_comment_ref).toBe(child1.$id);
+    expect(product.value.comment_refs).toEqual([child1.$id, child2.$id]);
   });
 
   it('comment with parent_id (self-referential) is stored correctly', () => {
@@ -156,7 +157,7 @@ describe('Nested Entities', () => {
     CommentDC.send = originalSend;
   });
 
-  it('normalizePopulated handles mixed href strings and objects', () => {
+  it('preserves mixed legacy pointers and hydrated owned objects without coercion', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
 
@@ -164,8 +165,8 @@ describe('Nested Entities', () => {
       ...makeProductData(1),
       comments: {
         data: [
-          `${API_URL}/Product/1/Comment/1`, // already a string
-          { ...makeCommentData(2, 1), $id: `${API_URL}/Product/1/Comment/2` }, // populated object
+          `${API_URL}/Comment/1`, // legacy pointer remains untouched
+          makeCommentData(2, 1), // hydrated owned child remains an object
         ],
         meta: { total: 2 },
       },
@@ -174,8 +175,8 @@ describe('Nested Entities', () => {
     DC.READ([productData]);
     const product = DC.instances.get('1');
     expect(product.value.comments).toHaveLength(2);
-    expect(product.value.comments[0]).toBe(`${API_URL}/Product/1/Comment/1`);
-    expect(product.value.comments[1]).toBe(`${API_URL}/Product/1/Comment/2`);
+    expect(product.value.comments[0]).toBe(`${API_URL}/Comment/1`);
+    expect(product.value.comments[1]).toEqual(makeCommentData(2, 1));
   });
 
   it('deeply nested population (depth=2) normalizes recursively', () => {
@@ -208,7 +209,7 @@ describe('Nested Entities', () => {
     expect(CommentDC.instances.has('1')).toBe(true);
     const comment = CommentDC.instances.get('1');
 
-    // Comment's likes should be normalized to href array
+    // Hydrated nested owned relationships remain arrays and populate the cache.
     if (LikeDC.instances.has('1')) {
       expect(Array.isArray(comment.value.likes)).toBe(true);
     }
@@ -240,7 +241,7 @@ describe('Nested Entities', () => {
     pullSpy.mockRestore();
   });
 
-  it('instance READ handler normalizes populated data', () => {
+  it('instance READ handler preserves hydrated owned data', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     const instance = new DC(makeProductData(1));
@@ -248,12 +249,14 @@ describe('Nested Entities', () => {
     const populated = {
       ...makeProductData(1),
       comments: {
-        data: [{ ...makeCommentData(1, 1), $id: `${API_URL}/Product/1/Comment/1` }],
+        data: [makeCommentData(1, 1)],
         meta: { total: 1 },
       },
     };
 
     instance.READ(populated);
     expect(Array.isArray(instance.value.comments)).toBe(true);
+    expect(instance.value.comments[0]).toMatchObject({ id: 1, $id: `${API_URL}/Comment/1` });
+    expect(typeof instance.value.comments[0]).toBe('object');
   });
 });

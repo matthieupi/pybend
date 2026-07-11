@@ -106,7 +106,7 @@ export class NTTElement extends Component {
   }
 
   /**
-   * Receives data from a direct URL fetch (ListRef href resolution).
+   * Receives entity data from an explicit direct URL fetch.
    */
   READ(data) {
     const modelName = this.getAttribute('data-model');

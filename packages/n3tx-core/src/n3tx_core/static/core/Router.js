@@ -327,10 +327,9 @@ export function resolveRoute(parsed, getSchema = () => null) {
             ? resolveViewTag(schema, parsed.view, 'member')
             : renderer.detail || renderer.item || 'ntx-item';
         if (!tag || !isSafeComponentTag(tag)) return null;
-        const ref = `${parsed.parentModel}/${parsed.parentId}/${parsed.model}/${parsed.id}`;
         return {
             tag,
-            attrs: { 'data-model': parsed.model, ref: apiRef(ref), display: 'lg', ...passthrough },
+            attrs: { 'data-model': parsed.model, ref: `${parsed.model}/${parsed.id}`, display: 'lg', ...passthrough },
             title: schema?.title || schema?.__name__ || parsed.model,
         };
     }
@@ -345,7 +344,7 @@ export function resolveRoute(parsed, getSchema = () => null) {
             tag,
             attrs: {
                 'data-model': parsed.model,
-                ref: apiRef(`${parsed.parentModel}/${parsed.parentId}/${parsed.model}/${parsed.id}`),
+                ref: `${parsed.model}/${parsed.id}`,
                 method: parsed.action,
                 display: 'lg',
                 ...passthrough,

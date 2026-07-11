@@ -495,13 +495,28 @@ export class NTT extends TT {
  * Handles $ref in items, anyOf with $ref, etc.
  */
 function resolveModelName(def) {
-    const items = def.items || {};
-    if (items.$ref) return items.$ref.split('/').pop();
-    if (items.anyOf) {
-        const ref = items.anyOf.find(a => a.$ref);
+    if (!def || typeof def !== 'object') return null;
+    if (def.$ref) return def.$ref.split('/').pop();
+    if (def.anyOf) {
+        const ref = def.anyOf.find(a => a.$ref);
         return ref ? ref.$ref.split('/').pop() : null;
     }
-    return null;
+    return resolveModelName(def.items);
+}
+
+function isExplicitRef(def) {
+    return def?.type === '$ref' && typeof def.$ref === 'string';
+}
+
+function isExplicitRefList(def) {
+    return def?.type === 'array' && isExplicitRef(def.items);
+}
+
+function relationshipValueId(value) {
+    if (value && typeof value === 'object' && value.id !== undefined) return String(value.id);
+    if (value && typeof value === 'object' && value.$id) value = value.$id;
+    if (typeof value !== 'string') return null;
+    return value.replace(/\/$/, '').split('/').pop() || null;
 }
 
 /**
@@ -564,12 +579,12 @@ function upsertInstance(DC, data) {
 
 /**
  * Normalize populated (eager-loaded) data in an entity response.
- * Converts inline objects back to href strings and pre-registers
- * the children as NTT instances so downstream code works unchanged.
+ * Registers hydrated children while preserving owned relationship objects.
+ * Explicit Ref fields retain pointer semantics.
  *
  * Handles two cases:
- * 1. Populated collection: {data: [...], meta: {...}} → href array
- * 2. Populated single Ref: inline object with $id → href string
+ * 1. Owned T/list[T]: hydrated object(s) remain in parent state.
+ * 2. Ref[T]/list[Ref[T]]: populated objects normalize to pointer strings.
  */
 function normalizePopulated(entity, schema) {
     if (!entity || !schema?.properties) return;
@@ -577,35 +592,47 @@ function normalizePopulated(entity, schema) {
         const val = entity[key];
         if (!val) continue;
 
-        // Case 1: Populated collection with pagination wrapper {data: [...], meta: {...}}
+        const childModelName = resolveModelName(def);
+        const ChildDC = childModelName ? NTT.get(childModelName) : null;
+
+        // Relationship collection wrapper: preserve objects for owned lists,
+        // but retain href semantics for explicit pointer lists.
         if (def.type === 'array' && !Array.isArray(val) && Array.isArray(val?.data) && val?.meta) {
-            const childModelName = resolveModelName(def);
-            const ChildDC = childModelName ? NTT.get(childModelName) : null;
-            const hrefs = [];
-            for (const item of val.data) {
+            const items = val.data;
+            for (const item of items) {
                 if (item && typeof item === 'object' && item.$id) {
                     if (ChildDC) {
                         normalizePopulated(item, ChildDC._schema);
                         registerInstance(ChildDC, item);
                     }
-                    hrefs.push(item.$id);
-                } else if (typeof item === 'string') {
-                    hrefs.push(item);
                 }
             }
-            entity[key] = hrefs;
+            entity[key] = isExplicitRefList(def)
+                ? items.map(item => item && typeof item === 'object' ? item.$id : item).filter(Boolean)
+                : items;
             continue;
         }
 
-        // Case 2: Populated single Ref — inline object with $id
-        if (def.$ref && typeof val === 'object' && val.$id) {
-            const refModelName = def.$ref.split('/').pop();
-            const RefDC = refModelName ? NTT.get(refModelName) : null;
-            if (RefDC) {
-                normalizePopulated(val, RefDC._schema);
-                registerInstance(RefDC, val);
+        // Plain hydrated relationship values (without pagination wrapper).
+        if (Array.isArray(val) && childModelName) {
+            for (const item of val) {
+                if (item && typeof item === 'object' && item.$id && ChildDC) {
+                    normalizePopulated(item, ChildDC._schema);
+                    registerInstance(ChildDC, item);
+                }
             }
-            entity[key] = val.$id;
+            if (isExplicitRefList(def)) {
+                entity[key] = val.map(item => item && typeof item === 'object' ? item.$id : item).filter(Boolean);
+            }
+            continue;
+        }
+
+        if (childModelName && typeof val === 'object' && val.$id) {
+            if (ChildDC) {
+                normalizePopulated(val, ChildDC._schema);
+                registerInstance(ChildDC, val);
+            }
+            if (isExplicitRef(def)) entity[key] = val.$id;
         }
     }
 }
@@ -822,12 +849,6 @@ function prototype(addr, schema, href) {
             const id = addr.split('/')[1];
             const instance = DynamicClass.children.get(id);
             if (instance) {
-                // Update href if the attaching component knows a more specific URL
-                // (e.g. a nested entity whose href was set from DynamicClass default
-                // but meta.href carries the correct parent-scoped URL)
-                if (tx.meta?.href && tx.meta.href !== instance.href) {
-                    instance.href = tx.meta.href;
-                }
                 // Instance exists — forward directly
                 const reprTx = tx instanceof TX ? tx.repr() : {...tx};
                 reprTx.target = `/${id}`;
@@ -841,7 +862,7 @@ function prototype(addr, schema, href) {
                 if (!DynamicClass._fetchingIds) DynamicClass._fetchingIds = new Set();
                 if (!DynamicClass._fetchingIds.has(id)) {
                     DynamicClass._fetchingIds.add(id);
-                    const fetchUrl = tx.meta?.href || `${DynamicClass.href}/${id}`;
+                    const fetchUrl = `${DynamicClass.href}/${id}`;
                     const popDepth = DynamicClass._schema?.ui?.populate?.depth ?? 1;
                     DynamicClass.send(new TX({
                         name: 'READ',
@@ -1016,10 +1037,8 @@ function prototype(addr, schema, href) {
 
     /**
      * Instance READ — handles pull() responses for individual entities.
-     * Normalizes populated wrappers ({data, meta} → href arrays) and
-     * pre-registers child instances, same as the class-level READ.
-     * Without this, pull() responses would store raw wrappers, breaking
-     * components that expect href arrays for collection fields.
+     * Normalizes relationship wrappers and pre-registers hydrated child
+     * instances, same as the class-level READ.
      */
     DynamicClass.prototype.READ = function(data) {
         normalizePopulated(data, DynamicClass._schema);
@@ -1045,18 +1064,26 @@ function prototype(addr, schema, href) {
         if (data.action && data._field && data.id !== undefined) {
             const field = data._field;
             const arr = Array.isArray(this._data[field]) ? [...this._data[field]] : [];
+            const props = DynamicClass._schema?.properties?.[field];
+            const childModel = props ? resolveModelName(props) : null;
+            const ChildDC = childModel ? NTT.get(childModel) : null;
 
             if (data.action === 'liked' || data.action === 'favorited') {
-                const childHref = `${this.href}/${field}/${data.id}`;
-                arr.push(childHref);
-                // Register child entity if DynamicClass exists
-                const props = DynamicClass._schema?.properties?.[field];
-                const childModel = props ? resolveModelName(props) : null;
-                const ChildDC = childModel ? NTT.get(childModel) : null;
-                if (ChildDC) registerInstance(ChildDC, { ...data, $id: childHref });
+                if (!ChildDC) return this.pull();
+                const childHref = `${ChildDC.href}/${data.id}`;
+                const child = {
+                    ...data,
+                    $schema: ChildDC._schema?.$id || ChildDC.href,
+                    $id: data.$id || childHref,
+                };
+                registerInstance(ChildDC, child);
+                const value = isExplicitRefList(props) ? child.$id : child;
+                if (!arr.some(item => relationshipValueId(item) === String(data.id))) {
+                    arr.push(value);
+                }
             } else if (data.action === 'unliked' || data.action === 'unfavorited') {
                 const idStr = String(data.id);
-                const idx = arr.findIndex(ref => String(ref).endsWith('/' + idStr));
+                const idx = arr.findIndex(item => relationshipValueId(item) === idStr);
                 if (idx >= 0) arr.splice(idx, 1);
             }
 

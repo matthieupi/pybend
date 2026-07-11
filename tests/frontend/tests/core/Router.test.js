@@ -115,7 +115,7 @@ describe('Router.js', () => {
       expect(r.resolved.attrs.method).toBeUndefined();
     });
 
-    it('should resolve nested detail routes through child schema renderers and absolute nested refs', () => {
+    it('should resolve nested detail aliases through child schema renderers and flat refs', () => {
       const name = `resolved-nested-detail-${Math.random().toString(36).slice(2)}`;
       const getSchema = vi.fn((model) => ({
         ui: { renderer: model === 'Comment' ? { item: 'ntx-comment-card' } : { item: 'ntx-product-card' } },
@@ -129,7 +129,7 @@ describe('Router.js', () => {
       expect(resolved.tag).toBe('ntx-comment-card');
       expect(resolved.attrs).toEqual({
         'data-model': 'Comment',
-        ref: 'http://localhost:5000/Product/1/Comment/2',
+        ref: 'Comment/2',
         display: 'lg',
       });
       expect(resolved.attrs.method).toBeUndefined();

@@ -105,6 +105,23 @@ export const ProductSchema = {
       items: { anyOf: [{ $ref: '#/$defs/Comment' }, { type: 'null' }] },
       default: [],
     },
+    featured_comment: {
+      anyOf: [{ $ref: '#/$defs/Comment' }, { type: 'null' }],
+      title: 'Featured Comment',
+      default: null,
+    },
+    featured_comment_ref: {
+      type: '$ref',
+      $ref: '#/$defs/Comment',
+      title: 'Featured Comment Ref',
+      default: null,
+    },
+    comment_refs: {
+      type: 'array',
+      title: 'Comment Refs',
+      items: { type: '$ref', $ref: '#/$defs/Comment' },
+      default: [],
+    },
     favorites: {
       type: 'array',
       title: 'Favorites',
@@ -173,7 +190,7 @@ export function makeCommentData(id = 1, productId = 1) {
   return {
     id,
     $schema: `${API_URL}/Comment`,
-    $id: `${API_URL}/Product/${productId}/Comment/${id}`,
+    $id: `${API_URL}/Comment/${id}`,
     name: `Test Comment ${id}`,
     description: 'A test comment',
     user_owner: 1,

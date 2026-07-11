@@ -249,7 +249,7 @@ describe('ntx-router.js (NTTRouter)', () => {
       expect(mounted).toBeTruthy();
       expect(window.NTT.get).toHaveBeenCalledWith('Comment');
       expect(mounted.getAttribute('data-model')).toBe('Comment');
-      expect(mounted.getAttribute('ref')).toBe('http://localhost:5000/Product/1/Comment/2');
+      expect(mounted.getAttribute('ref')).toBe('Comment/2');
       expect(mounted.getAttribute('display')).toBe('lg');
       expect(mounted.hasAttribute('method')).toBe(false);
     });
@@ -274,7 +274,7 @@ describe('ntx-router.js (NTTRouter)', () => {
       const mounted = el.shadowRoot.querySelector('.router-content ntx-like-view');
       expect(mounted).toBeTruthy();
       expect(mounted.getAttribute('data-model')).toBe('Comment');
-      expect(mounted.getAttribute('ref')).toBe('http://localhost:5000/Product/1/Comment/2');
+      expect(mounted.getAttribute('ref')).toBe('Comment/2');
       expect(mounted.hasAttribute('method')).toBe(false);
     });
 
@@ -295,7 +295,7 @@ describe('ntx-router.js (NTTRouter)', () => {
       const mounted = el.shadowRoot.querySelector('.router-content ntx-like-method');
       expect(mounted).toBeTruthy();
       expect(mounted.getAttribute('data-model')).toBe('Comment');
-      expect(mounted.getAttribute('ref')).toBe('http://localhost:5000/Product/1/Comment/2');
+      expect(mounted.getAttribute('ref')).toBe('Comment/2');
       expect(mounted.getAttribute('method')).toBe('like');
       expect(mounted.getAttribute('display')).toBe('lg');
     });

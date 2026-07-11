@@ -264,7 +264,7 @@ describe('Entity signal behavior after _response_', () => {
     await flush(100);
 
     expect(signalCount).toBeGreaterThanOrEqual(1);
-    expect(instance.value?.favorites).toContain(`${API_URL}/Product/1/favorites/99`);
+    expect(instance.value?.favorites[0]).toMatchObject({ id: 99, $id: `${API_URL}/Like/99` });
   });
 });
 

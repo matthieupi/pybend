@@ -162,7 +162,7 @@ describe('Entity Lifecycle', () => {
     expect(pullSpy).toHaveBeenCalled();
   });
 
-  it('normalizePopulated converts inline objects to href arrays', () => {
+  it('normalizePopulated preserves hydrated owned objects', () => {
     NTT.SCHEMA(ProductSchema);
     const DC = NTT.get('Product');
     const commentData = makeCommentData(1, 1);
@@ -178,11 +178,9 @@ describe('Entity Lifecycle', () => {
 
     DC.READ([productData]);
     const instance = DC.instances.get('1');
-    // After normalization, comments should be href array
     expect(Array.isArray(instance.value.comments)).toBe(true);
-    if (instance.value.comments.length > 0) {
-      expect(typeof instance.value.comments[0]).toBe('string');
-    }
+    expect(instance.value.comments[0]).toEqual(commentData);
+    expect(NTT.get('Comment').instances.get('1').href).toBe(commentData.$id);
   });
 
   it('DynamicClass.READ with existing instance updates rather than creates new', () => {

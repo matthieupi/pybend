@@ -542,7 +542,7 @@ describe('resolveRoute(parsed, getSchema)', () => {
     expect(detail.tag).toBe('ntx-comment-card');
     expect(detail.attrs).toEqual({
       'data-model': 'Comment',
-      ref: 'http://localhost:5000/Product/1/Comment/2',
+      ref: 'Comment/2',
       display: 'lg',
     });
 
@@ -550,7 +550,7 @@ describe('resolveRoute(parsed, getSchema)', () => {
     expect(view.tag).toBe('ntx-like-view');
     expect(view.attrs).toEqual({
       'data-model': 'Comment',
-      ref: 'http://localhost:5000/Product/1/Comment/2',
+      ref: 'Comment/2',
       display: 'lg',
     });
     expect(view.attrs.method).toBeUndefined();
@@ -559,7 +559,7 @@ describe('resolveRoute(parsed, getSchema)', () => {
     expect(action.tag).toBe('ntx-like-method');
     expect(action.attrs).toEqual({
       'data-model': 'Comment',
-      ref: 'http://localhost:5000/Product/1/Comment/2',
+      ref: 'Comment/2',
       method: 'like',
       display: 'lg',
     });
@@ -576,7 +576,7 @@ describe('resolveRoute(parsed, getSchema)', () => {
     expect(route.tag).toBe('ntx-comment-card');
     expect(route.attrs).toEqual({
       'data-model': 'Comment',
-      ref: 'http://localhost:5000/Product/1/Comment/2',
+      ref: 'Comment/2',
       display: 'lg',
       tab: 'history',
     });
