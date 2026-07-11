@@ -183,7 +183,7 @@ The package adds:
 
 - `POST /files/upload` for multipart upload
 - `GET /files/{id}/download` and `/File/{id}/download` for binary/range reads
-- `File.resolve('/File/1')` and `n3tx://files/1` internal addresses
+- `File.resolve('http://localhost:5000/File/1')` using the canonical File `$id`
 - typed method materialization for parameters annotated as `File`
 
 ### Foreign Keys

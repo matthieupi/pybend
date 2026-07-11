@@ -87,10 +87,9 @@ This is where the magic lives. `ActorModel(Actor, ProtoModel)` gives your models
 
 One import change. Zero other changes. Your model just became an actor.
 
-Raw actor `update` TX messages are patch-oriented. Generated actor HTTP `PUT`
-routes are not: they currently validate a complete model body before creating
-the TX. HTTP callers must preserve all required/defaulted writable fields,
-especially `list[T]`, `list[Ref[T]]`, lists, and dictionaries. See
+Raw actor `update` TX messages and generated actor HTTP `PUT` routes are
+patch-oriented. Omitted fields remain unchanged; the actor validates the merged
+complete entity through the original model before storing supplied fields. See
 [the canonical CRUD update contract](../../docs/API_CRUD_ENDPOINTS.md#update-resource).
 
 ### 🛡️ Interceptors -- Composable Middleware

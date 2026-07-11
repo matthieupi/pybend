@@ -338,7 +338,7 @@ class Product(ProtoModel):
 | DB table + migrations | `__storable__`, field annotations | `StorableMixin` injection, `sqlite_migration.py` |
 | JSON field storage | `dict`, primitive lists, `list[T]`, `list[Ref[T]]` etc. fields | `sqlite_storage.py` auto-serializes to/from JSON TEXT |
 | Local relationship hydration | `T` and `list[T]` model fields | Stored as local ids, hydrated as self-describing model objects on read |
-| Distributed refs | `Ref[T]`, `list[Ref[T]]`, configured `N3TX_REMOTES` | `models/ref.py` canonicalizes refs; `SQLiteStorage.reference_resolver` + `RemoteMatrix` optionally populate remote refs |
+| HTTP(S) refs | `Ref[T]`, `list[Ref[T]]` | `models/ref.py` validates absolute URLs; explicit populate/depth or `Ref.hydrate()` may use `SQLiteStorage.reference_resolver` + `RemoteMatrix` |
 | Access control | `__access__`, `@expose_route(access=...)` | `routes_fastapi.py` auth injection |
 | Frontend entity classes | Schema properties, methods | `N3TX.SCHEMA()` → `prototype()` → DynamicClass |
 | Form rendering | `properties`, `ui.widget`, `ui.placeholder` | `Formidable.getForm()` reads schema |
@@ -370,7 +370,7 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 | `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` | Dump pipeline for serialization |
 | `packages/n3tx-core/src/n3tx_core/models/base_user.py` | Abstract base user with login/register |
 | `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` | CRUD operations, pagination |
-| `packages/n3tx-core/src/n3tx_core/models/ref.py` | `Ref[T]`, distributed ref parser/canonicalizer helpers |
+| `packages/n3tx-core/src/n3tx_core/models/ref.py` | String-like HTTP(S) `Ref[T]`, URL-part helpers, explicit hydration |
 | `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` | SQLite backend, FK hydration, JSON fields, optional `reference_resolver` for remote ref populate |
 | `packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py` | Auto-migration + manual migrations |
 | `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py` | Level 1/2 route generation |
@@ -389,10 +389,10 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 | `packages/n3tx-actors/src/n3tx_actors/tx.py` | TX message envelope (dataclass) |
 | `packages/n3tx-actors/src/n3tx_actors/actor_proxy.py` | ActorProxy wrapper (actor interface without MI) |
 | `packages/n3tx-actors/src/n3tx_actors/models/actor_model.py` | `ActorModel(Actor, ProtoModel)` bridge |
-| `packages/n3tx-actors/src/n3tx_actors/remote_proxy.py` | `RemoteRef` explicit remote `n3tx://...` handle used by `ActorModel.ref()` |
+| `packages/n3tx-actors/src/n3tx_actors/remote_proxy.py` | `RemoteRef` explicit HTTP(S) handle used by `ActorModel.ref()` |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_adapter.py` | Base adapter: `request()`, `stream()`, correlation |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_api.py` | HTTP REST bridge (Level 3 routing) |
-| `packages/n3tx-actors/src/n3tx_actors/api/remote_matrix.py` | REST-backed `RemoteMatrix` adapter + `MatrixReferenceResolver` for distributed refs |
+| `packages/n3tx-actors/src/n3tx_actors/api/remote_matrix.py` | Direct HTTP(S) `RemoteMatrix` adapter + `MatrixReferenceResolver` |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_ws.py` | WebSocket bridge |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_mcp.py` | MCP JSON-RPC 2.0 bridge |
 | `packages/n3tx-actors/src/n3tx_actors/api/network_ap.py` | ActivityPub federation bridge |
@@ -415,7 +415,7 @@ The JSON Schema returned by `GET /{ClassName}` is the **single contract between 
 |------|---------|
 | `packages/n3tx-files/src/n3tx_files/file.py` | `File(ActorModel)` metadata resource and local file methods |
 | `packages/n3tx-files/src/n3tx_files/store.py` | `FileStore` protocol, `LocalFileStore`, checksum/stat helpers |
-| `packages/n3tx-files/src/n3tx_files/address.py` | Internal file address parsing |
+| `packages/n3tx-files/src/n3tx_files/address.py` | Canonical local File `$id` validation |
 | `packages/n3tx-files/src/n3tx_files/materialize.py` | `File`-typed method argument materialization registration |
 | `packages/n3tx-files/src/n3tx_files/routes.py` | Multipart upload and binary/range download route adapters |
 | `packages/n3tx-files/src/n3tx_files/config.py` | File package configuration such as `N3TX_FILE_STORE_DIR` |
@@ -597,18 +597,15 @@ Level 1/2 use `routes_fastapi.py`'s single-pass authorization.
 ### JSON Fields (dict/list Storage)
 `dict` and `list` fields are transparently serialized to JSON TEXT in SQLite. See `packages/n3tx-core/docs/storage.md` for details.
 
-### Generated HTTP Update Quirk
+### Generated HTTP Partial Updates
 
-Generated direct and actor HTTP `PUT` routes currently validate complete model
-bodies. HTTP callers must fetch and send the complete writable entity, including
-current `list[T]`, `list[Ref[T]]`, plain list, and `dict` values. Omitted
-defaulted fields may be materialized as empty values and persisted.
-
-Direct `Model.update(id, patch)`, raw actor TX updates, and agent update tools
-remain patch-oriented. Supplied collection fields are complete replacements and
-writes are last-write-wins. Prefer domain-specific `@expose_route` methods for
-append/remove/toggle mutations. Do not describe generated HTTP `PUT` as partial
-until the route validation contract is changed. Canonical guidance:
+Generated direct and actor HTTP `PUT` routes, direct `Model.update(id, patch)`,
+raw actor TX updates, and agent update tools share one partial-update contract.
+Omitted fields remain unchanged. The supplied patch is merged with the current
+entity, validated through the original model, and only supplied fields reach
+storage. Explicit collection values are complete replacements and writes remain
+last-write-wins; prefer domain-specific `@expose_route` methods for atomic
+append/remove/toggle mutations. Canonical guidance:
 `docs/API_CRUD_ENDPOINTS.md#update-resource`.
 
 ### Widget Pattern

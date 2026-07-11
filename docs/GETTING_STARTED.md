@@ -187,11 +187,9 @@ curl -X PUT http://localhost:8000/posts/1 \
   }'
 ```
 
-Generated HTTP `PUT` routes currently validate complete model bodies. Fetch the
-current entity and preserve every writable required/defaulted value in the
-request. This is especially important for list and dictionary fields, whose
-omitted defaults may otherwise be persisted as empty values. Direct Python
-`Model.update(id, patch)` calls remain patch-oriented. See
+Generated HTTP `PUT` routes are patch-oriented, like direct Python
+`Model.update(id, patch)` calls. Omitted fields remain unchanged. Explicit list
+and dictionary values replace the complete stored field. See
 [CRUD update semantics](API_CRUD_ENDPOINTS.md#update-resource).
 
 **Delete a user**:

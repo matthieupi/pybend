@@ -200,16 +200,10 @@ class Transcriber(ActorModel):
 Request body:
 
 ```json
-{"audio": "/File/1"}
+{"audio": "http://localhost:5000/File/1"}
 ```
 
-Supported internal addresses:
-
-```text
-n3tx://files/{id}
-/files/{id}
-/File/{id}
-```
+The value must be the canonical absolute `$id` of a File on the current API.
 
 Rules:
 

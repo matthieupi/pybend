@@ -272,7 +272,7 @@ Job.update(1, {"payload": {"status": "done"}})
 This replaces `payload`; it does not preserve other keys from the previous
 payload unless the caller includes them.
 
-### Generated HTTP PUT requires collection preservation
+### Generated HTTP PUT preserves omitted collections
 
 The Python update API is patch-oriented, so omitting a JSON field leaves it
 unchanged:
@@ -281,23 +281,18 @@ unchanged:
 Job.update(1, {"title": "Renamed"})  # payload is not supplied or replaced
 ```
 
-Generated HTTP `PUT` routes currently validate a complete model. During that
-validation, an omitted field with `Field(default=[])` or `Field(default={})` can
-be materialized and forwarded to storage. Downstream HTTP clients should fetch
-the complete entity and include current JSON fields in the update body:
+Generated HTTP `PUT` routes use the same patch contract. Downstream clients may
+send only changed fields:
 
 ```json
 {
-  "title": "Renamed",
-  "tags": ["queued", "priority"],
-  "metadata": {"provider": "example"}
+  "title": "Renamed"
 }
 ```
 
-Do not construct HTTP update bodies from schema defaults or projections. An
-explicit `[]` or `{}` means replace the complete stored field with an empty
-value. The same preservation rule applies to JSON-backed `list[T]` local
-relationship IDs and `list[Ref[T]]` pointer arrays.
+An omitted JSON field remains unchanged. An explicit `[]` or `{}` means replace
+the complete stored field with an empty value. The same rule applies to
+JSON-backed `list[T]` local relationship IDs and `list[Ref[T]]` pointer arrays.
 
 ### There is no first-class nested JSON query API
 

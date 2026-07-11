@@ -564,14 +564,11 @@ register_model(SubModel, storage=backend)
 
 ### Update Safety
 
-Generated direct and actor HTTP `PUT` routes currently validate complete model
-bodies. Fetch the current entity and send its complete writable representation,
-preserving `list[T]`, `list[Ref[T]]`, plain list, and dictionary values. Omitted
-defaulted fields may otherwise be materialized as empty values and persisted.
-
-Direct `Model.update(id, patch)`, raw actor TX updates, and agent update tools
-remain patch-oriented. Supplied collections are complete replacements and writes
-are last-write-wins; prefer domain methods for append/remove/toggle operations.
+Generated direct and actor HTTP `PUT` routes, direct `Model.update(id, patch)`,
+raw actor TX updates, and agent update tools share one partial-update contract.
+Omitted fields remain unchanged. Supplied collections are complete replacements
+and writes are last-write-wins; prefer domain methods for append/remove/toggle
+operations.
 See [CRUD update semantics](../../docs/API_CRUD_ENDPOINTS.md#update-resource).
 
 ### Add a Storage Backend

@@ -440,11 +440,10 @@ if (user) {
 
 Update an existing resource.
 
-> **Current generated-route contract:** HTTP `PUT` validates the request body
-> against the full model. Send a complete writable representation containing all
-> required fields and the current values of defaulted collection/JSON fields you
-> intend to preserve. This differs from the Python `Model.update(id, patch)` API,
-> actor TX updates, and generated agent update tools, which are patch-oriented.
+> **Generated-route contract:** HTTP `PUT` is patch-oriented. Omitted fields
+> remain unchanged. Supplied fields are merged with the current entity and the
+> complete result is validated through the original model before only the
+> supplied fields are persisted.
 
 ### Request
 
@@ -460,7 +459,7 @@ PUT /{resource}/{id}
 **Request Headers**:
 - `Content-Type: application/json` (required)
 
-**Request Body**: Complete writable model representation
+**Request Body**: Partial writable model representation
 
 ```json
 {
@@ -471,17 +470,14 @@ PUT /{resource}/{id}
 ```
 
 **Update Behavior**:
-- All model-required fields must pass validation
-- Omitted fields with defaults may be materialized by model validation and written
-- Include current `list[T]`, `list[Ref[T]]`, JSON list, and `dict` values to preserve them
+- Omitted fields remain unchanged, including required and defaulted fields
+- The merged complete entity must pass the original model's validation
 - An explicit `[]` or `{}` replaces/clears the complete stored field
 - Do not send the `id` field; identity comes from the route
 - Backend-owned protected fields are stripped
 - Foreign keys can be updated by passing new ID
 
-Do not build update payloads from schema defaults or partially populated
-responses. Fetch the complete entity, modify it, and send its complete writable
-values. For append/remove/toggle behavior on relationship collections, prefer a
+For append/remove/toggle behavior on relationship collections, prefer a
 domain-specific `@expose_route` method instead of client-side array replacement.
 
 ### Response

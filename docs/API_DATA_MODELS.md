@@ -146,22 +146,18 @@ GET /users
 
 ### Update User
 
-**Request** (complete writable representation):
+**Request** (partial writable representation):
 ```bash
 PUT /users/1
 Content-Type: application/json
 
 {
-  "name": "Alice Johnson",
-  "email": "alice@example.com",
   "age": 29
 }
 ```
 
-Generated `PUT` routes validate the full model. Preserve all current writable
-values, especially defaulted lists and dictionaries. A narrow payload such as
-`{"age": 29}` is valid for `User.update(1, {"age": 29})` in Python, but may fail
-HTTP validation or materialize omitted defaults at the generated route boundary.
+Generated `PUT` routes merge the patch with the current entity and validate the
+complete result through the original model. Omitted fields remain unchanged.
 
 **Response** (200 OK):
 ```json

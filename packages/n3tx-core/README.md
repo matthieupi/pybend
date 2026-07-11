@@ -141,10 +141,9 @@ class StorableMixin:
     def set_storage(cls, storage): ...
 ```
 
-`Model.update(id, data)` is patch-oriented, but generated direct and actor HTTP
-`PUT` routes currently validate complete model bodies. HTTP callers must send
-all required writable fields and preserve current defaulted collections/JSON
-values; omitted defaults may be materialized and persisted. See
+`Model.update(id, data)` and generated direct and actor HTTP `PUT` routes share
+one patch-oriented contract. Omitted fields remain unchanged; the merged entity
+is validated through the original model before supplied fields are stored. See
 [storage update boundaries](docs/storage.md#update-boundary-contract).
 
 ### `BaseUser`

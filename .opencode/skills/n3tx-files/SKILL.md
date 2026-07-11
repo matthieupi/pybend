@@ -31,7 +31,7 @@ app = create_app(
 If `configure_file_store()` is not called, `LocalFileStore` uses
 `N3TX_FILE_STORE_DIR` or `.n3tx-files/blobs`.
 
-## Routes and addresses
+## Routes and references
 
 Package-owned routes:
 
@@ -41,12 +41,10 @@ GET  /files/{id}/download   binary download with optional Range support
 GET  /File/{id}/download    class-name download mirror
 ```
 
-Supported internal addresses:
+Canonical File reference:
 
 ```text
-n3tx://files/{id}
-/files/{id}
-/File/{id}
+{API_URL}/File/{id}
 ```
 
 External HTTP imports are deliberately not enabled by default.
@@ -70,7 +68,7 @@ class AudioJob(ActorModel):
         return {'path': str(local)}
 ```
 
-Payloads like `{"audio": "/File/1"}` resolve to authorized `File` instances
+Payloads like `{"audio": "http://localhost:5000/File/1"}` resolve to authorized `File` instances
 before the method runs. Plain `str` parameters are not materialized.
 
 ## Extension points
@@ -87,7 +85,7 @@ before the method runs. Plain `str` parameters are not materialized.
 - Keep cloud/CDN dependencies optional.
 - Keep this package absent-by-default; import it only when an app uses files.
 - Do not auto-fetch plain strings; only `File`-typed method parameters resolve.
-- App code should pass `File` metadata or file addresses, not provider-specific handles.
+- App code should pass `File` metadata or canonical File `$id` URLs, not provider-specific handles.
 
 ## Verification
 
@@ -95,7 +93,7 @@ before the method runs. Plain `str` parameters are not materialized.
 - `POST /files/upload` returns file metadata.
 - `GET /files/{id}/download` and `GET /File/{id}/download` stream bytes.
 - Range requests return `206` and `Content-Range`.
-- `File`-typed method parameters materialize `/File/{id}` or `n3tx://files/{id}`.
+- `File`-typed method parameters materialize canonical absolute File `$id` URLs.
 - Bytes are written through the configured `FileStore` provider.
 
 ## Source-reading policy

@@ -575,13 +575,11 @@ register_model(OwnerModel, storage=backend)
 register_model(SubModel, storage=backend)
 ```
 
-### Update Safety: Generated PUT Requires Full Objects
+### Partial Updates
 
-Generated direct and actor HTTP `PUT` routes currently validate a complete
-model. Fetch the current entity, modify it, and send its complete writable
-representation—including current `list[T]`, `list[Ref[T]]`, plain list, and
-dictionary values. Omitted defaulted fields may be materialized as empty values
-and persisted.
+Generated direct and actor HTTP `PUT` routes are patch-oriented. Omitted fields
+remain unchanged; supplied values are merged with the current entity and the
+complete result is validated by the original model before storage.
 
 ```python
 # Python calls are patch-oriented: children remain unchanged.
@@ -589,13 +587,11 @@ OwnerModel.update(owner.id, {'name': 'Renamed'})
 ```
 
 ```javascript
-// HTTP calls should preserve the complete current writable representation.
-const current = await fetch(`/OwnerModel/${id}`).then(r => r.json());
-const {id: storedId, $id, $schema, ...writable} = current;
+// HTTP calls may send only the fields being changed.
 await fetch(`/OwnerModel/${id}`, {
   method: 'PUT',
   headers: {'Content-Type': 'application/json'},
-  body: JSON.stringify({...writable, name: 'Renamed'}),
+  body: JSON.stringify({name: 'Renamed'}),
 });
 ```
 

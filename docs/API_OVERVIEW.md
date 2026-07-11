@@ -98,14 +98,8 @@ to normal File metadata CRUD/schema routes:
 Downloads support `Range: bytes=start-end`. Successful range reads return
 `206 Partial Content` and `Content-Range`.
 
-`File.resolve(address)` and typed method materialization support these internal
-addresses:
-
-```text
-n3tx://files/{id}
-/files/{id}
-/File/{id}
-```
+`File.resolve(ref)` and typed method materialization accept the canonical
+absolute File `$id`, for example `http://localhost:5000/File/1`.
 
 ### Nested Resources (Many-to-Many)
 
@@ -184,7 +178,7 @@ All error responses return:
 |--------|---------|------------|------|
 | GET | Retrieve resource(s) | Yes | Yes |
 | POST | Create resource or trigger action | No | No |
-| PUT | Update complete writable resource representation (generated routes) | Yes | No |
+| PUT | Partially update a resource; omitted fields remain unchanged | Yes | No |
 | DELETE | Remove resource | Yes | No |
 
 ### Status Codes
@@ -540,14 +534,11 @@ POST /User     -> class-name create mirror
 PUT  /User/1   -> class-name update mirror
 ```
 
-Both update route grammars currently validate a complete model body. Callers
-must include every required field and preserve current defaulted collection/JSON
-values (`list[T]`, `list[Ref[T]]`, plain lists, and dictionaries). Omitted
-defaulted fields may be materialized as `[]`, `{}`, or another default and then
-persisted. This HTTP behavior is intentionally documented as a compatibility
-constraint; Python `Model.update(id, patch)`, actor TX updates, and agent update
-tools accept narrow patches. See [CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource)
-for safe usage guidance.
+Both update route grammars accept narrow patches, matching Python
+`Model.update(id, patch)`, actor TX updates, and agent update tools. Omitted
+fields remain unchanged. Supplied values are merged with the current entity and
+validated through the original model before persistence. See
+[CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource).
 
 Entity payloads keep `$schema` pointing to `/{ClassName}` and now advertise
 `$id` as `/{ClassName}/{id}`, even when fetched through the legacy table-name

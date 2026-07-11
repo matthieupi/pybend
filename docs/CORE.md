@@ -108,7 +108,7 @@ class Product(ProtoModel):
 | Protected fields | `__protected_fields__` | Route layer auto-injects on create, strips on update |
 | Route view renderers | `__ui__.renderer` | `#Model/@view` and `/Model/@view` resolve semantic views to component tags |
 | File metadata + byte storage | Optional `n3tx_files.File` model + `FileStore` | Metadata in N3TX storage, bytes in provider-backed store |
-| File-typed method args | `param: File` annotation | `n3tx_files` materializer resolves `/File/{id}` or `n3tx://files/{id}` |
+| File-typed method args | `param: File` annotation | `n3tx_files` materializer resolves canonical absolute File `$id` URLs |
 | Auto-generated docs | Model + schema | `generate_docs.py` on startup |
 
 If a model omits `__access__`, schema generation exposes a wildcard fallback
@@ -154,8 +154,8 @@ Generated and package-owned behavior:
 | Upload | `POST /files/upload` multipart form field named `upload` |
 | Download | `GET /files/{id}/download` and `GET /File/{id}/download` |
 | Range reads | `Range: bytes=start-end` returns `206` + `Content-Range` |
-| Address resolution | `File.resolve('/File/1')`, `File.resolve('n3tx://files/1')` |
-| Typed materialization | Method params annotated as `File` resolve address strings to `File` instances |
+| Reference resolution | `File.resolve('http://localhost:5000/File/1')` |
+| Typed materialization | Method params annotated as `File` resolve canonical URL strings to `File` instances |
 
 Blob bytes are never stored in SQLite and dynamic user files are not served by
 the framework static-file catch-all. CDN/object-store/remote-node behavior is a

@@ -609,8 +609,9 @@ pending entry is a Future or Queue and dispatches accordingly.
 
 ### RemoteMatrix Adapter
 
-`RemoteMatrix` handles canonical distributed refs by reusing existing
-class-name REST routes on configured remote N3TX services:
+`RemoteMatrix` handles absolute HTTP(S) targets by reusing existing class-name
+REST routes. Configured remotes provide tokens and API-prefix disambiguation,
+not identity translation:
 
 ```python
 from n3tx_actors.api.remote_matrix import RemoteMatrix, MatrixReferenceResolver
@@ -623,9 +624,9 @@ storage.set_reference_resolver(MatrixReferenceResolver(matrix))
 
 | TX | REST call |
 |---|---|
-| `TX(name='get', target='n3tx://storage/File/12')` | `GET http://storage:7100/File/12` |
-| `TX(name='process', target='n3tx://storage/File/12')` | `POST http://storage:7100/File/12/process` |
-| `TX(name='generate', target='n3tx://compute/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
+| `TX(name='get', target='http://storage:7100/File/12')` | `GET http://storage:7100/File/12` |
+| `TX(name='process', target='http://storage:7100/File/12')` | `POST http://storage:7100/File/12/process` |
+| `TX(name='generate', target='http://compute:7200/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
 
 `RemoteMatrix.stream(tx)` provides distributed streaming for canonical remote
 refs. It calls the remote generated SSE route, parses `event: chunk|done|error`
@@ -647,18 +648,17 @@ X-N3TX-User: <json-user-context>  # optional
 The receiving service accepts the request when the bearer token matches its
 configured `SERVICE_TOKEN`, then installs forwarded user JSON into
 `request.state.user` so generated routes and ActorModel ABAC remain the single
-authorization path. Remote response `$id` values are normalized to canonical
-`n3tx://service/Class/id` refs before returning to Matrix callers.
+authorization path. Absolute remote response `$id` values are returned unchanged.
 
 For explicit Python calls to a remote model ref, use the model-centric handle:
 
 ```python
-artifact = Artifact.ref('n3tx://storage/Artifact/42', matrix=matrix)
+artifact = Artifact.ref('https://storage.example.com/Artifact/42', matrix=matrix)
 result = await artifact.call('process', mode='fast')
 ```
 
 Internally this returns a `RemoteRef`. `ActorProxy` is different: it wraps a
-local object as an actor; `RemoteRef` calls a remote `n3tx://...` identity
+local object as an actor; `RemoteRef` calls a remote HTTP(S) identity
 through Matrix.
 
 ### MCP Adapter

@@ -304,6 +304,7 @@ For full schema anatomy details, see `/workspace/docs/CORE.md`.
 |---------------|------------------|-----------------|
 | `properties` | `prototype()` in NTT.js | Creates typed getters/setters on DynamicClass |
 | `properties[field].type` | `form.js` → `getInput()` | Chooses input type (text, number, checkbox, ...) |
+| `properties[field].x-ref` | widget registry → `ReferenceWidget` | Marks an HTTP(S) URL string as a typed model pointer without overloading JSON Schema `$ref` |
 | `properties[field].ui.widget` | `form.js` → `getInput()` | Specialized rendering (currency prefix, textarea) |
 | `properties[field].ui.display` | `form.js` → field filtering | Hides internal fields |
 | `properties[field].ui.protected` | `form.js` → field filtering | Hides backend-owned fields in edit mode |
@@ -366,16 +367,17 @@ logout, chevron, and hamburger are inline SVG constants defined directly in
 6. Entity Responses (Backend, on GET /products)
    model_response() runs dump pipeline → injects $schema + $id into each record
    │  Frontend DynamicClass value getter preserves these for self-description
-   │  Collection fields return href arrays: ["http://.../products/1/comments/1", ...]
+    │  Owned T/list[T] fields retain hydrated child objects with flat $id values
 ```
 
 ## Frontend Patterns
 
-### Complete-object update compatibility
+### Partial updates
 
-Generated direct and actor HTTP `PUT` routes currently validate a complete
-model, even though the Python model/storage update APIs are patch-oriented. The
-first-party entity flow therefore sends the current complete value on save:
+Generated direct and actor HTTP `PUT` routes accept partial objects. The backend
+merges supplied fields with the current entity and validates the complete result
+through the original model. The first-party entity flow may still send its
+current complete value on save:
 
 ```javascript
 this.send(new TX({
@@ -386,12 +388,10 @@ this.send(new TX({
 }));
 ```
 
-Custom components and clients must preserve current `list[T]`, `list[Ref[T]]`,
-plain list, and dictionary fields. Do not build an update from schema defaults or
-a partially populated/projection response: omitted defaulted fields can become
-empty values during backend validation and overwrite stored collections.
-
-Sending complete objects is a compatibility measure, not concurrency control.
+Custom components and clients may instead send only changed fields. Omitted
+fields remain unchanged; explicitly supplied `list[T]`, `list[Ref[T]]`, plain
+list, and dictionary fields replace the complete stored field. Sending complete
+objects is not concurrency control.
 Updates replace supplied collections as a whole and are last-write-wins. Prefer
 schema-declared domain methods for append/remove/toggle actions when multiple
 writers may update the same relationship. See
@@ -414,9 +414,9 @@ hash links.
 | `#Product/1/@chat` | Member named view | `{ ref: 'Product/1', display: 'lg' }` |
 | `#Product/1/run` | Method/action route | `{ ref: 'Product/1', method: 'run', display: 'lg' }` |
 | `#Product/1/@run` | View named `run`, not a method | no `method` attr |
-| `#Product/1/Comment/2` | Nested member route | `{ data-model: 'Comment', ref: '<API_URL>/Product/1/Comment/2', display: 'lg' }` |
-| `#Product/1/Comment/2/@item` | Nested member view | `{ data-model: 'Comment', ref: '<API_URL>/Product/1/Comment/2', display: 'lg' }` |
-| `#Product/1/Comment/2/like` | Nested method/action route | `{ data-model: 'Comment', ref: '<API_URL>/Product/1/Comment/2', method: 'like', display: 'lg' }` |
+| `#Product/1/Comment/2` | Legacy nested navigation alias | `{ data-model: 'Comment', ref: 'Comment/2', display: 'lg' }` |
+| `#Product/1/Comment/2/@item` | Legacy nested member-view alias | `{ data-model: 'Comment', ref: 'Comment/2', display: 'lg' }` |
+| `#Product/1/Comment/2/like` | Legacy nested action alias | `{ data-model: 'Comment', ref: 'Comment/2', method: 'like', display: 'lg' }` |
 | `#@profile` | App-level route | mounts `<ntx-profile>` |
 
 `Router.parseRoute()` normalizes leading/trailing slashes and rejects invalid
@@ -437,19 +437,16 @@ Path-based `@view` selection takes precedence over query `view`. User-facing
 query parameters pass through to the mounted component, but internal route
 controls such as `view` are filtered from attrs.
 
-Nested class-name hash routes use the backend's canonical nested identity shape:
+Legacy nested class-name hash routes remain navigation aliases:
 
 ```text
 #Product/1/Comment/2
 ```
 
-This is intentionally a narrow one-hop grammar derived from backend join model
-metadata: parent class, parent id, semantic child class, child id. The route does
-not include the relationship/tag segment (`comments`) or generated join class
-name (`ProductComment`). If the backend detects duplicate relationships from one
-parent class to the same child class, the nested class-name route is ambiguous;
-the frontend should continue to support legacy relation/tag refs until a
-relation-aware alias grammar exists.
+They do not define entity or transport identity. Resolution discards the parent
+segments and mounts the child through its canonical `Comment/2` NTT address.
+Backend responses remain authoritative through the child's flat `$id`, such as
+`/Comment/2`; the frontend never synthesizes a parent-scoped child `$id`.
 
 The parser shape for nested details is:
 
@@ -464,20 +461,13 @@ The parser shape for nested details is:
 }
 ```
 
-Resolution intentionally mirrors legacy parent-scoped table-name refs: the router
-mounts the child component with a full transport URL plus a child model hint.
-`Component.ref` then attaches the instance under the semantic child cache key
-while preserving the full nested URL for network reads, writes, and methods:
+Resolution mounts the child under its semantic cache identity:
 
 ```text
-mounted attrs:   data-model="Comment" ref="<API_URL>/Product/1/Comment/2"
+mounted attrs:   data-model="Comment" ref="Comment/2"
 NTT cache key:   Comment/2
-transport href: <API_URL>/Product/1/Comment/2
+transport href: <API_URL>/Comment/2
 ```
-
-This is the same mechanism used for legacy table-name refs such as
-`<API_URL>/products/1/comments/2`, which also rely on `data-model="Comment"`
-to avoid inferring semantic model identity from the URL path.
 
 Nested view and action routes preserve the existing `@` boundary:
 

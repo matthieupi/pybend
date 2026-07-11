@@ -259,14 +259,13 @@ class Ref(Generic[T]):
 **Purpose**:
 - Maintains type safety in the model layer
 - Generates proper `$ref` in OpenAPI schemas
-- Serializes local refs as ids where possible
-- Preserves canonical distributed refs such as `n3tx://storage/File/12`
+- Serializes refs as absolute HTTP(S) entity URLs
 - Keeps local object relationships (`T`, `list[T]`) separate from pointer refs
   (`Ref[T]`, `list[Ref[T]]`)
 
-Reference parsing/canonicalization is core behavior. Remote dereference is not:
-storage defaults to local-only populate and can optionally receive a
-Matrix-backed `reference_resolver` from actor-mode bootstrap.
+Reference URL validation is core behavior. Dereference I/O is explicit: default
+storage reads do not resolve refs, while requested populate/depth and
+`Ref.hydrate()` can use a Matrix-backed `reference_resolver`.
 
 ### 5. Model Registry
 
@@ -306,7 +305,7 @@ class NetworkMCP(NetworkAdapter):    # MCP JSON-RPC 2.0
 class NetworkAP(NetworkAdapter):     # ActivityPub federation
 class NetworkAPI(NetworkAdapter):    # HTTP REST (Level 3 actor routing)
 class NetworkWebSocket(NetworkAdapter): # Frontend Matrix bridge
-class RemoteMatrix(NetworkAdapter):  # n3tx:// refs -> remote class-name REST
+class RemoteMatrix(NetworkAdapter):  # HTTP(S) refs -> remote class-name REST
 # Transient adapters created per agent_run() for tool call correlation
 ```
 
@@ -314,16 +313,16 @@ class RemoteMatrix(NetworkAdapter):  # n3tx:// refs -> remote class-name REST
 
 **Key Design Decision**: The HTTP API itself is a NetworkAdapter (`NetworkAPI`), meaning ALL external interaction — REST, MCP, ActivityPub, WebSocket — flows through the same architecture. No protocol is special.
 
-#### Distributed refs through RemoteMatrix
+#### HTTP(S) refs through RemoteMatrix
 
 ```text
 Model field value: Ref[T] / list[Ref[T]]
         |
         v
-models/ref.py canonicalizes configured remote URLs
+models/ref.py validates the absolute entity URL
         |
         v
-SQLiteStorage stores/returns canonical n3tx:// refs
+SQLiteStorage stores/returns the URL unchanged
         |
         v
 populate with injected MatrixReferenceResolver (optional)
@@ -807,27 +806,20 @@ This ensures `/products/comments` is matched as a collection route, not as `/pro
 
 #### Generated update boundary
 
-The current generated FastAPI update handlers bind the body to the complete
-model class before calling the patch-oriented model/storage APIs:
+Generated FastAPI update handlers preserve the raw patch and delegate complete
+state validation to the existing model update path:
 
 ```text
 HTTP PUT body
-  -> full ProtoModel validation
-  -> model dump / ref flattening
-  -> Model.update(id, data)
-  -> storage writes every supplied/materialized field
+  -> preserve supplied fields
+  -> merge with current entity
+  -> validate through the original ProtoModel
+  -> storage writes only supplied fields
 ```
 
-This creates an intentional compatibility constraint for downstream callers:
-HTTP clients must send a complete writable representation, while direct
-`Model.update(id, patch)`, raw actor TX updates, and agent update tools can send
-narrow patches. In particular, omitted fields with defaults such as `[]` or `{}`
-may be materialized at the HTTP boundary and replace stored `list[T]`,
-`list[Ref[T]]`, plain list, or dictionary values.
-
-The first-party frontend avoids this by sending the current complete entity on
-save. Custom clients must do the same and should not construct update payloads
-from schema defaults or partially populated responses. See
+HTTP clients, direct `Model.update(id, patch)`, raw actor TX updates, and agent
+update tools therefore share one partial-update contract. Omitted fields remain
+unchanged; explicit `[]` or `{}` values clear their complete stored fields. See
 [API CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource).
 
 ### 7. Adapter Pattern

@@ -70,11 +70,11 @@ Methods:
 
 | Method | Purpose |
 |---|---|
-| `File.resolve(address, user=None)` | Resolve `n3tx://files/{id}`, `/files/{id}`, or `/File/{id}` with read authorization |
+| `File.resolve(ref, user=None)` | Resolve a canonical local absolute File `$id` with read authorization |
 | `file.ensure_local(user=None)` | Return local path metadata for locally stored bytes |
 
 When `n3tx_files` is imported, parameters annotated as `File` are materialized
-from supported address strings in direct and actor custom-method routing.
+from canonical File URL strings in direct and actor custom-method routing.
 
 ### LocalFileStore
 

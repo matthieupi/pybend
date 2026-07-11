@@ -127,14 +127,9 @@ Internal. Resolves actor addresses from the `tools: list[AgentTool]` field.
 # Create agent
 curl -X POST /agents -d '{"name": "Scanner", "prompt": "Find grants.", "llm": "anthropic:claude-sonnet-4-5-20250929"}'
 
-# Generated HTTP PUT requires the complete writable AgentActor representation.
+# Generated HTTP PUT accepts a partial writable AgentActor representation.
 curl -X PUT /agents/1 -d '{
-  "system_key": "",
-  "name": "Scanner",
-  "prompt": "Find grants.",
-  "tools": [1, 2],
-  "llm": "anthropic:claude-sonnet-4-5-20250929",
-  "constraints": {}
+  "prompt": "Find current grants."
 }'
 
 # Trigger reasoning
@@ -188,8 +183,9 @@ register_model(AgentActor, storage=storage)
   a warning and skips it.
 - `AgentActor.run` and `AgentActor.stream_run` are auto-excluded from
   tool discovery to prevent recursive agent invocation loops.
-- When loaded from DB, `tools` is a list of href strings (FK hydration).
-  `_resolve_tool_addrs()` handles this transparently via batch fetch.
+- When loaded from DB, `tools` is an ordered list of hydrated `AgentTool`
+  records. The frontend renders `target` and `description` directly without a
+  second fetch, while `tool_addrs()` extracts actor addresses for execution.
 
 ## Schema Extension
 

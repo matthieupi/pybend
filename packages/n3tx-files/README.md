@@ -56,7 +56,7 @@ class Transcriber(ActorModel):
 Request body:
 
 ```json
-{"audio": "/File/1"}
+{"audio": "http://localhost:5000/File/1"}
 ```
 
 ## Routes
@@ -69,15 +69,10 @@ Request body:
 
 Downloads support inclusive byte ranges via `Range: bytes=start-end`.
 
-## Addresses
+## References
 
-`File.resolve(address)` accepts internal addresses:
-
-```text
-n3tx://files/{id}
-/files/{id}
-/File/{id}
-```
+`File.resolve(ref)` accepts the canonical absolute `$id` URL for a File on the
+current API, for example `http://localhost:5000/File/1`.
 
 External HTTP imports are intentionally not enabled by default; add providers
 explicitly when your deployment needs them.
@@ -86,7 +81,7 @@ explicitly when your deployment needs them.
 
 An app node can delegate byte operations to a storage node while still treating
 the resource as a `File` capability. The storage node owns `File` metadata and
-bytes; the app node forwards upload/download requests or resolves file addresses
+bytes; the app node forwards upload/download requests or resolves File refs
 through a provider/client seam. Tests cover this two-node behavior with isolated
 ASGI apps.
 

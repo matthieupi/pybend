@@ -170,7 +170,7 @@ Injected into model `__bases__` by `ProtoModel.__init_subclass__` when
 | `create(data)` | classmethod | Insert new record |
 | `get(id)` | classmethod | Fetch by primary key |
 | `list(sql_filter, limit, offset)` | classmethod | Query with optional pagination |
-| `update(id, data)` | classmethod | Partial Python/storage update (generated HTTP `PUT` requires a complete writable body) |
+| `update(id, data)` | classmethod | Validate and persist a partial update |
 | `delete(id)` | classmethod | Remove record |
 
 ### Pagination
@@ -179,10 +179,8 @@ When `limit` is provided, `list()` returns
 `{"data": [...], "meta": {"total", "limit", "offset", "has_more"}}`.
 Without `limit`, returns a plain list (backward compatible).
 
-`StorableMixin.update(id, data)` writes only supplied dictionary keys. Do not
-infer the same request shape for generated HTTP routes: current direct and actor
-`PUT` handlers validate a complete model first, so HTTP callers must preserve
-required and defaulted collection/JSON fields. See
+`StorableMixin.update(id, data)` and generated direct/actor `PUT` handlers write
+only supplied dictionary keys after validating the merged complete entity.
 [API CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource).
 
 ### JSON Fields
@@ -218,18 +216,15 @@ See [JSON Fields](JSON_FIELDS.md) for implementation details and tradeoffs.
 
 **File**: `models/ref.py`
 
-`Ref[T]` is the typed identity pointer primitive. Local apps can continue to
-use it as an integer-backed FK, but the canonical model is now broader:
+`Ref[T]` is the typed identity pointer primitive:
 
 ```text
-Ref[T] means “a pointer to a T actor/model identity Matrix can resolve.”
+Ref[T] means “an absolute HTTP(S) URL for a T identity.”
 ```
 
-Accepted reference inputs include local integer ids, local class-name paths such
-as `/File/12`, current-service API URLs, configured remote HTTP URLs, and
-canonical distributed refs such as `n3tx://storage/File/12`. Configured remote
-HTTP refs are canonicalized to `n3tx://<service>/<ClassName>/<id>`; arbitrary
-external URLs are classified as external links rather than Matrix refs.
+Accepted reference inputs are absolute HTTP(S) entity URLs ending in
+`/{ClassName}/{id}`. They are stored and emitted unchanged. Local integer ids
+and local paths belong to `T`/`list[T]` relationship storage, not `Ref[T]`.
 
 Local owned collections use `list[T]` and are stored as ordered local ids on the
 parent row. Distributed pointer arrays use `list[Ref[T]]`.
@@ -241,7 +236,7 @@ inject a `MatrixReferenceResolver` so populated remote refs resolve through
 the model-centric handle:
 
 ```python
-artifact = Artifact.ref('n3tx://storage/Artifact/42')
+artifact = Artifact.ref('https://storage.example.com/Artifact/42')
 result = await artifact.call('process', mode='fast')
 ```
 
@@ -249,12 +244,12 @@ Reference helpers live with the model primitives in `models/ref.py`:
 
 | Helper | Purpose |
 |---|---|
-| `parse_ref_string()` | Parse canonical `n3tx://service/Class/id` or local `/Class/id` strings. |
-| `canonicalize_ref()` | Convert local/current refs to ids and configured remote URLs to canonical `n3tx://` refs. |
-| `local_ref_id()` | Return an integer only when a ref targets the current service. |
-| `public_ref()` | Return response-facing local class-name URLs or distributed refs. |
-| `is_distributed_ref()` | Detect canonical N3TX distributed refs. |
-| `is_external_link()` | Detect HTTP(S) links that are not configured N3TX refs. |
+| `Ref.base_url(ref)` | Return the service API base before `/{ClassName}/{id}`. |
+| `Ref.schema(ref)` | Return the target class-name segment. |
+| `Ref.id(ref)` | Return the target id segment as a string. |
+| `Ref.hydrate(...)` | Explicitly dereference through a supplied resolver context. |
+| `local_ref_id()` | Extract an id only for current-service local relationship storage. |
+| `public_id_url()` | Build the canonical public URL for a local entity id. |
 
 The historical `n3tx_core.utils.typer.Ref` import remains as a compatibility
 surface and re-exports `Ref` from `models/ref.py`.
@@ -374,19 +369,14 @@ File byte IO is explicit package-owned API routing, not static-file serving:
 Download supports inclusive byte ranges with `Range: bytes=start-end` and
 returns `206` plus `Content-Range` for partial reads.
 
-### Address resolution and materialization
+### Reference resolution and materialization
 
-`File.resolve(address)` supports internal addresses:
-
-```text
-n3tx://files/{id}
-/files/{id}
-/File/{id}
-```
+`File.resolve(ref)` accepts the canonical absolute `$id` URL of a File on the
+current API, for example `http://localhost:5000/File/1`.
 
 When `n3tx_files` is imported, it registers a typed argument materializer. A
 custom method annotated with `File` receives a resolved `File` instance when the
-payload contains one of the supported address strings:
+payload contains a canonical File URL:
 
 ```python
 @expose_route('/transcribe', methods=['POST'])

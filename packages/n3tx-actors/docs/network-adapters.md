@@ -29,7 +29,7 @@ AP Activity          -->  NetworkAP                   --> matrix.inbox(tx)
                            .handle_inbox(activity)
                       <--  AP response
 
-n3tx://storage/File/1
+https://storage.example.com/File/1
                     -->  RemoteMatrix.send(tx)     --> GET remote /File/1
                     <--  TX reply/error            <-- REST JSON/error
 ```
@@ -129,10 +129,10 @@ via existing class-name REST routes:
 
 | TX | REST call |
 |---|---|
-| `TX(name='get', target='n3tx://storage/File/12')` | `GET http://storage:7100/File/12` |
-| `TX(name='process', target='n3tx://storage/File/12', data={...})` | `POST http://storage:7100/File/12/process` |
-| `TX(name='reindex', target='n3tx://compute/Job', data={...})` | `POST http://compute:7200/Job/<schema route>` |
-| `TX(name='generate', target='n3tx://compute/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
+| `TX(name='get', target='http://storage:7100/File/12')` | `GET http://storage:7100/File/12` |
+| `TX(name='process', target='http://storage:7100/File/12', data={...})` | `POST http://storage:7100/File/12/process` |
+| `TX(name='reindex', target='http://compute:7200/Job', data={...})` | `POST http://compute:7200/Job/<schema route>` |
+| `TX(name='generate', target='http://compute:7200/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
 
 Remote streaming uses the same TX stream contract as local `NetworkAdapter.stream()`.
 `RemoteMatrix.stream(tx)` opens the remote generated SSE route, parses
@@ -146,7 +146,7 @@ requests. The adapter fetches
 `scope` to choose the route shape:
 
 ```text
-classmethod/staticmethod: /{ClassName}{route}      # target n3tx://service/Class
+classmethod/staticmethod: /{ClassName}{route}      # target {base_url}/{ClassName}
 instance method:          /{ClassName}/{id}{route}
 ```
 
@@ -170,7 +170,7 @@ middleware when `Authorization` matches its configured `SERVICE_TOKEN`. The
 forwarded `X-N3TX-User` JSON becomes `request.state.user`, so generated routes
 and ActorModel handlers continue through the normal ABAC path. Remote response
 `$id` values that point back at the configured remote URL are normalized to the
-canonical `n3tx://service/Class/id` identity before returning to Matrix callers.
+absolute HTTP(S) `$id` identity unchanged when returning to Matrix callers.
 
 `MatrixReferenceResolver` is the storage-facing adapter: `SQLiteStorage` can
 receive it as `reference_resolver` and keep core independent from actors.
@@ -179,13 +179,13 @@ For explicit Python method calls, prefer the model-centric `ActorModel.ref()`
 helper:
 
 ```python
-artifact = Artifact.ref('n3tx://storage/Artifact/42', matrix=matrix)
+artifact = Artifact.ref('https://storage.example.com/Artifact/42', matrix=matrix)
 data = await artifact.get()
 result = await artifact.call('process', mode='fast')
 ```
 
 Internally this returns a `RemoteRef` handle. `ActorProxy` is different: it wraps
-a local Python object/class as an actor; `RemoteRef` calls a remote `n3tx://...`
+a local Python object/class as an actor; `RemoteRef` calls a remote HTTP(S)
 identity through Matrix.
 
 ## Usage Patterns

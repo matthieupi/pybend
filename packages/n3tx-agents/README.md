@@ -110,10 +110,9 @@ Matrix with a `schema()` method contributes tools:
 - Instance methods auto-include an `id` parameter
 
 Generated agent `update` tools are patch-oriented: only `id` is required and
-supplied collection fields replace their complete stored value. This differs
-from generated HTTP `PUT`, which currently requires a complete writable model
-representation. Do not make an agent fetch and resend unrelated fields merely
-to imitate the HTTP compatibility constraint.
+supplied collection fields replace their complete stored value. Generated HTTP
+`PUT` and raw actor updates use the same contract. Agents should not fetch and
+resend unrelated fields.
 
 ```python
 # Auto-discovered from schema relationships

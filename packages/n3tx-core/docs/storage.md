@@ -80,25 +80,20 @@ product.save()
 
 ### Update boundary contract
 
-Storage and `StorableMixin.update()` are patch-oriented: only keys present in
-the supplied dictionary are written.
+Generated HTTP routes, actor TX updates, and `StorableMixin.update()` share one
+patch-oriented contract. The patch is merged with the current entity and the
+complete result is validated through the original model, but only keys present
+in the supplied dictionary are written.
 
 ```python
 Product.update(1, {'price': 19.99})  # all omitted fields remain unchanged
 ```
 
-Generated HTTP `PUT` routes currently have a stricter boundary: they validate a
-complete model before calling `update()`. Callers must send all required fields
-and include current values for defaulted collections/JSON fields they need to
-preserve. Otherwise model validation may materialize omitted defaults such as
-`[]` or `{}` and storage will correctly treat those values as explicit
-replacements.
-
 For every collection field, storage replacement semantics are:
 
 | Payload state | Storage behavior |
 |---|---|
-| Field omitted from a direct Python/TX patch | Leave field unchanged |
+| Field omitted from an HTTP/Python/TX patch | Leave field unchanged |
 | Field supplied with values | Replace the complete stored field |
 | Field supplied as `[]` or `{}` | Clear the complete stored field |
 
@@ -161,33 +156,28 @@ Valid bool strings such as `'true'`, `'false'`, `'0'`, and `'1'`, and valid
 numeric strings such as `'123.45'`, are left intact for Pydantic's normal
 parsing.
 
-### FK Hydration
+### Local Relationships and URL Refs
 
-`Ref[T]` fields historically store local refs as plain integers and serialize
-them as href URLs in API responses:
+`T` and `list[T]` are local relationships. They store compact local ids and
+hydrate into model objects. `Ref[T]` and `list[Ref[T]]` are explicit pointers:
+they store and emit absolute HTTP(S) entity URLs unchanged.
 
 ```python
-# Stored in DB: user_owner = 3
-# Returned by get()/list(): user_owner = "http://localhost:5000/users/3"
+# Stored and returned unchanged
+file = "https://storage.example.com/api/v1/File/file-12"
 ```
 
-Distributed ref support keeps that local behavior and adds canonical string
-addresses for configured remote N3TX services. The reference helpers in
-`n3tx_core.models.ref` accept local ids, `/ClassName/{id}` paths,
-current-service API URLs, configured remote HTTP URLs, and canonical
-`n3tx://service/ClassName/id` refs. Configured remote HTTP refs canonicalize to
-`n3tx://...`; arbitrary HTTP(S) links are classified as external links rather
-than Matrix refs.
+`Ref[T]` validates the URL's final `/{Schema}/{id}` segments and behaves as a
+normal string. `Ref.base_url()`, `Ref.schema()`, and `Ref.id()` expose the URL
+parts without introducing a second address object.
 
-Remote dereferencing is opt-in. `SQLiteStorage(reference_resolver=None)` is the
-default and preserves local-only populate behavior: remote refs are stored and
-returned as canonical strings but are not fetched. Actor-mode or app bootstrap
-can inject a Matrix-backed resolver with `SQLiteStorage(...,
-reference_resolver=resolver)` or `storage.set_reference_resolver(resolver)`.
-The resolver may expose `resolve(ref, target_cls=None, user=None, context=None)`
-or be directly callable with that signature.
+Dereferencing is opt-in. Default SQLite reads, model validation, and response
+dumps never perform network I/O. Call `ref.hydrate(context=resolver)` for one
+ref, or request `populate`/positive depth on storage reads. Explicit storage
+population uses the same injected resolver contract:
+`resolve(ref, target_cls=None, user=None, context=None)`.
 
-For distributed pointer arrays, use JSON-backed `list[Ref[T]]`. For local owned
+For pointer arrays, use JSON-backed `list[Ref[T]]`. For local owned
 collections, use `list[T]`: SQLite stores the parent column as a JSON array of
 local child ids and hydrates it into self-describing child objects on read.
 

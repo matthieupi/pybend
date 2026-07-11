@@ -62,7 +62,7 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 - `packages/n3tx-core/src/n3tx_core/models/proto_dump.py` - Dump pipeline for serialization. Extensible via `@dump_extension` decorator.
 - `packages/n3tx-core/src/n3tx_core/models/base_user.py` - Abstract base user with `login()` and `register_user()` endpoints
 - `packages/n3tx-core/src/n3tx_core/models/storable_mixin.py` - CRUD operations. `list()` supports `limit`/`offset` pagination.
-- `packages/n3tx-core/src/n3tx_core/models/ref.py` - Canonical `Ref[T]`, distributed ref parser/canonicalizer helpers
+- `packages/n3tx-core/src/n3tx_core/models/ref.py` - Canonical HTTP(S) `Ref[T]` value and URL-part helpers
 - `packages/n3tx-core/src/n3tx_core/utils/typer.py` - Compatibility re-export for historical `Ref`, `_SelfRefMarker`, and `flatten_refs()` imports
 
 ### Storage (n3tx-core)
@@ -90,8 +90,8 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 ### Network Adapters (n3tx-actors)
 - `packages/n3tx-actors/src/n3tx_actors/api/network_adapter.py` - `NetworkAdapter(Actor)` base class. `request()` for req/resp correlation, `stream()` for multi-reply streaming.
 - `packages/n3tx-actors/src/n3tx_actors/api/network_api.py` - `NetworkAPI`: HTTP REST bridge for Level 3 actor routing. `create_api_routes()` generates FastAPI routes.
-- `packages/n3tx-actors/src/n3tx_actors/api/remote_matrix.py` - `RemoteMatrix`: REST-backed distributed ref adapter and `MatrixReferenceResolver` for storage populate.
-- `packages/n3tx-actors/src/n3tx_actors/remote_proxy.py` - `RemoteRef`: explicit remote `n3tx://...` handle returned by `ActorModel.ref()`.
+- `packages/n3tx-actors/src/n3tx_actors/api/remote_matrix.py` - `RemoteMatrix`: direct HTTP(S) REST adapter and `MatrixReferenceResolver` for explicit storage populate.
+- `packages/n3tx-actors/src/n3tx_actors/remote_proxy.py` - `RemoteRef`: explicit HTTP(S) remote handle returned by `ActorModel.ref()`.
 - `packages/n3tx-actors/src/n3tx_actors/api/auth_interceptor.py` - Tier 1 auth interceptor. `async (TX) -> TX` function.
 - `packages/n3tx-actors/src/n3tx_actors/api/network_ws.py` - `NetworkWebSocket`: WebSocket bridge for frontend Matrix.
 - `packages/n3tx-actors/src/n3tx_actors/api/network_mcp.py` - `NetworkMCP`: MCP JSON-RPC 2.0 bridge.
@@ -117,7 +117,7 @@ NetworkAPI           Level 3: HTTP → TX → Matrix → ActorModel (full actor 
 ### Files (n3tx-files)
 - `packages/n3tx-files/src/n3tx_files/file.py` - `File(ActorModel)` metadata resource; bytes live in a `FileStore`
 - `packages/n3tx-files/src/n3tx_files/store.py` - `FileStore` protocol and `LocalFileStore` filesystem byte provider
-- `packages/n3tx-files/src/n3tx_files/address.py` - Internal address parsing for `n3tx://files/{id}`, `/files/{id}`, and `/File/{id}`
+- `packages/n3tx-files/src/n3tx_files/address.py` - Canonical local File `$id` validation and id extraction
 - `packages/n3tx-files/src/n3tx_files/materialize.py` - Registers `File`-typed method argument materialization when `n3tx_files` is imported
 - `packages/n3tx-files/src/n3tx_files/routes.py` - Package-local multipart upload and binary/range download adapters
 - `packages/n3tx-files/src/n3tx_files/config.py` - File package configuration such as `N3TX_FILE_STORE_DIR`
@@ -232,26 +232,22 @@ Response identity is class-name based: a response fetched through either
 `$id` ending in `/Product/1`. Method mirrors are registered only for literal
 `@expose_route` declarations; there is no generic class-name method catch-all.
 
-#### Current HTTP update compatibility constraint
+#### Partial update contract
 
-Generated `PUT /{tablename}/{id}` and `PUT /{ClassName}/{id}` handlers in both
-direct and actor routing validate a complete model body. Downstream HTTP callers
-must send all required writable fields and preserve current defaulted collection
-and JSON values. An omitted `list[T]`, `list[Ref[T]]`, plain list, or `dict` field
-may be materialized as `[]`/`{}` and then persisted as a complete replacement.
-
-This differs from direct backend calls and raw TX updates:
+Generated `PUT /{tablename}/{id}` and `PUT /{ClassName}/{id}` handlers in direct
+and actor routing preserve the supplied JSON patch. `StorableMixin.update()`
+merges it with the current entity, validates the complete result through the
+original model, and sends only supplied fields to storage. This is the same
+contract used by direct backend calls and raw TX updates:
 
 ```python
 Product.update(product.id, {'name': 'Renamed'})  # patch; other fields unchanged
 TX(name='update', target='products', data={'id': product.id, 'name': 'Renamed'})
 ```
 
-When writing HTTP clients, fetch the complete entity immediately before editing
-and send its complete writable representation. Do not build updates from schema
-defaults or projected/populated subsets. Supplied collections are replaced as a
-whole and writes are last-write-wins; use domain-specific `@expose_route`
-methods for append/remove/toggle operations where concurrent mutation matters.
+Omitted fields remain unchanged. Supplied collections are replaced as a whole
+and writes are last-write-wins; use domain-specific `@expose_route` methods for
+append/remove/toggle operations where concurrent mutation matters.
 Canonical details: `docs/API_CRUD_ENDPOINTS.md#update-resource` and
 `packages/n3tx-core/docs/storage.md#update-boundary-contract`.
 

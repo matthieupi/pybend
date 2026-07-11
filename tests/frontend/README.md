@@ -34,7 +34,7 @@ editable cards. **Everything below explains _why_ that works.**
 5. [The Actor System — How Messages Flow](#5-the-actor-system--how-messages-flow)
 6. [Dataflow — Render Lifecycle (Step by Step)](#6-dataflow--render-lifecycle-step-by-step)
 7. [CRUD Operations](#7-crud-operations)
-8. [FK Hydration — Collection Fields as Hrefs](#8-fk-hydration--collection-fields-as-hrefs)
+8. [Local Relationship Hydration — Collection Fields as Objects](#8-local-relationship-hydration--collection-fields-as-objects)
 9. [Web Components API](#9-web-components-api)
 10. [Custom Methods](#10-custom-methods)
 11. [Building a Complete App](#11-building-a-complete-app)
@@ -112,8 +112,6 @@ The backend auto-generates endpoints from your Pydantic models:
 | `POST /tablename` | Creates a record |
 | `PUT /tablename/:id` | Updates a record |
 | `DELETE /tablename/:id` | Deletes a record |
-| `GET /tablename/:id/field/:child_id` | Gets a nested child record (FK hydration) |
-| `GET /tablename/childtable` | Collection route — all children across parents |
 | `POST /tablename/:id/method` | Custom method (toggle, comment, reply, etc.) |
 
 > **Convention:** `/Product` (PascalCase) = schema. `/products` (lowercase plural from `__tablename__`) = CRUD.
