@@ -33,9 +33,9 @@ class TestRemoteRef:
             return {'$id': tx.target, 'name': 'remote-file'}
 
         adapter._request_remote_rest = fake_request
-        proxy = RemoteRef('n3tx://storage/File/12', model_cls=File, matrix=matrix)
+        proxy = RemoteRef('http://storage:7100/File/12', model_cls=File, matrix=matrix)
 
-        assert await proxy.get() == {'$id': 'n3tx://storage/File/12', 'name': 'remote-file'}
+        assert await proxy.get() == {'$id': 'http://storage:7100/File/12', 'name': 'remote-file'}
 
     @pytest.mark.asyncio
     async def test_actor_model_ref_returns_callable_handle(self):
@@ -48,11 +48,11 @@ class TestRemoteRef:
             return {'ok': True, 'target': tx.target, 'method': tx.name}
 
         adapter._request_remote_rest = fake_request
-        artifact = Artifact.ref('n3tx://storage/Artifact/42', matrix=matrix)
+        artifact = Artifact.ref('http://storage:7100/Artifact/42', matrix=matrix)
 
         assert await artifact.call('process', mode='fast') == {
             'ok': True,
-            'target': 'n3tx://storage/Artifact/42',
+            'target': 'http://storage:7100/Artifact/42',
             'method': 'process',
         }
 
@@ -70,7 +70,7 @@ class TestRemoteRef:
             return {'ok': True}
 
         adapter._request_remote_rest = fake_request
-        proxy = RemoteRef('n3tx://storage/File/12', model_cls=File, matrix=matrix)
+        proxy = RemoteRef('http://storage:7100/File/12', model_cls=File, matrix=matrix)
 
         assert await proxy.call('process', mode='fast') == {'ok': True}
         assert seen == {'name': 'process', 'data': {'mode': 'fast'}}
@@ -78,7 +78,7 @@ class TestRemoteRef:
     @pytest.mark.asyncio
     async def test_error_response_raises(self):
         matrix = Matrix(addr='proxy-error-matrix')
-        proxy = RemoteRef('n3tx://storage/File/12', model_cls=File, matrix=matrix)
+        proxy = RemoteRef('http://storage:7100/File/12', model_cls=File, matrix=matrix)
 
         with pytest.raises(RemoteRefError, match='No route'):
             await proxy.get()

@@ -1,4 +1,4 @@
-"""REST-backed remote Matrix adapter for distributed N3TX refs."""
+"""REST-backed Matrix adapter for absolute HTTP(S) actor targets."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ import asyncio
 import json
 import threading
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from pydantic import PrivateAttr
 
 from n3tx_core import config
-from n3tx_core.models.ref import canonicalize_ref, is_distributed_ref, parse_ref_string
+from n3tx_core.models.ref import Ref, is_ref_url
 from n3tx_actors.api.network_adapter import NetworkAdapter
 from n3tx_actors.tx import TX
 
@@ -43,12 +43,7 @@ def normalize_remotes(remotes=None) -> dict[str, dict[str, Any]]:
 
 
 class RemoteMatrix(NetworkAdapter, auto_register=False):
-    """Map remote Matrix targets to class-name REST calls.
-
-    Identity operations use canonical ``n3tx://service/Class/id`` refs. Class
-    and static method operations use ID-less ``n3tx://service/Class`` targets so
-    callers do not need to invent meaningless placeholder ids.
-    """
+    """Route absolute HTTP(S) entity/class targets through N3TX REST APIs."""
 
     _remotes: dict = PrivateAttr(default_factory=dict)
     _service_name: str = PrivateAttr(default='api')
@@ -67,31 +62,45 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
 
     def can_handle(self, tx: TX) -> bool:
         try:
-            service, _class_name, _ident = self._parse_target(tx.target)
+            self._parse_target(tx.target)
         except ValueError:
             return False
-        return service in self._remotes
+        return True
 
     def _parse_target(self, target: str) -> tuple[str, str, str | None]:
-        """Parse a remote Matrix target.
+        """Return ``(base_url, class_name, id)`` for an HTTP(S) target.
 
-        ``parse_ref_string`` intentionally models identity refs and therefore
-        requires an id. Remote method dispatch also needs a class actor target
-        shape. Keep that transport concern local to RemoteMatrix instead of
-        weakening the core Ref primitive.
+        Entity targets use ``.../{Class}/{id}``; class capability targets use
+        ``.../{Class}``. Configured remote base URLs disambiguate API prefixes.
         """
-        if is_distributed_ref(target):
-            service, class_name, ident = parse_ref_string(target)
-            return service, class_name, ident
-
-        if not isinstance(target, str) or not target.startswith('n3tx://'):
+        if not isinstance(target, str):
+            raise ValueError(f"Unsupported remote target: {target!r}")
+        parsed = urlsplit(target.strip())
+        if parsed.scheme not in {'http', 'https'} or not parsed.netloc or parsed.query or parsed.fragment:
             raise ValueError(f"Unsupported remote target: {target!r}")
 
-        parsed = urlparse(target.strip())
-        parts = [part for part in parsed.path.split('/') if part]
-        if parsed.scheme != 'n3tx' or not parsed.netloc or len(parts) != 1:
-            raise ValueError(f"Invalid remote Matrix target: {target!r}")
-        return parsed.netloc, parts[0], None
+        canonical = urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip('/'), '', ''))
+        for remote in sorted(self._remotes.values(), key=lambda item: len(item['url']), reverse=True):
+            base = remote['url']
+            prefix = f'{base}/'
+            if canonical.startswith(prefix):
+                relative = canonical[len(prefix):].split('/')
+                if len(relative) == 1 and relative[0]:
+                    return base, relative[0], None
+                if len(relative) == 2 and all(relative):
+                    return base, relative[0], relative[1]
+
+        if is_ref_url(canonical):
+            return Ref.base_url(canonical), Ref.schema(canonical), Ref.id(canonical)
+        raise ValueError(
+            'Class-level HTTP targets with API path prefixes require a configured remote base URL'
+        )
+
+    def _remote_for(self, base_url: str) -> dict[str, Any]:
+        for remote in self._remotes.values():
+            if remote['url'] == base_url:
+                return remote
+        return {'url': base_url, 'token': ''}
 
     def _headers(self, tx: TX, remote: dict[str, Any]) -> dict[str, str]:
         headers = {
@@ -109,29 +118,26 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
         return headers
 
     def _url_for(self, tx: TX) -> str:
-        service, class_name, ident = self._parse_target(tx.target)
-        if service not in self._remotes:
-            raise ValueError(f"Remote service not configured: {service}")
-        base = self._remotes[service]['url']
+        base, class_name, ident = self._parse_target(tx.target)
         if ident is None:
             raise ValueError(f"Remote target requires an id for {tx.name}: {tx.target}")
         if tx.name == 'get':
             return f'{base}/{class_name}/{ident}'
         return f'{base}/{class_name}/{ident}/{tx.name}'
 
-    async def _method_route_for(self, service: str, class_name: str, method: str) -> dict[str, Any] | None:
+    async def _method_route_for(self, base: str, class_name: str, method: str) -> dict[str, Any] | None:
         """Resolve a remote exposed method from the model schema, caching results.
 
         The schema is the authoritative N3TX contract. It carries decorator route
         paths such as ``/upload-to-splat`` that cannot be derived safely from a
         Python method name like ``upload_to_splat``.
         """
-        key = (service, class_name, method)
+        key = (base, class_name, method)
         if key in self._method_route_cache:
             return self._method_route_cache[key]
 
-        remote = self._remotes[service]
-        url = f"{remote['url']}/{class_name}"
+        remote = self._remote_for(base)
+        url = f"{base}/{class_name}"
         headers = {'Accept': 'application/json', 'X-N3TX-Service': self._service_name}
         token = remote.get('token') or self._service_token
         if token:
@@ -152,16 +158,13 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
 
     async def _method_url_for(self, tx: TX) -> str:
         """Resolve a remote operation URL using schema metadata when possible."""
-        service, class_name, ident = self._parse_target(tx.target)
-        if service not in self._remotes:
-            raise ValueError(f"Remote service not configured: {service}")
-        base = self._remotes[service]['url']
+        base, class_name, ident = self._parse_target(tx.target)
 
         if tx.name == 'get':
             return self._url_for(tx)
 
         try:
-            route_info = await self._method_route_for(service, class_name, tx.name)
+            route_info = await self._method_route_for(base, class_name, tx.name)
         except Exception as exc:
             logger.warning(
                 "RemoteMatrix schema route lookup failed for %s.%s at %s/%s: %s; "
@@ -183,39 +186,9 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
             return f'{base}/{class_name}/{ident}{route}'
         return f'{base}/{class_name}{route}'
 
-    def _canonicalize_remote_id(self, value: Any, service: str) -> Any:
-        """Convert remote-local response identities into canonical n3tx refs."""
-        if not isinstance(value, str):
-            return value
-        if is_distributed_ref(value):
-            return value
-        if value.startswith('/'):
-            try:
-                _service, class_name, ident = parse_ref_string(value)
-            except ValueError:
-                return value
-            return f'n3tx://{service}/{class_name}/{ident}'
-        try:
-            canonical = canonicalize_ref(value, remotes={service: self._remotes.get(service)})
-        except ValueError:
-            return value
-        return canonical if is_distributed_ref(canonical) else value
-
-    def _canonicalize_response_ids(self, data: Any, service: str) -> Any:
-        """Recursively canonicalize ``$id`` values from a remote service."""
-        if isinstance(data, dict):
-            return {
-                key: self._canonicalize_remote_id(value, service) if key == '$id'
-                else self._canonicalize_response_ids(value, service)
-                for key, value in data.items()
-            }
-        if isinstance(data, list):
-            return [self._canonicalize_response_ids(item, service) for item in data]
-        return data
-
     async def _request_remote_rest(self, tx: TX) -> dict:
-        service, _class_name, _ident = self._parse_target(tx.target)
-        remote = self._remotes[service]
+        base, _class_name, _ident = self._parse_target(tx.target)
+        remote = self._remote_for(base)
         url = await self._method_url_for(tx)
         headers = self._headers(tx, remote)
 
@@ -232,7 +205,7 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
         response.raise_for_status()
         if not response.content:
             return {}
-        return self._canonicalize_response_ids(response.json(), service)
+        return response.json()
 
     async def _stream_response_text(self, tx: TX, url: str, headers: dict[str, str], timeout: float | None):
         """Yield text chunks from a remote SSE response."""
@@ -268,17 +241,16 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
                 if data_lines:
                     yield json.loads('\n'.join(data_lines))
 
-    def _tx_from_payload(self, payload: Any, fallback: TX, service: str) -> TX:
+    def _tx_from_payload(self, payload: Any, fallback: TX) -> TX:
         """Reconstruct a TX envelope from remote SSE payload data."""
         if isinstance(payload, TX):
             return payload
         if isinstance(payload, dict) and {'name', 'source', 'target'}.issubset(payload):
-            data = self._canonicalize_response_ids(payload.get('data') or {}, service)
             tx_kwargs = dict(
                 name=payload.get('name') or 'STREAM',
                 source=payload.get('source') or fallback.target,
                 target=payload.get('target') or fallback.source,
-                data=data,
+                data=payload.get('data') or {},
                 meta=payload.get('meta') or {},
             )
             if payload.get('timestamp') is not None:
@@ -293,16 +265,16 @@ class RemoteMatrix(NetworkAdapter, auto_register=False):
 
         Unlike the base ``NetworkAdapter.stream()``, this adapter does not route
         the TX locally and wait on ``inbox()`` correlation. It is itself the
-        remote transport boundary for canonical distributed refs.
+        remote transport boundary for canonical HTTP(S) targets.
         """
-        service, _class_name, _ident = self._parse_target(tx.target)
-        remote = self._remotes[service]
+        base, _class_name, _ident = self._parse_target(tx.target)
+        remote = self._remote_for(base)
         try:
             url = await self._method_url_for(tx)
             headers = self._headers(tx, remote)
             text_iter = self._stream_response_text(tx, url, headers, timeout)
             async for payload in self._iter_sse_payloads(text_iter):
-                chunk = self._tx_from_payload(payload, tx, service)
+                chunk = self._tx_from_payload(payload, tx)
                 yield chunk
                 if chunk.is_error or chunk.meta.get('stream_end'):
                     return

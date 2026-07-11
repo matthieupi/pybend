@@ -1,8 +1,8 @@
-"""Explicit remote ref handle for distributed N3TX refs."""
+"""Explicit remote handle for HTTP(S) N3TX entity refs."""
 
 from __future__ import annotations
 
-from n3tx_core.models.ref import canonicalize_ref
+from n3tx_core.models.ref import Ref
 from n3tx_actors.actor import Actor
 from n3tx_actors.tx import TX
 
@@ -15,7 +15,12 @@ class RemoteRef:
     """Explicit async API for method calls on remote actor/model refs."""
 
     def __init__(self, ref, *, model_cls=None, matrix=None, user=None, source: str = ''):
-        self.ref = canonicalize_ref(ref, target_cls=model_cls)
+        self.ref = Ref.url(ref)
+        if model_cls is not None and Ref.schema(self.ref) != model_cls.__name__:
+            raise ValueError(
+                f'Reference target mismatch: expected {model_cls.__name__}, '
+                f'got {Ref.schema(self.ref)}'
+            )
         self.model_cls = model_cls
         self.matrix = matrix or Actor.root()
         self.user = user
