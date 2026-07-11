@@ -9,7 +9,7 @@ from .file import File
 
 @register_materializer
 async def materialize_file(value, expected_type, *, user=None, context=None):
-    """Resolve address strings only for parameters annotated as File."""
+    """Resolve canonical File URL strings only for File-typed parameters."""
 
     if expected_type is not File:
         return False, value

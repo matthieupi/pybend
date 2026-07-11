@@ -55,7 +55,11 @@ def test_direct_route_materializes_file_typed_argument(tmp_path):
     client, headers = _client(tmp_path, routing="direct")
     file = _create_file()
 
-    response = client.post("/file_consumers/consume", json={"file": f"/File/{file.id}"}, headers=headers)
+    response = client.post(
+        "/file_consumers/consume",
+        json={"file": file.model_response()["$id"]},
+        headers=headers,
+    )
 
     assert response.status_code == 200
     assert response.json() == {"id": file.id, "filename": "audio.wav"}
@@ -67,7 +71,7 @@ def test_actor_route_materializes_file_typed_argument(tmp_path):
 
     response = client.post(
         "/file_consumers/consume",
-        json={"file": f"n3tx://files/{file.id}"},
+        json={"file": file.model_response()["$id"]},
         headers=headers,
     )
 

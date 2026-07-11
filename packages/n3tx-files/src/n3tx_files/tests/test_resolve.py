@@ -31,14 +31,14 @@ def _create_file(**overrides):
 
 
 @pytest.mark.asyncio
-async def test_resolve_returns_file_for_internal_addresses(tmp_path):
+async def test_resolve_returns_file_for_canonical_url(tmp_path):
     _app(tmp_path)
     created = _create_file()
 
-    for address in (f"n3tx://files/{created.id}", f"/files/{created.id}", f"/File/{created.id}"):
-        resolved = await File.resolve(address, user={"user_id": 1, "role": "user"})
-        assert resolved.id == created.id
-        assert resolved.filename == "sample.txt"
+    ref = created.model_response()["$id"]
+    resolved = await File.resolve(ref, user={"user_id": 1, "role": "user"})
+    assert resolved.id == created.id
+    assert resolved.filename == "sample.txt"
 
 
 @pytest.mark.asyncio
@@ -46,7 +46,7 @@ async def test_resolve_rejects_invalid_address(tmp_path):
     _app(tmp_path)
 
     with pytest.raises(MethodError) as exc:
-        await File.resolve("https://example.com/File/1", user={"user_id": 1})
+        await File.resolve("/File/1", user={"user_id": 1})
 
     assert exc.value.status_code == 400
 
@@ -56,7 +56,7 @@ async def test_resolve_rejects_missing_file(tmp_path):
     _app(tmp_path)
 
     with pytest.raises(MethodError) as exc:
-        await File.resolve("/File/999", user={"user_id": 1})
+        await File.resolve("http://localhost:5000/File/999", user={"user_id": 1})
 
     assert exc.value.status_code == 404
 
@@ -69,7 +69,7 @@ async def test_resolve_enforces_read_access(tmp_path):
     File.__access__ = {**original_access, "read": OWNER}
     try:
         with pytest.raises(MethodError) as exc:
-            await File.resolve(f"/File/{created.id}", user={"user_id": 2, "role": "user"})
+            await File.resolve(created.model_response()["$id"], user={"user_id": 2, "role": "user"})
     finally:
         File.__access__ = original_access
 

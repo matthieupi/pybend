@@ -12,7 +12,7 @@ from n3tx_core.authorize import AccessContext, AccessDenied, ANYONE, AUTHENTICAT
 from n3tx_core.utils.decorators import expose_route
 from n3tx_core.utils.erroring import MethodError
 
-from .address import parse_file_address
+from .address import file_id_from_ref
 from .config import FILE_STORE_DIR
 from .store import FileStore, LocalFileStore
 
@@ -90,15 +90,15 @@ class File(ActorModel):
 
     @classmethod
     @expose_route("/resolve", methods=["POST"])
-    async def resolve(cls, address: str, user=None):
-        """Resolve an internal address into an authorized File record."""
+    async def resolve(cls, ref: str, user=None):
+        """Resolve a canonical local File URL into an authorized record."""
 
         try:
-            parsed = parse_file_address(address)
+            file_id = file_id_from_ref(ref)
         except ValueError as exc:
             raise MethodError(str(exc), 400) from exc
 
-        file = cls.get(parsed.id)
+        file = cls.get(file_id)
         if not file:
             raise MethodError("File not found", 404)
 
