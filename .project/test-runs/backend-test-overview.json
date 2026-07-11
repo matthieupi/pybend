@@ -1,18 +1,18 @@
 {
-  "command": "scripts/test-backend.py --suite actors -- -q",
-  "created_at": "2026-07-10T18:13:17.825107+00:00",
+  "command": "scripts/test-backend.py --suite core -- -q",
+  "created_at": "2026-07-11T17:09:06.770318+00:00",
   "overview_file": "/workspace/.project/test-runs/backend-test-overview.json",
   "suites": [
     {
       "counts": {
         "errors": 0,
         "failed": 0,
-        "passed": 672,
-        "warnings": 2
+        "passed": 1100,
+        "warnings": 25
       },
       "message": "",
-      "name": "actors",
-      "previous_status": "failed",
+      "name": "core",
+      "previous_status": null,
       "returncode": 0,
       "status": "warning"
     }
@@ -22,9 +22,9 @@
     "failed": 0,
     "passed": 0,
     "tests_failed": 0,
-    "tests_passed": 672,
+    "tests_passed": 1100,
     "total": 1,
     "warning": 1,
-    "warnings": 2
+    "warnings": 25
   }
 }
