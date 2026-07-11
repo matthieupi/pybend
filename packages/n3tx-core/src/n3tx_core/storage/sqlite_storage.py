@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from n3tx_core import config
 from n3tx_core.utils.introspection import get_json_fields, get_fk_list_fields, get_ref_fields, get_ref_list_fields
 from n3tx_core.utils.populate import PopulateSpec
-from n3tx_core.models.ref import canonicalize_ref, is_distributed_ref, is_external_link, local_ref_id
+from n3tx_core.models.ref import Ref, is_ref_url, local_ref_id, public_id_url
 from .abstract_storage import AbstractStorage
 from .sqlite_migration import SQLiteMigration
 
@@ -124,12 +124,12 @@ def _deserialize_json_fields(model_class, record):
 
 
 def _normalize_ref_storage_values(model_class, data):
-    """Canonicalize Ref[T] and list[Ref[T]] values before SQLite writes."""
+    """Validate Ref[T] URL values before SQLite writes."""
     for field_name, target_cls in get_ref_fields(model_class):
         if field_name in data and data[field_name] is not None:
-            value = canonicalize_ref(data[field_name], target_cls=target_cls)
-            if is_external_link(value):
-                raise ValueError(f"Invalid external Ref value for {field_name}: {value}")
+            value = Ref.url(data[field_name])
+            if Ref.schema(value) != target_cls.__name__:
+                raise ValueError(f"Reference target mismatch for {field_name}")
             data[field_name] = value
 
     for field_name, target_cls in get_ref_list_fields(model_class):
@@ -139,9 +139,9 @@ def _normalize_ref_storage_values(model_class, data):
         if isinstance(value, list):
             refs = []
             for item in value:
-                ref = canonicalize_ref(item, target_cls=target_cls)
-                if is_external_link(ref):
-                    raise ValueError(f"Invalid external Ref value for {field_name}: {ref}")
+                ref = Ref.url(item)
+                if Ref.schema(ref) != target_cls.__name__:
+                    raise ValueError(f"Reference target mismatch for {field_name}")
                 refs.append(ref)
             data[field_name] = refs
 
@@ -167,9 +167,7 @@ def _normalize_fk_list_storage_values(model_class, data):
             else:
                 ref_value = item
             if isinstance(ref_value, str) and (
-                ref_value.startswith('n3tx://')
-                or ref_value.startswith('http://')
-                or ref_value.startswith('https://')
+                '://' in ref_value
                 or ref_value.startswith('/')
             ):
                 raise ValueError(f"Invalid non-local relationship value for {field_name}: {ref_value}")
@@ -182,12 +180,12 @@ def _local_ref_href(value, target_cls):
 
 
 def _public_storage_ref(value, target_cls):
-    """Return API-facing ref without corrupting distributed refs."""
+    """Return API-facing URL, including migration support for legacy local ids."""
     if value is None:
         return None
-    if is_distributed_ref(value):
-        return value
-    return _local_ref_href(value, target_cls)
+    if is_ref_url(value):
+        return Ref.url(value)
+    return public_id_url(value, target_cls=target_cls)
 
 
 def _public_ref_list(value, target_cls):
@@ -196,8 +194,8 @@ def _public_ref_list(value, target_cls):
         return value
     refs = []
     for item in value:
-        if is_distributed_ref(item):
-            refs.append(item)
+        if is_ref_url(item):
+            refs.append(Ref.url(item))
             continue
         local_id = local_ref_id(item, target_cls=target_cls)
         refs.append(_local_ref_href(local_id, target_cls) if local_id is not None else item)

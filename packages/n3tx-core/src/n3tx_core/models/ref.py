@@ -1,14 +1,14 @@
-"""Reference primitives for N3TX models.
+"""Web-native reference values for N3TX models.
 
-`Ref[T]` is the typed identity pointer primitive. Historically it represented
-an integer FK in the local database; distributed N3TX extends that meaning to a
-string address Matrix can resolve, while preserving local integer behavior.
+``Ref[T]`` is an absolute HTTP(S) entity URL. Local model relationships use
+``T``/``list[T]`` and compact database ids; refs stay globally resolvable URL
+strings until an explicit hydration request is made.
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Generic, Optional, TypeVar, get_args
-from urllib.parse import urlparse
+from typing import Annotated, Any, Generic, TypeVar, get_args
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 from pydantic import BaseModel, GetCoreSchemaHandler
 from pydantic.json_schema import JsonSchemaValue
@@ -19,322 +19,235 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class _SelfRefMarker:
-    """Metadata tag to identify Ref['self'] fields during schema generation and migration."""
-    pass
+    """Identify historical ``Ref['self']`` local parent-id fields."""
 
 
 def _api_url(api_url: str | None = None) -> str:
     if api_url:
-        return api_url.rstrip('/')
+        return api_url.rstrip("/")
     try:
         from n3tx_core import config
-        return getattr(config, 'API_URL', '').rstrip('/')
+
+        return getattr(config, "API_URL", "").rstrip("/")
     except Exception:
-        return ''
+        return ""
 
 
-def _configured_remotes(remotes=None) -> dict:
-    if remotes is not None:
-        return remotes or {}
+def _parts(value: object) -> tuple[str, str, str, str]:
+    """Return ``(url, base_url, schema, id)`` for an entity URL."""
+    if isinstance(value, dict):
+        value = value.get("$id")
+    elif isinstance(value, BaseModel):
+        value = value.model_response().get("$id") if hasattr(value, "model_response") else None
+
+    if not isinstance(value, str):
+        raise TypeError("Reference must be an absolute HTTP(S) entity URL string")
+
+    value = value.strip()
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("Reference must be an absolute HTTP(S) entity URL")
+    if parsed.query or parsed.fragment:
+        raise ValueError("Reference entity URLs cannot contain a query or fragment")
+
+    segments = [segment for segment in parsed.path.split("/") if segment]
+    if len(segments) < 2:
+        raise ValueError("Reference URL must end with /{Schema}/{id}")
+
+    schema, ident = map(unquote, segments[-2:])
+    if not schema or not ident or "/" in schema or "/" in ident:
+        raise ValueError("Reference URL must contain valid schema and id segments")
+
+    base_path = "/" + "/".join(segments[:-2]) if len(segments) > 2 else ""
+    base_url = urlunsplit((parsed.scheme, parsed.netloc, base_path, "", "")).rstrip("/")
+    canonical = urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
+    return canonical, base_url, schema, ident
+
+
+def is_ref_url(value: object) -> bool:
+    """Return whether ``value`` is a valid absolute entity URL."""
     try:
-        from n3tx_core import config
-        return getattr(config, 'REMOTES', {}) or {}
-    except Exception:
-        return {}
-
-
-def _remote_url(entry) -> str | None:
-    if isinstance(entry, str):
-        return entry.rstrip('/')
-    if isinstance(entry, dict):
-        url = entry.get('url') or entry.get('base_url')
-        return url.rstrip('/') if isinstance(url, str) else None
-    return None
+        _parts(value)
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def _target_name(target_cls=None) -> str | None:
-    return getattr(target_cls, '__name__', None) if target_cls is not None else None
+    return getattr(target_cls, "__name__", None) if target_cls is not None else None
 
 
-def _parse_http_ref(value: str, *, api_url=None, remotes=None) -> tuple[str | None, str | None, str | None, bool]:
-    """Return (service, class_name, id, is_current_service) for known HTTP refs."""
-    parsed = urlparse(value)
-    if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
-        return None, None, None, False
+def _validated_url(value: object, target_cls=None) -> str:
+    url, _base_url, schema, _ident = _parts(value)
+    target_name = _target_name(target_cls)
+    if target_name and schema != target_name:
+        raise ValueError(f"Reference target mismatch: expected {target_name}, got {schema}")
+    return url
 
-    candidate_base = f"{parsed.scheme}://{parsed.netloc}".rstrip('/')
-    current = _api_url(api_url)
-    if current and candidate_base == current:
+
+def _storage_id(value: object) -> int | str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
         try:
-            service, class_name, ident = parse_ref_string(parsed.path)
+            ident = int(value)
         except ValueError:
-            return None, None, None, False
-        return service, class_name, ident, True
-
-    for name, entry in _configured_remotes(remotes).items():
-        remote_base = _remote_url(entry)
-        if remote_base and candidate_base == remote_base:
-            try:
-                _service, class_name, ident = parse_ref_string(parsed.path)
-            except ValueError:
-                return None, None, None, False
-            return name, class_name, ident, False
-
-    return None, None, None, False
+            return value
+        return ident if ident >= 0 else None
+    return None
 
 
-def is_distributed_ref(value: object) -> bool:
-    """Return True for canonical ``n3tx://service/ClassName/id`` refs."""
-    if not isinstance(value, str):
-        return False
-    try:
-        service, class_name, ident = parse_ref_string(value)
-    except ValueError:
-        return False
-    return bool(service and class_name and ident)
+def local_ref_id(value, *, target_cls=None, api_url=None, remotes=None) -> int | str | None:
+    """Extract a local relationship id without performing remote I/O.
 
-
-def is_external_link(value: object, *, remotes=None) -> bool:
-    """Return True for URLs that are not configured N3TX refs."""
-    if not isinstance(value, str):
-        return False
-    parsed = urlparse(value)
-    if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
-        return False
-    service, class_name, ident, is_current = _parse_http_ref(value, remotes=remotes)
-    return not (is_current or (service and class_name and ident))
-
-
-def parse_ref_string(value: str) -> tuple[str | None, str | None, str | None]:
-    """Parse a canonical distributed ref or local class-name path.
-
-    Returns ``(service, class_name, id)``. ``service`` is ``None`` for local
-    refs such as ``/File/12``. This deliberately returns a primitive tuple — an
-    address is a string, not a public address object.
+    Raw ids remain supported for ``T``/``list[T]`` storage normalization. URL
+    values are local only when their parsed base URL equals ``api_url``.
+    ``remotes`` is accepted temporarily for call-site compatibility and ignored.
     """
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError("Reference address must be a non-empty string")
+    if isinstance(value, BaseModel):
+        return _storage_id(getattr(value, "id", None))
+    if isinstance(value, dict):
+        return local_ref_id(
+            value.get("id") or value.get("$id"), target_cls=target_cls, api_url=api_url
+        )
+    if isinstance(value, Ref):
+        value = str(value)
+    if isinstance(value, (int, str)) and not is_ref_url(value):
+        if isinstance(value, str) and ("://" in value or value.startswith("/")):
+            return None
+        return _storage_id(value)
 
-    value = value.strip()
-    if value.startswith('n3tx://'):
-        parsed = urlparse(value)
-        parts = [part for part in parsed.path.split('/') if part]
-        if parsed.scheme != 'n3tx' or not parsed.netloc or len(parts) != 2:
-            raise ValueError(f"Invalid distributed reference: {value!r}")
-        return parsed.netloc, parts[0], parts[1]
-
-    if value.startswith('/'):
-        parts = [part for part in value.split('/') if part]
-        if len(parts) != 2:
-            raise ValueError(f"Invalid local reference: {value!r}")
-        return None, parts[0], parts[1]
-
-    raise ValueError(f"Unsupported reference address: {value!r}")
-
-
-def _parse_id(value: object) -> int | None:
     try:
-        ident = int(value)
+        _url, base_url, schema, ident = _parts(value)
     except (TypeError, ValueError):
         return None
-    return ident if ident >= 0 else None
+    if base_url != _api_url(api_url):
+        return None
+    if _target_name(target_cls) not in (None, schema):
+        return None
+    return _storage_id(ident)
 
 
-def _matches_target(class_name: str | None, target_cls=None) -> bool:
+def local_id_from_ref_url(value, *, target_cls=None, api_url=None) -> int | str | None:
+    """Return the id when an entity URL belongs to the current API."""
+    return local_ref_id(value, target_cls=target_cls, api_url=api_url)
+
+
+def public_id_url(value, *, target_cls=None, api_url=None) -> str:
+    """Build or validate the canonical public URL for an entity identity."""
+    if is_ref_url(value):
+        return _validated_url(value, target_cls)
+    if isinstance(value, BaseModel):
+        value = getattr(value, "id", None)
+    elif isinstance(value, dict):
+        value = value.get("id") or value.get("$id")
+    ident = _storage_id(value)
     target_name = _target_name(target_cls)
-    return not target_name or not class_name or class_name == target_name
+    base = _api_url(api_url)
+    if ident is None or not target_name or not base:
+        raise ValueError("A local id, target class, and API URL are required")
+    return f"{base}/{target_name}/{ident}"
 
 
-def local_ref_id(value, *, target_cls=None, api_url=None, remotes=None) -> int | None:
-    """Return the local integer id if ``value`` points at this service."""
-    if isinstance(value, Ref):
-        return local_ref_id(value.id, target_cls=target_cls, api_url=api_url, remotes=remotes)
-    if isinstance(value, BaseModel):
-        return _parse_id(getattr(value, 'id', None))
-    if isinstance(value, int):
-        return _parse_id(value)
-    if isinstance(value, dict):
-        return local_ref_id(value.get('id') or value.get('$id'), target_cls=target_cls, api_url=api_url, remotes=remotes)
-    if not isinstance(value, str):
-        return None
+class Ref(str, Generic[T]):
+    """Validated, immutable HTTP(S) identity URL for ``T``."""
 
-    value = value.strip()
-    if value.startswith('/'):
-        _service, class_name, ident = parse_ref_string(value)
-        return _parse_id(ident) if _matches_target(class_name, target_cls) else None
-    if value.startswith('n3tx://'):
-        return None
-    parsed = urlparse(value)
-    if parsed.scheme in {'http', 'https'}:
-        service, class_name, ident, is_current = _parse_http_ref(value, api_url=api_url, remotes=remotes)
-        if is_current and _matches_target(class_name, target_cls):
-            return _parse_id(ident)
-        return None
-    return _parse_id(value)
+    _target_cls = None
 
+    def __new__(cls, value: object, *, target_cls=None):
+        url = _validated_url(value, target_cls)
+        instance = str.__new__(cls, url)
+        instance._target_cls = target_cls
+        return instance
 
-def canonicalize_ref(value, *, target_cls=None, api_url=None, remotes=None) -> str | int | None:
-    """Canonicalize local or distributed refs for storage.
+    def __setattr__(self, name, value):
+        # ``typing`` assigns ``__orig_class__`` after ``Ref[T](...)`` returns.
+        if name == "__orig_class__":
+            args = get_args(value)
+            target_cls = args[0] if args and isinstance(args[0], type) else None
+            _validated_url(self, target_cls)
+            object.__setattr__(self, "_target_cls", target_cls)
+        object.__setattr__(self, name, value)
 
-    Local refs become integer ids where possible. Configured remote HTTP(S)
-    refs become ``n3tx://service/ClassName/id``. Canonical ``n3tx://`` refs are
-    preserved. External links are returned unchanged so callers can classify or
-    reject them according to context.
-    """
-    if value is None:
-        return None
-    if isinstance(value, Ref):
-        return canonicalize_ref(value.id, target_cls=target_cls, api_url=api_url, remotes=remotes)
-    if isinstance(value, BaseModel):
-        return _parse_id(getattr(value, 'id', None))
-    if isinstance(value, int):
-        return _parse_id(value)
-    if isinstance(value, dict):
-        return canonicalize_ref(value.get('id') or value.get('$id'), target_cls=target_cls, api_url=api_url, remotes=remotes)
-    if not isinstance(value, str):
-        return value
-
-    value = value.strip()
-    if value.startswith('n3tx://'):
-        service, class_name, ident = parse_ref_string(value)
-        if not _matches_target(class_name, target_cls):
-            raise ValueError(f"Reference target mismatch: {value!r}")
-        return f"n3tx://{service}/{class_name}/{ident}"
-    if value.startswith('/'):
-        _service, class_name, ident = parse_ref_string(value)
-        if not _matches_target(class_name, target_cls):
-            raise ValueError(f"Reference target mismatch: {value!r}")
-        return _parse_id(ident)
-
-    parsed = urlparse(value)
-    if parsed.scheme in {'http', 'https'}:
-        service, class_name, ident, is_current = _parse_http_ref(value, api_url=api_url, remotes=remotes)
-        if is_current:
-            if not _matches_target(class_name, target_cls):
-                raise ValueError(f"Reference target mismatch: {value!r}")
-            return _parse_id(ident)
-        if service and class_name and ident:
-            if not _matches_target(class_name, target_cls):
-                raise ValueError(f"Reference target mismatch: {value!r}")
-            return f"n3tx://{service}/{class_name}/{ident}"
-        return value
-
-    ident = _parse_id(value)
-    if ident is not None:
-        return ident
-    raise ValueError(f"Unsupported reference address: {value!r}")
-
-
-def public_ref(value, *, target_cls=None, api_url=None, remotes=None) -> str | None:
-    """Return the response-facing ref string for a local or distributed ref."""
-    if value is None:
-        return None
-    if is_distributed_ref(value):
-        return str(value)
-    canonical = canonicalize_ref(value, target_cls=target_cls, api_url=api_url, remotes=remotes)
-    if isinstance(canonical, int):
-        class_name = _target_name(target_cls) or ''
-        base = _api_url(api_url)
-        return f"{base}/{class_name}/{canonical}" if class_name else f"{base}/{canonical}"
-    if isinstance(canonical, str) and is_distributed_ref(canonical):
-        return canonical
-    return str(canonical) if canonical is not None else None
-
-
-def flatten_refs(obj: BaseModel) -> dict:
-    """Recursively flatten Ref values for storage/validation."""
-    flat = obj.model_dump()
-    for field, value in flat.items():
-        if isinstance(value, Ref):
-            flat[field] = value.model_dump()
-        elif isinstance(value, BaseModel):
-            flat[field] = flatten_refs(value)
-        elif isinstance(value, list):
-            flat[field] = [
-                v.model_dump() if isinstance(v, Ref) else v for v in value
-            ]
-    return flat
-
-
-class Ref(Generic[T]):
-    """Typed model/actor identity pointer."""
-
+    @classmethod
     def __class_getitem__(cls, params):
-        if params == 'self':
+        if params == "self":
             return Annotated[int, _SelfRefMarker()]
         return super().__class_getitem__(params)
 
-    def __init__(self, value: Optional[Any] = None):
-        if isinstance(value, BaseModel):
-            self.id = getattr(value, 'id', None)
-            self._model = value
-        elif isinstance(value, int):
-            self.id = value
-            self._model = None
-        elif isinstance(value, dict):
-            self.id = canonicalize_ref(value.get('id') or value.get('$id'))
-            self._model = None
-        elif isinstance(value, str):
-            try:
-                canonical = canonicalize_ref(value)
-            except ValueError as exc:
-                raise ValueError(f"Invalid FK assignment: {value}") from exc
-            if is_external_link(canonical):
-                raise ValueError(f"Invalid FK assignment: {value}")
-            self.id = canonical
-            self._model = None
-        else:
-            raise ValueError(f"Invalid FK assignment: {value}")
-
-    def __int__(self):
-        if not isinstance(self.id, int):
-            raise TypeError(f"Cannot coerce distributed Ref to int: {self.id}")
-        return self.id
-
-    def __repr__(self):
-        return str(self.id)
-
-    def __str__(self):
-        return f"<Ref id={self.id}>"
-
-    def __json__(self):
-        return self.id
-
-    def model_dump(self):
-        return self.id
-
-    def to_python(self, *args, **kwargs):
-        return self.id
+    @classmethod
+    def url(cls, value: object) -> str:
+        return _validated_url(value)
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
-        return core_schema.json_or_python_schema(
-            python_schema=core_schema.no_info_plain_validator_function(
-                lambda v: v if isinstance(v, str) else (v.model_dump() if isinstance(v, Ref) else v)
-            ),
-            json_schema=core_schema.int_schema(),
-            serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda v: v if isinstance(v, str) else (v.model_dump() if isinstance(v, Ref) else (int(v) if v is not None else None))
-            )
+    def base_url(cls, ref: str) -> str:
+        return _parts(ref)[1]
+
+    @classmethod
+    def schema(cls, ref: str) -> str:
+        return _parts(ref)[2]
+
+    @classmethod
+    def id(cls, ref: str) -> str:
+        return _parts(ref)[3]
+
+    def hydrate(self, *, user=None, context=None) -> T:
+        """Explicitly resolve this ref without changing its URL value."""
+        resolver = context
+        if isinstance(context, dict):
+            resolver = context.get("reference_resolver") or context.get("resolver")
+        elif context is not None and not callable(context) and not hasattr(context, "resolve"):
+            resolver = getattr(context, "reference_resolver", None) or getattr(context, "resolver", None)
+        if resolver is None:
+            raise RuntimeError("Ref.hydrate() requires an explicit resolver context")
+        resolve = getattr(resolver, "resolve", resolver)
+        if not callable(resolve):
+            raise TypeError("Reference resolver must be callable or expose resolve()")
+        return resolve(str(self), target_cls=self._target_cls, user=user, context=context)
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        args = get_args(source_type)
+        target_cls = args[0] if args and isinstance(args[0], type) else None
+
+        return core_schema.no_info_after_validator_function(
+            lambda value: value if isinstance(value, cls) and value._target_cls is target_cls else cls(value, target_cls=target_cls),
+            core_schema.str_schema(),
+            serialization=core_schema.plain_serializer_function_ser_schema(str),
+            metadata={"x-ref-target": _target_name(target_cls)},
         )
 
     @classmethod
-    def validate(cls, v):
-        return cls(v)
+    def __get_pydantic_json_schema__(
+        cls, schema: core_schema.CoreSchema, handler
+    ) -> JsonSchemaValue:
+        target = (schema.get("metadata") or {}).get("x-ref-target")
+        result = {"type": "string", "format": "uri"}
+        if target:
+            result["x-ref"] = target
+        return result
 
-    @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema: core_schema.CoreSchema, handler) -> JsonSchemaValue:
-        args = get_args(cls)
-        if not args:
-            return {"type": "integer"}
-        target = args[0]
-        if not isinstance(target, type) or not issubclass(target, BaseModel):
-            return {"type": "integer"}
-        return {"type": "$ref", "$ref": f"#/$defs/{target.__name__}"}
+
+def flatten_refs(obj: BaseModel) -> dict:
+    """Dump a model recursively with refs represented as URL strings."""
+    return obj.model_dump(mode="python")
 
 
 __all__ = [
-    'Ref', '_SelfRefMarker', 'flatten_refs',
-    'is_distributed_ref', 'is_external_link', 'parse_ref_string',
-    'canonicalize_ref', 'local_ref_id', 'public_ref',
+    "Ref",
+    "_SelfRefMarker",
+    "flatten_refs",
+    "is_ref_url",
+    "local_ref_id",
+    "local_id_from_ref_url",
+    "public_id_url",
 ]

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from n3tx_core import config
 from n3tx_core.app import N3TXApp
-from n3tx_core.models.ref import canonicalize_ref
+from n3tx_core.models.ref import Ref
 
 pytestmark = pytest.mark.unit
 
@@ -33,7 +33,7 @@ class TestAppRemoteConfiguration:
             }
             assert config.SERVICE_NAME == 'api-test'
             assert config.SERVICE_TOKEN == 'local-token'
-            assert canonicalize_ref('http://storage:7100/File/12', target_cls=File) == 'n3tx://storage/File/12'
+            assert Ref[File]('http://storage:7100/File/12') == 'http://storage:7100/File/12'
         finally:
             config.configure(
                 remotes=old_remotes,
