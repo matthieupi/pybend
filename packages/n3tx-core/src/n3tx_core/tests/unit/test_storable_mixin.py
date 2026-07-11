@@ -151,6 +151,77 @@ class TestGet:
 
 
 class TestUpdate:
+    def test_patch_alias_is_canonicalized_before_validation_and_storage(self):
+        class M(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_alias_patch'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(alias='displayName')
+
+        current = M(id=1, displayName='Original')
+        M.storage = MagicMock()
+        M.storage.get.side_effect = [current, M(id=1, displayName='Updated')]
+
+        M.update(1, {'displayName': 'Updated'})
+
+        M.storage.update.assert_called_once_with(M, 1, {'name': 'Updated'})
+
+    def test_invalid_owned_relationship_patch_is_not_silently_cleared(self):
+        class Child(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_owned_children'
+            __storable__: ClassVar[bool] = True
+            name: str = Field(default='')
+
+        class Parent(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_owned_parents'
+            __storable__: ClassVar[bool] = True
+            children: list[Child] = Field(default=[])
+
+        Child.storage = MagicMock()
+        Child.storage.list.return_value = []
+        current = Parent(id=1, children=[])
+        Parent.storage = MagicMock()
+        Parent.storage.get.return_value = current
+
+        with pytest.raises(ValueError, match='children'):
+            Parent.update(1, {'children': [999]})
+
+        Parent.storage.update.assert_not_called()
+
+    def test_owned_relationship_patch_rejects_non_list_input(self):
+        class Child(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_non_list_children'
+            __storable__: ClassVar[bool] = True
+
+        class Parent(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_non_list_parents'
+            __storable__: ClassVar[bool] = True
+            children: list[Child] = Field(default=[])
+
+        current = Parent(id=1, children=[])
+        Parent.storage = MagicMock()
+        Parent.storage.get.return_value = current
+
+        with pytest.raises(ValueError, match='expected a list'):
+            Parent.update(1, {'children': None})
+
+        Parent.storage.update.assert_not_called()
+
+    def test_patch_is_validated_against_current_entity_before_storage(self):
+        class M(ProtoModel):
+            __tablename__: ClassVar[str] = 'up_validated_patch'
+            __storable__: ClassVar[bool] = True
+            name: str
+            price: float = Field(gt=0)
+
+        current = M(id=1, name='Original', price=10)
+        M.storage = MagicMock()
+        M.storage.get.return_value = current
+
+        with pytest.raises(ValueError):
+            M.update(1, {'price': 0})
+
+        M.storage.update.assert_not_called()
+
     def test_with_dict(self):
         class M(ProtoModel):
             __tablename__: ClassVar[str] = 'up1'

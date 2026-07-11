@@ -196,10 +196,7 @@ class TestListProducts:
 
 
 class TestUpdateProduct:
-    """PUT /Product/{id} -- update product.
-    PUT requires all required fields (including price) since the body is validated
-    against the full model schema.
-    """
+    """PUT /Product/{id} -- partially update a product."""
 
     def test_update_product_as_authenticated_returns_200(self, client, alice_token, seed_data):
         product = seed_data["products"][0]
@@ -241,13 +238,15 @@ class TestUpdateProduct:
         }, headers=auth_header(alice_token))
         assert resp.status_code == 404
 
-    def test_update_product_missing_required_field_returns_422(self, client, alice_token, seed_data):
-        """PUT without price field should return 422 (price is required)."""
+    def test_update_product_preserves_omitted_required_field(self, client, alice_token, seed_data):
         product = seed_data["products"][0]
+        original_price = product.price
         resp = client.put(f"/Product/{product.id}", json={
-            "name": "Missing price",
+            "name": "Partial update",
         }, headers=auth_header(alice_token))
-        assert resp.status_code == 422
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Partial update"
+        assert resp.json()["price"] == original_price
 
 
 class TestDeleteProduct:

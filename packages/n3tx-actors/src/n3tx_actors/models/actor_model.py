@@ -20,7 +20,7 @@ import inspect
 import logging
 from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from n3tx_actors.actor import Actor
 from n3tx_core.utils.descriptors import fullmethod, fullproperty
@@ -71,7 +71,7 @@ class ActorModel(Actor, ProtoModel):
         """Return an explicit handle for calling this model at a ref address.
 
         This keeps model construction (`Artifact(...)`) distinct from remote or
-        distributed identity handles (`Artifact.ref('n3tx://...')`).
+        remote identity handles (`Artifact.ref('https://.../Artifact/42')`).
         """
         from n3tx_actors.remote_proxy import RemoteRef
         return RemoteRef(address, model_cls=cls, matrix=matrix, user=user)
@@ -339,10 +339,10 @@ class ActorModel(Actor, ProtoModel):
                 entity_id = data.get('id')
                 if not entity_id:
                     return tx.error("'id' required", code=400)
-                result = cls.get(entity_id)
-                if not result:
+                current = cls.get(entity_id)
+                if not current:
                     return tx.error(f"{cls.__name__} {entity_id} not found", code=404)
-                denied = cls._authorize('update', tx, resource=result)
+                denied = cls._authorize('update', tx, resource=current)
                 if denied:
                     return denied
                 update_data = {k: v for k, v in data.items() if k != 'id'}
@@ -365,8 +365,22 @@ class ActorModel(Actor, ProtoModel):
                 cls._publish_lifecycle('after_delete', {'id': entity_id})
                 return {'deleted': entity_id}
 
+        except ValidationError as e:
+            if name != 'update':
+                errors = [
+                    {'loc': error['loc'], 'type': error['type'], 'msg': error['msg']}
+                    for error in e.errors(include_url=False, include_input=False)
+                ]
+                logger.warning(
+                    "[%s] Rejected %s fields=%s: %s",
+                    cls.__addr__, name, sorted(data), errors,
+                )
+            return tx.exception(e)
         except Exception as e:
-            logger.error(f"[{cls.__addr__}] CRUD error in {name}: {e}")
+            logger.error(
+                "[%s] CRUD error in %s fields=%s: %s",
+                cls.__addr__, name, sorted(data), e, exc_info=True,
+            )
             return tx.exception(e)
 
         return _NOT_HANDLED

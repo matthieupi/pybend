@@ -3,11 +3,12 @@
 import logging
 from typing import ClassVar, Any, List, Union
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, ValidationError
 
 from n3tx_core.storage.abstract_storage import AbstractStorage as StorageInterface
 from n3tx_core.utils.typer import Ref
 from n3tx_core.utils.descriptors import fullmethod
+from n3tx_core.utils.introspection import get_fk_list_fields
 
 logger = logging.getLogger('n3tx.models')
 
@@ -21,6 +22,33 @@ class StorableMixin:
     __pk__: ClassVar[str] = 'id'  # Primary key field name
     __tablename__: ClassVar[str]
     storage: ClassVar[StorageInterface] = None  # This will be injected
+
+    @classmethod
+    def _canonical_update_patch(cls, data: dict) -> dict:
+        """Map accepted input aliases to model field names and reject ambiguity."""
+        input_names = {}
+        for name, field in cls.model_fields.items():
+            input_names[name] = name
+            for alias in (field.alias, field.validation_alias):
+                if isinstance(alias, str):
+                    input_names[alias] = name
+                elif isinstance(alias, AliasChoices):
+                    input_names.update({choice: name for choice in alias.choices if isinstance(choice, str)})
+
+        patch = {}
+        sources = {}
+        for input_name, value in data.items():
+            if input_name in ('$id', '$schema'):
+                continue
+            name = input_names.get(input_name, input_name)
+            if name in patch and sources[name] != input_name:
+                raise ValueError(
+                    f"Update field {name!r} was supplied more than once "
+                    f"({sources[name]!r}, {input_name!r})"
+                )
+            patch[name] = value
+            sources[name] = input_name
+        return patch
 
     def _storage_dict(self, exclude_unset: bool = True) -> dict:
         """Extract all field values for storage, including Pydantic-excluded fields."""
@@ -126,10 +154,81 @@ class StorableMixin:
         if isinstance(update_payload, BaseModel):
             data_dict = update_payload.model_dump(exclude_unset=True)
         elif isinstance(update_payload, dict):
-            data_dict = update_payload
+            data_dict = dict(update_payload)
         else:
             raise ValueError(f"[UPDATING {cls.__name__}-{id}] Invalid data type for update: {type(update_payload)}")
-        cls.storage.update(cls, id, data_dict)
+
+        current = target if not isinstance(target, type) and getattr(target, 'id', None) == id else cls.get(id)
+        if current is None:
+            logger.warning("Cannot update missing %s ID=%s", cls.__name__, id)
+            return None
+
+        # The model remains the only validation contract; no update-only model
+        # or duplicate schema is created.
+        patch = cls._canonical_update_patch(data_dict)
+        patch.pop(cls.__pk__, None)
+        if not patch:
+            logger.debug("Skipping empty %s update ID=%s", cls.__name__, id)
+            return current
+
+        owned_list_fields = {name for name, _target_cls in get_fk_list_fields(cls)}
+        for field_name in owned_list_fields & patch.keys():
+            if not isinstance(patch[field_name], list):
+                raise ValueError(
+                    f"Invalid owned relationship {cls.__name__}.{field_name}: "
+                    "expected a list"
+                )
+
+        current_data = current._storage_dict(exclude_unset=False)
+        validation_data = {}
+        for name, value in {**current_data, **patch}.items():
+            field = cls.model_fields.get(name)
+            if field is None:
+                validation_data[name] = value
+                continue
+            validation_alias = field.validation_alias
+            if isinstance(validation_alias, AliasChoices):
+                validation_alias = next(
+                    (choice for choice in validation_alias.choices if isinstance(choice, str)),
+                    None,
+                )
+            validation_name = (
+                validation_alias if isinstance(validation_alias, str)
+                else field.alias if isinstance(field.alias, str)
+                else name
+            )
+            validation_data[validation_name] = value
+        try:
+            validated = cls.model_validate(validation_data)
+        except ValidationError as exc:
+            errors = [
+                {'loc': error['loc'], 'type': error['type'], 'msg': error['msg']}
+                for error in exc.errors(include_url=False, include_input=False)
+            ]
+            logger.warning(
+                "Rejected %s update ID=%s fields=%s: %s",
+                cls.__name__, id, sorted(patch), errors,
+            )
+            raise
+
+        for field_name in owned_list_fields:
+            if field_name not in patch:
+                continue
+            supplied = patch[field_name]
+            hydrated = getattr(validated, field_name)
+            if isinstance(supplied, list) and len(hydrated) != len(supplied):
+                raise ValueError(
+                    f"Invalid owned relationship {cls.__name__}.{field_name}: "
+                    "every supplied child must resolve"
+                )
+
+        validated_data = validated._storage_dict(exclude_unset=False)
+        validated_patch = {
+            name: validated_data[name]
+            for name in patch
+            if name in validated_data
+        }
+        cls.storage.update(cls, id, validated_patch)
         result = cls.get(id)
         if result and hasattr(cls, '_publish_lifecycle'):
             entity = result.model_response() if hasattr(result, 'model_response') else result

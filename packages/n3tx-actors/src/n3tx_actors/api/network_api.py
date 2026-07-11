@@ -298,12 +298,19 @@ def _register_crud_routes(
     async def update_instance(
         request: Request,
         id: int,
-        data: param_class,
+        data: Dict[str, Any] = Body(...),
         _addr=addr, _cls=model_class, _param_cls=param_class,
     ):
-        from n3tx_core.utils.typer import flatten_refs
         user = _get_user(request)
-        data_dict = flatten_refs(data)
+        try:
+            data_dict = _cls._canonical_update_patch(dict(data))
+        except ValueError as exc:
+            logger.warning(
+                "Rejected %s update ID=%s fields=%s: %s",
+                _cls.__name__, id, sorted(data), exc,
+            )
+            raise HTTPException(status_code=400, detail=str(exc))
+        data_dict.pop('id', None)
 
         # Strip protected fields on update
         protected = (

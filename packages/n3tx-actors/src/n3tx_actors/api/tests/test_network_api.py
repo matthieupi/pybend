@@ -1093,6 +1093,33 @@ class TestCRUDRoutes:
         assert captured_tx.data.get('name') == 'Updated'
 
     @pytest.mark.asyncio
+    async def test_update_route_sends_only_explicit_fields(self):
+        """Omitted defaults must not be materialized before actor dispatch."""
+        Actor.__matrix__ = None
+        m = Matrix()
+        api = NetworkAPI()
+        m.register(api)
+        m.register(MockModel)
+        router = create_api_routes(api, {'mock_models': MockModel})
+
+        captured_tx = None
+
+        async def mock_request(tx, timeout=30.0):
+            nonlocal captured_tx
+            captured_tx = tx
+            return tx.reply(data={'id': 5, 'name': 'Updated', 'value': 12})
+
+        with mock_method(api, 'request', mock_request):
+            from fastapi import FastAPI
+            app = FastAPI()
+            app.include_router(router)
+            client = TestClient(app)
+            response = client.put('/MockModel/5', json={'name': 'Updated'})
+
+        assert response.status_code == 200
+        assert captured_tx.data == {'id': 5, 'name': 'Updated'}
+
+    @pytest.mark.asyncio
     async def test_update_route_strips_protected_fields(self):
         """PUT should strip protected fields from update data."""
         Actor.__matrix__ = None

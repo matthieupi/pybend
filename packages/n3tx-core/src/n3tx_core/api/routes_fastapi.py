@@ -6,6 +6,7 @@ import traceback
 
 from fastapi import APIRouter, Request, HTTPException, Body, Path, Query
 from fastapi.responses import StreamingResponse
+from pydantic import ValidationError
 from typing import Dict, Type, Any, List
 from n3tx_core import config
 from n3tx_core.models.storable_mixin import StorableMixin
@@ -175,7 +176,11 @@ def make_get_instance(model_class):
 
 
 def make_update_instance(model_class):
-    async def update_instance(request: Request, id: int, data: model_class) -> model_class:
+    async def update_instance(
+        request: Request,
+        id: int,
+        data: Dict[str, Any] = Body(...),
+    ) -> model_class:
         instance = model_class.get(id)
         if not instance:
             raise HTTPException(status_code=404, detail="Not found")
@@ -184,16 +189,27 @@ def make_update_instance(model_class):
             _resolver.authorize(ctx)
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e))
+        data_dict = dict(data)
         try:
-            data_dict = flatten_refs(data)
+            data_dict = model_class._canonical_update_patch(data_dict)
+            data_dict.pop('id', None)
             # Strip backend-owned fields that cannot be modified via API
             protected = getattr(model_class, '__protected_fields__', None) or \
                         set()
             for field in protected:
                 data_dict.pop(field, None)
             logger.info("Updating %s ID=%s", model_class.__name__, id)
-            updated = model_class.update(id, data_dict)
+            updated = instance.update(data_dict)
             return updated.model_response()
+        except ValidationError as e:
+            detail = e.errors(include_url=False, include_input=False)
+            raise HTTPException(status_code=422, detail=detail)
+        except ValueError as e:
+            logger.warning(
+                "Rejected %s update ID=%s fields=%s: %s",
+                model_class.__name__, id, sorted(data_dict), e,
+            )
+            raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
             logger.error("Failed to update %s ID=%s: %s", model_class.__name__, id, e, exc_info=True)
             detail = str(e) if config.DEBUG else "Bad request"

@@ -234,6 +234,116 @@ class TestRegisterRoutesViewDelegation:
 
 class TestClassNameCrudMirrors:
 
+    def test_update_cannot_change_protected_field_through_alias(self, tmp_path):
+        saved = dict(registered_models)
+        registered_models.clear()
+        try:
+            class ProtectedAliasProduct(ProtoModel):
+                __tablename__: ClassVar[str] = 'protected_alias_products'
+                __storable__: ClassVar[bool] = True
+                __protected_fields__: ClassVar[set] = {'owner_id'}
+                __access__: ClassVar[dict] = {
+                    'read': ANYONE,
+                    'update': ANYONE,
+                }
+                name: str
+                owner_id: int = Field(default=1, alias='ownerId')
+
+            app = create_app(
+                models=[ProtectedAliasProduct],
+                storage=SQLiteStorage(str(tmp_path / 'protected_alias.db')),
+                static_dir=None,
+            )
+            created = ProtectedAliasProduct.create(
+                ProtectedAliasProduct(name='Original', ownerId=1)
+            )
+            client = TestClient(app)
+
+            response = client.put(
+                f'/ProtectedAliasProduct/{created.id}',
+                json={'name': 'Updated', 'ownerId': 999},
+            )
+
+            assert response.status_code == 200
+            assert response.json()['name'] == 'Updated'
+            assert response.json()['owner_id'] == 1
+        finally:
+            registered_models.clear()
+            registered_models.update(saved)
+
+    def test_update_rejects_duplicate_canonical_and_alias_fields(self, tmp_path):
+        saved = dict(registered_models)
+        registered_models.clear()
+        try:
+            class AliasCollisionProduct(ProtoModel):
+                __tablename__: ClassVar[str] = 'alias_collision_products'
+                __storable__: ClassVar[bool] = True
+                __access__: ClassVar[dict] = {'update': ANYONE}
+                name: str = Field(default='Original', alias='displayName')
+
+            app = create_app(
+                models=[AliasCollisionProduct],
+                storage=SQLiteStorage(str(tmp_path / 'alias_collision.db')),
+                static_dir=None,
+            )
+            created = AliasCollisionProduct.create(
+                AliasCollisionProduct(displayName='Original')
+            )
+            client = TestClient(app)
+
+            response = client.put(
+                f'/AliasCollisionProduct/{created.id}',
+                json={'name': 'First', 'displayName': 'Second'},
+            )
+
+            assert response.status_code == 400
+            assert 'supplied more than once' in response.json()['detail']
+        finally:
+            registered_models.clear()
+            registered_models.update(saved)
+
+    @pytest.mark.parametrize('route_name', ['mirror_patch_products', 'MirrorPatchProduct'])
+    def test_update_preserves_omitted_required_and_defaulted_fields(self, tmp_path, route_name):
+        saved = dict(registered_models)
+        registered_models.clear()
+        try:
+            class MirrorPatchProduct(ProtoModel):
+                __tablename__: ClassVar[str] = 'mirror_patch_products'
+                __storable__: ClassVar[bool] = True
+                __access__: ClassVar[dict] = {
+                    'create': ANYONE,
+                    'read': ANYONE,
+                    'update': ANYONE,
+                }
+                name: str
+                price: float = Field(gt=0)
+                description: str = Field(default='default description')
+                enabled: bool = Field(default=True)
+
+            app = create_app(
+                models=[MirrorPatchProduct],
+                storage=SQLiteStorage(str(tmp_path / f'{route_name}.db')),
+                static_dir=None,
+            )
+            created = MirrorPatchProduct.create(MirrorPatchProduct(
+                name='Original',
+                price=25.0,
+                description='keep me',
+                enabled=True,
+            ))
+            client = TestClient(app)
+
+            response = client.put(f'/{route_name}/{created.id}', json={'name': 'Updated'})
+
+            assert response.status_code == 200
+            assert response.json()['name'] == 'Updated'
+            assert response.json()['price'] == 25.0
+            assert response.json()['description'] == 'keep me'
+            assert response.json()['enabled'] is True
+        finally:
+            registered_models.clear()
+            registered_models.update(saved)
+
     def test_class_name_read_mirror_matches_table_name_read(self, tmp_path):
         saved = dict(registered_models)
         registered_models.clear()
