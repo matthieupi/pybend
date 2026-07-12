@@ -13,6 +13,7 @@ __init_subclass__ auto-registration always has a root available.
 import asyncio
 import logging
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import PrivateAttr
 
@@ -31,6 +32,7 @@ class Matrix(Actor):
     """
 
     _adapters: list = PrivateAttr(default_factory=list)
+    _aliases: set[str] = PrivateAttr(default_factory=set)
     _pending: dict = PrivateAttr(default_factory=dict)
 
     def __init__(self, **kwargs):
@@ -43,6 +45,33 @@ class Matrix(Actor):
     def has(self, addr: str) -> bool:
         """Check if a child actor exists by first address segment."""
         return addr.split('/')[0] in self._children
+
+    def add_alias(self, url: str) -> "Matrix":
+        """Register an HTTP(S) origin that should route to local actors."""
+        parsed = urlsplit(str(url).strip())
+        if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+            raise ValueError("Matrix aliases must be absolute HTTP(S) origins")
+        if parsed.path not in {'', '/'} or parsed.query or parsed.fragment:
+            raise ValueError("Matrix aliases cannot include a path, query, or fragment")
+        self._aliases.add(f'{parsed.scheme.lower()}://{parsed.netloc.lower()}')
+        return self
+
+    def _local_target(self, target: str) -> str:
+        """Translate an aliased HTTP target into its registered actor address."""
+        parsed = urlsplit(target)
+        origin = f'{parsed.scheme.lower()}://{parsed.netloc.lower()}'
+        if parsed.scheme not in {'http', 'https'} or origin not in self._aliases:
+            return target
+
+        parts = [part for part in parsed.path.split('/') if part]
+        if not parts:
+            return target
+        model_name = parts[0]
+        for addr, child in self._children.items():
+            child_cls = child if isinstance(child, type) else child.__class__
+            if model_name in {addr, child_cls.__name__}:
+                return '/'.join([addr, *parts[1:]])
+        return target
 
     async def inbox(self, tx: TX) -> None:
         """Route message to local child actor or network adapter.
@@ -71,6 +100,7 @@ class Matrix(Actor):
             if tx.is_error:
                 return
 
+        tx.target = self._local_target(tx.target)
         target_root = tx.target.split('/')[0]
 
         # Self-send prevention

@@ -14,6 +14,7 @@ Provides three levels of bootstrapping:
     Level 3 -- Raw primitives (existing code in main.py, unchanged).
 """
 
+from types import MethodType
 from typing import List, Optional, Tuple, Type, Union
 
 _SSR_MODES = ('off', 'schema', 'bundle', 'full')
@@ -300,6 +301,15 @@ class N3TXApp:
             from n3tx_actors.api.network_api import NetworkAPI, create_api_routes
             from n3tx_actors.api.auth_interceptor import auth_interceptor
             from n3tx_actors.matrix import matrix
+
+            matrix.add_alias(config.API_URL)
+
+            def add_alias(app, url: str):
+                """Register a local Matrix URL alias and return this app."""
+                matrix.add_alias(url)
+                return app
+
+            backend.app.add_alias = MethodType(add_alias, backend.app)
 
             # Sync Matrix children to the fully-registered model classes.
             # Actor subclasses may have auto-registered earlier during import,

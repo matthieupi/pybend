@@ -146,6 +146,22 @@ matrix.register(proxy)
 # matrix routes TX(target='health') to proxy.inbox() -> proxy.handler() -> LegacyService.HEALTH()
 ```
 
+### Local HTTP aliases
+
+Actor-routed applications can register another HTTP origin for the same local
+service after creation:
+
+```python
+app = create_app(models=[Task], routing='actor')
+app.add_alias('http://app:7000')
+```
+
+The canonical API URL remains authoritative for generated schema and entity
+identities. An alias only changes Matrix dispatch: a target such as
+`http://app:7000/Task/1` is translated to the registered local actor address
+(`tasks/1`) before network adapters are considered. Origins that were not
+registered continue through the normal adapter selection path.
+
 ## Gotchas
 
 - **Auto-registration happens at class definition time**, not instantiation. If no Matrix exists when the class is defined, the class is not registered. The module-level `matrix` created at `n3tx_actors.matrix` import handles this for typical usage.
