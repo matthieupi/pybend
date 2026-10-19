@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Neuralys AI | Industrial Precision</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "inverse-surface": "#e5e2e1",
+                "on-tertiary": "#003824",
+                "secondary-fixed": "#e0e2e6",
+                "primary-fixed-dim": "#c8c6c5",
+                "primary-container": "#121212",
+                "on-secondary": "#2d3134",
+                "on-error": "#690005",
+                "surface-container": "#201f1f",
+                "surface-tint": "#c8c6c5",
+                "surface-bright": "#3a3939",
+                "surface-container-lowest": "#0e0e0e",
+                "tertiary-fixed-dim": "#4edea3",
+                "surface-variant": "#353434",
+                "primary": "#c8c6c5",
+                "secondary-fixed-dim": "#c4c7ca",
+                "on-primary": "#313030",
+                "tertiary-fixed": "#6ffbbe",
+                "on-primary-container": "#7e7d7d",
+                "surface": "#141313",
+                "inverse-on-surface": "#313030",
+                "error-container": "#93000a",
+                "on-tertiary-fixed-variant": "#005236",
+                "on-secondary-fixed-variant": "#44474a",
+                "surface-container-low": "#1c1b1b",
+                "outline": "#8e9192",
+                "on-surface-variant": "#c4c7c7",
+                "on-error-container": "#ffdad6",
+                "inverse-primary": "#5f5e5e",
+                "on-tertiary-fixed": "#002113",
+                "surface-container-high": "#2b2a2a",
+                "surface-dim": "#141313",
+                "background": "#141313",
+                "on-secondary-container": "#b6b8bc",
+                "on-background": "#e5e2e1",
+                "on-secondary-fixed": "#191c1f",
+                "surface-container-highest": "#353434",
+                "on-tertiary-container": "#008f62",
+                "on-surface": "#e5e2e1",
+                "error": "#ffb4ab",
+                "secondary": "#c4c7ca",
+                "on-primary-fixed": "#1c1b1b",
+                "on-primary-fixed-variant": "#474646",
+                "primary-fixed": "#e5e2e1",
+                "outline-variant": "#444748",
+                "tertiary": "#4edea3",
+                "tertiary-container": "#00160c",
+                "secondary-container": "#46494d",
+                "signal-blue": "#38BDF8",
+                "signal-green": "#22C55E",
+                "amber-orange": "#F59E0B",
+                "charcoal-deep": "#0b0f10",
+                "matte-border": "#3f484e",
+                "metallic-silver": "#CBD5E1",
+                "slate-surface": "#191c1d"
+        },
+        "borderRadius": {
+                "DEFAULT": "0px",
+                "lg": "0px",
+                "xl": "0px",
+                "full": "0px"
+        },
+        "spacing": {
+                "unit": "4px",
+                "container-max": "1440px",
+                "bevel-size": "8px",
+                "gutter": "16px",
+                "margin": "24px",
+                "margin-desktop": "64px",
+                "margin-mobile": "20px"
+        },
+        "fontFamily": {
+                "label-caps": [
+                        "JetBrains Mono"
+                ],
+                "code-sm": [
+                        "JetBrains Mono"
+                ],
+                "body-md": [
+                        "JetBrains Mono"
+                ],
+                "headline-xl": [
+                        "Geist"
+                ],
+                "headline-lg": [
+                        "Geist"
+                ],
+                "headline-lg-mobile": [
+                        "Geist"
+                ],
+                "headline-sm": ["Geist"],
+                "label-code": ["JetBrains Mono"],
+                "headline-md": ["Geist"],
+                "display-lg-mobile": ["Geist"],
+                "body-lg": ["JetBrains Mono"],
+                "display-lg": ["Geist"]
+        },
+        "fontSize": {
+                "label-caps": [
+                        "12px",
+                        {
+                                "lineHeight": "1.0",
+                                "letterSpacing": "0.1em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "code-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "1.4",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-md": [
+                        "14px",
+                        {
+                                "lineHeight": "1.6",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-xl": [
+                        "48px",
+                        {
+                                "lineHeight": "1.1",
+                                "letterSpacing": "-0.04em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "24px",
+                        {
+                                "lineHeight": "1.2",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-sm": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                "label-code": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                "headline-md": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                "display-lg-mobile": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                "display-lg": ["64px", {"lineHeight": "72px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+        }
+},
+    },
+  }
+</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #141313;
+            color: #e5e2e1;
+        }
+        .glass-card {
+            background: rgba(20, 19, 19, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid #444748;
+        }
+        .text-glow-blue {
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+        }
+        .text-glow-amber {
+            text-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+        }
+        .industrial-grid {
+            background-image: radial-gradient(square at 1px 1px, #444748 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        
+        /* Deconstructed Shapes */
+        .clip-lozenge {
+            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0% 100%);
+        }
+        .clip-corner {
+            clip-path: polygon(0 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%);
+        }
+        .clip-corner-reverse {
+            clip-path: polygon(24px 0, 100% 0, 100% 100%, 0 100%, 0 24px);
+        }
+        .clip-glitch {
+            clip-path: polygon(0 10%, 10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%);
+        }
+        
+        .diagonal-line {
+            position: absolute;
+            width: 150%;
+            height: 1px;
+            background: #3f484e;
+            transform: rotate(-15deg);
+            z-index: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md selection:bg-signal-blue selection:text-charcoal-deep overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full bg-surface/80 backdrop-blur-xl border-b border-matte-border z-50 clip-corner">
+<div class="flex justify-between items-center px-margin-desktop py-4 max-w-container-max mx-auto">
+<div class="font-headline-sm text-headline-sm font-bold text-metallic-silver tracking-tight">
+                Neuralys AI
+            </div>
+<div class="hidden md:flex gap-8 items-center">
+<a class="font-body-md text-body-md text-signal-blue font-bold border-b-2 border-signal-blue pb-1 transform -skew-x-12 inline-block px-2" href="#">Homepage</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-metallic-silver transition-colors transform -skew-x-12 inline-block px-2" href="#">Services</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-metallic-silver transition-colors transform -skew-x-12 inline-block px-2" href="#">Solutions</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-metallic-silver transition-colors transform -skew-x-12 inline-block px-2" href="#">R&amp;D Lab</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-metallic-silver transition-colors transform -skew-x-12 inline-block px-2" href="#">About</a>
+</div>
+<button class="bg-metallic-silver text-charcoal-deep px-6 py-2 font-label-caps text-label-caps hover:bg-white transition-all scale-95 active:scale-90 transition-transform rounded-none clip-corner">
+                Start Project
+            </button>
+</div>
+</nav>
+<!-- Hero Section -->
+<header class="relative pt-40 pb-32 overflow-hidden min-h-[921px] flex items-center">
+<div class="absolute inset-0 bg-charcoal-deep pointer-events-none"></div>
+<div class="diagonal-line top-1/4 left-[-10%] bg-signal-green/20"></div>
+<div class="diagonal-line top-2/3 right-[-20%] bg-amber-orange/20 h-[2px]"></div>
+<div class="diagonal-line top-1/2 left-[-30%] bg-matte-border transform rotate-[15deg]"></div>
+<div class="relative px-margin-desktop max-w-container-max mx-auto grid grid-cols-1 lg:grid-cols-12 gap-gutter items-center z-10">
+<div class="lg:col-span-7 transform -translate-x-4">
+<div class="inline-flex items-center gap-3 px-6 py-2 bg-slate-surface/50 border-l-4 border-signal-green mb-12 clip-corner">
+<span class="w-2 h-2 rounded-none bg-signal-green animate-pulse"></span>
+<span class="font-label-code text-label-code text-on-surface-variant tracking-widest">ENGINEERING PRECISION V4.0</span>
+</div>
+<h1 class="font-display-lg text-display-lg text-white mb-8 leading-tight tracking-tight max-w-[110%] relative z-20">
+                    Practical AI for <br/><span class="text-amber-orange italic text-glow-amber bg-charcoal-deep/50 inline-block px-4 py-2 clip-lozenge transform -skew-x-6">Business and Industry.</span>
+</h1>
+<div class="pl-8 border-l border-matte-border ml-4">
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-12 max-w-xl">
+                        Neuralys AI bridges the gap between speculative research and industrial-grade production systems. We architect disciplined intelligence for senior technical leaders.
+                    </p>
+<div class="flex flex-wrap gap-6">
+<button class="bg-metallic-silver text-charcoal-deep px-8 py-4 font-label-caps text-label-caps hover:bg-white transition-all flex items-center gap-2 group rounded-none clip-corner-reverse">
+                            Consult Our Partners
+                            <span class="material-symbols-outlined group-hover:translate-x-2 transition-transform">arrow_forward</span>
+</button>
+<button class="border border-matte-border text-metallic-silver px-8 py-4 font-label-caps text-label-caps hover:bg-slate-surface transition-all rounded-none clip-corner hover:border-signal-blue/50">
+                            View Case Studies
+                        </button>
+</div>
+</div>
+</div>
+<div class="lg:col-span-5 hidden lg:block transform translate-y-12 translate-x-8">
+<div class="relative">
+<div class="absolute -inset-4 bg-signal-blue/10 blur-xl transform rotate-3"></div>
+<div class="relative aspect-square flex items-center justify-center rounded-none clip-glitch bg-slate-surface p-1">
+<div class="w-full h-full p-6 border border-matte-border overflow-hidden clip-glitch bg-charcoal-deep relative">
+<div class="absolute inset-0 industrial-grid opacity-30 mix-blend-screen"></div>
+<img alt="High-performance server hardware" class="w-full h-full object-cover grayscale opacity-70 mix-blend-screen transform scale-110 hover:scale-100 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6oJ2jdxyZqQ_--WGQqeCB3Duadszjv8d330apL03aME3WrGr8WX1qwT7umnuu8RUHNCH1fXnDxkQkbCfc44FCboo9r6XfUCoVUrQCXFubBw29dCyy3SIwibRGfpLLLqySgqMvk0TAs6qJu6U_jGbCVYcmvPsf6hLy89JwdgVAvGqlEhzf9Tsov5Fq41II1I2aSWHZ29SSyvYLU8peEUkEs550YkUg0rb5I4tK44JMwYECW_xMz1Xp1Zp0A75x12ueRhXSH9wEY_c"/>
+<div class="absolute inset-0 bg-gradient-to-tr from-signal-blue/10 to-transparent mix-blend-overlay"></div>
+</div>
+<div class="absolute -bottom-12 -left-12 bg-charcoal-deep border-t border-r border-matte-border p-8 max-w-[240px] clip-corner shadow-2xl z-30">
+<div class="absolute top-0 left-0 w-full h-1 bg-signal-green"></div>
+<p class="font-label-code text-label-code text-signal-green mb-3 flex items-center gap-2"><span class="w-1.5 h-1.5 bg-signal-green inline-block"></span>LIVE_STATUS</p>
+<p class="font-headline-sm text-headline-sm text-white mb-1">99.8%</p>
+<p class="font-label-caps text-label-caps text-on-tertiary-container">Uptime Reliability</p>
+</div>
+<div class="absolute -top-6 -right-6 w-24 h-24 border-r-2 border-t-2 border-amber-orange/40"></div>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- Who We Serve Section -->
+<section class="py-32 bg-surface relative overflow-hidden">
+<div class="diagonal-line top-1/3 left-[-20%] bg-matte-border/50"></div>
+<div class="px-margin-desktop max-w-container-max mx-auto relative z-10">
+<div class="flex flex-col md:flex-row justify-between items-end gap-8 mb-24 border-b border-matte-border pb-8 transform -skew-x-3">
+<div class="transform translate-x-4">
+<h2 class="font-label-caps text-label-caps text-amber-orange mb-4 uppercase tracking-[0.2em] flex items-center gap-2">
+<span class="w-4 h-[1px] bg-amber-orange inline-block"></span> Sectors of Impact
+                    </h2>
+<h3 class="font-headline-md text-headline-md text-white">Who We Serve</h3>
+</div>
+<div class="max-w-md transform translate-y-4">
+<p class="text-on-surface-variant font-body-md p-4 border-l border-matte-border bg-charcoal-deep/50">We partner with organizations where failure is not an option—from heavy manufacturing to global financial logistics.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Sector 01 -->
+<div class="group relative overflow-hidden bg-slate-surface p-10 transition-all hover:bg-surface-container-high rounded-none clip-corner transform md:-translate-y-8">
+<div class="absolute top-0 right-0 w-16 h-16 bg-signal-green/10 clip-corner transform rotate-180"></div>
+<div class="mb-12 text-signal-green">
+<span class="material-symbols-outlined text-[40px] opacity-80 group-hover:opacity-100 transition-opacity">factory</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-white mb-4 relative z-10">Industrial Automation</h4>
+<p class="text-on-surface-variant mb-8 relative z-10 font-code-sm">Edge computing and predictive maintenance for complex manufacturing pipelines.</p>
+<div class="absolute left-0 bottom-0 w-1 h-full bg-matte-border">
+<div class="w-full bg-signal-green h-0 group-hover:h-full transition-all duration-500 bottom-0 absolute"></div>
+</div>
+</div>
+<!-- Sector 02 -->
+<div class="group relative overflow-hidden bg-slate-surface p-10 transition-all hover:bg-surface-container-high rounded-none clip-corner-reverse transform md:translate-y-8 z-20 shadow-2xl">
+<div class="absolute top-0 right-0 w-16 h-16 bg-amber-orange/10 clip-corner transform rotate-180"></div>
+<div class="mb-12 text-amber-orange">
+<span class="material-symbols-outlined text-[40px] opacity-80 group-hover:opacity-100 transition-opacity">account_balance</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-white mb-4 relative z-10">Financial Systems</h4>
+<p class="text-on-surface-variant mb-8 relative z-10 font-code-sm">High-fidelity risk assessment and algorithmic compliance for global institutions.</p>
+<div class="absolute right-0 top-0 w-1 h-full bg-matte-border">
+<div class="w-full bg-amber-orange h-0 group-hover:h-full transition-all duration-500 top-0 absolute"></div>
+</div>
+</div>
+<!-- Sector 03 -->
+<div class="group relative overflow-hidden bg-slate-surface p-10 transition-all hover:bg-surface-container-high rounded-none clip-corner transform md:-translate-y-4">
+<div class="absolute top-0 right-0 w-16 h-16 bg-signal-blue/10 clip-corner transform rotate-180"></div>
+<div class="mb-12 text-signal-blue">
+<span class="material-symbols-outlined text-[40px] opacity-80 group-hover:opacity-100 transition-opacity">biotech</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-white mb-4 relative z-10">R&amp;D &amp; Bio-Tech</h4>
+<p class="text-on-surface-variant mb-8 relative z-10 font-code-sm">Accelerating scientific discovery through advanced generative modeling and lab automation.</p>
+<div class="absolute left-0 bottom-0 w-1 h-full bg-matte-border">
+<div class="w-full bg-signal-blue h-0 group-hover:h-full transition-all duration-500 bottom-0 absolute"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Service Offer Pillars -->
+<section class="py-32 bg-charcoal-deep relative overflow-hidden">
+<div class="absolute inset-0 industrial-grid opacity-10"></div>
+<div class="diagonal-line top-1/2 left-[-10%] bg-signal-blue/10 h-[4px]"></div>
+<div class="px-margin-desktop max-w-container-max mx-auto relative z-10">
+<div class="text-left mb-20 md:ml-12">
+<h2 class="font-headline-md text-headline-md text-white mb-4 transform -skew-x-6 inline-block bg-slate-surface px-6 py-2 border-l-4 border-amber-orange">Our Service Pillars</h2>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Pillar 1: Strategy -->
+<div class="p-10 bg-slate-surface/50 border border-matte-border hover:bg-slate-surface transition-all duration-500 group rounded-none clip-glitch transform md:-rotate-1 hover:rotate-0">
+<div class="font-label-code text-label-code text-on-tertiary-container mb-8 group-hover:text-amber-orange transition-colors flex items-center justify-between border-b border-matte-border pb-4">
+<span>01_STRATEGY</span>
+<span class="material-symbols-outlined text-[16px] opacity-50">data_object</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-white mb-6">AI Roadmap Strategy</h4>
+<p class="text-on-surface-variant mb-10 font-code-sm border-l-2 border-matte-border pl-4">We define high-impact AI integration paths that align with your core business objectives, focusing on ROI and technical feasibility.</p>
+<ul class="space-y-4 mb-4">
+<li class="flex items-center gap-3 text-metallic-silver font-code-sm">
+<span class="w-1.5 h-1.5 bg-amber-orange inline-block transform rotate-45"></span>
+                            Opportunity Assessment
+                        </li>
+<li class="flex items-center gap-3 text-metallic-silver font-code-sm">
+<span class="w-1.5 h-1.5 bg-amber-orange inline-block transform rotate-45"></span>
+                            Risk Mitigation Design
+                        </li>
+<li class="flex items-center gap-3 text-metallic-silver font-code-sm">
+<span class="w-1.5 h-1.5 bg-amber-orange inline-block transform rotate-45"></span>
+                            Data Readiness Audits
+                        </li>
+</ul>
+</div>
+<!-- Pillar 2: Automation -->
+<div class="p-10 bg-slate-surface/80 border border-matte-border hover:bg-surface-container-high transition-all duration-500 group rounded-none clip-corner transform md:translate-y-8 md:rotate-1 hover:rotate-0 z-20 shadow-xl">
+<div class="font-label-code text-label-code text-on-tertiary-container mb-8 group-hover:text-signal-green transition-colors flex items-center justify-between border-b border-matte-border pb-4">
+<span>02_AUTOMATION</span>
+<span class="material-symbols-outlined text-[16px] opacity-50">memory</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-white mb-6">Industrial Automation</h4>
+<p class="text-on-surface-variant mb-10 font-code-sm border-l-2 border-matte-border pl-4">Deploying intelligent agents and LLM-driven workflows that replace manual bottlenecks with precise, autonomous logic.</p>
+<ul class="space-y-4 mb-4">
+<li class="flex items-center gap-3 text-metallic-silver font-code-sm">
+<span class="w-1.5 h-1.5 bg-signal-green inline-block transform rotate-45"></span>
+                            Custom Workflow Agents
+                        </li>
+<li class="flex items-center gap-3 text-metallic-silver font-code-sm">
+<span class="w-1.5 h-1.5 bg-signal-green inline-block transform rotate-45"></span>
+                            Cognitive Process Engines
+                        </li>
+<li class="flex items-center gap-3 text-metallic-silver font-code-sm">
+<span class="w-1.5 h-1.5 bg-signal-green inline-block transform rotate-45"></span>
+                            Legacy System Integration
+                        </li>
+</ul>
+</div>
+<!-- Pillar 3: Development -->
+<div class="p-10 bg-slate-surface/50 border border-matte-border hover:bg-slate-surface transition-all duration-500 group rounded-none clip-glitch transform md:-translate-y-4 md:-rotate-2 hover:rotate-0">
+<div class="font-label-code text-label-code text-on-tertiary-container mb-8 group-hover:text-signal-blue transition-colors flex items-center justify-between border-b border-matte-border pb-4">
+<span>03_DEVELOPMENT</span>
+<span class="material-symbols-outlined text-[16px] opacity-50">code_blocks</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-white mb-6">Custom AI Engineering</h4>
+<p class="text-on-surface-variant mb-10 font-code-sm border-l-2 border-matte-border pl-4">Full-stack development of proprietary AI models and platforms designed for scale, security, and low-latency performance.</p>
+<ul class="space-y-4 mb-4">
+<li class="flex items-center gap-3 text-metallic-silver font-code-sm">
+<span class="w-1.5 h-1.5 bg-signal-blue inline-block transform rotate-45"></span>
+                            LLM Fine-Tuning
+                        </li>
+<li class="flex items-center gap-3 text-metallic-silver font-code-sm">
+<span class="w-1.5 h-1.5 bg-signal-blue inline-block transform rotate-45"></span>
+                            Proprietary Neural Nets
+                        </li>
+<li class="flex items-center gap-3 text-metallic-silver font-code-sm">
+<span class="w-1.5 h-1.5 bg-signal-blue inline-block transform rotate-45"></span>
+                            Scalable MLOps
+                        </li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<!-- Technical Image/Callout Section -->
+<section class="py-40 px-margin-desktop max-w-container-max mx-auto relative">
+<div class="absolute right-0 top-20 w-1/2 h-full bg-slate-surface/30 transform skew-y-6 -z-10"></div>
+<div class="flex flex-col lg:flex-row relative">
+<div class="lg:w-7/12 bg-charcoal-deep p-16 border border-matte-border relative z-20 clip-corner transform lg:translate-x-12 lg:translate-y-12 shadow-2xl">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-signal-green to-signal-blue"></div>
+<h2 class="font-headline-md text-headline-md text-white mb-8">Designed for Technical Depth</h2>
+<p class="text-body-lg text-on-surface-variant mb-12 font-code-sm leading-relaxed border-l border-matte-border pl-6">
+                    Neuralys AI provides the technical documentation and architectural clarity that senior engineering teams demand. No marketing fluff, just production-ready systems.
+                </p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="bg-surface p-6 border-l-2 border-amber-orange clip-corner-reverse">
+<h5 class="font-label-caps text-label-caps text-amber-orange mb-3 uppercase flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">terminal</span> Core Philosophy</h5>
+<p class="font-code-sm text-on-surface-variant">Deterministic outcomes over experimental hype.</p>
+</div>
+<div class="bg-surface p-6 border-l-2 border-signal-green clip-corner-reverse">
+<h5 class="font-label-caps text-label-caps text-signal-green mb-3 uppercase flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">speed</span> Delivery Speed</h5>
+<p class="font-code-sm text-on-surface-variant">Rapid prototyping to production within quarters.</p>
+</div>
+</div>
+</div>
+<div class="lg:w-6/12 min-h-[500px] relative lg:-translate-x-12 z-10">
+<div class="absolute inset-0 clip-lozenge overflow-hidden border-2 border-matte-border bg-slate-surface p-2 transform rotate-2">
+<div class="w-full h-full relative clip-lozenge overflow-hidden">
+<img alt="Futuristic technical schematic" class="absolute inset-0 w-full h-full object-cover grayscale mix-blend-luminosity transform scale-125 -rotate-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA00WnX4skwXu-kwsBo1SQlFYbnbaXYqSxNYqmqa8s81wO1AXnlv6g16raBWWzIwPvJdTmMOebKJYmf_YCcWyb5lnTdL6tFPDnrflyyrAQdLc73VeIgpPBWX7ieuFLiqDyV1-FoSWbAtQf98xxNzFu6nL_wtufaZqgPwhr4Bvoe7GeQlULGyutG30004deQPBCBFprmVr6WKqbadFY_XbpWQ5NwA4LhTZAwprunfot_dSKz4aT5f69Nm8o1VAuPU8lVrv08M9goytQ"/>
+<div class="absolute inset-0 bg-gradient-to-br from-charcoal-deep/80 via-transparent to-amber-orange/20 mix-blend-overlay"></div>
+<div class="absolute inset-0 industrial-grid opacity-40"></div>
+</div>
+</div>
+<div class="absolute bottom-12 right-0 bg-slate-surface px-4 py-2 border border-matte-border transform rotate-[-5deg] shadow-lg z-30">
+<span class="font-label-code text-[10px] text-amber-orange uppercase tracking-widest flex items-center gap-2">
+<span class="w-1.5 h-1.5 bg-amber-orange inline-block"></span> Secure Environment
+                </span>
+</div>
+<div class="absolute top-1/4 -left-8 w-16 h-1 bg-signal-green z-30 transform -rotate-45"></div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="bg-charcoal-deep border-t border-matte-border relative overflow-hidden mt-20">
+<div class="diagonal-line bottom-0 left-[-10%] bg-signal-blue/20"></div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-desktop py-20 max-w-container-max mx-auto relative z-10">
+<div class="flex flex-col gap-6 transform md:translate-y-4">
+<div class="font-headline-sm text-headline-sm text-white inline-block border-b-2 border-signal-green pb-2 w-max">Neuralys AI</div>
+<p class="font-label-caps text-label-caps text-metallic-silver opacity-80 pl-4 border-l border-matte-border">Industrial Precision.<br/>Intellectual Depth.</p>
+</div>
+<div class="flex flex-col gap-4">
+<h5 class="font-label-caps text-label-caps text-white mb-4 bg-slate-surface inline-block px-3 py-1 clip-corner w-max">Services</h5>
+<a class="font-code-sm text-on-tertiary-container hover:text-signal-green transition-colors opacity-80 hover:opacity-100 flex items-center gap-2 group" href="#"><span class="w-1 h-1 bg-matte-border group-hover:bg-signal-green transition-colors"></span>Services Detail</a>
+<a class="font-code-sm text-on-tertiary-container hover:text-signal-green transition-colors opacity-80 hover:opacity-100 flex items-center gap-2 group" href="#"><span class="w-1 h-1 bg-matte-border group-hover:bg-signal-green transition-colors"></span>Industrial Solutions</a>
+<a class="font-code-sm text-on-tertiary-container hover:text-signal-green transition-colors opacity-80 hover:opacity-100 flex items-center gap-2 group" href="#"><span class="w-1 h-1 bg-matte-border group-hover:bg-signal-green transition-colors"></span>Business AI</a>
+</div>
+<div class="flex flex-col gap-4 transform md:translate-y-8">
+<h5 class="font-label-caps text-label-caps text-white mb-4 bg-slate-surface inline-block px-3 py-1 clip-corner w-max">Company</h5>
+<a class="font-code-sm text-on-tertiary-container hover:text-amber-orange transition-colors opacity-80 hover:opacity-100 flex items-center gap-2 group" href="#"><span class="w-1 h-1 bg-matte-border group-hover:bg-amber-orange transition-colors"></span>R&amp;D Lab</a>
+<a class="font-code-sm text-on-tertiary-container hover:text-amber-orange transition-colors opacity-80 hover:opacity-100 flex items-center gap-2 group" href="#"><span class="w-1 h-1 bg-matte-border group-hover:bg-amber-orange transition-colors"></span>Contact</a>
+<a class="font-code-sm text-on-tertiary-container hover:text-amber-orange transition-colors opacity-80 hover:opacity-100 flex items-center gap-2 group" href="#"><span class="w-1 h-1 bg-matte-border group-hover:bg-amber-orange transition-colors"></span>Privacy Policy</a>
+</div>
+<div class="flex flex-col gap-6">
+<h5 class="font-label-caps text-label-caps text-white mb-2">Newsletter</h5>
+<div class="flex border border-matte-border clip-corner bg-slate-surface/50 focus-within:border-amber-orange transition-colors">
+<input class="bg-transparent border-none text-white p-3 w-full font-label-code text-label-code focus:ring-0 rounded-none placeholder:text-matte-border" placeholder="Engineering Digest" type="email"/>
+<button class="bg-slate-surface px-4 text-amber-orange hover:text-white hover:bg-amber-orange transition-colors rounded-none border-l border-matte-border">
+<span class="material-symbols-outlined text-[18px]">send</span>
+</button>
+</div>
+</div>
+</div>
+<div class="px-margin-desktop py-8 border-t border-matte-border/30 max-w-container-max mx-auto text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-4 relative z-10 bg-charcoal-deep">
+<p class="font-label-caps text-label-caps text-on-tertiary-container opacity-60 font-code-sm">© 2024 Neuralys AI Consulting. <span class="text-matte-border">///</span> Industrial Precision.</p>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 bg-slate-surface px-3 py-1 clip-corner border border-matte-border">
+<span class="w-2 h-2 rounded-none bg-signal-green animate-pulse"></span>
+<span class="font-label-code text-[10px] text-signal-green uppercase">System Operational</span>
+</div>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interactions for scrolling effects
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('py-2', 'bg-surface/95', 'shadow-lg', 'shadow-signal-blue/5');
+                nav.classList.remove('py-4', 'bg-surface/80');
+            } else {
+                nav.classList.add('py-4', 'bg-surface/80');
+                nav.classList.remove('py-2', 'bg-surface/95', 'shadow-lg', 'shadow-signal-blue/5');
+            }
+        });
+    </script>
+</body></html>

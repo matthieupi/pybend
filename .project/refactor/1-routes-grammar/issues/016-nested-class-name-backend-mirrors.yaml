@@ -1,0 +1,50 @@
+id: 16
+title: "Nested class-name backend mirrors"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 15
+what_to_build: |
+  Implement the first backend tracer bullet for nested class-name route mirrors
+  using the grammar decided in issue 015.
+
+  For a relationship currently exposed as:
+
+      /products/1/comments/2
+
+  add the class-name mirror decided in issue 015, expected shape:
+
+      /Product/1/Comment/2
+
+  The mirror must reuse the same storage, auth, FK injection, population, and
+  serialization behavior as the existing parent-scoped table-name nested route.
+acceptance_criteria:
+  - "Direct FastAPI route generation includes nested class-name mirror routes for configured join models."
+  - "Actor route generation includes equivalent nested class-name mirror routes or explicitly documented parity if actor nested mirrors are deferred."
+  - "Nested class-name read returns the same domain fields as the table-name nested read."
+  - "Nested class-name create injects the parent FK exactly like the table-name nested create."
+  - "Nested class-name update/delete enforce the same auth behavior as table-name nested routes."
+  - "Nested class-name responses advertise `$id` using `/{ParentClass}/{parent_id}/{ChildClass}/{child_id}` from issue 010."
+  - "Invalid relation/child-class combinations return 404 or 400 deterministically and do not fall through to unrelated routes."
+implementation_notes:
+  - "Primary direct file: `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py`."
+  - "Primary actor file: `packages/n3tx-actors/src/n3tx_actors/api/network_api.py`."
+  - "Use existing join metadata: `__owner__`, `__parent__`, generated FK field, and `join_models`; `__tagname__` remains relevant to legacy table routes but is not part of the chosen class-name `$id`."
+  - "Do not mutate stored href arrays yet; this slice only adds mirrors and tests."
+critical_files:
+  - "packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py"
+  - "packages/n3tx-actors/src/n3tx_actors/api/network_api.py"
+  - "packages/n3tx-core/src/n3tx_core/models/proto_model.py"
+  - "packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py"
+  - "packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py"
+  - "examples/core/tests/"
+  - "examples/actors/tests/"
+verification:
+  - "cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py packages/n3tx-actors/src/n3tx_actors/api/tests/test_network_api.py examples/core/tests/ examples/actors/tests/"
+risks:
+  - "Route order must keep schema, view routes, static collection routes, and nested mirrors from shadowing each other."
+  - "Join model class identity is subtle because generated join classes inherit from the child model. Follow issue 015 exactly."
+user_stories_addressed:
+  - 37
+  - 38
+  - 39

@@ -1,0 +1,313 @@
+[
+  {
+    "id": "task-01",
+    "wave": 1,
+    "title": "Rewrite run_stream() to use agent.iter() with typed events",
+    "intent": "The current run_stream() only emits 'text' chunks via stream_text(delta=True), hiding tool calls, thinking tokens, and i...",
+    "files": {
+      "read": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/mixin.py",
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/deps.py",
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/tools.py"
+      ],
+      "modify": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/mixin.py"
+      ],
+      "create": []
+    },
+    "verification": {
+      "commands": [
+        "cd /workspace && python3 -m pytest packages/n3tx-agents/src/n3tx_agents/tests/test_mixin.py -v --tb=short -x"
+      ],
+      "checks": [
+        "run_stream() yields text chunks with name='text' (backward compat)",
+        "run_stream() yields tool_call chunks when LLM calls tools",
+        "run_stream() yields tool_result chunks after tool execution",
+        "run_stream() yields done chunk with 'tool_calls' count",
+        "run_stream() yields error chunk on failure",
+        "Thread pre-read and post-update still work",
+        "Existing streaming tests still pass"
+      ]
+    },
+    "depends_on": [],
+    "details": "agent-components/task-01.md"
+  },
+  {
+    "id": "task-02",
+    "wave": 1,
+    "title": "Add agentic_stream() override to AgentActor",
+    "intent": "AgentActor already overrides agentic() to resolve tools from DB fields instead of __agent__ config. The streaming varian...",
+    "files": {
+      "read": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/actor.py",
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/mixin.py"
+      ],
+      "modify": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/actor.py"
+      ],
+      "create": []
+    },
+    "verification": {
+      "commands": [
+        "cd /workspace && python3 -m pytest packages/n3tx-agents/src/n3tx_agents/tests/test_agent_actor.py -v --tb=short -x",
+        "cd /workspace && python3 -c \"from n3tx_agents.actor import AgentActor; print('agentic_stream' in AgentActor.schema().get('methods', {}))\""
+      ],
+      "checks": [
+        "AgentActor has agentic_stream method",
+        "AgentActor.schema() includes agentic_stream in methods with stream=True",
+        "agentic_stream yields TX-aligned chunks",
+        "agentic_stream resolves tools from DB (same as agentic)"
+      ]
+    },
+    "depends_on": [],
+    "details": "agent-components/task-02.md"
+  },
+  {
+    "id": "task-03",
+    "wave": 2,
+    "title": "Write unit tests for rich streaming events",
+    "intent": "The run_stream() rewrite introduces new event types (tool_call, tool_result, thinking) that need test coverage. Tests va...",
+    "files": {
+      "read": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/tests/test_mixin.py",
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/tests/conftest.py"
+      ],
+      "modify": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/tests/test_mixin.py"
+      ],
+      "create": []
+    },
+    "verification": {
+      "commands": [
+        "cd /workspace && python3 -m pytest packages/n3tx-agents/src/n3tx_agents/tests/test_mixin.py::TestRunStreamTypedEvents -v --tb=short -x",
+        "cd /workspace && python3 -m pytest packages/n3tx-agents/src/n3tx_agents/tests/test_mixin.py -v --tb=short"
+      ],
+      "checks": [
+        "All new typed event tests pass",
+        "All existing streaming tests still pass",
+        "No regressions in other mixin tests"
+      ]
+    },
+    "depends_on": [
+      "task-01"
+    ],
+    "details": "agent-components/task-03.md"
+  },
+  {
+    "id": "task-04",
+    "wave": 2,
+    "title": "Write unit tests for AgentActor agentic_stream()",
+    "intent": "The new agentic_stream() override on AgentActor needs test coverage to verify it resolves tools from DB, delegates to ru...",
+    "files": {
+      "read": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/tests/test_agent_actor.py",
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/tests/conftest.py",
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/actor.py"
+      ],
+      "modify": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/tests/test_agent_actor.py"
+      ],
+      "create": []
+    },
+    "verification": {
+      "commands": [
+        "cd /workspace && python3 -m pytest packages/n3tx-agents/src/n3tx_agents/tests/test_agent_actor.py -v --tb=short -x"
+      ],
+      "checks": [
+        "agentic_stream yields chunks",
+        "agentic_stream resolves tools from DB",
+        "AgentActor schema includes agentic_stream with stream=True",
+        "All existing agent actor tests still pass"
+      ]
+    },
+    "depends_on": [
+      "task-02"
+    ],
+    "details": "agent-components/task-04.md"
+  },
+  {
+    "id": "task-05",
+    "wave": 3,
+    "title": "Enhance ntx-chat.js to render typed stream events",
+    "intent": "The chat component currently treats all stream chunks as text. With the new typed events from run_stream(), the chat sho...",
+    "files": {
+      "read": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js"
+      ],
+      "modify": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js"
+      ],
+      "create": []
+    },
+    "verification": {
+      "commands": [
+        "cd /workspace && node -e \"import('/workspace/packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js').catch(e => console.log('Module load check:', e.message))\""
+      ],
+      "checks": [
+        "_sendStream dispatches on chunk.name",
+        "tool_call renders a compact card with tool name",
+        "tool_result appends to matching tool card by call_id",
+        "thinking shows animated indicator",
+        "text still works as progressive append",
+        "done still shows answer if no text was streamed",
+        "CSS includes tool-card, msg-thinking, msg-stats rules",
+        "Backward compat: unknown chunk names fall through to text handler"
+      ]
+    },
+    "depends_on": [
+      "task-01"
+    ],
+    "details": "agent-components/task-05.md"
+  },
+  {
+    "id": "task-06",
+    "wave": 3,
+    "title": "Create ntx-agent-live.js streaming activity view",
+    "intent": "ntx-agent-live is the 'window into the agent's mind' \u2014 a component that shows what an agent is currently doing with dist...",
+    "files": {
+      "read": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/static/components/ntx-chat.js",
+        "/workspace/packages/n3tx-core/src/n3tx_core/static/core/Component.js"
+      ],
+      "modify": [],
+      "create": [
+        "/workspace/packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js"
+      ]
+    },
+    "verification": {
+      "commands": [],
+      "checks": [
+        "File exists at packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent-live.js",
+        "Component handles all 5 event types: thinking, tool_call, tool_result, text, done",
+        "tool_call shows card with spinner that tool_result updates by call_id",
+        "Auto-scrolls on new entries",
+        "Status badge shows idle/running/done/error",
+        "CSS is self-contained in shadow DOM"
+      ]
+    },
+    "depends_on": [
+      "task-01"
+    ],
+    "details": "agent-components/task-06.md"
+  },
+  {
+    "id": "task-07",
+    "wave": 4,
+    "title": "Create Pygentic example app skeleton",
+    "intent": "The Pygentic app is a kitchen-sink example showcasing all agent features: agent management, live activity view, streamin...",
+    "files": {
+      "read": [
+        "/workspace/examples/grants/main.py",
+        "/workspace/examples/grants/config.py",
+        "/workspace/examples/grants/models/__init__.py",
+        "/workspace/examples/grants/models/user.py",
+        "/workspace/examples/grants/models/grant.py"
+      ],
+      "modify": [],
+      "create": [
+        "/workspace/examples/pygentic/__init__.py",
+        "/workspace/examples/pygentic/config.py",
+        "/workspace/examples/pygentic/models/__init__.py",
+        "/workspace/examples/pygentic/models/user.py",
+        "/workspace/examples/pygentic/models/task.py",
+        "/workspace/examples/pygentic/models/memory.py",
+        "/workspace/examples/pygentic/main.py"
+      ]
+    },
+    "verification": {
+      "commands": [
+        "cd /workspace/examples/pygentic && python3 -c \"import config; from models import User, Task, Memory; print('Models OK')\"",
+        "cd /workspace/examples/pygentic && python3 -c \"from main import app; print('App created:', type(app).__name__)\""
+      ],
+      "checks": [
+        "config.py configures framework correctly",
+        "All 3 models import successfully",
+        "Task model has __agent__ = True",
+        "Task has /analyze streaming method",
+        "Memory has access control",
+        "main.py creates app with routing='actor'",
+        "main.py includes AgentActor and AgentTool in model list"
+      ]
+    },
+    "depends_on": [
+      "task-01",
+      "task-02"
+    ],
+    "details": "agent-components/task-07.md"
+  },
+  {
+    "id": "task-08",
+    "wave": 4,
+    "title": "Create Pygentic seed.py and static/index.html",
+    "intent": "The seed script populates the database with sample data (users, agents, tasks, tool assignments) for development and tes...",
+    "files": {
+      "read": [
+        "/workspace/examples/grants/seed.py",
+        "/workspace/examples/grants/static/index.html"
+      ],
+      "modify": [],
+      "create": [
+        "/workspace/examples/pygentic/seed.py",
+        "/workspace/examples/pygentic/static/index.html"
+      ]
+    },
+    "verification": {
+      "commands": [
+        "cd /workspace/examples/pygentic && python3 -c \"import config; print('Config OK')\" && python3 -c \"from models import User, Task, Memory; print('Models OK')\""
+      ],
+      "checks": [
+        "seed.py creates 3 users, 5 tasks, 2 agents, tool assignments",
+        "index.html includes ntx-chat with method=agentic_stream",
+        "index.html imports ntx-agent-live.js",
+        "All modulepreload links are valid paths"
+      ]
+    },
+    "depends_on": [
+      "task-07"
+    ],
+    "details": "agent-components/task-08.md"
+  },
+  {
+    "id": "task-09",
+    "wave": 4,
+    "title": "Create Pygentic test suite",
+    "intent": "The test suite validates the Pygentic app's CRUD operations, schema endpoints, agent execution, and streaming. It follow...",
+    "files": {
+      "read": [
+        "/workspace/examples/grants/tests/conftest.py",
+        "/workspace/examples/grants/tests/helpers.py",
+        "/workspace/examples/grants/tests/test_agent_chat.py",
+        "/workspace/examples/grants/tests/test_agent_run.py",
+        "/workspace/examples/grants/tests/test_boot.py"
+      ],
+      "modify": [],
+      "create": [
+        "/workspace/examples/pygentic/tests/__init__.py",
+        "/workspace/examples/pygentic/tests/helpers.py",
+        "/workspace/examples/pygentic/tests/conftest.py",
+        "/workspace/examples/pygentic/tests/test_boot.py",
+        "/workspace/examples/pygentic/tests/test_task_crud.py",
+        "/workspace/examples/pygentic/tests/test_schema_endpoints.py",
+        "/workspace/examples/pygentic/tests/test_agent_run.py"
+      ]
+    },
+    "verification": {
+      "commands": [
+        "cd /workspace && python3 -m pytest examples/pygentic/tests/test_boot.py -v --tb=short -x",
+        "cd /workspace && python3 -m pytest examples/pygentic/tests/ -v --tb=short"
+      ],
+      "checks": [
+        "All test files import without errors",
+        "Boot tests pass (/_meta, schema endpoints)",
+        "Task CRUD tests pass",
+        "Schema tests verify agent section and streaming methods",
+        "Agent run test passes with TestModel"
+      ]
+    },
+    "depends_on": [
+      "task-07",
+      "task-08"
+    ],
+    "details": "agent-components/task-09.md"
+  }
+]

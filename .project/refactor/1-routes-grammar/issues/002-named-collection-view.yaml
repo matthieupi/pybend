@@ -1,0 +1,42 @@
+id: 2
+title: "Named collection view route"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 1
+what_to_build: |
+  Add named collection view support for routes such as `#Product/@table` and
+  `/Product/@table`. Semantic view names must resolve through the model schema
+  renderer map before framework fallbacks, while preserving legacy query-based
+  view selection during migration.
+
+  This slice makes collection view routing useful beyond the default view:
+  table, list, and custom collection surfaces become addressable through a
+  clear path grammar instead of query-parameter-only conventions.
+acceptance_criteria:
+  - "`Product/@table`, `Product/@list`, and `Product/@custom-card` parse as model view routes with the expected `view` values."
+  - "Named collection view routes round-trip through `buildRoute(parseRoute(route))`."
+  - "Leading/trailing slash variants normalize to canonical route strings."
+  - "`resolveRoute()` uses `schema.ui.renderer[view]` before framework fallbacks."
+  - "Unknown named collection views follow the documented deterministic fallback for this phase."
+  - "Query params on `Product/@table?limit=10&offset=20` pass through to mounted component attrs, excluding internal `view` routing params."
+  - "Legacy `Product?view=table` remains supported and does not pass `view` as a component attr."
+  - "Path view selection wins over query view selection when both are present."
+  - "`GET /Product/@table` returns `text/html` and does not shadow `GET /Product`."
+  - "Tests cover parser, builder, resolver, router state, router DOM, backend route conflict, and legacy query compatibility."
+user_stories_addressed:
+  - 4
+  - 5
+  - 12
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  - 20
+  - 23
+  - 25
+  - 27
+  - 55
+  - 57

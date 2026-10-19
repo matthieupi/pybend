@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Veille - Grant Monitoring</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./theme-base.css">
+    <link rel="stylesheet" href="./dark-theme.css">
+    <link rel="stylesheet" href="./light-theme.css">
+    <link rel="stylesheet" href="./industrial-theme.css">
+    <link rel="stylesheet" href="./veille.css">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="preload" href="./components/ntx-item.css" as="style">
+    <link rel="preload" href="./components/ntx-list.css" as="style">
+    <link rel="preload" href="./components/ntx-table.css" as="style">
+    <link rel="preload" href="./components/ntx-router.css" as="style">
+    <link rel="preload" href="./components/ntx-topbar.css" as="style">
+    <link rel="preload" href="./components/ntx-sidebar.css" as="style">
+    <link rel="preload" href="./components/ntx-modal.css" as="style">
+    <link rel="preload" href="./widgets/widgets.css" as="style">
+    <script src="./vendor/marked.min.js"></script>
+    <!-- Modulepreload -- eliminates import waterfall -->
+    <link rel="modulepreload" href="./config.js">
+    <link rel="modulepreload" href="./utils/Assert.js">
+    <link rel="modulepreload" href="./utils/Logging.js">
+    <link rel="modulepreload" href="./utils/Permissions.js">
+    <link rel="modulepreload" href="./core/Utils.js">
+    <link rel="modulepreload" href="./core/TX.js">
+    <link rel="modulepreload" href="./core/Observable.js">
+    <link rel="modulepreload" href="./core/Actor.js">
+    <link rel="modulepreload" href="./core/Matrix.js">
+    <link rel="modulepreload" href="./core/Component.js">
+    <link rel="modulepreload" href="./core/Router.js">
+    <link rel="modulepreload" href="./core/NTT.js">
+    <link rel="modulepreload" href="./core/transport/HTTP.js">
+    <link rel="modulepreload" href="./core/transport/NetworkAdapter.js">
+    <link rel="modulepreload" href="./components/ntx-icon.js">
+    <link rel="modulepreload" href="./components/NTTElement.js">
+    <link rel="modulepreload" href="./components/ListElement.js">
+    <link rel="modulepreload" href="./components/ntx-item.js">
+    <link rel="modulepreload" href="./components/ntx-list.js">
+    <link rel="modulepreload" href="./components/ntx-router.js">
+    <link rel="modulepreload" href="./components/ntx-topbar.js?shell-layout-1">
+    <link rel="modulepreload" href="./components/ntx-method.js">
+    <link rel="modulepreload" href="./components/ntx-modal.js">
+    <link rel="modulepreload" href="./components/ntx-sidebar.js">
+    <link rel="modulepreload" href="./components/ntx-agents.js">
+    <link rel="modulepreload" href="./components/ntx-stream.js">
+    <link rel="modulepreload" href="./components/ntx-stream-agent.js">
+    <link rel="modulepreload" href="./components/ntx-chat.js">
+    <link rel="modulepreload" href="./components/ntx-agent-live.js">
+    <link rel="modulepreload" href="./components/ntx-agent.js">
+    <link rel="modulepreload" href="./components/ntx-agents-dashboard.js">
+    <link rel="modulepreload" href="./components/ntx-table.js">
+    <link rel="modulepreload" href="./components/ntx-grant-item.js">
+    <link rel="modulepreload" href="./components/ntx-grant-analyze.js">
+    <link rel="modulepreload" href="./components/ntx-run-item.js">
+    <link rel="modulepreload" href="./components/ntx-run-output.js">
+    <link rel="modulepreload" href="./components/ntx-run-panel.js">
+    <link rel="modulepreload" href="./components/ntx-run-report.js">
+    <link rel="modulepreload" href="./generators/form.js">
+    <link rel="modulepreload" href="./widgets/Widget.js">
+    <link rel="modulepreload" href="./widgets/registry.js">
+    <link rel="modulepreload" href="./widgets/index.js">
+    <link rel="modulepreload" href="./utils/veille-icons.js">
+    <script>
+        window.NTX_THEME_CONFIG = { themes: ['industrial', 'light', 'dark'] };
+    </script>
+    <script>
+        window.NTX_AGENT_CATALOGS = {
+            veille: [
+                {
+                    id: 'pipeline',
+                    title: 'Pipeline Agent',
+                    summary: 'Runs the source-to-grant pipeline and monitors the operational board.',
+                    icon: 'veille-execute',
+                    route: '',
+                    cta: 'Open Pipeline',
+                    kind: 'built-in',
+                },
+                {
+                    id: 'grant-analysis',
+                    title: 'Grant Analysis Agent',
+                    summary: 'Explains admissibility inside the Grants workflow instead of as a standalone record.',
+                    icon: 'veille-analyze',
+                    route: 'grants',
+                    cta: 'Open Grants',
+                    kind: 'built-in',
+                },
+            ],
+        };
+    </script>
+    <script type="module" src="./utils/theme.js"></script>
+</head>
+    <body class="veille-app">
+        <ntx-topbar hide-brand>
+            <div slot="nav" class="veille-topbar-shell">
+                <label class="veille-topbar-search" aria-label="Search industrial intelligence">
+                    <ntx-icon value="veille-search" decorative></ntx-icon>
+                    <input type="search" id="veille-search" placeholder="Search industrial intelligence..." />
+                </label>
+                <div class="veille-topbar-actions" aria-label="Quick actions">
+                    <button type="button" class="veille-topbar-icon" data-route="" aria-label="Open intelligence board">
+                        <ntx-icon value="veille-dashboard" decorative></ntx-icon>
+                    </button>
+                    <button type="button" class="veille-topbar-icon" data-route="sources" aria-label="Open source registry">
+                        <ntx-icon value="veille-registry" decorative></ntx-icon>
+                    </button>
+                </div>
+            </div>
+            <ntx-theme-button slot="user-menu"></ntx-theme-button>
+        </ntx-topbar>
+        <ntx-sidebar router="main" brand="Veille" subtitle="Industrial Intel" brand-logo="./veille-logo.svg">
+            <a href="#">DASHBOARD</a>
+            <ntx-table model="Source" allow-create></ntx-table>
+            <ntx-list model="Grant" allow-create></ntx-list>
+            <ntx-agents model="AgentActor" sidebar-label="Agents" catalog="veille" title="Agents"></ntx-agents>
+            <ntx-item model="Organization"></ntx-item>
+            <button slot="footer" type="button" class="veille-shell-cta" data-route="runs">
+                <ntx-icon value="veille-new-pipeline" decorative></ntx-icon>
+                <span>New Pipeline</span>
+            </button>
+            <ntx-theme-button slot="footer"></ntx-theme-button>
+        </ntx-sidebar>
+
+    <div class="page">
+        <ntx-router name="main">
+            <ntx-agents-dashboard id="agents-dashboard"></ntx-agents-dashboard>
+            <ntx-run-panel id="run-panel" style="display:none"></ntx-run-panel>
+            <div id="source-panel" style="display:none">
+                <ntx-table model="Source" id="source-list" allow-create></ntx-table>
+                <div class="upload-section" id="upload-section">
+                    <h3>Upload Strategic Document</h3>
+                    <div class="upload-row">
+                        <input type="file" id="doc-file" accept=".pdf,.txt,.md,.doc,.docx" />
+                        <button id="upload-btn" onclick="uploadDocument()">Upload</button>
+                    </div>
+                    <div class="upload-status" id="upload-status"></div>
+                </div>
+            </div>
+            <div id="grant-panel" style="display:none">
+                <ntx-list model="Grant" id="grant-list" allow-create></ntx-list>
+            </div>
+            <div id="agent-panel" style="display:none">
+                <ntx-agent model="AgentActor" id="agent-detail"></ntx-agent>
+            </div>
+            <ntx-grant-analyze id="analyze-panel" model="Grant" method="analyze" style="display:none"></ntx-grant-analyze>
+            <ntx-run-report id="report-panel" style="display:none"></ntx-run-report>
+        </ntx-router>
+    </div>
+
+    <button id="veille-fab" class="veille-fab" type="button" aria-label="Jump to dashboard controls">
+        <ntx-icon value="veille-bolt" decorative></ntx-icon>
+    </button>
+
+    <script type="module">
+        import './utils/veille-icons.js';
+        import Logging from './utils/Logging.js';
+        Logging.init("Loading Veille v1.0...");
+
+        import { Matrix, matrix } from './core/Matrix.js';
+        import { buildRoute } from './core/Router.js';
+        import { NTT } from './core/NTT.js';
+        import { permissions } from './utils/Permissions.js';
+        import './components/ntx-item.js';
+        import './components/ntx-list.js';
+        import './components/ntx-router.js';
+        import './components/ntx-topbar.js?shell-layout-1';
+        import './components/ntx-sidebar.js';
+        import './components/ntx-agents.js';
+        import './components/ntx-profile.js';
+        import './components/ntx-stream.js';
+        import './components/ntx-stream-agent.js';
+        import './components/ntx-chat.js';
+        import './components/ntx-agent.js';
+        import './components/ntx-agents-dashboard.js';
+        import './components/ntx-table.js';
+        import './components/ntx-grant-item.js';
+        import './components/ntx-grant-analyze.js';
+        import './components/ntx-run-item.js';
+        import './components/ntx-run-output.js';
+        import './components/ntx-run-panel.js';
+        import './components/ntx-run-report.js';
+
+        // Redirect to login if not authenticated
+        permissions.init().then(user => {
+            if (!user) {
+                window.location.href = '/login.html';
+            }
+        });
+
+        function resetMainRouterHome() {
+            matrix.dispatch({
+                name: 'NAVIGATE',
+                source: 'veille-shell',
+                target: 'main',
+                data: buildRoute({ type: 'home' }),
+                meta: { reset: true },
+            });
+        }
+
+        function navigateLocalRoute(route = '') {
+            history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+            resetMainRouterHome();
+            handleRoute(route);
+        }
+
+        // Simple local panel routing for Veille dashboard surfaces.
+        function handleRoute(routeOverride = null) {
+            const hash = typeof routeOverride === 'string'
+                ? routeOverride
+                : window.location.hash.replace('#', '');
+            const panels = ['agents-dashboard', 'run-panel', 'source-panel', 'grant-panel', 'agent-panel',
+                            'analyze-panel', 'report-panel'];
+            panels.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
+            if (!hash) {
+                document.getElementById('agents-dashboard').style.display = 'block';
+            } else if (hash === 'runs') {
+                document.getElementById('run-panel').style.display = 'block';
+            } else if (hash === 'sources') {
+                document.getElementById('source-panel').style.display = 'block';
+            } else if (hash === 'grants') {
+                document.getElementById('grant-panel').style.display = 'block';
+            } else if (hash.startsWith('AgentActor/')) {
+                const agentId = hash.split('/')[1];
+                const panel = document.getElementById('agent-panel');
+                const detail = document.getElementById('agent-detail');
+                if (panel && detail && agentId) {
+                    detail.setAttribute('ref', `AgentActor/${agentId}`);
+                    detail.setAttribute('display', 'lg');
+                    panel.style.display = 'block';
+                }
+            } else if (hash.startsWith('analyze/')) {
+                const grantId = hash.split('/')[1];
+                const el = document.getElementById('analyze-panel');
+                if (el && grantId) {
+                    el.setAttribute('uuid', grantId);
+                    el.style.display = 'block';
+                }
+            } else if (hash.startsWith('report/')) {
+                const runId = hash.split('/')[1];
+                const el = document.getElementById('report-panel');
+                if (el && runId) {
+                    el.setAttribute('run-id', runId);
+                    el.style.display = 'block';
+                }
+            } else {
+                document.getElementById('agents-dashboard').style.display = 'block';
+            }
+        }
+
+        document.querySelectorAll('[data-route]').forEach((button) => {
+            button.addEventListener('click', () => {
+                navigateLocalRoute(button.getAttribute('data-route') ?? 'runs');
+            });
+        });
+
+        document.getElementById('veille-fab')?.addEventListener('click', () => {
+            navigateLocalRoute('runs');
+            requestAnimationFrame(() => {
+                document.getElementById('run-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                document.querySelector('#run-panel .run-url-input')?.focus();
+            });
+        });
+
+        document.getElementById('veille-search')?.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            navigateLocalRoute('grants');
+        });
+
+        window.addEventListener('hashchange', handleRoute);
+        handleRoute();
+    </script>
+
+    <script>
+        // Document upload handler (plain script, no module -- needs global access for onclick)
+        async function uploadDocument() {
+            const fileInput = document.getElementById('doc-file');
+            const statusEl = document.getElementById('upload-status');
+            const file = fileInput.files[0];
+            if (!file) {
+                statusEl.textContent = 'Please select a file first.';
+                statusEl.className = 'upload-status error';
+                return;
+            }
+
+            const token = window.localStorage.getItem('jwtToken');
+            if (!token) {
+                statusEl.textContent = 'Not authenticated. Please log in.';
+                statusEl.className = 'upload-status error';
+                return;
+            }
+
+            statusEl.textContent = 'Uploading...';
+            statusEl.className = 'upload-status';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                const resp = await fetch('/organizations/upload', {
+                    method: 'POST',
+                    headers: { 'x-access-token': token },
+                    body: formData,
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    throw new Error(data.detail || 'Upload failed');
+                }
+                statusEl.textContent = 'Uploaded: ' + data.filename + ' (' + data.size + ' bytes)';
+                statusEl.className = 'upload-status';
+                fileInput.value = '';
+            } catch (err) {
+                statusEl.textContent = err.message;
+                statusEl.className = 'upload-status error';
+            }
+        }
+    </script>
+</body>
+</html>

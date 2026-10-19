@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Veille logo</title>
+  <desc id="desc">Simplified desk lamp logo mirrored to cast light toward the left.</desc>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="18" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0e2327"/>
+      <stop offset="1" stop-color="#173e45"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="54" y1="38" x2="20" y2="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f0c05a" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#7ce6d8" stop-opacity="0.18"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="10" y="10" width="108" height="108" rx="28" fill="url(#bg)"/>
+  <path d="M56 40 22 64 48 90 64 52Z" fill="url(#beam)"/>
+
+  <g fill="none" stroke="#d7f7f0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M56 98h36"/>
+    <path d="M74 98V78"/>
+    <path d="M74 78 58 62"/>
+    <path d="M58 62 46 50"/>
+  </g>
+
+  <path d="M28 36h24l8 24H34Z" fill="#d7f7f0"/>
+</svg>

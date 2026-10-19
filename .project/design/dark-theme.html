@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Veille | Grant Management Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-error-container": "#ffa8a3",
+                        "on-secondary": "#005d52",
+                        "secondary-fixed": "#6ef9e2",
+                        "on-primary-fixed-variant": "#005561",
+                        "on-secondary-fixed-variant": "#00675b",
+                        "surface-tint": "#3adffa",
+                        "background": "#070d1f",
+                        "on-background": "#dfe4fe",
+                        "surface": "#070d1f",
+                        "on-primary-fixed": "#00363e",
+                        "tertiary-dim": "#c1d0e6",
+                        "secondary-container": "#006b5e",
+                        "error-container": "#9f0519",
+                        "inverse-on-surface": "#4f5469",
+                        "on-surface": "#dfe4fe",
+                        "primary-container": "#00cbe6",
+                        "on-secondary-container": "#ddfff6",
+                        "surface-container-high": "#171f36",
+                        "tertiary-fixed": "#cfdef5",
+                        "on-secondary-fixed": "#00483f",
+                        "surface-container-lowest": "#000000",
+                        "secondary-dim": "#5eead4",
+                        "primary-fixed": "#3adffa",
+                        "primary": "#3adffa",
+                        "outline": "#6f758b",
+                        "tertiary-fixed-dim": "#c1d0e6",
+                        "on-tertiary-fixed-variant": "#4a596c",
+                        "on-error": "#490006",
+                        "surface-bright": "#222b47",
+                        "on-primary-container": "#003d46",
+                        "surface-container-highest": "#1c253e",
+                        "surface-variant": "#1c253e",
+                        "on-tertiary-container": "#414f62",
+                        "outline-variant": "#41475b",
+                        "secondary-fixed-dim": "#5eead4",
+                        "tertiary": "#e0ecff",
+                        "primary-dim": "#1ad0eb",
+                        "on-primary": "#004b56",
+                        "surface-dim": "#070d1f",
+                        "surface-container": "#11192e",
+                        "on-tertiary": "#49586b",
+                        "error": "#ff716c",
+                        "tertiary-container": "#cfdef5",
+                        "error-dim": "#d7383b",
+                        "inverse-primary": "#006977",
+                        "surface-container-low": "#0c1326",
+                        "primary-fixed-dim": "#1ad0eb",
+                        "secondary": "#6ef9e2",
+                        "on-surface-variant": "#a5aac2",
+                        "inverse-surface": "#faf8ff",
+                        "on-tertiary-fixed": "#2e3d4e"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #070d1f;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-xl shadow-[0_20px_50px_rgba(58,223,250,0.06)] font-['Manrope'] antialiased tracking-tight">
+<div class="flex justify-between items-center w-full px-8 h-16">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black text-cyan-400 tracking-tighter">Veille</span>
+<div class="hidden md:flex gap-6">
+<a class="text-cyan-400 font-bold border-b-2 border-cyan-400 pb-1" href="#">Portfolio</a>
+<a class="text-slate-300 hover:text-cyan-200 transition-colors" href="#">Resources</a>
+<a class="text-slate-300 hover:text-cyan-200 transition-colors" href="#">Support</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-300 hover:bg-slate-800/50 transition-all duration-300 rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-300 hover:bg-slate-800/50 transition-all duration-300 rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-container overflow-hidden">
+<img alt="User profile" class="h-full w-full object-cover" data-alt="Close-up portrait of a professional man with a friendly expression in soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0TDT67jDXO061s_a-YhxOCsTJNQlmB7D8oBkSYgYLkUmzUS2VbKqad1yGHzudurCEB0ldnLN9fs0iSnJWRqTwEbbkkV8I6gGJhRhUQJQigBwe87DqR_RG1TTaWU7OofcraGkjv2mdy2CRPFzePtrL2CYnCIBrltlUz1V1Zh5Yy2r37wRMi5BhPGpalNCX3wTuYQH2mTQUKwiClVpt6Q1dmg6Grr4BFdvPV5W3zdpwMffn76LYX-pGR8LeQuV6KKg1jKrtekC0cj4"/>
+</div>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-slate-950 flex flex-col h-full p-4 border-r border-slate-800/50 hidden md:flex z-40 pt-20">
+<div class="mb-8 px-4">
+<h2 class="text-xl font-extrabold text-slate-100">Veille</h2>
+<p class="text-[0.6875rem] font-medium tracking-wide uppercase text-on-surface-variant">Grant Management</p>
+</div>
+<div class="flex flex-col gap-2 flex-grow">
+<a class="flex items-center gap-3 px-4 py-3 bg-slate-900 text-cyan-400 rounded-lg shadow-[inset_0_0_10px_rgba(58,223,250,0.1)] font-['Manrope'] text-sm font-medium tracking-wide uppercase transition-transform duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-slate-900/80 hover:translate-x-1 transition-all font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
+<span class="material-symbols-outlined">manage_search</span>
+                Grant Search
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-slate-900/80 hover:translate-x-1 transition-all font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
+<span class="material-symbols-outlined">insert_chart</span>
+                Analytics
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-slate-900/80 hover:translate-x-1 transition-all font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
+<span class="material-symbols-outlined">description</span>
+                Reports
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-slate-900/80 hover:translate-x-1 transition-all font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
+<span class="material-symbols-outlined">group</span>
+                Team
+            </a>
+</div>
+<div class="mt-auto border-t border-slate-800/50 pt-4 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
+<span class="material-symbols-outlined">help</span>
+                Help
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 font-['Manrope'] text-sm font-medium tracking-wide uppercase" href="#">
+<span class="material-symbols-outlined">logout</span>
+                Logout
+            </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="md:ml-64 pt-24 px-8 pb-12">
+<!-- Header Section -->
+<header class="mb-10 flex justify-between items-end">
+<div>
+<h1 class="text-4xl font-extrabold tracking-tight text-on-surface mb-2 leading-none">Intelligence Dashboard</h1>
+<p class="text-on-surface-variant text-lg">Real-time grant opportunity tracking and pipeline health.</p>
+</div>
+<div class="flex gap-4">
+<button class="bg-surface-container-high px-6 py-2 rounded-lg font-semibold text-sm border border-outline-variant/15 hover:bg-surface-container-highest transition-colors">
+                    Export Report
+                </button>
+<button class="bg-gradient-to-br from-primary to-primary-container px-6 py-2 rounded-lg font-bold text-sm text-on-primary shadow-lg shadow-primary/10 transition-transform active:scale-95">
+                    + New Pipeline
+                </button>
+</div>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Grant Pipeline Health (Large Section) -->
+<section class="col-span-12 lg:col-span-8 bg-surface-container-low rounded-xl p-6 border border-outline-variant/5">
+<div class="flex justify-between items-center mb-8">
+<h3 class="text-lg font-bold uppercase tracking-widest text-secondary">Grant Pipeline Health</h3>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-surface-container text-xs font-bold rounded-full text-on-surface-variant">MONTHLY</span>
+<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">LIVE</span>
+</div>
+</div>
+<div class="h-64 flex items-end gap-4 px-2">
+<!-- Custom Chart Simulation -->
+<div class="flex-1 flex flex-col justify-end gap-2 group">
+<div class="w-full bg-slate-800 rounded-t-lg h-[40%] group-hover:bg-slate-700 transition-all"></div>
+<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">JAN</span>
+</div>
+<div class="flex-1 flex flex-col justify-end gap-2 group">
+<div class="w-full bg-slate-800 rounded-t-lg h-[60%] group-hover:bg-slate-700 transition-all"></div>
+<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">FEB</span>
+</div>
+<div class="flex-1 flex flex-col justify-end gap-2 group">
+<div class="w-full bg-primary/20 rounded-t-lg h-[85%] group-hover:bg-primary/30 transition-all relative">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-on-primary text-[10px] font-black px-2 py-1 rounded">MATCH</div>
+</div>
+<span class="text-[0.6875rem] text-center text-primary font-bold">MAR</span>
+</div>
+<div class="flex-1 flex flex-col justify-end gap-2 group">
+<div class="w-full bg-slate-800 rounded-t-lg h-[45%] group-hover:bg-slate-700 transition-all"></div>
+<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">APR</span>
+</div>
+<div class="flex-1 flex flex-col justify-end gap-2 group">
+<div class="w-full bg-slate-800 rounded-t-lg h-[75%] group-hover:bg-slate-700 transition-all"></div>
+<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">MAY</span>
+</div>
+<div class="flex-1 flex flex-col justify-end gap-2 group">
+<div class="w-full bg-secondary/20 rounded-t-lg h-[95%] group-hover:bg-secondary/30 transition-all"></div>
+<span class="text-[0.6875rem] text-center text-on-surface-variant font-bold">JUN</span>
+</div>
+</div>
+</section>
+<!-- Quick Stats (Tall Section) -->
+<section class="col-span-12 lg:col-span-4 grid grid-rows-2 gap-6">
+<div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 flex flex-col justify-between">
+<div>
+<p class="text-[0.6875rem] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Pipeline Value</p>
+<h4 class="text-3xl font-black text-on-surface">$2.4M</h4>
+</div>
+<div class="flex items-center gap-2 text-secondary text-sm font-bold">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+                        +14.2% from last quarter
+                    </div>
+</div>
+<div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 flex flex-col justify-between">
+<div>
+<p class="text-[0.6875rem] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Active Proposals</p>
+<h4 class="text-3xl font-black text-on-surface">18</h4>
+</div>
+<div class="flex -space-x-3 overflow-hidden">
+<img alt="" class="inline-block h-8 w-8 rounded-full ring-2 ring-surface-container" data-alt="Portrait of a young executive man in a neutral setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJbZ1awxr415wZ2VSb0ETgyTxwuVZuGj3SzrZ8UGyD6AQrDIfH9oh2460NzVhea9-KyhlqXsvGG79JmAFyxBm67OtMSnCQDs5sX0Hxmw4x1WhGNcMT6YHCqXlxcw9ZNTcuxjxa0vPJcoTYchU8faJrx5P23tGe_EhSFa8gILtoK8UvcWoyghtjG9wFxLQgMyLLSXOiOTJLxXtZyB0IedKtSJ2SzPZk_8ulApb4hr5ebcDupgC68cWpahLy0tPhg26ypwJz_W74wkc"/>
+<img alt="" class="inline-block h-8 w-8 rounded-full ring-2 ring-surface-container" data-alt="Close-up of a smiling professional woman with bright lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3rlBdIz7ao5xQ-2A5uRTrJe3irQ2p_AtOKRoxVab-o4zTF-QCXkZ-CDeCPSQeNEzBhHenh3p2q2WRFopl_gWuLudGPq53INvqKMUiiZUU6teCEMJ0WG9JWKD2Lw5Jy5Z4FC5S9PlmSi245KIIRyoO8VPwx3Y_S-B9vkDKo-jZ1z7Ss1mgt3fv6vYXaqAb2aVruNU_UeBSUo1cmgBq9_W1ePwfVttbgdSFyIjlumQSO1ByftkodCPCd76YhzprSCFh-91FfaH35n0"/>
+<img alt="" class="inline-block h-8 w-8 rounded-full ring-2 ring-surface-container" data-alt="Man in a professional office environment with soft focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnDtKqOMPgCj3IPtTZzCghTZ2iAO3cSYcymGIBmgf-KPsaXS2Rr5jns3vFqQVKcFfs13Ynp8vwKwWH0ZmS_Djm93P5Eyf8ImLcVsmqZaOfZ8XibYy1qIivk1qoz0frfAnJhuaNoBdgxRR1pNUoHXnUsx5g-dOViL6MWugjjXjV5gZrxg19LF2Cgy1vG4YhV37x74xsuezd1U6v2DZBEMzsa5l6yHy5nj6FKCy8ivs5BhRtyQdAuVr6MZ51iyr2IRoQXkL-VF_O8S4"/>
+<div class="flex items-center justify-center h-8 w-8 rounded-full bg-slate-800 ring-2 ring-surface-container text-[10px] font-bold">+5</div>
+</div>
+</div>
+</section>
+<!-- Opportunity List Header -->
+<div class="col-span-12 mt-4">
+<h3 class="text-xl font-bold text-on-surface">Curated Opportunities</h3>
+</div>
+<!-- New Opportunity Highlight Card -->
+<div class="col-span-12 lg:col-span-4 group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 to-slate-950 border border-primary/20 p-1">
+<div class="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="bg-slate-950 rounded-[0.6rem] p-6 h-full relative z-10">
+<div class="flex justify-between items-start mb-6">
+<span class="bg-primary/10 text-primary text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">NEW OPPORTUNITY</span>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">bookmark</span>
+</button>
+</div>
+<h4 class="text-xl font-bold text-on-surface mb-2 leading-tight">NSF: Future of Quantum Computation</h4>
+<p class="text-on-surface-variant text-sm mb-6 line-clamp-2">Exploring innovative approaches to qubit coherence and architectural scaling for mid-range systems.</p>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Score</p>
+<p class="text-lg font-black text-secondary">98<span class="text-xs font-medium text-on-surface-variant ml-1">/100</span></p>
+</div>
+<div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Amount</p>
+<p class="text-lg font-black text-on-surface">$1.2M</p>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-sm">event</span>
+<span class="text-xs font-bold text-error">Deadline: Oct 24</span>
+</div>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider">Review</button>
+</div>
+</div>
+</div>
+<!-- Standard Opportunity Cards -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+<div class="flex justify-between items-start mb-6">
+<span class="bg-slate-800 text-slate-400 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">HIGH MATCH</span>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">bookmark</span>
+</button>
+</div>
+<h4 class="text-xl font-bold text-on-surface mb-2 leading-tight">DOE: Clean Energy Innovation</h4>
+<p class="text-on-surface-variant text-sm mb-6 line-clamp-2">Advancing grid-scale battery storage solutions using solid-state electrolytes.</p>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-surface-container-low p-3 rounded-lg">
+<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Score</p>
+<p class="text-lg font-black text-on-surface">84<span class="text-xs font-medium text-on-surface-variant ml-1">/100</span></p>
+</div>
+<div class="bg-surface-container-low p-3 rounded-lg">
+<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Amount</p>
+<p class="text-lg font-black text-on-surface">$750K</p>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">event</span>
+<span class="text-xs font-bold text-on-surface-variant">Deadline: Nov 12</span>
+</div>
+<button class="text-primary text-xs font-bold uppercase tracking-widest hover:underline underline-offset-4 transition-all">View Details</button>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-4 bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+<div class="flex justify-between items-start mb-6">
+<span class="bg-slate-800 text-slate-400 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">RECURRING</span>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">bookmark</span>
+</button>
+</div>
+<h4 class="text-xl font-bold text-on-surface mb-2 leading-tight">NIH: AI in Medical Imaging</h4>
+<p class="text-on-surface-variant text-sm mb-6 line-clamp-2">Development of automated diagnostic tools for rural health clinics using mobile AI interfaces.</p>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-surface-container-low p-3 rounded-lg">
+<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Score</p>
+<p class="text-lg font-black text-on-surface">71<span class="text-xs font-medium text-on-surface-variant ml-1">/100</span></p>
+</div>
+<div class="bg-surface-container-low p-3 rounded-lg">
+<p class="text-[10px] font-bold uppercase text-on-surface-variant mb-1">Amount</p>
+<p class="text-lg font-black text-on-surface">$450K</p>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">event</span>
+<span class="text-xs font-bold text-on-surface-variant">Deadline: Jan 05</span>
+</div>
+<button class="text-primary text-xs font-bold uppercase tracking-widest hover:underline underline-offset-4 transition-all">View Details</button>
+</div>
+</div>
+</div>
+<!-- Recent Activity Feed -->
+<section class="mt-12">
+<h3 class="text-lg font-bold uppercase tracking-widest text-on-surface-variant mb-6">System Feed</h3>
+<div class="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/5">
+<div class="divide-y divide-outline-variant/10">
+<div class="p-4 flex items-center justify-between hover:bg-slate-900/30 transition-colors">
+<div class="flex items-center gap-4">
+<div class="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">update</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">AI Match Engine Updated</p>
+<p class="text-xs text-on-surface-variant">42 new opportunities processed and scored.</p>
+</div>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase">2m ago</span>
+</div>
+<div class="p-4 flex items-center justify-between hover:bg-slate-900/30 transition-colors">
+<div class="flex items-center gap-4">
+<div class="h-10 w-10 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Draft Submitted: Quantum Lab Phase II</p>
+<p class="text-xs text-on-surface-variant">Review pending by Sarah Jenkins.</p>
+</div>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase">1h ago</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-8 right-8 h-14 w-14 bg-primary rounded-full shadow-2xl shadow-primary/40 flex items-center justify-center text-on-primary transition-transform hover:scale-110 active:scale-90 z-50">
+<span class="material-symbols-outlined text-3xl">chat_bubble</span>
+</button>
+</body></html>

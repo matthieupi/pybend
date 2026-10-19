@@ -1,0 +1,301 @@
+# Icons Feature Plan
+
+## Goal
+
+Add a single `ui.icon` contract to N3TX UI that supports:
+- emoji, e.g. `📚`
+- icon URLs/paths, e.g. `/static/icons/books.svg`
+- lookup keys, e.g. `books`, resolved to either emoji or URL
+
+Use a shared icon rendering layer so built-in UI surfaces can display icons consistently.
+For Veille, use emoji-first icons with a monochrome visual treatment so icons feel theme-aware while retaining expressive emoji shapes.
+
+## Product Direction
+
+- One field only: `ui.icon`
+- No separate `emoji` or `icon_key`
+- `ui.icon` works at:
+  - model level: `__ui__ = {'icon': '📚'}`
+  - method level: `__ui__ = {'methods': {'analyze': {'icon': '🔎'}}}`
+- Rendering should support:
+  - direct emoji
+  - direct URL/path
+  - symbolic lookup key mapped by a registry
+- Emoji should render through a dedicated icon component/helper that applies a monochrome filter for theme fit
+- URL/icon asset support remains available as fallback for cases where emoji theming is poor on a platform
+
+## Current Integration Points
+
+### Existing method icon flow
+
+Method `ui.icon` already propagates through:
+- `packages/n3tx-ui/src/n3tx_ui/static/generators/form.js`
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.js`
+
+Current rendering is limited because:
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js`
+  uses a hardcoded SVG map (`heart`, `star`, `reply`, `default`)
+
+### Missing model icon flow
+
+Model-level `ui.icon` is not currently rendered in:
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.js`
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js`
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.js`
+
+## Desired Contract
+
+### Model-level
+
+```python
+__ui__ = {
+    'icon': '📚',
+}
+```
+
+### Method-level
+
+```python
+__ui__ = {
+    'methods': {
+        'analyze': {
+            'layout': 'button',
+            'icon': '🔎',
+        },
+    },
+}
+```
+
+### Lookup-key examples
+
+```python
+__ui__ = {'icon': 'books'}
+__ui__ = {'methods': {'analyze': {'icon': 'analyze'}}}
+```
+
+Registry may resolve:
+- `books -> 📚`
+- `analyze -> 🔎`
+- `grant -> /static/icons/grant.svg`
+
+## Resolution Rules
+
+Add a shared resolver with this behavior:
+
+1. Empty value -> render nothing
+2. URL/path-like string -> render asset icon
+3. Known lookup key -> resolve to emoji or URL
+4. Otherwise -> treat as direct text/emoji glyph
+
+Suggested URL/path detection:
+- starts with `http://`, `https://`, `/`, `./`, `../`
+- or ends with `.svg`, `.png`, `.jpg`, `.jpeg`, `.webp`
+
+Suggested fallback:
+- unknown token like `books` with no registry entry should render as text rather than disappear
+
+## Shared Icon Layer
+
+Create a shared utility or component, e.g. one of:
+
+- `packages/n3tx-ui/src/n3tx_ui/static/utils/icon-resolver.js`
+- optional `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-icon.js`
+
+### Suggested resolver API
+
+```js
+registerIcons({
+  books: '📚',
+  grant: '/static/icons/grant.svg',
+})
+
+resolveIcon(value)
+```
+
+Suggested normalized result:
+
+```js
+{ kind: 'emoji', value: '📚' }
+{ kind: 'image', value: '/static/icons/grant.svg' }
+{ kind: 'text', value: 'books' }
+```
+
+## Emoji Monochrome Treatment
+
+For emoji rendering:
+- wrap icon in dedicated element
+- apply monochrome visual treatment with CSS filter
+
+Candidate styling:
+
+```css
+filter: grayscale(1) contrast(1.1);
+```
+
+Potential theme token extensions:
+- `--icon-filter`
+- `--icon-opacity`
+- `--icon-size`
+
+Important note:
+- emoji filtering is best-effort and platform dependent
+- schema contract remains stable, so any problematic icon can later be switched to a URL without changing API shape
+
+## Implementation Phases
+
+### Phase 1 — Shared resolver
+
+- Add shared icon resolver utility
+- Add registry API for app-level lookup mapping
+- Add URL/emoji/lookup discrimination
+- Add basic normalized output shape
+
+### Phase 2 — Method icons
+
+Update:
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.js`
+
+Tasks:
+- remove hardcoded SVG map
+- route all icon rendering through shared resolver
+- support icon rendering in:
+  - `button`
+  - `inline`
+  - `fieldset`
+- preserve `count_field` behavior unchanged
+
+### Phase 3 — Model shell icons
+
+Update:
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.js`
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ListElement.js`
+- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.js`
+
+Tasks:
+- render `schema.ui.icon` in model headers/chrome
+- sidebar: icon near model identity/avatar
+- list/table: icon near collection title
+- preserve fallback to initials/no icon when icon is absent
+
+### Phase 4 — Veille app adoption
+
+Update Veille models:
+- `apps/veille/models/grant.py`
+- `apps/veille/models/source.py`
+- `apps/veille/models/organization.py`
+- `apps/veille/models/run.py`
+- `apps/veille/models/user.py`
+- optionally `apps/veille/models/web_tools.py`
+
+Add model icons:
+- `Grant` -> `💸`
+- `Source` -> `📰`
+- `Organization` -> `🏢`
+- `Run` -> `⚙️`
+- `User` -> `👤`
+- `WebTools` -> `🛠️` or `🕸️`
+
+Add method icons:
+- `Grant.analyze` -> `🔎`
+- `Run.execute` -> `▶️`
+- `Run.adhoc` -> `🧪`
+
+Optional lookup-table mode for Veille:
+
+```js
+registerIcons({
+  grant: '💸',
+  source: '📰',
+  organization: '🏢',
+  run: '⚙️',
+  user: '👤',
+  web_tools: '🛠️',
+  analyze: '🔎',
+  execute: '▶️',
+  adhoc: '🧪',
+})
+```
+
+### Phase 5 — Documentation
+
+Update:
+- `packages/n3tx-ui/docs/viewable-mixin.md`
+- `packages/n3tx-ui/docs/components.md`
+- `docs/CORE.md`
+- `FRONTEND.md`
+
+Document:
+- `ui.icon` as universal contract
+- accepted value forms: emoji, URL/path, lookup key
+- resolver behavior
+- monochrome emoji treatment as best-effort
+- app-level registry extension pattern
+
+## Testing Plan
+
+### Python schema tests
+
+Extend:
+- `packages/n3tx-ui/src/n3tx_ui/tests/test_viewable_mixin.py`
+
+Cases:
+- model `__ui__ = {'icon': '📚'}` passes through
+- model `__ui__ = {'icon': 'books'}` passes through
+- method `ui.icon = '🔎'` passes through
+- method `ui.icon = 'analyze'` passes through
+
+### Frontend tests
+
+Update/add tests for:
+- method button renders emoji icon
+- method button renders URL icon
+- lookup key resolves correctly
+- sidebar renders model `ui.icon`
+- list/table render model `ui.icon`
+- monochrome filter/class is applied to emoji rendering
+- missing lookup key degrades safely
+
+Existing likely touchpoints:
+- `tests/frontend/tests/e2e/ntx-method-unit.spec.js`
+- `tests/frontend/tests/components/ntx-item.test.js`
+- related mock schema helpers
+
+### Manual verification
+
+Verify on:
+- desktop + mobile
+- light + dark theme
+- at least one Veille route showing sidebar and collections
+- at least one method button and one streaming method trigger
+
+## Design Constraints
+
+- Keep backend/schema mechanics minimal; `__ui__` already passes through
+- Avoid a hardcoded framework SVG registry
+- Prefer one shared icon resolver rather than component-specific logic
+- Preserve backward compatibility where practical
+- If legacy symbolic keys like `heart` or `star` exist, map them through the new lookup path rather than special-casing in components
+
+## Recommended Execution Order
+
+1. Add shared resolver and registry
+2. Migrate `ntx-method` to resolver
+3. Add model-level `ui.icon` rendering to sidebar/list/table
+4. Add Veille icons to models and methods
+5. Add tests
+6. Update docs
+7. Manually verify monochrome emoji treatment in Veille
+
+## Risks
+
+- Emoji monochrome filtering is not fully deterministic across platforms
+- Some emoji may remain partially colorful depending on browser/OS/font rendering
+- URL/path icon fallback is necessary for any icon that does not theme acceptably
+
+## Success Criteria
+
+- A developer can write `__ui__ = {'icon': '📚'}` and see it in sidebar/list/table
+- A developer can write `__ui__.methods.<name>.icon = '🔎'` and see it in method UI
+- A developer can use `ui.icon = 'books'` with a registry lookup
+- Veille models visibly use icons
+- Emoji icons appear visually toned toward monochrome in the default themed UI

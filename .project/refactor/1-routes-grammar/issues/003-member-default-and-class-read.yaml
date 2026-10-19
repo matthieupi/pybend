@@ -1,0 +1,46 @@
+id: 3
+title: "Member default view and class-name read mirror"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 1
+what_to_build: |
+  Deliver the first complete member route path. A developer should be able to
+  navigate to `#Product/1/@` and mount the default member detail view, request
+  `/Product/1` as a class-name read mirror of `/products/1`, and request
+  `/Product/1/@` to receive an HTML shell for the member default view.
+
+  The class-name read mirror must preserve the existing identity contract:
+  `$schema` stays class-name based and `$id` remains table-name based during
+  this migration phase.
+acceptance_criteria:
+  - "`Product/1/@` parses as a detail view route with `view: null` and `isViewRoute: true`."
+  - "`buildRoute(parseRoute('Product/1/@'))` returns `Product/1/@`."
+  - "`resolveRoute(parseRoute('Product/1/@'))` resolves to `renderer.detail`, then `renderer.item`, then `ntx-item`."
+  - "`ntx-router` deep-linked to `#Product/1/@` mounts the resolved member component with `ref='Product/1'` and `display='lg'`."
+  - "`GET /Product/1` returns the same domain data as `GET /products/1`."
+  - "`GET /Product/1` preserves `$schema` as class-name based and `$id` as table-name based."
+  - "`GET /Product/1?populate=comments&depth=1` preserves query semantics from the table-name route."
+  - "`GET /Product/999999` mirrors table-name not-found behavior."
+  - "Class-name write routes such as `POST /Product/1`, `PUT /Product/1`, and `DELETE /Product/1` are not added."
+  - "`GET /Product/1/@` returns `text/html` and does not shadow `/Product/1`."
+  - "Authorization behavior for class-name reads mirrors table-name reads."
+user_stories_addressed:
+  - 6
+  - 24
+  - 25
+  - 28
+  - 30
+  - 31
+  - 34
+  - 35
+  - 36
+  - 37
+  - 38
+  - 39
+  - 41
+  - 42
+  - 49
+  - 55
+  - 56
+  - 59

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login — Veille</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL,GRAD,opsz@300,1,0,24" />
+  <link rel="stylesheet" href="./theme-base.css" />
+  <link rel="stylesheet" href="./dark-theme.css" />
+  <link rel="stylesheet" href="./light-theme.css" />
+  <link rel="stylesheet" href="./industrial-theme.css" />
+  <link rel="stylesheet" href="./auth.css" />
+  <link rel="stylesheet" href="./veille.css" />
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <script>
+    window.NTX_THEME_CONFIG = { themes: ['industrial', 'light', 'dark'] };
+  </script>
+  <script type="module" src="./utils/theme.js"></script>
+</head>
+<body class="veille-auth">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>Welcome back</h1>
+        <p>Sign in to Veille</p>
+      </div>
+
+      <div class="auth-error" id="error-msg"></div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="you@example.com" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="Your password" required />
+        </div>
+        <button type="submit" class="auth-btn">Sign in</button>
+      </form>
+
+      <div class="auth-link">
+        Don't have an account? <a href="/register.html">Register</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('login-form');
+    const errorEl = document.getElementById('error-msg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const resp = await fetch('/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || 'Login failed');
+        }
+
+        const data = await resp.json();
+        const payload = data.result || data;
+        const token = payload.token || (payload.data && payload.data.token);
+        window.localStorage.setItem('jwtToken', token);
+        window.location.href = '/';
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    });
+
+    // If already logged in, validate token then redirect.
+    // Use /sources (lowercase CRUD endpoint, requires AUTHENTICATED) not /Source (schema, always public).
+    const existingToken = window.localStorage.getItem('jwtToken');
+    if (existingToken) {
+      fetch('/sources', { headers: { 'x-access-token': existingToken } })
+        .then(resp => {
+          if (resp.ok) {
+            window.location.href = '/';
+          } else {
+            window.localStorage.removeItem('jwtToken');
+          }
+        })
+        .catch(() => {
+          window.localStorage.removeItem('jwtToken');
+        });
+    }
+  </script>
+</body>
+</html>

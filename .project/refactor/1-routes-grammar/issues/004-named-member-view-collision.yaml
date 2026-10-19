@@ -1,0 +1,42 @@
+id: 4
+title: "Named member views and method/view collision"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 3
+what_to_build: |
+  Add named member view support for routes such as `#Product/1/@item`,
+  `#Product/1/@detail`, `#Product/1/@chat`, and `#Product/1/@run`. Prove that
+  method routes and view routes are distinct: `Product/1/run` is an action;
+  `Product/1/@run` is a view and must never receive method/action attrs.
+
+  This slice locks the most important grammar collision across frontend and
+  backend behavior.
+acceptance_criteria:
+  - "Named member view routes parse with expected `view` values and `isViewRoute: true`."
+  - "Named member view routes round-trip through `buildRoute(parseRoute(route))`."
+  - "`resolveRoute()` uses member schema renderers for `item`, `detail`, `chat`, and custom views before fallbacks."
+  - "`Product/1/run` resolves as an action route with `method='run'`."
+  - "`Product/1/@run` resolves as a member view route with no `method` attr."
+  - "`GET /Product/1/@item` returns `text/html` and mounts or bootstraps the named member view."
+  - "`GET /Product/1/@run` hits the view route, not a method route."
+  - "Legacy `/products/1/run` method/action routes remain unchanged."
+  - "`GET /Product/1/run` remains unavailable unless class-name method mirrors are explicitly added in a later phase."
+  - "Route order tests prove member view routes are not shadowed by generic item or method routes."
+user_stories_addressed:
+  - 7
+  - 8
+  - 9
+  - 10
+  - 12
+  - 14
+  - 15
+  - 16
+  - 20
+  - 26
+  - 46
+  - 47
+  - 49
+  - 55
+  - 57
+  - 60

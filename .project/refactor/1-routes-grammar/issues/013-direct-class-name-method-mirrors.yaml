@@ -1,0 +1,52 @@
+id: 13
+title: "Direct FastAPI class-name method mirrors"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 12
+what_to_build: |
+  Add direct FastAPI class-name mirrors for literal `@expose_route` methods.
+
+  Existing:
+
+      POST /products/1/run
+
+  Add:
+
+      POST /Product/1/run
+
+  The mirror must preserve the grammar distinction established by the route
+  refactor:
+
+      /Product/1/run   -> method/action
+      /Product/1/@run  -> HTML/view route named run
+
+  Register literal decorator routes only. Do not add a generic
+  `/ClassName/{id:int}/{method}` catch-all.
+acceptance_criteria:
+  - "Instance `@expose_route` methods are reachable through class-name instance paths."
+  - "Static/class-level `@expose_route` methods, if supported under table-name paths, have an intentional class-name mirror or an explicit test proving they remain table-name only."
+  - "Class-name method mirrors reuse the same direct custom method handler path as table-name methods."
+  - "User injection, method-level access rules, async methods, async-generator SSE streaming, and `MethodError` mapping match table-name behavior."
+  - "`GET /Product/1/@run` remains an HTML/view route and never invokes the method."
+  - "No dynamic method catch-all shadows member view routes."
+  - "Responses advertise class-name `$id` values from issue 010."
+implementation_notes:
+  - "Primary file: `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py`."
+  - "The existing custom route loop computes `full_route` from `endpoint_base`; add an additional class-name `full_route` for root storable models."
+  - "Reuse `make_custom_post(attr, model_class, route_path)` for POST methods and the same GET custom handling shape where applicable."
+  - "Ensure route order preserves `/ClassName/{id:int}/@...` view routes before method mirrors if any method route could be confused."
+critical_files:
+  - "packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py"
+  - "packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py"
+  - "examples/core/tests/"
+verification:
+  - "cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py examples/core/tests/"
+risks:
+  - "Direct custom GET route code has existing quirks around instance loading; mirror behavior exactly rather than redesigning it in this slice."
+user_stories_addressed:
+  - 9
+  - 10
+  - 38
+  - 55
+  - 56

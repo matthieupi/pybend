@@ -1,0 +1,45 @@
+id: 8
+title: "Browser refresh and back regression smoke"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+what_to_build: |
+  Add browser-level smoke coverage for the route grammar migration after the
+  lower-level slices are green. The tests should prove that new view routes and
+  legacy routes both survive real browser navigation, refresh, back-button use,
+  sidebar selection, and dashboard/home behavior.
+acceptance_criteria:
+  - "Browser navigation to `/#Product/@` renders the collection default view."
+  - "Browser navigation to `/#Product/@table` renders the named collection view or documented fallback."
+  - "Browser navigation to `/#Product/{seeded_id}/@` renders the member default view."
+  - "Browser navigation to `/#Product/{seeded_id}/@item` renders the named member view."
+  - "Refreshing collection and member `@` routes remounts the same view instead of blanking the app."
+  - "Browser back from a member view returns to the previous collection route."
+  - "Sidebar highlights the correct model for `#Product/@...` routes."
+  - "Legacy `/#Product`, `/#Product/{seeded_id}`, and method/action routes still work."
+  - "Dashboard/home navigation still clears the hash correctly and never produces `#@`."
+  - "Veille route smoke covers AgentActor collection/member routes if that app has migrated by this slice."
+user_stories_addressed:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 6
+  - 7
+  - 10
+  - 11
+  - 30
+  - 31
+  - 32
+  - 33
+  - 55
+  - 56
+  - 57
+  - 58

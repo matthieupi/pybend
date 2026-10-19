@@ -1,0 +1,44 @@
+id: 6
+title: "Actor routing parity for class-name mirrors and HTML view routes"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 1
+  - 2
+  - 3
+  - 4
+what_to_build: |
+  Bring Level 3 actor-routed HTTP APIs to parity with the direct FastAPI route
+  grammar introduced by the earlier slices. Class-name read mirrors must
+  dispatch to the same model actor target as table-name reads, and model HTML
+  view routes must behave consistently with direct routes without bypassing
+  actor authorization or metadata handling.
+acceptance_criteria:
+  - "Actor route generation includes class-name read mirrors for storable models."
+  - "Actor route generation includes collection and member HTML view routes where direct routes do."
+  - "`GET /MockModel/5` dispatches a `get` TX to the table-name actor address with `id: 5`."
+  - "Class-name actor read mirrors preserve `populate`, `depth`, user metadata, and model class metadata."
+  - "Error TX responses from class-name read mirrors map to the same HTTP errors as table-name reads."
+  - "Actor class-name read mirrors preserve `$schema` and `$id` identity behavior from direct routes."
+  - "Actor HTML routes return `text/html` and do not send CRUD TXs unless preloading is explicitly part of the implementation."
+  - "Route conflict tests prove actor `@` routes are not captured as IDs or methods."
+  - "Existing actor table-name CRUD, custom methods, streaming methods, and parent-child routes remain unchanged."
+user_stories_addressed:
+  - 34
+  - 35
+  - 36
+  - 37
+  - 38
+  - 39
+  - 41
+  - 42
+  - 43
+  - 44
+  - 45
+  - 46
+  - 51
+  - 52
+  - 53
+  - 54
+  - 55
+  - 56

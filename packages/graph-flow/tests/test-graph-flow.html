@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>graph-flow — Visual Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0d1117;
+            color: #e6edf3;
+            font-family: 'SF Mono', 'Cascadia Code', monospace;
+            font-size: 13px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        button {
+            padding: 4px 12px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            color: #e6edf3;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+        }
+        button:hover { border-color: #58a6ff; }
+        .log {
+            padding: 2px 12px;
+            font-size: 11px;
+            color: #8b949e;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            min-height: 24px;
+        }
+        .canvas-area {
+            flex: 1;
+            position: relative;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button id="btn-add-edge">Add Edge</button>
+        <button id="btn-add-error">Add Error Edge</button>
+        <button id="btn-add-stream">Add Stream Edge</button>
+        <button id="btn-highlight">Highlight Chain</button>
+        <button id="btn-clear">Clear Highlights</button>
+        <button id="btn-fit">Fit to View</button>
+    </div>
+    <div class="log" id="log">Ready. Scroll to zoom, drag to pan, drag nodes to move, double-click to fit.</div>
+    <div class="canvas-area">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script type="module">
+        import { GraphFlow } from '../src/graph-flow.js';
+
+        const canvas = document.getElementById('canvas');
+        const log = document.getElementById('log');
+
+        const graph = new GraphFlow(canvas);
+
+        // Sample topology
+        const topology = {
+            nodes: [
+                { id: 'matrix', label: 'matrix', type: 'matrix' },
+                { id: 'NetworkAPI', label: 'NetworkAPI', type: 'adapter' },
+                { id: 'NetworkWS', label: 'NetworkWS', type: 'adapter' },
+                { id: 'Product', label: 'Product', type: 'model' },
+                { id: 'User', label: 'User', type: 'model' },
+                { id: 'Comment', label: 'Comment', type: 'model' },
+                { id: 'Grant', label: 'Grant', type: 'agent' },
+                { id: 'Source', label: 'Source', type: 'agent' },
+            ],
+            edges: [
+                { from: 'matrix', to: 'NetworkAPI' },
+                { from: 'matrix', to: 'NetworkWS' },
+                { from: 'matrix', to: 'Product' },
+                { from: 'matrix', to: 'User' },
+                { from: 'matrix', to: 'Comment' },
+                { from: 'matrix', to: 'Grant' },
+                { from: 'matrix', to: 'Source' },
+            ],
+        };
+
+        graph.loadTopology(topology);
+        log.textContent = `Loaded ${topology.nodes.length} nodes, ${topology.edges.length} edges`;
+
+        // Resize
+        window.addEventListener('resize', () => graph.resize());
+
+        // Counter for unique UUIDs
+        let txCounter = 0;
+
+        function makeEntry(source, target, opts = {}) {
+            txCounter++;
+            return {
+                tx_uuid: `tx-${txCounter}`,
+                source,
+                target,
+                name: opts.name || 'READ',
+                is_error: opts.is_error || false,
+                is_stream: opts.is_stream || false,
+                timestamp: Date.now() / 1000,
+                trace_id: opts.trace_id || `trace-${txCounter}`,
+            };
+        }
+
+        // Buttons
+        document.getElementById('btn-add-edge').addEventListener('click', () => {
+            const sources = ['NetworkAPI', 'NetworkWS'];
+            const targets = ['Product', 'User', 'Comment', 'Grant', 'Source'];
+            const src = sources[Math.floor(Math.random() * sources.length)];
+            const tgt = targets[Math.floor(Math.random() * targets.length)];
+            const entry = makeEntry(src, tgt);
+            graph.addEdge(entry);
+            log.textContent = `Added edge: ${src} -> ${tgt} (${entry.tx_uuid})`;
+        });
+
+        document.getElementById('btn-add-error').addEventListener('click', () => {
+            const entry = makeEntry('NetworkAPI', 'Product', { name: 'ERROR', is_error: true });
+            graph.addEdge(entry);
+            log.textContent = `Added error edge: NetworkAPI -> Product`;
+        });
+
+        document.getElementById('btn-add-stream').addEventListener('click', () => {
+            const entry = makeEntry('Grant', 'matrix', { name: 'STREAM', is_stream: true });
+            graph.addEdge(entry);
+            log.textContent = `Added stream edge: Grant -> matrix`;
+        });
+
+        document.getElementById('btn-highlight').addEventListener('click', () => {
+            const traceId = `chain-demo`;
+            const now = Date.now() / 1000;
+            const chain = [
+                makeEntry('NetworkAPI', 'matrix', { trace_id: traceId, timestamp: now }),
+                makeEntry('matrix', 'Product', { trace_id: traceId, timestamp: now + 0.01 }),
+                makeEntry('Product', 'matrix', { trace_id: traceId, timestamp: now + 0.02 }),
+                makeEntry('matrix', 'NetworkAPI', { trace_id: traceId, timestamp: now + 0.03 }),
+            ];
+            // Fix timestamps
+            chain.forEach((e, i) => { e.timestamp = now + i * 0.01; });
+            graph.highlightChain(chain);
+            log.textContent = `Highlighted chain: ${chain.length} hops`;
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            graph.clearHighlights();
+            log.textContent = 'Highlights cleared';
+        });
+
+        document.getElementById('btn-fit').addEventListener('click', () => {
+            graph.resize();
+            log.textContent = 'Fit to view';
+        });
+    </script>
+</body>
+</html>

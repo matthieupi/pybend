@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N3TX — TX Inspector</title>
+    <link rel="stylesheet" href="/debug/static/inspector.css">
+</head>
+<body>
+    <ntx-tx-inspector></ntx-tx-inspector>
+
+    <script type="module">
+        import { GraphFlow } from '/debug/static/graph-flow/graph-flow.js';
+        window.GraphFlow = GraphFlow;
+    </script>
+    <script type="module" src="/debug/static/components/tx-sidebar.js"></script>
+    <script type="module" src="/debug/static/components/tx-detail.js"></script>
+    <script type="module" src="/debug/static/components/tx-entry-detail.js"></script>
+    <script type="module" src="/debug/static/components/ntx-tx-inspector.js"></script>
+</body>
+</html>

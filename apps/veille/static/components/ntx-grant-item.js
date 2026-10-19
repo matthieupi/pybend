@@ -1,0 +1,359 @@
+/**
+ * <ntx-grant-item> — Custom grant card renderer.
+ *
+ * Extends NTTItem with grant-specific rendering:
+ * - Score color coding (high/mid/low)
+ * - Status pills (admissible/inadmissible/new/analyzing)
+ * - Detailed analysis stays in the full detail view
+ * - Funder, deadline, amount display
+ *
+ * Wired via Grant.__ui__['renderer']['item'] = 'ntx-grant-item'
+ */
+import { NTTItem } from './ntx-item.js';
+import { permissions } from '../utils/Permissions.js';
+
+const OPEN_ICON = `
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M14 5H19V10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M19 5L10 14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M19 14V19H5V5H10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+`;
+
+class NTXGrantItem extends NTTItem {
+
+    #reasoningExpanded = false;
+
+    get styles() {
+        const base = super.styles;
+        return [
+            ...(Array.isArray(base) ? base : [base]),
+            new URL('./ntx-grant-item.css', import.meta.url).href,
+        ];
+    }
+
+    md() {
+        const g = this.value;
+        if (!g || !g.id || this.mode === 'edit') return super.md();
+
+        const schema = this.schema;
+        const score = g.admissibility_score != null
+            ? `${Math.round(g.admissibility_score * 100)}%` : 'N/A';
+        const amount = this.#formatAmount(g.amount_min, g.amount_max);
+        const statusClass = this.#statusClass(g.status);
+        const scoreClass = this.#scoreClass(g.admissibility_score);
+        const html = [];
+
+        html.push(this.#renderCardActions());
+
+        html.push(`<div class="grant-header">
+            <span class="grant-status ${statusClass}">${this.#esc(g.status || 'new')}</span>
+            <a class="grant-open-link" href="#analyze/${g.id}" title="View details" aria-label="View details">
+                ${OPEN_ICON}
+            </a>
+        </div>`);
+
+        html.push(`<h3 class="grant-title">${this.#esc(g.title)}</h3>`);
+
+        html.push('<div class="grant-info-grid">');
+        html.push(`<div class="grant-field">
+            <span class="grant-label">Funder</span>
+            <span class="grant-value grant-value--truncate">${this.#esc(g.funder || '—')}</span>
+        </div>`);
+        html.push(`<div class="grant-field grant-field--align-end">
+            <span class="grant-label">Score</span>
+            <span class="grant-value grant-score ${scoreClass}">${score}</span>
+        </div>`);
+        html.push(`<div class="grant-field">
+            <span class="grant-label">Deadline</span>
+            <span class="grant-value">${this.#esc(g.deadline || '—')}</span>
+        </div>`);
+        html.push(`<div class="grant-field grant-field--align-end">
+            <span class="grant-label">Amount</span>
+            <span class="grant-value grant-value--amount">${this.#esc(amount)}</span>
+        </div>`);
+        html.push('</div>');
+
+        const reasoningPreview = this.#analysisPreview(g.admissibility_reasoning);
+        if (reasoningPreview) {
+            html.push(`<div class="grant-analysis-preview">
+                <span class="grant-label">Analysis</span>
+                <div class="grant-analysis-preview-text">${this.#esc(reasoningPreview)}</div>
+            </div>`);
+        }
+
+        const methods = schema.methods || {};
+        const methodHtml = Object.entries(methods).map(([name, def]) => {
+            const tag = def.ui?.renderer || (def.stream ? 'ntx-stream' : 'ntx-method');
+            const label = def.title || name;
+            return `<${tag}
+                model="${schema.__name__}"
+                uuid="${g.id}"
+                method="${name}"
+                layout="button"
+                label="${label}"
+                button-label="Run"
+                show-label>
+            </${tag}>`;
+        }).join('');
+
+        html.push(`<div class="grant-actions">
+            ${methodHtml}
+            <a class="grant-details-link" href="#analyze/${g.id}">Details</a>
+        </div>`);
+
+        return html.join('');
+    }
+
+    lg() {
+        const g = this.value;
+        if (!g || !g.id || this.mode === 'edit') return super.md();
+
+        const schema = this.schema;
+        const score = g.admissibility_score != null
+            ? `${Math.round(g.admissibility_score * 100)}%` : 'N/A';
+        const statusClass = this.#statusClass(g.status);
+        const scoreClass = this.#scoreClass(g.admissibility_score);
+
+        const html = [];
+
+        html.push(this.#renderCardActions());
+
+        // Grant header
+        html.push(`
+            <div class="grant-header">
+                <h3 class="grant-title">${this.#esc(g.title)}</h3>
+                <span class="grant-status ${statusClass}">${this.#esc(g.status || 'new')}</span>
+            </div>
+        `);
+
+        // Info grid
+        html.push('<div class="grant-info-grid">');
+        if (g.funder) {
+            html.push(`<div class="grant-field">
+                <span class="grant-label">Funder</span>
+                <span class="grant-value">${this.#esc(g.funder)}</span>
+            </div>`);
+        }
+        html.push(`<div class="grant-field">
+            <span class="grant-label">Score</span>
+            <span class="grant-value grant-score ${scoreClass}">${score}</span>
+        </div>`);
+        if (g.deadline) {
+            html.push(`<div class="grant-field">
+                <span class="grant-label">Deadline</span>
+                <span class="grant-value">${this.#esc(g.deadline)}</span>
+            </div>`);
+        }
+        if (g.amount_min != null || g.amount_max != null) {
+            const amt = g.amount_min != null && g.amount_max != null
+                ? `$${g.amount_min.toLocaleString()} – $${g.amount_max.toLocaleString()}`
+                : g.amount_min != null ? `$${g.amount_min.toLocaleString()}+`
+                : `Up to $${g.amount_max.toLocaleString()}`;
+            html.push(`<div class="grant-field">
+                <span class="grant-label">Amount</span>
+                <span class="grant-value">${amt}</span>
+            </div>`);
+        }
+        html.push('</div>');
+
+        // URLs
+        if (g.url || g.source_url) {
+            html.push('<div class="grant-urls">');
+            if (g.url) {
+                html.push(`<div class="grant-field">
+                    <span class="grant-label">URL</span>
+                    <a href="${this.#esc(g.url)}" target="_blank" rel="noopener">${this.#esc(g.url)}</a>
+                </div>`);
+            }
+            if (g.source_url) {
+                html.push(`<div class="grant-field">
+                    <span class="grant-label">Source</span>
+                    <a href="${this.#esc(g.source_url)}" target="_blank" rel="noopener">${this.#esc(g.source_url)}</a>
+                </div>`);
+            }
+            html.push('</div>');
+        }
+
+        // Description
+        if (g.description) {
+            html.push(`<div class="grant-section">
+                <div class="grant-description">${this.#esc(g.description)}</div>
+            </div>`);
+        }
+
+        // Eligibility criteria
+        if (g.eligibility_criteria && g.eligibility_criteria.length) {
+            html.push(`<div class="grant-section">
+                <span class="grant-label">Eligibility Criteria</span>
+                <ul class="grant-list">${g.eligibility_criteria.map(c => `<li>${this.#esc(c)}</li>`).join('')}</ul>
+            </div>`);
+        }
+
+        // Required documents
+        if (g.required_documents && g.required_documents.length) {
+            html.push(`<div class="grant-section">
+                <span class="grant-label">Required Documents</span>
+                <ul class="grant-list">${g.required_documents.map(d => `<li>${this.#esc(d)}</li>`).join('')}</ul>
+            </div>`);
+        }
+
+        // Application process
+        if (g.application_process) {
+            html.push(`<div class="grant-section">
+                <span class="grant-label">Application Process</span>
+                <div class="grant-description">${this.#esc(g.application_process)}</div>
+            </div>`);
+        }
+
+        // Metadata row
+        const metaParts = [];
+        if (g.language && g.language !== 'en') metaParts.push(`Language: ${this.#esc(g.language)}`);
+        if (g.discovered_at) metaParts.push(`Discovered: ${this.#esc(g.discovered_at)}`);
+        if (metaParts.length) {
+            html.push(`<div class="grant-meta">${metaParts.join(' · ')}</div>`);
+        }
+
+        // Admissibility reasoning
+        if (g.admissibility_reasoning) {
+            html.push(`<div class="grant-justification">
+                <span class="grant-label">Analysis</span>
+                <div class="grant-justification-text widget-markdown${this.#reasoningExpanded ? ' is-expanded' : ''}">${this.#renderMarkdown(g.admissibility_reasoning)}</div>
+                <button type="button" class="grant-expand-btn" hidden>${this.#reasoningExpanded ? 'Show less' : 'Show more'}</button>
+            </div>`);
+        }
+
+        // Standalone methods (analyze button etc.)
+        const methods = schema.methods || {};
+        const methodHtml = Object.entries(methods).map(([name, def]) => {
+            const tag = def.ui?.renderer || (def.stream ? 'ntx-stream' : 'ntx-method');
+            const label = def.title || name;
+            return `<${tag}
+                model="${schema.__name__}"
+                uuid="${g.id}"
+                method="${name}"
+                layout="${def.ui?.layout || 'button'}"
+                label="${label}">
+            </${tag}>`;
+        }).join('');
+        if (methodHtml) {
+            html.push(`<div class="grant-actions">${methodHtml}</div>`);
+        }
+
+        return html.join('');
+    }
+
+    lg_mounted() {
+        const reasoning = this.shadowRoot.querySelector('.grant-justification-text');
+        const button = this.shadowRoot.querySelector('.grant-expand-btn');
+        if (!reasoning || !button) return;
+
+        const expandable = reasoning.scrollHeight > reasoning.clientHeight + 4;
+        button.hidden = !expandable;
+        if (!expandable) return;
+
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.#reasoningExpanded = !this.#reasoningExpanded;
+            this.render();
+        });
+    }
+
+    sm() {
+        const g = this.value;
+        if (!g || !g.id || this.mode === 'edit') return super.sm();
+
+        const score = g.admissibility_score != null
+            ? `${Math.round(g.admissibility_score * 100)}%` : '';
+        const statusClass = this.#statusClass(g.status);
+        const scoreClass = this.#scoreClass(g.admissibility_score);
+
+        return `
+            <div class="sm-body" style="flex:1;min-width:0">
+                <span class="sm-name" data-value="title">${this.#esc(g.title)}</span>
+                <span class="sm-fields">
+                    ${g.funder ? `<span class="sm-field">${this.#esc(g.funder)}</span>` : ''}
+                    <span class="sm-field"><span class="grant-status ${statusClass}">${this.#esc(g.status || 'new')}</span></span>
+                    ${score ? `<span class="sm-field grant-score ${scoreClass}">${score}</span>` : ''}
+                </span>
+            </div>
+        `;
+    }
+
+    #statusClass(status) {
+        const map = {
+            new: 'status-new',
+            analyzing: 'status-analyzing',
+            admissible: 'status-admissible',
+            'partially admissible': 'status-partial',
+            'non-admissible': 'status-inadmissible',
+            error: 'status-error',
+        };
+        return map[status] || 'status-new';
+    }
+
+    #scoreClass(score) {
+        if (score == null) return '';
+        if (score >= 0.7) return 'score-high';
+        if (score >= 0.4) return 'score-mid';
+        return 'score-low';
+    }
+
+    #formatAmount(min, max) {
+        if (min != null && max != null) {
+            return `$${min.toLocaleString()} - $${max.toLocaleString()}`;
+        }
+        if (min != null) {
+            return `$${min.toLocaleString()}+`;
+        }
+        if (max != null) {
+            return `Up to $${max.toLocaleString()}`;
+        }
+        return '—';
+    }
+
+    #renderCardActions() {
+        const canUpdate = permissions.canAction(this.schema?.access, 'update', this.value);
+        const canDelete = permissions.canAction(this.schema?.access, 'delete', this.value);
+        if (!canUpdate && !canDelete) return '';
+
+        const buttons = [];
+        if (canDelete) {
+            buttons.push('<button class="delete-btn" title="Delete"></button>');
+        }
+        if (canUpdate) {
+            const modeClass = this.mode === 'edit' ? 'mode-edit' : 'mode-display';
+            buttons.push(`<button class="edit-btn ${modeClass}" title="${this.mode === 'edit' ? 'Save' : 'Edit'}"></button>`);
+        }
+        return `<div class="card-actions">${buttons.join('')}</div>`;
+    }
+
+    #analysisPreview(markdown) {
+        const plain = String(markdown ?? '')
+            .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+            .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+            .replace(/[`*_>#]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!plain) return '';
+        if (plain.length <= 180) return plain;
+        return `${plain.slice(0, 177).trimEnd()}...`;
+    }
+
+    #renderMarkdown(markdown) {
+        if (!markdown) return '';
+        if (typeof marked !== 'undefined' && marked.parse) {
+            return marked.parse(String(markdown));
+        }
+        return `<pre>${this.#esc(markdown)}</pre>`;
+    }
+
+    #esc(t) {
+        const d = document.createElement('div');
+        d.textContent = String(t ?? '');
+        return d.innerHTML;
+    }
+}
+
+customElements.define('ntx-grant-item', NTXGrantItem);
+export { NTXGrantItem };

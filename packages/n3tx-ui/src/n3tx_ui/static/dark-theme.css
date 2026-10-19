@@ -1,0 +1,132 @@
+/* N3TX design system -- dark theme token entrypoint */
+
+:root,
+html[data-theme="dark"] {
+    color-scheme: dark;
+
+    --ntx-font-display: 'Manrope', sans-serif;
+    --ntx-font-body: 'Manrope', sans-serif;
+    --ntx-font-mono: 'JetBrains Mono', 'SFMono-Regular', monospace;
+
+    --ntx-space-1: 0.25rem;
+    --ntx-space-2: 0.5rem;
+    --ntx-space-3: 0.75rem;
+    --ntx-space-4: 1rem;
+    --ntx-space-5: 1.5rem;
+
+    --ntx-radius-xs: 4px;
+    --ntx-radius-sm: 8px;
+    --ntx-radius-md: 10px;
+    --ntx-radius-lg: 12px;
+    --ntx-radius-xl: 16px;
+
+    --ntx-border-width: 2px;
+    --ntx-layout-topbar-height: 4.5rem;
+    --ntx-layout-sidebar-width: 17rem;
+    --ntx-layout-page-gutter: clamp(1rem, 2vw, 2rem);
+
+    --ntx-duration-fast: 160ms;
+    --ntx-duration-normal: 240ms;
+    --ntx-duration-slow: 360ms;
+    --ntx-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --ntx-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+    --ntx-shadow-xs: 0 1px 2px rgba(2, 6, 23, 0.12);
+    --ntx-shadow-sm: 0 4px 10px rgba(2, 6, 23, 0.14);
+    --ntx-shadow-md: 0 8px 18px rgba(2, 6, 23, 0.18);
+    --ntx-shadow-lg: 0 12px 28px rgba(2, 6, 23, 0.22);
+    --ntx-shadow-xl: 0 18px 40px rgba(2, 6, 23, 0.26);
+
+    --ntx-color-page: #141b2d;
+    --ntx-color-surface-1: #0c1326;
+    --ntx-color-surface-2: #101726;
+    --ntx-color-surface-3: #1a2235;
+    --ntx-color-surface-4: #252d40;
+    --ntx-color-overlay: rgba(7, 13, 31, 0.96);
+    --ntx-color-text-strong: #eef3ff;
+    --ntx-color-text: #dfe4fe;
+    --ntx-color-text-muted: #a5aac2;
+    --ntx-color-text-subtle: #6f758b;
+    --ntx-color-accent: #3adffa;
+    --ntx-color-accent-strong: #00cbe6;
+    --ntx-color-accent-text: #9aefff;
+    --ntx-color-success: #6ef9e2;
+    --ntx-color-warning: #ffb866;
+    --ntx-color-error: #ff8b87;
+
+    --ntx-border-subtle: rgba(111, 117, 139, 0.28);
+    --ntx-border-default: rgba(111, 117, 139, 0.42);
+    --ntx-border-strong: rgba(111, 117, 139, 0.56);
+    --ntx-border-interactive: rgba(58, 223, 250, 0.26);
+    --ntx-line-subtle: rgba(111, 117, 139, 0.28);
+    --ntx-focus-ring: rgba(58, 223, 250, 0.08);
+    --ntx-backdrop-scrim: rgba(7, 13, 31, 0.48);
+
+    --ntx-button-primary-bg: linear-gradient(135deg, #3adffa 0%, #00cbe6 100%);
+    --ntx-button-primary-fg: #04111d;
+    --ntx-button-primary-border: transparent;
+    --ntx-button-primary-hover-bg: linear-gradient(135deg, #43e6ff 0%, #02d7f2 100%);
+    --ntx-button-secondary-bg: #091120;
+    --ntx-button-secondary-fg: #dfe4fe;
+    --ntx-button-secondary-border: rgba(111, 117, 139, 0.42);
+    --ntx-button-secondary-hover-bg: #1a2235;
+    --ntx-input-bg: #070d19;
+    --ntx-input-fg: #eef3ff;
+    --ntx-input-border: rgba(111, 117, 139, 0.42);
+    --ntx-input-placeholder: #6f758b;
+    --ntx-input-focus-border: rgba(58, 223, 250, 0.26);
+    --ntx-input-focus-ring: rgba(58, 223, 250, 0.08);
+    --ntx-input-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+
+    --ntx-card-bg: #0c1326;
+    --ntx-card-hover-bg: #091120;
+    --ntx-panel-bg: #091120;
+    --ntx-panel-strong-bg: #070d19;
+    --ntx-topbar-bg: rgba(7, 13, 31, 0.96);
+    --ntx-topbar-border: rgba(111, 117, 139, 0.28);
+    --ntx-topbar-shadow: 0 4px 12px rgba(2, 6, 23, 0.2);
+    --ntx-sidebar-bg: rgba(7, 13, 31, 0.98);
+    --ntx-sidebar-border: rgba(111, 117, 139, 0.28);
+    --ntx-sidebar-overlay-bg: rgba(7, 13, 31, 0.48);
+
+    --ntx-status-neutral-fg: #a5aac2;
+    --ntx-status-neutral-bg: rgba(111, 117, 139, 0.16);
+    --ntx-status-neutral-border: rgba(111, 117, 139, 0.24);
+    --ntx-status-accent-fg: #9aefff;
+    --ntx-status-accent-bg: rgba(58, 223, 250, 0.12);
+    --ntx-status-accent-border: rgba(58, 223, 250, 0.24);
+    --ntx-status-success-fg: #6ef9e2;
+    --ntx-status-success-bg: rgba(110, 249, 226, 0.14);
+    --ntx-status-success-border: rgba(110, 249, 226, 0.24);
+    --ntx-status-warning-fg: #ffb866;
+    --ntx-status-warning-bg: rgba(255, 184, 102, 0.14);
+    --ntx-status-warning-border: rgba(255, 184, 102, 0.24);
+    --ntx-status-error-fg: #ff8b87;
+    --ntx-status-error-bg: rgba(255, 139, 135, 0.14);
+    --ntx-status-error-border: rgba(255, 139, 135, 0.24);
+
+    --ntx-page-background: linear-gradient(180deg, #1a2235 0%, #141b2d 100%);
+    --ntx-page-atmosphere:
+        radial-gradient(72rem 34rem at 78% -10%, rgba(58, 223, 250, 0.04), transparent 60%),
+        radial-gradient(48rem 32rem at -8% 30%, rgba(110, 249, 226, 0.025), transparent 58%),
+        radial-gradient(44rem 24rem at 50% 118%, rgba(255, 184, 102, 0.03), transparent 62%);
+    --ntx-page-grid:
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+
+    --ntx-gradient-text: linear-gradient(135deg, #f8fbff 0%, #dfe4fe 55%, #7ff6e8 100%);
+    --ntx-glass-bg: #101726;
+    --ntx-glass-bg-light: #1a2235;
+    --ntx-glass-bg-hover: #1a2235;
+    --ntx-glass-border: rgba(111, 117, 139, 0.42);
+    --ntx-glass-border-hover: rgba(154, 239, 255, 0.24);
+    --ntx-glass-blur: 0px;
+    --ntx-glass-blur-sm: 0px;
+    --ntx-glass-blur-lg: 0px;
+    --ntx-glass-gradient: none;
+    --ntx-light-highlight: transparent;
+    --ntx-shadow-accent-md: 0 8px 18px rgba(58, 223, 250, 0.08);
+    --ntx-agent-provider-accent: var(--ntx-color-accent-text);
+    --ntx-agent-provider-dim: rgba(58, 223, 250, 0.16);
+    --ntx-agent-hero-bg: linear-gradient(135deg, #0d2036 0%, #0d2c3d 42%, #0a3043 100%);
+}

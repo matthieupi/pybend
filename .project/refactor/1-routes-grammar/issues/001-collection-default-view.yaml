@@ -1,0 +1,43 @@
+id: 1
+title: "Collection default view route"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by: []
+what_to_build: |
+  Implement the smallest end-to-end default collection view path for the new
+  hypermedia route grammar. A developer should be able to navigate to a model
+  collection default view with `#<classname>/@`, have the frontend parse, build,
+  resolve, hash-sync, and mount the correct collection component, and request
+  `/Product/@` from the backend to receive an HTML shell that bootstraps that
+  same view.
+
+  This slice establishes the first concrete tracer bullet for the `@` grammar:
+  `@` means view/html/component route, not schema, data, ID, or method action.
+acceptance_criteria:
+  - "`Product/@` parses as a model view route with `view: null` and `isViewRoute: true`."
+  - "`buildRoute(parseRoute('Product/@'))` returns `Product/@`."
+  - "`resolveRoute(parseRoute('Product/@'))` resolves to `renderer.page`, then `renderer.list`, then `ntx-list`."
+  - "Router navigation to `Product/@` updates the hash to `#Product/@`, treats duplicate navigation as a no-op, and preserves normal back/reset behavior."
+  - "`ntx-router` deep-linked to `#Product/@` mounts the resolved collection component with `model='Product'`."
+  - "`GET /Product/@` returns `text/html` and mounts or bootstraps the default collection view."
+  - "Existing `GET /Product` schema and legacy `#Product` collection routes still work."
+  - "Tests cover parser, builder, resolver, router state, router DOM, backend route generation, and backend HTML response behavior for this route."
+user_stories_addressed:
+  - 1
+  - 2
+  - 3
+  - 11
+  - 13
+  - 21
+  - 22
+  - 23
+  - 24
+  - 25
+  - 28
+  - 29
+  - 43
+  - 44
+  - 45
+  - 49
+  - 55
+  - 56

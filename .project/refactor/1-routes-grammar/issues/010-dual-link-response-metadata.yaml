@@ -1,0 +1,60 @@
+id: 10
+title: "Flip response `$id` to class-name identity"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+follow_up_context: |
+  Follow-up to the completed hypermedia route grammar work. The migration is now
+  intentionally simpler: response `$id` flips directly to class-name identity.
+  Do not add `$href` or `links` metadata as intermediate response complexity.
+blocked_by: []
+what_to_build: |
+  Change every model response so `$id` uses the class-name route grammar.
+
+  Current regular response identity:
+
+      "$schema": "/Product"
+      "$id": "/products/1"
+
+  New regular response identity:
+
+      "$schema": "/Product"
+      "$id": "/Product/1"
+
+  For nested/join responses, preserve the parent-scoped shape but replace table
+  and relation/tag segments with class-name segments:
+
+      "$id": "/products/1/comments/2"
+      -> "$id": "/Product/1/Comment/2"
+
+  Legacy table-name routes remain available, but they now return class-name `$id`
+  values too. Do not emit `$href` or `links` in this slice.
+acceptance_criteria:
+  - "Regular model responses have `$id` equal to `/{ClassName}/{id}`."
+  - "Responses from legacy table-name routes and class-name routes are identical and both advertise class-name `$id`."
+  - "Join/nested model responses have `$id` equal to `/{ParentClass}/{parent_id}/{ChildClass}/{child_id}`."
+  - "Populated nested children use the same class-name nested `$id` grammar."
+  - "No response emits `$href` as part of this migration."
+  - "No response emits `links` as part of this migration."
+  - "Legacy table-name routes remain available and continue to pass compatibility tests."
+  - "Tests that previously asserted table-name `$id` are updated intentionally."
+implementation_notes:
+  - "Primary file: `packages/n3tx-core/src/n3tx_core/models/proto_dump.py`."
+  - "`schema_url()` already emits `$schema` as `/{ClassName}`; do not change it."
+  - "Update `instance_url()` directly so the single `$id` code path remains easy to audit."
+  - "For regular models, derive `$id` from `instance.__class__.__name__` and the instance id."
+  - "For join/nested models, use `__owner__`, `__parent__`, and parent FK metadata to emit `/{ParentClass}/{parent_id}/{ChildClass}/{child_id}`."
+  - "Update any storage code that manually rewrites populated child `$id` values."
+critical_files:
+  - "packages/n3tx-core/src/n3tx_core/models/proto_dump.py"
+  - "packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py"
+  - "packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_dump_stages.py"
+  - "packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py"
+verification:
+  - "cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/test_proto_dump_stages.py packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py"
+risks:
+  - "Frontend operations use `$id` as href today; direct and actor class-name write/method mirrors must follow quickly."
+  - "External clients storing table-name `$id` values need compatibility through continued table-name route support and clear docs."
+  - "The simplified nested grammar omits relation/tag names, so duplicate same-child relationships may need a later grammar extension."
+user_stories_addressed:
+  - 41
+  - 42

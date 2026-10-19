@@ -1,0 +1,64 @@
+id: 15
+title: "Nested class-name route grammar decision"
+type: "HITL"
+status: "decided"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 10
+decision_doc: ".project/refactor/1-routes-grammar/issues/015-nested-class-name-grammar-decision-plan.md"
+what_to_build: |
+  Decide and document the canonical nested class-name grammar before any nested
+  backend or frontend implementation begins.
+
+  Chosen grammar:
+
+      /{ParentClass}/{parent_id}/{ChildClass}/{child_id}
+
+  Example:
+
+      /Product/1/Comment/2
+
+  The grammar intentionally drops the relation/tag segment for now to keep the
+  public identity shape simple. If a parent later needs multiple relationships
+  to the same child model, N3TX will need a relation-aware extension or alias
+  strategy rather than adding response-side `$href`/`links` complexity.
+decision_summary: |
+  Decision finalized: use `/{ParentClass}/{parent_id}/{ChildClass}/{child_id}`
+  as the canonical nested class-name identity route.
+
+  Generated join models remain implementation details. Public nested URLs expose
+  the semantic child class (`Comment`), while storage, FK injection, auth, and
+  serialization continue to use the generated join model (`ProductComment`).
+
+  Nested `$id` values after issue 010 use the class-name shape directly, with no
+  `$href` or `links` metadata. `$schema` should continue to identify the concrete
+  response shape unless a later serialization decision changes that.
+
+  The chosen grammar intentionally does not distinguish duplicate relationships
+  from the same parent class to the same child class. Follow-up implementation
+  must detect duplicate `(ParentClass, ChildClass)` relationships and either fail
+  route registration or skip nested class-name mirrors for the ambiguous pair,
+  while preserving legacy relation/tag routes.
+acceptance_criteria:
+  - "A written decision records the nested class-name grammar and examples for collection, create, read, update, delete, and view routes if supported."
+  - "The decision explains the trade-off of omitting the relation tag and how duplicate same-child relationships would be handled later."
+  - "The decision covers join model identity: whether URLs expose the child class, generated join class, or both."
+  - "The decision covers how nested `$id` behaves after issue 010 without `$href` or `links`."
+  - "The decision covers how aliases interact with nested routes later."
+  - "The decision identifies route-order constraints and parser changes required by the longer route shape."
+implementation_notes:
+  - "This is intentionally HITL because it defines public URL grammar."
+  - "Start from current table grammar: `/{parent_tablename}/{parent_id}/{__tagname__}/{id}`."
+  - "Chosen target: `/{ParentClass}/{parent_id}/{ChildClass}/{child_id}`."
+  - "Document alternatives rejected or deferred, especially `/Parent/1/relation/Child/2` and `/Parent/1/children/2`."
+critical_files:
+  - ".project/refactor/1-routes-grammar/"
+  - "docs/CORE.md"
+  - "BACKEND.md"
+  - "FRONTEND.md"
+verification:
+  - "Documentation review only; no code test required for the decision slice."
+risks:
+  - "The chosen simpler grammar is ambiguous for multiple same-child relationships; document that limitation explicitly."
+user_stories_addressed:
+  - 58

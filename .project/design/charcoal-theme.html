@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Veille Grant Mgmt | Industrial Intelligence</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-tertiary-fixed": "#ffffff",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-tint": "#c6c6c6",
+                        "outline-variant": "#474747",
+                        "surface": "#131313",
+                        "on-primary": "#1a1c1c",
+                        "on-tertiary": "#1b1c1c",
+                        "on-secondary": "#1b1b1c",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-container": "#201f1f",
+                        "primary-fixed-dim": "#454747",
+                        "tertiary-container": "#919090",
+                        "secondary-fixed": "#c8c6c7",
+                        "secondary-fixed-dim": "#adabac",
+                        "tertiary": "#e3e2e2",
+                        "on-surface": "#e5e2e1",
+                        "primary-container": "#d4d4d4",
+                        "on-primary-fixed-variant": "#e2e2e2",
+                        "surface-container-low": "#1c1b1b",
+                        "on-primary-container": "#000000",
+                        "on-primary-fixed": "#ffffff",
+                        "on-error": "#690005",
+                        "error": "#ffb4ab",
+                        "inverse-surface": "#e5e2e1",
+                        "tertiary-fixed": "#5e5e5e",
+                        "outline": "#919191",
+                        "surface-dim": "#131313",
+                        "on-tertiary-fixed-variant": "#e3e2e2",
+                        "on-error-container": "#ffdad6",
+                        "on-surface-variant": "#c6c6c6",
+                        "on-background": "#e5e2e1",
+                        "secondary-container": "#474647",
+                        "secondary": "#c8c6c7",
+                        "error-container": "#93000a",
+                        "on-tertiary-container": "#000000",
+                        "inverse-primary": "#5d5f5f",
+                        "inverse-on-surface": "#313030",
+                        "tertiary-fixed-dim": "#464747",
+                        "on-secondary-fixed": "#1b1b1c",
+                        "surface-container-highest": "#353534",
+                        "primary-fixed": "#5d5f5f",
+                        "surface-bright": "#393939",
+                        "on-secondary-container": "#e5e2e3",
+                        "on-secondary-fixed-variant": "#3c3b3c",
+                        "background": "#131313",
+                        "primary": "#ffffff",
+                        "surface-variant": "#353534"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Manrope", "sans-serif"],
+                        "label": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "0px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #131313; }
+        ::-webkit-scrollbar-thumb { background: #474747; }
+        body { background-color: #131313; color: #e5e2e1; font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="overflow-hidden">
+<!-- SideNavBar (Execution from JSON) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-50 bg-[#1C1B1B] dark:bg-[#1C1B1B] w-64 rounded-none">
+<div class="px-6 py-8">
+<h1 class="text-2xl font-black text-white tracking-tighter">GRANT_SYS</h1>
+<p class="text-[10px] font-bold text-white/40 tracking-[0.2em] mt-1 uppercase">INDUSTRIAL INTEL</p>
+</div>
+<nav class="flex-1 px-0 mt-4">
+<!-- Active Item: Overview -->
+<a class="border-l-2 border-white bg-[#2A2A2A] text-white flex items-center px-6 py-4 font-bold transition-all scale-[0.99]" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="dashboard">dashboard</span>
+<span class="text-xs uppercase tracking-[0.05em]">Overview</span>
+</a>
+<a class="text-[#E5E2E1] flex items-center px-6 py-4 opacity-60 hover:bg-[#2A2A2A] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="description">description</span>
+<span class="text-xs uppercase tracking-[0.05em]">Grants</span>
+</a>
+<a class="text-[#E5E2E1] flex items-center px-6 py-4 opacity-60 hover:bg-[#2A2A2A] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="account_balance">account_balance</span>
+<span class="text-xs uppercase tracking-[0.05em]">Entities</span>
+</a>
+<a class="text-[#E5E2E1] flex items-center px-6 py-4 opacity-60 hover:bg-[#2A2A2A] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="analytics">analytics</span>
+<span class="text-xs uppercase tracking-[0.05em]">Reports</span>
+</a>
+<a class="text-[#E5E2E1] flex items-center px-6 py-4 opacity-60 hover:bg-[#2A2A2A] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="settings">settings</span>
+<span class="text-xs uppercase tracking-[0.05em]">Settings</span>
+</a>
+</nav>
+<div class="px-6 py-8">
+<button class="w-full bg-primary text-on-primary font-bold py-3 text-xs tracking-widest uppercase flex items-center justify-center">
+                NEW_GRANT
+            </button>
+</div>
+<div class="mt-auto border-t border-[#474747]/15">
+<a class="text-[#E5E2E1] flex items-center px-6 py-4 opacity-60 hover:bg-[#2A2A2A] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="menu_book">menu_book</span>
+<span class="text-xs uppercase tracking-[0.05em]">Documentation</span>
+</a>
+<a class="text-[#E5E2E1] flex items-center px-6 py-4 opacity-60 hover:bg-[#2A2A2A] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="support_agent">support_agent</span>
+<span class="text-xs uppercase tracking-[0.05em]">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 flex flex-col h-screen">
+<!-- TopNavBar (Execution from JSON) -->
+<header class="flex justify-between items-center w-full px-8 h-16 bg-[#131313] border-b border-[#474747]/15">
+<div class="flex items-center gap-6">
+<span class="text-lg font-bold text-white tracking-tight uppercase">GRANT_CORE_v1</span>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-sm opacity-40" data-icon="search">search</span>
+<input class="bg-surface-container-lowest border-none pl-10 pr-4 py-2 text-[10px] uppercase tracking-widest w-64 focus:ring-1 focus:ring-white" placeholder="GLOBAL_SEARCH" type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-white/70 hover:text-white cursor-pointer" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-white/70 hover:text-white cursor-pointer" data-icon="help_outline">help_outline</span>
+</div>
+<button class="bg-surface-container-high text-white text-[10px] font-bold px-4 py-2 uppercase tracking-tighter border border-[#474747]/30 hover:bg-[#2A2A2A]">
+                    EXPORT_DATA
+                </button>
+<div class="w-8 h-8 bg-surface-container-highest">
+<img alt="Organization Admin" class="w-full h-full object-cover grayscale brightness-75" data-alt="Close up professional portrait of a tech executive in grayscale, architectural lighting, sharp focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCetHxiKYt7hirOJSpC8toVI5N0GWG540UhfZQqeC_2oPs6VpzwtOiZbTteHnM5ydIVJzuK6_a-ZEMV84hUVs0KLYHRnMHZtb2VhaO8qCVKwEwnY5W1AebEUHDvHrUHPjfxbBScVYCSURIjdRVo1549g8JCvlo_Bb0iqF_vbLvG6iBCP_c56vvRo7adZLRhbaxJk6yc2xCI47oOwafrCcwppAMg4yoixtbVA6d9ZaF8HBwswYljKCHT-aWR3nCXQx_yZE-fRnTVoH0"/>
+</div>
+</div>
+</header>
+<!-- Scrollable Dashboard Content -->
+<div class="flex-1 overflow-y-auto p-8 bg-[#131313]">
+<!-- Intelligence Dashboard Header -->
+<div class="mb-12">
+<p class="text-[10px] uppercase tracking-[0.4em] text-white/40 mb-2 font-bold">SYSTEM OVERVIEW // 2024.Q3</p>
+<h2 class="text-7xl font-black text-white tracking-tighter leading-none">Intelligence Dashboard</h2>
+</div>
+<!-- Key Metrics Bar -->
+<div class="grid grid-cols-3 gap-0 mb-12 border border-[#474747]/15">
+<div class="bg-surface-container-low p-8 border-r border-[#474747]/15">
+<p class="text-[10px] uppercase tracking-widest text-white/40 mb-2 font-bold">Total Pipeline Value</p>
+<p class="text-4xl font-light text-white tracking-tight">$2.4M</p>
+<div class="mt-4 h-1 w-full bg-surface-container-lowest">
+<div class="h-full bg-white w-3/4"></div>
+</div>
+</div>
+<div class="bg-surface-container-low p-8 border-r border-[#474747]/15">
+<p class="text-[10px] uppercase tracking-widest text-white/40 mb-2 font-bold">Active Proposals</p>
+<p class="text-4xl font-light text-white tracking-tight">18</p>
+<div class="flex gap-1 mt-4">
+<div class="h-1 w-4 bg-white"></div>
+<div class="h-1 w-4 bg-white"></div>
+<div class="h-1 w-4 bg-white"></div>
+<div class="h-1 w-4 bg-white/20"></div>
+<div class="h-1 w-4 bg-white/20"></div>
+</div>
+</div>
+<div class="bg-surface-container-low p-8">
+<p class="text-[10px] uppercase tracking-widest text-white/40 mb-2 font-bold">System Status</p>
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 bg-white animate-pulse"></div>
+<p class="text-2xl font-bold text-white tracking-widest uppercase">Operational</p>
+</div>
+<p class="text-[10px] text-white/30 mt-4 uppercase">Last Sync: 2m ago</p>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-8">
+<!-- Curated Opportunities Grid (Left 8 cols) -->
+<div class="col-span-8">
+<div class="flex justify-between items-end mb-6">
+<h3 class="text-xs font-black uppercase tracking-[0.2em] border-l-4 border-white pl-4">Curated Opportunities</h3>
+<span class="text-[10px] uppercase tracking-widest text-white/40">Sorted by: Match Score</span>
+</div>
+<div class="grid grid-cols-3 gap-6">
+<!-- Card 1 -->
+<div class="bg-surface-container-low border border-white/5 p-6 group hover:bg-[#201f1f] transition-colors relative">
+<div class="absolute top-0 right-0 p-2">
+<span class="bg-white text-on-primary text-[10px] font-black px-2 py-1">98/100</span>
+</div>
+<div class="mb-4">
+<span class="material-symbols-outlined text-white opacity-40" data-icon="factory">factory</span>
+</div>
+<h4 class="text-lg font-bold text-white leading-tight mb-2 tracking-tight">Heavy Infrastructure Expansion</h4>
+<p class="text-[10px] text-white/50 uppercase tracking-widest mb-6">Dept. of Energy</p>
+<div class="flex justify-between items-center pt-4 border-t border-[#474747]/20">
+<span class="text-xs font-bold text-white tracking-widest">$850k</span>
+<span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-low border border-white/5 p-6 group hover:bg-[#201f1f] transition-colors relative">
+<div class="absolute top-0 right-0 p-2">
+<span class="bg-white text-on-primary text-[10px] font-black px-2 py-1">94/100</span>
+</div>
+<div class="mb-4">
+<span class="material-symbols-outlined text-white opacity-40" data-icon="co2">co2</span>
+</div>
+<h4 class="text-lg font-bold text-white leading-tight mb-2 tracking-tight">Carbon Capture Initiative</h4>
+<p class="text-[10px] text-white/50 uppercase tracking-widest mb-6">Global Green Fund</p>
+<div class="flex justify-between items-center pt-4 border-t border-[#474747]/20">
+<span class="text-xs font-bold text-white tracking-widest">$1.2M</span>
+<span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-low border border-white/5 p-6 group hover:bg-[#201f1f] transition-colors relative">
+<div class="absolute top-0 right-0 p-2">
+<span class="bg-white text-on-primary text-[10px] font-black px-2 py-1">91/100</span>
+</div>
+<div class="mb-4">
+<span class="material-symbols-outlined text-white opacity-40" data-icon="precision_manufacturing">precision_manufacturing</span>
+</div>
+<h4 class="text-lg font-bold text-white leading-tight mb-2 tracking-tight">Steelworks Digital Twin</h4>
+<p class="text-[10px] text-white/50 uppercase tracking-widest mb-6">Industrial Innovation</p>
+<div class="flex justify-between items-center pt-4 border-t border-[#474747]/20">
+<span class="text-xs font-bold text-white tracking-widest">$420k</span>
+<span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- Grant Pipeline Health Visualization -->
+<div class="mt-8 bg-surface-container-low p-8 border border-white/5">
+<div class="flex justify-between items-center mb-10">
+<div>
+<h3 class="text-xs font-black uppercase tracking-[0.2em]">Grant Pipeline Health</h3>
+<p class="text-[10px] text-white/40 mt-1">SUCCESS PROBABILITY BY CATEGORY</p>
+</div>
+<div class="flex gap-4 text-[10px] uppercase font-bold tracking-widest">
+<div class="flex items-center gap-2"><div class="w-2 h-2 bg-white"></div>HIGH</div>
+<div class="flex items-center gap-2"><div class="w-2 h-2 bg-white/40"></div>MED</div>
+<div class="flex items-center gap-2"><div class="w-2 h-2 bg-white/10"></div>LOW</div>
+</div>
+</div>
+<div class="flex items-end gap-2 h-40">
+<div class="flex-1 bg-white h-[85%] relative group">
+<div class="absolute -top-6 left-0 text-[8px] font-black opacity-0 group-hover:opacity-100 transition-opacity">INFRA</div>
+</div>
+<div class="flex-1 bg-white/80 h-[65%]"></div>
+<div class="flex-1 bg-white/60 h-[45%]"></div>
+<div class="flex-1 bg-white/40 h-[92%]"></div>
+<div class="flex-1 bg-white/30 h-[30%]"></div>
+<div class="flex-1 bg-white/20 h-[55%]"></div>
+<div class="flex-1 bg-white/10 h-[15%]"></div>
+<div class="flex-1 bg-white/5 h-[40%]"></div>
+</div>
+<div class="flex justify-between mt-4 text-[9px] uppercase font-bold tracking-[0.2em] text-white/30">
+<span>Sector_A</span>
+<span>Sector_B</span>
+<span>Sector_C</span>
+<span>Sector_D</span>
+<span>Sector_E</span>
+<span>Sector_F</span>
+<span>Sector_G</span>
+<span>Sector_H</span>
+</div>
+</div>
+</div>
+<!-- System Feed (Right 4 cols) -->
+<div class="col-span-4">
+<div class="bg-surface-container-low border border-white/5 h-full flex flex-col">
+<div class="p-6 border-b border-[#474747]/15">
+<h3 class="text-xs font-black uppercase tracking-[0.2em]">Intelligence Feed</h3>
+</div>
+<div class="flex-1 p-6 space-y-6">
+<!-- Update 1 -->
+<div class="flex gap-4 group">
+<div class="w-px h-full bg-white/10 group-hover:bg-white transition-colors relative">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white"></div>
+</div>
+<div class="pb-2">
+<p class="text-[10px] text-white/30 uppercase tracking-widest mb-1">08:42 AM</p>
+<p class="text-sm font-bold text-white mb-1">Match Engine Updated</p>
+<p class="text-[11px] text-white/50 leading-relaxed">System refined 4,200 data points across energy sector grants.</p>
+</div>
+</div>
+<!-- Update 2 -->
+<div class="flex gap-4 group">
+<div class="w-px h-full bg-white/10 group-hover:bg-white transition-colors relative">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white/20"></div>
+</div>
+<div class="pb-2">
+<p class="text-[10px] text-white/30 uppercase tracking-widest mb-1">07:15 AM</p>
+<p class="text-sm font-bold text-white mb-1">Draft Submitted</p>
+<p class="text-[11px] text-white/50 leading-relaxed">Carbon Capture Initiative proposal moved to review phase.</p>
+</div>
+</div>
+<!-- Update 3 -->
+<div class="flex gap-4 group">
+<div class="w-px h-full bg-white/10 group-hover:bg-white transition-colors relative">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white/20"></div>
+</div>
+<div class="pb-2">
+<p class="text-[10px] text-white/30 uppercase tracking-widest mb-1">YESTERDAY</p>
+<p class="text-sm font-bold text-white mb-1">New Entity Verified</p>
+<p class="text-[11px] text-white/50 leading-relaxed">Industrial Innovation node successfully linked to system core.</p>
+</div>
+</div>
+<!-- Update 4 -->
+<div class="flex gap-4 group">
+<div class="w-px h-full bg-white/10 group-hover:bg-white transition-colors relative">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white/20"></div>
+</div>
+<div class="pb-2">
+<p class="text-[10px] text-white/30 uppercase tracking-widest mb-1">YESTERDAY</p>
+<p class="text-sm font-bold text-white mb-1">Security Audit Complete</p>
+<p class="text-[11px] text-white/50 leading-relaxed">Routine protocol verification passed with zero exceptions.</p>
+</div>
+</div>
+</div>
+<div class="p-6 mt-auto">
+<button class="w-full text-center py-3 border border-white/10 text-[10px] font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                                View_Full_Logs
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

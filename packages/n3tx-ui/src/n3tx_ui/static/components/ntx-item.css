@@ -1,0 +1,911 @@
+/* ntx-item — Entity component with adaptive display sizes */
+
+:host {
+    display: block;
+    min-width: 0;
+    animation: staggerIn 0.4s var(--ntx-ease, cubic-bezier(0.4, 0, 0.2, 1)) both;
+    animation-delay: var(--stagger-delay, 0ms);
+}
+
+
+/* ═══════════════════════════════════════════════════
+   xs — Pill: inline badge with entity name
+   ═══════════════════════════════════════════════════ */
+
+:host([display="xs"]),
+:host([display="pill"]) {
+    display: inline-block;
+    animation: none;
+}
+
+.card[data-display="xs"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.72rem;
+    border-radius: 999px;
+    background: var(--ntx-card-bg, #ffffff);
+    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    box-shadow: var(--ntx-shadow-xs, 0 1px 2px rgba(25, 28, 29, 0.04));
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.card[data-display="xs"]:hover {
+    background: var(--ntx-button-secondary-hover-bg, #f2f4f5);
+    border-color: var(--ntx-border-interactive, rgba(20, 105, 109, 0.28));
+    transform: none;
+    box-shadow: var(--ntx-shadow-sm, 0 8px 20px rgba(25, 28, 29, 0.05));
+}
+
+.card[data-display="xs"] .pill-label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--ntx-color-text, #344041);
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   sm — Compact row: name + inline field values
+   ═══════════════════════════════════════════════════ */
+
+.card[data-display="sm"] {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.72rem 1rem;
+    border-radius: var(--ntx-radius-md, 12px);
+    background: var(--ntx-card-bg, #ffffff);
+    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    cursor: pointer;
+    box-shadow: var(--ntx-shadow-xs, 0 1px 2px rgba(25, 28, 29, 0.04));
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.card[data-display="sm"]:hover {
+    background: var(--ntx-card-hover-bg, #ffffff);
+    border-color: rgba(20, 105, 109, 0.14);
+    box-shadow: var(--ntx-shadow-sm, 0 8px 20px rgba(25, 28, 29, 0.05));
+    transform: none;
+}
+
+.card[data-display="sm"] .sm-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--ntx-color-text-strong, #191c1d);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.card[data-display="sm"] .sm-fields {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.card[data-display="sm"] .sm-field {
+    font-size: 0.8rem;
+    color: var(--ntx-color-text-muted, #5f6a6b);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card[data-display="sm"] .sm-fields .sm-field + .sm-field::before {
+    content: "\00b7";
+    margin-right: 0.5rem;
+    color: var(--ntx-color-text-subtle, #889293);
+}
+
+.card[data-display="sm"] .sm-ref {
+    display: inline-flex;
+    align-items: center;
+}
+
+.card[data-display="sm"] .sm-ref ntx-item {
+    display: inline-block;
+}
+
+/* sm — Action buttons: right-aligned, visible on hover */
+.card[data-display="sm"] .sm-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.card[data-display="sm"]:hover .sm-actions {
+    opacity: 1;
+}
+
+.card[data-display="sm"] .sm-actions .edit-btn,
+.card[data-display="sm"] .sm-actions .delete-btn,
+.card[data-display="sm"] .sm-actions .cancel-btn {
+    width: 1.5rem;
+    height: 1.5rem;
+    background-size: 11px;
+}
+
+/* sm — Two-column body: stacks name + fields vertically beside a leading avatar */
+.card[data-display="sm"] .sm-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 0.1rem;
+}
+
+/* sm — Method buttons (like, favorite, reply) between fields and actions */
+.card[data-display="sm"] .sm-methods {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* sm — Reply button */
+.sm-reply-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    padding: 0;
+    border-radius: var(--ntx-radius-xs, 4px);
+    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    background: var(--ntx-button-secondary-bg, #ffffff);
+    color: var(--ntx-color-text-muted, #5f6a6b);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.sm-reply-btn:hover {
+    border-color: var(--ntx-border-interactive, rgba(20, 105, 109, 0.28));
+    background: rgba(20, 105, 109, 0.06);
+    color: var(--ntx-color-accent-strong, #00464a);
+}
+
+/* Reply indent for nested comments */
+.card.reply-indent[data-display="sm"] {
+    margin-left: 2rem;
+    border-left: 2px solid rgba(20, 105, 109, 0.16);
+}
+
+/* Reply input box (shown after clicking reply button) */
+.reply-input-box {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.4rem 1rem 0.4rem 1rem;
+    margin-left: 2rem;
+    animation: staggerIn 0.2s ease both;
+}
+.reply-input-box .reply-input {
+    flex: 1;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8rem;
+    font-family: inherit;
+    color: var(--ntx-color-text-strong, #191c1d);
+    background: var(--ntx-input-bg, #f2f4f5);
+    border: 1px solid var(--ntx-input-border, rgba(190, 200, 201, 0.95));
+    border-radius: var(--ntx-radius-sm, 8px);
+    outline: none;
+    transition: border-color 0.2s;
+}
+.reply-input-box .reply-input:focus {
+    border-color: var(--ntx-input-focus-border, rgba(20, 105, 109, 0.35));
+    box-shadow: 0 0 0 2px var(--ntx-input-focus-ring, rgba(20, 105, 109, 0.14));
+}
+.reply-input-box .reply-submit-btn {
+    padding: 0.35rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: inherit;
+    color: var(--ntx-button-primary-fg, #ffffff);
+    background: var(--ntx-button-primary-bg, linear-gradient(135deg, #00464a, #006064));
+    border: none;
+    border-radius: var(--ntx-radius-sm, 8px);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+.reply-input-box .reply-submit-btn:hover {
+    opacity: 0.85;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   md — Card: the default flat card
+   ═══════════════════════════════════════════════════ */
+
+.card[data-display="md"] {
+    position: relative;
+    overflow: hidden;
+    background: var(--ntx-card-bg, #ffffff);
+    border: 0;
+    border-radius: var(--ntx-radius-lg, 16px);
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+.card[data-display="md"]:hover {
+    background: var(--ntx-card-hover-bg, #ffffff);
+    box-shadow: var(--ntx-card-hover-shadow, 0 10px 18px rgba(25, 28, 29, 0.08));
+    transform: none;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   lg — Detail: wider card with more breathing room
+   ═══════════════════════════════════════════════════ */
+
+.card[data-display="lg"] {
+    position: relative;
+    overflow: hidden;
+    background: var(--ntx-card-bg, #ffffff);
+    border: 0;
+    border-radius: var(--ntx-radius-lg, 16px);
+    padding: 2rem 2.25rem 1.5rem;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+.card[data-display="lg"]:hover {
+    background: var(--ntx-card-hover-bg, #ffffff);
+    box-shadow: var(--ntx-shadow-md, 0 12px 24px rgba(25, 28, 29, 0.08));
+    transform: none;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   xl — Page: full-width, spacious layout
+   ═══════════════════════════════════════════════════ */
+
+.card[data-display="xl"] {
+    position: relative;
+    overflow: hidden;
+    background: var(--ntx-card-bg, #ffffff);
+    border: 0;
+    border-radius: var(--ntx-radius-lg, 16px);
+    padding: 2.5rem 3rem 2rem;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+.card[data-display="xl"]:hover {
+    background: var(--ntx-card-hover-bg, #ffffff);
+    box-shadow: var(--ntx-shadow-md, 0 14px 24px rgba(25, 28, 29, 0.08));
+    transform: none;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   Images
+   ═══════════════════════════════════════════════════ */
+
+/* md/lg/xl — Card image banner */
+.card-image {
+    width: calc(100% + 3.5rem);
+    margin: -1.5rem -1.75rem 1rem;
+    border-radius: var(--ntx-radius-lg, 16px) var(--ntx-radius-lg, 16px) 0 0;
+    display: block;
+    height: 180px;
+    object-fit: cover;
+}
+
+.card[data-display="lg"] .card-image {
+    margin: -2rem -2.25rem 1.25rem;
+    width: calc(100% + 4.5rem);
+    height: 220px;
+}
+
+.card[data-display="xl"] .card-image {
+    margin: -2.5rem -3rem 1.5rem;
+    width: calc(100% + 6rem);
+    height: 260px;
+}
+
+/* sm — Thumbnail (square with rounded edges by default) */
+.sm-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--ntx-radius-sm, 8px);
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 0;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   Shared element styles (md, lg, xl)
+   ═══════════════════════════════════════════════════ */
+
+/* ── Card actions container ── */
+.card-actions {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.35rem;
+    z-index: 1;
+}
+
+/* ── Action button base (shared by edit + delete) ── */
+.edit-btn,
+.delete-btn,
+.cancel-btn {
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    font-size: 0;
+    background: var(--ntx-button-secondary-bg, #ffffff);
+    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    border-radius: var(--ntx-radius-xs, 4px);
+    color: var(--ntx-color-text-muted, #5f6a6b);
+    cursor: pointer;
+    padding: 0;
+    box-shadow: var(--ntx-shadow-xs, 0 1px 2px rgba(25, 28, 29, 0.04));
+    transition: border-color 0.2s, background-color 0.2s, color 0.2s, box-shadow 0.2s;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 14px;
+}
+
+/* ── Delete button — trash icon ── */
+.delete-btn {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235f6a6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'/%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3C/svg%3E");
+}
+
+.delete-btn:hover {
+    border-color: var(--ntx-status-error-border, rgba(186, 26, 26, 0.16));
+    background-color: var(--ntx-status-error-bg, rgba(186, 26, 26, 0.1));
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ba1a1a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'/%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3C/svg%3E");
+    transform: none;
+    box-shadow: var(--ntx-shadow-xs, 0 1px 2px rgba(25, 28, 29, 0.04));
+}
+
+/* ── Edit button — SVG icon via CSS ── */
+.edit-btn {
+    /* position now handled by .card-actions container */
+}
+
+.edit-btn.mode-display {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235f6a6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/%3E%3Cpath d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'/%3E%3C/svg%3E");
+}
+
+.edit-btn.mode-edit {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2300464a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+}
+
+.edit-btn:hover {
+    border-color: var(--ntx-border-interactive, rgba(20, 105, 109, 0.28));
+    background-color: rgba(20, 105, 109, 0.08);
+    transform: none;
+    box-shadow: var(--ntx-shadow-xs, 0 1px 2px rgba(25, 28, 29, 0.04));
+}
+
+/* ── Cancel button — X icon (edit mode only) ── */
+.cancel-btn {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235f6a6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E");
+}
+
+.cancel-btn:hover {
+    border-color: var(--ntx-status-error-border, rgba(186, 26, 26, 0.16));
+    background-color: var(--ntx-status-error-bg, rgba(186, 26, 26, 0.1));
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ba1a1a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E");
+    transform: none;
+    box-shadow: var(--ntx-shadow-xs, 0 1px 2px rgba(25, 28, 29, 0.04));
+}
+
+/* ── Typography inside cards ── */
+h2 {
+    font-size: 1.24rem;
+    font-weight: 800;
+    color: var(--ntx-color-accent-strong, #00464a);
+    margin-bottom: 0.4rem;
+    padding-right: 2.5rem;
+    letter-spacing: -0.04em;
+    line-height: 1.2;
+}
+
+.card[data-display="lg"] h2,
+.card[data-display="xl"] h2 {
+    font-size: 2.1em;
+    text-transform: uppercase;
+}
+
+h4 {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--ntx-color-text-muted, #5f6a6b);
+    margin-bottom: 1.15rem;
+    line-height: 1.6;
+    max-width: 34rem;
+}
+
+/* ── Labels ── */
+label {
+    display: block;
+    margin: 0.9rem 0 0.3rem;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ntx-color-text-subtle, #889293);
+}
+
+.field-row {
+    --field-label-width: min(30rem, 38%);
+    --field-label-width: 24rem;
+    --field-label-width: 45%;
+}
+
+.field-row > label {
+    margin-top: 0.9rem;
+}
+
+.field-row--inline {
+    display: grid;
+    grid-template-columns: minmax(0, var(--field-label-width)) minmax(0, 1fr);
+    column-gap: 1rem;
+    align-items: start;
+}
+
+.field-row--inline > label {
+}
+
+.field-row--inline > [data-value],
+.field-row--inline > .widget-display-wrapper {
+    min-width: 0;
+    padding: 0.9rem 0 0;
+    line-height: 1.5;
+}
+
+.field-row--block > label {
+    margin-bottom: 0.3rem;
+}
+
+/* ── Field values (display mode) ── */
+label + div {
+    font-size: 0.9rem;
+    color: var(--ntx-color-text, #344041);
+    padding: 0.2rem 0 0.75rem;
+    line-height: 1.5;
+}
+
+.field-row--inline > div,
+.field-row--inline > .widget-display-wrapper {
+    font-size: 0.9rem;
+    color: var(--ntx-color-text, #344041);
+}
+
+.number-display,
+.currency-display {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.text-display {
+    white-space: normal;
+}
+
+.field-row--inline .widget-display-wrapper {
+    display: flex;
+    align-items: baseline;
+}
+
+/* ── Inputs (edit mode) ── */
+input,
+textarea,
+select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.55rem 0 0.45rem;
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: var(--ntx-input-fg, #191c1d);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--ntx-input-border, rgba(190, 200, 201, 0.95));
+    border-radius: 0;
+    outline: none;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    border-bottom-color: var(--ntx-input-focus-border, rgba(20, 105, 109, 0.35));
+    box-shadow: none;
+}
+
+input[type="checkbox"] {
+    width: auto;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    accent-color: var(--ntx-color-accent, #14696d);
+}
+
+textarea {
+    min-height: 72px;
+    resize: vertical;
+}
+
+/* ── Name input in edit mode ── */
+input[data-key="name"],
+input[data-key="title"] {
+    font-size: 1.2rem;
+    font-weight: 800;
+    padding: 0.5rem 0 0.45rem;
+    background: transparent;
+    border-color: transparent;
+    border-bottom: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    border-radius: 0;
+}
+
+input[data-key="name"]:focus,
+input[data-key="title"]:focus {
+    border-color: transparent;
+    border-bottom-color: var(--ntx-color-accent, #14696d);
+    box-shadow: none;
+}
+
+/* ── Glass fieldsets ── */
+fieldset.ntx-group {
+    background: var(--ntx-color-surface-2, #f2f4f5);
+    border: 0px;
+    border-radius: var(--ntx-radius-md, 12px);
+    padding: 0.95rem 1rem 0.85rem;
+    margin: 1rem 0 0;
+    box-shadow: none;
+}
+
+fieldset.ntx-group legend {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ntx-color-text-subtle, #889293);
+    padding: 0;
+    margin-left: 0;
+}
+
+fieldset.ntx-group legend::after {
+    content: '';
+    flex: 1 1 auto;
+    min-width: 1.5rem;
+    border-top: 1px solid var(--ntx-line-subtle, rgba(190, 200, 201, 0.7));
+    opacity: 0.9;
+}
+
+/* ── ListRef / nested items ── */
+.list-field {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(190, 200, 201, 0.7);
+}
+
+.list-field > label {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    color: var(--ntx-color-accent-strong, #00464a);
+    font-size: 0.65rem;
+}
+
+.list-field-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.list-field-label {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ntx-color-accent-strong, #00464a);
+}
+
+.list-field-count {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--ntx-color-accent-strong, #00464a);
+    background: rgba(20, 105, 109, 0.08);
+    border: 1px solid rgba(20, 105, 109, 0.12);
+    border-radius: 999px;
+    padding: 0.1rem 0.45rem;
+    min-width: 1.25rem;
+    text-align: center;
+}
+
+/* Nested items */
+.list-field ntx-item {
+    margin: 0.25rem 0;
+}
+
+.list-field-ref-row,
+.list-field-edit-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.75rem;
+    margin: 0.35rem 0;
+}
+
+.list-field-edit-row input,
+.list-field-edit-row textarea,
+.list-field-edit-row select {
+    width: 100%;
+    margin: 0;
+}
+
+.list-field-edit-row textarea {
+    min-height: 5rem;
+}
+
+.list-field-remove,
+.list-field-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: var(--ntx-radius-sm, 10px);
+    border: 1px solid var(--ntx-button-secondary-border, rgba(190, 200, 201, 0.85));
+    background: var(--ntx-button-secondary-bg, #ffffff);
+    color: var(--ntx-color-text, #344041);
+    cursor: pointer;
+}
+
+.list-field-remove {
+    color: var(--ntx-color-error, #ba1a1a);
+    border-color: var(--ntx-status-error-border, rgba(186, 26, 26, 0.16));
+    background: var(--ntx-status-error-bg, rgba(186, 26, 26, 0.1));
+}
+
+.list-field-add {
+    margin-top: 0.65rem;
+    color: var(--ntx-color-accent-strong, #00464a);
+    border-color: rgba(20, 105, 109, 0.12);
+    background: rgba(20, 105, 109, 0.08);
+}
+
+/* Plain value list items (string/number arrays without $ref) */
+.list-field-item {
+    padding: 0.45rem 0;
+    margin: 0.25rem 0;
+    font-size: 0.85rem;
+    color: var(--ntx-color-text-strong, #191c1d);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(190, 200, 201, 0.7);
+    border-radius: 0;
+    line-height: 1.4;
+}
+
+/* Collapsed items */
+.nested-collapsed {
+    display: none;
+}
+.nested-collapsed.expanded {
+    display: block;
+}
+
+/* Show more button */
+.show-more-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ntx-color-accent-strong, #00464a);
+    background: rgba(20, 105, 109, 0.08);
+    border: 1px solid rgba(20, 105, 109, 0.12);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    box-shadow: none;
+}
+
+.show-more-btn:hover {
+    background: rgba(20, 105, 109, 0.12);
+    border-color: rgba(20, 105, 109, 0.18);
+    transform: none;
+    box-shadow: none;
+}
+
+/* ── Object (dict) display ── */
+.object-display {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.8rem;
+    color: var(--ntx-color-text, #344041);
+    line-height: 1.5;
+}
+
+.object-display .kv-key {
+    color: var(--ntx-color-accent-strong, #00464a);
+    font-weight: 500;
+}
+
+.object-display .kv-val {
+    color: var(--ntx-color-text-muted, #5f6a6b);
+}
+
+.object-display .kv-more {
+    font-style: italic;
+    color: var(--ntx-color-text-subtle, #889293);
+}
+
+/* ── References ── */
+.ref {
+    font-style: italic;
+    color: var(--ntx-color-text-subtle, #889293);
+    font-size: 0.85rem;
+}
+
+/* ── Method buttons ── */
+ntx-method {
+    display: inline-block;
+    margin-top: 0.75rem;
+    margin-right: 0.5rem;
+}
+
+/* Methods inside group fieldsets: full width, no inline-block */
+fieldset.ntx-group ntx-method {
+    display: block;
+    margin-top: 0.5rem;
+    margin-right: 0;
+}
+
+/* ── Separator between fields ── */
+label:first-of-type {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+}
+
+@keyframes staggerIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+
+/* ═══════════════════════════════════════════════════
+   Skeleton shimmer placeholders
+   ═══════════════════════════════════════════════════ */
+
+/* Bone base — each placeholder bar */
+.bone {
+    display: block;
+    background: var(--ntx-color-surface-3, #eceeef);
+    border-radius: var(--ntx-radius-sm, 8px);
+    overflow: hidden;
+    position: relative;
+}
+
+.bone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--ntx-color-text-strong, #ffffff) 8%, transparent) 50%, transparent 100%);
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* xs skeleton — pill shape */
+.card.skeleton[data-display="xs"] {
+    pointer-events: none;
+}
+
+/* sm skeleton — row with avatar + text bones */
+.card.skeleton[data-display="sm"] {
+    pointer-events: none;
+}
+
+/* md/lg/xl skeleton — card with title + field bones */
+.card.skeleton[data-display="md"],
+.card.skeleton[data-display="lg"],
+.card.skeleton[data-display="xl"] {
+    pointer-events: none;
+    min-height: 5rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   Field validation errors
+   ═══════════════════════════════════════════════════ */
+
+input.field-error, textarea.field-error,
+.widget-edit-wrapper.field-error input,
+.widget-edit-wrapper.field-error textarea {
+    border-color: var(--ntx-color-error, #f87171);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ntx-color-error, #f87171) 20%, transparent);
+}
+
+.error-message {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ntx-color-error, #f87171);
+}
+
+@keyframes shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+
+/* ═══════════════════════════════════════════════════
+   Create mode — used when item is stamped as an
+   inline create form by ListElement
+   ═══════════════════════════════════════════════════ */
+
+:host([create-mode]) .card-actions {
+    display: none !important;
+}
+
+/* ── Ref picker component spacing within list fields ── */
+.list-field ntx-ref-picker {
+    margin-top: 0.5rem;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   Error banner — persistent, dismissible
+   ═══════════════════════════════════════════════════ */
+
+.ntx-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--ntx-status-error-fg, #fca5a5);
+    background: var(--ntx-status-error-bg, rgba(239, 68, 68, 0.10));
+    border: 1px solid var(--ntx-status-error-border, rgba(239, 68, 68, 0.25));
+    border-radius: var(--ntx-radius-sm, 8px);
+    animation: staggerIn 0.25s ease both;
+}
+
+.ntx-error-msg {
+    flex: 1;
+    word-break: break-word;
+}
+
+.ntx-error-dismiss {
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ntx-status-error-fg, #fca5a5);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.ntx-error-dismiss:hover {
+    background: var(--ntx-status-error-bg, rgba(239, 68, 68, 0.18));
+}

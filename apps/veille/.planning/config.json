@@ -1,0 +1,11 @@
+{
+  "mode": "interactive",
+  "depth": "quick",
+  "parallelization": false,
+  "commit_docs": true,
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  }
+}

@@ -1,0 +1,36 @@
+id: 7
+title: "Sidebar selected-state and first-party navigation migration"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 1
+  - 2
+  - 3
+  - 4
+what_to_build: |
+  Make first-party navigation understand and, where intended, emit explicit
+  `@` view routes. Sidebar selected-state must recognize `#Model/@...` routes
+  as belonging to the model, app/home links must preserve their current
+  semantics, and migrated links should use the new grammar without breaking
+  legacy routes.
+acceptance_criteria:
+  - "Sidebar selected-state marks a model selected for `#Product/@`, `#Product/@table`, `#Product/3/@`, and `#Product/3/@item`."
+  - "Existing selected-state behavior for `#Product` and app routes such as `#@settings` remains unchanged."
+  - "Bare home links still dispatch the empty home route and do not become `#@`."
+  - "Migrated model header or primary links use `#Product/@` where this refactor elects explicit default view links."
+  - "Migrated record links use `#Product/5/@` where this refactor elects explicit member default view links."
+  - "Route-template dropdown behavior remains compatible, including special handling for table dropdown fallbacks."
+  - "Custom sidebar labels continue to work while route targets use the new grammar."
+  - "Legacy `#Product` and `#Product/5` routes remain supported during the migration window."
+user_stories_addressed:
+  - 17
+  - 24
+  - 25
+  - 27
+  - 30
+  - 31
+  - 32
+  - 33
+  - 55
+  - 56
+  - 58

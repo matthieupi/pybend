@@ -1,0 +1,128 @@
+html[data-theme="industrial"] {
+    color-scheme: dark;
+
+    --ntx-font-display: 'Manrope', sans-serif;
+    --ntx-font-body: 'Manrope', sans-serif;
+    --ntx-font-mono: 'JetBrains Mono', 'SFMono-Regular', monospace;
+
+    --ntx-space-1: 0.25rem;
+    --ntx-space-2: 0.5rem;
+    --ntx-space-3: 0.75rem;
+    --ntx-space-4: 1rem;
+    --ntx-space-5: 1.5rem;
+    --ntx-space-6: 2rem;
+
+    --ntx-radius-xs: 4px;
+    --ntx-radius-sm: 4px;
+    --ntx-radius-md: 8px;
+    --ntx-radius-lg: 12px;
+    --ntx-radius-xl: 12px;
+
+    --ntx-border-width: 1px;
+    --ntx-layout-topbar-height: 4rem;
+    --ntx-layout-sidebar-width: 16rem;
+    --ntx-layout-page-gutter: clamp(1.25rem, 2vw, 2rem);
+
+    --ntx-duration-fast: 180ms;
+    --ntx-duration-normal: 260ms;
+    --ntx-duration-slow: 360ms;
+    --ntx-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --ntx-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+    --ntx-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.18);
+    --ntx-shadow-sm: 0 8px 18px rgba(0, 0, 0, 0.22);
+    --ntx-shadow-md: 0 14px 28px rgba(0, 0, 0, 0.28);
+    --ntx-shadow-lg: 0 22px 42px rgba(0, 0, 0, 0.32);
+    --ntx-shadow-xl: 0 32px 56px rgba(0, 0, 0, 0.38);
+
+    --ntx-color-page: #121317;
+    --ntx-color-surface-1: #0d0e12;
+    --ntx-color-surface-2: #1a1b20;
+    --ntx-color-surface-3: #1f1f24;
+    --ntx-color-surface-4: #292a2e;
+    --ntx-color-overlay: rgba(18, 19, 23, 0.92);
+    --ntx-color-text-strong: #ffffff;
+    --ntx-color-text: #e3e2e8;
+    --ntx-color-text-muted: #c6c6c6;
+    --ntx-color-text-subtle: #919191;
+    --ntx-color-accent: #d4d4d5;
+    --ntx-color-accent-strong: #ffffff;
+    --ntx-color-accent-text: #ffffff;
+    --ntx-color-success: #62f9ee;
+    --ntx-color-warning: #bec7d6;
+    --ntx-color-error: #ffb4ab;
+
+    --ntx-border-subtle: rgba(71, 71, 71, 0.34);
+    --ntx-border-default: rgba(71, 71, 71, 0.72);
+    --ntx-border-strong: rgba(145, 145, 145, 0.62);
+    --ntx-border-interactive: rgba(255, 255, 255, 0.18);
+    --ntx-line-subtle: rgba(71, 71, 71, 0.42);
+    --ntx-focus-ring: rgba(255, 255, 255, 0.08);
+    --ntx-backdrop-scrim: rgba(13, 14, 18, 0.68);
+
+    --ntx-button-primary-bg: linear-gradient(145deg, #ffffff 0%, #d4d4d5 100%);
+    --ntx-button-primary-fg: #1a1c1d;
+    --ntx-button-primary-border: transparent;
+    --ntx-button-primary-hover-bg: linear-gradient(145deg, #ffffff 0%, #ececed 100%);
+    --ntx-button-secondary-bg: #1f1f24;
+    --ntx-button-secondary-fg: #e3e2e8;
+    --ntx-button-secondary-border: rgba(71, 71, 71, 0.78);
+    --ntx-button-secondary-hover-bg: #292a2e;
+    --ntx-input-bg: #0d0e12;
+    --ntx-input-fg: #e3e2e8;
+    --ntx-input-border: rgba(52, 52, 57, 0.88);
+    --ntx-input-placeholder: #919191;
+    --ntx-input-focus-border: rgba(255, 255, 255, 0.2);
+    --ntx-input-focus-ring: rgba(255, 255, 255, 0.08);
+    --ntx-input-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+
+    --ntx-card-bg: #1f1f24;
+    --ntx-card-hover-bg: #292a2e;
+    --ntx-panel-bg: #1f1f24;
+    --ntx-panel-strong-bg: #0d0e12;
+    --ntx-topbar-bg: rgba(18, 19, 23, 0.6);
+    --ntx-topbar-border: transparent;
+    --ntx-topbar-shadow: none;
+    --ntx-sidebar-bg: #121317;
+    --ntx-sidebar-border: transparent;
+    --ntx-sidebar-overlay-bg: rgba(13, 14, 18, 0.76);
+
+    --ntx-status-neutral-fg: #c6c6c6;
+    --ntx-status-neutral-bg: rgba(52, 52, 57, 0.55);
+    --ntx-status-neutral-border: rgba(71, 71, 71, 0.62);
+    --ntx-status-accent-fg: #ffffff;
+    --ntx-status-accent-bg: rgba(255, 255, 255, 0.06);
+    --ntx-status-accent-border: rgba(255, 255, 255, 0.16);
+    --ntx-status-success-fg: #62f9ee;
+    --ntx-status-success-bg: rgba(98, 249, 238, 0.1);
+    --ntx-status-success-border: rgba(98, 249, 238, 0.24);
+    --ntx-status-warning-fg: #dae3f2;
+    --ntx-status-warning-bg: rgba(190, 199, 214, 0.1);
+    --ntx-status-warning-border: rgba(190, 199, 214, 0.2);
+    --ntx-status-error-fg: #ffb4ab;
+    --ntx-status-error-bg: rgba(255, 180, 171, 0.1);
+    --ntx-status-error-border: rgba(255, 180, 171, 0.2);
+
+    --ntx-page-background: linear-gradient(180deg, #121317 0%, #121317 100%);
+    --ntx-page-atmosphere:
+        radial-gradient(56rem 26rem at 82% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
+        radial-gradient(42rem 20rem at -10% 24%, rgba(98, 249, 238, 0.035), transparent 62%),
+        radial-gradient(40rem 28rem at 52% 118%, rgba(190, 199, 214, 0.04), transparent 65%);
+    --ntx-page-grid: none;
+
+    --ntx-gradient-text: linear-gradient(145deg, #ffffff 0%, #d4d4d5 100%);
+    --ntx-glass-bg: rgba(52, 52, 57, 0.6);
+    --ntx-glass-bg-light: rgba(52, 52, 57, 0.48);
+    --ntx-glass-bg-hover: rgba(52, 52, 57, 0.72);
+    --ntx-glass-border: rgba(71, 71, 71, 0.72);
+    --ntx-glass-border-hover: rgba(255, 255, 255, 0.16);
+    --ntx-glass-blur: 20px;
+    --ntx-glass-blur-sm: 14px;
+    --ntx-glass-blur-lg: 22px;
+    --ntx-glass-gradient: linear-gradient(180deg, rgba(52, 52, 57, 0.62), rgba(31, 31, 36, 0.88));
+    --ntx-light-highlight: rgba(255, 255, 255, 0.08);
+    --ntx-shadow-accent-md: 0 14px 30px rgba(0, 0, 0, 0.36);
+    --ntx-agent-provider-accent: #62f9ee;
+    --ntx-agent-provider-dim: rgba(98, 249, 238, 0.14);
+    --ntx-agent-hero-bg: linear-gradient(145deg, #1f1f24 0%, #292a2e 100%);
+}

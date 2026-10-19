@@ -1,0 +1,61 @@
+id: 12
+title: "Direct FastAPI class-name collection and write mirrors"
+type: "AFK"
+parent_prd: ".project/refactor/1-routes-grammar/2-hypermedia-route-grammar-prd.md"
+blocked_by:
+  - 10
+what_to_build: |
+  Add direct FastAPI class-name collection and write mirrors for storable models
+  while keeping schema and table-name routes unchanged.
+
+  Existing:
+
+      POST   /products
+      GET    /products
+      GET    /products/1
+      PUT    /products/1
+      DELETE /products/1
+      GET    /Product/1
+
+  Add:
+
+      POST   /Product
+      GET    /Product/_
+      PUT    /Product/1
+      DELETE /Product/1
+
+  Do not add `GET /Product` as a list mirror because `GET /Product` is the schema
+  endpoint. Use the explicit `_` marker for JSON collection reads. `_` is a
+  backend JSON API marker, not a frontend hash-route view marker.
+acceptance_criteria:
+  - "Direct route generation includes `GET /{ClassName}/_` for storable root models."
+  - "Direct route generation includes `POST /{ClassName}` for storable root models."
+  - "Direct route generation includes `PUT /{ClassName}/{id:int}` and `DELETE /{ClassName}/{id:int}` for storable root models."
+  - "`GET /{ClassName}` remains the JSON Schema endpoint and is not converted into a list route."
+  - "Class-name list/create/update/delete mirrors reuse the same handlers as table-name routes."
+  - "Auth, protected-field handling, owner checks, FK flattening, response serialization, and errors match table-name behavior."
+  - "Responses advertise class-name `$id` values from issue 010."
+  - "Non-storable models do not receive class-name collection or write mirrors."
+  - "Existing table-name routes and class-name read mirrors remain unchanged."
+implementation_notes:
+  - "Primary file: `packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py`."
+  - "Reuse `make_get_all_instances()`, `make_create_instance()`, `make_update_instance()`, and `make_delete_instance()`; do not duplicate auth or serialization logic."
+  - "Register view routes before `{id:int}` and method mirrors so `/Product/@...` stays view/html."
+  - "Document that class-name create exists despite schema occupying `GET /ClassName`; the route is method-disambiguated by HTTP verb."
+  - "Document that `GET /ClassName/_` is the class-name JSON collection endpoint; `#ClassName/_` is not a frontend view route."
+critical_files:
+  - "packages/n3tx-core/src/n3tx_core/api/routes_fastapi.py"
+  - "packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py"
+  - "examples/core/tests/"
+verification:
+  - "cd /workspace && python3 -m pytest packages/n3tx-core/src/n3tx_core/tests/unit/test_routes.py examples/core/tests/"
+risks:
+  - "Some clients may assume `/ClassName` is schema for all verbs; keep docs explicit that only GET is schema."
+  - "Do not add class-name list route in this slice."
+user_stories_addressed:
+  - 34
+  - 35
+  - 36
+  - 38
+  - 40
+  - 41

@@ -1,0 +1,174 @@
+/* ── Widget System Styles ──────────────────────────────────────────── */
+
+/* URL Widget */
+.widget-url-link {
+    color: var(--ntx-color-accent-text, #84efff);
+    text-decoration: none;
+    word-break: break-all;
+}
+.widget-url-link:hover {
+    text-decoration: underline;
+}
+
+/* Email Widget */
+.widget-email-link {
+    color: var(--ntx-color-accent-text, #84efff);
+    text-decoration: none;
+}
+.widget-email-link:hover {
+    text-decoration: underline;
+}
+
+/* Date Widget */
+.widget-date {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Markdown Widget */
+.widget-markdown {
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+.widget-markdown h1,
+.widget-markdown h2,
+.widget-markdown h3 {
+    margin-top: 0.8em;
+    margin-bottom: 0.4em;
+}
+.widget-markdown h1 { font-size: 1.4em; }
+.widget-markdown h2 { font-size: 1.2em; }
+.widget-markdown h3 { font-size: 1.05em; }
+.widget-markdown p {
+    margin: 0.5em 0;
+}
+.widget-markdown code {
+    background: var(--ntx-color-surface-3, rgba(0,0,0,0.1));
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+.widget-markdown pre {
+    background: var(--ntx-color-surface-3, #1e1e2e);
+    border: 1px solid var(--ntx-border-default, #333);
+    border-radius: var(--ntx-radius-sm, 8px);
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 0.85em;
+}
+.widget-markdown pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+}
+.widget-markdown blockquote {
+    border-left: 3px solid var(--ntx-color-accent, #3adffa);
+    margin: 0.5em 0;
+    padding: 0.3em 1em;
+    color: var(--ntx-color-text-muted, #999);
+}
+.widget-markdown ul,
+.widget-markdown ol {
+    padding-left: 1.5em;
+    margin: 0.5em 0;
+}
+.widget-markdown a {
+    color: var(--ntx-color-accent-text, #84efff);
+}
+
+/* Markdown Editor (side-by-side) */
+.widget-markdown-editor {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    min-height: 200px;
+}
+.widget-markdown-input {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9em;
+    resize: vertical;
+}
+.widget-markdown-preview {
+    border: 1px solid var(--ntx-border-default, #333);
+    border-radius: var(--ntx-radius-sm, 8px);
+    padding: 12px;
+    overflow-y: auto;
+    max-height: 400px;
+    background: var(--ntx-color-surface-2, #1a1a2e);
+}
+
+/* Console Widget */
+.widget-console {
+    background: var(--ntx-color-surface-3, #0d0d14);
+    color: var(--ntx-color-text-strong, #e0e0e0);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85em;
+    border: 1px solid var(--ntx-border-default, #333);
+    border-radius: var(--ntx-radius-sm, 8px);
+    padding: 12px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    line-height: 1.4;
+    max-height: 400px;
+    overflow-y: auto;
+}
+.widget-console-textarea {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85em;
+    background: var(--ntx-color-surface-3, #0d0d14);
+    color: var(--ntx-color-text-strong, #e0e0e0);
+    border: 1px solid var(--ntx-border-default, #333);
+    border-radius: var(--ntx-radius-sm, 8px);
+    resize: vertical;
+    cursor: default;
+}
+
+/* Reference Widget */
+.widget-reference-link {
+    color: var(--ntx-color-accent-text, #84efff);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--ntx-color-accent-text, #84efff);
+}
+.widget-reference-link:hover {
+    text-decoration: none;
+    border-bottom-style: solid;
+}
+
+/* Currency Widget */
+.widget-currency {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Boolean Widget */
+.widget-bool {
+    accent-color: var(--ntx-status-neutral-fg, #7c8599);
+}
+
+.widget-bool:checked {
+    accent-color: var(--ntx-status-success-fg, #6ef9e2);
+}
+
+.widget-bool--readonly {
+    pointer-events: none;
+    cursor: default;
+}
+
+/* Enum Pill (display mode for Literal/enum fields) */
+.enum-pill {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: capitalize;
+    padding: 0.15rem 0.6rem;
+    border-radius: var(--ntx-radius-sm, 8px);
+    background: var(--ntx-status-accent-bg, rgba(58, 223, 250, 0.12));
+    color: var(--ntx-color-accent-text, #84efff);
+    border: 1px solid var(--ntx-border-interactive, rgba(58, 223, 250, 0.35));
+}
+
+/* Widget Wrappers (form.js integration) */
+.widget-display-wrapper,
+.widget-edit-wrapper {
+    display: contents;
+}
