@@ -1,0 +1,128 @@
+[
+  {
+    "method": "GET",
+    "path": "/Issue",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "POST",
+    "path": "/users/register",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "POST",
+    "path": "/users/register",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "POST",
+    "path": "/users/login",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "POST",
+    "path": "/users/login",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "GET",
+    "path": "/auth/me",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "POST",
+    "path": "/labels",
+    "status": 422,
+    "expected": 422
+  },
+  {
+    "method": "POST",
+    "path": "/labels",
+    "status": 201,
+    "expected": 201
+  },
+  {
+    "method": "POST",
+    "path": "/issues",
+    "status": 422,
+    "expected": 422
+  },
+  {
+    "method": "POST",
+    "path": "/issues",
+    "status": 422,
+    "expected": 422
+  },
+  {
+    "method": "POST",
+    "path": "/issues",
+    "status": 201,
+    "expected": 201
+  },
+  {
+    "method": "PUT",
+    "path": "/issues/1",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "PUT",
+    "path": "/issues/1",
+    "status": 422,
+    "expected": 422
+  },
+  {
+    "method": "POST",
+    "path": "/issues/1/resolve",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "GET",
+    "path": "/issues/1",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "GET",
+    "path": "/issues",
+    "status": 200,
+    "expected": 200
+  },
+  {
+    "method": "GET",
+    "path": "/issues/1",
+    "status": 403,
+    "expected": 403
+  },
+  {
+    "method": "PUT",
+    "path": "/issues/1",
+    "status": 403,
+    "expected": 403
+  },
+  {
+    "method": "POST",
+    "path": "/issues/1/resolve",
+    "status": 403,
+    "expected": 403
+  },
+  {
+    "method": "DELETE",
+    "path": "/issues/1",
+    "status": 403,
+    "expected": 403
+  },
+  {
+    "method": "DELETE",
+    "path": "/issues/1",
+    "status": 200,
+    "expected": 200
+  }
+]

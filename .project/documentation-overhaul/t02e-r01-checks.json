@@ -1,0 +1,46 @@
+[
+  {
+    "check": "extracted-http-browser",
+    "command": [
+      "/workspace/.venv-agents/bin/python",
+      "/workspace/neuralys/collagen/lib/n3tx/.project/documentation-overhaul/t02e_browser.py"
+    ],
+    "cwd": "/workspace/neuralys/collagen/lib/n3tx",
+    "exit_code": 1
+  },
+  {
+    "check": "tutorial-http",
+    "command": [
+      "/workspace/.venv-agents/bin/python",
+      "/workspace/neuralys/collagen/lib/n3tx/.project/documentation-overhaul/verify_tutorial.py"
+    ],
+    "cwd": "/workspace/neuralys/collagen/lib/n3tx",
+    "exit_code": 0
+  },
+  {
+    "check": "native-create",
+    "command": [
+      "npx",
+      "vitest",
+      "run",
+      "--config",
+      "/workspace/neuralys/collagen/lib/n3tx/.project/documentation-overhaul/t02e-native-create.config.mjs",
+      "--maxWorkers=2",
+      "--minWorkers=1"
+    ],
+    "cwd": "/workspace/neuralys/collagen/lib/n3tx/tests/frontend",
+    "exit_code": 0
+  },
+  {
+    "check": "frontend-suite",
+    "command": [
+      "npm",
+      "test",
+      "--",
+      "--maxWorkers=2",
+      "--minWorkers=1"
+    ],
+    "cwd": "/workspace/neuralys/collagen/lib/n3tx/tests/frontend",
+    "exit_code": 0
+  }
+]

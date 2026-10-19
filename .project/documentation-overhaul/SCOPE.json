@@ -1,0 +1,77 @@
+{
+  "directory_aliases": [
+    {
+      "path": ".agents/commands",
+      "target": "prompts"
+    }
+  ],
+  "exclusions": [
+    {
+      "path": ".git",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": ".project",
+      "reason": "User excludes all .project content from assessment; audit artifacts remain here"
+    },
+    {
+      "path": "packages/n3tx-actors/src/n3tx_actors/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-actors/src/n3tx_actors/models/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-agents/src/n3tx_agents/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-core/src/n3tx_core/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-core/src/n3tx_core/api/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-core/src/n3tx_core/authorize/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-core/src/n3tx_core/models/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-core/src/n3tx_core/storage/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-core/src/n3tx_core/utils/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-core/src/n3tx_core/widgets/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "packages/n3tx-ui/src/n3tx_ui/__pycache__",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    },
+    {
+      "path": "tests/frontend/node_modules",
+      "reason": "Dependency, Git metadata, or runtime cache"
+    }
+  ],
+  "extensions": [
+    ".adoc",
+    ".jsonl",
+    ".md",
+    ".mdx",
+    ".org",
+    ".pdf",
+    ".rst",
+    ".txt"
+  ],
+  "user_exclusion": "All .project content, including plans, research, history and orchestration; artifacts stored there are outputs only"
+}

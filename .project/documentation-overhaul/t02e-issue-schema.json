@@ -1,0 +1,343 @@
+{
+  "$defs": {
+    "Label": {
+      "$id": "http://127.0.0.1:55865/Label",
+      "$schema": "http://127.0.0.1:55865/Schema",
+      "__name__": "Label",
+      "__tablename__": "labels",
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "default": 0,
+          "title": "Id",
+          "type": "integer",
+          "ui": {
+            "display": false
+          }
+        },
+        "image": {
+          "default": "",
+          "title": "Image",
+          "type": "string",
+          "ui": {
+            "display": false
+          }
+        },
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9 _-]+$",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Label",
+      "type": "object",
+      "methods": {},
+      "access": {
+        "*": {
+          "rule": "never"
+        },
+        "read": {
+          "rule": "anyone"
+        },
+        "list": {
+          "rule": "anyone"
+        },
+        "create": {
+          "rule": "authenticated"
+        },
+        "update": {
+          "rule": "role",
+          "roles": [
+            "admin"
+          ]
+        },
+        "delete": {
+          "rule": "role",
+          "roles": [
+            "admin"
+          ]
+        }
+      },
+      "ui": {
+        "field_order": [
+          "name"
+        ]
+      }
+    },
+    "Issue": {
+      "$id": "http://127.0.0.1:55865/Issue",
+      "$schema": "http://127.0.0.1:55865/Schema",
+      "__name__": "Issue",
+      "__tablename__": "issues",
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "default": 0,
+          "title": "Id",
+          "type": "integer",
+          "ui": {
+            "display": false
+          }
+        },
+        "image": {
+          "default": "",
+          "title": "Image",
+          "type": "string",
+          "ui": {
+            "display": false
+          }
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9 _-]+$",
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "default": "open",
+          "enum": [
+            "open",
+            "closed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "resolution": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Resolution",
+          "type": "string",
+          "ui": {
+            "widget": "textarea"
+          }
+        },
+        "user_owner": {
+          "default": 0,
+          "title": "User Owner",
+          "type": "integer",
+          "ui": {
+            "protected": true
+          }
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/Label"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "related": {
+          "items": {
+            "format": "uri",
+            "type": "string",
+            "x-ref": "Label"
+          },
+          "title": "Related",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Issue",
+      "type": "object",
+      "methods": {
+        "resolve": {
+          "route": "/resolve",
+          "methods": [
+            "POST"
+          ],
+          "scope": "instancemethod",
+          "requires_instance": true,
+          "parameters": {
+            "resolution": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "resolution"
+          ],
+          "returns": {
+            "type": "string"
+          },
+          "access": {
+            "rule": "owner"
+          }
+        }
+      },
+      "access": {
+        "*": {
+          "rule": "never"
+        },
+        "create": {
+          "rule": "authenticated"
+        },
+        "read": {
+          "rule": "owner"
+        },
+        "list": {
+          "rule": "owner"
+        },
+        "update": {
+          "rule": "owner"
+        },
+        "delete": {
+          "rule": "owner"
+        }
+      },
+      "ui": {
+        "field_order": [
+          "name",
+          "status",
+          "resolution",
+          "labels",
+          "related"
+        ],
+        "renderer": {
+          "list": "ntx-list",
+          "item": "ntx-item"
+        }
+      }
+    }
+  },
+  "$id": "http://127.0.0.1:55865/Issue",
+  "$schema": "http://127.0.0.1:55865/Schema",
+  "__name__": "Issue",
+  "__tablename__": "issues",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "default": 0,
+      "title": "Id",
+      "type": "integer",
+      "ui": {
+        "display": false
+      }
+    },
+    "image": {
+      "default": "",
+      "title": "Image",
+      "type": "string",
+      "ui": {
+        "display": false
+      }
+    },
+    "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9 _-]+$",
+      "title": "Name",
+      "type": "string"
+    },
+    "status": {
+      "default": "open",
+      "enum": [
+        "open",
+        "closed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "resolution": {
+      "default": "",
+      "maxLength": 2000,
+      "title": "Resolution",
+      "type": "string",
+      "ui": {
+        "widget": "textarea"
+      }
+    },
+    "user_owner": {
+      "default": 0,
+      "title": "User Owner",
+      "type": "integer",
+      "ui": {
+        "protected": true
+      }
+    },
+    "labels": {
+      "items": {
+        "$ref": "#/$defs/Label"
+      },
+      "title": "Labels",
+      "type": "array"
+    },
+    "related": {
+      "items": {
+        "format": "uri",
+        "type": "string",
+        "x-ref": "Label"
+      },
+      "title": "Related",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Issue",
+  "type": "object",
+  "methods": {
+    "resolve": {
+      "route": "/resolve",
+      "methods": [
+        "POST"
+      ],
+      "scope": "instancemethod",
+      "requires_instance": true,
+      "parameters": {
+        "resolution": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "resolution"
+      ],
+      "returns": {
+        "type": "string"
+      },
+      "access": {
+        "rule": "owner"
+      }
+    }
+  },
+  "access": {
+    "*": {
+      "rule": "never"
+    },
+    "create": {
+      "rule": "authenticated"
+    },
+    "read": {
+      "rule": "owner"
+    },
+    "list": {
+      "rule": "owner"
+    },
+    "update": {
+      "rule": "owner"
+    },
+    "delete": {
+      "rule": "owner"
+    }
+  },
+  "ui": {
+    "field_order": [
+      "name",
+      "status",
+      "resolution",
+      "labels",
+      "related"
+    ],
+    "renderer": {
+      "list": "ntx-list",
+      "item": "ntx-item"
+    }
+  }
+}

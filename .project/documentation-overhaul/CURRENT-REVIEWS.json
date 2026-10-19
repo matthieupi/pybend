@@ -1,0 +1,347 @@
+{
+  ".agents/agents/archivist.md": {
+    "sha256": "9032f7ffd28e4ad0e345e2e93719b9dca7a4ba71c1c40868ebc65ed9075471b2",
+    "read_windows": [[1, 307]],
+    "assessment": "R03 full direct read. Valuable source-first progressive documentation workflow with explicit runnable-example and link checks. Presentation tension: exhaustive export/signature inventory plus fixed 150-250 lines/3K tokens can defeat Layer 0 navigation; make budgets advisory and route large references deeper. No runtime claims certified. Preserve with editorial refinement."
+  },
+  ".agents/agents/feature-task-executor.md": {
+    "sha256": "0d98df614c879b470a59baa2a7ad32a015c9c61d3f4c7a873e374ddf69b4c9dd",
+    "read_windows": [[1, 119]],
+    "assessment": "R03 full direct read. Clear self-contained task protocol, read-before-write, bounded retries and honest status; plan-validation safety overrides blind execution. Valuable executor contract. Tool names are harness-specific, as shared catalog warns. No substantive new defect; preserve."
+  },
+  ".agents/agents/ideation-agent.md": {
+    "sha256": "f275e3a74c82968c5c2b15fc0d64f9e6ef9402082be0ef5996f70b900bfc5141",
+    "read_windows": [[1, 294]],
+    "assessment": "T02F full direct current read after edits. R03-04 closed: exact supplied paths, numbered backlink, sibling research citation, frozen inputs and completed-analysis summary reconciliation. Useful dual-audience structure retained. Optional length/visual quota concerns remain; pipeline not executed. See final-corrections.md."
+  },
+  ".agents/agents/ideation-researcher.md": {
+    "sha256": "054438eb9e489f66e32c909ff8899668623320c81a2c963bbdf6c34c4f6fa78e",
+    "read_windows": [[1, 122]],
+    "assessment": "R03 full direct read. Valuable evidence collection, opposing views, source tracing and accessible technical synthesis. Presentation/completeness concern: mandatory ten sources, real measured outcomes and 500-1000 lines need explicit insufficient-evidence outcome, not manufactured precision. Shared catalog prohibits invention, but standalone invocation should repeat that fallback. Web research not executed."
+  },
+  ".agents/agents/ideation-technical.md": {
+    "sha256": "45d876fa734ce0b2b13500214ffc00d1db01c4e320fae544f57a532c01a1e9f4",
+    "read_windows": [[1, 297]],
+    "assessment": "R03 full direct read. Strong distinction between actionable propositions and cohesive argument, traceability to research/code and migration gates. Preserve. Output length and mandatory moonshot quotas should be advisory when unsupported; Actor.js/NTT.js are illustrative not verified source references. Legacy output root needs shared-catalog adaptation; no synthesis execution claimed."
+  },
+  ".agents/agents/perf-audit-backend.md": {
+    "sha256": "03f83c0360fbc596de3db4718c18c5ec6918694d27ca64aa8da55a3357439af8",
+    "read_windows": [[1, 58]],
+    "assessment": "R03 full direct read. Compact actionable static-review checklist; read-only return contract and explicit hypothesis-versus-benchmark distinction are correct. Preserve. Exhaustive hot-path wording is an aspiration; report actual scope rather than infer measured bottlenecks."
+  },
+  ".agents/agents/perf-audit-frontend.md": {
+    "sha256": "532ebaf4b144100093a5db1dd127a50186e232dd78b93691434fbdd0d1415378",
+    "read_windows": [[1, 68]],
+    "assessment": "T02F full direct current read after edits. R03-07 closed for this guide: distinguishes appends from measured reflows and requires hypothesis labels for static estimates. Compact lifecycle/network/rendering checklist retained. No performance trace or speedup claimed."
+  },
+  ".agents/agents/static-site-analyst.md": {
+    "sha256": "be21afc1784d08045b7c4e70b07ccda48693cd28c6232e5608c71a4aa0c383db",
+    "read_windows": [[1, 30]],
+    "assessment": "R03 full direct read. Concise synthesis role and source citation requirements; useful specialized alternative. Output filenames and insufficient-evidence behavior are unspecified, and hard 800-1000 line target contradicts focused/no-fluff intent. Use supplied output paths and evidence-driven lengths; shared catalog supplies .project adaptation. No substantive framework claim."
+  },
+  ".agents/agents/static-site-researcher.md": {
+    "sha256": "2fcaa2c6014a3e542f885ac1cb370b89449720003957e1b525f82371c458c554",
+    "read_windows": [[1, 28]],
+    "assessment": "R03 full direct read. Useful compact research brief with explicit output path and citations. Completeness gap: unavailable web access or fewer than ten credible sources needs honest fallback; quotas should not force unsupported numbers or 400-700 lines of padding. No source or web research executed by this audit."
+  },
+  ".agents/agents/test-writer.md": {
+    "sha256": "fd892918cacbb0ea85318f884428a50fa6dfc644c302d4856ffc12d4801f4f75",
+    "read_windows": [[1, 368]],
+    "assessment": "T02F full direct current read after edits. R03-03 closed: annotations are not runtime guards; invalid-input integration tests retained; class/instance/config patch distinctions and restoration documented; approved isolated runner replaces unspecified python. Valuable contract/testing checklist retained. Signature-only naming illustration intentionally not syntax-certified; examples are not a full executed suite."
+  },
+  ".agents/prompts/bugfix.md": {
+    "sha256": "64160048c600e2109fc6d688c4e714320185fabe4a89619508a17dbeba7003b2",
+    "read_windows": [[1, 299]],
+    "assessment": "T02F full direct current read after edits. R03-05 closed: one meaningful reproducer with passing controls, explicit diagnostic-edit approval exception, unresolved iteration-limit stop and accurately selected regression coverage. Existing approval/minimal-fix sequence retained. Shell syntax checked; bugfix workflow not executed."
+  },
+  ".agents/prompts/build-feature.md": {
+    "sha256": "8900b135f34ff267e2562b8f030d134529b69b7591912267258b6d7aec806abc",
+    "read_windows": [[1, 423]],
+    "assessment": "T02F full direct current read after edits, including untruncated long JSONL lines. R03-06 closed: dependency acceptance/integration gates in both modes, transitive blocking for failed/skipped/partial tasks, reviewed uncommitted transfer and destination checks instead of branch-only merging. Task schema and legacy-template adaptation retained. Three JSONL rows parsed; orchestration not executed."
+  },
+  ".agents/prompts/deep-audit.md": {
+    "sha256": "41fa7e04375049766c2725a68426d6d416cec15e3ffc0db29b4ac216a384f323",
+    "read_windows": [[1, 622]],
+    "assessment": "R03 full direct read. Comprehensive useful dimensions, evidence citations, uncertainty labels and actionable downstream guidance. Opening correctly bounds tools, legacy roots and unread inputs. Presentation defect: lines 590-594 require expansion based on line count despite opening warning that length is not completeness; replace with missing-topic/evidence checks. Agent 4 git-history task needs suitable read-only git tool in chosen harness. No audit execution implied."
+  },
+  ".agents/prompts/distill-deep.md": {
+    "sha256": "dfd59ec6eaed80f257a030c81b651b86e877485348722acd6de137cfd61e3c89",
+    "read_windows": [[1, 276]],
+    "assessment": "R03 full direct read. Useful iterative boundary challenge and user-approved migration design. Substantially duplicates distill with no operational depth distinction beyond name/description. SendMessage long-lived-agent dependency needs explicit availability gate or fallback at invocation; shared catalog already warns. .traces output must adapt to .project. Concept count is a heuristic, not a measured maintainability guarantee. Preserve pending consolidation decision."
+  },
+  ".agents/prompts/distill.md": {
+    "sha256": "8f43bd747b442a91e054edf83db2ad5d6113766103fb192f19d380ab9aea6454",
+    "read_windows": [[1, 276]],
+    "assessment": "R03 full direct read. Clear source-backed analyst dialogue, challenge/refinement and approval boundary. Body duplicates distill-deep without a distinct depth contract; consolidate or explain difference. Depends on SendMessage and later write-capable agent, unavailable in some harnesses; shared catalog warning applies. Legacy output path requires adaptation. No execution or complete-source-map claim made here."
+  },
+  ".agents/prompts/fix-test.md": {
+    "sha256": "ba5071d87df95b9351e4d4151848237c2c8a7a3e89023940c9cff5f4e2ba8186",
+    "read_windows": [[1, 257]],
+    "assessment": "T02F full direct current read after edits. R03-08 closed: gate, procedure and isolated-run example retain not-reproduced/unresolved status, environment/order/repeat evidence and intermittency limits. No invented fix. Useful contract triage and approval structure retained; shell syntax only, not workflow execution."
+  },
+  ".agents/prompts/git-smart.md": {
+    "sha256": "2c7de0edae623ed6bedccf8b07982d0f5d1a6793849da89d946039f8d7527bac",
+    "read_windows": [[1, 182]],
+    "assessment": "T02F full direct current read after edits. R03-02 closed: no dominant-group assignment; explicit ownership/index reconciliation and complete cached-diff equality gate before each commit; preserve unrelated staged work. Current package scope map and verified-only attribution replace obsolete templates. Concise grouping flow retained; shell syntax checked, no staging/commits executed."
+  },
+  ".agents/prompts/git-status.md": {
+    "sha256": "bdfa64f2343cae523ccacc43cdeea0c0b5d46d1893a7360fbfc29c4367a5f4a1",
+    "read_windows": [[1, 216]],
+    "assessment": "R03 full direct read. Coherent read-only semantic review, explicit index/worktree distinction, hygiene flags and uncertainty labels. Representative review is explicitly bounded rather than exhaustive. Preserve; no substantive new defect. Secrets must be flagged without reproducing contents in output."
+  },
+  ".agents/prompts/grill-me.md": {
+    "sha256": "735ef33ad8d65debe0ec801049ff0d4c2483198772d341a79a0f1c54b1c100dd",
+    "read_windows": [[1, 6]],
+    "assessment": "R03 full direct read. Minimal useful interview trigger prioritizing code exploration over avoidable questions. Presumes plan already in context; ask for it when absent. No runtime claims or substantive defect; preserve concise prompt."
+  },
+  ".agents/prompts/improve-codebase-architecture.md": {
+    "sha256": "b909232ba6022d1baecc713563d677a6776fbccd43a2d8310beb5e9e26aa31ba",
+    "read_windows": [[1, 74]],
+    "assessment": "R03 full direct read. Useful candidate-first/user-selected comparative interface design with linked dependency reference. Issue creation should be explicitly within user-authorized publication scope and selected repository; no-review instruction can otherwise publish a brainstorming request. Harness Agent/Explore assumptions require catalog adaptation. Preserve design workflow, clarify external publication gate."
+  },
+  ".agents/prompts/interface-design.md": {
+    "sha256": "85a11471b084d31d2f4058d041310689b38f97946ed0c69af882bed8df6d8923",
+    "read_windows": [[1, 92]],
+    "assessment": "R03 full direct read. Focused design-only comparison workflow; callers/constraints/hidden complexity and explicit non-implementation boundary are clear. Task delegation availability is harness-specific. Ignoring implementation effort is a design-exploration preference, not permission to ignore feasibility or compatibility. Preserve."
+  },
+  ".agents/prompts/prd-to-issue.md": {
+    "sha256": "de22537317050d4e66d53a0e46b0fee272503bc7b0cf5f32e57139678b00bb4b",
+    "read_windows": [[1, 86]],
+    "assessment": "R03 full direct read. Strong vertical-slice acceptance criteria, user approval and dependency-order issue creation. Minor command defect: gh issue view <number> alone does not include comments as requested; specify --comments (and repository when ambiguous). AFK designation is planning metadata, not authorization to merge. Preserve with clarification."
+  },
+  ".agents/prompts/refactor-plan.md": {
+    "sha256": "33c6628cbfe8b940f2fb5f43443c99986545d6e8469c36298f786edee06868b4",
+    "read_windows": [[1, 66]],
+    "assessment": "R03 full direct read. Useful interview, scope, test and working-increment plan template. Blanket no-file-path rule undermines actionable migration and source traceability; use current references with drift caveats instead. Confirm issue destination/publication authorization for planning-only requests. No implementation performed; preserve purpose."
+  },
+  ".agents/prompts/tdd.md": {
+    "sha256": "b58ae3a182adeaa62d01b246f2236bc21a1fc0ffc4340be9c25f30ca97ba1f44",
+    "read_windows": [[1, 105]],
+    "assessment": "R03 full direct read. Clear incremental red-green-refactor, public-interface behavior and linked support material. Completeness improvement: explicitly require red for intended assertion rather than import/setup error. Blanket rejection of database observations can miss persistence contracts; boundary integration tests may legitimately verify durable state. Preserve philosophy as defaults, not universal prohibitions."
+  },
+  ".agents/prompts/write-a-prd.md": {
+    "sha256": "67b500a38c2ebf63655aa853ce192dae7b550507d0862feca314ba7596654395",
+    "read_windows": [[1, 72]],
+    "assessment": "R03 full direct read. Useful user-story/scope/decision/testing interview template. Completeness gaps: no explicit acceptance/success criteria or nonfunctional/security section; extensive stories alone are not a completion gate. Blanket ban on paths weakens evidence traceability; confirm GitHub publication scope before submission. Preserve with focused template additions."
+  },
+  ".agents/skills/README.md": {
+    "sha256": "62b59acf601b5eed1f78d93c9644cd42e37c63152faa2f6297a8b303266350b0",
+    "read_windows": [[1, 67]],
+    "assessment": "R03 full direct read. Valuable canonical hybrid prompt/skill/support map, checkout-root adaptation and harness-availability/non-fabrication warnings. Clear distinction between actual alias and installation-specific discovery. Preserve; catalog does not establish that any workflow is loaded or executable."
+  },
+  ".agents/skills/arch/improve-codebase-architecture/REFERENCE.md": {
+    "sha256": "d0a52505868af1de82643ce4f92c3ca2c316369d11b9fb776e98dd453c61cb23",
+    "read_windows": [[1, 79]],
+    "assessment": "R03 full direct read. Useful dependency taxonomy and replacement-test coverage preservation. Correctness caveat: in-process does not mean always safe to merge, and stand-ins do not certify production DB/network semantics. Preserve categories but require boundary/compatibility evaluation and production-adapter contract tests where relevant."
+  },
+  ".agents/skills/dev/fix-test/SKILL.md": {
+    "sha256": "6888226f9908d2312a9f0fcd05e80f23d6da8cdd158324d612a25e592b07153d",
+    "read_windows": [[1, 291]],
+    "assessment": "T02F full direct current read after edits. R03-08 closed consistently with prompt: non-reproduction remains unresolved, records environment/order/repeats and does not prove a stale audit. Useful detailed contract triage retained. Shell syntax checked; workflow not executed."
+  },
+  ".agents/skills/dev/tdd/deep-modules.md": {
+    "sha256": "b51c14980b661673d757838358233d32d25a53064e9a14299e98223d0874e410",
+    "read_windows": [[1, 33]],
+    "assessment": "R03 full direct read. Compact conceptual reference with helpful diagram and interface questions. Deep/shallow distinction is heuristic, not a ban on small adapters. No substantive defect for support-doc scope; preserve."
+  },
+  ".agents/skills/dev/tdd/interface-design.md": {
+    "sha256": "68890664a324da8846e86dcd02a2bf7583c6da3cc9439e8ec84fba821d933698",
+    "read_windows": [[1, 31]],
+    "assessment": "R03 full direct read. Useful concise dependency injection and pure-calculation guidance. Examples are illustrative pseudo-TypeScript (undefined Discount/discount, empty bodies), not runnable snippets. Fewer methods does not imply fewer behavioral cases; side effects still need explicit testable boundaries. Label examples and qualify slogans."
+  },
+  ".agents/skills/dev/tdd/mocking.md": {
+    "sha256": "4bce7d1d2602ac3783f86fa544c3de31f4537a27212a05d525b994373e290419",
+    "read_windows": [[1, 59]],
+    "assessment": "R03 full direct read. Valuable system-boundary mocking and injected clients. Example SDK returns raw fetch Responses and passes data directly as body, without JSON serialization/content type or typed signatures; claimed type safety is not demonstrated. Label as shape-only pseudocode or provide correct JSON client example. Own remote services may still need boundary substitutes despite anything-you-control prohibition."
+  },
+  ".agents/skills/dev/tdd/refactoring.md": {
+    "sha256": "a1b7779e55ac54b11618c5e8272904cf893948b14c2e901ddd041b9f72b2e71e",
+    "read_windows": [[1, 10]],
+    "assessment": "R03 full direct read. Small useful smell-to-candidate checklist linked from TDD workflow. Candidates are not automatic mandates to extract helpers/value objects; parent prompt provides green-suite gate. No substantive defect within this support scope; preserve."
+  },
+  ".agents/skills/dev/tdd/tests.md": {
+    "sha256": "3c3d6cc8fedda7b793a0c44fa7d6a6cd61769917cefffa6f477903d1bbf3ff67",
+    "read_windows": [[1, 61]],
+    "assessment": "R03 full direct read. Useful behavior-versus-internals examples. jest.mock(paymentService) example is not runnable Jest usage; mark anti-example pseudocode. Blanket database-inspection and call-count rejection should allow durability and exactly-once boundary contracts; create/get through one cache does not prove persistence. Preserve behavioral testing emphasis."
+  },
+  ".agents/skills/perf/perf-analysis/SKILL.md": {
+    "sha256": "588a187ecb1182e83f8a4115ca5a1a86d2d3f160120dc202ea9a86321e191f97",
+    "read_windows": [[1, 149]],
+    "assessment": "T02F full direct current read after edits. R03-07 closed: controlled before/after measurement, repeated runs/variance/resource trade-offs and unmeasured fallback; bounded cache/key-space/memory guidance, measured pool sizing and cold-start budgets. Existing propose-review-apply workflow retained; no benchmark or speedup claimed."
+  },
+  ".agents/skills/plan/SKILL.md": {
+    "sha256": "d430b5faf5bc0e015dea732f8ad3cd7a50c836632a3038e2fe911ce1d8e1293c",
+    "read_windows": [[1, 71]],
+    "assessment": "R03 full direct read. Clear read-only exploration/planning scope and actionable sequencing output; no implementation or filesystem mutation allowed. Three-to-five critical-file quota should allow genuinely smaller tasks; head/tail permission is not full-read evidence. No substantive new defect; preserve."
+  },
+  ".agents/skills/research/ideation/SKILL.md": {
+    "sha256": "40491b5cd90457d0129d105e36890105cf0bb71d23b2f8841a91f82061e2becc",
+    "read_windows": [[1, 353]],
+    "assessment": "T02F full direct current read after final example edit. R03-04 closed: run-qualified identity/collision checks, explicit resume policy, frozen path/hash inputs, exact outputs, summary-after-analysis and delivery reconciliation. Template roots explicitly adapt to .project. Link model checked for N=2,4,6,8; pipeline not executed. Optional quota/editorial concerns remain outside bounded scope."
+  },
+  ".opencode/commands/git-smart.md": {
+    "sha256": "78b5edaeecfa194cf50cd2c4dc7391d7fdc9642c1799a839036863fe1695d624",
+    "read_windows": [[1, 184]],
+    "assessment": "T02F full direct current read after edits. R03-02 closed in parity with shared prompt: mixed-file ownership stop, pre-commit whole-index reconciliation, no implicit unstaging, current scopes and verified attribution only. Frontmatter preserved; shell syntax checked. No commits/staging or live OpenCode invocation."
+  },
+  ".opencode/commands/handoff.md": {
+    "sha256": "0e796ccf980e23315d7e9a5de7fa11e660b09770669e48e11f7fa986e4ebd2db",
+    "read_windows": [[1, 213]],
+    "assessment": "R03 full direct read. Comprehensive continuation packet, exact verification/uncertainty, ownership and redaction requirements. Output root correctly uses active repository or user override. Presentation minor: outer triple fence is prematurely closed by nested examples; use longer outer fence for literal template. Fixed /workspace table entry should be placeholder. Preserve substance."
+  },
+  ".opencode/commands/start-handoff.md": {
+    "sha256": "7daff404d6fa9de0446818445d1f640708374a5fa3b57ae8e44e1b9cfc4e5014",
+    "read_windows": [[1, 144]],
+    "assessment": "R03 full direct read. Clear selection, complete hydration and no-automatic-edit approval boundary. mtime ordering is explicit but means edited old handoff can become latest; document if chronological filenames intended instead. Mandatory application skills can over-load unrelated task context and may be unavailable in active harness; report limitations. Preserve without claiming session restart tested."
+  },
+  ".opencode/skills/README.md": {
+    "sha256": "c1166c4c3a73141334fb189f33e511d9f98bdbd9441f3ef0c108dec36108e1ba",
+    "read_windows": [[1, 59]],
+    "assessment": "T02F full direct current read after edits. R03-09 closed for catalog template: docs first then relevant current implementation/tests before meaningful changes, not docs-only. Useful maintenance/routing/drift structure retained. Skill lint passed; live catalog reload not exercised."
+  },
+  ".opencode/skills/improve-n3tx-alignement/SKILL.md": {
+    "sha256": "566e5f2fa3d1e2bedd7ec37c95e7ced290c159e288626dc40d0dc2c1a028a4d3",
+    "read_windows": [[1, 231]],
+    "assessment": "R03 full direct read. Useful N3TX-specific removal-first candidate evaluation, migration risk and source-grounded trade-offs. Missing explicit initial canonical-context loading step; must not judge native capabilities before reading repository/package contracts. Agent tool and build-agent approval workflow are harness assumptions. Preserve name for invocation compatibility; spelling alone is not reason to rename."
+  },
+  ".opencode/skills/n3tx-actors/SKILL.md": {
+    "sha256": "887f6069c19d799f95dae140bd1dc75b387dabe598859a1e971d469447c376a1",
+    "read_windows": [[1, 121]],
+    "assessment": "T02F full direct current read after edits. R03-09 closed: docs-first then implementation/tests. Useful actor address/shape/ref map and raw-TX/durability caveats retained. Python excerpts syntax-checked, not executed; registration/async context still required. Broader helper-versus-actor editorial concern deferred."
+  },
+  ".opencode/skills/n3tx-agents/SKILL.md": {
+    "sha256": "9fff63a69f7c5551c38daaf10f75ca30ef6c5c5dbc759fd7d8c77792f4691f5f",
+    "read_windows": [[1, 32]],
+    "assessment": "R03 full direct read. High-value concise navigation and caveats: typed AgentTool storage, policy-versus-low-level calls, JSON-text boundary, thread ownership and transport-dependent permissions. No duplicated full example; provider-free test guidance and no-paid-call boundary clear. Preserve; provider/runtime behavior not rerun."
+  },
+  ".opencode/skills/n3tx-app-bootstrap/SKILL.md": {
+    "sha256": "d99f600d4f7d217d86b60e4c29273089acc2ff727969a4f68c98fb7a7c8ac119",
+    "read_windows": [[1, 35]],
+    "assessment": "R03 full direct read. Useful ordered imports/configuration/registration/routing checklist with canonical complete examples and operations link. Distinguishes actor capabilities from HTTP routing, refs from local collections and bytes from metadata. Preserve; no app startup or production-readiness certification."
+  },
+  ".opencode/skills/n3tx-authorization/SKILL.md": {
+    "sha256": "a672e6a6fa3155d78c0dfd6e6efc4e65d409a92b1218bf42cd44d2e81c07c9b5",
+    "read_windows": [[1, 136]],
+    "assessment": "T02F full direct current read after edits. R03-09/R03-10 closed: docs-first/source-tests sequence; compact direct-create/update/UI-edit boundary table and JWT-before-service-header precedence match inspected source. Custom protected fields need explicit trusted create policy; transport caveats retained. Python syntax checked, auth runtime not rerun."
+  },
+  ".opencode/skills/n3tx-backend/SKILL.md": {
+    "sha256": "d118e2d09ca7b76d67f1d2d6f5cf55407522f32731ce230e48a6136bd2ef3c26",
+    "read_windows": [[1, 38]],
+    "assessment": "R03 full direct read. Effective concise backend navigation, native generated CRUD/action boundaries, explicit helper-versus-actor distinction and per-entrypoint verification. Canonical command links avoid drift. Preserve; no substantive new defect or runtime certification."
+  },
+  ".opencode/skills/n3tx-frontend/SKILL.md": {
+    "sha256": "12df6a447e77a616f23e6ff7a486198e2de9b3bc2659a55b5964436e2c6db0d0",
+    "read_windows": [[1, 106]],
+    "assessment": "T02F full direct current read after edits. R03-09 closed: documentation-first followed by relevant implementation/tests. Useful schema flow, grammar and specialist routing retained. Package table uses shorthand. Focused Formidable/widget tests passed; browser and full frontend coverage not claimed."
+  },
+  ".opencode/skills/n3tx-json-fields/SKILL.md": {
+    "sha256": "04fe2f9238d382f90603ee7dbb695069fdabcaad1cd7c0ace1b644d829ca343b",
+    "read_windows": [[1, 106]],
+    "assessment": "R03 full direct read. Valuable JSON TEXT pipeline, relationship-versus-embedded-data distinction, implementation map and replacement/lossy serialization caveats. Optional and Comment are declaration-excerpt placeholders, not standalone imports. Testing scope explicit and source inspection required when implementing. Preserve; no round-trip or migration rerun."
+  },
+  ".opencode/skills/n3tx-methods-routes/SKILL.md": {
+    "sha256": "af4c781d09b1e8b5f37d280cb11408f3dc6a42235486cbcb16f6e8b5d94e8ab3",
+    "read_windows": [[1, 89]],
+    "assessment": "T02F full direct current read after edits. R03-09 closed: docs-first then relevant implementation/tests. Useful route/action map and excerpt/atomicity/default/caller limits retained. Python snippets syntax-checked, not complete applications; return annotations do not certify runtime validation."
+  },
+  ".opencode/skills/n3tx-models/SKILL.md": {
+    "sha256": "d3e3730693105c80b878239f335c2ec923211f3ddb26722ecd5e77f383efbd50",
+    "read_windows": [[1, 41]],
+    "assessment": "R03 full direct read. Strong compact model mechanism map preserving scalar-annotation caveat, explicit registration/imports and transport-specific auth. JSON/File links and isolated persistence/denial verification are useful. Preserve; no new substantive defect or runtime execution claimed."
+  },
+  ".opencode/skills/n3tx-networking/SKILL.md": {
+    "sha256": "1148a2bb2a3bd2d6eb694747984343063ef757aff8a1db36271e39aff4fb3108",
+    "read_windows": [[1, 39]],
+    "assessment": "R03 full direct read. Useful transport boundary table, explicit source-of-authority links and SSRF/credential/caller trust cautions. Correctly avoids transport parity and durable-delivery guarantees. Preserve; enabled protocols were not executed or security-certified."
+  },
+  ".opencode/skills/n3tx-principles/SKILL.md": {
+    "sha256": "7e9d78aedf17e7692412234efe89d51320ee6788576550cd772f870e2adfbe81",
+    "read_windows": [[1, 105]],
+    "assessment": "T02F full direct current read after edits. R03-09 closed: source policy agrees with verification mindset and AGENTS; docs first is not docs only. Model-first boundary guidance retained. Broader actor/helper wording concern is editorial and deferred; no runtime certification."
+  },
+  ".opencode/skills/n3tx-skill-routing/SKILL.md": {
+    "sha256": "6d0a60fa14ff61d090e4c9212935713fbf03b43d851c05c1ef8fec627965941d",
+    "read_windows": [[1, 98]],
+    "assessment": "T02F full direct current read after edits. R03-09 closed for routing sequence: relevant implementation/tests follow docs before meaningful changes. Useful broad/narrow matrix, construction/routing distinction and drift anchors retained. Catalog availability and live invocation not certified."
+  },
+  ".opencode/skills/n3tx-storage-relationships/SKILL.md": {
+    "sha256": "9bc0fb196036dccb3578110055d1bd1f2b43743ad4eb88addcfa803f9e4da606",
+    "read_windows": [[1, 40]],
+    "assessment": "R03 full direct read. High-value concise persistence map, annotation caveat, explicit population, deletion/privacy/concurrency and pagination boundaries. Distinguishes Python CRUD from HTTP authorization and requires isolated migration tests. Preserve; no storage/migration execution claimed."
+  },
+  ".opencode/skills/n3tx-testing/SKILL.md": {
+    "sha256": "ed5d1f2dd119fd4eddbbaf6928ec5f105940c79ee97c4f11f57b50d87168574a",
+    "read_windows": [[1, 89]],
+    "assessment": "T02F full direct current read after edits. R03-09 closed: docs-first then implementation/tests. Useful narrow-to-broad verification map retained; optional stream checklist precision remains deferred. Syntax checked and 81 focused frontend tests passed separately; no backend/provider/browser coverage claimed."
+  },
+  ".opencode/skills/n3tx-ui-components/SKILL.md": {
+    "sha256": "30a57465a36e44ca3fbf3a10dcc4416ee6c7bb5ae8b807d83da067bd230b5592",
+    "read_windows": [[1, 88]],
+    "assessment": "T02F full direct current read after edits. R03-09 closed: docs-first then implementation/tests. Useful hierarchy/lifecycle/navigation and excerpt caveats retained. JS/Python syntax checked; relative imports assume suitable static placement. This custom component was not browser-executed."
+  },
+  ".opencode/skills/n3tx-ui-schema/SKILL.md": {
+    "sha256": "f4108e7d117fb24279fb14a6180a4b8ce9df98efc3d8de258ccf7ed93e2d438e",
+    "read_windows": [[1, 78]],
+    "assessment": "T02F full direct current read after edits. R03-09/R03-10 closed: docs-first/source-tests policy and display-only protected edit hint, explicitly not create-mode/backend enforcement. Useful metadata/route map retained. Source switch inspected, Python syntax and focused form tests checked; no new protected-field end-to-end test claimed."
+  },
+  ".opencode/skills/n3tx-widgets/SKILL.md": {
+    "sha256": "7303911b5d0efbde295089c24a37103dedaedd267aff582de98b9d18cf9ff72c",
+    "read_windows": [[1, 92]],
+    "assessment": "T02F full direct current read after edits. R03-01/R03-09 closed: DOM returns, actual config/schema/onChange signatures, escaped list override and docs-first/source-tests policy. Concise widget/component distinction and serialization caveat retained. Extracted example passed five-value checks with actual Widget base and installed jsdom; 81 adjacent tests passed. Not a full ColorWidget/Formidable/browser execution."
+  },
+  ".pi/extensions/skill-path-aliases/README.md": {
+    "sha256": "3ff384fd23b73f11b7001eb3b9d70f9baf3481051aef4fd1e43595f41cb0c32b",
+    "read_windows": [[1, 50]],
+    "assessment": "R03 full direct read. Useful alias behavior and canonical-autocomplete limitation. index.ts and skill-aliases.mjs confirm nested source-path aliases, user canonical blocking, top-level pass-through and extension-origin bypass. Examples describe possible installed skills, not current shared prompt inventory; label that distinction because git-status/bugfix now live as prompts here. Live Pi discovery/TUI not exercised. Preserve."
+  },
+  "AGENTS.md": {
+    "sha256": "f027b25afd74f74949f65ae584c74e967c952f7d5ef138159ed9dd681096e644",
+    "read_windows": [[1, 96]],
+    "assessment": "R02 direct untruncated current read. Contributor navigation, ownership, trust boundaries and approved-interpreter workflow are coherent; links checked separately. Preserve; no runtime certification."
+  },
+  "BACKEND.md": {
+    "sha256": "69f6dcd027fae57f60f744d177bd817032ab8055819c948d6cf7da8bdf7b125a",
+    "read_windows": [[1, 47]],
+    "assessment": "R02 direct untruncated current read. Canonical contract/source map avoids duplicate signatures and preserves scalar annotation, authorization, File and streaming caveats. Preserve."
+  },
+  "CLAUDE.md": {
+    "sha256": "5a09765dc16266a12c616c3d87d32006714d465e67e334cac21236802c048e52",
+    "read_windows": [[1, 16]],
+    "assessment": "R02 direct untruncated current read. Alternate entrypoint delegates to contributor guide and subsystem owners without a competing manual. Preserve."
+  },
+  ".opencode/skills/n3tx-build-app/SKILL.md": {
+    "sha256": "dd8b33e63b18d66f9a0bc6629b3b3410ea9e94a39e02a1b1a3c64cf4a11618fa",
+    "read_windows": [[1, 149]],
+    "assessment": "R02 direct untruncated current read. Vertical workflow separates routing from capabilities, orders mixin imports, maps specialist skills and portable tests. Examples need application models and actual transport verification; no execution claimed. Preserve."
+  },
+  ".opencode/skills/n3tx-extension-patterns/SKILL.md": {
+    "sha256": "ae2c870d6e1131220e7c3d8c8fd0905fd0060e2ee5fe3635ecb9acc598940e93",
+    "read_windows": [[1, 79]],
+    "assessment": "R02 direct untruncated current read. Additive extension decision tree and schema/dump examples are retained as excerpts; MyMixin is a placeholder. Verification checklist distinguishes defaults from opt-in behavior. Preserve."
+  },
+  ".opencode/skills/n3tx-external-integrations/SKILL.md": {
+    "sha256": "12f19cda8343761128a242431446a664f882208f7da3b09a0f072a40efedcfd8",
+    "read_windows": [[1, 94]],
+    "assessment": "R02 direct untruncated current read. Integration examples are partial actor patterns, not complete apps. Provider and scheduler availability, secret exposure, SSRF and authorization are explicitly bounded. Preserve; external services not exercised."
+  },
+  ".opencode/skills/n3tx-files/SKILL.md": {
+    "sha256": "364768fd013934a57d9b51ccba57adfea754bf45a87998fb2fe5569256e9ad37",
+    "read_windows": [[1, 110]],
+    "assessment": "R02 direct untruncated current read. File guide distinguishes metadata/bytes, URL materialization from dict/instance inputs, public default reads and LocalFileStore limitation. Partial AudioJob excerpt needs ActorModel/decorator imports. Preserve; upload/download execution not claimed."
+  },
+  ".opencode/skills/n3tx-framework-boundaries/SKILL.md": {
+    "sha256": "e20702748a0c9ffeb4f70132547d4836969199242a113c71d138b5e32fbc4759",
+    "read_windows": [[1, 93]],
+    "assessment": "R02 direct untruncated current read. Architecture rules are guidance rather than enforcement guarantees; final caveats expressly distinguish raw calls, File inputs and scalar annotations. Preserve; remote ABAC remains transport-dependent."
+  },
+  ".opencode/skills/n3tx-framework-maintenance/SKILL.md": {
+    "sha256": "35832b95c0d7f9e8fdcdfa672a7168e0c184d616e90cd138a46cb579413cfcb9",
+    "read_windows": [[1, 59]],
+    "assessment": "R02 direct untruncated current read. Package ownership, documentation-first implementation sequence and approved-interpreter checks are retained. Dependency arrow shorthand is not a package-lock specification. Preserve."
+  },
+  ".opencode/skills/n3tx-streaming/SKILL.md": {
+    "sha256": "52fcea93402271bcb70ee783be804405ae9268f077eb577b7fd42f442a2aa050",
+    "read_windows": [[1, 134]],
+    "assessment": "R02 direct untruncated corrected-current read. Universal TX-envelope claim replaced with direct payload/done versus actor serialized-TX table; canonical transport link retained. Domain done versus transport completion, event validation and cancellation limits explicit. Examples are identified as excerpts. No streaming runtime rerun claimed."
+  }
+}

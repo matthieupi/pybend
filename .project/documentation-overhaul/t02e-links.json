@@ -1,0 +1,201 @@
+{
+  "scope": "All repository Markdown, excluding .project, dependencies and VCS. Historical bodies excluded from current results; separately scanned for provenance.",
+  "files": 177,
+  "links": 650,
+  "current_errors": [],
+  "historical_errors": [
+    {
+      "source": "CHANGELOG.md",
+      "link": "src/n3tx/core/docs/changelogs/03_Performance_Backend.md",
+      "error": "missing path"
+    },
+    {
+      "source": "CHANGELOG.md",
+      "link": "src/n3tx/docs/AUTHORIZATION.md",
+      "error": "missing path"
+    },
+    {
+      "source": "CHANGELOG.md",
+      "link": "src/n3tx/core/docs/features/01_ForeignKey_Hydration.md",
+      "error": "missing path"
+    },
+    {
+      "source": "CHANGELOG.md",
+      "link": "src/n3tx/static/docs/changelogs/04_Performance_Frontend.md",
+      "error": "missing path"
+    },
+    {
+      "source": "CHANGELOG.md",
+      "link": "src/n3tx/static/docs/PTT_N3TX_MERGE.md",
+      "error": "missing path"
+    },
+    {
+      "source": "README_pre.md",
+      "link": "#what-is-n3tx",
+      "error": "missing anchor"
+    },
+    {
+      "source": "README_pre.md",
+      "link": "#features",
+      "error": "missing anchor"
+    },
+    {
+      "source": "README_pre.md",
+      "link": "#getting-started",
+      "error": "missing anchor"
+    },
+    {
+      "source": "README_pre.md",
+      "link": "#how-it-works",
+      "error": "missing anchor"
+    },
+    {
+      "source": "README_pre.md",
+      "link": "#storage-backends",
+      "error": "missing anchor"
+    },
+    {
+      "source": "README_pre.md",
+      "link": "#customizing-n3tx",
+      "error": "missing anchor"
+    },
+    {
+      "source": "README_pre.md",
+      "link": "#testing-the-system",
+      "error": "missing anchor"
+    },
+    {
+      "source": "README_pre.md",
+      "link": "#contributing",
+      "error": "missing anchor"
+    },
+    {
+      "source": "README_pre.md",
+      "link": "#license",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/changelogs/frontend/01_Refactor_PTT_into_NTT.md",
+      "link": "#5-ntx-as-universal-attach-router",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#2-current-component-layer-before",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#3-component-refactor-p0-foundation",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#4-enhancement-schema-ui-extensions-backend",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#5-enhancement-slot-based-child-templates",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#6-enhancement-schema-renderer-hints",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#7-enhancement-ssr-pre-loading",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#8-enhancement-adaptive-display-modes",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#9-enhancement-field-exclusion-conventions",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#10-enhancement-scaffolding--template-generation",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#11-enhancement-schema-driven-validation",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#12-enhancement-schema-driven-permissions",
+      "error": "missing anchor"
+    },
+    {
+      "source": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+      "link": "#13-enhancement-relationship-aware-smart-defaults",
+      "error": "missing anchor"
+    }
+  ],
+  "agent_template_references": [
+    {
+      "source": ".agents/agents/ideation-agent.md",
+      "link": "url",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/ideation-agent.md",
+      "link": "url",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/ideation-agent.md",
+      "link": "../research/01-industry-landscape.md",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/ideation-agent.md",
+      "link": "../../vision/<Slug>-summary.md",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/ideation-agent.md",
+      "link": "../research/<slug>/<slug>-analysis.md",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/ideation-agent.md",
+      "link": "<Slug>-propositions.md",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/ideation-agent.md",
+      "link": "<Slug>-whitepaper.md",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/ideation-researcher.md",
+      "link": "url",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/ideation-researcher.md",
+      "link": "url",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/ideation-researcher.md",
+      "link": "url",
+      "error": "missing path"
+    },
+    {
+      "source": ".agents/agents/static-site-researcher.md",
+      "link": "url",
+      "error": "missing path"
+    }
+  ],
+  "excluded_project_links": 4
+}

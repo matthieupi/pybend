@@ -1,0 +1,577 @@
+[
+  {
+    "owner": "T02D",
+    "path": ".agents/agents/archivist.md",
+    "sha256": "9032f7ffd28e4ad0e345e2e93719b9dca7a4ba71c1c40868ebc65ed9075471b2"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/agents/feature-task-executor.md",
+    "sha256": "0d98df614c879b470a59baa2a7ad32a015c9c61d3f4c7a873e374ddf69b4c9dd"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/agents/ideation-agent.md",
+    "sha256": "f275e3a74c82968c5c2b15fc0d64f9e6ef9402082be0ef5996f70b900bfc5141"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/agents/perf-audit-backend.md",
+    "sha256": "03f83c0360fbc596de3db4718c18c5ec6918694d27ca64aa8da55a3357439af8"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/agents/perf-audit-frontend.md",
+    "sha256": "532ebaf4b144100093a5db1dd127a50186e232dd78b93691434fbdd0d1415378"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/agents/test-writer.md",
+    "sha256": "fd892918cacbb0ea85318f884428a50fa6dfc644c302d4856ffc12d4801f4f75"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/prompts/bugfix.md",
+    "sha256": "64160048c600e2109fc6d688c4e714320185fabe4a89619508a17dbeba7003b2"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/prompts/build-feature.md",
+    "sha256": "8900b135f34ff267e2562b8f030d134529b69b7591912267258b6d7aec806abc"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/prompts/deep-audit.md",
+    "sha256": "41fa7e04375049766c2725a68426d6d416cec15e3ffc0db29b4ac216a384f323"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/prompts/fix-test.md",
+    "sha256": "ba5071d87df95b9351e4d4151848237c2c8a7a3e89023940c9cff5f4e2ba8186"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/prompts/git-smart.md",
+    "sha256": "2c7de0edae623ed6bedccf8b07982d0f5d1a6793849da89d946039f8d7527bac"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/skills/README.md",
+    "sha256": "62b59acf601b5eed1f78d93c9644cd42e37c63152faa2f6297a8b303266350b0"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/skills/arch/improve-codebase-architecture/REFERENCE.md",
+    "sha256": "d0a52505868af1de82643ce4f92c3ca2c316369d11b9fb776e98dd453c61cb23"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/skills/dev/fix-test/SKILL.md",
+    "sha256": "6888226f9908d2312a9f0fcd05e80f23d6da8cdd158324d612a25e592b07153d"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/skills/perf/perf-analysis/SKILL.md",
+    "sha256": "588a187ecb1182e83f8a4115ca5a1a86d2d3f160120dc202ea9a86321e191f97"
+  },
+  {
+    "owner": "T02D",
+    "path": ".agents/skills/research/ideation/SKILL.md",
+    "sha256": "40491b5cd90457d0129d105e36890105cf0bb71d23b2f8841a91f82061e2becc"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/commands/git-smart.md",
+    "sha256": "78b5edaeecfa194cf50cd2c4dc7391d7fdc9642c1799a839036863fe1695d624"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/commands/handoff.md",
+    "sha256": "0e796ccf980e23315d7e9a5de7fa11e660b09770669e48e11f7fa986e4ebd2db"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/commands/start-handoff.md",
+    "sha256": "7daff404d6fa9de0446818445d1f640708374a5fa3b57ae8e44e1b9cfc4e5014"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/README.md",
+    "sha256": "c1166c4c3a73141334fb189f33e511d9f98bdbd9441f3ef0c108dec36108e1ba"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-actors/SKILL.md",
+    "sha256": "887f6069c19d799f95dae140bd1dc75b387dabe598859a1e971d469447c376a1"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-agents/SKILL.md",
+    "sha256": "9fff63a69f7c5551c38daaf10f75ca30ef6c5c5dbc759fd7d8c77792f4691f5f"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-app-bootstrap/SKILL.md",
+    "sha256": "d99f600d4f7d217d86b60e4c29273089acc2ff727969a4f68c98fb7a7c8ac119"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-authorization/SKILL.md",
+    "sha256": "a672e6a6fa3155d78c0dfd6e6efc4e65d409a92b1218bf42cd44d2e81c07c9b5"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-backend/SKILL.md",
+    "sha256": "d118e2d09ca7b76d67f1d2d6f5cf55407522f32731ce230e48a6136bd2ef3c26"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-build-app/SKILL.md",
+    "sha256": "dd8b33e63b18d66f9a0bc6629b3b3410ea9e94a39e02a1b1a3c64cf4a11618fa"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-extension-patterns/SKILL.md",
+    "sha256": "ae2c870d6e1131220e7c3d8c8fd0905fd0060e2ee5fe3635ecb9acc598940e93"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-external-integrations/SKILL.md",
+    "sha256": "12f19cda8343761128a242431446a664f882208f7da3b09a0f072a40efedcfd8"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-files/SKILL.md",
+    "sha256": "364768fd013934a57d9b51ccba57adfea754bf45a87998fb2fe5569256e9ad37"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-framework-boundaries/SKILL.md",
+    "sha256": "e20702748a0c9ffeb4f70132547d4836969199242a113c71d138b5e32fbc4759"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-framework-maintenance/SKILL.md",
+    "sha256": "35832b95c0d7f9e8fdcdfa672a7168e0c184d616e90cd138a46cb579413cfcb9"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-frontend/SKILL.md",
+    "sha256": "12df6a447e77a616f23e6ff7a486198e2de9b3bc2659a55b5964436e2c6db0d0"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-json-fields/SKILL.md",
+    "sha256": "04fe2f9238d382f90603ee7dbb695069fdabcaad1cd7c0ace1b644d829ca343b"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-methods-routes/SKILL.md",
+    "sha256": "af4c781d09b1e8b5f37d280cb11408f3dc6a42235486cbcb16f6e8b5d94e8ab3"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-models/SKILL.md",
+    "sha256": "d3e3730693105c80b878239f335c2ec923211f3ddb26722ecd5e77f383efbd50"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-networking/SKILL.md",
+    "sha256": "1148a2bb2a3bd2d6eb694747984343063ef757aff8a1db36271e39aff4fb3108"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-principles/SKILL.md",
+    "sha256": "7e9d78aedf17e7692412234efe89d51320ee6788576550cd772f870e2adfbe81"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-skill-routing/SKILL.md",
+    "sha256": "6d0a60fa14ff61d090e4c9212935713fbf03b43d851c05c1ef8fec627965941d"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-storage-relationships/SKILL.md",
+    "sha256": "9bc0fb196036dccb3578110055d1bd1f2b43743ad4eb88addcfa803f9e4da606"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-streaming/SKILL.md",
+    "sha256": "52fcea93402271bcb70ee783be804405ae9268f077eb577b7fd42f442a2aa050"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-testing/SKILL.md",
+    "sha256": "ed5d1f2dd119fd4eddbbaf6928ec5f105940c79ee97c4f11f57b50d87168574a"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-ui-components/SKILL.md",
+    "sha256": "30a57465a36e44ca3fbf3a10dcc4416ee6c7bb5ae8b807d83da067bd230b5592"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-ui-schema/SKILL.md",
+    "sha256": "f4108e7d117fb24279fb14a6180a4b8ce9df98efc3d8de258ccf7ed93e2d438e"
+  },
+  {
+    "owner": "T02D",
+    "path": ".opencode/skills/n3tx-widgets/SKILL.md",
+    "sha256": "7303911b5d0efbde295089c24a37103dedaedd267aff582de98b9d18cf9ff72c"
+  },
+  {
+    "owner": "T02D",
+    "path": ".pi/extensions/skill-path-aliases/README.md",
+    "sha256": "3ff384fd23b73f11b7001eb3b9d70f9baf3481051aef4fd1e43595f41cb0c32b"
+  },
+  {
+    "owner": "T02D",
+    "path": "AGENTS.md",
+    "sha256": "f027b25afd74f74949f65ae584c74e967c952f7d5ef138159ed9dd681096e644"
+  },
+  {
+    "owner": "T02D",
+    "path": "BACKEND.md",
+    "sha256": "69f6dcd027fae57f60f744d177bd817032ab8055819c948d6cf7da8bdf7b125a"
+  },
+  {
+    "owner": "T02D",
+    "path": "CHANGELOG.md",
+    "sha256": "dceb60cd28e413cd4f654dafee03a7288ca403c9a35c640b252c950b88c90cd6"
+  },
+  {
+    "owner": "T02D",
+    "path": "CLAUDE.md",
+    "sha256": "5a09765dc16266a12c616c3d87d32006714d465e67e334cac21236802c048e52"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "FRONTEND.md",
+    "sha256": "77346b346b1a5ee4b2dceaa53fd501b855b665e43792b51d2043092ddf533655"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "README.md",
+    "sha256": "c43c3b58ac7562795a705e44e60e1dbb9ff7c8a4bbfb41a85700b37689b94153"
+  },
+  {
+    "owner": "T02D",
+    "path": "README_pre.md",
+    "sha256": "23b28c41ce4861cfb8a521579755e398cab69b264421cd86fb80487c0d9770f7"
+  },
+  {
+    "owner": "T02D",
+    "path": "RELEASE_NOTES.md",
+    "sha256": "74697f52dc4582db5874366084bf9561da8410a70b15b32877d65cc8dd34a16b"
+  },
+  {
+    "owner": "T02D",
+    "path": "TODO.md",
+    "sha256": "80e9f968c0d51b14aaf3cf339127b7b48fcaf3c3fecf5bf31f365a59b48229dd"
+  },
+  {
+    "owner": "T02D",
+    "path": "Universal Context Protocol.md",
+    "sha256": "58cf016c656e24cc8922a7b326d7d6d87f1c0e5c6d06cd25482f705d6c71dca0"
+  },
+  {
+    "owner": "T02D",
+    "path": "apps/veille/docs/market-overview-grant-platforms.md",
+    "sha256": "3d8c60412afa1993f7e9cb168be512dff756bd5ce64f362668067c7f365a660d"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "docs/ACTORS.md",
+    "sha256": "69f9b22103b1fdedaa008e71035b3c2bc64d8c826b37045adc4a2968a806d27d"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "docs/AGENTS.md",
+    "sha256": "e9a4e864bad9d6f5f9ea4e2694ed4ad1125daab91729b5f92dc184162e9b6b48"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/API_CRUD_ENDPOINTS.md",
+    "sha256": "f55e5877c8964c873942f17d5b8005f0f79f874361192f9758dc037e63ddd92d"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/API_CUSTOM_ENDPOINTS.md",
+    "sha256": "02f4484ae959440b0d8982f29672c9f13cc58d27b5a65b61bffbbc69211b13ad"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/API_DATA_MODELS.md",
+    "sha256": "39d0664658e140a2a5801dd9107d5418eb90d59f3ed3cfcb960ce8d643e61a87"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/API_INDEX.md",
+    "sha256": "f35bd7b3ce72d18ab174c2b5ca401f674a3154a066cb338c917d30d3ee84a5ac"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/API_OVERVIEW.md",
+    "sha256": "8912f116a1d5bdac6056a234dd9e07998365c5d9a604705a3472f9c5d0be3de6"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/API_REFERENCE.md",
+    "sha256": "4b37397d00f7114240408d29ac345fdb660fe51c322d079162c8aeeba2eb8a5d"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/ARCHITECTURE.md",
+    "sha256": "1dfcf62c87f4645c9c0156e5db210e48d67abbd300f0c6c13426527bfbdf2176"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/AUTHORIZATION.md",
+    "sha256": "b5ad4d4f144b2a7ca4777ede950b84a6d7c35eceb23fe09607a2527abc9faff2"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/CORE.md",
+    "sha256": "5df96df1747a1cca58f204fea0fce7874291c1c61bfb8e4995577e2f94d97cf3"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/EXAMPLES.md",
+    "sha256": "0d472d6479785311e7c902f983a37a9fa3987b6f3701068497cc2985d6ac0321"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/GETTING_STARTED.md",
+    "sha256": "a37c2b89b722f2e45f9b588d70f2dca20795165cac9efe3383d33d4d2598e623"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/JSON_FIELDS.md",
+    "sha256": "775a25f177bffbfdac2bd5c26097eee30b10dd22c0c876b367d605ee2df2aee9"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/MODELS.md",
+    "sha256": "9ecf75345944ba40979088542c1a037f3ebdab1efc53471af97000ac1ec92b98"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/OPERATIONS.md",
+    "sha256": "3b5b054c066d01979e8ee7262a2d2c55e1f22230b6fa8cbf7327877d17810fac"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "docs/README.md",
+    "sha256": "94c8668d65b93c6ad075f1e671450d690f2cc1810f397326cef2ac85b536d057"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "docs/frontend/01_UI_SEPARATION_CONCERNS.md",
+    "sha256": "9747ce802399289d14df8d4521e079e390e112733773cd1ed7b7052e2bd0a2b6"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "docs/frontend/02_UI_PRIMITIVES_ENHANCEMENT.md",
+    "sha256": "201333ba25b2618a753c7651486d954dad1890ee2484ab595bc06987eb90c516"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "docs/frontend/03_SYSTEM_IMPROVEMENTS_REFACTOR.md",
+    "sha256": "462d4eeecbf862878945ee68a1c84b24ca78586b38271d22456f23d41d2f78cd"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "docs/frontend/ACTORS.md",
+    "sha256": "59550cfdab6be1a020d3a2b24a632df489f2ca742d0457ec3cbcdd8017fe28a4"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "docs/frontend/ARCHITECTURE.md",
+    "sha256": "deb5c37ba8e77ee4f548b1472c7c3938d74fc57a32fe222c6630cbb5ea705e79"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "docs/frontend/COMPONENTS.md",
+    "sha256": "8e47c258c7af0890b06d8ec015d7b4473ae08bdb504ea74fa5775b499c6d4a83"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "docs/frontend/MESSAGE_PROTOCOL.md",
+    "sha256": "cd9045bdd2a02998093d7fd2c9539619ce937bd9fb52a10791eb10986a6aa9e6"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "docs/frontend/PACKAGE_ARCHITECTURE.md",
+    "sha256": "d956c46606401da66ece1b257757a664013cd2498a9b936435603aad5b5a055e"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "docs/frontend/TRANSPORT.md",
+    "sha256": "c805a98497661f01a951ad8248d871940d33a0f2b1236d163025d5c69559c8eb"
+  },
+  {
+    "owner": "T02D",
+    "path": "docs/generated/comments_comments.md",
+    "sha256": "8080a4ef36308b6be5b724b7a2e172aa3c3aa7513f9e3c08c4ffe5d254861615"
+  },
+  {
+    "owner": "T02D",
+    "path": "docs/generated/comments_likes.md",
+    "sha256": "6ab68f74294c07f55957fff4e03cb19bd5ebc95a0119f0e12920a32e19de394d"
+  },
+  {
+    "owner": "T02D",
+    "path": "docs/generated/index.md",
+    "sha256": "89e35ed400684e7ac433fe2a489a9525c66436595242f23815e8dd1580eb7772"
+  },
+  {
+    "owner": "T02D",
+    "path": "docs/generated/products.md",
+    "sha256": "7edbd9c5ff41a9c79f63292ba77375ae2eac38e149bcd725bb18dbec50f7b91d"
+  },
+  {
+    "owner": "T02D",
+    "path": "docs/generated/products_comments.md",
+    "sha256": "9b16ba28d8de5f7e3b8613beccfaff69e1a27726500e077c58a619f4e3632f68"
+  },
+  {
+    "owner": "T02D",
+    "path": "docs/generated/products_likes.md",
+    "sha256": "30233881591a798f09588384ca2456ed3e3999b65b8fe8636d17baf15ad9d1df"
+  },
+  {
+    "owner": "T02D",
+    "path": "docs/generated/users.md",
+    "sha256": "ca39af74fa3bf545e308c237aefc6a88ff2a9319be14b9c850669d2bb00ce84c"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-actors/README.md",
+    "sha256": "e4a826b17b1ff7019cbc45e1eb5ed7c3e61848016ec0983e766ade8dd6ff2adb"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-actors/docs/actor-messaging.md",
+    "sha256": "432267b8ea81414f873bafdeef7c7e348fbd146855ba806fa8b45dfa637635a3"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-actors/docs/actor-model.md",
+    "sha256": "1aaad32811db79c5d6f0cc84dbe5026acb9fb498b569f1f188071a16c6eef570"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-actors/docs/interceptors.md",
+    "sha256": "3328fb3b855a810caac65943e10b843986e2d2dfacff415dc013e5e4241839bf"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-actors/docs/network-adapters.md",
+    "sha256": "b1ebc27deb796ba3c18bf86346c2301e3e21f415711bf758d710188169285326"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-agents/README.md",
+    "sha256": "95c2dd61a2a2023ee748b69cf47f210ac41f4cceb3ce10319f3e5d76cf10e2f8"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-agents/docs/agent-actor.md",
+    "sha256": "dca13c02c4bb1614d825323a4054cda0e35e7086fb28146de690b92982d261e7"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-agents/docs/mixin.md",
+    "sha256": "f88acfd9486d264f10f9a5398e06c9d856bff6a4a1ef763f52677125afa7f079"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-agents/docs/tool-discovery.md",
+    "sha256": "1989239c4c7d05327c65dffa209438ab2dd43ea707e2f5e7c73af8a974faf9e8"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "packages/n3tx-core/README.md",
+    "sha256": "d528b11a58a2e9763c6d08c34238dc691cfe2864e17dc0ab71fdde9ef27b2945"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "packages/n3tx-core/docs/app-bootstrap.md",
+    "sha256": "559f6a380cb95b30819934a71d3334927d1c3be803719ff469c86ebf038512d4"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "packages/n3tx-core/docs/authorization.md",
+    "sha256": "0ba202e5dab0f13902dbab6e4e41fd7aba5cc5a3a552a7c095ae313f8a7435e4"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "packages/n3tx-core/docs/schema-pipeline.md",
+    "sha256": "c21705ac09fcdd0ab5b9474522e81b452447ece25bd76364de3813466de3d9b0"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "packages/n3tx-core/docs/storage.md",
+    "sha256": "75b9effff499fad558affd8132d21eaf916a50e016ec34f93fdb7642caafe266"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-files/README.md",
+    "sha256": "660e4da29e39958af37be5ea15374344b81c24216f75e1da3efdc7c0d2958f5d"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/capabilities-report.md",
+    "path": "packages/n3tx-files/docs/file.md",
+    "sha256": "a5babf4700cc8e2626b53394a253379bdbe9ca748a01907ca9d40f98e77d075b"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "packages/n3tx-ui/README.md",
+    "sha256": "cd757c6b72d8bd79ecf5c3ddeb4dfe0c89f465a78fd8011b9b9d7c0e4cfc3c68"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "packages/n3tx-ui/docs/components.md",
+    "sha256": "be2523028b3932441811b07214482c5b20eff05cd977c6abcf210383dd1412e4"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "packages/n3tx-ui/docs/formidable.md",
+    "sha256": "80bfb2f443a6f11501b30edc27bd30924080723a11590ffce59ea8c9802847e4"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "packages/n3tx-ui/docs/styling.md",
+    "sha256": "0f5dd9f8961ffbeeca3837cb6055f79a9a36662812fc580e0390b3106f426689"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "packages/n3tx-ui/docs/viewable-mixin.md",
+    "sha256": "3700aa0e0beef013b5c3e6ba630e657c89baa7aa676bad5f99560a2dcb9d931c"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "packages/n3tx-ui/docs/widgets.md",
+    "sha256": "3afe4b10483b94a96a65717584196e266c3f23327569f94c89c9f42961048f07"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/core-report.md",
+    "path": "packages/n3tx/README.md",
+    "sha256": "9d0defb78d8bda2ab8594feb791d079ab22cb2c9c30500d0a3e6b95d35d1cdc5"
+  },
+  {
+    "owner": "T02D",
+    "path": "tests/LATEST.md",
+    "sha256": "9028d14444d1f540f0656b0fc5f8506d035cdd312110b421ccfb4d1697aa2420"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "tests/frontend/QUICKSTART.md",
+    "sha256": "d4b5aca774cfb4d21a66b684632be442bda6f04d340a0828c5e7bf08d3b42cae"
+  },
+  {
+    "owner": "Writer assessment: .project/documentation-overhaul/frontend-report.md",
+    "path": "tests/frontend/README.md",
+    "sha256": "219f16ecbc8cd33eb4a0f1ed15e0a3ec81de31cbe27ca91dc3ecdb06d8b58b80"
+  }
+]

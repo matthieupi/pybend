@@ -1,0 +1,278 @@
+{
+  "batches": ["batch-current-038.txt", "batch-current-039.txt", "batch-current-040.txt", "batch-current-041.txt", "batch-current-042.txt", "batch-current-043.txt", "batch-current-044.txt", "batch-current-045.txt", "batch-current-046.txt", "batch-current-047.txt", "batch-current-048.txt", "batch-current-049.txt", "batch-current-050.txt"],
+  "assessments": {
+    "docs/MODELS.md": {
+      "classification": "current-guide", "audience": "Application developers and model-layer maintainers",
+      "value": "Cross-cutting model, schema, storage, identity and file capability reference",
+      "assessment_evidence": "Full read 1-413; proto_model.py:93-122, proto_schema.py:98-150, base_user.py:111-151 and config.py:24-28 inspected; prior Ref and File source inspection retained",
+      "presentation_issues": ["File layout incorrectly combines core and actor packages", "Mixes old n3tx.core imports with current package imports", "Actors README link points to obsolete ../actors/README.md"],
+      "correctness_issues": ["Schema extension imports at 93/108 use obsolete package path", "Annotation rewrite at 34/65 actually remains in proto_model.py:102-111: conflicts with local T guidance and requires focused runtime investigation, not cosmetic removal", "Registration documentation omits DEBUG branch assigning admin role", "Remote File provider discussion must distinguish interface strategy from ensure_local LocalFileStore limitation"],
+      "completeness_issues": ["State concrete registration/storage/import prerequisites", "Explain auth enforcement boundaries for direct Python CRUD", "Verify local scalar relationship construction before publishing unified type decision table", "Clarify that login/register route entries are model-relative suffixes"],
+      "disposition": "rewrite", "canonical_destination": "docs/MODELS.md"
+    },
+    "docs/AGENTS.md": {
+      "classification": "current-guide", "audience": "Application developers choosing data-backed agents or model reasoning methods",
+      "value": "Agent architecture, schema-driven tools and streaming orientation",
+      "assessment_evidence": "Full read 1-736; actor.py:89-185, agent.py:35-145, schema_ext.py:25-47 inspected; deps.py absent; F09 and prior package source evidence apply",
+      "presentation_issues": ["Long duplicate module reference competes with package docs", "Historical files-modified table and fixed test counts presented as current", "Quick start lacks imports and application setup"],
+      "correctness_issues": ["Obsolete agent_run/call/run endpoint examples throughout (F09)", "AgentActor.tools is list[AgentTool], not a plain address list storage contract", "AgentDeps now lives in agent.py and has no adapter field", "Schema declares agentic_endpoint, not run_endpoint", "Transient adapter cleanup diagram contradicts current root correlation mechanism", "Thread creation occurs automatically when no thread_id is supplied", "Chat/live components extend NTTStreamAgent rather than NTTStream directly"],
+      "completeness_issues": ["Explain policy/runtime distinction and JSON-string return from AgentActor.agentic", "Tool discovery and actor dispatch must not be described as universal authorization enforcement", "Caller-selected tool targets and arbitrary URL scraping require explicit trust/egress restrictions", "Receiving lifecycle messages is not itself a scheduler or automatic reasoning handler", "Provider-free examples need current API, registered models and isolated persistence"],
+      "disposition": "rewrite", "canonical_destination": "docs/AGENTS.md",
+      "destination_status": "Retain conceptual selection guide here; package docs own exact runtime/tool signatures"
+    },
+    "tests/LATEST.md": {
+      "classification": "historical-test-report", "audience": "Test-suite maintainers",
+      "value": "April 2026 multi-suite recovery chronology and failure leads",
+      "assessment_evidence": "Read 1-248 in current-048; explicitly dated April 24/27/28; tests directory listing lacks most report files referenced at lines 72-80",
+      "presentation_issues": ["LATEST/current labels conflict with dated baseline and multiple evolving totals"],
+      "correctness_issues": ["P2 is both resolved and partial within the document", "Reported green package layer conflicts with agent failure rows; scope is unclear", "Referenced sibling report files absent"],
+      "completeness_issues": ["Preserve dated evidence; do not imply fresh tests ran", "Current contributor verification needs a separate canonical guide"],
+      "disposition": "archive", "canonical_destination": "docs/changelogs/testing/2026-04-test-recovery.md",
+      "destination_status": "Preserve original historical content; replace old path with explanatory link in rewrite slice"
+    },
+    "tests/frontend/CHANGELOG.md": {
+      "classification": "historical-changelog", "audience": "Frontend maintainers researching migrations",
+      "value": "N3TX 0.7 frontend behavior and migration record",
+      "assessment_evidence": "Read 1-84 in current-048; heading dates content 2026-02 and 0.7.0",
+      "presentation_issues": ["N3TXTX naming is historical"],
+      "correctness_issues": ["Nested routes, href arrays and example-local components are not current general contracts"],
+      "completeness_issues": ["Needs historical label in navigation, not a rewrite of historical claims"],
+      "disposition": "keep", "canonical_destination": "tests/frontend/CHANGELOG.md"
+    },
+    "tests/frontend/QUICKSTART.md": {
+      "classification": "current-guide-mislocated", "audience": "Frontend application developers",
+      "value": "Small frontend bootstrapping recipe suitable for canonical tutorial after repair",
+      "assessment_evidence": "Read 1-118 in current-048; config.js:7-8 uses window origin and disabled WS default; current UI styling requires theme-base.css",
+      "presentation_issues": ["Application quickstart incorrectly located beneath test harness", "N3TXTX terminology and ambiguous docs-folder links"],
+      "correctness_issues": ["Imports core/N3TX.js rather than current core/NTT.js", "WS_URL default is empty, not localhost:8765", "Missing theme-base.css", "No authentication prerequisite for data reads"],
+      "completeness_issues": ["Retain one runnable frontend setup in canonical getting-started path"],
+      "disposition": "merge", "canonical_destination": "docs/GETTING_STARTED.md",
+      "destination_status": "Old path becomes link stub to canonical frontend tutorial section"
+    },
+    "tests/frontend/README.md": {
+      "classification": "current-guide-mislocated", "audience": "Frontend app developers; should instead serve test contributors at this path",
+      "value": "Detailed runtime message-flow explanations and recently updated local-relationship section",
+      "assessment_evidence": "Read 1-967 in current-049/050; config.js, current package component hierarchy and test package scripts inspected",
+      "presentation_issues": ["967-line application manual obscures test setup", "Large ASCII flow duplicates adjacent summary table", "N3TXTX and legacy module map"],
+      "correctness_issues": ["core/N3TX.js and ntx-element.js names stale", "Frontend config defaults differ from source", "Claims all records loaded without explaining pagination", "Advice to add CORS middleware ignores native cors_origins parameter"],
+      "completeness_issues": ["Replace at this path with actual Vitest/Playwright contributor setup and isolation/fixture guidance", "Merge unique runtime explanation into docs/frontend/ARCHITECTURE.md and MESSAGE_PROTOCOL.md", "Do not promise _response_ auto-pull without tracing actual current implementation"],
+      "disposition": "rewrite", "canonical_destination": "tests/frontend/README.md",
+      "destination_status": "Retain path for test harness guide; move verified application content to canonical frontend references"
+    },
+    "packages/n3tx/README.md": {
+      "classification": "current-entrypoint", "audience": "Application developers installing the full stack",
+      "value": "Meta-package install and export orientation",
+      "assessment_evidence": "Read 1-646 in current-046/047; config.py, core exports, agent runtime and package references inspected",
+      "presentation_issues": ["646-line README duplicates root/package reference and repeats marketing claims"],
+      "correctness_issues": ["BACKEND/STORAGE_BACKEND environment names do not match N3TX config", "src/n3tx/example and example_api/example_actor/example_grants test paths are obsolete", "Ref and ViewableMixin export descriptions stale", "Nested relationship endpoint examples contradict current flat local-collection contract", "F05"],
+      "completeness_issues": ["Quick start needs auth flow and validated domain action inputs", "Export map must be checked against installed import namespace", "Replace broad transport-auth preservation assurance with entrypoint matrix"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx/README.md"
+    },
+    "requirements.txt": {
+      "classification": "dependency-metadata", "audience": "Environment maintainers",
+      "value": "Pinned dependency/environment snapshot, not a learning guide",
+      "assessment_evidence": "Read 1-160 in current-047; line 85 pins editable pybend Git revision distinct from audited HEAD",
+      "presentation_issues": [], "correctness_issues": ["Do not recommend this as minimal install for audited source without checking pinned Git dependency"],
+      "completeness_issues": ["Installation documentation must identify package pyproject source of truth"],
+      "disposition": "keep", "canonical_destination": "requirements.txt", "destination_status": "Dependency changes outside documentation rewrite ownership"
+    },
+    "packages/n3tx-actors/README.md": {
+      "classification": "current-entrypoint", "audience": "Application developers adopting actors",
+      "value": "Messaging vocabulary and package reference map",
+      "assessment_evidence": "Read 1-130 directly and 131-235 in current-038; NetworkAdapter request/stream and ActorModel authorization source inspected",
+      "presentation_issues": ["Promotional wording and duplicate API reference"],
+      "correctness_issues": ["Level 3 conflates routing with bootstrap", "Instance address example omits persisted id suffix", "Quick start is schema-only, not a storage-backed HTTP app"],
+      "completeness_issues": ["Add complete create_app(routing=actor) path and trust-boundary warning", "Explain internal TX bypass and non-durable lifecycle delivery"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-actors/README.md"
+    },
+    "packages/n3tx-actors/docs/actor-messaging.md": {
+      "classification": "current-reference", "audience": "Actor integration authors",
+      "value": "Class/instance address and reply/error routing contract",
+      "assessment_evidence": "Read 1-172 in current-038; Actor.inbox and interceptor dispatch inspected",
+      "presentation_issues": ["Code snippets need runnable-versus-excerpt labels"],
+      "correctness_issues": ["Opening flow implies every error TX skips handler; explicit ERROR handlers later correctly described, and Actor.inbox only short-circuits after interceptor handling"],
+      "completeness_issues": ["Keep actor addr distinct from canonical HTTP entity identity", "Explain trusted local messages versus external metadata", "Do not imply durable messaging, distributed transaction or scheduler guarantees"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-actors/docs/actor-messaging.md"
+    },
+    "packages/n3tx-actors/docs/actor-model.md": {
+      "classification": "current-reference", "audience": "Backend developers implementing actor models",
+      "value": "Important explicit Tier 1/Tier 2 and internal bypass description",
+      "assessment_evidence": "Read 1-176 in current-038; actor_model.py:247-336 confirms None-user bypass, absent-access bypass and Tier-1-dependent list filter",
+      "presentation_issues": ["Retain flow diagram, promote trust caveats before snippets"],
+      "correctness_issues": ["Tier 2 also bypasses when __access__ is absent/empty; resolver global fallback alone does not describe this path"],
+      "completeness_issues": ["Raw TX list relies on meta.sql_filter; carrying user alone does not supply HTTP list filtering", "Example OWNER policy lacks owner field and imports", "Separate direct CRUD API, generated HTTP and raw TX lifecycle guarantees"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-actors/docs/actor-model.md"
+    },
+    "packages/n3tx-actors/docs/interceptors.md": {
+      "classification": "current-reference", "audience": "Adapter and middleware authors",
+      "value": "Useful FIFO registration, sync/async and error behavior reference",
+      "assessment_evidence": "Read 1-131 in current-039; actor.py:190-250 and network_adapter.py:79-137 inspected",
+      "presentation_issues": ["Compact reference worth retaining"],
+      "correctness_issues": ["request interceptor table omits NetworkAdapter.stream, which runs the same chain", "Says request exists only on adapters, but Matrix also has request and stream correlation helpers"],
+      "completeness_issues": ["Differentiate method existence from interceptor support", "Provide complete imports for runnable examples"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-actors/docs/interceptors.md"
+    },
+    "packages/n3tx-actors/docs/network-adapters.md": {
+      "classification": "current-reference", "audience": "Transport and federation integrators",
+      "value": "Protocol adapter inventory, remote identity flow and wire route map",
+      "assessment_evidence": "Read 1-230 in current-039; network_adapter.py:79-160 inspected; actor_model.py list filtering dependency inspected",
+      "presentation_issues": ["Separate shipped transport behavior from planned federation durability"],
+      "correctness_issues": ["MCP underscore warning contradicts its own examples; verify action names with underscores rather than tablename claim", "Anti-buffering headers/padding cannot guarantee all proxy flush behavior"],
+      "completeness_issues": ["Explain per-chunk stream timeout versus end-to-end deadlines", "Include explicit auth/caller propagation matrix for MCP, WS and AP", "State service-token trust and remote target restrictions", "Manual snippets require app, models and auth setup"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-actors/docs/network-adapters.md"
+    },
+    "packages/n3tx-agents/README.md": {
+      "classification": "current-entrypoint", "audience": "Application developers adding reasoning",
+      "value": "Policy/runtime distinction and model-versus-data agent choice",
+      "assessment_evidence": "Read 1-270 in current-039/040; AgentMixin, AgentActor, tool discovery and registration inspected",
+      "presentation_issues": ["Remove anthropomorphic marketing and repeated zero-config promises"],
+      "correctness_issues": ["F06", "Claims every registered actor is automatically available, but selected addresses control discovery", "Self-exclusion is not a general loop-prevention guarantee and exclusions name old methods"],
+      "completeness_issues": ["Provide import order, async entrypoint, storage/Thread setup and mock provider", "Distinguish caller identity from prompt content and tool selection from access permission"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-agents/README.md"
+    },
+    "packages/n3tx-agents/docs/agent-actor.md": {
+      "classification": "current-reference", "audience": "Data-backed agent application authors",
+      "value": "Current agentic endpoint, config and tool-record shape",
+      "assessment_evidence": "Read 1-205 in current-040; actor.py:126-159 and agent.py:43-69 inspected",
+      "presentation_issues": ["Remove stale 'By contrast' where HTTP and Python both use patch semantics"],
+      "correctness_issues": ["JSON string return is explicit json.dumps, not caused by expose_route", "Not all kwargs override stored config: call_config fixes prompt and tools from self", "run/stream_run exclusion does not guarantee prevention of recursive agentic calls"],
+      "completeness_issues": ["curl examples need base URL, auth and content type", "Code sample needs storage setup and json import", "Clarify direct return value versus HTTP JSON string encoding"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-agents/docs/agent-actor.md"
+    },
+    "packages/n3tx-agents/docs/mixin.md": {
+      "classification": "current-reference", "audience": "Model-reasoning integration authors",
+      "value": "Policy/runtime seam and shared result schema reference",
+      "assessment_evidence": "Read 1-237 in current-040; agent.py:43-69,133-151 and config.py:36-45 inspected",
+      "presentation_issues": ["Public behavior mixed with internal runtime symbols; label internal APIs"],
+      "correctness_issues": ["Example calls agent.call, absent from inspected public interface", "create_thread option is not carried in current CallConfig; runtime creates a thread when thread_id is None", "No-LLM-default statement conflicts with config.AGENT_DEFAULTS ollama:llama3.1"],
+      "completeness_issues": ["Include caller context in thread examples", "Explain automatic persistence and storage prerequisites", "State mock-provider tests separately from live provider setup"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-agents/docs/mixin.md"
+    },
+    "packages/n3tx-ui/README.md": {
+      "classification": "current-entrypoint", "audience": "Frontend application developers",
+      "value": "UI package map and rendering-extension orientation",
+      "assessment_evidence": "Read 1-233 in current-043/044; n3tx_ui/__init__.py and widget registry inspected",
+      "presentation_issues": ["Marketing filler and duplicated long API table"],
+      "correctness_issues": ["F07", "Explicit ui.widget is not always required: bool and x-ref dispatch automatically", "Boolean widget omitted from built-in list"],
+      "completeness_issues": ["Link ViewableMixin and styling references", "Explain safe rendering, imports, auth and native static namespace"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-ui/README.md"
+    },
+    "packages/n3tx-ui/docs/components.md": {
+      "classification": "current-reference", "audience": "Custom component authors",
+      "value": "Lifecycle, edit fallback, renderer registration and navigation extension map",
+      "assessment_evidence": "Read 1-336 in current-044; ntx-chat.js:12 and ntx-agent-live.js:8 extend NTTStreamAgent, not NTTStream directly; ntx-item.js:31,596 confirms edit fallback",
+      "presentation_issues": ["Sidebar pixel-level change narrative obscures public extension contract"],
+      "correctness_issues": ["Agent class hierarchy is stale", "Custom ProductCard inserts unescaped user-controlled name into innerHTML"],
+      "completeness_issues": ["Show safe textContent or escaping in custom renderer", "Separate stable lifecycle contract from visual implementation details", "Clarify cleanup, errors, loading and accessibility for custom components"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-ui/docs/components.md"
+    },
+    "packages/n3tx-ui/docs/formidable.md": {
+      "classification": "current-reference", "audience": "Form and component extension authors",
+      "value": "Unified method/entity form shape, validation, value reading and field-error API",
+      "assessment_evidence": "Read 1-233 in current-045; form.js:290-334 and ntx-list-field.js:116-217 inspected",
+      "presentation_issues": ["Mixes stable form API with theme styling change notes"],
+      "correctness_issues": ["Line 223 claims entity UPDATE cannot store collections, contradicting current patch contract", "Ref removal calls DELETE on referenced entity (ntx-list-field.js:181-192), not merely an unjoin; do not describe all membership editing as safe staged linking", "Explicit ui.widget gate is stale"],
+      "completeness_issues": ["Document relation UI deletion side effects before recommending generic relationship editor", "Client validation is convenience, not backend enforcement", "Custom form snippet needs imports and event/value-reading wiring or an excerpt label"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-ui/docs/formidable.md"
+    },
+    "packages/n3tx-ui/docs/styling.md": {
+      "classification": "current-reference", "audience": "Theme authors and frontend contributors",
+      "value": "Canonical token/file split, configured theme cycle and useful test harness guidance",
+      "assessment_evidence": "Read 1-133 in current-045; theme.js:46-107 confirms configured cycling, storage and theme-change behavior",
+      "presentation_issues": ["Specific chrome changes belong in history rather than the stable contract"],
+      "correctness_issues": ["Absolute /workspace paths are not portable; environment installation claim untrue in this checkout"],
+      "completeness_issues": ["Keep tests as later validation gate", "Clarify root-relative assets versus nested view URLs", "Add a minimal app theme with contrast/mobile verification"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-ui/docs/styling.md"
+    },
+    "packages/n3tx-ui/docs/viewable-mixin.md": {
+      "classification": "current-reference", "audience": "Backend/UI integrators",
+      "value": "Detailed view route grammar, safe token validation, renderer precedence and import timing",
+      "assessment_evidence": "Read 1-296 in current-045/046; mixin.py:17-126 confirms validation, module URL and collection precedence",
+      "presentation_issues": ["Most structure useful; avoid repeating same import warning three times"],
+      "correctness_issues": ["Cache invalidation is not a replacement for missed class-definition-time mixin injection; clarify separate schema-stage and route-capability effects"],
+      "completeness_issues": ["Runnable examples omit ProtoModel and Field imports", "Document minimal HTML shell styling/auth expectations", "Distinguish method attach_to presentation from persistence"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-ui/docs/viewable-mixin.md"
+    },
+    "packages/n3tx-ui/docs/widgets.md": {
+      "classification": "current-reference", "audience": "Widget extension authors",
+      "value": "Display/edit/list interfaces, registry and custom widget recipe",
+      "assessment_evidence": "Read 1-170 in current-046; registry.js:31-47, Widget.js:21-97 and form.js:319-325 inspected",
+      "presentation_issues": ["Good API and decision tables; retain"],
+      "correctness_issues": ["Line 164 explicit-hint requirement contradicts bool/x-ref registry fallback and current form dispatch", "Example list(value) returns unescaped arbitrary text while docs say it is inserted into HTML", "HTML escaping does not validate a CSS color value"],
+      "completeness_issues": ["Use validated color and escape list output", "State field-level config path clearly", "Verify vendor-module imports instead of assuming global library variables"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-ui/docs/widgets.md"
+    },
+    "packages/n3tx-core/docs/storage.md": {
+      "classification": "current-reference", "audience": "Backend developers",
+      "value": "Storage abstraction, patch semantics, pagination and reference behavior",
+      "assessment_evidence": "Read 1-218 in current-043; compared current Ref implementation and tests",
+      "presentation_issues": ["Absolute /workspace/docs link is not portable"],
+      "correctness_issues": ["Line 35 overclaims a finite busy_timeout prevents all concurrent lock errors", "Line 101 says local/distributed pointers while lines 161-163 correctly require absolute URLs", "Line 186 shows relative $id despite canonical absolute identity"],
+      "completeness_issues": ["Does not actually explain migration system despite scope claim", "Domain methods do not automatically supply atomic read-modify-write", "Clarify native model object versus model_response JSON examples"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-core/docs/storage.md"
+    },
+    "packages/n3tx-files/README.md": {
+      "classification": "current-entrypoint", "audience": "Application developers",
+      "value": "Concise native metadata/bytes integration and multipart/range examples",
+      "assessment_evidence": "Read 1-97 in current-043; file.py:40-138 and materialize.py:10-22 inspected",
+      "presentation_issues": ["Good concise style; retain structure"],
+      "correctness_issues": ["File.public defaults false but read policy is ANYONE; explicitly state flag does not enforce privacy", "ensure_local is LocalFileStore-only and raises for remote stores", "Distributed behavior is a provider/client extension, not automatically supplied by File.resolve"],
+      "completeness_issues": ["Explain where TOKEN comes from", "State default read policy and production policy override", "Do not return local server paths as recommended public application output"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-files/README.md"
+    },
+    "packages/n3tx-files/docs/file.md": {
+      "classification": "current-reference", "audience": "File capability integrators and provider authors",
+      "value": "Separates metadata storage, byte store, routes, materialization and optional provider seam",
+      "assessment_evidence": "Read 1-104 in current-043; File.resolve authorization and LocalFileStore limitation inspected; two-node test discovered, not executed",
+      "presentation_issues": ["Useful concise diagram and guardrails"],
+      "correctness_issues": ["Authorized URL materialization applies to strings; dicts are model-validated and existing File instances returned without resolve authorization (materialize.py:14-21)", "LocalFileStore-only ensure_local limitation is missing"],
+      "completeness_issues": ["Document public-read default independently of public field", "Specify trusted caller/input boundaries, upload quotas and metadata/blob failure cleanup limitations", "Separate tested delegation harness from shipped remote-store provider"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-files/docs/file.md"
+    },
+    "packages/n3tx-agents/docs/tool-discovery.md": {
+      "classification": "current-reference", "audience": "Agent integrators and framework contributors",
+      "value": "Useful tool-discovery pipeline, filtering and streamed-result reduction reference",
+      "assessment_evidence": "Read 1-173 in current-041; compared tools.py:44-102 from attempt 1",
+      "presentation_issues": ["Compact structure worth retaining"],
+      "correctness_issues": ["The run/stream_run exclusion is implemented but no longer names AgentActor's exposed agentic methods; document as implementation limitation, not a universal loop-prevention guarantee", "JWT-only wording for user propagation omits trusted non-HTTP callers"],
+      "completeness_issues": ["Explain discovery versus authorization and caller trust", "Verify nullable optional arguments and no-None update semantics against wrapper source"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-agents/docs/tool-discovery.md"
+    },
+    "packages/n3tx-core/README.md": {
+      "classification": "current-entrypoint", "audience": "Application developers",
+      "value": "Core package capability map and links to subsystem reference",
+      "assessment_evidence": "Read 1-212 in current-041; core __init__.py:1-14 omits ViewableMixin; ref.py:3-5 and test_ref.py contradict integer-Ref descriptions",
+      "presentation_issues": ["Promotional filler and duplicated API reference"],
+      "correctness_issues": ["F02: lines 82/94 describe Ref as local IDs or FK", "Line 92 lists ViewableMixin as a core export, but it is owned by n3tx-ui", "Quick start uses OWNER without declaring an owner field and supplies no identity model/login path"],
+      "completeness_issues": ["Add authentication prerequisites and link canonical setup", "Include n3tx-files in ecosystem map"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-core/README.md"
+    },
+    "packages/n3tx-core/docs/app-bootstrap.md": {
+      "classification": "current-reference", "audience": "Application developers and capability authors",
+      "value": "Detailed setup, capability hooks, static precedence and route grammar",
+      "assessment_evidence": "Read 1-278 in current-041/042; app.py:4-14 and config.py:9-95 inspected",
+      "presentation_issues": ["Construction levels and routing modes use conflicting level terminology"],
+      "correctness_issues": ["F05", "Raw-primitives snippet uses registered_models without importing it", "Production secret literal should be an environment lookup, not copyable credential guidance"],
+      "completeness_issues": ["Include required optional-package import order", "State programmatic port override does not automatically recompute API_URL (config.configure only assigns named values)", "Verify SSR and discovery claims before presenting production guarantees"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-core/docs/app-bootstrap.md"
+    },
+    "packages/n3tx-core/docs/authorization.md": {
+      "classification": "current-reference", "audience": "Backend developers and policy authors",
+      "value": "Concise rule API, resolver and context contract",
+      "assessment_evidence": "Read 1-157 in current-042; DefaultResolver.resolve_rule inspected in attempt 1",
+      "presentation_issues": ["Reference structure is useful; preserve table"],
+      "correctness_issues": ["AUTHENTICATED fallback also applies to an existing access map with neither action nor wildcard", "publish example changes in-memory status but never saves; not a persisted domain action"],
+      "completeness_issues": ["Explain protected-field injection prerequisites, not blanket owner auto-injection", "Distinguish SQL-filterable rules, non-filterable list behavior and direct versus actor enforcement", "Custom resolver snippet lacks installation instructions"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-core/docs/authorization.md"
+    },
+    "packages/n3tx-core/docs/schema-pipeline.md": {
+      "classification": "current-reference", "audience": "Framework extension authors",
+      "value": "Registry API, import timing, pipeline and typed materialization overview",
+      "assessment_evidence": "Read 1-209 in current-042; current Ref tests specify URI strings, not integers",
+      "presentation_issues": ["Diagram presents an order inconsistent with declared after=methods extension positions"],
+      "correctness_issues": ["Line 205 says Pydantic serializes Ref as integer; current test_ref.py:64-80 asserts type string, format uri, x-ref", "Line 208 says ui key absent without n3tx_ui, while core field-level UI remains; distinguish model UI from field UI"],
+      "completeness_issues": ["Show actual runtime stage ordering with optional packages", "Replace generic credential-copying agent config example with safe-key selection"],
+      "disposition": "rewrite", "canonical_destination": "packages/n3tx-core/docs/schema-pipeline.md"
+    }
+  }
+}
