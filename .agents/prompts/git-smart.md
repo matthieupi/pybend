@@ -4,6 +4,14 @@ argument-hint: "[--dry-run to stop after grouping, or blank to execute]"
 ---
 # Smart Commit
 
+## Checkout And Safety
+
+Only execute commits when the user requested them. Before staging, inspect both
+`git diff` and `git diff --cached`, including content for secrets, not just names.
+Derive current scopes from the package map below and recent history. Use only
+verified authorship. Stop for ownership clarification on mixed-concern files;
+do not silently include another contributor's edits in a commit group.
+
 You are a release engineer. Your job is to turn a messy working tree into a
 clean, logical commit history. You analyze all pending changes, group them
 by scope and type, order by dependency, and execute focused commits.
@@ -42,33 +50,17 @@ clearly belongs to a different wave.
 
 ### Step 2 — Map files to scopes
 
-Use this project's directory-to-scope mapping:
+Use current package paths; confirm scope names against recent history:
 
 | Directory pattern | Scope |
 |---|---|
-| `core/agents/` | `agents` |
-| `core/actors/` | `actors` |
-| `core/api/` | `api` |
-| `core/models/` | `models` |
-| `core/storage/` | `storage` |
-| `core/authorize/` | `auth` |
-| `core/ssr/` | `ssr` |
-| `core/utils/` | `utils` |
-| `core/tests/` | (inherits scope from what it tests) |
-| `static/core/` | `frontend` |
-| `static/components/` | `frontend` |
-| `static/generators/` | `frontend` |
-| `static/utils/` | `frontend` |
-| `static/tests/` | `frontend` |
-| `static/docs/` | (docs) |
-| `example_actor/` | `example` |
-| `example_api/` | `example` |
-| `example_grants/` | `example` |
-| `example/` | `example` |
-| `docs/` | (docs) |
-| `CHANGELOG.md`, `ROADMAP.md` | (docs) |
-| `CLAUDE.md` | (chore) |
-| `.traces/`, `.claude/` | (chore) |
+| `packages/n3tx-core/` | affected subsystem: models, storage, api, auth, frontend |
+| `packages/n3tx-actors/`, `packages/n3tx-agents/` | actors, agents |
+| `packages/n3tx-ui/`, `packages/n3tx-files/` | frontend, files |
+| `examples/` | example or affected subsystem |
+| `tests/` | inherits scope from what it tests |
+| `docs/`, package docs, root guides | docs type; affected subsystem scope |
+| Agent/tool configuration | chore type; derive scope from history |
 
 ### Step 3 — Group by cohesion
 
@@ -98,36 +90,32 @@ Apply these grouping rules in order:
 
 Sort commit groups in this order:
 1. Core framework changes (models, storage, utils, actors)
-2. Feature implementations (agents, api, ssr)
-3. Frontend changes (static/)
-4. Example app changes (example_*)
+2. Feature implementations (agents, api, files)
+3. Frontend changes (package static directories)
+4. Example app changes (examples/)
 5. Test-only changes
 6. Documentation
 7. Chore (meta-files, config, traces)
 
 ### Step 5 — Flag mixed-concern files
 
-Since `git add -p` (interactive patching) is not supported, identify any
-files where `git diff` shows hunks belonging to different logical groups.
-**Flag these to the user** with a note like:
-> "⚠ `file.py` has changes for both [group A] and [group B]. Committing
-> with [group A] since it has the primary changes."
-
-Assign the file to the group with the most relevant changes.
+Inspect staged and unstaged hunks for mixed concerns or ownership. Stop and ask
+which hunks belong to each approved group. Never assign a whole mixed file by
+its dominant change. Use an explicitly approved noninteractive hunk split, or
+defer the file; do not overwrite or unstage another contributor's work.
 
 ### Step 6 — Draft commit messages
 
 For each group, draft a message following project conventions:
 ```
 type(scope): Description [wave]
-
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ```
 
 - **type**: feat, fix, refactor, test, docs, chore
 - **scope**: from the scope mapping above
 - **Description**: imperative mood, capitalized, concise (under 70 chars)
 - **[wave]**: detected wave tag
+- Add attribution trailers only for verified authorship; none are automatic.
 
 ### Step 7 — Present the plan
 
@@ -155,21 +143,24 @@ If `--dry-run` was passed, **STOP HERE**. Do not proceed to Phase 3.
 
 Execute each commit group sequentially. For each group:
 
-1. **Stage specific files**: `git add file1.py file2.py` — list every file
-   explicitly. **NEVER use `git add .` or `git add -A`.**
+1. **Reconcile ownership and index before each commit**: inspect `git status`,
+   `git diff` and `git diff --cached`. Existing staged hunks must belong to the
+   approved group. Otherwise stop for explicit reconciliation; never silently
+   unstage, overwrite or include unrelated work. Stage only approved paths/hunks:
+   `git add file1.py file2.py` is safe only when each entire file is approved.
+   **NEVER use `git add .` or `git add -A`.** Re-read the complete cached diff
+   after staging and require it to equal the approved group before committing.
 
 2. **Commit with HEREDOC format**:
    ```bash
    git commit -m "$(cat <<'EOF'
    type(scope): Description [wave]
-
-   Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
    EOF
    )"
    ```
 
-3. **Verify**: After each commit, run `git status` to confirm the right
-   files were committed and the working tree looks correct.
+3. **Verify**: Inspect `git show --stat` and the committed diff, then `git status`
+   and remaining staged/unstaged diffs to confirm only approved work was committed.
 
 4. If a **pre-commit hook fails**: fix the issue, re-stage, and create a
    **NEW** commit (never `--amend`).

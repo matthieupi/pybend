@@ -1,5 +1,10 @@
 # Grant Discovery & Monitoring — Market Overview
 
+> Historical application research, not a current market/pricing verification or
+> shipped-feature list. Source links and original claims are preserved below.
+> In particular, models do not automatically supply search, alerts or a scheduler.
+> Use the [N3TX documentation map](../../../docs/README.md) for framework contracts.
+
 ## What GrantWatch(er) Does
 
 **GrantWatch.com** (the likely reference — "grantswatcher" doesn't resolve) is a subscription-based grant search engine with **11,400+ active listings** updated daily. Core value: search/filter grants by category, state, eligibility, and get real-time alerts when new opportunities match your criteria.

@@ -6,24 +6,28 @@ The shared `.agents/` tree now uses a **hybrid model**:
 - **Heavyweight specialized capabilities** remain real skills in `.agents/skills/`
 - **Support/reference material** for those workflows also lives in `.agents/skills/`
 
-This keeps the portable source compatible across all three harnesses while
-preserving a distinction between lightweight commands-as-prompts and larger
-capability packages.
+These are reusable workflow sources, not proof that every harness has loaded
+them. Check the active harness's available tools, agents and discovery settings
+before invocation. Do not change permissions to make a workflow fit.
 
 ## Shared harness wiring
 
-- **pi prompts**: `.pi/prompts -> /workspace/.agents/prompts`
 - **shared commands view**: `.agents/commands -> prompts`
-- **Claude Code commands**: `.claude/commands -> /workspace/.agents/commands`
-- **OpenCode commands**: `.opencode/commands -> /workspace/.agents/commands`
-- **Claude/OpenCode/pi skills** continue to read from `.agents/skills/` via their skill discovery paths or symlinks
+- `.opencode/commands/` is a separate directory in this checkout, not this alias.
+- Claude/OpenCode/pi discovery and any external symlinks are installation-specific.
+- Legacy workflow templates mentioning `.traces/` use `.project/` for working
+  artifacts here. Resolve code paths against this checkout's `AGENTS.md`,
+  `BACKEND.md`, `FRONTEND.md` and `docs/README.md`, not a fixed `/workspace` root.
+- Tool names such as `Task`, `Agent`, `SendMessage` and `AskUserQuestion` are
+  harness-specific. If unavailable, report the limitation rather than claiming
+  a delegation occurred. Research size targets never justify invented evidence.
 
 ## Real skills
 
 These remain canonical skills because they are larger, specialized workflow
 packages rather than lightweight explicit prompts:
 
-- `.agents/skills/planning/plan/SKILL.md` → `/skill:plan`
+- `.agents/skills/plan/SKILL.md` → `/skill:plan`
 - `.agents/skills/research/ideation/SKILL.md` → `/skill:ideation`
 - `.agents/skills/perf/perf-analysis/SKILL.md` → `/skill:perf-analysis`
 - `.agents/skills/dev/fix-test/SKILL.md` → `/skill:fix-test`

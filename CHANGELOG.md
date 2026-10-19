@@ -1,5 +1,11 @@
 # N3tx Change Log
 
+> Historical change record, including an undated Unreleased section. Entries
+> preserve what was recorded at the time, not a current compatibility guarantee.
+> Nested identities, ListRef and old source links below are historical. Current
+> contracts: [models](docs/MODELS.md), [CRUD](docs/API_CRUD_ENDPOINTS.md),
+> [release notes](RELEASE_NOTES.md). Test counts here are not fresh verification.
+
 # Unreleased
 
 ## Backend / API

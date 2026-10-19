@@ -1,377 +1,105 @@
 # N3TX JSON Fields
 
-This guide explains how N3TX stores `dict` and `list` model fields as JSON,
-when to use them, how they differ from relationships, and which implementation
-points agents and developers should inspect before changing this part of the
-system.
+SQLite stores model dict/list fields as JSON TEXT. Application code normally
+receives Python values after deserialization and model validation.
 
 ## Mental Model
 
-JSON fields are ordinary model fields whose Python value is a `dict` or `list`,
-but whose SQLite representation is a `TEXT` column containing serialized JSON.
-
 ```text
-Model annotation
-  -> get_json_fields(model_class)
-  -> SQLite TEXT column
-  -> json.dumps(value, default=str) on write
-  -> json.loads(value) on read
-  -> Pydantic validation / model instance
-```
-
-Example:
-
-```python
-from pydantic import Field
-from n3tx_core.models.proto_model import ProtoModel
-
-
-class AgentConfig(ProtoModel):
-    __tablename__ = "agent_configs"
-    __storable__ = True
-
-    tools: list[str] = Field(default=[])
-    constraints: dict = Field(default={})
-    metadata: dict = Field(default={})
-```
-
-SQLite stores these fields as text:
-
-```text
-tools        TEXT -> '["search", "scrape"]'
-constraints  TEXT -> '{"max_iterations": 30}'
-metadata     TEXT -> '{"provider": "ollama", "nested": {"ok": true}}'
-```
-
-The storage layer deserializes them before model construction, so application
-code sees normal Python values:
-
-```python
-config.tools == ["search", "scrape"]
-config.constraints == {"max_iterations": 30}
+annotation -> introspection -> TEXT column
+write: Python dict/list -> json.dumps(default=str)
+read: stored string -> json.loads -> hydration/model validation
 ```
 
 ## Supported Field Shapes
 
-JSON field detection is implemented by
-`n3tx_core.utils.introspection.get_json_fields()`.
+| Shape | Stored value | Meaning |
+|---|---|---|
+| dict / typed dict | JSON object | Embedded data |
+| list / list[str] / list[int] | JSON array | Embedded primitive values |
+| list[T] | JSON local ID array | Local relationship, hydrated on read |
+| list[Ref[T]] | JSON URL array | Explicit HTTP(S) pointers |
+| Optional dict/list | Nullable JSON where supported | Test the exact union spelling through migration and storage |
+| ManyToMany[T] | Legacy link mechanism | Not a parent JSON list |
 
-| Annotation | JSON TEXT field? | Notes |
-|---|---:|---|
-| `dict` | Yes | Stored with `json.dumps()` |
-| `Dict[str, Any]` | Yes | Any `dict` origin is included |
-| `Optional[dict]` | Yes | `typing.Optional` / `typing.Union` is unwrapped |
-| `list` | Yes | Stored with `json.dumps()` |
-| `List[str]`, `list[str]` | Yes | Primitive typed lists are JSON fields |
-| `List[int]`, `list[int]` | Yes | Primitive typed lists are JSON fields |
-| `list[T: ProtoModel]` | Yes | Ordered local id list, hydrated into child objects |
-| `list[Ref[T]]` | Yes | Pointer/ref list |
-| `ManyToMany[T]` | No | Legacy shared-link helper; prefer explicit link models |
-
-Use the current, test-backed style for nullable JSON fields:
-
-```python
-from typing import Optional
-
-config: Optional[dict] = Field(default=None)
-```
-
-Avoid assuming every newer union spelling is handled equally in all storage and
-migration paths unless there is a test for it.
+Use `Field(default_factory=dict)` or `Field(default_factory=list)` for clear
+mutable defaults. Existing Pydantic model examples with default={} or [] do not
+mean arbitrary Python function mutable defaults are safe.
 
 ## JSON Field vs Relationship Field
 
-The most important distinction is whether the nested data needs independent
-identity and lifecycle.
-
-```python
-# JSON field: embedded data, no identity
-tags: list[str] = Field(default=[])
-payload: dict = Field(default={})
-
-# Local relationship field: child resources with identity, auth, hydration
-comments: list[Comment] = Field(default=[])
-```
-
-| Concern | Embedded JSON | `list[T]` local relationship |
+| Concern | Embedded JSON | Local model relationship |
 |---|---|---|
-| Storage | One SQLite `TEXT` column | JSON id list on the parent row |
-| API identity | No nested `$id` | Child resources keep flat class-name `$id` |
-| Access control | Whole field only | Per child resource possible |
-| Updates | Replace whole field | Replace ordered id list; child rows update independently |
-| Querying | No first-class nested query API | Query child model through its own collection route |
-| Schema | Pydantic property schema | Full model schema and `$defs` |
-| Good for | Config, metadata, payloads | Comments, likes, children, owned records |
+| Identity | No independent ID | Child has its own row and flat class-name identity |
+| Update | Replace whole field | Replace association list; child rows can update separately |
+| Authorization | Parent operation boundary | Child routes can have policies; parent hydration does not automatically apply them |
+| Query | No public nested JSON query builder | Child collection can be queried independently |
+| Use | Settings, metadata, primitive tags | Independently addressable domain records |
 
-Rule of thumb:
-
-- Use JSON fields for simple embedded values that belong entirely to the parent.
-- Use models and relationships when the nested thing should be addressable,
-  authorized, queried, rendered, or updated independently.
+Keep scalar filter/index fields explicit when they drive core queries. Use a
+related model when data needs its own lifecycle, not a parallel JSON copy of it.
 
 ## Write Path
 
-Implementation:
-
-```text
-packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py
-```
-
-Key function:
+`SQLiteStorage.create/update` bind values through `_coerce_value`.
+Dicts/lists serialize recursively; unsupported nested values use `str()`.
+Construct a model before calling `Model.create`:
 
 ```python
-def _coerce_value(v):
-    if isinstance(v, (dict, list)):
-        return json.dumps(v, default=str)
-    ...
+# Fragment: Job is an already registered model with declared name/payload fields.
+saved = Job.create(Job(name='scan', payload={'tags': ['energy'], 'status': 'queued'}))
+Job.update(saved.id, {'payload': {'status': 'done'}})
 ```
 
-`SQLiteStorage.create()` and `SQLiteStorage.update()` both pass values through
-`_coerce_value()` before binding them to SQLite parameters.
-
-Important behavior:
-
-- Python `dict` and `list` become JSON strings.
-- Nested dict/list structures are serialized recursively.
-- Non-JSON-native nested values are converted with `default=str`.
-- Other non-SQLite-native top-level values also fall back to `str()`.
-
-Example:
-
-```python
-Job.create({
-    "name": "scan",
-    "payload": {
-        "source": "api",
-        "params": {"q": "renewable grants"},
-        "tags": ["energy", "funding"],
-    },
-})
-```
+The update replaces payload entirely; it does not retain tags.
 
 ## Read Path
 
-Implementation:
-
-```text
-packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py
-```
-
-Key function:
-
-```python
-def _deserialize_json_fields(model_class, record):
-    for field_name in get_json_fields(model_class):
-        val = record.get(field_name)
-        if isinstance(val, str):
-            try:
-                record[field_name] = json.loads(val)
-            except (json.JSONDecodeError, TypeError):
-                pass
-```
-
-This runs before model instantiation in the main read paths:
-
-- `SQLiteStorage.get()`
-- `SQLiteStorage.list()`
-- relationship population paths inside `_populate_fields()`
-
-If a stored value is not valid JSON, the helper leaves it unchanged. Pydantic may
-still reject the resulting value if the model field requires `dict` or `list`.
+`_deserialize_json_fields` uses `get_json_fields` and parses string values before
+get/list/model construction and population. Invalid JSON is left unchanged, not
+repaired. Pydantic can then reject it. Non-JSON-native values stringified on write
+do not automatically regain their original type.
 
 ## Migration Behavior
 
-Implementation:
-
-```text
-packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py
-```
-
-During table creation:
-
-- `dict` fields become `TEXT` columns.
-- `list` fields become `TEXT` columns.
-- `list[T: ProtoModel]` stores ordered local child ids in the parent row.
-- `ManyToMany[T]` is a legacy shared-link helper and is not stored as a parent
-  JSON list.
-
-During auto-migration:
-
-- new `dict` fields are added as `TEXT DEFAULT '{}'`.
-- new `list` fields are added as `TEXT DEFAULT '[]'`.
-
-## Common Usage Patterns
-
-### Agent configuration
-
-```python
-class AgentProfile(ProtoModel):
-    __tablename__ = "agent_profiles"
-    __storable__ = True
-
-    tools: list[str] = Field(default=[])
-    constraints: dict = Field(default={})
-```
-
-Good for:
-
-```json
-{
-  "tools": ["grants", "web_tools"],
-  "constraints": {"max_iterations": 30}
-}
-```
-
-### Flexible external API payload
-
-```python
-class ImportJob(ProtoModel):
-    __tablename__ = "import_jobs"
-    __storable__ = True
-
-    source: str = ""
-    request_payload: dict = Field(default={})
-    response_summary: dict = Field(default={})
-```
-
-Good when the exact external payload shape is not central to N3TX's domain
-model.
-
-### Primitive arrays and metadata
-
-```python
-class Document(ProtoModel):
-    __tablename__ = "documents"
-    __storable__ = True
-
-    title: str
-    tags: list[str] = Field(default=[])
-    metadata: dict = Field(default={})
-```
-
-Good for labels, provider metadata, lightweight flags, and other embedded data.
+New dict columns use TEXT with `{}` defaults; typed list columns use TEXT with
+`[]` defaults in the migration path. Annotation detection and nullable forms need
+tests across both create-table and migrate-table. Migration may also drop columns
+missing from the model; read [Operations](OPERATIONS.md#migrations) before startup
+against existing data.
 
 ## Tradeoffs and Gotchas
 
-### JSON fields are not independently addressable
-
-Nested JSON values do not get routes, `$id`, lifecycle events, ownership, or
-per-item authorization.
-
-If a nested value should be a resource, model it as a `ProtoModel`/`ActorModel`
-and reference it with `list[T]`, `Ref[T]`, or an explicit link model.
-
-### Updates replace the whole field
-
-Partial updates do not deep-merge JSON fields.
-
-```python
-Job.update(1, {"payload": {"status": "done"}})
-```
-
-This replaces `payload`; it does not preserve other keys from the previous
-payload unless the caller includes them.
-
-### Generated HTTP PUT preserves omitted collections
-
-The Python update API is patch-oriented, so omitting a JSON field leaves it
-unchanged:
-
-```python
-Job.update(1, {"title": "Renamed"})  # payload is not supplied or replaced
-```
-
-Generated HTTP `PUT` routes use the same patch contract. Downstream clients may
-send only changed fields:
-
-```json
-{
-  "title": "Renamed"
-}
-```
-
-An omitted JSON field remains unchanged. An explicit `[]` or `{}` means replace
-the complete stored field with an empty value. The same rule applies to
-JSON-backed `list[T]` local relationship IDs and `list[Ref[T]]` pointer arrays.
-
-### There is no first-class nested JSON query API
-
-N3TX currently treats these as serialized text fields. The framework does not
-provide a public query builder for expressions like:
-
-```sql
-json_extract(payload, '$.status') = 'queued'
-```
-
-If an application needs first-class filtering, sorting, or indexing by nested
-properties, prefer explicit model fields or related models.
-
-### `default=str` is convenient but lossy
-
-`json.dumps(..., default=str)` prevents many serialization crashes, but it can
-silently convert rich values into strings.
-
-Examples:
-
-| Python value | Stored JSON value |
-|---|---|
-| `datetime.datetime(...)` | string timestamp representation |
-| `AnyHttpUrl(...)` | URL string |
-| custom object | `str(object)` |
-
-Use explicit field types when round-trip fidelity matters.
-
-### Invalid stored JSON is tolerated, not repaired
-
-`_deserialize_json_fields()` leaves invalid JSON strings unchanged. This avoids
-masking or rewriting corrupted data, but Pydantic validation may fail later.
-
-### Mutable defaults rely on Pydantic behavior
-
-Existing examples use `Field(default=[])` and `Field(default={})`. Pydantic v2
-handles model defaults safely for normal model construction, but new code may
-still prefer `default_factory=list` or `default_factory=dict` when that improves
-clarity.
+- Generated PUT and Python update preserve omitted fields. Explicit [] or {} clears
+  the whole field. Neither path deep-merges JSON.
+- Local relationship IDs and URL pointer arrays have different validation and
+  hydration despite both being stored as JSON.
+- An embedded JSON object has no independent route, lifecycle event or per-item
+  permission boundary.
+- `default=str` can lose datetime, URL-type or custom-object fidelity. Use typed
+  fields and round-trip tests where that matters.
+- There is no public nested JSON query builder; raw SQL JSON expressions are
+  application-specific trusted queries, not a portable storage contract.
+- Replacing a stale large dictionary can overwrite a newer update. Domain methods
+  do not automatically add atomic nested mutation.
 
 ## Implementation Map for Agents
 
-Start with these files when investigating or changing JSON-field behavior:
+Paths below are relative to `packages/n3tx-core/src/n3tx_core/`:
 
-| File | Why it matters |
+| File | Responsibility |
 |---|---|
-| `packages/n3tx-core/src/n3tx_core/utils/introspection.py` | `get_json_fields()` decides which fields are JSON TEXT |
-| `packages/n3tx-core/src/n3tx_core/storage/sqlite_storage.py` | `_coerce_value()` writes JSON; `_deserialize_json_fields()` reads JSON |
-| `packages/n3tx-core/src/n3tx_core/storage/sqlite_migration.py` | Creates and migrates JSON fields as `TEXT` columns |
-| `packages/n3tx-core/docs/storage.md` | Package-level storage behavior reference |
-| `packages/n3tx-core/src/n3tx_core/tests/unit/test_json_fields.py` | Round-trip and migration coverage |
-| `packages/n3tx-core/src/n3tx_core/tests/unit/test_introspection.py` | Detection coverage for JSON vs relationship fields |
+| `utils/introspection.py` | JSON/local relationship/ref field detection |
+| `storage/sqlite_storage.py` | Encoding, decoding, normalization and hydration |
+| `storage/sqlite_migration.py` | Table/column types and defaults |
+| `tests/unit/test_json_fields.py` | Round-trip and migration cases |
+| `tests/unit/test_introspection.py` | Detection cases |
 
 ## Change Checklist
 
-When changing JSON-field behavior:
-
-1. Preserve the relationship boundary: `list[T]` stores ordered local ids,
-   `list[Ref[T]]` stores pointer refs, and `ManyToMany[T]` remains a legacy
-   shared-link helper.
-2. Update both storage and migration behavior if detection rules change.
-3. Add tests for detection, migration, create/get/list/update, and populate if
-   the change affects related records.
-4. Verify local relationship hydration returns self-describing child objects for
-   `list[T]` fields.
-5. Update this guide and `packages/n3tx-core/docs/storage.md` if the public
-   behavior changes.
-
-Recommended verification:
-
-```bash
-cd /workspace && python3 scripts/test-backend.py --suite core -- -q
-```
-
-For a narrow check while developing:
-
-```bash
-cd /workspace && python3 -m pytest \
-  packages/n3tx-core/src/n3tx_core/tests/unit/test_json_fields.py \
-  packages/n3tx-core/src/n3tx_core/tests/unit/test_introspection.py \
-  -q
-```
+Test detection, create-table, migrate-table, create/get/list/update and population.
+Check omitted versus empty fields, invalid stored JSON, nullable values, missing
+children and URL pointers. Preserve the distinct local/remote relationship
+contract. Run the core suite through the [test runner](../README.md#testing).
+The package [storage guide](../packages/n3tx-core/docs/storage.md) owns mechanism
+details; this page owns JSON design choices.

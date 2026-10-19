@@ -16,7 +16,9 @@ trace the execution flow, and identify concrete bottlenecks.
 ## Areas to Audit (in order of typical impact)
 
 ### 1. DOM Manipulation Patterns
-- Are elements appended one-by-one (N reflows) vs batched (DocumentFragment)?
+- Do interleaved DOM writes and synchronous layout reads force layout thrashing?
+  N appends do not imply N reflows; browsers can batch layout. Treat batching
+  with DocumentFragment as a hypothesis to measure, not an automatic speedup.
 - Is `innerHTML` used where surgical DOM updates would suffice?
 - Are large lists rendered all at once or virtualized/paginated?
 - Are CSS recalculations triggered unnecessarily (layout thrashing)?
@@ -54,10 +56,13 @@ trace the execution flow, and identify concrete bottlenecks.
 
 For each issue found, document:
 - **What**: The specific bottleneck (file path + line numbers)
-- **Why**: Why it's slow (quantify: N reflows, listener count, etc.)
+- **Why**: Source-based mechanism and counts; label reflow/timing estimates as
+  hypotheses unless a runtime trace actually measured them
 - **Fix**: Concrete fix with implementation approach
 - **Impact**: Expected improvement (high/medium/low)
 
 Number every issue. Group by area. Sort by impact within each area.
 
-Write the full report to `.traces/frontend-performance-audit.md`.
+Return the full report to the orchestrator, which can save it under
+`.project/`. This agent's tools are read-only. Static inspection identifies
+performance hypotheses, not measured speedups; label estimates accordingly.

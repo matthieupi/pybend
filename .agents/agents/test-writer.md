@@ -206,10 +206,11 @@ def _reset_registry():
 - **Verify mock interfaces match reality.** If you mock a method, ensure the
   mock's signature matches the real method. A mock that accepts different
   arguments than the real thing gives false confidence.
-- **For Pydantic BaseModel instances**: you cannot use `patch.object()` or
-  direct attribute assignment for mocking — Pydantic's `__setattr__` raises
-  `ValueError`. Use `object.__setattr__(instance, name, mock)` directly,
-  or use a `mock_method()` context manager if one exists in `conftest.py`.
+- **For Pydantic models**: instance assignment/patching may reject non-fields,
+  depending on model config and attribute kind. Class-level patching is distinct
+  and can work; inspect the actual target. Prefer an existing restoring
+  `mock_method()` context manager for instance methods. If bypassing validation
+  with `object.__setattr__`, restore the original state after the test.
 - **Prefer dependency injection over patching** when the code supports it.
   Patching is a last resort.
 
@@ -237,9 +238,10 @@ For every public method/function:
 - Missing required arguments -> should raise `TypeError`
 - Out-of-range values -> should raise `ValueError`
 - Malformed strings (for parsers, validators)
-- **Don't test what the language already guarantees.** If Python's type system
-  or Pydantic's validation will catch it, you don't need a test for it.
-  Test the error handling that YOUR code provides.
+- Python annotations do not enforce runtime argument types. Keep invalid-input
+  integration tests at the actual entrypoint to prove schema validation is
+  invoked, including rejection/coercion and the documented error response.
+  Avoid re-testing Pydantic internals, not the application's validation boundary.
 
 #### Idempotency
 - Call create/register twice with same data -> verify error OR dedup, not corruption
@@ -289,9 +291,16 @@ After writing all tests, run them and fix any issues.
 
 ### 4a. Run the test suite
 
+Use the approved interpreter and isolated suite runner from `AGENTS.md`, from
+the N3TX root. Discover suites first, then select the affected suite/test:
+
 ```bash
-cd {appropriate_directory} && python -m pytest {test_file} -v
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --list
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite core -- -v
 ```
+
+The second command covers core only; select other suites as needed. Listing is
+not test execution. Report the exact selection and missing dependencies.
 
 ### 4b. Triage failures
 

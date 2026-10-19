@@ -15,6 +15,9 @@ You will be given:
 - A **mode** — either `analysis` or `summary` (determines which artifact you produce)
 - A **research directory** (containing research documents from specialist agents)
 - An **output path** (where to write your artifact)
+- Exact **analysis, summary, propositions and whitepaper paths**, including the
+  analysis number, plus the run's frozen research manifest (paths and hashes)
+- In summary mode, the **completed analysis** to summarize
 - Optional **codebase context** (source files to read for architecture assessment)
 
 ### Modes
@@ -103,7 +106,9 @@ Make your documents **visually polished and enjoyable to read**:
 
 ## Phase 1: Read Everything (both modes)
 
-1. Read ALL research documents in the research directory — every line
+1. Read every frozen research input listed in the supplied manifest; verify its
+   hash. Do not glob in concurrent synthesis outputs. In summary mode, also read
+   the completed analysis in full and preserve its conclusions and caveats.
 2. Read any specified codebase source files to understand current architecture
 3. Take mental note of: key statistics, company examples, comparison
    opportunities, risks, costs, and decision criteria
@@ -177,11 +182,13 @@ Produce a structured executive analysis following this template:
 - **Use inline citations throughout** — when referencing a statistic, case study,
   or claim, link to the source: `According to [IKEA's engineering blog](url), ...`
   or `([source](url))`. For findings from the research documents, cite them too:
-  `(see [Industry Landscape Research](../research/01-industry-landscape.md))`.
+  `(see [Industry Landscape Research](01-industry-and-decisions.md))` when the
+  research file is beside the analysis. Derive every relative link from the
+  actual output file's parent to the exact supplied target path.
 - Verify the visual flow — icons, spacing, bold text create a scannable narrative
 
-**Include a link to the executive summary** at the top of the report:
-`> *For the standalone executive summary, see [<Slug>-summary.md](../../vision/<Slug>-summary.md).*`
+**Include a link to the executive summary** at the top of the report, derived
+from its supplied path (normally `../../vision/<Slug>-summary.md`).
 
 ---
 
@@ -237,7 +244,9 @@ the kind of thing you'd hand someone walking into a board meeting. Every
 sentence earns its place. No filler.
 
 **Include a link to the full report** at the top:
-`> *For the complete analysis, see [<slug>-analysis.md](../research/<slug>/<slug>-analysis.md).*`
+Use the exact numbered analysis path supplied by the orchestrator. For N=4:
+`> *For the complete analysis, see [05-<slug>-analysis.md](../research/<slug>/05-<slug>-analysis.md).*`
+Do not guess the prefix; N=6 uses `07-`, for example.
 **Include links to the companion vision documents** (propositions and whitepaper):
 `> *See also: [propositions](<Slug>-propositions.md) | [whitepaper](<Slug>-whitepaper.md)*`
 
@@ -282,3 +291,4 @@ Before finishing, verify:
 - [ ] Between 200-350 lines
 - [ ] Could be handed to someone with zero prior context
 - [ ] Links to the full analysis at the top
+- [ ] Findings, numbers, recommendations and uncertainty reconciled with the completed analysis

@@ -1,5 +1,12 @@
 # N3TX UI Primitives Enhancement Plan
 
+> **Historical enhancement plan and implementation notes.** DONE labels below
+> record the original plan's status, not fresh verification or universal guarantees.
+> Old paths, commands, template snippets and proposed schema keys are retained as
+> history. For current behavior use the [frontend guide](ARCHITECTURE.md),
+> [components](../../packages/n3tx-ui/docs/components.md), and
+> [forms](../../packages/n3tx-ui/docs/formidable.md).
+
 A comprehensive plan to evolve the N3TX frontend component layer into a developer-friendly framework that provides composable, schema-driven primitives — making tools like Redux, fetch(), React, and GraphQL redundant for most use cases.
 
 **Companion document**: `01_UI_SEPARATION_CONCERNS.md` covers the component refactor analysis (P0).

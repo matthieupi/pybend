@@ -1,5 +1,11 @@
 # Test Audit Reports
 
+> Historical April 2026 test-recovery record, despite the LATEST filename.
+> Totals and completion claims below are not fresh validation of this checkout;
+> some referenced sibling reports are no longer present. Original chronology
+> is retained in place. For current commands, use the [contributor guide](../AGENTS.md)
+> and [frontend test harness](frontend/README.md).
+
 Updated on 2026-04-24 from the latest full multi-suite test audit.
 
 ## Current snapshot

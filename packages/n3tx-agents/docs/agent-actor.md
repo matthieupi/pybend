@@ -1,205 +1,140 @@
-# AgentActor
+# AgentActor: stored configuration
 
-> Part of [n3tx-agents](../README.md)
+[Package](../README.md) · [Runtime and threads](mixin.md) · [Tool limits](tool-discovery.md)
 
-## What This Covers
+AgentActor is a storable ActorModel with table `agents`. Use it when agent
+configuration is application data; use AgentMixin when an existing domain model
+needs reasoning. Neither implies background execution.
 
-`AgentActor` -- the concrete model whose instances ARE agents. Covers
-field definitions, the `agentic()` override, tool resolution from DB
-records, and CRUD lifecycle. Does not cover AgentMixin methods in general
-(see [mixin.md](mixin.md)).
+## Fields and relationships
 
-## Architecture
+| Field | Type / default | Meaning |
+|---|---|---|
+| `system_key` | `str`, `''` | Stable identity used by application-agent provisioning |
+| `name` | Required string, 1–200 characters | Display name |
+| `prompt` | `str`, `''` | System prompt |
+| `tools` | `list[AgentTool]`, `[]` | Ordered local relationship, not a list of URL refs |
+| `llm` | `str`, `'ollama:llama3.1'` | Model selection; default still needs a running provider |
+| `constraints` | `dict`, `{}` | Runtime currently interprets `max_iterations` |
 
-AgentActor is a standard storable ActorModel with `__agent__ = True`.
-Its config lives in DB fields, not code. Agents are data.
+AgentTool is a storable ActorModel (`agent_tools`) with `target` (actor address)
+and `description`. Register AgentTool and each tool-providing model with storage
+as applicable. Stored `tools` uses local relationship IDs and hydrates records;
+`tool_addrs()` extracts and deduplicates their targets. Although that helper also
+handles strings/dictionaries, prefer typed records rather than relying on raw
+string construction of a `list[AgentTool]` field.
 
-On the frontend, `AgentActor.__ui__.renderer` defaults both `item` and
-`detail` to `ntx-agent`, so routed agent lists render custom agent cards and
-agent detail routes mount the same rich component automatically once the shell
-imports `packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agent.js`.
+Ordinary configuration edits use CRUD patches. Omitting `tools` preserves it;
+supplying `tools` replaces the entire collection. This is not atomic append.
 
-Apps that need a broader agents surface can also opt into
-`packages/n3tx-agents/src/n3tx_agents/static/components/ntx-agents.js`. That
-component extends `NTTList`, keeps the normal stored `AgentActor` collection
-flow, and can merge those real DB rows with app-supplied built-in workflow
-entries from `window.NTX_AGENT_CATALOGS[catalog]`. Those built-ins are launch
-cards, not fake `AgentActor` records.
+## Execution API
 
-```
-AgentActor (DB record)
-    |
-    +-- name, prompt, llm, constraints  (DB fields)
-    +-- tools: list[AgentTool]          (ordered local id list)
-    |
-    +-- agentic(task)          @expose_route('/agentic', POST)
-    |      |
-    |      | tool_addrs()  -- hydrated AgentTool records to actor addresses
-    |      v
-    |   CallConfig  -- DB-backed adapter input (mixin.py)
-    |      |
-    |      v
-    |   Agent.prepare(...) -> Agent.run(...)  (agent.py)
-    |
-    +-- agentic_stream(task)   @expose_route('/agentic_stream', POST, stream=True, events={...})
-           |
-           | tool_addrs()  -- same hydrated record handling
-           v
-        CallConfig -> Agent.prepare(...) -> Agent.run_stream(...)  (agent.py)
+```text
+tool_addrs(self) -> list
+call_config(self, task: str, thread_id: int = 0, **kwargs) -> CallConfig
+async agentic(self, task: str, thread_id: int = 0, **kwargs) -> str
+agentic_stream(self, task: str, thread_id: int = 0, **kwargs) -> async generator
 ```
 
-AgentActor's `agentic()` and `agentic_stream()` override the mixin's
-versions. They read config from DB fields instead of using the 3-tier
-cascade, then delegate into the shared internal runtime seam.
+| Route | Request | Result |
+|---|---|---|
+| `POST /agents/{id}/agentic` | `task`, optional `thread_id` in actor routing | See response boundary and direct-parser caveat below |
+| `POST /agents/{id}/agentic_stream` | Same | SSE stream |
+| Class-name mirrors | `/AgentActor/{id}/agentic[_stream]` | Same routing-mode-specific behavior |
 
-### Stream Event Models
+`call_config()` reads stored prompt and tool targets. Trusted Python kwargs can
+override LLM/output type/user and merge constraints over stored constraints;
+they do **not** override prompt or tools. `thread_id=0` becomes `None`, causing a
+new thread. Do not assume arbitrary Python kwargs are accepted by HTTP routes.
 
-`actor.py` defines five non-storable `ProtoModel` subclasses used by
-`agentic_stream()` via the `events=` parameter:
+### Response boundary
 
-| Model | Fields | Purpose |
-|-------|--------|---------|
-| `TextChunk` | `text` | Progressive text output from the LLM |
-| `ToolCallEvent` | `tool`, `args`, `call_id` | Agent is calling a tool |
-| `ToolResultEvent` | `tool`, `result`, `call_id` | Result from a tool call |
-| `ThinkingChunk` | `text` | Agent is in a thinking/reasoning phase |
-| `DoneChunk` | `answer`, `usage`, `tool_calls` | Terminal event — task complete |
+| Entry point | Shape |
+|---|---|
+| Mixin Python `agentic()` | Dictionary with `answer`, `usage`, message list, count, thread ID |
+| AgentActor Python `agentic()` | `json.dumps(result, default=str)`; decode with `json.loads` |
+| Direct generated HTTP | JSON string value from the string-returning method |
+| Actor-generated HTTP | ActorModel parses JSON strings before replying, yielding an object |
 
-These models exist purely for validation and JSON Schema generation. They
-are not storable. The schema pipeline serializes them into
-`schema.methods.agentic_stream.events` so the frontend knows the exact
-shape of each event type.
+The current direct custom-route parser treats every non-reserved signature
+parameter as required, including defaults and `**kwargs`. Consequently a minimal
+`{"task": "Hello"}` call to this signature fails with `Missing field: thread_id`
+before execution; supplying that field then encounters the `kwargs` parameter.
+Do not invent a dummy-body workaround as a public contract. The string response
+above describes successful invocation, not a claim that this minimal direct
+HTTP request works. Actor HTTP skips absent arguments and reaches Python defaults.
 
-## Interface
+Thus HTTP clients must not assume routing-mode parity. The `messages` count is
+`message_count`; `messages` is a list. JSON `default=str` is not structured
+serialization of Pydantic AI message objects; persisted Thread messages use a
+separate serializer.
 
-### Fields
+### Provider-free stored-agent example
 
-| Field | Type | Default | Storage |
-|-------|------|---------|---------|
-| `system_key` | str | `''` | TEXT |
-| `name` | str | required | TEXT |
-| `prompt` | str | `''` | TEXT |
-| `llm` | str | `'ollama:llama3.1'` | TEXT |
-| `constraints` | dict | `{}` | TEXT (JSON serialized) |
-| `tools` | list[AgentTool] | `[]` | TEXT (ordered local ids, hydrated records) |
-
-`system_key` is a stable machine identifier for framework-provisioned app
-agents. It allows bootstrap code to create or update a static Assistant
-idempotently across reloads and restarts without relying on the display name.
-
-### `AgentTool` (tool reference model)
+Use the setup in the [complete example](../../../docs/AGENTS.md#provider-free-how-to).
+Inside its `main()` after `create_app()`, this continuation uses the same
+temporary storage and test identity, with no network calls:
 
 ```python
-class AgentTool(ActorModel):
-    __tablename__ = 'agent_tools'
-    __storable__ = True
-    target: str       # Actor address (e.g. 'grants', 'web_tools')
-    description: str  # Human-readable description
-```
+import json
 
-Linked to AgentActor through `tools: list[AgentTool]`.
-
-### `agentic(self, task: str, **kwargs) -> str`
-
-Exposed as `POST /agents/{id}/agentic`. Returns a JSON string (not dict)
-containing `{answer, usage, messages, message_count}`.
-
-Internally, `AgentActor.agentic()` delegates to the shared runtime and then
-serializes the same sync result dict used by `AgentMixin.agentic()` with
-`json.dumps(result, default=str)`. `message_count` therefore always matches
-`len(messages)`, and `thread_id` is included when a thread is used or created.
-
-**kwargs accepted**: `llm`, `constraints`, `user`, `thread_id`,
-`result_type`.
-
-**Tool resolution**: Calls `tool_addrs()` which handles hydrated `AgentTool`
-records, dicts with `target`, and plain actor-address strings.
-
-### `tool_addrs(self) -> list[str]`
-
-Internal. Resolves actor addresses from the `tools: list[AgentTool]` field.
-
-## Usage Patterns
-
-### Create agent via API
-
-```bash
-# Create agent
-curl -X POST /agents -d '{"name": "Scanner", "prompt": "Find grants.", "llm": "anthropic:claude-sonnet-4-5-20250929"}'
-
-# Generated HTTP PUT accepts a partial writable AgentActor representation.
-curl -X PUT /agents/1 -d '{
-  "prompt": "Find current grants."
-}'
-
-# Trigger reasoning
-curl -X POST /agents/1/agentic -d '{"task": "Find new grants"}'
-```
-
-By contrast, `AgentActor.update(id, {"tools": [1, 2]})` and generated agent
-update tools are patch-oriented. Supplied `tools` replaces the complete ordered
-relationship list; omission from a Python/TX patch leaves it unchanged.
-
-### Create agent in code
-
-```python
-from n3tx_agents import AgentActor, AgentTool
-
-agent = AgentActor.create(AgentActor(
-    name='Grant Scanner',
-    prompt='You find government grants for nonprofits.',
-    tools=[AgentTool(target='grants'), AgentTool(target='web_tools')],
-    llm='anthropic:claude-sonnet-4-5-20250929',
-    constraints={'max_iterations': 20},
+created = AgentActor.create(AgentActor(
+    name='Documentation assistant', prompt='Describe the task.',
+    llm='test', tools=[], constraints={'max_iterations': 3},
 ))
-
-result_str = await agent.agentic(task='Scan for new grants')
-result = json.loads(result_str)
-print(result['answer'])
+agent = AgentActor.get(created.id)
+result = json.loads(await agent.agentic(
+    task='Hello', user={'user_id': 1, 'role': 'user'},
+))
+assert result['message_count'] == len(result['messages'])
+assert result['thread_id'] is not None
 ```
 
-### App setup
+To configure tools, create AgentTool records, patch the agent's `tools` with
+those records, and reload. Discovery does not enforce permissions; read the
+[execution boundary table](tool-discovery.md#execution-and-security-limits)
+before enabling private or mutating tools.
 
-```python
-from n3tx_core.utils.registrar import register_model
+## Caller and persistence cautions
 
-register_model(AgentTool, storage=storage)
-register_model(AgentActor, storage=storage)
+The stock exposed methods have no explicit named `user` parameter. Generated
+HTTP injection checks for that parameter, so route authentication alone does
+not propagate a caller into `kwargs`. Actor dispatch also does not inject method
+arguments from metadata. Missing caller context invokes trusted internal paths.
+Do not expose these routes to untrusted clients with sensitive tool collections
+until the actual caller path is verified and secured.
+
+AgentActor declares no owner-specific model access policy. Thread has a separate
+owner/admin policy, but that does not repair missing caller propagation. Treat
+agent configuration and tool selection as privileged application operations.
+
+## Streaming and browser integration
+
+The method publishes event schemas for TextChunk, ToolCallEvent,
+ToolResultEvent, ThinkingChunk and DoneChunk. Runtime `done` also includes
+`thread_id`, which DoneChunk's declaration does not list. Schema publication
+does not validate every yielded dictionary.
+
+```text
+NTTStream -> NTTStreamAgent -> ntx-chat
+                          -> ntx-agent-live
+NTTItem   -> ntx-agent
+NTTList   -> ntx-agents
 ```
 
-## Gotchas
+Use N3TX's merged static namespace with core, UI and agents assets available.
+The shell must import `./components/ntx-agent.js` for the model's `item`/`detail`
+renderer; it imports chat/live components. Import `ntx-agents.js` for the optional
+hybrid collection. Its `window.NTX_AGENT_CATALOGS[catalog]` entries are workflow
+launchers, not stored AgentActor records.
 
-- `agentic()` returns a JSON **string**, not a dict. This is because it
-  is decorated with `@expose_route` (HTTP endpoint returns text). Parse
-  with `json.loads()` in code. The decoded payload is the same sync result
-  dict produced internally by the shared runtime.
-- AgentActor's `agentic()` uses DB-backed configuration rather than the
-  mixin's class-config cascade. It reads `self.prompt`, `self.llm`,
-  `self.constraints`, and tool refs from stored fields, then delegates to
-  the shared runtime. kwargs override DB values (`constraints` are merged,
-  not replaced).
-- Tool addresses must match actor addresses registered in the Matrix.
-  If a tool address has no corresponding actor, `discover_tools()` logs
-  a warning and skips it.
-- `AgentActor.run` and `AgentActor.stream_run` are auto-excluded from
-  tool discovery to prevent recursive agent invocation loops.
-- When loaded from DB, `tools` is an ordered list of hydrated `AgentTool`
-  records. The frontend renders `target` and `description` directly without a
-  second fetch, while `tool_addrs()` extracts actor addresses for execution.
+`NTTStreamAgent` renders typed entries, markdown and tool cards. UPPERCASE
+handlers (`TEXT`, `TOOL_CALL`, `TOOL_RESULT`, `THINKING`, `DONE`) handle events;
+`STREAM_END`/`STREAM_ERROR` handle stream lifecycle. Preserve structural DOM from
+`prerender()` when extending rendering. Chat reuses the returned `thread_id`.
+Browser cancellation is not a guarantee that provider work or committed tools
+are undone.
 
-## Schema Extension
-
-The `agent` stage in the schema pipeline adds metadata to AgentActor schemas:
-
-```json
-{
-  "agent": {
-    "enabled": true,
-    "agentic_endpoint": "/agents/{id}/agentic",
-    "methods": ["agentic", "agentic_stream", "ctx", "tools"]
-  }
-}
-```
-
-Non-AgentActor models with `__agent__ = True` get `enabled: true` but
-no `agentic_endpoint`.
+Sources: [actor.py](../src/n3tx_agents/actor.py),
+[tests](../src/n3tx_agents/tests/test_agent_actor.py),
+[components](../src/n3tx_agents/static/components/).

@@ -54,7 +54,7 @@ For storable `ActorModel`, CRUD TX names include `schema`, `create`, `get`, `lis
 | `ActorModel` non-storable | Tool/service capability with schema-discoverable methods |
 | Plain `Actor` | Low-level actor without model/schema/storage needs |
 | `ActorProxy` | Wrap third-party object as actor |
-| `RemoteRef` | Explicit async handle for a remote `n3tx://...` model identity |
+| `RemoteRef` | Explicit async handle for an absolute HTTP(S) model identity |
 | `NetworkAdapter` | Protocol bridge or external network boundary |
 
 ## Distributed actor refs
@@ -62,15 +62,15 @@ For storable `ActorModel`, CRUD TX names include `schema`, `create`, `get`, `lis
 Canonical distributed refs use class-name identity:
 
 ```text
-n3tx://<service>/<ClassName>/<id>
+https://service.example.com/ClassName/id
 ```
 
 `RemoteMatrix` routes those refs through existing remote class-name REST routes:
 
 ```text
-TX(name='get', target='n3tx://storage/File/12')     -> GET  /File/12
-TX(name='process', target='n3tx://storage/File/12') -> POST /File/12/process
-TX(name='generate', target='n3tx://compute/Job/12', meta={'stream': True})
+TX(name='get', target='https://storage.example.com/File/12')     -> GET  /File/12
+TX(name='process', target='https://storage.example.com/File/12') -> POST /File/12/process
+TX(name='generate', target='https://compute.example.com/Job/12', meta={'stream': True})
   -> RemoteMatrix.stream() -> remote generated SSE route -> TX chunks
 ```
 
@@ -83,7 +83,7 @@ For explicit Python calls, use `ActorModel.ref()` rather than hidden network IO
 in normal field access:
 
 ```python
-artifact = Artifact.ref('n3tx://storage/Artifact/42', matrix=matrix)
+artifact = Artifact.ref('https://storage.example.com/Artifact/42', matrix=matrix)
 data = await artifact.get()
 result = await artifact.call('process', mode='fast')
 ```
@@ -93,6 +93,11 @@ result = await artifact.call('process', mode='fast')
 `ActorModel` publishes lifecycle TX after create/update/delete. Subscribers can power federation, audit, agents, or realtime bridges.
 
 ## Guardrails
+
+Examples are excerpts requiring registration, imports and an async context.
+Lifecycle publication is not durable delivery or automatic agent execution.
+Raw TX does not inherit all HTTP preprocessing; read the
+[actor enforcement limits](../../../packages/n3tx-actors/docs/actor-model.md).
 
 - Put reusable compute in actors, not hidden helpers.
 - Do not route internal work through plain HTTP.
@@ -111,4 +116,6 @@ result = await artifact.call('process', mode='fast')
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Read relevant docs/skills first, then current implementation/tests before meaningful
+changes. Also inspect source when docs are incomplete or contradicted. Docs first
+is not docs only; update or propose documentation corrections when gaps are found.

@@ -53,4 +53,6 @@ For each issue found, document:
 
 Number every issue. Group by area. Sort by impact within each area.
 
-Write the full report to `.traces/backend-performance-audit.md`.
+Return the full report to the orchestrator, which can save it under
+`.project/`. This agent's tools are read-only. Static inspection identifies
+performance hypotheses, not measured speedups; label estimates accordingly.

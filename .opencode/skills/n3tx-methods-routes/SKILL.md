@@ -33,6 +33,13 @@ The method also appears in schema under `methods.discount`, allowing frontend bu
 
 ## Method parameters
 
+Snippets here are excerpts, not complete apps. Use ordinary CRUD for simple
+field edits; an exposed action does not itself provide atomicity. Direct route
+parsing currently requires declared parameters even when Python defaults exist.
+Reserved `user` injection applies to supported route paths, not all raw TX/tool
+dispatch. Consult [custom endpoints](../../../docs/API_CUSTOM_ENDPOINTS.md) and
+[authorization](../../../docs/AUTHORIZATION.md) before claiming parity.
+
 - Parameters come from function signatures.
 - Type hints become schema.
 - `user` is injected by auth layer and omitted from request body/tool args.
@@ -77,4 +84,6 @@ Toggle endpoints may accept empty bodies. Return structured payloads so the fron
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Read relevant docs/skills first, then current implementation/tests before meaningful
+changes. Also inspect source when docs are incomplete or contradicted. Docs first
+is not docs only; update or propose documentation corrections when gaps are found.

@@ -1,5 +1,10 @@
 # 📋 N3TX TODO
 
+> Legacy backlog and completion notes. Unchecked items may already have changed;
+> checked items are not current test evidence. Old names such as ListRef and
+> agent_run are retained as historical context, not supported API instructions.
+> Consult the [documentation map](docs/README.md) before implementing an item.
+
 > Ideas, improvements, and planned work. Check an item off with `[x]` when done.
 
 ---
@@ -83,4 +88,3 @@ _JS · Web Components · UI · Forms · Rendering_
   - Server starts in debug, auto-reloads
   - All users are created as admin role
   - ntt-method shows method tx results
-

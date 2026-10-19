@@ -31,7 +31,7 @@ n3tx           meta-package
 
 ## Framework change workflow
 
-1. Read docs first: `/workspace/docs/*`, `BACKEND.md`, `FRONTEND.md`, package docs.
+1. Read docs first: `docs/`, `BACKEND.md`, `FRONTEND.md`, package docs.
 2. Identify the public contract being changed.
 3. Add/update tests before or with behavior changes.
 4. Implement at the smallest correct architectural boundary.
@@ -41,16 +41,17 @@ n3tx           meta-package
 ## When source inspection is expected
 
 Framework maintenance normally requires reading source. Still start from
-`AGENTS.md`, `/workspace/docs/`, `BACKEND.md`, `FRONTEND.md`, and package docs
+`AGENTS.md`, `docs/`, `BACKEND.md`, `FRONTEND.md`, and package docs
 to preserve intent, then inspect source to implement precise changes.
 
 ## Verification examples
 
 ```bash
-cd /workspace && python3 scripts/test-backend.py --suite core -- -q
-cd /workspace && python3 scripts/test-backend.py --suite actors -- -q
-cd /workspace && python3 scripts/test-backend.py --suite agents -- -q
-cd /workspace/tests/frontend && npx vitest run
+# From the repository root, with the approved Python environment:
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite core -- -q
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite actors -- -q
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite agents -- -q
+npm --prefix tests/frontend test
 ```
 
 ## Documentation requirement

@@ -1,237 +1,111 @@
-# AgentMixin Methods
+# AgentMixin reference
 
-> Part of [n3tx-agents](../README.md)
+[Overview and runnable example](../../../docs/AGENTS.md) · [AgentActor](agent-actor.md)
 
-## What This Covers
+Import `n3tx_agents` before declaring `__agent__ = True` or a nonempty config
+dictionary. ProtoModel injects the registered mixin at class construction time.
+The mixin does not decorate its methods as HTTP endpoints; expose a deliberate
+domain method if an existing model needs a reasoning action.
 
-The six `@fullmethod` methods injected by `AgentMixin` into any model
-with `__agent__ = True`. Covers `ctx()`, `tools()`, `agentic()`, `run()`,
-`agentic_stream()`, and `run_stream()`. Does not cover AgentActor's
-`agentic()` override (see [agent-actor.md](agent-actor.md)).
+## Public Python surface
 
-## Architecture
+Signatures below are reference declarations, not a runnable class:
 
-All methods use `@fullmethod` from `n3tx_core.utils.descriptors` -- they
-work identically on classes and instances. The first parameter `target`
-receives either the class or the instance.
-
-```
-agentic(task)                    agentic_stream(task)
-    |                                |
-    | shared call normalization      | same resolver
-    |                                |
-    v                                v
-CallConfig                CallConfig
-    |                                |
-    v                                v
-run(...)                         run_stream(...)
-    |                                |
-    +------------+-------------------+
-                 |
-                 v
-          Agent.prepare(...)
-                 |
-                 v
-          PreparedCall
-                 |
-       +---------+---------+
-       |                   |
-       v                   v
-Agent.run(...)       Agent.run_stream(...)
-       |                   |
-       v                   v
-{answer, usage, messages}        yields {name, data, meta} chunks
+```text
+ctx(target) -> str
+tools(target) -> list
+run_config(target, task: str, **kwargs) -> CallConfig
+async agentic(target, task: str, **kwargs) -> dict
+async run(target, task: str, prompt: str, tools: list,
+          user: dict = None, constraints: dict = None,
+          thread_id=None, result_type=None, **kwargs) -> dict
+agentic_stream(target, task: str, **kwargs) -> async generator
+run_stream(target, task: str, prompt: str, tools: list,
+           user: dict = None, constraints: dict = None,
+           thread_id=None, result_type=None, **kwargs) -> async generator
 ```
 
-`Agent.prepare(...)` in `agent.py` owns runtime assembly for both sync and streaming calls:
-LLM resolution, Matrix root lookup, thread preload/create, tool discovery,
-Pydantic AI agent construction, dependency creation, and usage limits. Terminal
-execution then lives in `Agent.run(...)` or `Agent.run_stream(...)`.
+`fullmethod` binds `target` to a class or instance. Class-level
+`agentic_stream()` constructs `target()` before calling the engine: it can fail
+for models with required fields. Use a populated instance in that case.
 
-Tool calls and thread operations route through `Actor.root().request()` (Matrix
-request-response) — no transient adapters needed.
+## Policy resolution
 
-## Interface
+| Input | Actual precedence / behavior |
+|---|---|
+| Prompt | Truthy call `prompt`, otherwise `ctx()`; class config prompt prefixes schema context |
+| Tools | Explicit call `tools` including `[]`, otherwise `tools()` |
+| Constraints | Merge global `AGENT_DEFAULTS`, class `__agent__`, then call dictionary |
+| LLM | Explicit override if supplied; otherwise class config, target `llm`, global default |
+| Output type | Truthy call `result_type`, otherwise class config |
+| User, thread ID | Call arguments |
 
-### `ctx(target) -> str`
+There is no universal dictionary cascade for every key. `tools()` includes the
+own table unless `self_tools=False`, local `list[T]` neighbors unless
+`neighbors=False`, then class-config extra addresses; it deduplicates in order.
+Discovery subsequently applies its own exact caller-address exclusion.
+`neighbor_depth` is published as safe schema metadata but is not a traversal
+control in this implementation.
 
-Builds LLM context string from the model schema.
+`ctx()` uses the `llm` schema pipeline. Instance context appends the full
+`model_dump()` serialized with `default=str`; it is **not** truncated to 200
+characters and is not a permission-filtered/redacted view. Review sensitive
+fields before sending this context to a provider.
 
-- **Class call** (`Product.ctx()`): Returns schema text with fields, types,
-  and methods. If `__agent__['prompt']` is set, it is prepended.
-- **Instance call** (`product.ctx()`): Same as class, plus appends current
-  instance data (field values, truncated at 200 chars each).
+## Runtime ownership
 
-### `tools(target) -> list[str]`
-
-Returns actor addresses for tool discovery. Same result for class and instance.
-
-- `self_tools` (default `True`): includes own `__tablename__`
-- `neighbors` (default `True`): includes local `list[T]` relationship tablenames
-- `__agent__['tools']`: appends extra addresses
-- Deduplicates, preserves order
-
-### `agentic(target, task: str, **kwargs) -> dict`
-
-Policy layer. Resolves config, delegates to `run()`.
-
-**kwargs accepted**: `prompt`, `tools`, `llm`, `constraints`, `user`,
-`thread_id`, `create_thread`, `result_type`.
-
-**Config cascade**: `config.AGENT_DEFAULTS` < `__agent__` dict < kwargs.
-The `tools` kwarg uses `in` check (passing `tools=[]` is valid and means
-"no tools", distinct from omitting it which triggers auto-discovery).
-
-**Returns**: a Python dict representing the shared internal sync result shape:
-
-`{"answer": str|structured, "usage": {"input_tokens": int, "output_tokens": int, "requests": int}, "messages": list, "message_count": int, "thread_id": int?}`
-
-`AgentMixin.agentic()` returns this dict directly. `message_count` always matches
-`len(messages)`. When a thread is used or created, `thread_id` is included.
-
-### `run(target, task, prompt, tools, ...) -> dict`
-
-Thin engine adapter. No policy config resolution. Receives fully resolved params,
-wraps them in a `CallConfig`, delegates runtime assembly to
-`Agent.prepare(...)` in `agent.py`, then executes via `Agent.run(...)`.
-
-`Agent.run(...)` is the single source of truth for the sync result dict consumed
-by both adapters:
-
-- `AgentMixin.agentic()` returns the dict directly
-- `AgentActor.agentic()` JSON-serializes the same dict for compatibility
-
-**Parameters**:
-
-| Param | Type | Purpose |
-|-------|------|---------|
-| `task` | str | User query |
-| `prompt` | str | System prompt |
-| `tools` | list[str] | Actor addresses |
-| `user` | dict | JWT user context (injected into tool TX meta) |
-| `constraints` | dict | `{"max_iterations": N}` maps to UsageLimits |
-| `thread_id` | int | Thread ID for persistent conversation history |
-| `create_thread` | bool | Create a new `Thread` automatically when no `thread_id` is provided |
-| `result_type` | type | Pydantic model for structured output |
-| `**kwargs` | | Override `llm` (LLM model string or pydantic-ai Model) |
-
-**LLM resolution** (3-tier cascade inside run): `kwargs['llm']` >
-`__agent__['llm']` > instance `llm` attr > `config.AGENT_DEFAULTS['llm']`.
-Raises `ValueError` if nothing resolves. `ollama:model` strings are
-converted to `OpenAIChatModel` with `OllamaProvider`.
-
-### `agentic_stream(target, task, **kwargs)` -> async generator
-
-Same config cascade as `agentic()`, delegates to `run_stream()`.
-Yields the same chunk format.
-
-### `run_stream(target, task, prompt, tools, ...)` -> async generator
-
-Thin streaming engine adapter. Same params as `run()`. It wraps explicit params
-in a `CallConfig`, delegates runtime assembly to `Agent.prepare(...)` in
-`agent.py`, then yields terminal chunks from `Agent.run_stream(...)`:
-
-| Chunk | `name` | `data` | `meta` |
-|-------|--------|--------|--------|
-| Text | `"text"` | `{"text": "..."}` | `{"stream": true, "seq": N}` |
-| Tool Call | `"tool_call"` | `{"tool": "...", "args": {...}, "call_id": "..."}` | `{"stream": true, "seq": N}` |
-| Tool Result | `"tool_result"` | `{"tool": "...", "result": "...", "call_id": "..."}` | `{"stream": true, "seq": N}` |
-| Thinking | `"thinking"` | `{"text": "..."}` | `{"stream": true, "seq": N}` |
-| Done | `"done"` | `{"answer": "...", "usage": {...}, "tool_calls": N, "thread_id": id?}` | `{"stream_end": true, "seq": N}` |
-| Error | `"error"` | `{"message": "...", "code": 500}` | `{"error": true, "seq": N}` |
-
-Streaming errors are caught and yielded as error chunks rather than raised,
-including runtime-preparation failures such as a missing Matrix root.
-
-Event schemas can be declared via `events=` on `@expose_route` (see
-[agent-actor.md](agent-actor.md) for the concrete event models). The
-`methods` stage in `proto_model.py` serializes these into the method
-schema as `events: {name: json_schema}`, enabling frontend validation
-and handler discovery.
-
-## Usage Patterns
-
-### Multi-turn conversation (via Thread)
-
-```python
-from n3tx_agents import Thread
-
-# Create a thread for this conversation
-thread = Thread.create(Thread(agent_addr='products', user_owner=user_id))
-
-# First turn
-result1 = await product.agentic(task='What fields do I have?', thread_id=thread.id)
-
-# Second turn — thread carries history automatically
-result2 = await product.agentic(
-    task='Tell me more about the price field',
-    thread_id=thread.id,
-)
+```text
+agentic -> run_config -> run -> CallConfig -> Agent.prepare -> Agent.run
+streaming policy ------------------------------+----------> Agent.run_stream
 ```
 
-### Auto-create a thread from chat UI
+`run()` bypasses policy assembly, not runtime preparation. Preparation resolves
+the LLM, gets `Actor.root()`, loads/creates a thread, discovers tools, builds a
+Pydantic AI agent and AgentDeps, and optionally creates
+`UsageLimits(request_limit=max_iterations)`. A missing LLM raises `ValueError`;
+a missing root raises `RuntimeError`. `llm='test'` resolves to
+`TestModel(call_tools=[])`; `ollama:<model>` uses `config.OLLAMA_BASE_URL` with
+`/v1` appended when necessary.
 
-```python
-result = await agent.call(
-    task='Hello',
-    prompt='You are helpful.',
-    tools=[],
-    create_thread=True,
-    user={'user_id': 1, 'role': 'user'},
-)
+Sync result:
 
-thread_id = result['thread_id']
+```text
+{answer, usage: {input_tokens, output_tokens, requests},
+ messages: list[ModelMessage], message_count: len(messages), thread_id}
 ```
 
-When `create_thread=True`, `run()` / `run_stream()` create a new `Thread`,
-validate later reuse against the current agent address, and return the
-resulting `thread_id` so the frontend can continue the conversation.
+`answer` can be a structured output object. Messages are Pydantic AI objects,
+not already a portable JSON history. AgentActor separately JSON-serializes the
+result with `default=str`.
 
-Applications that register any agent-enabled model do not need to register
-`Thread` explicitly. `N3TXApp.build()` adds it as agents infrastructure so
-thread CRUD has storage and routes before agent execution begins. Route-injected
-user model instances are normalized to the JWT-shaped `{user_id, email, role}`
-metadata expected by `Thread` authorization before thread CRUD messages are
-sent through the actor root.
+## Thread lifecycle
 
-### Structured output
+Every prepared run loads the supplied thread or creates one when `thread_id`
+is absent. There is no `create_thread` switch in CallConfig. `N3TXApp.build()`
+adds Thread infrastructure when an agent-enabled model is registered; raw
+registration must register Thread with storage and the active Matrix itself.
 
-```python
-from pydantic import BaseModel
+- Thread fields: `agent_addr`, `messages`, `user_owner`. Messages are persisted
+  as TX-shaped dictionaries containing serialized Pydantic AI messages in `data`.
+- `Thread.to_history()` and `from_history()` convert stored and runtime forms.
+- Declared policy is authenticated creation, owner-or-admin read/update/delete.
+  Runtime `user=None` still takes the actor internal bypass.
+- Reuse checks exact agent address **or its table scope**; legacy empty agent
+  addresses are accepted. This is not strict per-instance thread isolation.
+- User-model normalization to `{user_id, email, role}` occurs for thread CRUD;
+  tool AgentDeps retains the original caller value.
+- History is replaced after execution. Concurrent turns on the same thread can
+  overwrite one another; serialize turns in the application. Update errors are
+  logged, not raised as a failed agent result.
 
-class Analysis(BaseModel):
-    summary: str
-    score: float
+## Streaming and errors
 
-result = await product.agentic(
-    task='Analyze this product',
-    result_type=Analysis,
-)
-# result['answer'] is an Analysis instance
-```
+See [event vocabulary](../../../docs/AGENTS.md#streaming). Runtime execution
+errors become `error` events. Mixin `run_stream()` also catches preparation
+errors; policy resolution and class instantiation occur outside that catch.
+AgentActor prepares outside the runtime generator and can raise before yielding.
+Do not treat every stream failure as a clean `done` event.
 
-### Testing with TestModel
-
-```python
-from pydantic_ai.models.test import TestModel
-
-result = await Product.agentic(
-    task='Test',
-    llm=TestModel(call_tools=[]),         # no tool calls
-)
-result = await Product.agentic(
-    task='Test',
-    llm=TestModel(call_tools=['grants_list']),  # calls grants_list tool
-)
-```
-
-## Gotchas
-
-- The `tools` kwarg on `agentic()` uses `'tools' in kwargs` (not truthiness).
-  Passing `tools=[]` means "no tools". Omitting `tools` means "auto-discover".
-- No LLM default — `run()` raises `ValueError` if no LLM resolves from
-  the 3-tier cascade. In tests, always pass `llm=TestModel(call_tools=[])`.
-- `RuntimeError("No Matrix root")` means no `Matrix()` was instantiated.
-  Agent methods require a live Matrix for tool routing and request-response.
-- Tool calls route through `Actor.root().request()` (Matrix). No adapter
-  creation/teardown overhead.
+Tests: [test_mixin.py](../src/n3tx_agents/tests/test_mixin.py),
+[test_thread.py](../src/n3tx_agents/tests/test_thread.py), and
+[runtime source](../src/n3tx_agents/agent.py).

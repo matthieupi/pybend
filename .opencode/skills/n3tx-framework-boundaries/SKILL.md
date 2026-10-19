@@ -14,8 +14,8 @@ This skill protects the architecture from entropy. N3TX works because a small se
 |---|---|---|
 | Data contract | `ProtoModel`/`ActorModel` fields and schema | Hand-maintained frontend/backend duplicates |
 | Persistence | `__storable__`, model CRUD, storage backend | Direct SQL in app feature code |
-| Relationships | `ListRef[T]` or `ManyToMany[T]` | JSON arrays or hand-maintained link tables |
-| Distributed refs | `Ref[T]`, `list[Ref[T]]`, Matrix, `RemoteMatrix` | Ad hoc URL fields/fetches or remote `ListRef` |
+| Relationships | Local `T`/`list[T]`, explicit shared-link models | Removed generated joins or duplicate membership state |
+| Distributed refs | HTTP(S) `Ref[T]`, `list[Ref[T]]`, explicit resolver | Hidden network I/O or obsolete service-name identities |
 | Files | `n3tx-files` `File` metadata + `FileStore` bytes | Blobs in SQLite or static upload folders |
 | API actions | `@expose_route` | Custom FastAPI routes for normal app behavior |
 | Internal networking | TX -> Matrix -> Actor/Adapter | Backend-to-backend plain HTTP calls |
@@ -58,7 +58,7 @@ Distributed N3TX refs are still model/actor contracts:
 
 ```text
 Model field (`Ref[T]` / `list[Ref[T]]`)
-  -> canonical `n3tx://service/Class/id`
+  -> absolute HTTP(S) entity URL
   -> Matrix adapter fallback
   -> RemoteMatrix class-name REST call
   -> normal remote generated routes + ABAC
@@ -80,9 +80,14 @@ Dynamic files are not static assets and not JSON/blob fields. Use `n3tx-files`:
 ```text
 File metadata model  -> normal N3TX schema/storage/auth/routes
 FileStore provider   -> local/object/remote bytes
-File-typed parameter -> authorized address materialization
+File URL parameter   -> current-service resolution and read check
 ```
 
 ## Source-reading policy
+
+Dict/instance File inputs do not repeat the URL authorization path. Default File
+reads are public; ensure_local currently requires LocalFileStore. Direct Python
+and raw actor calls are not equivalent to guarded HTTP. Consult current guides
+before relying on these boundaries, including the scalar-T annotation caveat.
 
 Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. If source reveals a missing contract, update or propose docs/skills.

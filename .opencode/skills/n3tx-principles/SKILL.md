@@ -52,7 +52,10 @@ Keep work inside these boundaries:
 
 ## Source-reading policy
 
-Prefer docs, skills, public API, and generated schemas. **Inspect framework source only when documentation is insufficient, does not cover the intended implementation, or observed behavior contradicts docs.** If source inspection reveals a missing or stale contract, update docs/skills or propose that update after the implementation.
+Start with docs, skills, public API and generated schemas. Then inspect relevant
+current implementation/tests before meaningful changes; also inspect source when
+docs are incomplete or contradicted. **Docs first is not docs only.** Update or
+propose docs/skills corrections when inspection reveals a missing or stale contract.
 
 ## Default decision rules
 
@@ -61,8 +64,8 @@ Prefer docs, skills, public API, and generated schemas. **Inspect framework sour
 | Data entity | `ProtoModel` or `ActorModel` | Model remains single source of truth |
 | Persistence | `__storable__ = True` | Storage and migration derive from schema |
 | Auth | `__access__` / `access=` | Backend authoritative, frontend adapts |
-| Parent-child relationship | `ListRef[T]` | Parent-scoped relationship appears in schema and nested routes |
-| Shared relationship | `ManyToMany[T]` | Field-declared association generates link model/table during bootstrap |
+| Local collection | `list[T]` | Ordered child IDs hydrate to objects; flat identity |
+| Shared relationship | Explicit link model | Independent membership and lifecycle; ManyToMany is legacy |
 | Files | `n3tx-files` `File` + `FileStore` | Metadata stays in N3TX; bytes stay in a provider |
 | Custom action | `@expose_route` method | Same method becomes API, UI action, agent tool |
 | Reusable compute | Actor / non-storable `ActorModel` | Addressable and reusable through Matrix |
@@ -74,7 +77,7 @@ Prefer docs, skills, public API, and generated schemas. **Inspect framework sour
 
 - Custom FastAPI routes for app behavior that should be `@expose_route`.
 - Direct database access from application features instead of model CRUD/storage.
-- Treating relationship fields (`ListRef[T]`, `ManyToMany[T]`) as arbitrary JSON arrays.
+- Treating local model collections or URL pointers as untyped arbitrary JSON.
 - Storing file bytes in SQLite or serving dynamic user uploads through static assets.
 - Internal plain HTTP calls between N3TX components.
 - Frontend `fetch()` for N3TX entities/actions when runtime transport/entity methods apply.
@@ -85,6 +88,12 @@ Prefer docs, skills, public API, and generated schemas. **Inspect framework sour
 - Forking generated UI when schema hints, widgets, renderers, or custom components are enough.
 
 ## Verification mindset
+
+Construction API and routing mode are independent. Capabilities require imports,
+registration, storage and policy choices; "zero to working" is not zero setup.
+Use HTTP(S) Ref values and read the scalar-T annotation caveat in docs/MODELS.md.
+Discovery/UI hints do not enforce access. Verify each actual entrypoint and
+inspect source/tests before implementing consequential behavior.
 
 Verify at the framework contract boundary:
 

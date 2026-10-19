@@ -45,6 +45,6 @@ No pi internals are modified.
 ## Verification
 
 ```bash
-cd /workspace/.pi/extensions/skill-path-aliases
-node --test skill-aliases.test.mjs
+# From the N3TX repository root:
+node --test .pi/extensions/skill-path-aliases/skill-aliases.test.mjs
 ```

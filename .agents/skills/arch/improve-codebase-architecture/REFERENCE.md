@@ -26,7 +26,8 @@ Third-party services (Stripe, Twilio, etc.) you don't control. Mock at the bound
 
 The core principle: **replace, don't layer.**
 
-- Old unit tests on shallow modules are waste once boundary tests exist — delete them
+- Remove old unit tests only after demonstrating that replacement boundary tests
+  cover their distinct behavior and regression cases; keep useful coverage.
 - Write new tests at the deepened module's interface boundary
 - Tests assert on observable outcomes through the public interface, not internal state
 - Tests should survive internal refactors — they describe behavior, not implementation

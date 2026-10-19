@@ -1,336 +1,205 @@
-# Components
+# Component lifecycle and extension
 
-> Part of [n3tx-ui](../README.md)
+[Frontend entry guide](../../../docs/frontend/ARCHITECTURE.md) ·
+[Tag and routing reference](../../../docs/frontend/COMPONENTS.md)
 
-## What This Covers
+## Choose a base
 
-The component class hierarchy, message handlers, lifecycle hooks, and extension points. Covers `NTTElement`, `ListElement`, and their concrete subclasses. Does not cover the form generator (see [formidable.md](formidable.md)) or the widget system (see [widgets.md](widgets.md)).
-
-## Architecture
-
-```
-Component (n3tx-core: shadow DOM, addr, ref, model, proto, define(), scheduleRender())
-  |
-  +-- NTTElement (NTTElement.js)          -- Single entity base
-  |     Message handlers: UPDATE, DESCRIBE, READ, ERROR
-  |     Methods: save(), update(prev, next), onValidationError(errors)
-  |     Auto-renders on value change when schema is set
-  |     |
-  |     +-- NTTItem (ntx-item.js)         -- <ntx-item>
-  |     |     Size methods: xs(), sm(), md(), lg(), xl(), row()
-  |     |     Modes: display / edit (toggleMode, cancelEdit)
-  |     |     Validation: showFieldErrors(), client-side via Formidable
-  |     |     Event binding: edit, delete, input change, card click -> SELECT
-  |     |     |
-  |     |     +-- NTTRow (ntx-row.js)     -- <ntx-row>
-  |     |     |     Forces display="row", inline edit with collectInputValues
-  |     |     |
-  |     |     +-- NTTUser (ntx-user.js)   -- <ntx-user>
-  |     |           Overrides xs/sm with avatar rendering
-  |     |
-  |     +-- (custom subclasses extend NTTElement directly for full control)
-  |
-  +-- ListElement (ListElement.js)        -- Collection base
-  |     Message handlers: UPDATE, SELECT
-  |     Methods: loadMore(), createChild(addr)
-  |     Selection API: select/deselect/toggle/clearSelection
-  |     Pagination: #pageSize=20, #offset tracking
-  |     |
-  |     +-- NTTList (ntx-list.js)         -- <ntx-list>
-  |     |     Default grid renderer, modal create flow, packed card layout
-  |     |
-  |     +-- NTTTable (ntx-table.js)       -- <ntx-table>
-  |           Table with header sort, inline create row, stamps ntx-row
-  |
-  +-- NTTMethod (ntx-method.js)           -- <ntx-method>
-|     Layouts: fieldset (default), inline, button
-|     Loads method schema, renders input form, calls entity method
-|     Required params render by default; optional/defaulted params hide behind
-|     a local disclosure, and zero-visible-param methods collapse to a labeled
-|     primary action button with expandable options
-|     Retains a small static style contract (`baseStyles`) for source-level overflow assertions
-|     Button layout renders `.method-btn`; add `show-label` when a button-layout method should expose visible label text instead of icon-only chrome. Inline layout may render `textarea` when the schema/widget requests it
-  |     Icons: shared `ui.icon` tokens rendered through <ntx-icon>
-  |     |
-  |     +-- NTTStream (ntx-stream.js)     -- <ntx-stream>
-  |           Overrides callMethod() for streaming via TX meta.stream
-  |           Progressive output rendering with cursor animation
-  |
-  +-- NTTRouter (ntx-router.js)           -- <ntx-router>
-        View container. Slot = home. NAVIGATE pushes views by default, BACK pops,
-        and reset navigation clears history so base pages render without router chrome.
-        Resolves component tags from schema ui.renderer hints.
+```text
+Component (core: HTMLElement + actor bridge + schema + shadow styles)
+  +-- NTTElement (entity data, subscriptions, save)
+  |     +-- NTTItem (forms, actions, adaptive display)
+  |           +-- NTTRow / NTTUser / app renderers
+  +-- ListElement (collection data, pagination, selection)
+  |     +-- NTTList / NTTTable / app collections
+  +-- NTTMethod (method inputs and invocation)
+  |     +-- NTTStream (stream event handling)
+  +-- NTTRouter (view mounting)
 ```
 
-Standalone (no Component base): `NTTModal`, `NTTRefPicker`, `NTTTopbar`, `NTTSidebar`, `NTTProfile`.
-`ntx-favorites` and `ntx-logs` are example-local components under `examples/*/static/components`, not packaged `n3tx-ui` components.
+`Component`, `NTTElement`, and `ListElement` are base classes, not registered
+tags. Standalone elements such as topbar, sidebar, profile, modal and reference
+picker do not all share this lifecycle. Agent-specific components belong to
+[n3tx-agents](../../n3tx-agents/README.md).
 
-When an app shell uses `ntx-topbar`'s built-in `#@profile` menu entry, the page
-must import `./components/ntx-profile.js` during bootstrap so the router can
-mount a registered `<ntx-profile>` element instead of an empty unknown tag.
+## Lifecycle
 
-`NTTListField` (`ntx-list-field.js`) is the dedicated array-field surface used by Formidable. It owns scalar-array edit rows, staged `$ref` link add/remove behavior, and `field-change` events back to the parent item.
+| Hook/state | Actual responsibility |
+|---|---|
+| Constructor | Shadow root, actor registration, default data and stylesheet adoption |
+| `connectedCallback()` | Starts ResizeObserver and calls `prerender()`; can run again on reconnect |
+| `prerender()` | Optional structural DOM before schema/data; make it idempotent |
+| `define(proto)` / `definedCallback()` | Schema class ready, not necessarily records ready |
+| `DESCRIBE({proto,data})` | Entity schema/value delivery and signal subscription |
+| `value` setter on NTTElement | Tries `update(prev,next)`; schedules render when it returns false |
+| `scheduleRender()` | Coalesces via animation frame and waits for pending stylesheet adoption |
+| `render()` | Schema-aware presentation; may run repeatedly |
+| `disconnectedCallback()` | Base observer/subscription cleanup; call `super` in overrides |
 
-`NTTSidebar` supports `brand`, `subtitle`, and optional `brand-logo` attributes so app shells can place a custom mark in the sidebar brand section without forking the component.
-Template children can also declare `sidebar-label="..."` to override the nav
-label shown in the sidebar without changing the mounted view or route params.
-Plain `<a>` sidebar children can declare `icon="..."` to render a per-link
-`<ntx-icon>` token while links without `icon` keep the generic link icon.
-Sidebar model navigation emits explicit frontend view routes (`#Model/@` or
-`#Model/@table` for table templates), and compact dropdown record links use
-member default view routes such as `#Model/5/@`. Legacy `#Model` and
-`#Model/5` routes remain selected-state compatible during the migration window.
+Preserve structural DOM when it contains live children, stream output, or input
+state. This is an implementation responsibility, not a universal automatic
+guarantee: `NTTItem.render()` replaces its card markup. Do not use that strategy
+for a persistent chat shell. Do not call `Actor.subclass()` again on component
+subclasses; the bridge is established by `Component`.
 
-`NTTIcon` (`ntx-icon.js`) is the shared icon surface used by method buttons,
-sidebar avatars, and collection headers. It resolves icon tokens through
-`static/utils/icon-resolver.js` and supports inline SVG lookup entries,
-emoji, image URLs/paths, and custom lookup keys registered at runtime with
-`registerIcons({...})`. Built-in lookup keys include common app navigation
-tokens such as `dashboard`, `upload`, and `user`.
+### Full DOM control
 
-**Agent components** (n3tx-agents):
-
-```
-NTTList (ntx-list.js)
-  |
-  +-- NtxAgents (ntx-agents.js)            -- <ntx-agents> hybrid AgentActor list
-        Renders stored AgentActor rows plus app-provided built-in workflow
-        launchers from window.NTX_AGENT_CATALOGS[catalog].
-```
-
-```
-NTTItem (ntx-item.js)
-  |
-  +-- NtxAgent (ntx-agent.js)              -- <ntx-agent> rich AgentActor entity card
-        Uses AgentActor schema renderer hints for list/detail routes and embeds
-        <ntx-agent-live> for activity in display mode.
-```
-
-```
-NTTStream (ntx-stream.js)                -- TX-based streaming with cancel()
-  |
-  +-- NTTStreamAgent (ntx-stream-agent.js)  -- Rich agent output (entries, markdown, tool cards)
-  |     Handlers: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE, STREAM_END, STREAM_ERROR
-  |
-  +-- NTTAgentLive (ntx-agent-live.js)      -- <ntx-agent-live> standalone monitor
-  |     prerender(): textarea + log + footer
-  |     Handlers: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE, STREAM_END, STREAM_ERROR
-  |
-  +-- NTTChat (ntx-chat.js)                 -- <ntx-chat> floating chat panel
-        prerender(): floating tab + slide-up panel
-        Handlers: THINKING, TOOL_CALL, TOOL_RESULT, TEXT, DONE, STREAM_END, STREAM_ERROR
-```
-
-**UPPERCASE convention**: All methods that handle TX messages are UPPERCASE — this mirrors the backend actor handler pattern and visually separates inbox handlers from internal component logic (lowercase/camelCase).
-
-## Interface
-
-### NTTElement (single entity base)
+Save as application `static/components/issue-summary.js`, import it in the shell,
+then use `<issue-summary ref="Issue/1"></issue-summary>` for an existing entity.
+This read-only example keeps native fetching/subscriptions and inserts data as text.
 
 ```javascript
-class NTTElement extends Component {
-    // State
-    $schema;          // Schema name for CONNECT flow
-    error;            // Persistent error message (string|null)
+import { NTTElement } from '/components/NTTElement.js';
 
-    // Value setter triggers auto-render when schema is available.
-    // deepEqual guard prevents infinite loops from signal re-fires.
-    set value(data);
+class IssueSummary extends NTTElement {
+  prerender() {
+    if (this.shadowRoot.querySelector('h2')) return;
+    const title = document.createElement('h2');
+    title.textContent = 'Loading issue...';
+    this.shadowRoot.append(title);
+  }
 
-    // Message handlers (called by Actor inbox dispatch)
-    UPDATE(data);     // Receives entity data push. Requires data.$schema.
-    DESCRIBE(data);   // Receives {proto, data}. Subscribes to entity signal.
-    READ(data);       // Receives data from URL fetch or hydrated relationship rendering.
-    ERROR(event);     // Handles errors. Extracts validation errors from 422.
-
-    // Override points
-    update(prev, next);              // Surgical DOM patch. Return false -> full render().
-    onValidationError(errors);       // Hook for structured validation errors.
-    render();                        // Override for custom rendering.
-
-    // Actions
-    save();           // Sends UPDATE TX to entity ref.
+  render() {
+    this.prerender();
+    this.shadowRoot.querySelector('h2').textContent =
+      this.error || this.value?.title || 'Untitled issue';
+    this._rendered = true;
+  }
 }
+customElements.define('issue-summary', IssueSummary);
 ```
 
-### ListElement (collection base)
+### Custom item renderer
+
+Prefer extending `NTTItem` when only display changes. This module keeps the native
+edit form, validation, save and action wiring. It uses a trusted static template
+and fills the application value through `textContent` after mounting.
 
 ```javascript
-class ListElement extends Component {
-    // Selection
-    get selected();               // Set of selected addresses
-    select(addr); deselect(addr); toggle(addr); clearSelection();
+// Application static/components/issue-card.js
+import { NTTItem } from '/components/ntx-item.js';
 
-    // Data
-    definedCallback();            // Called when proto arrives. Triggers READ.
-    loadMore();                   // Paginated fetch: offset += pageSize.
-
-    // Message handlers
-    UPDATE(data);                 // Receives entity address array.
-    SELECT(data, tx);             // Toggle selection, forward NAVIGATE to router.
-
-    // Override points
-    get childTag();               // Tag for stamped children. Default: 'ntx-item'.
-    get childDisplay();           // Display mode for children. Cascades from parent.
-    createChild(addr);            // Create child element. Checks <template item-template>.
-    update(prev, next);           // Returns false by default → full render fallback.
-    render();                     // Override for custom collection rendering.
+class IssueCard extends NTTItem {
+  md() {
+    return '<h2 class="issue-title"></h2><button class="edit-btn">Edit</button>';
+  }
+  md_mounted() {
+    const title = this.shadowRoot.querySelector('.issue-title');
+    if (title) title.textContent = this.value?.title || 'Untitled issue';
+  }
+  lg_mounted() { this.md_mounted(); }
+  xl_mounted() { this.md_mounted(); }
+  update(prev, next) {
+    // The inherited patcher assumes the built-in data-value DOM structure.
+    return false;
+  }
 }
+customElements.define('issue-card', IssueCard);
 ```
 
-`ListElement` is the collection lifecycle base. The default list UI now lives in
-`NTTList`, mirroring the `NTTElement` → `NTTItem` split on the single-entity side.
+Import `/components/issue-card.js` in the app shell, then choose it explicitly
+with `item-tag="issue-card"` or declare model renderer hints:
 
-### NTTItem key attributes
-
-| Attribute | Effect |
-|-----------|--------|
-| `display` | Size mode: xs, sm, md, lg, xl, row |
-| `ref` | Entity address (href URL) |
-| `model` | Model class name |
-| `select-target` | Actor address to send SELECT TX to |
-| `create-mode` | Present = create mode (no existing data) |
-
-`NTTItem` subclasses now inherit the default Formidable edit form automatically. If a custom component overrides `md()`/`lg()`/`xl()` only for display, edit mode still falls back to the base `NTTItem` form. Components that own a true custom editor must opt out with `get usesCustomEditLayout() { return true; }` and render their own edit UI.
-
-### ListElement/NTTList key attributes
-
-| Attribute | Effect |
-|-----------|--------|
-| `model` | Model class name to list |
-| `display` | List display size (cascades to children) |
-| `router` | Router actor address for SELECT navigation |
-| `item-tag` | Override child tag (default from schema) |
-| `item-display` | Override child display mode |
-| `headless` | Hide the `ntx-list` header (title + count) |
-| `allow-create` | Show the `ntx-list` create button (permission-gated) |
-
-List and table headers render `schema.ui.icon` beside the collection title when
-present. `schema.ui.description` adds intro copy under that title, and
-`schema.ui.create_label` switches the default `+` create affordance to a labeled
-header button. Sidebar model avatars do the same and fall back to initials when
-no icon is declared.
-
-Wide `ntx-list` instances whose children resolve to `display="md"` now use a
-packed grid: the DOM order stays unchanged, but card hosts get measured and
-assigned `grid-row-end` spans so shorter cards no longer reserve the tallest
-row height. Compact/sidebar lists (`sm`/`xs` children or `sidebar-dropdown`)
-stay on the old single-row flow.
-
-## Usage Patterns
-
-### Custom entity component
-
-Extend NTTElement for full control over rendering:
-
-```javascript
-import { NTTElement } from '../components/NTTElement.js';
-
-class ProductCard extends NTTElement {
-    get styles() { return new URL('./product-card.css', import.meta.url).href; }
-
-    render() {
-        if (!this.schema || !this.value) return;
-        this.shadowRoot.innerHTML = `
-            <h2>${this.value.name}</h2>
-            <p>$${this.value.price}</p>
-        `;
-        this._rendered = true;
-    }
-}
-customElements.define('product-card', ProductCard);
+```python
+# Inside the application's Issue model; import n3tx_ui before defining it.
+__ui__ = {'renderer': {'item': 'issue-card', 'detail': 'issue-card'}}
 ```
 
-### Templated list children
+The custom display above intentionally shows only a title and edit control, not
+all method/delete controls. The click is still permission-checked by the base
+edit handler; a production custom surface should also hide unavailable controls.
+Use `permissions.canAction(this.schema.access, 'update', this.value)` for that
+presentation check. Backend enforcement is still required.
 
-Use a `<template>` to customize what ListElement stamps per item:
+`usesCustomEditLayout` defaults to false: editing falls back to the base
+Formidable form even when size methods are overridden. Return true only when
+you implement the editor and its input/validation behavior. Post-render hooks
+are named for the active size (`md_mounted`, etc.). For custom listeners, clean up
+on re-render/disconnect, for example with your own AbortController.
+
+## Collections
+
+`ListElement` provides data lifecycle, not a default grid. `NTTList` owns the
+header/count, create modal, load-more control, DOM reconciliation and packed grid.
+Extend `NTTList` to retain those features. A direct `ListElement` subclass must
+implement rendering and any pagination affordance it wants to expose.
+
+| Surface | Behavior |
+|---|---|
+| `definedCallback()` | Subscribes to class UPDATE; first READ uses limit 20, offset 0 and UI population depth (default 1) |
+| `loadMore()` | Increments offset by 20 and requests another page |
+| `proto._paginationMeta` | Last paginated response metadata |
+| `value` | Array of cached entity addresses, not raw records |
+| `createChild(addr)` | Stamps a template or resolved tag with entity reference and select target |
+| `select`, `deselect`, `toggle`, `clearSelection` | Local Set-based selection |
+| `SELECT(data,tx)` | Toggles selection, forwards NAVIGATE when `router` is set |
+
+The template path takes precedence and retains the template's own display attrs:
 
 ```html
-<ntx-list model="Product">
-    <template item-template>
-        <product-card></product-card>
-    </template>
+<!-- Import issue-card.js and ntx-list.js first. -->
+<ntx-list model="Issue" allow-create>
+  <template item-template>
+    <issue-card display="md"></issue-card>
+  </template>
 </ntx-list>
 ```
 
-### Sidebar with route templates
+Without a template, `createChild()` calls `this.childTag`; the base getter checks
+`item-tag`, then `schema.ui.renderer.item`, then `ntx-item`. A subclass overriding
+that getter owns its priority policy; preserve `super.childTag` if you want the
+attribute/schema behavior. Do not assume an attribute overrides every custom getter.
 
-Declarative route templates control what the sidebar navigates to:
+Default child cascade: `xl -> md`, `lg/md -> sm`, `sm/xs -> xs`, `row -> row`.
+`item-display` overrides it. Wide default lists pack `md` cards using measured grid
+row spans while preserving DOM order; compact/sidebar lists do not use that layout.
 
-```html
-<ntx-sidebar router="main">
-    <ntx-table model="Grant" allow-create></ntx-table>
-    <ntx-agents model="AgentActor" sidebar-label="Agents" catalog="veille"></ntx-agents>
-    <ntx-list model="Source"></ntx-list>
-    <ntx-theme-button slot="footer"></ntx-theme-button>
-</ntx-sidebar>
-```
+## Adaptive display and styles
 
-When a sidebar has both `brand` and `router`, clicking the rendered brand copy
-returns the bound router to its home slot by dispatching a reset navigation with
-the empty home route (`buildRoute({ type: 'home' })`).
+| Size | Alias | Minimum width |
+|---|---|---:|
+| xs | pill | 0 |
+| sm | list-item | 200 |
+| md | card | 400 |
+| lg | detail | 600 |
+| xl | page | 800 |
+| row | row | Explicit table mode, not auto-selected |
 
-Expanded model groups now mount the declared route-template tag for that model
-when it is a list-style custom surface. `ntx-table` route templates still fall
-back to a headless `ntx-list` for the compact dropdown shell. Plain dropdown
-lists still force `item-display="sm"` and use the
-sidebar-only `ntx-sidebar-link-item` renderer. That renderer outputs a real
-internal `<a href="#Model/id/@">...</a>` for each record so dropdown entries
-target member default view routes instead of compact pills. Legacy `#Model/id`
-routes remain supported by the router. The full label is also
-exposed through a lightweight delayed hover/focus tooltip when the row text is
-actually truncated. The trigger hitbox extends slightly beyond the label
-itself, the delay is tuned to about `220ms`, dropdown record labels
-intentionally render a step smaller than top-level model rows, the rows sit
-flush with no inter-item gap, use slightly roomier vertical padding, align to
-the model-name text column, and use the full remaining row width before
-ellipsis appears, and model counts now read as plain inline metadata rather
-than badge chrome. The renderer carries its own stylesheet so sidebar-only row
-chrome stays out of the shared `ntx-item.css` shell.
+`display="md"` forces a size; `display="auto"` restores width-based selection.
+Override `displayBreakpoints` or `displayModeChanged(oldMode,newMode)` only when
+needed. Default `lg()`/`xl()` delegate to `md()`; they do not reveal hidden fields.
+Use the [styles getter](styling.md#shadow-dom-styles) for component CSS; there is
+no `$styles` node to reattach in the constructable-stylesheet path.
 
-Custom list tags such as `<ntx-agents>` receive the model name, sidebar router,
-`headless`, and `sidebar-dropdown` attrs so they can implement compact hybrid
-dropdown views without rewriting the sidebar.
+## Methods and streams
 
-### Manual shell theme controls
-
-Shell pages place the reusable theme control explicitly:
+`NTTMethod` resolves `schema.methods[method]` and generates input fields. Layouts
+are `fieldset`, `inline`, and `button`; optional/defaulted fields use a disclosure,
+and zero-required-parameter methods can show a primary action without a large form.
+`show-label` exposes text for button layout. `ui.attach_to` positions a method
+after a field; it does not mutate that field.
 
 ```html
-<ntx-topbar>
-    <ntx-theme-button slot="user-menu"></ntx-theme-button>
-</ntx-topbar>
-
-<ntx-sidebar router="main">
-    <ntx-list model="Product"></ntx-list>
-    <ntx-theme-button slot="footer"></ntx-theme-button>
-</ntx-sidebar>
+<!-- Requires an existing model method marked stream=True and its parameter schema. -->
+<ntx-stream model="Issue" uuid="1" method="generate" show-output></ntx-stream>
 ```
 
-`ntx-topbar` exposes `slot="user-menu"` inside the authenticated dropdown, and `ntx-sidebar` exposes `slot="footer"` at the bottom of the shell. Neither component auto-renders theme UI. Sidebar labels now render in uppercase, footer actions stretch to the full available width by default, and route-matched entries receive a persistent selected state separate from hover and accordion expansion. The selected accent now reads as a full-height left rail, while expanded/selected rows no longer rely on an accent border around the rest of the card.
+Import `/components/ntx-stream.js`. Plain output is opt-in via `show-output`.
+`NTTStream` sends a TX with `meta.stream`, routes replies to `STREAM(data,tx)`,
+and dispatches typed payload names to uppercase handlers such as `TEXT(data)`.
+Application `DONE` payloads and transport `STREAM_END` are distinct.
 
-Additional theme-control rules:
+`cancel()` suppresses subsequent client chunks and sends `STREAM_CANCEL`;
+disconnect calls it. The current adapter does not retain an SSE abort handle for
+this path, and the cancel message is not proof that backend work stopped. See
+[transport limits](../../../docs/frontend/TRANSPORT.md#streaming).
 
-- multiple `<ntx-theme-button>` instances stay synchronized through the global `theme-change` event
-- logged-out pages should not render the button; they only honor the persisted theme
-- the button cycles through `window.NTX_THEME_CONFIG.themes` order rather than hardcoded dark/light branching
+## Source and tests
 
-## Gotchas
-
-- **NTTElement value setter has a deepEqual guard** that skips re-render if the new value is semantically identical to the previous one. This prevents infinite loops from signal subscriptions but means the initial set (from constructor default `{}`) must bypass the guard. The guard only activates after `_rendered` is true.
-
-- **Custom `NTTItem` subclasses get edit fallback by default.** In edit mode, `NTTItem.render()` uses the base Formidable form unless the subclass opts into custom edit layout with `usesCustomEditLayout`. This prevents display-only custom cards from swallowing edit mode.
-- **Custom item visuals belong with the subclass, not the framework shell.** If an app defines `ntx-grant-item` or similar, add any model-specific CSS through the subclass `styles` getter so `ntx-item.css` stays generic.
-- **Detail title uppercasing is display-only.** Shared item and grant titles only uppercase in `lg`/`xl` detail views via CSS; `xs`/`sm`/`md` preserve the underlying `name` and `title` casing.
-- **Default detail cards are borderless and shadow-only on hover.** The shared `ntx-item.css` `md`/`lg`/`xl` shells use no visible outer border and do not translate upward on hover; visual emphasis comes from the shadow ramp.
-- **NTTItem.sm() delegates to md() in edit mode.** If you override sm() but not md(), editing in sm context will use the default md() form. Override md() only when you also intend to own edit rendering.
-
-- **ListElement.definedCallback() deduplicates READ calls.** If another list instance for the same model already triggered a READ, `proto._listReadPending` is true and the second list skips the request. Both lists get notified when the READ completes via the UPDATE observable.
-
-- **AbortController for event listeners.** NTTItem and NTTRow create a new AbortController per render and abort the previous one. This prevents listener accumulation. If you extend these classes and add custom listeners, use the same pattern with `{signal}`.
-
-- **NTTStream binds a dynamic handler** named after the method (e.g., `this.GENERATE = (data, tx) => ...`). If the method name changes, the old handler is unbound. The handler dispatches based on `tx.meta`: stream_end -> onDone, error -> onError, else -> onChunk. For agent-style streaming with typed events (text, tool_call, done, etc.), extend `NTTStreamAgent` instead — it unwraps STREAM envelopes and dispatches to UPPERCASE handler methods (THINKING, TOOL_CALL, TEXT, DONE, etc.).
-
-- **Router URL sync is opt-out, not opt-in.** `Router()` and `<ntx-router>` synchronize with `window.location.hash` by default so navigation updates the browser URL without extra configuration. Initial deep links do not create fake back history, returning to root through browser history clears the in-app back state, and `<ntx-router>` hides its chrome when there is no back history. Sidebar-driven base-page navigation now sends reset navigation so the target route becomes the new root instead of stacking on the prior page.
-
-- **NTTModal locks body scroll** (`document.body.style.overflow = 'hidden'`) while open and restores on close via the `modal-close` event listener.
+[Component](../../n3tx-core/src/n3tx_core/static/core/Component.js),
+[NTTElement](../src/n3tx_ui/static/components/NTTElement.js),
+[ListElement](../src/n3tx_ui/static/components/ListElement.js),
+[NTTItem](../src/n3tx_ui/static/components/ntx-item.js),
+[NTTStream](../src/n3tx_ui/static/components/ntx-stream.js).
+Tests live in [frontend component tests](../../../tests/frontend/tests/components/)
+and [integration tests](../../../tests/frontend/tests/integration/).

@@ -1,170 +1,125 @@
-# Widget System
+# Field widgets
 
-> Part of [n3tx-ui](../README.md)
+Widgets provide field-specific display, editing and compact rendering. Validation
+and field definitions stay in the Python model; the browser registers presentation.
 
-## What This Covers
-
-The widget base class, registry, built-in widgets, and extension API. Covers how `ui.widget` schema hints flow from Python model definitions to specialized frontend renderers.
-
-## Architecture
-
-```
-Python model field
-  Field(json_schema_extra={'ui': {'widget': 'currency', 'config': {'symbol': '$'}}})
-      |
-      v
-Backend schema pipeline (widget stage)
-  Injects ui.widget + ui.config into JSON Schema properties
-      |
-      v
-Frontend: form.js getInput() / ntx-item.js sm()
-  Calls getWidgetForField(fieldSchema)
-      |
-      v
-registry.js: _widgets[name] lookup
-  Returns { widget: WidgetInstance, config: ui.config }
-      |
-      v
-Widget method call (context-dependent):
-  display(value, config, schema) -> DOM Node     (detail views)
-  edit(value, config, schema, onChange) -> DOM Node (form inputs)
-  list(value, config, schema) -> string           (table cells, sm fields)
-  validate(value, config, schema) -> string|null  (form validation)
+```text
+field schema -> registry -> display/edit DOM -> Formidable HTML serialization
+                        -> list string -> compact cell rendering
+                        -> validate -> client error message
 ```
 
-If no widget is registered for the field's `ui.widget` name, `getWidgetForField()` returns `{widget: null, config: {}}` and Formidable falls through to type-based rendering.
+## Selection and API
 
-## Interface
+`getWidgetForField(fieldSchema)` resolves:
 
-### Widget base class
+1. A registered explicit `ui.widget` name, with `ui.config`.
+2. Boolean type to `bool`.
+3. `x-ref` metadata to `reference`, with its model name.
+4. No match: type-based Formidable fallback.
+
+Import from `/widgets/index.js` to load built-ins and access `Widget`,
+`registerWidget(name,instance)`, `getWidgetForField(schema)` and `hasWidget(name)`.
+Registry-only imports do not load built-ins themselves. A later registration with
+the same name replaces the previous instance.
+
+| Widget method | Return | Use |
+|---|---|---|
+| `display(value,config,schema)` | DOM Node | Detail/display |
+| `edit(value,config,schema,onChange)` | Element containing a native input | Editing |
+| `list(value,config,schema)` | String, potentially HTML | Compact cells; escape untrusted text |
+| `validate(value,config,schema)` | Error string or null | Client validation |
+| `escape(text)`, `truncate(text,maxLen=80)`, `el(tag,attrs={},children=[])` | Utilities | Text escaping/DOM assembly |
+
+## A serialization-safe custom widget
+
+Save as application `static/widgets/code-widget.js` and import it in the shell
+before rendering the model. This changes presentation only; it adds no duplicate
+field rules or domain contract.
 
 ```javascript
-class Widget {
-    // Render for detail/display context. Returns DOM Node.
-    display(value, config, schema) { return document.createTextNode(value ?? ''); }
+import { Widget, registerWidget } from '/widgets/index.js';
 
-    // Render for edit context. Returns DOM Node (input element).
-    edit(value, config, schema, onChange) { /* returns <input> */ }
-
-    // Render for list/table cell. Returns plain text or HTML string.
-    list(value, config, schema) { return String(value ?? ''); }
-
-    // Validate value. Returns error message string or null.
-    validate(value, config, schema) { return null; }
-
-    // Utilities (inherited by all widgets)
-    truncate(str, maxLen = 80)           // Ellipsis truncation
-    escape(html)                         // HTML entity escaping
-    el(tag, attrs = {}, children = [])   // DOM element builder
+class CodeWidget extends Widget {
+  display(value) {
+    const node = document.createElement('code');
+    node.textContent = String(value ?? '');
+    return node;
+  }
+  edit(value) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.setAttribute('value', String(value ?? ''));
+    return input;
+  }
+  list(value) {
+    return this.escape(String(value ?? ''));
+  }
 }
+registerWidget('code', new CodeWidget());
 ```
 
-### Registry API
-
-```javascript
-registerWidget(name, widgetInstance)    // Register by name (matches ui.widget)
-getWidgetForField(fieldSchema)         // Returns { widget: Widget|null, config: Object }
-hasWidget(name)                        // Check if registered
-```
-
-### Built-in widgets
-
-| Name | Class | Display | Edit | Validates |
-|------|-------|---------|------|-----------|
-| `url` | UrlWidget | Clickable `<a>` link | `input[url]` | URL parse check |
-| `email` | EmailWidget | `mailto:` link | `input[email]` | Email regex |
-| `date` | DateWidget | Localized date string | `input[date]` | Date parse check |
-| `datetime` | DateWidget | Localized date string | `input[datetime-local]` | Date parse check |
-| `markdown` | MarkdownWidget | Parsed HTML (marked.js) | `<textarea>` + live preview | No |
-| `console` | ConsoleWidget | `<pre>` with ANSI colors (ansi_up.js) | Readonly `<textarea>` | No |
-| `reference` | ReferenceWidget | Clickable entity link | `input[text]` | No |
-| `currency` | CurrencyWidget | `$X,XXX.XX` formatted | `input[number]` with symbol prefix | Number + bounds |
-| `textarea` | TextareaWidget | Block text `<div>` | `<textarea>` | No |
-| `bool` | BoolWidget | Disabled checkbox | Checkbox | No |
-
-Boolean fields automatically use the built-in `bool` widget even when the schema
-does not explicitly set `ui.widget`. That keeps booleans visually consistent
-between display and edit modes.
-
-## Usage Patterns
-
-### Creating a custom widget
-
-```javascript
-import { Widget, registerWidget } from '../widgets/index.js';
-
-class ColorWidget extends Widget {
-    display(value, config, schema) {
-        if (!value) return document.createTextNode('');
-        const swatch = this.el('span', {
-            class: 'color-swatch',
-            style: `background: ${this.escape(value)}; width: 20px; height: 20px; display: inline-block; border-radius: 4px;`
-        });
-        return this.el('span', {}, [swatch, ` ${value}`]);
-    }
-
-    edit(value, config, schema, onChange) {
-        const input = document.createElement('input');
-        input.type = 'color';
-        input.setAttribute('value', value ?? '#000000');
-        if (onChange) input.addEventListener('input', () => onChange(input.value));
-        return input;
-    }
-
-    list(value) {
-        return value ?? '';
-    }
-}
-
-registerWidget('color', new ColorWidget());
-```
-
-Then on the backend:
+In the application model (declaration excerpt):
 
 ```python
-color: str = Field(default='#000000', json_schema_extra={'ui': {'widget': 'color'}})
+from pydantic import Field
+
+code: str = Field(default='', json_schema_extra={'ui': {'widget': 'code'}})
 ```
 
-### Widget with config
+### Serialization is the important boundary
 
-Config is passed from `schema.ui.config`:
+Formidable wraps widget DOM, then returns `outerHTML`. The final page receives
+new nodes, not the objects returned by `edit()`:
+
+- `addEventListener` callbacks on the original widget node **do not survive**.
+  Do not rely on `onChange` callbacks for that rendering path.
+- Persist initial input state in attributes (`value`, `checked`, `selected`) or
+  textarea text content, not only mutable DOM properties.
+- Formidable stamps `data-key` and `data-type` on the first input/textarea/select
+  (or outer element). Native item/form handlers read those controls after mount.
+- Stateful interactive widgets should return a registered custom element whose
+  lifecycle binds its own listeners after insertion. Verify its value contract
+  with `readFormValue`; arbitrary custom elements are not automatically supported.
+- Style widget markup in the consuming shadow root. Page CSS cannot directly
+  select elements inside that root; inherited theme tokens still work.
+
+## Built-ins
+
+| Name | Display/edit behavior |
+|---|---|
+| `url` | Link / URL input |
+| `email` | Mail link / email input |
+| `date`, `datetime` | Formatted date / date or datetime-local input |
+| `markdown` | Markdown HTML / textarea; vendor/runtime behavior requires review for untrusted input |
+| `console` | Console text/ANSI rendering / readonly textarea |
+| `reference` | Typed URL pointer display / text input |
+| `currency` | Formatted amount / number input; `ui.config.symbol` customizes symbol |
+| `textarea` | Block text / textarea |
+| `bool` | Read-only checkbox presentation / editable checkbox |
+| `list` | `ntx-list-field` array component |
+
+Example field configuration:
 
 ```python
-price: float = Field(json_schema_extra={'ui': {'widget': 'currency', 'config': {'symbol': 'EUR'}}})
+price: float = Field(
+    ge=0,
+    json_schema_extra={'ui': {'widget': 'currency', 'config': {'symbol': 'EUR'}}},
+)
 ```
 
-```javascript
-// In CurrencyWidget.display():
-display(value, config, schema) {
-    const symbol = config?.symbol || '$';  // 'EUR' from schema
-    // ...
-}
-```
+HTML escaping is not URL-policy validation, CSS sanitization, or Markdown
+sanitization. Prefer text nodes; validate URL schemes before creating links and
+never insert untrusted SVG/HTML into the icon registry. See
+[Formidable limitations](formidable.md) and [styling](styling.md).
 
-### Widget with validation
+## Verification
 
-```javascript
-class PercentWidget extends Widget {
-    validate(value, config, schema) {
-        if (value == null) return null;
-        const num = parseFloat(value);
-        if (isNaN(num)) return 'Must be a number';
-        if (num < 0 || num > 100) return 'Must be between 0 and 100';
-        return null;
-    }
-}
-```
-
-Formidable calls `widget.validate()` during `validateForm()` after standard schema constraint checks.
-
-## Gotchas
-
-- **display() and edit() return DOM Nodes, list() returns a string.** This asymmetry exists because display/edit results are wrapped in container divs by Formidable (via `.outerHTML`), while list() output is inserted directly into HTML template strings by NTTItem's sm() method.
-
-- **Widget dispatch requires both conditions.** `getWidgetForField()` returns a widget only if the name exists in the registry. But the callers in form.js and ntx-item.js additionally check `def.ui?.widget` before using the widget. This means registering a widget alone does not activate it -- the schema must also carry the `ui.widget` hint.
-
-- **edit() must produce an element with data-key.** Formidable stamps `data-key` and `data-type` on the editable element (or the first input/textarea/select inside the returned node). This is required for `handleInputChange()` in NTTItem to process the value correctly. If your widget returns a complex DOM tree, ensure the primary input has these attributes or Formidable will stamp them on the outermost element.
-
-- **Vendor libraries are optional.** MarkdownWidget checks `typeof marked !== 'undefined'` and falls back to `<pre>`. ConsoleWidget checks `typeof AnsiUp !== 'undefined'` and falls back to plain text. Include `vendor/marked.min.js` and `vendor/ansi_up.min.js` via script tags if you need these features.
-
-- **The `el()` helper handles `on*` attributes as event listeners.** `this.el('button', {onclick: handler})` calls `addEventListener('click', handler)`, not `setAttribute('onclick', ...)`. Use this for interactive widget elements.
+Test display/edit serialization, value reading, empty/invalid inputs, and compact
+output, not just direct `widget.edit()` callbacks. The
+[BoolWidget tests](../../../tests/frontend/tests/widgets/BoolWidget.test.js)
+demonstrate attribute serialization checks; [ReferenceWidget tests](../../../tests/frontend/tests/widgets/ReferenceWidget.test.js)
+cover URL-reference selection. Source:
+[registry](../src/n3tx_ui/static/widgets/registry.js),
+[Widget](../src/n3tx_ui/static/widgets/Widget.js),
+[built-in registration](../src/n3tx_ui/static/widgets/index.js).

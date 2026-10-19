@@ -29,7 +29,7 @@ You MUST follow these phases in strict sequential order.
 
 | # | Phase | Gate before moving on |
 |---|---|---|
-| 1 | **Reproduce current failure** | Exact failing command captured; failure observed or stale audit disproven |
+| 1 | **Reproduce current failure** | Exact command captured; failure observed or stop as not reproduced/unresolved |
 | 2 | **Contract triage** | Failure classified with evidence |
 | 3 | **Propose solution — USER REVIEW** | User approves the exact intended diff target before any file update |
 | 4 | **Apply minimal fix** | Only approved target changed |
@@ -56,10 +56,15 @@ cd tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js
 
 ### Requirements
 
-- Use the repo’s expected interpreter/environment when known, e.g. `/workspace/.venv/bin/python` if system Python lacks pytest.
+- Use the interpreter and isolated suite commands in `AGENTS.md`; the approved
+  default is `/workspace/.venv-agents/bin/python`, overridable via `N3TX_PYTHON`.
+  The commands above illustrate test selection, not environment setup.
 - Save the exact command. Reuse it throughout the fix.
 - Capture the failure text, assertion, status code, stack trace, or DOM/API mismatch.
-- If the reported failure no longer reproduces, stop and report that the audit is stale. Do not invent a fix.
+- If the failure does not reproduce, stop as **not reproduced / unresolved**.
+  Record revision, command, environment, test order and repeat count; note
+  intermittent-failure and isolation limits. One passing run does not disprove
+  the report. Do not invent a fix or declare the audit stale without evidence.
 
 ---
 
@@ -236,7 +241,7 @@ Do not commit. The user decides when to commit.
 | Test expects top-level token but current debug envelope returns `data.token` | Stale test or environment drift | Response envelope may intentionally wrap method results |
 | Socket tests expect legacy `sendEvent()` / `watchdog()` API but runtime is TX-native | Stale tests/docs | Reintroducing legacy API may regress architecture |
 | Numeric `instances.get(1)` vs string actor addresses | Unresolved contract decision | Both database ergonomics and actor routing have plausible claims |
-| Failure disappears when run isolated | Test infrastructure issue | Suite order or shared state is contaminating result |
+| Failure disappears when run isolated | Not reproduced; infrastructure hypothesis | Investigate order/shared state and intermittency; isolation alone does not prove the cause |
 
 ---
 

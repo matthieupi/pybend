@@ -91,8 +91,9 @@ and token contracts are frontend concerns too. Treat `FRONTEND.md` and
 ## Verification
 
 ```bash
-cd /workspace/tests/frontend && npx vitest run
-cd /workspace/tests/frontend && npm run test:e2e:fast
+# From the N3TX root; see tests/frontend/README.md for dependencies:
+npm --prefix tests/frontend test
+npm --prefix tests/frontend run test:e2e:fast
 ```
 
 Prefer Vitest for static component/schema behavior and Playwright for browser/auth/routing/layout behavior.
@@ -100,6 +101,6 @@ Prefer Vitest for static component/schema behavior and Playwright for browser/au
 ## Source-reading policy
 
 Read `AGENTS.md`, frontend docs, package UI docs, and `FRONTEND.md` first.
-Inspect framework source only when docs/skills are insufficient, stale, or
-contradicted by observed behavior. If source resolves a gap, update or propose
-docs/skills.
+Then inspect relevant current implementation/tests before meaningful changes;
+also inspect source when docs are incomplete or contradicted. Docs first is not
+docs only. Update or propose docs/skills corrections when gaps are found.

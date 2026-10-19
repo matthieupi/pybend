@@ -110,9 +110,9 @@ Notes:
 - **Surgical edits.** Use Edit tool with precise `old_string`/`new_string`.
   Avoid rewriting entire files.
 - **No side quests.** Implement exactly what the task says. Nothing more.
-- **Trust the plan.** The task was designed with the full system in mind.
-  If something seems wrong, implement it anyway and note your concern in
-  the report — don't redesign on the fly.
+- **Validate the plan.** If it conflicts with current code, safety constraints
+  or the approved contract, report the discrepancy before implementing that
+  step. Do not silently redesign or knowingly implement a broken instruction.
 - **Fail loudly.** If you can't complete the task, say so clearly with
   the exact error. Don't produce half-working code silently.
 - **No commits.** Do not create git commits. The orchestrating skill handles

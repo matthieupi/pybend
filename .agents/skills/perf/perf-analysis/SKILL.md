@@ -24,7 +24,9 @@ with detailed audit checklists.
 - **Backend**: `Task(subagent_type="perf-audit-backend", prompt="Audit this codebase's backend performance. Follow your system prompt.")`
 - **Frontend**: `Task(subagent_type="perf-audit-frontend", prompt="Audit this codebase's frontend performance. Follow your system prompt.")`
 
-Launch both in parallel for a full-stack audit. Each writes its report to `.traces/`.
+Launch both in parallel for a full-stack audit. They return read-only findings;
+the orchestrator saves reports under `.project/`. Separate source-based
+hypotheses from benchmarks measured in a controlled environment.
 
 After agents complete, present a combined summary of all findings to the user.
 
@@ -64,6 +66,9 @@ Present the proposed changes with:
 - **Fix**: What the change does (1-2 sentences)
 - **Diff**: Code changes in diff format with enough surrounding context
 - **Behavioral impact**: "Zero behavioral changes" or describe differences
+- **Measurement plan**: representative workload/data, metric and baseline;
+  fixed environment/concurrency, warm-up policy and repeated runs with variance.
+  Record cold-start separately when relevant; set memory/resource bounds.
 
 ### Step 3 — Wait for approval
 
@@ -80,6 +85,10 @@ After approval:
 - Add brief comments explaining **intent** (why, not what)
 - Run the full test suite immediately
 - Report: "N tests pass, M pre-existing failures"
+- Run controlled before/after benchmarks under the same recorded conditions.
+  Report timing/throughput distributions and memory/resource trade-offs, not a
+  single best run. Tests prove behavior, not speed. If measurement is unavailable
+  or inconclusive, label the change unmeasured/inconclusive; do not claim improvement.
 
 ### Step 5 — Mark complete and continue
 
@@ -108,10 +117,10 @@ After all tasks are complete, create changelog entries:
 
 | Pattern | When to use |
 |---|---|
-| `@lru_cache(maxsize=None)` | Pure function called repeatedly with same args |
+| Bounded `@lru_cache(maxsize=...)` | Repeated pure calls; choose capacity from measured key cardinality/value size and a memory budget; define invalidation. Unbounded only with a proven finite, budgeted key space. |
 | `copy.deepcopy` on cached dicts | Callers might mutate the returned dict |
 | `WHERE col IN (?, ?, ...)` | N+1 query pattern (one query per parent row) |
-| Connection pool (`queue.Queue`) | New connection per operation |
+| Bounded connection pool | Measured connection overhead; size/test against concurrency, connection/thread rules, timeouts and DB contention, not an arbitrary constant |
 | WAL mode (SQLite) | Concurrent read/write contention |
 | `CREATE INDEX` on FK columns | Joins/lookups on unindexed FK columns |
 | Cache key = class object | Stable, unique key (avoids name/id collisions) |
@@ -120,7 +129,7 @@ After all tasks are complete, create changelog entries:
 
 | Pattern | When to use |
 |---|---|
-| `DocumentFragment` | Appending multiple children to the DOM |
+| `DocumentFragment` | Candidate for batching construction; benchmark the actual rendering path |
 | `AbortController` + `{signal}` | Listeners added on re-render without cleanup |
 | Event delegation | Many identical listeners on sibling elements |
 | `requestAnimationFrame` batching | Multiple DOM reads/writes interleaved |
@@ -132,7 +141,9 @@ After all tasks are complete, create changelog entries:
 ## Anti-Patterns — Do NOT
 
 - **Don't add caching that hides bugs** — stale cache is worse than slow
-- **Don't optimize code that runs once** — startup and migration can be slow
+- **Don't ignore startup/migrations** — measure cold-start and operational budgets;
+  prioritize one-time paths when they materially affect users or availability
 - **Don't break dev experience for prod perf** — no aggressive HTTP caching in dev
-- **Don't pre-optimize for scale you don't have** — pool of 4 is fine for SQLite
+- **Don't pre-optimize for scale you don't have** — tune bounded resources from
+  measured workloads; SQLite contention and deployment limits determine pool size
 - **Don't change behavior** — same inputs, same outputs, faster

@@ -1,5 +1,9 @@
 # 🛠️ N3TX: Your Modular API Framework with a Twist
 
+> Historical pre-migration README, preserved for provenance. Flask setup,
+> placeholder repository URLs and `app.*` imports below are not current guidance.
+> Use [README](README.md) and [getting started](docs/GETTING_STARTED.md).
+
 Welcome to N3TX! This is not just another API framework—it’s a highly modular, storage-flexible, and swagger-drenched ecosystem designed for builders who want to have it all. Whether you’re defining models, crafting endpoints, or swapping storage backends, N3TX has got you covered.
 
 ---
@@ -177,4 +181,3 @@ This project is licensed under the MIT License. See the LICENSE file for details
 ---
 
 Happy bending! 🛠️
-

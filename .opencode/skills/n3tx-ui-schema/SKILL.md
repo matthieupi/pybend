@@ -35,7 +35,7 @@ body: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
 - `properties` -> fields/forms
 - `properties[f].ui.widget` -> widget registry
 - `properties[f].ui.display` -> hide/show
-- `properties[f].ui.protected` -> hidden in edit mode
+- `properties[f].ui.protected` -> display-only in edit mode, not hidden; this switch does not apply to create mode or enforce backend protection
 - `ui.field_order` -> form order
 - `ui.groups` -> fieldsets
 - `ui.renderer` -> route/view component tag
@@ -54,6 +54,11 @@ body: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
 
 ## Guardrails
 
+Examples are declaration excerpts. Import n3tx_ui before flagged models and
+register renderer elements in the shell. Read the
+[ViewableMixin guide](../../../packages/n3tx-ui/docs/viewable-mixin.md) for route
+selection. Access metadata only adapts presentation; it is not enforcement.
+
 - Do not hardcode frontend field order or labels if schema can carry them.
 - Do not duplicate access rules in JS.
 - Do not infer method/view meaning without respecting `@` boundary.
@@ -68,4 +73,6 @@ body: str = Field(default='', json_schema_extra={'ui': {'widget': 'textarea'}})
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Read relevant docs/skills first, then current implementation/tests before meaningful
+changes. Also inspect source when docs are incomplete or contradicted. Docs first
+is not docs only; update or propose documentation corrections when gaps are found.

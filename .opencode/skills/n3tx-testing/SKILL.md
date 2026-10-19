@@ -21,24 +21,25 @@ Use generated contracts:
 
 - `GET /{ClassName}` schema includes fields, methods, access, UI, `$defs`.
 - CRUD routes work and enforce auth.
-- Relationship routes/link models work for `ListRef[T]` and `ManyToMany[T]` contracts.
+- Local `list[T]` hydration, URL refs and explicit shared-link models behave as documented.
 - Custom methods work through generated routes.
-- Actor-routed apps preserve direct-route behavior.
+- Check direct and actor paths independently; record differences rather than assuming parity.
 - Entity responses include `$schema` and `$id`.
 
 Repo commands:
 
 ```bash
-cd /workspace && python3 scripts/test-backend.py --list
-cd /workspace && python3 scripts/test-backend.py --suite core -- -q
-cd /workspace && python3 scripts/test-backend.py --short
+# From the checkout root, using the approved interpreter:
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --list
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite core -- -q
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --short
 ```
 
 ## Frontend checks
 
 ```bash
-cd /workspace/tests/frontend && npx vitest run
-cd /workspace/tests/frontend && npm run test:e2e:fast
+npm --prefix tests/frontend test
+npm --prefix tests/frontend run test:e2e:fast
 ```
 
 Use Vitest for schema-to-DOM/component/widget behavior. Use Playwright for auth/session, router history, layout, computed CSS, browser streaming, and backend-integrated flows.
@@ -50,7 +51,8 @@ Use Pydantic AI `TestModel`:
 ```python
 from pydantic_ai.models.test import TestModel
 
-result = await agent.run(task='List grants', llm=TestModel(call_tools=['grants_list']))
+# Excerpt: use the registered, persisted AgentActor setup in docs/AGENTS.md.
+result = await agent.agentic(task='List grants', llm=TestModel(call_tools=['grants_list']))
 ```
 
 Use file-based SQLite databases for migration/storage tests, not `:memory:`.
@@ -63,7 +65,7 @@ For `n3tx-files` features:
 - `POST /files/upload` returns a `File` metadata response.
 - `GET /files/{id}/download` and `GET /File/{id}/download` stream bytes.
 - Range requests return `206` with `Content-Range`.
-- `File`-typed method parameters materialize addresses into authorized `File` instances.
+- File URL parameters apply read checks; test dict/instance materialization separately.
 - Bytes are written through `FileStore`, not SQLite/static assets.
 
 ## Streaming checks
@@ -82,4 +84,6 @@ For `n3tx-files` features:
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Read relevant docs/skills first, then current implementation/tests before meaningful
+changes. Also inspect source when docs are incomplete or contradicted. Docs first
+is not docs only; update or propose documentation corrections when gaps are found.

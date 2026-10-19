@@ -1,5 +1,11 @@
 # N3TX Release Notes
 
+> Versioned migration record. Release claims below are preserved as published,
+> not re-certified by the documentation pass. For current caveats, including
+> scalar annotation rewriting, error serialization and non-atomic collection
+> mutations, read [models](docs/MODELS.md), [CRUD](docs/API_CRUD_ENDPOINTS.md)
+> and [operations](docs/OPERATIONS.md). Back up and test migrations separately.
+
 ## 0.12.0 (2026-07-11)
 
 ### n3tx-core / n3tx-actors: Generated PUT routes are now partial updates

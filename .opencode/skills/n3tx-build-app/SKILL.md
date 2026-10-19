@@ -1,6 +1,6 @@
 ---
 name: n3tx-build-app
-description: N3TX end-to-end app or feature workflow: choose routing level, define models, bootstrap app, wire UI/auth/storage/agents/files, and verify. Use when creating a new app or vertical feature; delegate focused work to specialist skills.
+description: N3TX end-to-end app workflow: choose capabilities and routing, define models, bootstrap, wire UI/auth/storage/agents/files, and verify. Use when creating a new app or vertical feature.
 argument-hint: "<app or feature to build>"
 ---
 
@@ -13,7 +13,7 @@ Use this skill for end-to-end application development on top of N3TX.
 ```text
 1. Identify domain models and capabilities
 2. Define backend models as source of truth
-3. Choose routing level
+3. Choose model capabilities and HTTP routing independently
 4. Add relationships, files, auth, methods, and UI hints
 5. Wrap reusable/external compute in actors/adapters
 6. Bootstrap app with create_app() or N3TXApp
@@ -21,20 +21,17 @@ Use this skill for end-to-end application development on top of N3TX.
 8. Verify schema, API/TX behavior, and UI rendering
 ```
 
-## Choose the right routing level
+## Choose Capabilities And Routing
 
-| Level | Shape | Use when |
+| Choice | Shape | Use when |
 |---|---|---|
-| Level 1 | `ProtoModel` + direct routes | Simple CRUD/schema-driven apps |
-| Level 2 | `ActorModel` + direct routes | App needs actor capabilities but plain HTTP route layer is enough |
-| Level 3 | `ActorModel` + `routing='actor'` | Networking, agents, MCP, WebSocket, federation, or strict actor routing matters |
+| Direct models | `ProtoModel` + direct routes | Simple CRUD/schema-driven apps |
+| Actor capabilities | `ActorModel` + direct routes | Actor capabilities with direct HTTP |
+| Actor HTTP | `ActorModel` + `routing='actor'` | HTTP must dispatch through NetworkAPI and Matrix |
 
-Default recommendation: **use the lowest routing level that satisfies the requirement**.
-Level 1 is enough for pure CRUD/schema-driven apps, Level 2 is enough when a
-model needs actor capabilities but direct HTTP routing is still sufficient, and
-Level 3 is for TX/protocol routing, agents, MCP, WebSocket, federation, or
-strict actor routing. This preserves N3TX's zero-to-working path without
-blocking later promotion to actors or network adapters.
+Choose only the capabilities required. Agents do not inherently require actor
+HTTP. Factory/builder/raw construction is independent of these choices. Verify
+each enabled protocol's authorization rather than assuming parity.
 
 ## Minimal app
 
@@ -102,8 +99,8 @@ app = create_app(models=[User, Product], storage='sqlite:///app.db', routing='ac
 - `__storable__ = True` only for persisted entities.
 - `__access__` declares backend authorization.
 - `__ui__` carries field order, groups, icons, renderers, and method UI hints.
-- Parent/child relationships use `ListRef[T]`.
-- Shared relationships use `ManyToMany[T]` and are discovered during app bootstrap.
+- Local collections use `list[T]`; URL pointers use `Ref[T]`/`list[Ref[T]]`.
+- Prefer explicit models for shared links; ManyToMany is legacy, not the default.
 - File workflows use `n3tx-files`: `File` metadata plus `FileStore` bytes.
 - Custom actions use `@expose_route`.
 - Reusable services are actors/tool actors.
@@ -136,15 +133,16 @@ Responses should include:
 For application work, verify the narrow contract first:
 
 ```bash
-cd /workspace && python3 scripts/test-backend.py --suite core -- -q
-cd /workspace/tests/frontend && npx vitest run
+# From the checkout root, using the approved interpreter:
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite core -- -q
+npm --prefix tests/frontend test
 ```
 
 When working in an example app, run from that example directory when starting the server.
 
 ## Source-reading policy
 
-Read `AGENTS.md` and relevant `/workspace/docs/` or package docs first. Then
+Read `AGENTS.md` and relevant `docs/` or package docs first. Then
 read `BACKEND.md`, `FRONTEND.md`, or both based on the affected surface.
 Inspect framework source only when documentation is insufficient, stale, or
 contradicted by observed behavior. If source resolves a gap, update or propose

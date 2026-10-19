@@ -66,11 +66,26 @@ class Comment(ActorModel):
     user_owner: int | None = None
 ```
 
-Protected fields are hidden in edit forms, auto-injected on create, and stripped on update.
+| Boundary | Current behavior |
+|---|---|
+| Direct HTTP create | Overrides protected `user_owner` only when authenticated `user_id` is truthy. Other protected names are not automatically injected or stripped; supply an explicit trusted create policy. |
+| Direct HTTP update | Strips every declared protected field from the patch. |
+| Formidable edit | Switches protected fields to display-only, not hidden. This is presentation, not authorization; create mode is not covered by this edit-only switch. |
+
+Do not infer the same guarantees for actor/raw Python/TX paths; verify the
+enabled transport using the enforcement matrix below.
 
 ## Actor routing auth
 
-In Level 3, auth is two-tier:
+This describes actor HTTP wiring, not all raw TX/tool paths. Raw ActorModel calls
+with no user or no access rules may bypass checks; list relies on supplied SQL
+filters. Direct lists also use SQL rather than a separate authorization gate.
+Caller injection and protected-field handling differ by path. Read the complete
+[enforcement matrix](../../../docs/AUTHORIZATION.md) and test denials explicitly.
+DEBUG registration grants admin; service tokens do not make arbitrary forwarded
+user claims safe across an untrusted boundary.
+
+In actor HTTP routing, auth is two-tier:
 
 ```text
 NetworkAPI.request interceptor
@@ -89,8 +104,11 @@ X-N3TX-Service: <local-service-name>
 X-N3TX-User: <json-user-context>  # optional
 ```
 
-The receiving backend accepts the request only when the bearer token matches its
-configured `SERVICE_TOKEN`. If `X-N3TX-User` is present, it must be a JSON object
+On middleware-covered requests, a truthy `X-Access-Token` is processed first:
+valid JWT identity wins; an invalid JWT is rejected without service fallback.
+Only otherwise does `X-N3TX-Service` select service authentication, which requires
+the bearer token to match configured `SERVICE_TOKEN`.
+In that service branch, if `X-N3TX-User` is present, it must be a JSON object
 and becomes `request.state.user`, so generated routes and ActorModel ABAC remain
 the authoritative authorization path. Service auth establishes backend trust; it
 does not replace model `__access__` or method `access=` rules.
@@ -113,4 +131,6 @@ does not replace model `__access__` or method `access=` rules.
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Read relevant docs/skills first, then current implementation/tests before meaningful
+changes. Also inspect source when docs are incomplete or contradicted. Docs first
+is not docs only; update or propose documentation corrections when gaps are found.

@@ -1,172 +1,114 @@
-# Actor Messaging and Routing
+# Messaging reference
 
-> Part of [n3tx-actors](../README.md)
+[Concepts and runnable example](../../../docs/ACTORS.md) · [Interceptors](interceptors.md)
 
-## What This Covers
+## TX envelope
 
-The Actor messaging lifecycle: how TX messages are created, dispatched through `inbox()`, handled by `handler()`, and routed via `send()`. Covers class-level vs instance-level dispatch, the `ActorMeta` metaclass, address resolution, and the routing algorithm at each level (instance, class, Matrix). Does not cover interceptors (see [interceptors.md](interceptors.md)) or network adapters (see [network-adapters.md](network-adapters.md)).
+TX is mutable, not a validated domain model. Its required fields are `name`,
+`source`, `target`; `data` and `meta` default to separate empty dictionaries.
+`timestamp` is epoch time and `uuid` defaults to a 12-character UUID hex prefix.
+Although annotated `dict`, response data can contain other values.
 
-## Architecture
+| Method/property | Contract |
+|---|---|
+| `reply(data=None, name=None)` | New TX, swapped source/target, inherited metadata plus `req=original.uuid`; default name `<name>_RESPONSE` |
+| `error(message, code=500)` | `ERROR`, `{message, code}`, correlated `meta.error=True` |
+| `chunk(data, seq)` | `STREAM`, `meta.stream=True`, correlation and sequence; wraps non-dict data as `{chunk: data}` |
+| `end(data=None, seq=0)` | `STREAM` with `stream_end=True` |
+| `exception(e)` / `TX.from_exception(e, tx)` | Maps structured errors, validation 422, value/type/key 400, permission 403, fallback 500 |
+| `is_error` | True for name `ERROR` or truthy `meta.error` |
 
-```
-TX created (name, source, target, data, meta)
-    |
-    v
-actor.inbox(tx)
-    |-- run 'inbox' interceptors (if any)
-    |-- if error TX: send error back, skip handler
-    v
-actor.handler(tx)
-    |-- getattr(target, tx.name) -> method
-    |-- call method(data, tx) or method(tx.data, tx)
-    |-- wrap return: dict -> reply, TX -> send direct, scalar -> {result: val}
-    |-- exception -> tx.exception(e) -> error TX
-    v
-actor.send(reply_tx)
-    |-- run 'send' interceptors (if any)
-    |-- INSTANCE: route through parent chain
-    |-- CLASS: 3-case routing:
-    |     1. direct child match (seg_first in children)
-    |     2. strip own prefix, route to child (seg_first == addr)
-    |     3. prefix source, bubble to parent (Matrix)
-    v
-Matrix.inbox(tx)
-    |-- self-send prevention (target == 'matrix' -> blocked)
-    |-- local child match -> child.inbox(tx)
-    |-- no local match -> try adapters -> _route_error()
-```
+`stream_chunk` and `stream_end` remain deprecated aliases for `chunk` and `end`.
+Reusing a TX across concurrent sends is unsafe: routing can mutate its addresses.
+Replies inherit metadata; do not put secrets in metadata assuming it stays local.
 
-## Interface
+## Actor class and instance state
 
-### TX Construction
+`fullmethod` / `fullproperty` from core descriptors bind to either class or
+instance. They are not named `actormethod` / `actorproperty` in the current API.
 
-```python
-TX(name='create', source='api', target='products', data={'name': 'W'}, meta={'user': {...}})
-```
+| State | Class | Instance |
+|---|---|---|
+| Address | `__addr__` | `_addr` |
+| Children | `__children__` | `_children` |
+| Parent | `__matrix__` | `_parent` (initially the class) |
+| Interceptors | `__interceptors__` | `_interceptors` |
 
-Required: `name`, `source`, `target`. Optional: `data` (default `{}`), `meta` (default `{}`). Auto-generated: `timestamp` (float), `uuid` (12-char hex).
+ActorMeta gives every subclass fresh child/interceptor dictionaries. Class
+address precedence is explicit `__addr__`, then `__tablename__`, then class name.
+Instance precedence is nonempty `addr=`, then `<class addr>/<truthy id>`, then
+class address. An address alone does not register an instance or load a DB row.
 
-### TX Methods
+Auto-registration occurs at class definition against the current root; suppress
+it with `class Worker(Actor, auto_register=False)`. The package creates a default
+`matrix` at import time. `Matrix()` only becomes root if no root exists.
+`register(child)` attaches a child; `spawn(addr, actor_cls, ...)` constructs and
+registers, rejecting duplicate addresses. `has(addr)` checks the first segment.
 
-| Method | Returns | Behavior |
-|--------|---------|----------|
-| `reply(data, name)` | TX | Swaps source/target, new uuid, stores original in `meta['req']`, default name=`{name}_RESPONSE` |
-| `error(msg, code)` | TX | name=`ERROR`, `meta['error']=True`, data=`{message, code}` |
-| `chunk(data, seq)` | TX | name=`STREAM`, `meta['stream']=True`, correlates via `meta['req']` |
-| `end(data, seq)` | TX | name=`STREAM`, `meta['stream_end']=True` |
-| `exception(e)` | TX | Maps exception type to semantic HTTP code (ValidationError->422, ValueError->400, etc.) |
+## Dispatch and routing
 
-### Handler Return Wrapping
-
-| Return type | Wrapped as |
-|-------------|------------|
-| `TX` | Sent directly (no wrapping) |
-| `dict` | `tx.reply(data=result)` |
-| Scalar (int, str, etc.) | `tx.reply(data={'result': value})` |
-| `None` | `tx.reply()` (empty data) |
-| Exception raised | `tx.exception(e)` (error TX) |
-
-Unhandled messages (no matching method) produce `tx.error("Unhandled message: {name}")`. Exception: error TXs and `*_RESPONSE` TXs with no handler are silently dropped to prevent infinite bounce loops.
-
-`ERROR` remains a normal routable message when the target actor explicitly
-implements an `ERROR(data, tx)` handler. That lets fire-and-forget messages
-still bubble failures back to their issuer. `ERROR` handlers are catch blocks:
-they may update local state, but returned values are ignored. If an `ERROR`
-handler itself raises, the framework logs and drops that failure instead of
-synthesizing another `ERROR` in response to an `ERROR`.
-
-`ERROR_RESPONSE` is not part of the actor protocol. It can only arise as an
-accidental generic `*_RESPONSE` wrapper around an `ERROR` handler return value,
-so actor `send()` drops it before routing.
-
-### Address Resolution
-
-`ActorMeta.__new__` sets `__addr__` on each subclass:
-1. Explicit `__addr__` in namespace -- used as-is
-2. `__tablename__` attribute -- used if present
-3. Class `__name__` -- fallback
-
-Instance `_addr` resolution follows this order:
-1. explicit `addr=` kwarg
-2. `f"{__addr__}/{id}"` when the instance has a truthy persisted `id`
-3. class `__addr__`
-
-This means hydrated `ActorModel` records such as `Product.get(1)` identify
-themselves as `products/1`, while unsaved instances still default to the
-class namespace `products`.
-
-### Class-Level Send Routing (3 cases)
-
-```python
-segments = tx.target.split('/')
-# Case 1: segments[0] in children -> children[segments[0]].inbox(tx)
-# Case 2: segments[0] == own addr and segments[1] in children -> strip prefix, route
-# Case 3: no match -> prefix source with own addr, bubble to parent (Matrix)
+```text
+inbox -> inbox interceptors -> handler -> result wrapping -> send
+                                                         |
+                              class child / prefix / parent routing
+                                                         |
+                                    Matrix -> child or adapter
 ```
 
-## Usage Patterns
+Plain Actor `handler()` calls the method named exactly by `tx.name` with
+`(data, tx)`. Use classmethods for class actors, instance methods for instances.
+ActorModel has different exposed-method dispatch; see [its reference](actor-model.md).
 
-### Class actor with classmethod handler
+| Handler return | Plain Actor reply |
+|---|---|
+| TX | Sent unchanged |
+| Dictionary | Reply data |
+| Other non-None value | `{result: value}` |
+| None | Empty reply, except one-way `LIFECYCLE` |
+| Raised exception | Error TX |
 
-```python
-class Product(Actor):
-    __tablename__ = 'products'
+An explicit `ERROR` handler runs for side effects only; its return is ignored.
+Failures while handling an error are dropped. Unhandled errors and `*_RESPONSE`
+messages are dropped to avoid reply loops; `ERROR_RESPONSE` is dropped by send.
 
-    @classmethod
-    def SCHEMA(cls, data, tx):
-        return {'schema': cls.addr}
+Class `send()` tries a direct child, then strips its own address prefix for a
+child match, otherwise prefixes the source and bubbles to its parent. Instance
+`send()` delegates to its parent class's send or parent instance's inbox.
+Plain Actor `inbox()` itself dispatches locally; it is not automatic DB instance
+resolution. For ActorModel instance actions, target the table with `data.id`.
 
-# Product auto-registers with matrix at addr='products'
-await matrix.inbox(TX(name='SCHEMA', source='client', target='products'))
-```
+## Matrix correlation and HTTP aliases
 
-### Instance actor with instance method handler
+Matrix handles pending `meta.req` correlations before routing/interceptors.
+It translates explicitly registered HTTP origins to local model/table addresses,
+then tries the target's first segment in children, then the first adapter whose
+`can_handle(tx)` succeeds. Unroutable requests produce a 404 error when the
+sender can be reached. Self-targets are logged and dropped.
 
-```python
-worker = Actor(addr='worker')
-matrix.register(worker)
+`request(tx, timeout=30.0)` uses a Future; `stream(tx, timeout=120.0)` uses a Queue
+and background send task. Stream timeout is per chunk; closing the generator
+cleans the pending entry and cancels an unfinished send task. Request timeout
+starts waiting **after** the inline send returns, so it is not a total execution
+deadline. Always inspect `response.is_error`.
 
-class TaskWorker(Actor, auto_register=False):
-    def PROCESS(self, data, tx):
-        return {'result': data['input'] * 2}
+`matrix.add_alias('https://app.example')` accepts an origin only, not a path,
+query or fragment. Actor-mode apps expose `app.add_alias(...)`. Aliases affect
+local dispatch, not canonical `$id` generation or authorization.
 
-w = TaskWorker(addr='task-1')
-matrix.register(w)
-```
+## ActorProxy
 
-### ActorProxy for non-Actor classes
+`ActorProxy(target, addr='', parent=None)` wraps a local class/object. Explicit
+address wins; classes fall back through `__addr__`, `__tablename__`, class name;
+instances use `addr`, `_addr`, class name. It supplies `inbox/send`, children,
+`register`, `spawn(target, addr='')`, and `has`, satisfying ActorLike.
+It does not supply Actor's interceptor API or all its error-loop safeguards.
+Register it with a parent before sending. Do not confuse it with RemoteRef.
 
-```python
-class LegacyService:
-    def HEALTH(self, data, tx):
-        return {'status': 'ok'}
+## Tests and source
 
-proxy = ActorProxy(LegacyService(), addr='health')
-matrix.register(proxy)
-# matrix routes TX(target='health') to proxy.inbox() -> proxy.handler() -> LegacyService.HEALTH()
-```
-
-### Local HTTP aliases
-
-Actor-routed applications can register another HTTP origin for the same local
-service after creation:
-
-```python
-app = create_app(models=[Task], routing='actor')
-app.add_alias('http://app:7000')
-```
-
-The canonical API URL remains authoritative for generated schema and entity
-identities. An alias only changes Matrix dispatch: a target such as
-`http://app:7000/Task/1` is translated to the registered local actor address
-(`tasks/1`) before network adapters are considered. Origins that were not
-registered continue through the normal adapter selection path.
-
-## Gotchas
-
-- **Auto-registration happens at class definition time**, not instantiation. If no Matrix exists when the class is defined, the class is not registered. The module-level `matrix` created at `n3tx_actors.matrix` import handles this for typical usage.
-- **`fullmethod` descriptors must be declared in the class body**, not assigned dynamically. Pydantic's `model_config = ConfigDict(ignored_types=(fullmethod, fullproperty))` prevents them from being treated as model fields.
-- **Actor extends `PydanticBaseModel`**, so instances have Pydantic's `__setattr__` protection. Use `object.__setattr__()` to monkey-patch methods in tests. See `mock_method()` context manager in `tests/conftest.py`.
-- **`spawn()` raises `ValueError` if the addr already exists** in the parent's children dict. Check with `has()` first if unsure.
-- **Matrix blocks self-send** (target == own addr) silently with a log error. This prevents routing loops.
-- **Instance `_parent` defaults to `self.__class__`**, mirroring the JS pattern. This means unregistered instances bubble messages to their class, which then routes to Matrix.
+Implementation: [actor.py](../src/n3tx_actors/actor.py),
+[matrix.py](../src/n3tx_actors/matrix.py), [tx.py](../src/n3tx_actors/tx.py),
+[actor_proxy.py](../src/n3tx_actors/actor_proxy.py).
+Tests live in [tests](../src/n3tx_actors/tests/), including routing, error-drop
+and streaming-shutdown cases. Pydantic instance mocks may need
+`object.__setattr__`; restore patched methods and the global root after tests.

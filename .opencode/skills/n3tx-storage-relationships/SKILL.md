@@ -1,179 +1,40 @@
 ---
 name: n3tx-storage-relationships
-description: N3TX storage, StorableMixin, SQLite JSON fields, Ref/list[Ref] distributed pointers, pagination, ListRef parent-child relationships, ManyToMany shared relationships, nested routes, and ownership fields. Use when designing or debugging persistence and relationships.
+description: N3TX storage, local model relationships, HTTP(S) Ref pointers, pagination, partial updates and ownership. Use when designing or debugging persistence.
 argument-hint: "<storage or relationship task>"
 ---
 
-# N3TX Storage and Relationships
+# N3TX Storage And Relationships
 
-## Storage model
+Read [storage](../../../packages/n3tx-core/docs/storage.md),
+[models](../../../docs/MODELS.md), [JSON fields](../../../docs/JSON_FIELDS.md)
+and [CRUD](../../../docs/API_CRUD_ENDPOINTS.md).
 
-Set `__storable__ = True` to inject CRUD behavior and register a database table.
+`__storable__` injects CRUD; bootstrap/registration attaches storage. Register
+parent and child models explicitly. `create` takes a model instance; `update`
+validates a merged entity and persists supplied keys. Direct Python CRUD is not
+an HTTP authorization boundary.
 
-```python
-class Product(ActorModel):
-    __tablename__ = 'products'
-    __storable__ = True
-    name: str
-```
-
-CRUD methods are provided by `StorableMixin`: `create`, `get`, `list`, `update`, `delete`.
-
-## JSON fields
-
-`dict`, `list`, typed list fields, and `list[Ref[T]]` pointer arrays are stored
-as JSON TEXT in SQLite and deserialized on read.
-Use the dedicated `n3tx-json-fields` skill and `docs/JSON_FIELDS.md` when
-designing, debugging, or changing embedded JSON field behavior.
-
-```python
-class AgentConfig(ActorModel):
-    __tablename__ = 'agent_configs'
-    __storable__ = True
-    tools: list[str] = []
-    constraints: dict = {}
-```
-
-## Pagination
-
-When `limit` is provided, list returns:
-
-```json
-{"data": [], "meta": {"total": 0, "limit": 20, "offset": 0, "has_more": false}}
-```
-
-Without `limit`, list returns a plain list for compatibility.
-
-## Relationship primitives
-
-Use the relationship primitive that matches ownership and lifecycle:
-
-| Domain shape | Field type | Generated behavior |
+| Shape | Stored representation | Important limit |
 |---|---|---|
-| Parent owns or scopes child records | `ListRef[T]` | Nested routes, FK/join model hydration, parent-scoped identity |
-| Shared collection between two entities | `ManyToMany[T]` | Generated link model/table from the field declaration |
-| Local or distributed identity pointer | `Ref[T]` | Local id or canonical `n3tx://service/Class/id` ref |
-| Local/distributed pointer array | `list[Ref[T]]` | JSON TEXT array, optional best-effort populate |
+| Embedded dict/primitive list | JSON TEXT | Whole-field replacement; no deep merge |
+| `list[T]` | Ordered local child IDs in JSON TEXT | Hydrated child objects; no generated nested routes |
+| Scalar `T` | Depends on annotation/inheritance | First mixin injection may rewrite bare T to Ref |
+| `Ref[T]`, `list[Ref[T]]` | Absolute HTTP(S) URL strings | No integer, relative path or n3tx scheme; dereference is explicit |
+| Shared association | Explicit link model | Do not introduce removed generated joins |
 
-Do not use a plain JSON list for records that need independent identity, auth,
-routes, or lifecycle.
+ManyToMany and `Ref['self']` are legacy special cases, not the default new
+relationship design. Read their current limits before extending existing use.
 
-`ListRef[T]` remains local-owned relationship semantics only. Do not overload it
-for remote/distributed pointers; use `list[Ref[T]]` when the parent stores
-identity addresses such as `n3tx://storage/File/12`.
+Population needs an explicit resolver; core storage must not import actors.
+Remote authorization, URL destination and credential forwarding require separate
+review. A relationship field does not establish child privacy or cascade deletion.
+Verify unlink versus record deletion, including UI behavior.
 
-## Parent-child relationships with ListRef
+Pagination returns data/meta when a limit is supplied; no-limit calls return a
+list. Verify filters independently: unrestricted SQL is not denial. Collection
+replacement is last-write-wins; domain methods need deliberate concurrency design.
 
-Use `ListRef[T]` on the parent:
-
-```python
-from n3tx_core.models.ref import ListRef
-
-class Product(ActorModel):
-    __tablename__ = 'products'
-    __storable__ = True
-    comments: ListRef['Comment'] = []
-```
-
-N3TX generates a join model such as `ProductComment` with FK columns. Public nested identity uses semantic class names:
-
-```text
-Legacy:    /products/1/comments/2
-Canonical: /Product/1/Comment/2
-```
-
-## Shared many-to-many relationships
-
-Use `ManyToMany[T]` when both sides are independent entities and the field
-represents membership/association rather than parent ownership:
-
-```python
-from pydantic import Field
-from n3tx_core.models.relationships import ManyToMany
-
-
-class Tag(ActorModel):
-    __tablename__ = 'tags'
-    __storable__ = True
-    name: str
-
-
-class Product(ActorModel):
-    __tablename__ = 'products'
-    __storable__ = True
-    tags: ManyToMany[Tag] = Field(default=[])
-```
-
-`create_app()` / `N3TXApp` discover `ManyToMany` declarations and generate the
-relationship link model during bootstrap. For lower-level/raw registration flows,
-use the relationship helpers deliberately rather than hand-rolling SQL tables.
-
-## Self references
-
-```python
-from n3tx_core.utils.typer import Ref
-
-class Comment(ActorModel):
-    __tablename__ = 'comments'
-    __storable__ = True
-    parent_id: Ref['self'] | None = None
-```
-
-## Distributed ref storage
-
-Single `Ref[T]` fields preserve local behavior while accepting distributed refs:
-
-```text
-local id / /File/12 / current API URL -> local id / local href response
-configured remote HTTP URL            -> n3tx://service/Class/id
-n3tx://service/Class/id               -> preserved canonical ref
-```
-
-Remote dereference is opt-in through storage injection:
-
-```python
-SQLiteStorage(reference_resolver=None)                       # local-only
-SQLiteStorage(reference_resolver=MatrixReferenceResolver(m))  # remote populate
-```
-
-Keep the boundary clean: core storage accepts an injected resolver; it must not
-import actors directly.
-
-## Ownership fields
-
-For OWNER auth:
-
-```python
-class Comment(ActorModel):
-    __owner_field__ = 'user_owner'
-    __protected_fields__ = {'user_owner'}
-    user_owner: int | None = None
-```
-
-Protected fields are backend-owned: injected on create and hidden/stripped in edit/update flows.
-
-## Guardrails
-
-- Do not query or mutate SQLite directly from app features.
-- Do not store relationships as duplicated arbitrary arrays if `ListRef` or `ManyToMany` represents the domain relationship.
-- Do not confuse `ListRef[T]` local ownership with `list[Ref[T]]` pointer arrays.
-- Do not confuse embedded JSON arrays with relationship fields: JSON fields have
-  no child `$id`, href hydration, owner/auth boundary, lifecycle events, or
-  independent update route.
-- Do not expose generated join model names as the semantic public concept.
-- Do not treat `ManyToMany[T]` as a JSON field; it is relationship metadata.
-- Avoid `:memory:` SQLite for tests involving migrations; use a file database.
-
-## Verification
-
-- CRUD works for parent and child.
-- Relationship fields appear in schema and responses as href arrays.
-- `ManyToMany` fields generate deterministic link models/tables during app bootstrap.
-- `Ref[T]` and `list[Ref[T]]` remote inputs canonicalize to `n3tx://...`.
-- Remote populate failures do not break parent reads; they report per-ref errors where supported.
-- Nested routes resolve correctly.
-- Pagination metadata is correct when `limit` is used.
-
-## Source-reading policy
-
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Use temporary file databases for migration tests. Check create/read/update/delete,
+omitted fields, replacement, invalid relationships, identity, ordering and denied
+access. Use [contributor commands](../../../AGENTS.md); do not edit live data.

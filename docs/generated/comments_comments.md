@@ -1,5 +1,8 @@
 # `comments_comments` Model
 
+> Stale generated snapshot of a removed relationship model. Not current API
+> guidance. See [snapshot status and generator](index.md).
+
 **Endpoint**: `GET /comments_comments` (returns schema)
 
 ## Fields

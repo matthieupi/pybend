@@ -35,14 +35,33 @@ import { Widget } from './widgets/Widget.js';
 import { registerWidget } from './widgets/registry.js';
 
 class ColorWidget extends Widget {
-  display(value, field, schema) { return `<span>${value}</span>`; }
-  edit(value, field, schema) { return `<input name="${field}" value="${value ?? ''}">`; }
+  display(value, config, schema) {
+    const span = document.createElement('span');
+    span.textContent = String(value ?? '');
+    return span;
+  }
+  edit(value, config, schema, onChange) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.setAttribute('value', String(value ?? ''));
+    return input;
+  }
+  list(value, config, schema) {
+    return this.escape(String(value ?? ''));
+  }
 }
 
 registerWidget('color', new ColorWidget());
 ```
 
-Use schema `ui.widget = 'color'` to select it.
+Use schema `ui.widget = 'color'` to select it. `display` and `edit` return
+DOM nodes; `list` returns escaped HTML text. Formidable stamps the input's field
+metadata; the second argument is widget config, not a field name.
+
+This is a plain-text example, not CSS color interpolation. Formidable serializes
+widget markup; listeners attached before serialization do not survive. Follow
+the [widget guide](../../../packages/n3tx-ui/docs/widgets.md) for round trips and
+automatic bool/x-ref selection. Backend validation remains authoritative.
 
 ## When to use widgets vs components
 
@@ -68,4 +87,6 @@ Use schema `ui.widget = 'color'` to select it.
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Read relevant docs/skills first, then current implementation/tests before meaningful
+changes. Also inspect source when docs are incomplete or contradicted. Docs first
+is not docs only; update or propose documentation corrections when gaps are found.

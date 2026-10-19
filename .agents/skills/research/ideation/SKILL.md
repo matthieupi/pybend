@@ -88,10 +88,12 @@ Present the N angles to the user briefly before proceeding:
 
 ## Phase 2: Parallel Research
 
-Generate a **slug** from the topic (e.g., "micro-frontend architecture" ->
-"micro-frontend", "event sourcing" -> "event-sourcing", "WebAssembly for
-compute-heavy operations" -> "webassembly"). Use this slug for both the
-research folder and the vision output files.
+Generate a topic slug, then append a unique run identity (UTC timestamp plus a
+collision suffix if needed), e.g. `webassembly-20261019T120000Z-a`.
+Throughout this template, `<slug>` means that **run-qualified slug** and `<Slug>`
+its capitalized form. Use it for both research folders and vision filenames.
+Resolve the shared catalog's output root (`.project/` in this checkout) before
+launching agents; `.traces/` below is the reusable location template.
 
 Create the output directories:
 ```
@@ -99,18 +101,17 @@ Create the output directories:
 .traces/vision/
 ```
 
-Each run gets its **own dedicated folder** under `.traces/research/` so
-multiple ideation runs don't collide. For example:
-- `.traces/research/micro-frontend/`
-- `.traces/research/webassembly/`
-- `.traces/research/html-compiler/`
+Check that all run output paths are unused before launching. Never silently
+overwrite an earlier same-topic run. Resume an existing run only with explicit
+approval and recorded input/output identity; changed research requires a new
+snapshot and re-synthesis of affected outputs.
 
 Launch **N parallel Task agents** (where N = agent count) using
 `subagent_type: "ideation-researcher"`. Each agent gets:
 
 - **Topic**: The overall topic from the user
 - **Angle**: One of the N research angles defined in Phase 1
-- **Output path**: `.traces/research/<slug>/0N-<angle-slug>.md` (e.g., `.traces/research/webassembly/01-industry-and-decisions.md`). Use zero-padded two-digit numbering (01, 02, ... 09, 10, ...).
+- **Output path**: `.traces/research/<slug>/0N-<angle-slug>.md` (e.g., `.traces/research/webassembly-20261019T120000Z-a/01-industry-and-decisions.md`). Use zero-padded two-digit numbering (01, 02, ... 09, 10, ...).
 - **Audience context**: "This research will feed into a strategic analysis
   report for a semi-technical CEO and the engineering team. Write for both:
   accessible 'so what?' intros for the CEO, then technical depth for the
@@ -157,6 +158,13 @@ Each researcher prompt should include:
 Once all research is complete, verify the research files exist and show the
 user a brief summary of what was gathered:
 
+Freeze the input set: record each completed research path and SHA256 in a run
+manifest and stop research writers before synthesis. Pass that exact manifest
+and all resolved output paths (including the numbered analysis path) to each
+synthesis agent. Check hashes before/after synthesis; do not ingest concurrently
+written analysis/vision outputs as research. Changed inputs require reconciliation
+or a fresh synthesis, not a silently mixed snapshot.
+
 > ✅ Research complete (`.traces/research/<slug>/`):
 > - `01-<angle>.md` — N lines
 > - `02-<angle>.md` — N lines
@@ -167,11 +175,11 @@ user a brief summary of what was gathered:
 
 ### Vision Filename Convention
 
-Vision filenames use a **capitalized slug** — no run numbers, no document
-numbers. Capitalize the first word of the slug, and capitalize known
+Vision filenames use a **capitalized run-qualified slug** — no document
+numbers. Retain the run identity suffix. Capitalize the topic's first word and known
 acronyms (AI, SSR, CLI, TUI, HTML, GraphQL, API, etc.).
 
-Examples:
+Topic capitalization examples (append the run identity before `-summary`, etc.):
 - `cli-tui` → `CLI-TUI-summary.md`, `CLI-TUI-propositions.md`, `CLI-TUI-whitepaper.md`
 - `ai-agents` → `AI-agents-summary.md`
 - `server-side-rendering` → `SSR-summary.md` (use the common acronym)
@@ -194,7 +202,9 @@ is numbered `0{N+1}` (zero-padded). Examples:
 
 ### Synthesis Mode: `full` (default)
 
-Launch **3 Task agents in parallel** (single message, 3 Task tool calls):
+Launch analysis and technical synthesis in parallel from the frozen research.
+Launch the executive summary only after the analysis is complete; supply that
+exact analysis path and hash as an additional input.
 
 #### Agent 1: Full Analysis Report
 `subagent_type: "ideation-agent"` with:
@@ -254,6 +264,12 @@ All agents use tables, icons, callout boxes, and decision trees throughout.
 All write for the dual audience: CEO-accessible intros + engineer-depth detail.
 
 **Wait for all synthesis agents to complete.**
+
+Before delivery, reconcile the summary against the completed analysis: findings,
+numbers, recommendations and uncertainty must agree. Compare propositions and
+whitepaper for contradictions; resolve or label genuine differences. Verify
+all companion links against exact output paths, not guessed topic filenames.
+In technical-only mode, omit links to analysis/summary that were not produced.
 
 ---
 

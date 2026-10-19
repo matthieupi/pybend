@@ -63,15 +63,17 @@ Before writing anything, read and internalize ALL relevant source material.
 
 ### 1b. Read project-level docs (mandatory)
 
-- `/workspace/CLAUDE.md` — architecture overview, patterns, conventions
-- `/workspace/claude-back.md` — backend pipeline, key files, patterns
-- `/workspace/claude-front.md` — frontend architecture (if relevant)
-- `/workspace/README.md` — project-level README
+- `AGENTS.md` and `CLAUDE.md` - contribution rules and navigation
+- `BACKEND.md` - backend contract and source-owner map
+- `FRONTEND.md` - frontend architecture (if relevant)
+- `README.md` - project-level README
+
+Resolve these paths from the N3TX checkout, not an assumed `/workspace` root.
 
 ### 1c. Scan existing documentation (audit for reusable content)
 
-- `/workspace/src/n3tx/docs/` — API docs, architecture, authorization
-- `/workspace/src/n3tx/static/docs/` — frontend component docs
+- `docs/` - API docs, architecture, authorization
+- `docs/frontend/` and `packages/n3tx-ui/docs/` - frontend component docs
 - Any other `.md` files in the repo that cover this package's concerns
 
 ### 1d. Produce an audit summary (internal — do not write to file)
@@ -247,7 +249,7 @@ when not documented. Source from test files and CLAUDE.md.}
 # Phase 4: REVIEW EXISTING DOCS
 
 If the package or project has existing documentation that covers the same
-ground (in `src/n3tx/docs/`, `src/n3tx/static/docs/`, or elsewhere):
+ground (in `docs/`, `docs/frontend/`, package docs, or elsewhere):
 
 1. **Do not duplicate.** If an existing doc covers a topic well, link to
    it from the README or Layer 1 docs rather than rewriting it.
@@ -293,7 +295,7 @@ the Actor lifecycle and the interceptor pattern.
 
 ```
 Review and improve all documentation in packages/n3tx-agents/.
-The existing docs in src/n3tx/docs/ may have relevant content.
+The existing docs in docs/ may have relevant content.
 ```
 
 ```

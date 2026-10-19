@@ -1,5 +1,8 @@
 # `comments_likes` Model
 
+> Stale generated snapshot of a legacy join model. Not current API guidance.
+> See [snapshot status and generator](index.md).
+
 **Endpoint**: `GET /comments_likes` (returns schema)
 
 ## Fields

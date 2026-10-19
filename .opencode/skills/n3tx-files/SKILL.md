@@ -65,11 +65,18 @@ class AudioJob(ActorModel):
     @expose_route('/transcribe', methods=['POST'])
     async def transcribe(self, audio: File) -> dict:
         local = await audio.ensure_local()
-        return {'path': str(local)}
+        # Process local without exposing server filesystem paths to clients.
+        return {'filename': audio.filename}
 ```
 
 Payloads like `{"audio": "http://localhost:5000/File/1"}` resolve to authorized `File` instances
 before the method runs. Plain `str` parameters are not materialized.
+
+This URL path applies a read check. Dict validation and an existing File instance
+do not repeat that same check. `public=False` is descriptive: default File read
+access is ANYONE. `ensure_local()` currently supports LocalFileStore only. Review
+the [File guide](../../../packages/n3tx-files/docs/file.md) before exposing uploads,
+downloads or custom providers; metadata deletion and blob cleanup are separate.
 
 ## Extension points
 

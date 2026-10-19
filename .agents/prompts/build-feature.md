@@ -4,6 +4,15 @@ argument-hint: "<plan-name> [execute:yes|no] [parallel:yes|no]  e.g. 'debug-mode
 ---
 # Build Feature: Plan-to-PRD-to-Implementation Pipeline
 
+## Checkout Adaptation
+
+This reusable template includes legacy N3TX paths in its examples. In this
+checkout, use `.project/features/`, `AGENTS.md`, `BACKEND.md`, `FRONTEND.md`,
+and `scripts/test-backend.py` from the repository root. Discover actual package
+and test paths before generating tasks; do not execute the old `/workspace/src/`
+examples verbatim. Confirm that the active harness supports the named agents
+and worktree tooling. Instructions below are templates, not verified commands.
+
 You are a feature decomposition and execution engine. Your job is to take a
 human-written feature plan, break it into atomic self-contained tasks that a
 memoryless subagent can implement, write those tasks as a JSONL PRD file,
@@ -213,6 +222,11 @@ Use AskUserQuestion:
 Process tasks wave by wave. Within each wave, the execution strategy depends
 on the `parallel` flag.
 
+**Dependency gate (both modes):** schedule a task only after every `depends_on`
+output is integrated into its working tree and its acceptance checks pass.
+FAILED, skipped and PARTIAL tasks block their consumers transitively. User
+permission to continue allows independent tasks only, not unmet dependencies.
+
 ### Sequential Mode (`parallel:no`)
 
 For each wave (1, 2, 3, ...):
@@ -242,9 +256,16 @@ For each wave (1, 2, 3, ...):
    c. Wait for all agents to complete
    d. For each agent result:
       - Check for SUCCESS/PARTIAL/FAILED
-      - If worktree has changes, note the branch name for integration
+       - Record the worktree path, base revision and owned changed/untracked files
 4. After parallel tasks complete, handle results:
-   - If all SUCCESS: merge worktree branches (or apply changes)
+   - Integrate accepted uncommitted changes, not branches: review each worktree's
+      tracked diff and untracked files against its recorded base. Transfer only
+      owned, approved hunks/new files into the destination without overwriting
+      unrelated edits; check applicability/conflicts first. Executors do not commit,
+      so a branch merge alone cannot transfer their work. Preserve worktrees until
+      destination verification passes. Stop on conflicts or uncertain ownership.
+   - Re-run acceptance checks in the destination, then make those accepted outputs
+      available to downstream worktrees before scheduling their tasks.
    - If any FAILED: report failures, ask user whether to continue
 5. Run sequential sub-wave tasks (file-conflict tasks)
 6. Report wave status to the user
@@ -281,7 +302,7 @@ After each wave completes successfully:
 
 3. If any task failed, ask the user whether to:
    - **Retry** the failed task
-   - **Skip** it and continue (may cause downstream failures)
+   - **Skip** it and continue independent tasks; mark all unmet consumers blocked
    - **Abort** the remaining execution
 
 ---
@@ -347,8 +368,10 @@ After all waves complete:
   user whether to retry, skip, or abort. If retrying, relaunch the same
   agent with the same task.
 
-- **Agent produces partial results**: Accept the partial result, note what's
-  missing, and create a follow-up task for the incomplete work.
+- **Agent produces partial results**: Review usable changes, record missing
+  acceptance criteria and create a follow-up task. PARTIAL is not dependency
+  acceptance: keep consumers blocked until required outputs are integrated and
+  verified. Any dependency/scope revision requires explicit review.
 
 - **File conflict in parallel mode**: Two tasks in the same wave modify the
   same file. Run them sequentially instead of in parallel. Log why.

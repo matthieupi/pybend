@@ -1,1136 +1,131 @@
-# N3TX API Reference
+# N3TX Python API Reference
 
-Complete reference for all N3TX classes, methods, and decorators.
-
-## Table of Contents
-
-- [Models](#models)
-  - [ProtoModel](#protomodel)
-  - [StorableMixin](#storablemixin)
-  - [ViewableMixin](#viewablemixin)
-- [Storage](#storage)
-  - [AbstractStorage](#abstractstorage)
-  - [SQLiteStorage](#sqlitestorage)
-  - [JSONStorage](#jsonstorage)
-- [Types](#types)
-  - [Ref](#ref)
-- [Decorators](#decorators)
-  - [@expose_route](#expose_route)
-- [Agents](#agents)
-  - [AgentMixin](#agentmixin)
-  - [AgentActor](#agentactor)
-  - [AgentDeps](#agentdeps)
-  - [ToolSpec](#toolspec)
-- [Files](#files-optional-n3tx-files)
-  - [File](#file)
-  - [LocalFileStore](#localfilestore)
-- [Backends](#backends)
-  - [FastAPIBackend](#fastapibackend)
-  - [FlaskBackend](#flaskbackend)
-- [Utilities](#utilities)
-
----
-
-## Files (optional `n3tx-files`)
-
-### File
-
-Optional actor-backed file metadata model.
-
-**Module**: `n3tx_files.file`
-
-```python
-from n3tx_core.app import create_app
-from n3tx_files import File, LocalFileStore, configure_file_store
-
-configure_file_store(LocalFileStore('./file-blobs'))
-app = create_app(models=[File], storage='sqlite:///app.db')
-```
-
-Key fields:
-
-| Field | Purpose |
-|---|---|
-| `filename` | Display/original filename |
-| `content_type` | MIME type |
-| `size` | Byte size, provider-computed |
-| `sha256` | Content checksum, provider-computed |
-| `storage_key` | Provider key for bytes |
-| `user_owner` | Owner id for authorization |
-
-Package-owned byte routes:
-
-| Method | Path | Purpose |
-|---|---|---|
-| POST | `/files/upload` | Multipart upload using form field `upload` |
-| GET | `/files/{id}/download` | Binary download |
-| GET | `/File/{id}/download` | Class-name download mirror |
-
-Methods:
-
-| Method | Purpose |
-|---|---|
-| `File.resolve(ref, user=None)` | Resolve a canonical local absolute File `$id` with read authorization |
-| `file.ensure_local(user=None)` | Return local path metadata for locally stored bytes |
-
-When `n3tx_files` is imported, parameters annotated as `File` are materialized
-from canonical File URL strings in direct and actor custom-method routing.
-
-### LocalFileStore
-
-Filesystem-backed byte provider.
-
-**Module**: `n3tx_files.store`
-
-| Method | Purpose |
-|---|---|
-| `put_stream(source, key=None, meta=None)` | Stream bytes into storage and compute size/sha256 |
-| `open_stream(key, start=None, end=None)` | Async byte iterator with optional inclusive range |
-| `stat(key)` | Recompute size/checksum for stored bytes |
-| `delete(key)` | Remove stored bytes |
-
----
+This is a symbol/navigation map, not a second copy of every package API. Use
+package-qualified imports. For HTTP behavior, see [API index](API_INDEX.md).
 
 ## Models
 
 ### ProtoModel
 
-Base class for all N3TX models. Provides schema generation, validation, and optional storage.
-
-**Module**: `models.proto_model`
-
-#### Config
-
-ProtoModel sets `extra='allow'` in its Pydantic Config. This allows extra fields like `$schema` and `$id` to be included in serialized output without being rejected by FastAPI's response model validation.
-
-#### Class Variables
-
-```python
-class MyModel(ProtoModel):
-    __storable__: ClassVar[bool] = True        # Enable CRUD operations
-    __tablename__: ClassVar[str] = 'my_models' # Database table name
-```
-
-#### Class Methods
-
-##### `schema() -> Dict[str, Any]`
-
-Returns the complete JSON schema for the model via the composable schema pipeline (`proto_schema.run_pipeline(cls)`). The pipeline consists of 8 stages: `base`, `strip_hidden`, `methods`, `agent`, `defs`, `access`, `ui`, `metadata`. Extensions can insert additional stages via `@schema_extension`.
-
-The schema output includes:
-- `$schema` at the top level, pointing to `{API_URL}/Schema`
-- `$id` at the top level, pointing to `{API_URL}/{ClassName}`
-- `$id` on each entry in `$defs`, pointing to `{API_URL}/{DefClassName}`
-
-The schema endpoint is `GET /{ClassName}`. For storable models, N3TX also
-registers class-name JSON mirrors for collection, create, read, update, delete,
-and literal custom methods. Those mirrors return the same entity payloads as
-the table-name routes and advertise entity `$id` values using
-`/{ClassName}/{id}`.
-
-**Returns**: Dictionary with OpenAPI-compatible schema
-
-**Example**:
-```python
-schema = User.schema()
-# {
-#   "$schema": "http://localhost:8000/Schema",
-#   "$id": "http://localhost:8000/User",
-#   "type": "object",
-#   "properties": {...},
-#   "methods": {...},
-#   "$defs": {
-#     "User": {
-#       "$id": "http://localhost:8000/User",
-#       ...
-#     }
-#   }
-# }
-```
-
-##### `referenced_json_schema() -> Dict[str, Any]`
-
-Returns a schema suitable for inclusion in `$defs`. Resolves Ref fields to `$ref` pointers.
-
-**Returns**: Schema dictionary without circular references
-
-##### `blueprint() -> Dict[str, Any]`
-
-Static method that returns schemas for all registered models.
-
-**Returns**: Dictionary mapping model names to their schemas
-
-**Example**:
-```python
-blueprint = ProtoModel.blueprint()
-# {
-#   "users": {...},
-#   "products": {...}
-# }
-```
-
-#### Instance Methods
-
-##### `__init__(**kwargs)`
-
-Initializes a model instance. If `__storable__` is True and only `id` is provided, fetches from storage.
-
-**Parameters**:
-- `**kwargs`: Field values
-
-**Example**:
-```python
-# Create new instance
-user = User(name="Alice", email="alice@example.com")
-
-# Load from storage (lazy loading)
-user = User(id=1)  # Fetches from database
-```
-
-##### `model_dump(**kwargs) -> Dict[str, Any]`
-
-Serializes the model to a plain dictionary (Pydantic standard). Used for storage operations. Does NOT include `$schema` or `$id` metadata.
-
-**Parameters**:
-- `**kwargs`: Keyword arguments passed to Pydantic's `model_dump()`
-
-**Returns**: Dictionary of field values.
-
-##### `model_response(**kwargs) -> Dict[str, Any]`
-
-Serializes the model through the composable dump pipeline (`proto_dump`). Used for HTTP API responses.
-
-Runs `proto_dump.run_pipeline(self)` with stages:
-1. `base` -- plain Pydantic `model_dump()`
-2. `relationships` -- enriches hydrated `T` and `list[T]` children
-3. `schema_url` -- injects `$schema`
-4. `instance_url` -- injects `$id`
-5. `populate` -- overlays explicitly populated relationship data
-
-Extensions can add stages via `@dump_extension` (e.g., federation, MCP).
-
-**Parameters**:
-- `**kwargs`: Passed to the base stage
-
-**Returns**: Dictionary with `$schema` and `$id` prepended, followed by field values.
-
-**Example**:
-```python
-product = Product.get(1)
-
-# Plain dump (for storage, no metadata)
-product.model_dump()
-# {"id": 1, "name": "Laptop", "price": 999.99, ...}
-
-# Response dump (for HTTP, with metadata)
-product.model_response()
-# {
-#   "$schema": "http://localhost:8000/Product",
-#   "$id": "http://localhost:8000/Product/1",
-#   "id": 1,
-#   "name": "Laptop",
-#   "price": 999.99,
-#   ...
-# }
-```
-
----
+`n3tx_core.models.proto_model.ProtoModel`: fields, validation, `schema()`,
+`referenced_json_schema()`, `blueprint()`, `invalidate_schema_cache()` and
+`model_response()`. [Model contract](MODELS.md#protomodel).
 
 ### StorableMixin
 
-Provides CRUD operations through dependency injection. Automatically added to models with `__storable__ = True`.
+`n3tx_core.models.storable_mixin.StorableMixin`: injected by `__storable__`.
+Create expects a model instance; update accepts a patch and validates merged
+state. [Operations and signatures](MODELS.md#storablemixin),
+[storage boundary](../packages/n3tx-core/docs/storage.md#update-boundary-contract).
 
-**Module**: `models.storable_mixin`
+### BaseUser
 
-#### Class Variables
-
-```python
-__pk__: ClassVar[str] = 'id'  # Primary key field name
-__tablename__: ClassVar[str]   # Required: table name
-storage: ClassVar[AbstractStorage] = None  # Injected storage backend
-```
-
-#### Class Methods
-
-##### `set_storage(storage: AbstractStorage)`
-
-Injects the storage backend into the model.
-
-**Parameters**:
-- `storage`: Instance of AbstractStorage implementation
-
-**Example**:
-```python
-storage = SQLiteStorage('database.db')
-User.set_storage(storage)
-```
-
-##### `create_table()`
-
-Delegates table creation to the storage backend.
-
-**Example**:
-```python
-User.create_table()
-```
-
-##### `create(data: Union[BaseModel, Dict]) -> Any`
-
-Creates a new record in storage.
-
-**Parameters**:
-- `data`: Model instance or dictionary
-
-**Returns**: Created model instance with ID assigned
-
-**Example**:
-```python
-user = User.create(User(name="Alice", email="alice@example.com"))
-# or
-user = User.create({"name": "Alice", "email": "alice@example.com"})
-```
-
-##### `list() -> List[Any]`
-
-Retrieves all records from storage.
-
-**Returns**: List of model instances
-
-**Example**:
-```python
-all_users = User.list()
-```
-
-##### `get(id: int, as_dict: bool = False) -> Any`
-
-Retrieves a single record by ID.
-
-**Parameters**:
-- `id`: Primary key value
-- `as_dict`: If True, return dictionary instead of model instance
-
-**Returns**: Model instance or dictionary, or None if not found
-
-**Example**:
-```python
-user = User.get(1)
-user_dict = User.get(1, as_dict=True)
-```
-
-##### `update(id: int, data: Union[BaseModel, Dict]) -> Any`
-
-Updates an existing record.
-
-**Parameters**:
-- `id`: Primary key value
-- `data`: Model instance or dictionary with fields to update
-
-**Returns**: Updated model instance
-
-**Example**:
-```python
-User.update(1, {"email": "newemail@example.com"})
-# or
-User.update(1, User(email="newemail@example.com"))
-```
-
-##### `delete(id: int)`
-
-Deletes a record by ID.
-
-**Parameters**:
-- `id`: Primary key value
-
-**Example**:
-```python
-User.delete(1)
-```
-
-#### Instance Methods
-
-##### `save() -> Any`
-
-Saves the current instance. Creates if no ID, updates if ID exists.
-
-**Returns**: Saved model instance
-
-**Example**:
-```python
-user = User(name="Alice", email="alice@example.com")
-user = user.save()  # Creates new record
-
-user.email = "alice.new@example.com"
-user.save()  # Updates existing record
-```
-
----
+`n3tx_core.models.base_user.BaseUser`: inherit registration/login, hashing and
+identity fields. [Configuration and security limits](MODELS.md#baseuser).
 
 ### ViewableMixin
 
-Provides UI view support for models.
-
-**Module**: `models.viewable_mixin`
-
-#### Fields
-
-```python
-name: str  # Display name
-desc: str  # Description
-src: str   # Path to resource's inbox for callbacks
-```
-
-#### Class Variables
-
-```python
-href: ClassVar[str]  # Automatically set to /{modelname}
-```
-
-#### Class Methods
-
-##### `view() -> str`
-
-Returns the HTML view component URL for this resource.
-
-**Returns**: URL string
-
-**Decorator**: Automatically exposed as `GET /{model}/view`
-
-**Example**:
-```python
-url = Product.view()  # Returns "/product/view"
-```
-
----
+`n3tx_ui.mixin.ViewableMixin`, not core: UI schema metadata and HTML shell route
+hooks. [UI reference](../packages/n3tx-ui/docs/viewable-mixin.md).
 
 ## Storage
 
 ### AbstractStorage
 
-Abstract base class for storage backends.
-
-**Module**: `storage.abstract_storage`
-
-#### Abstract Methods
-
-All methods must be implemented by subclasses.
-
-##### `create_table(model_class: Type[Any])`
-
-Creates the storage structure (table, collection, etc.) for a model.
-
-**Parameters**:
-- `model_class`: Model class to create storage for
-
-##### `create(model_class: Type[Any], data: Dict[str, Any]) -> Any`
-
-Persists a new record.
-
-**Parameters**:
-- `model_class`: Model class
-- `data`: Field values as dictionary
-
-**Returns**: Created model instance
-
-##### `list(model_class: Type[Any]) -> List[Any]`
-
-Retrieves all records.
-
-**Parameters**:
-- `model_class`: Model class
-
-**Returns**: List of model instances
-
-##### `get(model_class: Type[Any], id_: int, as_dict: bool = False, **kwargs) -> Any`
-
-Retrieves a single record.
-
-**Parameters**:
-- `model_class`: Model class
-- `id_`: Primary key value
-- `as_dict`: Return as dictionary if True
-- `**kwargs`: Additional query parameters
-
-**Returns**: Model instance, dictionary, or None
-
-##### `update(model_class: Type[Any], id_: int, data: Dict[str, Any])`
-
-Updates an existing record.
-
-**Parameters**:
-- `model_class`: Model class
-- `id_`: Primary key value
-- `data`: Fields to update
-
-##### `delete(model_class: Type[Any], id_: int)`
-
-Deletes a record.
-
-**Parameters**:
-- `model_class`: Model class
-- `id_`: Primary key value
-
----
+`n3tx_core.storage.abstract_storage.AbstractStorage`: create_table/create/list/get/
+update/delete interface. Implement the complete current signatures including
+filter, pagination and populate arguments. [Storage API](../packages/n3tx-core/docs/storage.md).
 
 ### SQLiteStorage
 
-SQLite database storage backend with auto-migration support.
-
-**Module**: `storage.sqlite_storage`
-
-#### Constructor
-
-```python
-SQLiteStorage(database: str = 'database.db')
-```
-
-**Parameters**:
-- `database`: Path to SQLite database file
-
-**Example**:
-```python
-storage = SQLiteStorage('myapp.db')
-```
-
-#### Methods
-
-##### `create_table(model_class: Type[Any])`
-
-Creates SQLite table with appropriate column types.
-
-**Type Mapping**:
-- `int` -> `INTEGER`
-- `float` -> `REAL`
-- `str` -> `TEXT`
-- `BaseModel` -> `INTEGER` (foreign key)
-- `List[...]` -> `TEXT` (JSON serialized)
-
-##### `migrate_table(model_class: Type[Any])`
-
-Automatically adds missing columns to existing tables.
-
-**Features**:
-- Adds new columns with appropriate defaults
-- Initializes List fields to `[]`
-- Handles foreign keys
-- Logs all migration operations
-
-**Note**: Column removal requires manual intervention.
-
-##### `create(model_class: Type[Any], data: Dict[str, Any]) -> Any`
-
-Inserts a new row with auto-increment ID.
-
-##### `get(model_class: Type[Any], id: int, as_dict: bool = False) -> Any`
-
-Fetches a row and hydrates foreign keys as shell objects (ID only).
-
-**Optimization**: Foreign key objects contain only ID, not full data (lazy loading).
-
-##### `update(model_class: Type[Any], id: int, data: Dict[str, Any])`
-
-Updates only the provided fields using parameterized query.
-
-##### `delete(model_class: Type[Any], id: int)`
-
-Deletes the specified row.
-
----
+`n3tx_core.storage.sqlite_storage.SQLiteStorage(database='database.db',
+pool_size=4, reference_resolver=None)`: file-backed SQLite, JSON serialization,
+local hydration, optional explicit ref population and migrations.
+[Limits and migration behavior](../packages/n3tx-core/docs/storage.md).
 
 ### JSONStorage
 
-File-based JSON storage backend.
-
-**Module**: `storage.json_storage`
-
-#### Constructor
-
-```python
-JSONStorage(directory: str = 'data')
-```
-
-**Parameters**:
-- `directory`: Directory path for JSON files
-
-**Example**:
-```python
-storage = JSONStorage('data')
-# Creates data/users.json, data/products.json, etc.
-```
-
-#### Methods
-
-##### `create_table(model_class: Type[Any])`
-
-Creates empty JSON file if it doesn't exist.
-
-##### `create(model_class: Type[Any], data: Dict[str, Any]) -> Any`
-
-Appends record to JSON array with auto-increment ID.
-
-##### `list(model_class: Type[Any]) -> List[Any]`
-
-Reads entire JSON file and deserializes to model instances.
-
-##### `get(model_class: Type[Any], id: int) -> Any`
-
-Searches JSON array for matching ID.
-
-##### `update(model_class: Type[Any], id: int, data: Dict[str, Any])`
-
-Finds record by ID and updates fields.
-
-##### `delete(model_class: Type[Any], id: int)`
-
-Removes record from JSON array.
-
----
+`n3tx_core.storage.json_storage.JSONStorage` is a legacy implementation. It
+implements `get_all`/`get_by_id`, not AbstractStorage's current `list`/`get`, and
+cannot be instantiated as a complete concrete backend in this checkout. It is
+not a supported drop-in tutorial alternative. No PostgreSQL backend is implied.
 
 ## Types
 
 ### Ref
 
-Generic type-safe wrapper for foreign key relationships.
-
-**Module**: `utils.typer`
-
-#### Constructor
-
-```python
-Ref[T](value: Optional[Any] = None)
-```
-
-**Parameters**:
-- `value`: Can be:
-  - `BaseModel` instance: Extracts ID
-  - `int`: Stores directly
-  - `dict`: Extracts 'id' key
-
-**Example**:
-```python
-from utils.typer import Ref
-
-class Comment(ProtoModel):
-    user: Ref[User]  # Type-safe foreign key
-```
-
-#### Methods
-
-##### `__int__() -> int`
-
-Returns the foreign key ID.
-
-**Example**:
-```python
-comment = Comment(...)
-user_id = int(comment.user)  # Extracts ID
-```
-
-##### `model_dump() -> int`
-
-Serializes to integer for storage.
-
-#### Schema Generation
-
-`__get_pydantic_json_schema__` outputs `$schema` and `$id` (instead of the old `__url__` and `__type__` fields) when generating the JSON schema for foreign key references:
-
-```python
-# Model definition
-class Comment(ProtoModel):
-    user: Ref[User]
-
-# Generated schema
-{
-  "type": "object",
-  "properties": {
-    "user": {
-      "type": "$ref",
-      "$ref": "#/$defs/User"
-    }
-  }
-}
-```
-
----
+`n3tx_core.models.ref.Ref`: immutable HTTP(S) identity URL with base_url/schema/id
+helpers and explicit hydrate. `n3tx_core.utils.typer` is a compatibility re-export.
+[Local versus URL contract](MODELS.md#references).
 
 ## Decorators
 
-### @expose_route
+### expose_route
 
-Decorator to expose model methods as API endpoints.
+`n3tx_core.utils.decorators.expose_route(route, methods=['POST'], access=None,
+stream=False, events=None)`. [Scope, parsing, caller and errors](API_CUSTOM_ENDPOINTS.md).
 
-**Module**: `utils.decorators`
-
-#### Signature
-
-```python
-@expose_route(route: str, methods: List[str] = ["POST"])
-```
-
-**Parameters**:
-- `route`: Relative route path (e.g., '/login')
-- `methods`: HTTP methods (e.g., ['GET', 'POST'])
-
-#### Usage
-
-##### Static Method
-
-```python
-class User(ProtoModel):
-    @staticmethod
-    @expose_route('/login', methods=['POST'])
-    def login(email: str, password: str) -> User:
-        # Creates: POST /users/login
-        pass
-```
-
-##### Class Method
-
-```python
-class User(ProtoModel):
-    @classmethod
-    @expose_route('/search', methods=['GET'])
-    def search(cls, query: str) -> List[User]:
-        # Creates: GET /users/search
-        pass
-```
-
-##### Instance Method
-
-```python
-class Product(ProtoModel):
-    @expose_route('/discount', methods=['POST'])
-    def apply_discount(self, percentage: float) -> Product:
-        # Creates: POST /products/{id}/discount
-        self.price *= (1 - percentage / 100)
-        self.save()
-        return self
-```
-
-#### Route Resolution
-
-| Method Type | Route Pattern | Example |
-|-------------|---------------|---------|
-| Static | `/{table}{route}` | `/users/login` |
-| Class | `/{table}{route}` | `/users/search` |
-| Instance | `/{table}/{id}{route}` | `/products/1/discount` |
-
----
+Schema and dump extension decorators live in `models.proto_schema` and
+`models.proto_dump`, respectively. [Extension reference](../packages/n3tx-core/docs/schema-pipeline.md).
 
 ## Agents
 
-LLM-powered reasoning via the actor system. See [`packages/n3tx-agents/README.md`](../../../packages/n3tx-agents/README.md) for full documentation.
-
 ### AgentMixin
 
-**Module**: `n3tx_agents.mixin`
-
-Injected into any model with `__agent__ = True` via `ProtoModel.__init_subclass__`. All methods use `@fullmethod` (unified class/instance dispatch).
-
-#### `agentic(target, task: str, **kwargs) -> dict`
-
-Policy layer. Resolves config via 3-tier cascade, delegates to `run()`.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `task` | `str` | The user task / query to execute |
-| `prompt` | `str` | Override system prompt (kwarg) |
-| `tools` | `list[str]` | Override actor addresses (kwarg) |
-| `user` | `dict` | JWT user dict for auth context (kwarg) |
-| `llm` | `str \| Model` | Override LLM model (kwarg) |
-| `constraints` | `dict` | Override constraints (kwarg) |
-| `message_history` | `list` | Previous messages for multi-turn (kwarg) |
-| `result_type` | `type` | Pydantic model for structured output (kwarg) |
-
-**Returns**: `{"answer": str, "usage": {"input_tokens", "output_tokens", "requests"}, "messages": list, "message_count": int}`
-
-#### `run(target, task, prompt, tools, ...) -> dict`
-
-Engine. No config resolution. Receives fully resolved params. Same return shape as `agentic()`.
-
-#### `agentic_stream(target, task, **kwargs)` -> async generator
-
-Streaming policy layer. Same config cascade as `agentic()`. Yields TX-aligned chunks.
-
-#### `run_stream(target, task, prompt, tools, ...)` -> async generator
-
-Streaming engine. Yields `{"name": "text"|"done"|"error", "data": {...}, "meta": {...}}`.
+`n3tx_agents.AgentMixin`: policy-level `agentic`/`agentic_stream` and lower-level
+runtime `run`/`run_stream`, plus context/tool discovery. Import agents before
+declaring `__agent__`. [Mixin API](../packages/n3tx-agents/docs/mixin.md).
 
 ### AgentActor
 
-**Module**: `n3tx_agents.actor`
+`n3tx_agents.AgentActor`: data-backed agent configuration. Its exposed execution
+method is `/agentic`, not historical `/run`. [AgentActor reference](../packages/n3tx-agents/docs/agent-actor.md).
 
-Concrete `ActorModel` whose instances ARE agents. Configuration lives in fields (DB-storable).
+### AgentDeps and ToolSpec
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `name` | `str` | (required) | Human-readable agent name |
-| `prompt` | `str` | `''` | System prompt for the LLM |
-| `tools` | `list[AgentTool]` | `[]` | Ordered hydrated tool records |
-| `llm` | `str` | `'ollama:llama3.1'` | Pydantic AI `provider:model` string |
-| `constraints` | `dict` | `{}` | Budget/safety limits |
+Use the [tool-discovery reference](../packages/n3tx-agents/docs/tool-discovery.md)
+for current dependency context, explicit addresses and generated tool behavior;
+do not copy the obsolete adapter-bearing AgentDeps shape from older snapshots.
 
-#### `agentic(self, task: str, **kwargs) -> str`
+## Files (optional n3tx-files)
 
-Execute the agent's reasoning loop. Exposed as `POST /agents/{id}/agentic`. Returns JSON string.
+### File
 
-### AgentDeps
+`n3tx_files.File`: metadata resource, canonical local identity resolution and
+typed argument materialization. Fields include filename, content_type, size,
+sha256, storage_key, user_owner, origin, public and meta.
 
-**Module**: `agents.deps`
+### LocalFileStore
 
-Dataclass passed to Pydantic AI tool functions via `RunContext[AgentDeps]`.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `adapter` | `NetworkAdapter` | For request/response correlation |
-| `user` | `dict \| None` | JWT user dict for auth context |
-| `agent_addr` | `str` | Agent's actor address (TX.source) |
-
-### ToolSpec
-
-**Module**: `agents.tools`
-
-Specification for a single discovered tool.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `actor_addr` | `str` | Target actor address |
-| `method_name` | `str` | Method/action name |
-| `tool_name` | `str` | LLM-facing name (e.g., `grants_create`) |
-| `description` | `str` | Human-readable description |
-| `parameters` | `dict` | JSON Schema for parameters |
-
-#### Related Functions
-
-- `discover_tools(actor_addrs, root, caller_addr=None) -> list[ToolSpec]` — Discover tools from actor addresses
-- `create_tool_function(spec) -> async function` — Create typed async function from ToolSpec
-- `make_tool(spec) -> pydantic_ai.Tool` — Create Pydantic AI Tool wrapper
-
----
+`n3tx_files.LocalFileStore`: byte provider with put_stream, open_stream, stat and
+delete. `configure_file_store` selects the provider. See the
+[File guide](../packages/n3tx-files/docs/file.md) for exact async signatures,
+range semantics, authorization and byte/metadata lifecycle. Bytes are not SQL rows.
 
 ## Backends
 
-### BaseBackend
-
-Abstract base class for web framework adapters.
-
-**Module**: `api.backend`
-
-#### Fields
-
-```python
-name: str         # Backend name
-description: str  # Backend description
-version: str      # API version
-port: int = 8000  # Server port
-app: Any = None   # Framework-specific app instance
-```
-
-#### Abstract Methods
-
-##### `register_routes(registered_models: Dict[str, Type])`
-
-Registers all routes from registered models.
-
-**Parameters**:
-- `registered_models`: Dictionary of model name -> model class
-
----
-
 ### FastAPIBackend
 
-FastAPI adapter with CORS support.
-
-**Module**: `api.backend`
-
-#### Constructor
-
-```python
-FastAPIBackend(
-    name: str,
-    version: str,
-    description: str,
-    port: int = 8000
-)
-```
-
-#### Configuration
-
-Automatically adds:
-- CORS middleware (all origins allowed)
-- OpenAPI/Swagger documentation
-- Automatic JSON serialization
-
-#### Route Handlers
-
-All CRUD route handlers in `routes_fastapi.py` call `.model_response()` instead of `.model_dump()` or returning instances directly. This runs the dump pipeline and ensures every response includes `$schema` and `$id` metadata.
-
-#### Example
-
-```python
-backend = FastAPIBackend(
-    name="My API",
-    version="1.0.0",
-    description="API built with N3TX",
-    port=8000
-)
-backend.register_routes(registered_models)
-app = backend.get_app()
-```
-
----
+`n3tx_core.api.backend.FastAPIBackend`: HTTP app, identity middleware, CORS and
+merged static serving. Prefer `n3tx_core.app.create_app` or N3TXApp for ordinary
+local apps. [Bootstrap reference](../packages/n3tx-core/docs/app-bootstrap.md)
+documents raw setup and the factory's current CORS forwarding gap.
 
 ### FlaskBackend
 
-Flask adapter with Flasgger (Swagger) support.
-
-**Module**: `api.backend`
-
-#### Constructor
-
-```python
-FlaskBackend(
-    name: str,
-    version: str,
-    description: str,
-    port: int = 8000
-)
-```
-
-#### Configuration
-
-Includes:
-- Flask app with static/template folders
-- Flasgger for Swagger UI
-- WSGI to ASGI adapter
-
-#### Example
-
-```python
-backend = FlaskBackend(
-    name="My API",
-    version="1.0.0",
-    description="API built with N3TX",
-    port=8000
-)
-backend.register_routes(registered_models)
-app = backend.get_app()  # Returns WsgiToAsgi wrapped app
-```
-
----
+Legacy adapter in `api.backend`; not selected by create_app and not verified for
+current FastAPI feature parity. Flask dependencies are optional. Do not switch
+backends expecting unchanged auth, streaming and model view behavior.
 
 ## Utilities
 
-### register_model
-
-Registers a model with N3TX's system.
-
-**Module**: `utils.registrar`
-
-**Signature**:
-```python
-register_model(
-    model_class: Type[Any],
-    storage: AbstractStorage = None
-)
-```
-
-**Parameters**:
-- `model_class`: Model to register
-- `storage`: Storage backend (required if `__storable__` is True)
-
-**Actions**:
-1. Sets storage backend
-2. Creates table
-3. Runs auto-migration
-4. Adds to global registry
-
-**Example**:
-```python
-from utils.registrar import register_model
-from storage.sqlite_storage import SQLiteStorage
-
-storage = SQLiteStorage('database.db')
-register_model(User, storage=storage)
-register_model(Product, storage=storage)
-```
-
-### Local model collections
-
-Owned child collections are declared directly on the parent model:
-
-```python
-class Product(ProtoModel):
-    __tablename__ = 'products'
-    __storable__ = True
-
-    comments: list[Comment] = Field(default=[])
-```
-
-`list[T]` stores an ordered JSON list of local child ids and hydrates those ids
-into self-describing child objects in responses. Updates replace the ordered
-list; child records keep their own flat class-name CRUD routes.
-
-For shared relationship data, prefer an explicit link model. `ManyToMany[T]` is
-a legacy helper for existing shared-link cases rather than the default
-relationship primitive.
-
-### get_traceback_info
-
-Extracts structured error information from exceptions.
-
-**Module**: `utils.erroring`
-
-**Signature**:
-```python
-get_traceback_info(e: Exception) -> List[Dict]
-```
-
-**Parameters**:
-- `e`: Exception to analyze
-
-**Returns**: List of dictionaries with:
-- `file`: Source file path
-- `line`: Line number
-- `function`: Function name
-- `code`: Source code line
-- `error`: Error message (last frame only)
-
-**Example**:
-```python
-try:
-    user = User.get(999)
-except Exception as e:
-    trace = get_traceback_info(e)
-    # [
-    #   {"file": "models.py", "line": 42, "function": "get", "code": "..."},
-    #   {"file": "storage.py", "line": 100, "function": "query", "code": "..."},
-    #   {"file": "main.py", "line": 10, "function": "main", "code": "...", "error": "Not found"}
-    # ]
-```
-
----
-
-## Type Hints
-
-N3TX provides type hints for all public APIs. Use with mypy or pyright for static type checking:
-
-```python
-from typing import ClassVar, Optional, List
-from models.proto_model import ProtoModel
-from storage.abstract_storage import AbstractStorage
-from utils.typer import Ref
-
-# All types are properly annotated
-storage: AbstractStorage = SQLiteStorage('db.db')
-user: User = User.get(1)
-users: List[User] = User.list()
-```
-
----
+`n3tx_core.utils.registrar.register_model` prepares/applies storage registration;
+`registered_models` maps table names to classes. Registration may migrate tables.
+`n3tx_core.utils.erroring.MethodError(message, status_code=400)` expresses a
+domain HTTP error through native routing. `get_traceback_info` extracts structured
+trace frames for debugging; those details are not safe public error content.
 
 ## Configuration
 
-All configuration is in `config.py`:
-
-```python
-BACKEND = "fastapi"  # or "flask"
-VERSION = "0.5.0"
-HOST = "0.0.0.0"
-PORT = 8000
-SQLITE_DB_FILE = "n3tx.db"
-```
-
----
-
-## Error Handling
-
-All route handlers automatically catch exceptions and return structured errors:
-
-```python
-# On error, returns:
-{
-  "status": 400,
-  "detail": [
-    {
-      "file": "...",
-      "line": ...,
-      "function": "...",
-      "code": "...",
-      "error": "Error message"
-    }
-  ]
-}
-```
-
----
-
-## Examples
-
-### Complete API Example
-
-```python
-from models.proto_model import ProtoModel
-from utils.decorators import expose_route
-from utils.typer import Ref
-from typing import ClassVar, Optional, List
-
-class Author(ProtoModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'authors'
-    
-    id: Optional[int] = None
-    name: str
-    email: str
-
-class Book(ProtoModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'books'
-    
-    id: Optional[int] = None
-    title: str
-    isbn: str
-    author: Ref[Author]
-    
-    @expose_route('/publish', methods=['POST'])
-    def publish(self) -> Book:
-        self.published = True
-        self.save()
-        return self
-    
-    @classmethod
-    @expose_route('/search', methods=['GET'])
-    def search(cls, query: str) -> List[Book]:
-        # Custom search logic
-        return [b for b in cls.list() if query in b.title]
-```
-
-### Register and Run
-
-```python
-from storage.sqlite_storage import SQLiteStorage
-from utils.registrar import register_model
-from api.backend import FastAPIBackend
-
-storage = SQLiteStorage('library.db')
-register_model(Author, storage=storage)
-register_model(Book, storage=storage)
-
-backend = FastAPIBackend(name="Library API", version="1.0.0")
-backend.register_routes(registered_models)
-app = backend.get_app()
-
-# Now available:
-# GET/POST /authors
-# GET/POST /books
-# POST /books/{id}/publish
-# GET /books/search?query=Python
-# All GET responses include $schema and $id metadata
-```
-
----
-
-## See Also
-
-- [README.md](./README.md) - Getting started guide
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Architecture overview
-- [EXAMPLES.md](./EXAMPLES.md) - More examples
+Set environment before import; use [Operations](OPERATIONS.md) for actual
+defaults and limitations rather than editing installed framework config files.

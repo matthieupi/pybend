@@ -1,5 +1,10 @@
 # Universal Context Protocol (UCP) Specification — Draft v0.1
 
+> Historical design draft, not a shipped N3TX protocol specification. Proposed
+> `/ucp/*` endpoints and roadmap entries below do not establish current support.
+> Use [architecture](docs/ARCHITECTURE.md) and [API overview](docs/API_OVERVIEW.md)
+> for the implemented schema and transport contracts. Original draft preserved.
+
 ## Introduction
 The **Universal Context Protocol (UCP)** is a specification designed to enable seamless and standardized communication between heterogeneous backend systems and user interfaces. UCP aims to provide a machine-inspectable and semantically rich context model for interoperable data exchange, introspection, and presentation.
 
@@ -129,4 +134,3 @@ UCP is released under the MIT License.
 
 ## Contributions
 This is a working draft. Feedback, proposals, and reference implementations are welcome via GitHub Issues or Pull Requests.
-

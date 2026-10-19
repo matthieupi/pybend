@@ -1,5 +1,8 @@
 # `products` Model
 
+> Stale generated snapshot. The collection URL below is not the current schema
+> endpoint. See [snapshot status and generator](index.md); use live class schema.
+
 **Endpoint**: `GET /products` (returns schema)
 
 ## Fields

@@ -1,176 +1,96 @@
-# ActorModel and Two-Tier Auth
+# ActorModel: dispatch and enforcement
 
-> Part of [n3tx-actors](../README.md)
+[Package](../README.md) · [Adapters](network-adapters.md)
 
-## What This Covers
+ActorModel combines Actor and ProtoModel. Storage still comes from
+`__storable__` and model registration; actor auto-registration is not storage
+setup. The same model/schema remains the source for HTTP routes and tool specs.
 
-The `ActorModel` bridge class that makes models into actors: CRUD message handling via `handler_crud()`, custom method dispatch with `@expose_route`, streaming async generators, lifecycle event publishing, and the two-tier authorization flow. Does not cover the base Actor messaging system (see [actor-messaging.md](actor-messaging.md)).
+## Dispatch contract
 
-## Architecture
-
-```
-TX arrives at ActorModel.handler(target, tx)
-    |
-    v
-handler_crud(tx)  -- checks if tx.name in {schema, create, get, list, update, delete}
-    |
-    +-- CRUD match: adapt TX to StorableMixin calls
-    |     schema  -> cls.schema()
-    |     create  -> Tier 2 auth -> cls(**data) -> cls.create(instance)
-    |     get     -> cls.get(id) -> Tier 2 auth (with resource) -> model_response()
-    |     list    -> cls.list(sql_filter=meta['sql_filter']) -> serialize
-    |     update  -> cls.get(id) -> Tier 2 auth -> cls.update(id, data)
-    |     delete  -> cls.get(id) -> Tier 2 auth -> cls.delete(id)
-    |     lifecycle events published after create/delete; update lifecycle is
-    |     centralized in the storage update primitive so direct actor updates
-    |     and TX-routed updates behave consistently
-    |
-    +-- NOT_HANDLED: fall through to generic dispatch
-          getattr(target, tx.name) -> method
-          |
-          +-- has __endpoint__ (@expose_route):
-          |     resolve 'self' from data['id'] if instance method
-          |     Tier 2 auth check on method-level access
-          |       - instance methods: AccessContext(resource=instance)
-          |       - class/static methods: AccessContext(resource=None)
-          |     inject 'user' from tx.meta if declared
-          |     call method(**kwargs)
-          |     if async generator -> stream chunks via tx.chunk()/tx.end()
-          |
-          +-- no __endpoint__: original (data, tx) signature
+```text
+TX -> handler_crud
+        | schema/create/get/list/update/delete -> model storage/schema
+        | otherwise
+        v
+exposed method? -> resolve instance from data.id -> access/materialize -> kwargs
+        | no
+        v
+ordinary named handler(data, tx)
 ```
 
-### Two-Tier Authorization
+CRUD names are case-normalized. CRUD dispatch is class-level even when invoked
+on an instance. `_NOT_HANDLED` distinguishes an unknown operation from a CRUD
+operation returning None.
 
-```
-Tier 1: auth_interceptor on NetworkAdapter.request()
-    - Runs BEFORE TX enters actor system
-    - schema: always pass
-    - list: compute sql_filter (WHERE clause for OWNER rules)
-    - create: full rule check (no resource needed)
-    - read/update/delete: identity gate (has user_id?)
-    - custom methods: boundary precheck for @expose_route access= param
-      (instance methods defer final resource-aware decisions to Tier 2)
+| TX | Data / result |
+|---|---|
+| `schema` | No storage lookup; schema dictionary |
+| `create` | Model fields; validated instance then `create`; entity response or 409 |
+| `get` | Required truthy `id`, optional `populate/depth`; entity or 404 |
+| `list` | Optional `limit/offset/populate/depth`; storage list result serialized |
+| `update` | Required `id` plus patch; merge/validate through storage update; entity or error |
+| `delete` | Required `id`; fetch, authorize, delete; `{deleted: id}` |
 
-Tier 2: ActorModel._authorize() inside handler_crud()
-    - Runs AFTER resource instance is fetched from storage
-    - Evaluates __access__ rules WITH resource context
-    - Enables OWNER checks (user_owner == current user)
-    - Internal messages (no meta.user) pass unchecked
+Updates preserve omitted fields and replace supplied collections; they are
+last-write-wins, not concurrency control. See the
+[CRUD contract](../../../docs/API_CRUD_ENDPOINTS.md#update-resource).
+Class `Model.update(id, patch)` and actor instance `instance.update(patch)` share
+the update primitive; neither direct Python call is an HTTP authorization gate.
 
-Tier 2: ActorModel.handler() for @expose_route custom methods
-    - Instance methods load data['id'] before final method access evaluation
-    - Evaluates method access with AccessContext(resource=instance)
-    - Prevents OWNER / Where rules from passing with resource=None
-    - Internal messages (no meta.user) preserve the actor-to-actor bypass
-```
+Exposed methods use descriptor-aware scope. Instance methods load `data.id`;
+class/static/actor methods do not. Arguments other than `id` are passed as
+kwargs after registered materializers run. Plain named handlers retain
+`(data, tx)`. Async generators emit `tx.chunk(...)` followed by `tx.end()`;
+mid-stream exceptions emit an error instead.
 
-Both tiers are required for correct authorization. Tier 1 is fast rejection at the boundary. Tier 2 handles resource-dependent rules that Tier 1 cannot evaluate.
+ActorModel replies differ from plain Actor: lists/dicts are returned directly,
+BaseModels use `model_dump()`, and strings are JSON-decoded if possible. This
+explains why AgentActor JSON text becomes an object through actor HTTP.
 
-## Interface
+## Authorization: two tiers, not universal enforcement
 
-### ActorModel
+| Entry/boundary | Behavior |
+|---|---|
+| Generated actor HTTP | Supplies `meta.user` (anonymous `{}`) and `meta.model_cls`; NetworkAPI request interceptor gates calls |
+| Tier 1 `auth_interceptor` | Public schema; create check; list SQL filter; identity/resource-independent prechecks; custom default authenticated gate |
+| Tier 2 CRUD | `_authorize` on create/get/update/delete, using fetched resource where applicable |
+| Tier 2 list | Uses supplied `sql_filter`; does not independently authorize or derive a filter |
+| Tier 2 exposed method | Evaluates explicit decorator `access=` with resolved instance, only when caller is not None |
+| Internal TX | Missing/None user bypasses Tier 2; absent model `__access__` also passes CRUD guard |
 
-```python
-class ActorModel(Actor, ProtoModel):
-    # MRO: YourModel -> ActorModel -> Actor -> ProtoModel -> PydanticBaseModel
+Both HTTP tiers matter. Calling Matrix directly does not run NetworkAPI's
+request interceptor. A caller dictionary alone does not make list operations
+row-filtered. Schema or UI visibility is not server enforcement.
 
-    @fullmethod
-    async def handler(target, tx: TX) -> None: ...  # CRUD adapter + generic fallback
+### Caller arguments and protected fields
 
-    @classmethod
-    def handler_crud(cls, tx: TX): ...  # returns result or _NOT_HANDLED sentinel
+Generated NetworkAPI HTTP parsing ignores body `user` and injects the verified
+caller only when the method explicitly declares `user`. ActorModel itself
+does **not** copy `meta.user` into method kwargs; it forwards the data dictionary.
+Agent-generated tools remove `user` from their parameter schema, so method-level
+caller injection is not equivalent on that path.
 
-    @classmethod
-    def _authorize(cls, action, tx, resource=None): ...  # Tier 2 auth guard
+HTTP create/update also performs owner injection/protected-field handling that
+raw CRUD TXs do not reproduce. Treat raw TX/data/meta as trusted process inputs;
+do not expose arbitrary actor dispatch to clients. Non-exposed named handlers
+remain callable by TX and need their own trust boundary.
 
-    @classmethod
-    def _publish_lifecycle(cls, event, data): ...  # fire-and-forget to subscribers
-```
+## Lifecycle events
 
-### handler_crud TX-to-StorableMixin mapping
+| Mutation path | Publication |
+|---|---|
+| TX create | `after_create` with serialized entity |
+| TX delete | `after_delete` with `{id}` |
+| Shared StorableMixin update on ActorModel | `after_update`, including direct class/instance updates |
 
-| TX name | StorableMixin call | Auth |
-|---------|--------------------|------|
-| `schema` | `cls.schema()` | None |
-| `create` | `cls.create(cls(**data))` | Tier 2 create |
-| `get` | `cls.get(id)` | Tier 2 read (with resource) |
-| `list` | `cls.list(sql_filter=...)` | Tier 1 sql_filter |
-| `update` | `cls.update(id, data)` | Tier 2 update (with resource) |
-| `delete` | `cls.delete(id)` | Tier 2 delete (with resource) |
+Subscribers receive `LIFECYCLE` with `{event, entity}`. `_publish_lifecycle`
+uses `asyncio.create_task`; delivery is not durable, transactional, acknowledged,
+or guaranteed before the CRUD response. Direct create/delete should not be
+assumed to publish the TX adapter's events. Use an explicit per-model subscriber
+list when configuring consumers rather than accidentally sharing inherited
+mutable state. Do not use these notifications as a reliable audit log or job queue.
 
-`update` lifecycle publication is centralized in `StorableMixin.update()` for
-actor models. This means all mutation paths publish the same `after_update`
-event exactly once:
-
-```python
-Product.update(1, {'name': 'new'})   # class-level storage API
-product.update({'name': 'new'})      # instance actor-friendly API
-product.update(1, {'name': 'new'})   # explicit-id compatibility
-```
-
-### Lifecycle Events
-
-After successful create/update/delete, `_publish_lifecycle(event, data)` fires TX to subscriber addresses:
-
-```python
-TX(name='LIFECYCLE', source=cls.__addr__, target=subscriber_addr,
-   data={'event': 'after_create', 'entity': result.model_response()})
-```
-
-Subscribers are future consumers (federation, agents, audit, WebSocket broadcast). Registered via `cls._subscribers.append('ws')`.
-
-`after_update` is emitted by the shared update primitive rather than only by the
-TX CRUD adapter, so internal actor methods can call `self.update(patch)` and get
-the same lifecycle behavior as external `update` messages.
-
-## Usage Patterns
-
-### Basic ActorModel
-
-```python
-from n3tx_actors.models.actor_model import ActorModel
-from pydantic import Field
-
-class Product(ActorModel):
-    __tablename__ = 'products'
-    __storable__ = True
-    __access__ = {'read': ANYONE, 'create': AUTHENTICATED, 'update': OWNER, 'delete': ROLE('admin')}
-    name: str = Field(min_length=1)
-    price: float = Field(gt=0)
-```
-
-One import change from `ProtoModel`. CRUD messages handled automatically. Auto-registered with Matrix at `addr='products'`.
-
-### Streaming custom method
-
-```python
-@expose_route('/generate', methods=['POST'], stream=True, access=AUTHENTICATED)
-async def generate(self):
-    for i in range(5):
-        await asyncio.sleep(0.1)
-        yield {'chunk': f'Part {i}'}
-```
-
-The handler detects async generators, sends `tx.chunk()` for each yielded value, then `tx.end()` when the generator completes.
-
-### Lifecycle subscriber wiring
-
-```python
-ws = NetworkWebSocket()
-matrix.register(ws)
-Product._subscribers.append('ws')  # lifecycle events broadcast to WS clients
-```
-
-## Gotchas
-
-- **`handler_crud` is a `@classmethod`, not a `@fullmethod`.** It always operates on the class, even when the handler is invoked on an instance. CRUD operations are always class-level (create, get, list, etc.).
-- **`update` lifecycle is centralized.** `ActorModel` subclasses publish
-  `after_update` from `StorableMixin.update()`, not from `handler_crud()`.
-  Direct `Product.update(id, patch)`, `product.update(patch)`, and TX-routed
-  updates therefore emit one lifecycle event consistently.
-- **`_NOT_HANDLED` sentinel distinguishes "not CRUD" from "CRUD returned None".** The handler checks `result is not _NOT_HANDLED`, not truthiness. Do not return `None` from custom code paths that should indicate "not handled".
-- **Custom `@expose_route` methods on ActorModel use kwargs dispatch**, not `(data, tx)`. The handler unpacks `tx.data` as keyword arguments, resolves `self` from `data['id']`, evaluates method-level access with `resource=self` for instance methods, and injects `user` from `tx.meta`. This differs from plain Actor handler methods which receive `(data, tx)`.
-- **Streaming error handling**: if an async generator raises mid-stream, the handler catches the exception and sends `tx.exception(e)`. The client receives the error as a stream event, not a clean stream-end.
-- **`_authorize` returns `None` for internal messages** (no `tx.meta['user']`). This means actor-to-actor messages bypass auth. If you route external input without setting `meta.user`, it will pass Tier 2 unchecked.
-- **Lifecycle `_publish_lifecycle` uses `asyncio.create_task`** -- fire-and-forget. Failures in subscriber delivery are not propagated back to the CRUD operation.
+Evidence: [actor_model.py](../src/n3tx_actors/models/actor_model.py),
+[auth tests](../src/n3tx_actors/tests/test_actormodel_auth.py),
+[lifecycle tests](../src/n3tx_actors/tests/unit/test_actor_model_lifecycle.py).

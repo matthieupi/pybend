@@ -1,97 +1,43 @@
 # n3tx-files
 
-Optional N3TX file capability package.
+Optional File metadata, local byte storage, multipart upload/download, and typed
+method-argument materialization. Install `n3tx-files` in a Python 3.10+
+environment; declared dependencies are core and actors. Upload route registration
+also requires `python-multipart`, which this package does not declare. Install it
+explicitly in the application's environment. See [package metadata](pyproject.toml).
 
-`n3tx-files` provides an actor-backed `File` model for file metadata and a
-provider interface for blob bytes. The base package is intentionally local and
-lightweight: metadata lives in normal N3TX storage, while bytes live in a
-`FileStore` such as `LocalFileStore`.
-
-## Quick start
-
-```python
-from n3tx_core.app import create_app
-from n3tx_files import File, LocalFileStore, configure_file_store
-
-configure_file_store(LocalFileStore('./file-blobs'))
-
-app = create_app(
-    models=[File],
-    storage='sqlite:///app.db',
-)
+```text
+File(ActorModel) -> N3TX storage: metadata
+       |
+       +--------> FileStore: bytes
 ```
 
-Upload bytes:
+## Start here
 
-```bash
-curl -X POST http://localhost:5000/files/upload \
-  -H "x-access-token: $TOKEN" \
-  -F "upload=@./sample.pdf;type=application/pdf"
-```
+The [File guide](docs/file.md#provider-free-local-example) contains a complete
+temporary-storage upload/range-download/materialization example. It needs no
+server or external storage service. Importing `n3tx_files` registers the typed
+materializer; register File with application storage to mount its byte routes.
 
-Download bytes:
-
-```bash
-curl http://localhost:5000/files/1/download -o sample.pdf
-curl http://localhost:5000/File/1/download -H "Range: bytes=0-1023"
-```
-
-Use a file in a method:
-
-```python
-from n3tx_actors.models.actor_model import ActorModel
-from n3tx_core.utils.decorators import expose_route
-from n3tx_files import File
-
-class Transcriber(ActorModel):
-    __tablename__ = 'transcribers'
-    __storable__ = False
-
-    @expose_route('/transcribe', methods=['POST'])
-    async def transcribe(audio: File) -> dict:
-        local = await audio.ensure_local()
-        return {'path': local['path']}
-```
-
-Request body:
-
-```json
-{"audio": "http://localhost:5000/File/1"}
-```
-
-## Routes
-
-| Route | Purpose |
+| Export | Role |
 |---|---|
-| `POST /files/upload` | Multipart upload, form field `upload`; creates `File` metadata |
-| `GET /files/{id}/download` | Binary download |
-| `GET /File/{id}/download` | Class-name download mirror |
+| `File` | Actor-backed metadata record |
+| `FileStore` | Byte provider protocol |
+| `FileStat` | Key, size, SHA-256, content type |
+| `LocalFileStore` | Filesystem-backed implementation |
+| `configure_file_store` / `get_file_store` | Process-wide provider selection |
 
-Downloads support inclusive byte ranges via `Range: bytes=start-end`.
+## Important defaults
 
-## References
+- `File.__access__['read']` is `ANYONE`: metadata and downloads are public even
+  when `public=False`. That field is descriptive, not a privacy gate.
+- Upload requires an authenticated caller; update/delete require owner or admin.
+- Canonical URL resolution is local to the configured API; no automatic external
+  HTTP import or remote-file projection is shipped.
+- Metadata deletion is not blob deletion. Back up and reconcile both stores.
+- Typed dictionary inputs are validated as File data, not reloaded/authorized
+  records. Do not treat materialization or a local path as a security sandbox.
 
-`File.resolve(ref)` accepts the canonical absolute `$id` URL for a File on the
-current API, for example `http://localhost:5000/File/1`.
-
-External HTTP imports are intentionally not enabled by default; add providers
-explicitly when your deployment needs them.
-
-## Distributed nodes
-
-An app node can delegate byte operations to a storage node while still treating
-the resource as a `File` capability. The storage node owns `File` metadata and
-bytes; the app node forwards upload/download requests or resolves File refs
-through a provider/client seam. Tests cover this two-node behavior with isolated
-ASGI apps.
-
-## Extension boundaries
-
-- Metadata is normal N3TX storage (`File(ActorModel)`).
-- Bytes live in `FileStore` providers (`LocalFileStore` in the base package).
-- Dynamic file bytes are served by explicit API routes, not static mounts.
-- Importing `n3tx_files` registers type-driven `File` materialization. Core does
-  not import this package directly.
-
-CDN, object-store, and remote-node providers are additive strategies layered
-behind the same public `File` primitive.
+Read [security and operations](docs/file.md#security-and-operations) before using
+private documents or accepting untrusted file inputs. Dynamic bytes belong on
+the package's API routes, never in the frontend static mount.

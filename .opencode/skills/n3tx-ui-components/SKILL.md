@@ -63,6 +63,12 @@ Router sets attributes such as:
 
 ## Guardrails
 
+Snippets are excerpts; import/register elements and optional Python mixins before
+use. Lifecycle methods differ by base class: follow the
+[component guide](../../../packages/n3tx-ui/docs/components.md), including update
+hooks and cleanup. Use escaped text or DOM APIs for untrusted values. Schema/UI
+permission adaptation is not backend enforcement.
+
 - Do not duplicate backend model fields in component constants.
 - Do not bypass N3TX transport for entity/method calls.
 - Do not wipe structural DOM created by `prerender()` in `render()`.
@@ -77,4 +83,6 @@ Router sets attributes such as:
 
 ## Source-reading policy
 
-Inspect framework source only when docs/skills are insufficient, do not cover the intended implementation, or observed behavior contradicts docs. Update/propose docs when gaps are found.
+Read relevant docs/skills first, then current implementation/tests before meaningful
+changes. Also inspect source when docs are incomplete or contradicted. Docs first
+is not docs only; update or propose documentation corrections when gaps are found.

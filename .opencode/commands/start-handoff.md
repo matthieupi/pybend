@@ -17,7 +17,7 @@ the referenced docs/code, and report readiness before making any changes.
 Handoffs live under:
 
 ```text
-/workspace/.project/handoffs/
+.project/handoffs/
 ```
 
 Supported arguments:
@@ -31,14 +31,15 @@ Supported arguments:
 /start-handoff <text> # latest handoff, with <text> as continuation focus
 ```
 
-Use this Python selector rather than shell truncation commands:
+Resolve this directory from the active repository root, or use the artifact
+root explicitly provided by the user. Run this selector from that root:
 
 ```bash
 python - <<'PY'
 from pathlib import Path
 
 handoffs = sorted(
-    Path('/workspace/.project/handoffs').glob('handoff-*.md'),
+    Path('.project/handoffs').glob('handoff-*.md'),
     key=lambda p: (p.stat().st_mtime, p.name),
     reverse=True,
 )
@@ -74,16 +75,11 @@ Then choose the handoff as follows:
    - `Suggested Skills / Context to Load`
    - `Recommended Next Steps`
    - `Risks, Blockers, and Assumptions`
-5. **Read canonical docs before code**, following `AGENTS.md`:
-   - `/workspace/lib/n3tx/docs/ARCHITECTURE.md`
-   - `/workspace/lib/n3tx/docs/CORE.md`
-   - `/workspace/lib/n3tx/docs/ACTORS.md`
-   - `/workspace/lib/n3tx/docs/AGENTS.md`
-   - `/workspace/lib/n3tx/docs/MODELS.md`
-   - `/workspace/lib/n3tx/docs/AUTHORIZATION.md`
-   - `/workspace/lib/n3tx/docs/API_REFERENCE.md`
-   - `/workspace/lib/n3tx/BACKEND.md` and/or `/workspace/lib/n3tx/FRONTEND.md`
-     when the handoff indicates backend/frontend scope.
+5. **Read canonical docs before code**, following the active `AGENTS.md`.
+   Locate the N3TX checkout rather than assuming `/workspace/lib/n3tx`.
+   Within that checkout, start at `docs/README.md`, then load the relevant
+   architecture, models, authorization, actors or agents guide and `BACKEND.md`
+   and/or `FRONTEND.md` for the handoff's subsystem scope.
 6. **Read referenced artifacts** from the handoff, including plans, PRDs,
    prior handoffs, issues, logs, or implementation notes when they are relevant
    to the continuation focus.

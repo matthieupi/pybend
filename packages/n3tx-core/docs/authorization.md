@@ -24,7 +24,10 @@ AccessRule.sql_filter(ctx)     -- SQL WHERE clause for list pushdown
 AccessRule.to_dict()           -- JSON serialization for schema
 ```
 
-The route layer constructs an `AccessContext` from the HTTP request, then calls the resolver. For list endpoints, `sql_filter_for()` returns a WHERE clause that the storage layer appends to the SELECT query -- authorization is pushed down to the database.
+The route layer constructs an `AccessContext` from the HTTP request. Direct
+member routes call authorization, but direct list routes call only
+`sql_filter_for()`. Evaluation and SQL filtering are separate contracts, not
+interchangeable enforcement. See the [entrypoint matrix](../../../docs/AUTHORIZATION.md).
 
 ## Interface
 
@@ -34,7 +37,7 @@ The route layer constructs an `AccessContext` from the HTTP request, then calls 
 |------|-------------|----------|
 | `ANYONE` | singleton | Always grants. SQL: `1=1` |
 | `NEVER` | singleton | Always denies. SQL: `1=0` |
-| `AUTHENTICATED` | singleton | Grants if `user_id` present in JWT |
+| `AUTHENTICATED` | singleton | Evaluation requires user_id; SQL is `1=1`, even anonymously |
 | `OWNER` | singleton | Grants if `user_id == resource.__owner_field__` |
 | `ROLE('admin')` | factory | Grants if `user.role` in allowed set |
 | `Where(status='published')` | factory | Grants if `resource.status == 'published'` |
@@ -120,6 +123,7 @@ class Product(ProtoModel):
         'update': OWNER | ROLE('admin'),
         'delete': ROLE('admin'),
     }
+    __protected_fields__ = {'user_owner'}
     user_owner: int = Field(default=0)
 ```
 
@@ -128,7 +132,7 @@ class Product(ProtoModel):
 ```python
 @expose_route('/publish', methods=['POST'], access=OWNER & Where(status='draft'))
 def publish(self) -> str:
-    self.status = 'published'
+    self.update({'status': 'published'})
     return 'Published'
 ```
 
@@ -149,9 +153,15 @@ class TenantResolver:
 
 ## Gotchas
 
-- **No `__access__` defaults to `AUTHENTICATED` for all actions.** This is backward compatible -- unauthenticated users cannot access models without explicit `ANYONE` rules.
+- **Missing policy defaults to AUTHENTICATED, but direct lists remain unrestricted by that rule's SQL.** Do not infer privacy from the default. Test anonymous collection requests explicitly.
 - **OWNER rule returns True for create actions** when no resource exists yet (ownership is established at creation time). The `user_owner` field is auto-injected from the JWT by the route layer.
 - **OWNER checks href-hydrated values.** If `user_owner` is stored as `3` but hydrated to `http://localhost:5000/users/3`, the OWNER rule extracts the trailing ID from the href string.
-- **`sql_filter` returns None for non-filterable rules.** When a rule cannot produce a SQL clause (e.g., requires resource-level data), it returns `None`. OrRule/AndRule return `None` if any child returns `None`.
+- **None SQL filters are not fail-closed.** Non-filterable rules can return None;
+  OrRule/AndRule propagate None if a child does. Direct lists then have no policy
+  restriction and do not fall back to per-row evaluation. Private collection
+  policies must provide a correct SQL predicate, including anonymous denial.
+- **Python CRUD is trusted.** Calling Model.get/list/update directly does not run
+  route authorization. Schema rule metadata and frontend hiding are not security
+  gates. Verify caller propagation separately for actors and tools.
 - **Insecure JWT secrets trigger warnings.** The auth module checks against a known list of default secrets and emits a `UserWarning` at startup. Always set `N3TX_JWT_SECRET` in production.
 - **The authorize package is imported as `n3tx_core.authorize`** in the split-package layout. The old import `from authorize import ...` no longer works.

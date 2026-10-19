@@ -1,1052 +1,140 @@
 # N3TX Architecture Overview
 
-This document provides a detailed explanation of N3TX's internal architecture, design patterns, and component interactions.
-
-## Table of Contents
-
-- [High-Level Architecture](#high-level-architecture)
-- [Core Components](#core-components)
-- [Data Flow](#data-flow)
-- [Design Patterns](#design-patterns)
-- [Extension Points](#extension-points)
+N3TX uses Python models as the source of fields, validation, relationships, access
+policy and exposed domain behavior. Schema and response pipelines make that
+contract available to HTTP clients and the native JavaScript runtime.
 
 ## High-Level Architecture
 
-N3TX follows a layered architecture with dependency injection for maximum flexibility:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Client Layer                             │
-│       HTTP    │    MCP (AI)    │  ActivityPub  │  WebSocket     │
-└───────┬───────┴───────┬────────┴──────┬────────┴───────┬────────┘
-        │               │               │                │
-┌───────▼───────────────▼───────────────▼────────────────▼────────┐
-│                   Network Adapter Layer                          │
-│          (Protocol → TX → Matrix → TX → Protocol)               │
-│  • NetworkAPI (HTTP)    • NetworkMCP (JSON-RPC 2.0)             │
-│  • NetworkAP (ActivityPub)  • NetworkWebSocket (WS)             │
-└────────────────────────────┬────────────────────────────────────┘
-                             │  TX messages
-┌────────────────────────────▼────────────────────────────────────┐
-│                     Actor System (Matrix)                        │
-│              Message routing, Actor dispatch                     │
-│  • Actor / ActorModel     • Handler dispatch                    │
-│  • Class + Instance actors  • Lifecycle events                  │
-└────────┬───────────────────────────────────────┬────────────────┘
-         │                                       │
-┌────────▼────────────────────────┐  ┌───────────▼───────────────┐
-│      Business Logic Layer       │  │       Agent Layer          │
-│      (Model Definitions)        │  │    (LLM-powered reasoning) │
-│  • ProtoModel (Base)            │  │  • AgentMixin (agent_run)  │
-│  • Schema Generation            │  │  • AgentActor (data agents)│
-│  • Custom Methods               │  │  • Tool Discovery          │
-│  • Validation / Foreign Keys    │  │  • Pydantic AI binding     │
-└────────────────┬────────────────┘  └───────────┬───────────────┘
-                 │                                │
-                 └──────────────┬─────────────────┘
-                                │
-┌───────────────────────────────▼─────────────────────────────────┐
-│                      Persistence Layer                          │
-│              (StorableMixin + Storage Backends)                 │
-│  • CRUD Operations          • Transaction Management            │
-│  • Auto-Migration           • Query Execution                   │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│                         Data Layer                              │
-│                  (SQLite / JSON / Custom)                       │
-│  • Physical Storage         • Data Persistence                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Optional File Capability (`n3tx-files`)
-
-N3TX file handling is packaged as an optional capability, not as core blob
-storage. Apps opt in by importing/registering `File` from `n3tx_files`:
-
-```python
-from n3tx_files import File, LocalFileStore, configure_file_store
-
-configure_file_store(LocalFileStore('./file-blobs'))
-app = create_app(models=[File, Job], storage='sqlite:///app.db')
-```
-
-`File(ActorModel)` is the single public primitive:
-
 ```text
-File metadata row       -> normal N3TX storage, schema, auth, actor tools
-File bytes              -> FileStore provider (LocalFileStore by default)
-Upload/download bytes   -> package-owned explicit routes, not static assets
-File-typed method args  -> type-driven materialization via File.resolve()
+                         Model declarations
+                         /                \
+                  schema pipeline       storage registration
+                        |                    |
+ Browser runtime <- GET /ClassName        StorableMixin
+     |                                       ^
+ forms/entities -> HTTP -> direct routes -----|
+                       \-> NetworkAPI -> TX -> Matrix -> ActorModel
+                                                        |
+                                                        +-> StorableMixin
 ```
 
-This preserves the framework boundary: core does not import `n3tx_files`, blob
-bytes are not stored in SQLite, and dynamic user files are not served through the
-static asset catch-all.
+Direct HTTP does not pass through Matrix. Actor routing is an optional execution
+path, not a different way to construct the app. Both reuse model/storage
+primitives; that is not a promise of identical authorization or serialization on
+every transport.
+
+### Construction and capability choices
+
+| Axis | Choices | Meaning |
+|---|---|---|
+| Construction | Factory, builder, raw primitives | How registration/configuration is assembled |
+| Model | ProtoModel, ActorModel | Whether the model participates in Python messaging |
+| Routing | `direct`, `actor` | Direct route factories or HTTP-to-TX adapter |
+| Optional capabilities | UI, agents, files | Package-owned mixins, schema stages and route hooks |
+
+See [App bootstrap](../packages/n3tx-core/docs/app-bootstrap.md). Factory and
+builder return FastAPI apps. The legacy Flask adapter is not a parity-tested
+alternative to the current FastAPI path.
 
 ## Core Components
 
-### 1. ProtoModel
-
-**Location**: `models/proto_model.py`
-
-The foundation of N3TX's model system. All models inherit from `ProtoModel`.
-
-**Responsibilities**:
-- Base class for all data models
-- Schema generation and introspection
-- Optional storage injection via `__storable__` flag
-- Foreign key field transformation
-- Method signature collection for API documentation
-
-**Key Features**:
-
-```python
-class ProtoModel(PydanticBaseModel):
-    class Config:
-        extra = 'allow'  # Allow $schema and $id to survive FastAPI validation
-    
-    # Automatic storage injection
-    def __init_subclass__(cls, **kwargs):
-        if cls.__storable__:
-            # Inject StorableMixin
-            cls.__bases__ = (StorableMixin,) + cls.__bases__
-            # Transform Pydantic models to Ref
-            # Register with storage backend
-    
-    # Schema generation via composable pipeline (proto_schema)
-    @classmethod
-    def schema(cls) -> Dict[str, Any]:
-        # Runs proto_schema.run_pipeline(cls) — 8 composable stages:
-        # base -> strip_hidden -> methods -> agent -> defs -> access -> ui -> metadata
-        # Extensions add stages via @schema_extension
-        # Returns complete JSON schema including:
-        # - $schema (pointing to {API_URL}/Schema)
-        # - $id (pointing to {API_URL}/{ClassName})
-        # - Fields (from Pydantic)
-        # - Methods (from @expose_route)
-        # - Referenced models in $defs (each with $id)
-
-    # Enriched serialization via composable pipeline (proto_dump)
-    def model_response(self, **kwargs) -> dict:
-        # Runs proto_dump.run_pipeline(self) — stages:
-        # base -> relationships -> schema_url -> instance_url -> populate
-        # Extensions add stages via @dump_extension
-        # Injects:
-        # - $schema: URL to model's JSON Schema
-        # - $id: URL to this specific instance using the class-name API path
-```
-
-**Design Decisions**:
-- Uses `__init_subclass__` for automatic mixin injection
-- Leverages Pydantic for validation and schema generation
-- Separate `schema()` from `referenced_json_schema()` to avoid circular references
-- Config `extra='allow'` permits `$schema` and `$id` metadata fields to pass through FastAPI response validation
-- `model_response()` provides JSON-LD style self-describing responses via the composable dump pipeline (`proto_dump`)
-
-**Route grammar** is additive and preserves the original API split:
-
-```text
-/{tablename}/...       JSON data API and custom methods
-/{ClassName}           schema endpoint
-/{ClassName}/_         JSON collection mirror of /{tablename}
-/{ClassName}/{id:int}  JSON read/update/delete mirror of /{tablename}/{id:int}
-/{ClassName}/{id:int}/{method}
-                       literal custom method mirror, no generic catch-all
-/{ClassName}/@...      HTML/view shell entrypoints
-#{ClassName}/@...      frontend hash-router view routes
-```
-
-The `@` segment always means view/html/component routing. It never invokes a
-method. Entity `$id` values use class-name routes while table-name routes remain
-available as compatibility API paths.
-
-### 2. StorableMixin
-
-**Location**: `models/storable_mixin.py`
-
-Provides CRUD operations through dependency injection.
-
-**Pattern**: Strategy Pattern (storage backend is injected)
-
-```python
-class StorableMixin:
-    storage: ClassVar[StorageInterface] = None  # Injected
-
-    @classmethod
-    def create(cls, data: Any) -> Any:
-        return cls.storage.create(cls, data)
-
-    @classmethod
-    def list(cls, sql_filter=None, limit=None, offset=None):
-        return cls.storage.list(cls, sql_filter=sql_filter, limit=limit, offset=offset)
-
-    # ... other CRUD methods
-```
-
-**Pagination**: When `limit` is provided, `list()` returns `{"data": [...], "meta": {"total", "limit", "offset", "has_more"}}`. When omitted, returns a plain list (backward compatible).
-
-**Key Features**:
-- Storage backend agnostic
-- Automatic join model support
-- Foreign key unwrapping before persistence
-- Lazy loading optimization
-- Optional pagination with total count
-
-### 3. AbstractStorage
-
-**Location**: `storage/abstract_storage.py`
-
-Interface for storage backends (Strategy Pattern).
-
-```python
-class AbstractStorage(ABC):
-    @abstractmethod
-    def create_table(self, model_class: Type[Any]): pass
-    
-    @abstractmethod
-    def create(self, model_class: Type[Any], data: Dict[str, Any]) -> Any: pass
-    
-    @abstractmethod
-    def list(self, model_class: Type[Any]) -> List[Any]: pass
-    
-    # ... other CRUD operations
-```
-
-**Implementations**:
-
-#### SQLiteStorage
-- Automatic schema migration
-- Foreign key handling
-- JSON TEXT serialization for embedded `dict`, primitive lists, `list[T]`, and
-  `list[Ref[T]]`; local model collections store ordered child ids and hydrate
-  to child objects. See [JSON Fields](JSON_FIELDS.md).
-
-#### JSONStorage
-- File-based storage
-- Auto-incrementing IDs
-- Human-readable format
-
-### 4. Ref Type
-
-**Location**: `models/ref.py` (`utils/typer.py` remains a compatibility import surface)
-
-Type-safe model/actor identity pointer with JSON Schema generation and local or
-distributed address parsing.
-
-```python
-class Ref(Generic[T]):
-    def __init__(self, value: Optional[Any] = None):
-        if isinstance(value, BaseModel):
-            self.id = value.id
-            self._model = value
-        elif isinstance(value, int):
-            self.id = value
-            self._model = None
-        elif isinstance(value, str):
-            self.id = canonicalize_ref(value)
-    
-    # Custom Pydantic schema for OpenAPI
-    @classmethod
-    def __get_pydantic_json_schema__(cls, ...):
-        # Outputs $schema and $id instead of the old __url__ and __type__
-        return {
-            "type": "$ref",
-            "$ref": f"#/$defs/{target.__name__}"
-        }
-```
-
-**Purpose**:
-- Maintains type safety in the model layer
-- Generates proper `$ref` in OpenAPI schemas
-- Serializes refs as absolute HTTP(S) entity URLs
-- Keeps local object relationships (`T`, `list[T]`) separate from pointer refs
-  (`Ref[T]`, `list[Ref[T]]`)
-
-Reference URL validation is core behavior. Dereference I/O is explicit: default
-storage reads do not resolve refs, while requested populate/depth and
-`Ref.hydrate()` can use a Matrix-backed `reference_resolver`.
-
-### 5. Model Registry
-
-**Location**: `utils/registrar.py`
-
-Central registry for model classes.
-
-```python
-registered_models: Dict[str, Type[Any]] = {}
-
-def register_model(model_class: Type[Any], storage: StorageInterface = None):
-    # 1. Set storage backend
-    # 2. Create table
-    # 3. Run migrations
-    # 4. Add to registry
-```
-
-**Pattern**: Registry Pattern
-
-### 6. Network Adapters
-
-**Location**: `api/network_adapter.py`, `api/network_mcp.py`, `api/network_ap.py`
-
-ALL external protocol interaction flows through a `NetworkAdapter(Actor)`. Each adapter translates between an external protocol and TX messages routed through the Matrix.
-
-```python
-class NetworkAdapter(Actor, auto_register=False):
-    """Base class — request/response correlation via asyncio.Future."""
-
-    async def request(self, tx: TX, timeout: float = 30.0) -> TX:
-        # Sends TX, awaits correlated reply via Future matching
-
-    async def inbox(self, tx: TX) -> None:
-        # Intercepts correlated replies before normal handler dispatch
-
-class NetworkMCP(NetworkAdapter):    # MCP JSON-RPC 2.0
-class NetworkAP(NetworkAdapter):     # ActivityPub federation
-class NetworkAPI(NetworkAdapter):    # HTTP REST (Level 3 actor routing)
-class NetworkWebSocket(NetworkAdapter): # Frontend Matrix bridge
-class RemoteMatrix(NetworkAdapter):  # HTTP(S) refs -> remote class-name REST
-# Transient adapters created per agent_run() for tool call correlation
-```
-
-**Pattern**: Adapter Pattern (protocol translation) + Correlation Pattern (request/response over async messaging)
-
-**Key Design Decision**: The HTTP API itself is a NetworkAdapter (`NetworkAPI`), meaning ALL external interaction — REST, MCP, ActivityPub, WebSocket — flows through the same architecture. No protocol is special.
-
-#### HTTP(S) refs through RemoteMatrix
-
-```text
-Model field value: Ref[T] / list[Ref[T]]
-        |
-        v
-models/ref.py validates the absolute entity URL
-        |
-        v
-SQLiteStorage stores/returns the URL unchanged
-        |
-        v
-populate with injected MatrixReferenceResolver (optional)
-        |
-        v
-Matrix request -> RemoteMatrix adapter fallback
-        |
-        +-- GET  http://remote/ClassName/id
-        +-- POST http://remote/ClassName/id/method
-```
-
-Default storage behavior remains local-only. Without a resolver, remote refs are
-preserved as strings; populated `list[Ref[T]]` fields include per-ref errors
-instead of failing the parent read. In actor routing, `create_app(...,
-routing='actor', remotes={...})` registers `RemoteMatrix` and injects a
-`MatrixReferenceResolver` into compatible storage backends.
-
-### 6b. Interceptors (`use()`)
-
-**Location**: `actors/actor.py` (base mechanism), `api/auth_interceptor.py` (auth implementation)
-
-Every Actor can register TX interceptors on any of its TX-handling methods via `use()`:
-
-```python
-# Register on specific method targets
-actor.use(auth_check, on='inbox')      # before inbox processes
-actor.use(rate_limit, on='send')       # before send routes
-adapter.use(jwt_auth, on='request')    # before request sends+awaits
-
-# Decorator forms
-@actor.use                             # defaults to on='inbox'
-async def log_all(tx: TX) -> TX: ...
-
-@adapter.use(on='request')
-async def authenticate(tx: TX) -> TX: ...
-```
-
-**Interceptor signature**: `async (TX) -> TX`. Return error TX to short-circuit the chain.
-
-**Chain behavior**:
-- Class-level interceptors run first, then instance-level (combined via `_get_interceptors`)
-- Chain stops on first error TX (`tx.is_error`)
-- `inbox()` error: sends error TX back via `send()` (caller gets rejection)
-- `send()` error: drops silently (outbound message never routed)
-- `request()` error: returns error TX immediately (never enters actor system)
-
-**Per-adapter, not global**: Each adapter registers its own interceptors. Authentication is protocol-specific (JWT for HTTP, API key for MCP, HTTP signatures for AP). Universal authorization is handled by Tier 2 handler guard in ActorModel.
-
-### 6c. Two-Tier Authorization
-
-When using Level 3 actor routing (NetworkAPI), authorization is split into two tiers:
-
-```
-HTTP Request → NetworkAPI.request(tx)
-                   │
-                   ├── Tier 1: 'request' interceptor (auth_interceptor)
-                   │   Fast gate at protocol boundary:
-                   │   • schema: pass-through (always public)
-                   │   • list: compute sql_filter, store in tx.meta
-                   │   • create: full rule check (no resource needed)
-                   │   • read/update/delete: identity gate only
-                   │
-                   ▼
-              Matrix routing → ActorModel.handler_crud(tx)
-                   │
-                   ├── Tier 2: _authorize() handler guard
-                   │   Full ABAC with resource instance:
-                   │   • Evaluates OWNER rules (needs fetched entity)
-                   │   • Defense-in-depth for anything Tier 1 missed
-                   │
-                   ▼
-              StorableMixin CRUD → result → tx.reply() → Future resolved
-```
-
-**Why two tiers?** OWNER-based rules need the resource instance. Tier 1 runs before the handler fetches it. Tier 2 runs after. Natural split: identity/role checks at the boundary, resource-dependent checks at the handler.
-
-### 7. Three Levels of N3TX
-
-N3TX supports three routing levels — developers choose based on their needs:
-
-```
-Level 1: ProtoModel  + routes_fastapi.py   → plain HTTP, no actors
-Level 2: ActorModel  + routes_fastapi.py   → actor capabilities, same HTTP layer
-Level 3: ActorModel  + NetworkAPI adapter   → actors all the way down
-```
-
-Each level is one change from the previous. Model base class swap for Level 2, `routing='actor'` flag for Level 3.
-
-```python
-# Level 1 — Plain HTTP (default)
-app = create_app(models=[Product, User], storage="sqlite:///app.db")
-
-# Level 2 — Actor capabilities, same HTTP routes
-# Just change ProtoModel → ActorModel in your models
-app = create_app(models=[Product, User], storage="sqlite:///app.db")
-
-# Level 3 — Full actor routing through Matrix
-app = create_app(models=[Product, User], storage="sqlite:///app.db", routing='actor')
-```
-
-**Level 1/2** use `routes_fastapi.py` route factories (direct StorableMixin calls).
-**Level 3** uses `NetworkAPI` adapter (HTTP → TX → Matrix → ActorModel → StorableMixin).
-
-`routes_fastapi.py` is never modified — Level 3 is purely additive.
-
-### 8. Agent System
-
-**Location**: `agents/mixin.py`, `agents/actor.py`, `agents/tools.py`, `agents/deps.py`, `agents/schema_ext.py`
-
-LLM-powered agents built on [Pydantic AI](https://ai.pydantic.dev/). N3TX provides only the binding layer — tool discovery from actor schemas, TX routing for tool calls, and agent state persistence.
-
-**Core insight**: Every Actor with `@expose_route` methods is a tool collection. An Agent is an Actor that reasons.
-
-```python
-# AgentMixin — injected when __agent__ = True (same pattern as StorableMixin)
-class AgentMixin:
-    # agentic() = policy layer (config cascade)
-    async def agentic(target, task: str, **kwargs) -> dict: ...
-    # run() = engine (explicit params, no config magic)
-    async def run(target, task: str, prompt: str, tools: list, ...) -> dict:
-        # 1. Resolve LLM from config cascade
-        # 2. discover_tools(tools, root) — read schemas, build ToolSpecs
-        # 3. Create Pydantic AI Agent with generated tool functions
-        # 4. Run agent loop — tool calls route through Matrix.request()
-        # Returns: {answer, usage: {input_tokens, output_tokens, requests}, messages}
-
-# AgentActor — concrete model whose instances ARE agents (data, not code)
-class AgentActor(ActorModel):
-    __agent__ = True        # gets AgentMixin
-    __storable__ = True     # stored in DB
-
-    name: str               # Human-readable name
-    prompt: str             # System prompt
-    tools: list[AgentTool]     # Ordered hydrated tool records
-    llm: str                # Pydantic AI provider:model string
-    constraints: dict       # {max_iterations, ...}
-
-    @expose_route('/agentic', methods=['POST'])
-    async def agentic(self, task: str, **kwargs) -> str: ...
-```
-
-**Two paths, one mechanism**:
-- **Path A**: `AgentActor` instances (dynamic agents — created via API/DB/code)
-- **Path B**: Any model with `__agent__ = True` (agentic methods — `self.agentic()`)
-
-**Tool discovery**: `discover_tools(actor_addrs, root)` reads `schema.methods` from Matrix children. Storable models get CRUD tools (list, get, create, update, delete). All `@expose_route` methods become tools. Tool functions use `exec()` for dynamic typed signatures (same as dataclasses).
-
-**Tool call routing**: Generated tool functions create TX messages and send them through `NetworkAdapter.request()` for Future-based correlation. Error TXs raise `ModelRetry` (Pydantic AI retries the LLM).
-
-**Schema extension**: `@schema_extension(after='methods')` adds `agent: {enabled, agentic_endpoint}` to JSON Schema output for agent-capable models.
-
-See [`src/n3tx/core/agents/README.md`](../agents/README.md) for full documentation.
-
-### 9. Backend Adapters
-
-**Location**: `api/backend.py`
-
-Abstract interface for web frameworks.
-
-```python
-class BaseBackend(ABC, BaseModel):
-    @abstractmethod
-    def register_routes(self, registered_models: dict): pass
-
-class FastAPIBackend(BaseBackend):
-    # FastAPI-specific implementation
-
-class FlaskBackend(BaseBackend):
-    # Flask-specific implementation
-```
-
-**Purpose**:
-- Framework-agnostic model definitions
-- Easy switching between FastAPI/Flask
-- Extensible to other frameworks (Django, Sanic, etc.)
-
-### 7. Route Registration
-
-**Location**: `api/routes_fastapi.py`
-
-Dynamically generates routes from model definitions.
-
-**Route Factories**:
-
-All route factories call `.model_response()` to include `$schema` and `$id` metadata in responses. This runs the dump pipeline (`proto_dump.run_pipeline()`), which is extensible via `@dump_extension`:
-
-```python
-def make_create_instance(model_class):
-    # Returns async function for POST /model
-    # Auto-injects user_owner from JWT for models with __protected_fields__
-    # Calls .model_response()
-
-def make_get_all_instances(model_class):
-    # Returns async function for GET /model?limit=N&offset=M
-    # Supports optional pagination via query params
-    # Returns plain array (no params) or {data, meta} (with limit)
-    # Calls .model_response() on each instance
-
-def make_get_instance(model_class):
-    # Returns async function for GET /model/{id}
-    # Calls .model_response()
-
-# ... etc
-```
-
-**Collection Route Factory**:
-
-```python
-def make_collection_list(model_class, child_model):
-    # Returns async function for GET /parent_table/child_table
-    # Lists all child records across all parents
-    # Supports auth, pagination, and populate
-    # Registered in Pass 1 (before CRUD routes) to avoid {id:int} path conflict
-```
-
-**Custom Routes**:
-
-```python
-def make_custom_post(attr, model_class, route_path):
-    # Inspects method signature
-    # Generates appropriate async function
-    # Handles parameter parsing and validation
-    # Auto-injects authenticated user for methods with `user` parameter
-    # Supports Body(default={}) for empty-body toggle endpoints
-```
-
-**User Resolution Bridge** (`_resolve_user`):
-
-Bridges the auth layer (JWT dicts) to the model layer (entity instances). When a custom method declares a `user` parameter:
-- If the type hint is a `StorableMixin` subclass (e.g., `User`), fetches the full model instance via `.get(user_id)`
-- Otherwise, passes the raw JWT dict `{"user_id", "email", "role"}`
-
-This keeps the `authorize` package (zero N3TX imports) decoupled from model definitions.
+| Component | Owns | Does not supply |
+|---|---|---|
+| ProtoModel | Pydantic model contract, schema, response serialization | A complete permission policy |
+| StorableMixin | CRUD and merged-state update validation | Route authorization or multi-operation transactions |
+| SQLiteStorage | Rows, JSON fields, local hydration and explicit population | Automatic child-level permission checks on hydrated values |
+| Registrar | Prepared model registration, storage attachment, table/migration effects | Request handling |
+| Direct routes | HTTP validation, policy checks, caller injection and response adaptation | Actor dispatch |
+| ActorModel / Matrix | Message dispatch and actor-aware model behavior | A universal security boundary for arbitrary Python code |
+| JS runtime | Schema-derived entities, messaging and transport | Visual components |
+| UI package | Native forms/components, view shells, renderer/widget extensions | Backend enforcement |
+| Agent package | Policy/runtime binding to Pydantic AI and model-derived tools | Permission granted merely by discovery |
+| File package | Metadata model plus explicit byte-store operations | A filesystem sandbox or static upload directory |
+
+Implementation roots are `packages/<package>/src/<import_name>/`. Core's key
+modules are `app.py`, `models/proto_model.py`, `models/storable_mixin.py`,
+`models/proto_schema.py`, `models/proto_dump.py`, `utils/registrar.py`,
+`api/routes_fastapi.py`, `api/backend.py` and `storage/sqlite_storage.py`.
 
 ## Data Flow
 
-### 1. Model Registration Flow
+### Model registration
 
-```
-┌─────────────────┐
-│ Define Model    │
-│ (ProtoModel)    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ __init_subclass │
-│ • Check __storable__
-│ • Inject StorableMixin
-│ • Transform FKs
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ register_model  │
-│ • Set storage   │
-│ • Create table  │
-│ • Run migration │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ register_routes │
-│ • CRUD routes   │
-│ • Custom routes │
-└─────────────────┘
-```
+1. Import capability packages before defining models that use their flags.
+2. Define models. StorableMixin and registered optional mixins are injected here.
+3. Bootstrap prepares registrations, then attaches storage and creates/migrates
+   tables. Register every storable child model, not just the parent.
+4. Generate schema, CRUD, literal action and optional capability routes.
+5. Mount discovery and the merged static namespace after API routes.
 
-### 2. Request Handling Flow (Read)
+Registration may change an existing database. It is not a harmless introspection
+step; review [migration behavior](OPERATIONS.md#migrations).
 
-```
-HTTP GET /users/1
-      │
-      ▼
-┌─────────────────┐
-│ FastAPI Router  │
-│ (make_get_instance)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ User.get(1)     │
-│ (StorableMixin) │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ storage.get()   │
-│ (SQLiteStorage) │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Execute Query   │
-│ SELECT * FROM users WHERE id=1
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Hydrate Model   │
-│ User(**data)    │
-└────────┬────────┘
-         │
-         ▼
-┌──────────────────────────┐
-│ Serialize JSON           │
-│ model.model_response()   │
-│ (injects $schema, $id)  │
-└────────────┬─────────────┘
-         │
-         ▼
-    HTTP 200 OK
+### Read and response identity
+
+`GET /issues/1` loads the model, checks the read rule and serializes through
+`model_response()`. The top-level `$schema` identifies `/Issue`; `$id` identifies
+`/Issue/1`, regardless of which route spelling was requested. Local relationship
+GET responses enrich children with their own flat class-name identity.
+Create/update response validation can remove nested metadata; see
+[CRUD](API_CRUD_ENDPOINTS.md).
+
+`GET /Issue` is schema, `/Issue/_` is a JSON collection mirror, and `/Issue/@`
+is an optional HTML view shell. Frontend `#Issue/@` is a client navigation route.
+Neither HTML nor schema discovery grants access to issue data.
+
+### Write boundary
+
+```text
+HTTP PUT patch -> policy -> canonical field names -> protected-field stripping
+              -> merge with current entity -> model validation
+              -> persist supplied fields -> read response
 ```
 
-### 3. Foreign Key Resolution Flow
-
-```
-┌─────────────────┐
-│ Model Definition│
-│ user: User      │ (Pydantic model reference)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ __init_subclass │
-│ Detects BaseModel
-│ → user: Ref[User]
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Storage Layer   │
-│ Stores: user_id=123
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Retrieval       │
-│ Creates shell:  │
-│ User(id=123)    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Lazy Loading    │
-│ (if accessed)   │
-│ Full fetch from DB
-└─────────────────┘
-```
+Collections are replaced, not merged. The read/validate/write sequence is not a
+compare-and-set. A domain action can centralize business logic but does not
+automatically create a transaction, lock or idempotency mechanism.
 
 ## Design Patterns
 
-### 1. Mixin Pattern
+The useful boundaries are concrete: storage is injected; schemas and response
+dumps use named pipeline stages; optional capabilities register mixins and small
+route hooks; adapters translate protocols to TX. Keep customizations at those
+boundaries instead of copying the framework's CRUD or entity lifecycle.
 
-**StorableMixin**, **ViewableMixin**, and **AgentMixin** are dynamically injected into models via `__init_subclass__`. `StorableMixin` is special-cased in core (it rewrites FK annotations). External mixins use the `register_mixin()` registry:
-
-```python
-# Before
-class User(ProtoModel):
-    __storable__: ClassVar[bool] = True
-
-# After __init_subclass__
-class User(StorableMixin, ProtoModel):
-    # Now has .save(), .create(), .list(), etc.
-
-# Agent injection — n3tx_agents must be imported first
-import n3tx_agents  # registers AgentMixin via register_mixin()
-
-class Scanner(ActorModel):
-    __agent__ = True
-
-# After __init_subclass__
-class Scanner(AgentMixin, ActorModel):
-    # Now has .agentic(), .run(), .ctx(), .tools(), etc.
-
-# ViewableMixin injection — n3tx_ui must be imported first
-import n3tx_ui  # registers ViewableMixin via register_mixin()
-
-class Product(ProtoModel):
-    __ui__ = {'field_order': ['name', 'price']}  # also triggers injection
-
-# After __init_subclass__
-class Product(ViewableMixin, ProtoModel):
-    # schema() now emits schema['ui'] from __ui__
-```
-
-**Extension API** — external packages register their own mixins:
-
-```python
-from n3tx_core.models.proto_model import register_mixin
-register_mixin('__my_flag__', MyMixin)                         # explicit flag
-register_mixin('__viewable__', ViewableMixin, also_if=['__ui__'])  # guardrail
-```
-
-**Benefits**:
-- Opt-in functionality
-- Keeps concerns separated (core has zero knowledge of ViewableMixin/AgentMixin)
-- No inheritance pollution
-- Extensible: third-party packages can register their own mixins
-
-### 2. Strategy Pattern
-
-Storage backends implement a common interface:
-
-```python
-storage: AbstractStorage = SQLiteStorage('db.db')  # or JSONStorage
-
-model.set_storage(storage)
-model.create_table()
-```
-
-**Benefits**:
-- Swap backends without code changes
-- Easy testing with mock storage
-- Custom storage implementations
-
-### 3. Registry Pattern
-
-Central model registry for route generation:
-
-```python
-registered_models: Dict[str, Type[Any]] = {}
-
-# During registration
-registered_models['users'] = User
-
-# During route generation
-for model_name, model_cls in registered_models.items():
-    register_crud_routes(model_name, model_cls)
-```
-
-### 4. Factory Pattern
-
-Route handlers are generated via factory functions:
-
-```python
-def make_create_instance(model_class):
-    async def create_instance(data: model_class):
-        return model_class.create(data)
-    return create_instance
-
-router.post('/users', make_create_instance(User))
-```
-
-### 5. Decorator Pattern
-
-`@expose_route` adds metadata to methods:
-
-```python
-@expose_route('/login', methods=['POST'])
-def login(email: str, password: str):
-    pass
-
-# Adds: method.__endpoint__ = {'route': '/login', 'methods': ['POST'], 'access': None, 'stream': False, 'events': None}
-```
-
-For streaming methods, `events=` declares the event vocabulary as a dict of `{name: ProtoModel}`. The schema pipeline serializes these into `schema.methods[m].events` as JSON Schema objects:
-
-```python
-@expose_route('/stream', methods=['POST'], stream=True,
-              events={'text': TextChunk, 'done': DoneChunk})
-async def stream(self, task: str):
-    yield {'name': 'text', 'data': {'text': 'hello'}}
-```
-
-### 6. Two-Pass Route Registration
-
-Routes are registered in two passes to avoid path conflicts:
-
-```
-Pass 1: Collection routes (static segments)
-  /products/comments     (GET — all comments across products)
-  /products/likes        (GET — all favorites across products)
-
-Pass 2: CRUD routes (parameterized segments)
-  /products/{id}         (GET/PUT/DELETE)
-  /products/{parent_id}/comments/{id}  (nested CRUD)
-```
-
-This ensures `/products/comments` is matched as a collection route, not as `/products/{id}` with `id="comments"`.
-
-#### Generated update boundary
-
-Generated FastAPI update handlers preserve the raw patch and delegate complete
-state validation to the existing model update path:
-
-```text
-HTTP PUT body
-  -> preserve supplied fields
-  -> merge with current entity
-  -> validate through the original ProtoModel
-  -> storage writes only supplied fields
-```
-
-HTTP clients, direct `Model.update(id, patch)`, raw actor TX updates, and agent
-update tools therefore share one partial-update contract. Omitted fields remain
-unchanged; explicit `[]` or `{}` values clear their complete stored fields. See
-[API CRUD Endpoints](API_CRUD_ENDPOINTS.md#update-resource).
-
-### 7. Adapter Pattern
-
-Backend adapters translate between frameworks:
-
-```python
-class BaseBackend(ABC):
-    @abstractmethod
-    def register_routes(self): pass
-
-class FastAPIBackend(BaseBackend):
-    def register_routes(self):
-        # FastAPI-specific logic
-
-class FlaskBackend(BaseBackend):
-    def register_routes(self):
-        # Flask-specific logic
-```
+The authorization package consumes plain identity dictionaries and an
+`AccessContext`, without importing N3TX models. The HTTP layer translates an
+authenticated identity into the reserved `user` method argument. See
+[Authorization](AUTHORIZATION.md) for the important differences between direct
+list, member, action, actor and trusted Python paths.
 
 ## Extension Points
 
-### 1. Custom Storage Backend
-
-```python
-class RedisStorage(AbstractStorage):
-    def create_table(self, model_class):
-        # Redis doesn't need tables
-        pass
-    
-    def create(self, model_class, data):
-        key = f"{model_class.__tablename__}:{data['id']}"
-        self.redis.set(key, json.dumps(data))
-        return model_class(**data)
-    
-    # ... implement other methods
-```
-
-### 2. Custom Backend Adapter
-
-```python
-class DjangoBackend(BaseBackend):
-    def __init__(self, **data):
-        super().__init__(**data)
-        from django.conf import settings
-        # Django setup
-    
-    def register_routes(self, registered_models):
-        # Generate Django URL patterns
-        pass
-```
-
-### 3. Custom Mixin
-
-```python
-class AuditableMixin:
-    created_at: datetime
-    updated_at: datetime
-    
-    def save(self):
-        self.updated_at = datetime.now()
-        return super().save()
-
-class User(ProtoModel):
-    __storable__: ClassVar[bool] = True
-    __bases__ = (AuditableMixin,) + ProtoModel.__bases__
-```
-
-### 4. Custom Field Types
-
-```python
-class EncryptedString(str):
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler):
-        # Custom validation/serialization
-        pass
-
-class User(ProtoModel):
-    password: EncryptedString  # Automatically encrypted
-```
-
-### 5. Middleware/Hooks
-
-```python
-# In backend.py
-class FastAPIBackend(BaseBackend):
-    def register_routes(self, registered_models):
-        @self.app.middleware("http")
-        async def log_requests(request, call_next):
-            # Custom logging
-            response = await call_next(request)
-            return response
-        
-        # Then register routes
-        super().register_routes(registered_models)
-```
-
-## Performance Considerations
-
-### 1. Lazy Loading
-
-Foreign keys load as shells (ID only) and fetch on demand:
-
-```python
-user = User.get(1)
-print(user.id)           # No DB query
-print(user.posts[0].id)  # Triggers DB query for posts
-```
-
-### 2. Schema Caching
-
-Schemas are generated once per model class:
-
-```python
-@classmethod
-@lru_cache(maxsize=None)  # Could be added
-def schema(cls):
-    # Expensive introspection
-    return computed_schema
-```
-
-### 3. Batch Operations
-
-```python
-# Future enhancement
-class StorableMixin:
-    @classmethod
-    def bulk_create(cls, items: List[Any]):
-        # Single transaction for multiple inserts
-        pass
-```
+| Need | Native extension | Reference |
+|---|---|---|
+| New business operation | `@expose_route` on a model | [Actions](API_CUSTOM_ENDPOINTS.md) |
+| New model metadata | Named schema stage | [Schema pipeline](../packages/n3tx-core/docs/schema-pipeline.md) |
+| Response enrichment | `@dump_extension` | [Models](MODELS.md#dump-pipeline-proto_dump) |
+| Optional model behavior | `register_mixin` before model declaration | [Schema pipeline](../packages/n3tx-core/docs/schema-pipeline.md#mixin-registry) |
+| New persistence backend | Complete AbstractStorage contract | [Storage](../packages/n3tx-core/docs/storage.md) |
+| New visual presentation | Renderer or widget, preserving native lifecycle | [Frontend](frontend/ARCHITECTURE.md) |
+| Multipart/binary capability | Package-owned `register_extra_routes` hook | [File guide](../packages/n3tx-files/docs/file.md) |
+| Alternate protocol | Actor network adapter | [Actors](ACTORS.md) |
 
 ## Security Considerations
 
-### 1. SQL Injection Prevention
-
-All storage backends use parameterized queries:
-
-```python
-cursor.execute(
-    "SELECT * FROM users WHERE id = ?",
-    (user_id,)  # Parameterized
-)
-```
-
-### 2. Field Validation
-
-Pydantic validates all inputs:
-
-```python
-class User(ProtoModel):
-    email: EmailStr  # Automatic email validation
-    age: conint(ge=0, le=120)  # Constrained integer
-```
-
-### 3. Sensitive Data
-
-```python
-class User(ProtoModel):
-    password: str = Field(..., exclude=True)  # Never in responses
-```
+Do not equate schema visibility, field UI hints, actor discoverability or tool
+selection with authorization. Direct Python operations are trusted. Hydration
+can expose child fields through a parent without separately checking the child's
+route policy. Remote resolution introduces outbound network and delegated-identity
+trust. Review policies at every enabled entrypoint and test denied requests.
 
 ## Testing Architecture
 
-```python
-# Mock storage for testing
-class MockStorage(AbstractStorage):
-    def __init__(self):
-        self.data = {}
-    
-    def create(self, model_class, data):
-        self.data[data['id']] = data
-        return model_class(**data)
-
-# In tests
-storage = MockStorage()
-register_model(User, storage=storage)
-```
-
-## Social Feature Patterns
-
-### Toggle Endpoints
-
-Like/favorite actions use a toggle pattern: POST with empty body creates or
-deletes a child record and replaces the parent `list[T]` field.
-
-```python
-@expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
-def favorite(self, user: User = None) -> str:
-    # Find existing Like in self.favorites
-    # If exists → delete → return {"action": "unfavorited"}
-    # If not → create → return {"action": "favorited"}
-```
-
-The model method owns the domain update: create/delete the child record, update
-the parent collection field, and return an action payload. `Body(default={})`
-allows empty POST bodies.
-
-### Self-Referential Nesting (Replies)
-
-Comments support nesting via `parent_id: Ref['self']`. The `reply()` method
-creates a child comment with `parent_id` set, appends it to the owning product's
-`comments: list[Comment]`, and restricts access to `AUTHENTICATED` users.
-
-## Future Enhancements
-
-1. **Query Builder**: Fluent API for complex queries
-2. **Async Storage**: Async/await for I/O operations
-3. **Caching Layer**: Redis/Memcached integration
-4. ~~**Event System**: Pre/post save hooks~~ — Implemented via ActorModel lifecycle events (v0.8)
-5. **Migrations**: Version-controlled schema changes
-6. **GraphQL**: Automatic GraphQL schema generation
-7. ~~**WebSockets**: Real-time updates~~ — Planned as `NetworkWebSocket` adapter
-8. ~~**NetworkAPI**: HTTP REST adapter~~ — Implemented (v0.8.2). Level 3 routing via `create_app(routing='actor')`
-9. **MCP Integration**: ~~Planned~~ Implemented via `NetworkMCP` adapter (v0.8.1)
-10. **ActivityPub Federation**: ~~Planned~~ Implemented via `NetworkAP` adapter (v0.8.1)
-11. ~~**Interceptors**: Universal middleware for actors~~ — Implemented via `use()` (v0.8.2)
-12. ~~**Two-Tier Auth**: Protocol-boundary + handler-level authorization~~ — Implemented (v0.8.2)
-13. ~~**Agent System**: LLM-powered agents~~ — Implemented via `AgentMixin` + `AgentActor` (v0.10)
-14. **Agent Traces**: Run history, step log, cost tracking (planned Phase 2)
-15. ~~**Agent Streaming**: Pydantic AI `run_stream()` + SSE~~ — Implemented via `agentic_stream()`/`run_stream()` (v0.10)
-
-## Conclusion
-
-N3TX's architecture prioritizes:
-- **Modularity**: Swappable components at every layer
-- **Declarative**: Models define behavior, not implementation
-- **Type Safety**: Pydantic + Ref for compile-time checks
-- **Extensibility**: Clear extension points for customization
-- **Simplicity**: Minimal boilerplate for common cases
+Use isolated file-backed SQLite, generated HTTP routes and actual schemas for
+application contract checks. Add transport-specific checks when enabling actors
+or tools. Test malformed input, another user's resources, parent/child visibility,
+stream failures and retries as well as success. The tutorial's verifier extracts
+its code from [Getting started](GETTING_STARTED.md); no second model definition
+is maintained in the test artifact.

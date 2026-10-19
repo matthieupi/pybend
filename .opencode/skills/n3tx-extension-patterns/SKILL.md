@@ -39,7 +39,7 @@ def federation(cls, schema: dict) -> dict:
 ```python
 from n3tx_core.models.proto_dump import dump_extension
 
-@dump_extension(after='response')
+@dump_extension(after='instance_url')
 def activity(instance, data: dict) -> dict:
     if getattr(instance.__class__, '__federated__', False):
         data['type'] = instance.__class__.__name__

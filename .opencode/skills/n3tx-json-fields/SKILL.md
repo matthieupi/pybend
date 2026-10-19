@@ -37,11 +37,11 @@ scores: list[int] = []
 payloads: list = []
 ```
 
-Not JSON fields:
+Relationship collections also use JSON TEXT, but store identities rather than
+arbitrary embedded child data:
 
 ```python
-comments: ListRef[Comment] = []   # relationship / join table
-children: list[Comment] = []      # relationship-style collection
+children: list[Comment] = []      # ordered local child IDs, hydrated on reads
 ```
 
 ## Use JSON fields for
@@ -73,8 +73,8 @@ children: list[Comment] = []      # relationship-style collection
 
 ## Guardrails
 
-- Do not turn `ListRef[T]`, many-to-many fields, or `List[BaseModel]` into JSON
-  storage accidentally.
+- Do not revive removed ListRef/generated joins. Distinguish JSON representation
+  from relationship semantics; ManyToMany remains a separate legacy helper.
 - Do not store domain relationships as arbitrary JSON arrays when N3TX should own
   identity, auth, routes, and hydration.
 - Do not query or mutate SQLite JSON text directly from app feature code.
@@ -86,7 +86,8 @@ children: list[Comment] = []      # relationship-style collection
 Narrow checks:
 
 ```bash
-cd /workspace && python3 -m pytest \
+# From the N3TX root, using the approved interpreter and package environment:
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" -m pytest \
   packages/n3tx-core/src/n3tx_core/tests/unit/test_json_fields.py \
   packages/n3tx-core/src/n3tx_core/tests/unit/test_introspection.py \
   -q
@@ -95,7 +96,7 @@ cd /workspace && python3 -m pytest \
 Core suite:
 
 ```bash
-cd /workspace && python3 scripts/test-backend.py --suite core -- -q
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite core -- -q
 ```
 
 ## Source-reading policy

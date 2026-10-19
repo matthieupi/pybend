@@ -6,7 +6,7 @@ argument-hint: "<streaming feature>"
 
 # N3TX Streaming
 
-Streaming is schema-declared and TX-correlated.
+Streaming is schema-declared; TX correlation applies to actor transport.
 
 ## Backend streaming method
 
@@ -48,9 +48,14 @@ event: chunk|done|error
 data: {json}\n\n
 ```
 
-Generated N3TX SSE routes serialize the full TX envelope in `data`, not only
-`chunk.data`. Consumers should reconstruct or dispatch TXs and stop on an error
-TX or `meta.stream_end`.
+| Route implementation | SSE `data` and completion |
+|---|---|
+| Direct (`routes_fastapi.py`) | `chunk` contains the yielded dict, or `{'chunk': value}` for a non-dict; normal completion is `event: done` with `{}` |
+| Actor (`network_api.py`) | `chunk`, `done` and `error` contain the full serialized TX; an error TX or `meta.stream_end` terminates the stream |
+
+Do not interpret direct-route payloads as full TX envelopes. A yielded domain
+`done` object is distinct from transport completion. See the canonical
+[transport guide](../../../docs/frontend/TRANSPORT.md#streaming).
 
 ## Distributed streaming
 
@@ -61,7 +66,7 @@ instead of ad hoc HTTP/SSE clients:
 tx = TX(
     name='generate',
     source='app',
-    target='n3tx://compute/Job/12',
+    target='https://compute.example.com/Job/12',
     data={'prompt': '...'},
     meta={'stream': True, 'user': user},
 )
@@ -105,6 +110,12 @@ class MyStream extends NTTStreamAgent {
 - Cancel active streams in `disconnectedCallback()`.
 
 ## Guardrails
+
+Examples are excerpts requiring model registration, imports and actor/resolver
+wiring. A domain `done` event differs from transport `stream_end`. Declared event
+schemas are not proof of runtime event validation. Browser cancellation does not
+guarantee backend termination. Verify direct and actor wire envelopes separately;
+see [transport](../../../docs/frontend/TRANSPORT.md).
 
 - Declare event schemas with `events=` for typed frontend contracts.
 - Do not invent a parallel streaming protocol for app methods.

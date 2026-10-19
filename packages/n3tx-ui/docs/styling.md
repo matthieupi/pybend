@@ -1,133 +1,134 @@
-# Styling
+# Themes and component styling
 
-> Part of [n3tx-ui](../README.md)
+## Ownership
 
-## Theme File Split
+| Layer | Owns | Does not own |
+|---|---|---|
+| `theme-base.css` | Global defaults, page layout, shared structural selectors | Theme palettes |
+| `dark-theme.css`, `light-theme.css` | Canonical `--ntx-*` token values | Component registration |
+| Core `utils/theme.js` | Persisted selection and cycling order | Loading theme stylesheets |
+| Component stylesheet | Shadow DOM layout and token consumption | Global application layout |
+| App stylesheet/theme | App-specific composition and token overrides | Copies of framework component CSS |
 
-The shared frontend theme contract now has two layers:
+## Page setup
 
-- `packages/n3tx-ui/src/n3tx_ui/static/theme-base.css` owns global selectors and shared structure.
-- `packages/n3tx-ui/src/n3tx_ui/static/dark-theme.css` and `packages/n3tx-ui/src/n3tx_ui/static/light-theme.css` own theme-specific token values.
-
-`theme-base.css` is responsible for:
-
-- global element defaults (`html`, `body`, headings, links, form controls)
-- page chrome layout (`body > .page`, sidebar offset behavior)
-- shared atmosphere selectors (`body::before`, `body::after`, selection, scrollbars)
-- consuming the canonical `--ntx-*` token contract
-
-Theme entrypoints are responsible for:
-
-- defining canonical `--ntx-*` tokens for typography, scale, color, motion, shadows, and shared recipes
-- setting theme-specific values for page atmosphere, shell surfaces, buttons, and inputs
-- exposing the canonical public contract only
-
-## Page Stylesheet Contract
-
-Theme entrypoints are now token-only files. Pages must link `theme-base.css` explicitly alongside the theme files:
+Place these in the app page head; URLs refer to the native combined namespace.
 
 ```html
-<link rel="stylesheet" href="./theme-base.css" />
-<link rel="stylesheet" href="./dark-theme.css" />
-<link rel="stylesheet" href="./light-theme.css" />
+<link rel="stylesheet" href="/theme-base.css">
+<link rel="stylesheet" href="/dark-theme.css">
+<link rel="stylesheet" href="/light-theme.css">
+<script>window.NTX_THEME_CONFIG = {themes: ['dark', 'light']};</script>
+<script type="module" src="/utils/theme.js"></script>
 ```
 
-Pages may also add app-level token entrypoints after the shared themes. Veille's
-`apps/veille/static/industrial-theme.css` is the canonical example: it defines
-only `--ntx-*` tokens and participates in runtime cycling by adding
-`'industrial'` to `window.NTX_THEME_CONFIG.themes`.
+Theme selection is applied on module execution. Loading in the head reduces
+flashing, but module/network timing is not a universal before-first-paint guarantee.
 
-Legacy aliases such as `--surface-*`, `--text-*`, `--accent`, and `--border` are no longer part of the first-party contract.
+| Runtime function | Behavior |
+|---|---|
+| `getTheme()` | Stored `ntx-theme`, otherwise first configured theme (default dark) |
+| `getConfiguredThemes()` | Trimmed, deduplicated configured names; defaults dark/light |
+| `getNextTheme(currentTheme=getTheme())` | Next configured name; unknown names fall back to first |
+| `setTheme(theme)` | Stores name, sets `html.dataset.theme`, dispatches document `theme-change` |
+| `toggleTheme()` | Selects the next configured theme |
 
-## Page Theme Contract
+A persisted name is not automatically rejected because a page lacks its CSS.
+Keep theme files/config consistent across login, app and standalone pages.
 
-Pages provide the available theme order inline and load the runtime helper from `./utils/theme.js`:
+## Controls are explicit
+
+After importing the used component modules:
 
 ```html
-<link rel="stylesheet" href="./theme-base.css" />
-<link rel="stylesheet" href="./dark-theme.css" />
-<link rel="stylesheet" href="./light-theme.css" />
-<script>
-  window.NTX_THEME_CONFIG = { themes: ['dark', 'light'] };
-</script>
-<script type="module" src="./utils/theme.js"></script>
+<ntx-topbar brand="Issues">
+  <ntx-theme-button slot="user-menu"></ntx-theme-button>
+</ntx-topbar>
+<ntx-sidebar router="main">
+  <ntx-list model="Issue"></ntx-list>
+  <ntx-theme-button slot="footer"></ntx-theme-button>
+</ntx-sidebar>
 ```
 
-`toggleTheme()` no longer hardcodes dark/light branching. It cycles through the configured `themes` array in order, while `getTheme()` still resolves the persisted theme or the page's fallback theme.
+Import `/components/ntx-topbar.js`, `/components/ntx-sidebar.js`,
+`/components/ntx-list.js`, and `/components/ntx-theme-button.js` in the shell.
+Topbar's user-menu slot is in the authenticated dropdown. Multiple controls
+synchronize through `theme-change`. Logged-out first-party pages honor persisted
+theme without showing the switcher. Configuration alone does not insert controls.
 
-`setTheme(theme)` updates both `localStorage['ntx-theme']` and `document.documentElement.dataset.theme`, then dispatches `theme-change` so multiple switchers stay synchronized.
+## Custom theme
 
-## Token Guidance
+For a small variation, retain the linked dark token defaults and add an app file
+`static/ocean-theme.css` after the framework styles:
 
-- Prefer canonical `--ntx-*` tokens in new framework and app CSS.
-- Do not reference legacy variable names in first-party CSS or tests.
-- Keep theme values in the theme entrypoints; do not add palette literals back into shared structural stylesheets.
+```css
+html[data-theme="ocean"] {
+  color-scheme: dark;
+  --ntx-color-accent: #70d6ff;
+  --ntx-color-accent-strong: #38bdf8;
+  --ntx-color-accent-text: #bae6fd;
+  --ntx-card-bg: #102334;
+}
+```
 
-## Framework Surface Migration
+Link `/ocean-theme.css` and configure `themes: ['dark', 'light', 'ocean']`.
+This is a partial palette override, not a complete theme: other recipe tokens
+(buttons, status treatments, gradients) retain their declared defaults. For a
+complete palette, review all tokens in the [dark](../src/n3tx_ui/static/dark-theme.css)
+and [light](../src/n3tx_ui/static/light-theme.css) entrypoints. The app's
+[industrial theme](../../../apps/veille/static/industrial-theme.css) demonstrates
+a broader token-only theme.
 
-The primary framework CSS surfaces now consume canonical tokens directly:
+| Token family | Examples |
+|---|---|
+| Typography | `--ntx-font-body`, `--ntx-font-display`, `--ntx-font-mono` |
+| Geometry | `--ntx-space-4`, `--ntx-radius-md`, `--ntx-layout-sidebar-width` |
+| Colors | `--ntx-color-text`, `--ntx-color-text-muted`, `--ntx-color-surface-1` |
+| Components | `--ntx-card-bg`, `--ntx-input-bg`, `--ntx-button-primary-bg` |
+| Status | `--ntx-status-error-fg/bg/border`, corresponding success/warning/accent tokens |
+| Motion/shadow | `--ntx-duration-fast`, `--ntx-ease`, `--ntx-shadow-md` |
 
-- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-topbar.css`
-- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-sidebar.css`
-- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-item.css`
-- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-list.css`
-- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-table.css`
-- `packages/n3tx-ui/src/n3tx_ui/static/components/ntx-method.css`
-- `packages/n3tx-ui/src/n3tx_ui/static/auth.css`
+Use canonical tokens, not old aliases such as `--surface-*`, `--text-*`, or
+`--accent`. Keep app-only styling out of shared `ntx-item.css`.
 
-These files should reference canonical `--ntx-*` tokens for layout, surfaces, typography, borders, interactions, and status styling. Repeated state treatments such as success, warning, error, and accent badges should prefer the `--ntx-status-*` family.
+## Shadow DOM styles
 
-Current first-party chrome also prefers borderless outer shells for primary surfaces:
+For an `NTTItem` subclass stored in `static/components/`, preserve inherited CSS
+and add a sibling app stylesheet through this getter:
 
-- topbar icon controls and the authenticated user menu rely on fill + shadow rather than visible strokes
-- table containers keep their internal row/header dividers but drop the outer table border
-- `ntx-item` detail shells (`md`/`lg`/`xl`) rely on background, spacing, and shadow instead of card borders
+```javascript
+get styles() {
+  const parent = super.styles;
+  return [
+    ...(Array.isArray(parent) ? parent : parent ? [parent] : []),
+    new URL('./issue-card.css', import.meta.url).href,
+  ];
+}
+```
 
-Veille and the shipped example surfaces now follow the same contract as well:
+```css
+/* static/components/issue-card.css */
+:host { display: block; }
+.issue-title {
+  color: var(--ntx-color-text-strong);
+  font-family: var(--ntx-font-display);
+  margin-block: 0 var(--ntx-space-4);
+}
+```
 
-- `apps/veille/static/veille.css`
-- `apps/veille/static/components/ntx-run-output.css`
-- `apps/veille/static/components/ntx-run-report.css`
-- `examples/**/static/*.css`
-- `examples/**/static/*.html`
-- `packages/n3tx-ui/src/n3tx_ui/static/example.html`
-- `packages/n3tx-ui/src/n3tx_ui/static/example.css`
-
-When examples need special semantics, prefer app/example-level composition on top of canonical tokens rather than reintroducing `--surface-*`, `--text-*`, `--accent`, or `--glass-*` dependencies.
+`Component` fetches CSS and shares constructable stylesheets across shadow roots.
+Do not append a legacy `$styles` node. Global theme variables inherit through
+shadow boundaries; global selectors do not. Standalone HTMLElement components may
+use different stylesheet plumbing—inspect their source before extending them.
 
 ## Verification
 
-Recommended verification commands:
+Use the [test harness](../../../tests/frontend/README.md). Unit theme tests cover
+persistence and cycling; real-browser checks are needed for computed CSS,
+responsive containers, contrast, keyboard focus and overflow. Check both themes,
+logged-in/out shells, multiple switchers, forced/automatic display sizes and a
+narrow viewport. Do not infer mobile/accessibility correctness from token tests.
 
-```bash
-cd /workspace/tests/frontend && npx vitest run
-cd /workspace/tests/frontend && npm run test:e2e:fast
-cd /workspace/tests/frontend && npm run test:e2e:parallel
-cd /workspace && python3 scripts/test-frontend.py
-cd /workspace && python3 scripts/test-frontend.py --suite e2e-core
-cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/theme-toggle.spec.js
-cd /workspace/tests/frontend && npx playwright test --config=tests/e2e/playwright.config.js tests/e2e/css-and-theming-unit.spec.js tests/e2e/page-load.spec.js
-```
-
-### Playwright Environment
-
-- The browser harness runs against `examples/core`.
-- `tests/frontend/tests/e2e/start-e2e-app.js` creates and seeds a temp SQLite database inside the Playwright `webServer.command` before the server starts. This avoids relying on `globalSetup` ordering for the DB marker handoff.
-- `tests/frontend/tests/e2e/global-teardown.js` removes that temp DB after the run.
-- In this workspace, Python web dependencies for the Playwright server are installed in `/workspace/.venv-e2e`; `start-e2e-app.js` auto-detects and uses it.
-- Prefer the shared readiness helpers in `tests/frontend/tests/e2e/fixtures/ui.js`
-  (`gotoApp`, `waitForTopbar`, `waitForProductList`, etc.) instead of
-  `networkidle` plus fixed sleeps. This keeps UI tests tied to actual component
-  state and avoids adding seconds of guaranteed delay per assertion.
-- Use `tests/e2e/playwright.fast.config.js` / `npm run test:e2e:fast` for the
-  parallel read-only smoke lane. The full `playwright.config.js` suite remains
-  serial because mutation-heavy specs currently share one backend and database.
-- Use `tests/e2e/playwright.parallel.config.js` / `npm run test:e2e:parallel`
-  for the fully parallel core lane. Its `fixtures/parallel.js` worker fixture
-  starts isolated `examples/core` servers on separate ports with separate temp
-  SQLite DBs. App-specific Grants, Veille, and performance specs still use their
-  dedicated configs.
-- `scripts/test-frontend.py` is the aggregate runner. It executes selected
-  suites concurrently with 2 suite workers by default (`--workers N` or
-  `N3TX_FRONTEND_SUITE_WORKERS`) while `e2e-core` uses the worker-isolated
-  Playwright parallel config internally.
+Sources: [theme runtime](../../n3tx-core/src/n3tx_core/static/utils/theme.js),
+[base CSS](../src/n3tx_ui/static/theme-base.css),
+[theme button](../src/n3tx_ui/static/components/ntx-theme-button.js).

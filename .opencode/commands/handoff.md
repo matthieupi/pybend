@@ -7,7 +7,8 @@ Write a comprehensive handoff document that lets a fresh agent continue this ses
 
 The handoff is not just a summary. It is an engineering continuation packet: preserve the user's goal, the conversational context that shaped decisions, current repo state, implementation progress, verification evidence, unresolved risks, and the exact recommended next moves.
 
-Save the handoff document to /workspace/.project/handoffs/. Use an explicit, 
+Save the handoff document to `.project/handoffs/` under the active repository
+root, unless the user specifies a different artifact root. Use an explicit,
 timestamped filename such as `handoff-YYYYMMDD-HHMMSS.md`.
 
 If command arguments were provided, treat them as the requested next-session focus and tailor the handoff toward that continuation path.

@@ -1,1103 +1,190 @@
 # Custom Endpoints
 
-Beyond standard CRUD operations, N3TX models can expose custom business logic through the `@expose_route` decorator. This document explains how these custom endpoints work from a frontend perspective.
+Expose domain behavior on a model with `n3tx_core.utils.decorators.expose_route`.
+Use generated CRUD for ordinary field changes. A method is appropriate when an
+operation has domain inputs, validation or a distinct result, as with the
+[tutorial's resolution action](GETTING_STARTED.md#add-custom-logic).
 
 ## Overview
 
-Custom endpoints are defined in model classes using `@expose_route`:
-
 ```python
-@expose_route('/login', methods=['POST'])
-def login(email: str, password: str) -> User:
-    # Custom logic
-    return user
+expose_route(route, methods=['POST'], access=None, stream=False, events=None)
 ```
 
-The decorator creates an HTTP endpoint that frontend can call.
-
----
+The decorator attaches route metadata. Bootstrap generates the HTTP route;
+schema generation publishes its contract; native UI can render method controls.
+This does not make the method's internal writes authorized, atomic or retry-safe.
 
 ## Endpoint URL Patterns
 
-Custom endpoint URLs depend on the method type:
+| Declaration | Schema scope | requires_instance | Route suffix |
+|---|---|---:|---|
+| `def resolve(self, ...)` | instancemethod | true | `/{id}{route}` |
+| `@classmethod def action(cls, ...)` | classmethod | false | `{route}` |
+| `@staticmethod def action(...)` | staticmethod | false | `{route}` |
+| Service-style function without self/cls | actormethod | false | `{route}` |
 
-| Method Type | URL Pattern | Example |
-|-------------|-------------|---------|
-| **Static Method** | `/{resource}{custom_path}` | `POST /users/login` |
-| **Class Method** | `/{resource}{custom_path}` | `GET /users/search` |
-| **Instance Method** | `/{resource}/{id}{custom_path}` | `POST /products/1/discount` |
+Both table and class-name prefixes are generated for literal exposed methods.
+Use the schema's `route`, not a guessed conversion of the Python method name.
+`/Issue/1/@resolve` is a view named resolve, not the action `/Issue/1/resolve`.
 
 ### Static Method
 
-Called on the model class, not on a specific instance.
-
-**Backend**:
-```python
-@staticmethod
-@expose_route('/login', methods=['POST'])
-def login(email: str, password: str) -> User:
-    users = User.list()
-    return next(u for u in users if u.email == email)
-```
-
-**Frontend**:
-```javascript
-// POST /users/login
-const user = await fetch('http://localhost:8000/users/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    email: 'alice@example.com',
-    password: 'secret123'
-  })
-}).then(r => r.json());
-```
+Use `@staticmethod` outside `@expose_route`. Static actions have no resource
+instance for OWNER/Where checks. Choose a policy appropriate to class scope.
 
 ### Class Method
 
-Called on the model class, has access to `cls`.
-
-**Backend**:
-```python
-@classmethod
-@expose_route('/search', methods=['GET'])
-def search(cls, query: str) -> List[User]:
-    return [u for u in cls.list() if query in u.name]
-```
-
-**Frontend**:
-```javascript
-// GET /users/search
-const users = await fetch('http://localhost:8000/users/search', {
-  method: 'GET',  // Note: Even though backend uses GET, you must POST with body
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    query: 'alice'
-  })
-}).then(r => r.json());
-```
-
-**Important**: Custom endpoints always require JSON body, even if declared as GET.
+Use `@classmethod` outside `@expose_route`. BaseUser's login and register methods
+are examples. Inherit them rather than implementing authentication as an email
+lookup or creating a parallel session store.
 
 ### Instance Method
 
-Operates on a specific resource instance (requires ID in path).
-
-**Backend**:
-```python
-@expose_route('/discount', methods=['POST'])
-def apply_discount(self, percentage: float) -> Product:
-    self.price = self.price * (1 - percentage / 100)
-    self.save()
-    return self
-```
-
-**Frontend**:
-```javascript
-// POST /products/1/discount
-const updated = await fetch('http://localhost:8000/products/1/discount', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    percentage: 10
-  })
-}).then(r => r.json());
-
-console.log('New price:', updated.price);
-```
-
----
+The generated handler loads the row, returns 404 if absent, and evaluates action
+policy against the instance before invoking the method. A rule on an action
+does not automatically authorize every other resource that its body reads or
+writes. Batch operations must apply the relevant policy to each target.
 
 ## Automatic User Injection
 
-Custom methods can receive the authenticated user automatically by declaring a `user` parameter. The route layer bridges the auth-layer identity (JWT dict) to the model-layer entity, respecting the separation of concerns between the `authorize` package and N3TX models.
+`user` is reserved. Direct routing skips body-supplied user values and resolves
+the authenticated identity:
 
-### How It Works
+| Annotation | Passed value |
+|---|---|
+| Concrete StorableMixin subclass, e.g. `User` | `User.get(user_id)` |
+| `dict`, no recognized model annotation | JWT identity dictionary |
+| No authenticated identity | No argument injected; provide `user=None` if needed |
 
-When a custom method declares a `user` parameter, the route handler:
+The identity dictionary normally contains `user_id`, `email`, `role`, `iat` and
+`exp`. Optional/union annotations are not the concrete-class branch. Prefer a
+concrete annotation with a None default. Never fall back to user ID 1 or trust a
+body-supplied owner as proof of authority.
 
-1. Skips `user` during request body parsing (it's never read from the POST body)
-2. Extracts the JWT identity from the request (`request.state.user`)
-3. Resolves the type based on the parameter's type hint:
-   - **Model class** (e.g., `User`) — fetches the full model instance via `User.get(user_id)`
-   - **`dict`** — passes the raw JWT payload `{"user_id", "email", "role"}`
-   - **No type hint** — passes the raw JWT dict
-
-### Example
-
-**Backend**:
-```python
-from .user_model import User
-
-class Product(ProtoModel):
-    @expose_route('/comment', methods=['POST'])
-    def comment(self, comment: Comment, user: User = None) -> Comment:
-        comment.user_owner = user.id if user else 1
-        created = Comment.create(comment)
-        self.update({'comments': [*(self.comments or []), created]})
-        return created
-```
-
-**Frontend** — `user` is NOT included in the request body:
-```javascript
-// POST /products/1/comment
-await fetch('http://localhost:8000/products/1/comment', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-access-token': jwtToken
-  },
-  body: JSON.stringify({
-    comment: { name: "Great product!" }
-    // No "user" field — injected server-side from JWT
-  })
-});
-```
-
-### Design: Auth/Model Boundary
-
-The `authorize` package is standalone — it speaks plain dicts (`{"user_id", "email", "role"}`) and has zero N3TX model imports. The `_resolve_user()` bridge in the route layer translates between these two worlds:
-
-```
-JWT Middleware (authorize)          Route Layer (_resolve_user)         Model Layer
-─────────────────────────          ─────────────────────────          ─────────────
-request.state.user =          →    type hint is User?            →    User.get(user_id)
-  {"user_id": 1,                     Yes → fetch model instance        → full User instance
-   "email": "alice@...",             No  → pass raw dict               → plain dict
-   "role": "user"}
-```
-
-This keeps the auth package decoupled from models while giving model methods access to the full entity when needed.
-
-### Rules
-
-- `user` is a reserved parameter name — never included in request body parsing
-- The `user` parameter should have a default of `None` for unauthenticated endpoints
-- Works in both instance methods (`post_with_id`) and class/static methods (`post_no_id`)
-- The type hint drives resolution: `User` → model instance, `dict` → raw JWT payload
-
----
-
-## Type-Driven File Materialization
-
-When `n3tx_files` is imported, it registers a neutral argument materializer for
-parameters annotated as `File`. This lets model methods accept a file address in
-the request payload and receive an authorized `File` instance at invocation time.
-
-```python
-from n3tx_files import File
-
-class Transcriber(ActorModel):
-    __tablename__ = 'transcribers'
-    __storable__ = False
-
-    @expose_route('/transcribe', methods=['POST'])
-    async def transcribe(audio: File) -> dict:
-        local = await audio.ensure_local()
-        return {'path': local['path']}
-```
-
-Request body:
-
-```json
-{"audio": "http://localhost:5000/File/1"}
-```
-
-The value must be the canonical absolute `$id` of a File on the current API.
-
-Rules:
-
-- Materialization is type-gated: only parameters annotated as `File` resolve.
-- Plain `str` parameters receive the original string unchanged.
-- `File.resolve()` enforces `read` access before returning the metadata record.
-- Byte download remains explicit through `download` routes or `ensure_local()`;
-  materialization itself resolves metadata, not arbitrary external bytes.
-
----
+The standalone authorization package knows dictionaries, not model classes.
+`_resolve_user` is the bridge. Verify identity propagation separately when
+enabling actor, service or tool entrypoints.
 
 ## Request Format
 
-### HTTP Method
+Send POST with a JSON object keyed by declared argument names. `self`, `cls` and
+`user` are not body arguments. For a method without application parameters, `{}`
+or an omitted body is accepted by the direct handler.
 
-Custom endpoints can specify their HTTP method via the decorator:
-```python
-@expose_route('/action', methods=['POST'])  # POST
-@expose_route('/data', methods=['GET'])     # GET (but still requires body)
-```
+### Current direct-parser limits
 
-**Frontend Impact**: Always use the specified HTTP method in `fetch()`.
+| Case | Actual behavior |
+|---|---|
+| Missing/null ordinary argument | 400, including arguments with Python defaults |
+| Concrete Pydantic model argument | Constructed/validated from a dict |
+| Other annotated argument | Converted by calling its annotation with the raw value |
+| Unsupported annotation/conversion | Usually 422 |
+| GET action with parameters | Handler still expects a body; browser Fetch forbids GET bodies |
 
-### Request Body
-
-All custom endpoints require a JSON request body containing the method parameters.
-
-**Parameter Mapping**:
-
-Backend method signature:
-```python
-def custom_method(self, name: str, age: int, active: bool = True):
-    pass
-```
-
-Frontend request body:
-```json
-{
-  "name": "Alice",
-  "age": 28,
-  "active": false
-}
-```
-
-**Rules**:
-- Parameter names must match exactly (case-sensitive)
-- All parameters without defaults are required
-- Parameters with defaults are optional
-- `self`, `cls`, and `user` are never included in request body (see [Automatic User Injection](#automatic-user-injection))
-
----
+Schema `required` follows Python defaults, but the direct parser does not honor
+those defaults. Supply each ordinary argument explicitly and use simple scalar
+or concrete model inputs that have been tested through the route. Do not assume
+`list[int]`, unions or boolean strings receive full TypeAdapter semantics.
+These limitations are not a recommendation to build parallel routes; framework
+parser improvements are separate work.
 
 ## Response Format
 
-### Return Types
+Direct routing returns the method result and FastAPI applies the declared return
+model when present. It does not universally call `model_response()` on custom
+results. For an enriched entity, explicitly include `entity.model_response()` in
+a dictionary, as the tutorial does. Plain dictionaries and scalars are not
+automatically given entity metadata. Returning a JSON string is different from
+returning a dictionary.
 
-Custom endpoints can return:
-
-1. **Model Instance** - Returns full object as JSON with `$schema` and `$id` metadata (via `.model_response()`)
-2. **List of Models** - Returns array of objects, each with `$schema` and `$id`
-3. **dict** - Returns custom JSON structure (no automatic metadata)
-4. **str** - Returns plain string (wrapped in JSON)
-5. **None** - Returns null
-
-When a custom endpoint returns a model instance, the route handler calls `.model_response()` to inject `$schema` and `$id` metadata into the response. This runs the dump pipeline (`proto_dump.run_pipeline()`), which is extensible via `@dump_extension`.
-
-### Examples
-
-#### Return Model Instance
-
-**Backend**:
-```python
-@expose_route('/action', methods=['POST'])
-def some_action(self) -> Product:
-    # Logic
-    return self
-```
-
-**Frontend Response**:
-```json
-{
-  "$schema": "http://localhost:8000/Product",
-  "$id": "http://localhost:8000/Product/1",
-  "id": 1,
-  "name": "Product",
-  "price": 99.99
-}
-```
-
-#### Return List of Models
-
-**Backend**:
-```python
-@classmethod
-@expose_route('/filter', methods=['POST'])
-def filter_products(cls, min_price: float) -> List[Product]:
-    return [p for p in cls.list() if p.price >= min_price]
-```
-
-**Frontend Response**:
-```json
-[
-  {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/Product/1", "id": 1, "name": "Laptop", "price": 999.99},
-  {"$schema": "http://localhost:8000/Product", "$id": "http://localhost:8000/Product/2", "id": 2, "name": "Phone", "price": 699.99}
-]
-```
-
-#### Return Custom dict
-
-**Backend**:
-```python
-@expose_route('/stats', methods=['GET'])
-def get_stats(self) -> dict:
-    return {
-        "total_orders": 42,
-        "revenue": 12500.50,
-        "average": 297.63
-    }
-```
-
-**Frontend Response**:
-```json
-{
-  "total_orders": 42,
-  "revenue": 12500.5,
-  "average": 297.63
-}
-```
-
----
+Global DEBUG wraps synchronous method results in `{data, _debug}`; async
+coroutines and generators pass through. Do not build a production client around
+debug envelopes or assume action responses match across transports.
 
 ## Error Handling
 
-Custom endpoints can fail in several ways:
+For a deliberate domain rejection, raise the native error:
 
-### Missing Required Parameter (400)
-
-**Request**:
-```json
-{
-  "email": "alice@example.com"
-  // Missing required "password" parameter
-}
-```
-
-**Response** (400):
-```json
-{
-  "detail": "Missing field: password"
-}
-```
-
-### Invalid Parameter Type (422)
-
-**Request**:
-```json
-{
-  "percentage": "not-a-number"
-}
-```
-
-**Response** (422):
-```json
-{
-  "detail": "Invalid field 'percentage': could not convert string to float"
-}
-```
-
-### Resource Not Found (404)
-
-For instance methods, if the ID doesn't exist:
-
-**Request**: `POST /products/999/discount`
-
-**Response** (404):
-```json
-{
-  "detail": "Not found"
-}
-```
-
-### Custom Business Logic Error (400)
-
-**Backend**:
 ```python
-@expose_route('/discount', methods=['POST'])
-def apply_discount(self, percentage: float) -> Product:
-    if percentage < 0 or percentage > 100:
-        raise ValueError("Discount must be between 0 and 100")
-    # ...
+from n3tx_core.utils.erroring import MethodError
+
+# Inside an exposed method:
+raise MethodError('Issue is already closed', status_code=409)
 ```
 
-**Frontend Request**:
-```json
-{
-  "percentage": 150
-}
-```
-
-**Response** (400):
-```json
-{
-  "detail": [
-    {
-      "file": "models/product_model.py",
-      "line": 23,
-      "function": "apply_discount",
-      "code": "raise ValueError(...)",
-      "error": "Discount must be between 0 and 100"
-    }
-  ]
-}
-```
-
----
+Direct handlers translate MethodError into HTTP status/detail. Ordinary
+ValueError from the method body is not universally converted into 400. Request
+conversion errors, missing arguments, missing instances and access denial have
+their own status paths; see [API overview](API_OVERVIEW.md#error-handling).
 
 ## Discovering Custom Endpoints
 
-### Via Model Schema
+`GET /Issue` publishes `methods.resolve` with route, HTTP methods, scope,
+requires_instance, parameters, required, returns and explicit access metadata.
+`stream` and `events` appear for declared streaming methods. Check the actual
+schema and enabled transport rather than inferring behavior from a decorator
+alone.
 
-Get the schema to discover all custom endpoints:
+## Type-Driven File Materialization
 
-```javascript
-const schema = await fetch('http://localhost:8000/User')
-  .then(r => r.json());
-
-// Custom endpoints are in the "methods" object
-Object.entries(schema.methods).forEach(([methodName, metadata]) => {
-  console.log(`${methodName}:`, metadata.route, metadata.methods);
-  console.log('Parameters:', metadata.parameters);
-  console.log('Returns:', metadata.returns);
-});
-```
-
-Example output:
-```
-login: /login ['POST']
-Parameters: { email: {type: 'string'}, password: {type: 'string'} }
-Returns: { type: '$ref', $ref: '#/$defs/User' }
-```
-
-### Via Interactive Documentation
-
-FastAPI: Visit `http://localhost:8000/docs` to see all endpoints including custom ones.
-
----
+Importing `n3tx_files` registers a type-gated method argument materializer. A File
+parameter can receive a canonical local absolute File `$id`; an ordinary string
+parameter remains a string. Materialization resolves authorized metadata, not
+arbitrary external bytes. Byte access and caller propagation remain explicit.
+See [File capability](../packages/n3tx-files/docs/file.md); do not return local
+filesystem paths to untrusted callers as a processing result.
 
 ## Streaming Endpoints
 
-Custom methods can stream progressive results to the client via Server-Sent Events (SSE). Mark the route with `stream=True` and use an async generator:
-
-### Backend
+Reference fragment inside a model, with `asyncio`, `expose_route` and the access
+rule imported:
 
 ```python
-@expose_route('/generate', methods=['POST'], stream=True, access=AUTHENTICATED)
-async def generate(self, prompt: str = ''):
-    for i in range(10):
-        await asyncio.sleep(0.1)
-        yield {'chunk': f'Processing step {i}'}
+@expose_route('/progress', methods=['POST'], stream=True, access=OWNER)
+async def progress(self, count: int):
+    if not 1 <= count <= 5:
+        raise MethodError('count must be 1–5')
+    for index in range(count):
+        await asyncio.sleep(0)
+        yield {'name': 'progress', 'data': {'completed': index + 1}}
 ```
 
-### Frontend (SSE)
+An async generator's body starts during iteration, after HTTP headers may have
+been sent. Consequently even this input guard can become a stream-time failure,
+not a normal JSON error response. Test both paths before exposing a stream.
 
-```javascript
-const handle = HTTP.stream('/products/1/generate', { prompt: 'hello' },
-    (chunk) => document.body.append(chunk.chunk),  // progressive output
-    (data)  => console.log('Stream complete'),
-    (err)   => console.error('Stream error:', err),
-);
+Direct routing wraps each yielded value in SSE `event: chunk`, then sends
+`event: done` with `{}` on normal completion. Frames include comment padding and
+anti-buffering headers. An application event named `done` inside chunk data is
+not transport completion.
 
-// Cancel mid-stream:
-handle.cancel();
-```
+**Current direct-stream limit:** the generator wrapper does not catch iteration
+exceptions and synthesize an SSE error event. A failure can terminate the
+connection without `done`. Clients must distinguish clean completion from error
+or disconnect. Actor streams have their own TX/error protocol; see the
+[adapter reference](../packages/n3tx-actors/docs/network-adapters.md).
 
-### SSE Wire Format
-
-```
-event: chunk
-data: {"chunk": "Processing step 0"}
-
-event: chunk
-data: {"chunk": "Processing step 1"}
-
-event: done
-data: {}
-```
-
-### Component
-
-Use `<ntx-stream>` instead of `<ntx-method>` for streaming methods:
-
-```html
-<ntx-stream model="Product" uuid="1" method="generate" label="Generate"></ntx-stream>
-```
-
-### Schema Discovery
-
-Streaming methods are discoverable via the schema. The method entry includes `"stream": true`:
-
-```json
-{
-  "methods": {
-    "generate": {
-      "route": "/generate",
-      "methods": ["POST"],
-      "stream": true,
-      "parameters": { "prompt": { "type": "string" } }
-    }
-  }
-}
-```
-
----
+The native HTTP stream client returns a cancellation handle; `<ntx-stream>`
+manages its lifecycle. Cancellation stops client consumption, not a guaranteed
+rollback of completed writes or external work. Use
+[frontend architecture](frontend/ARCHITECTURE.md) for imports and component
+extension rather than duplicating the stream parser.
 
 ## Common Custom Endpoint Patterns
 
-### 1. Authentication
-
-```python
-@staticmethod
-@expose_route('/login', methods=['POST'])
-def login(email: str, password: str) -> dict:
-    # Validate credentials
-    user = find_user(email)
-    if not verify_password(password, user.password_hash):
-        raise ValueError("Invalid credentials")
-    
-    # Generate token
-    token = create_session_token(user.id)
-    return {
-        "token": token,
-        "user_id": user.id,
-        "email": user.email
-    }
-```
-
-**Frontend**:
-```javascript
-const { token, user_id } = await fetch('/users/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email, password })
-}).then(r => r.json());
-
-// Store token for future requests
-localStorage.setItem('auth_token', token);
-```
-
-### 2. Search/Filter
-
-```python
-@classmethod
-@expose_route('/search', methods=['POST'])
-def search(cls, query: str, status: str = None) -> List[Product]:
-    results = cls.list()
-    if query:
-        results = [r for r in results if query.lower() in r.name.lower()]
-    if status:
-        results = [r for r in results if r.status == status]
-    return results
-```
-
-**Frontend**:
-```javascript
-const products = await fetch('/products/search', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    query: 'laptop',
-    status: 'available'
-  })
-}).then(r => r.json());
-```
-
-### 3. State Transitions
-
-```python
-@expose_route('/publish', methods=['POST'])
-def publish(self) -> Article:
-    if self.status != 'draft':
-        raise ValueError("Only draft articles can be published")
-    
-    self.status = 'published'
-    self.published_at = datetime.now().isoformat()
-    self.save()
-    return self
-```
-
-**Frontend**:
-```javascript
-async function publishArticle(articleId) {
-  try {
-    const article = await fetch(`/articles/${articleId}/publish`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})  // Empty body (no parameters)
-    }).then(r => r.json());
-    
-    console.log('Published:', article.published_at);
-    return article;
-    
-  } catch (err) {
-    if (err.message.includes('draft')) {
-      alert('Article must be in draft status to publish');
-    }
-    throw err;
-  }
-}
-```
-
-### 4. Aggregations/Statistics
-
-```python
-@classmethod
-@expose_route('/statistics', methods=['GET'])
-def get_statistics(cls) -> dict:
-    orders = cls.list()
-    return {
-        "total": len(orders),
-        "completed": len([o for o in orders if o.status == 'completed']),
-        "revenue": sum(o.total for o in orders if o.status == 'completed'),
-        "average_value": sum(o.total for o in orders) / len(orders) if orders else 0
-    }
-```
-
-**Frontend**:
-```javascript
-const stats = await fetch('/orders/statistics', {
-  method: 'GET',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({})
-}).then(r => r.json());
-
-renderDashboard(stats);
-```
-
-### 5. Batch Operations
-
-```python
-@classmethod
-@expose_route('/bulk-update', methods=['POST'])
-def bulk_update(cls, ids: List[int], updates: dict) -> dict:
-    updated_count = 0
-    for id in ids:
-        cls.update(id, updates)
-        updated_count += 1
-    
-    return {
-        "updated": updated_count,
-        "ids": ids
-    }
-```
-
-**Frontend**:
-```javascript
-// Update multiple products at once
-const result = await fetch('/products/bulk-update', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    ids: [1, 2, 3, 4, 5],
-    updates: { status: 'archived' }
-  })
-}).then(r => r.json());
-
-console.log(`Updated ${result.updated} products`);
-```
-
-### 6. Toggle Actions (Like/Favorite)
-
-Toggle endpoints create or delete a child record and replace the parent
-`list[T]` collection. Empty body allowed — no payload needed.
-
-```python
-@expose_route('/favorite', methods=['POST'], access=AUTHENTICATED)
-def favorite(self, user: User = None) -> str:
-    """Toggle — create if not favorited, remove if already favorited."""
-    existing = next((like for like in self.favorites if like.user == user.id), None)
-    if existing:
-        Like.delete(existing.id)
-        type(self).update(self.id, {'favorites': [f for f in self.favorites if f.id != existing.id]})
-        return json.dumps({"action": "unfavorited"})
-    else:
-        saved = Like.create(Like(user=user.id))
-        type(self).update(self.id, {'favorites': [*self.favorites, saved]})
-        return json.dumps({"action": "favorited"})
-```
-
-**Frontend**:
-```javascript
-// POST /products/1/favorite — empty body
-const result = await fetch('/products/1/favorite', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-access-token': jwtToken
-  },
-  body: JSON.stringify({})
-}).then(r => r.json());
-
-console.log(result.action); // "favorited" or "unfavorited"
-```
-
-The frontend `<ntx-method>` component renders toggle methods as compact icon + count pills (heart for like, star for favorite) using the `button` layout hint from `__ui__.methods`.
-
-### 7. Complex Queries
-
-```python
-@expose_route('/related-products', methods=['GET'])
-def get_related(self, limit: int = 5) -> List[Product]:
-    # Find products in same category
-    all_products = Product.list()
-    related = [
-        p for p in all_products 
-        if p.category == self.category and p.id != self.id
-    ]
-    return related[:limit]
-```
-
-**Frontend**:
-```javascript
-// Get related products
-const related = await fetch(`/products/1/related-products`, {
-  method: 'GET',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ limit: 10 })
-}).then(r => r.json());
-
-displayRelatedProducts(related);
-```
-
----
-
-## Working with Complex Parameters
-
-### Nested Objects
-
-**Backend**:
-```python
-from pydantic import BaseModel
-
-class Address(BaseModel):
-    street: str
-    city: str
-    zip_code: str
-
-@expose_route('/update-address', methods=['POST'])
-def update_address(self, address: Address) -> User:
-    # address is validated Pydantic model
-    self.address = address.model_dump_json()
-    self.save()
-    return self
-```
-
-**Frontend**:
-```javascript
-await fetch('/users/1/update-address', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    address: {
-      street: '123 Main St',
-      city: 'Springfield',
-      zip_code: '12345'
-    }
-  })
-});
-```
-
-### Lists
-
-**Backend**:
-```python
-@classmethod
-@expose_route('/find-by-ids', methods=['POST'])
-def find_by_ids(cls, ids: List[int]) -> List[User]:
-    all_users = cls.list()
-    return [u for u in all_users if u.id in ids]
-```
-
-**Frontend**:
-```javascript
-const users = await fetch('/users/find-by-ids', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    ids: [1, 3, 5, 7]
-  })
-}).then(r => r.json());
-```
-
-### Optional Parameters
-
-**Backend**:
-```python
-@classmethod
-@expose_route('/search', methods=['POST'])
-def search(cls, query: str, min_price: float = 0, max_price: float = None) -> List[Product]:
-    results = cls.list()
-    # Filter logic
-    return results
-```
-
-**Frontend - All parameters**:
-```javascript
-await fetch('/products/search', {
-  method: 'POST',
-  body: JSON.stringify({
-    query: 'laptop',
-    min_price: 500,
-    max_price: 2000
-  })
-});
-```
-
-**Frontend - Only required parameters**:
-```javascript
-await fetch('/products/search', {
-  method: 'POST',
-  body: JSON.stringify({
-    query: 'laptop'
-    // min_price and max_price use defaults
-  })
-});
-```
-
----
-
-## Example: Complete Authentication Flow
-
-### Backend Endpoints
-
-```python
-class User(ProtoModel):
-    __storable__ = True
-    __tablename__ = 'users'
-    
-    email: str
-    password_hash: str
-    
-    @staticmethod
-    @expose_route('/register', methods=['POST'])
-    def register(email: str, password: str) -> dict:
-        # Validate email uniqueness
-        users = User.list()
-        if any(u.email == email for u in users):
-            raise ValueError("Email already registered")
-        
-        # Create user
-        user = User.create(User(
-            email=email,
-            password_hash=hash_password(password)
-        ))
-        
-        return {"user_id": user.id, "email": user.email}
-    
-    @staticmethod
-    @expose_route('/login', methods=['POST'])
-    def login(email: str, password: str) -> dict:
-        users = User.list()
-        user = next((u for u in users if u.email == email), None)
-        
-        if not user or not verify_password(password, user.password_hash):
-            raise ValueError("Invalid credentials")
-        
-        token = create_token(user.id)
-        return {
-            "token": token,
-            "user_id": user.id,
-            "email": user.email
-        }
-    
-    @expose_route('/change-password', methods=['POST'])
-    def change_password(self, old_password: str, new_password: str) -> dict:
-        if not verify_password(old_password, self.password_hash):
-            raise ValueError("Current password is incorrect")
-        
-        self.password_hash = hash_password(new_password)
-        self.save()
-        
-        return {"message": "Password changed successfully"}
-```
-
-### Frontend Implementation
-
-```javascript
-class AuthService {
-  
-  async register(email, password) {
-    try {
-      const response = await fetch('/users/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail[0].error);
-      }
-      
-      return await response.json();
-      
-    } catch (err) {
-      if (err.message.includes('already registered')) {
-        alert('This email is already registered');
-      }
-      throw err;
-    }
-  }
-  
-  async login(email, password) {
-    const response = await fetch('/users/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Invalid credentials');
-    }
-    
-    const { token, user_id } = await response.json();
-    
-    // Store auth token
-    localStorage.setItem('auth_token', token);
-    localStorage.setItem('user_id', user_id);
-    
-    return { token, user_id };
-  }
-  
-  async changePassword(userId, oldPassword, newPassword) {
-    const response = await fetch(`/users/${userId}/change-password`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.getToken()}`
-      },
-      body: JSON.stringify({
-        old_password: oldPassword,
-        new_password: newPassword
-      })
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail[0].error);
-    }
-    
-    return await response.json();
-  }
-  
-  getToken() {
-    return localStorage.getItem('auth_token');
-  }
-  
-  logout() {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_id');
-  }
-}
-
-// Usage
-const auth = new AuthService();
-
-// Register
-await auth.register('alice@example.com', 'SecurePass123');
-
-// Login
-const { token, user_id } = await auth.login('alice@example.com', 'SecurePass123');
-
-// Change password
-await auth.changePassword(user_id, 'SecurePass123', 'NewSecurePass456');
-
-// Logout
-auth.logout();
-```
-
----
-
-## Best Practices
-
-### 1. Always Handle Errors
-
-```javascript
-async function callCustomEndpoint() {
-  try {
-    const response = await fetch('/resource/action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      // Extract meaningful error message
-      const message = error.detail?.[0]?.error || 'Unknown error';
-      throw new Error(message);
-    }
-    
-    return await response.json();
-    
-  } catch (err) {
-    console.error('API Error:', err);
-    // Show user-friendly message
-    showErrorToUser(err.message);
-    return null;
-  }
-}
-```
-
-### 2. Validate Before Sending
-
-```javascript
-// Check schema first
-const schema = await fetch('/Product').then(r => r.json());
-const method = schema.methods.apply_discount;
-
-// Validate parameters match schema
-const params = { percentage: 10 };
-for (const [name, paramSchema] of Object.entries(method.parameters)) {
-  if (!(name in params)) {
-    console.error(`Missing required parameter: ${name}`);
-    return;
-  }
-}
-
-// Then make request
-await fetch('/products/1/apply-discount', {
-  method: 'POST',
-  body: JSON.stringify(params)
-});
-```
-
-### 3. Type Safety with TypeScript
-
-```typescript
-// Define types based on schema
-interface DiscountParams {
-  percentage: number;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-}
-
-async function applyDiscount(
-  productId: number, 
-  params: DiscountParams
-): Promise<Product> {
-  const response = await fetch(`/products/${productId}/discount`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params)
-  });
-  
-  return await response.json();
-}
-```
-
----
+| Need | Guidance |
+|---|---|
+| Authentication | Inherit BaseUser; restrict generic User writes |
+| Field/status edit | Use CRUD patch unless a domain operation adds meaning |
+| State transition | Validate invariant at model boundary as well as action guard |
+| Search/aggregation | Apply list policy; direct `Model.list()` is not an authorized query |
+| Batch operation | Authorize targets and define partial-failure/retry behavior |
+| Append/remove/toggle | Model-owned action; explicit concurrency design, no automatic atomicity |
 
 ## Troubleshooting
 
-### "Missing field: X" Error
-
-**Cause**: Required parameter not included in request body
-
-**Solution**: Check method signature and include all parameters without defaults
-
-### "Invalid field 'X': ..." Error
-
-**Cause**: Parameter type doesn't match expected type
-
-**Solution**: Check schema for correct type (string, number, boolean, array, object)
-
-### 404 on Instance Method
-
-**Cause**: Resource with given ID doesn't exist
-
-**Solution**: Verify ID exists with `GET /{resource}/{id}` first
-
-### Custom Endpoint Not Found
-
-**Cause**: Endpoint not registered or incorrect URL
-
-**Solution**: Check schema (`GET /{ModelName}`) for available methods and routes
-
----
-
-## Next Steps
-
-- [Standard CRUD Endpoints](./API_CRUD_ENDPOINTS.md) - Auto-generated endpoints reference
-- [Data Models Reference](./API_DATA_MODELS.md) - Schema for each model
-- [API Overview](./API_OVERVIEW.md) - General conventions and setup
+Check the literal schema route and scope for 404s; required arguments for 400s;
+actual conversion rules for 422s; and both model and action policies for 403s.
+Validate through HTTP with DEBUG false. A successful direct Python invocation
+does not verify route parsing, caller injection, serialization or access control.

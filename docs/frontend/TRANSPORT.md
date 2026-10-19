@@ -1,310 +1,129 @@
-# Transport Layer Reference
+# Browser transport
 
-Documentation for the network bridge between the Actor/Matrix system and the N3TX backend.
+Matrix delegates unknown local targets to `NetworkAdapter`. Application entity UI
+should use NTT/components rather than maintaining a second fetching/state layer.
 
-## Table of Contents
-
-1. [NetworkAdapter](#networkadapter)
-2. [HTTP](#http)
-3. [Socket (WebSocket)](#socket)
-4. [Request/Response Cycle](#requestresponse-cycle)
-
----
-
-## NetworkAdapter
-
-**File:** `core/transport/NetworkAdapter.js`
-
-The Matrix's network bridge. Created by the Matrix singleton on construction. Translates TX messages into HTTP requests (or WebSocket frames) and routes responses back through the Matrix.
-
-### Construction
-
-```javascript
-// Created inside Matrix constructor:
-this.remote = new NetworkAdapter(this, url, mode);
+```text
+NTT/component TX -> Matrix -> NetworkAdapter
+                              +-> ready configured Socket -> WebSocket
+                              +-> otherwise HTTP -> reply/error -> Matrix
 ```
 
-### Properties
+## Configuration
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `matrix` | `Matrix` | Reference to the parent Matrix for dispatching responses. |
-| `mode` | `string` | Transport mode: `"http"` or `"ws"`. |
-| `url` | `string` | Base API URL (from `config.API_URL`). |
-| `socket` | `Socket\|null` | WebSocket instance (only if mode is `"ws"`). |
+Core `config.js` defaults `API_URL` to the browser origin and `WS_URL` to empty.
+Matrix selects WebSocket mode only when `WS_URL` is nonempty at initialization.
+Changing config after importing the runtime is not a reliable reinitialization
+mechanism. A custom deployment config must preserve the event/constants exports
+consumed by the runtime; use native same-origin hosting for the basic app.
 
-### send(event)
+Backend schema `$id` determines the model API base used by DynamicClasses.
+Configure backend identity and browser origin/CORS consistently. A browser URL
+target is not evidence that the destination is trusted to receive credentials.
+Do not send authenticated transport calls to arbitrary user-supplied origins.
 
-The main outbound method. Called by `Matrix.inbox()` when a target cannot be resolved locally.
+## HTTP mapping
 
-Maps TX event names to HTTP methods:
+| TX name | HTTP | Target handling |
+|---|---|---|
+| `SCHEMA`, `LOAD` | GET | Supplied URL |
+| `READ` | GET | Object data encoded as query params; null entries skipped |
+| `CREATE` | POST | Trailing collection `/_` removed; JSON body |
+| `UPDATE` | PUT | Supplied member URL; JSON body |
+| `DELETE` | DELETE | Supplied URL; no body |
+| Other/domain method | POST | Remove trailing `/_`, append lowercased message name |
+| Domain method with `meta.stream` | POST SSE | Same method URL construction |
 
-| `tx.name` (uppercase) | HTTP Method | URL | Data Handling |
-|------------------------|-------------|-----|---------------|
-| `LOAD` | GET | `{target}` | Ignored |
-| `READ` | GET | `{target}?{data as query params}` | Object → URL query params |
-| `SCHEMA` | GET | `{target}` | Ignored |
-| `CREATE` | POST | `{target}` | JSON body |
-| `UPDATE` | PUT | `{target}` | JSON body |
-| `DELETE` | DELETE | `{target}` | Ignored |
-| `TEST` | GET | `{target}` | Ignored |
-| (anything else) | POST | `{target}/{name}` | JSON body |
+Current native collection calls begin at `/Model/_`; creates target `/Model`,
+member calls target `/Model/id`. Table-name API routes remain backend compatibility
+endpoints, not the current NTT class href convention.
 
-The `target` field of the TX is used directly as the URL (it's already a full URL like `http://localhost:5000/products`).
+**Method-route limit:** this generic adapter constructs a lowercased method-name
+suffix. It does not interpret arbitrary `schema.methods[name].route` or choose
+arbitrary HTTP verbs. Do not promise automatic support for renamed/hyphenated
+paths or GET-only actions without testing the actual component/transport path.
 
-**READ query param encoding**: When `tx.data` is a non-null object for a READ event, its entries are encoded as URL query parameters. For example, `{limit: 20, offset: 0}` becomes `?limit=20&offset=0`. Null values are skipped. If the URL already contains a query string, params are appended with `&`.
+Successful HTTP replies swap source/target and use `meta.inbox || event.name`.
+Debug `{data,_debug}` envelopes are unwrapped. Errors dispatch `ERROR` with the
+original event in data and the response/error information in meta. A valid
+request source must be registered for reply routing.
 
-**Note:** FK hydration hrefs (e.g., `http://localhost:5000/products/1/comments/2`)
-are also valid targets. They resolve via the same nested routes registered by the
-backend. A READ to such a URL returns the child entity directly.
+## HTTP utility API
 
-If mode is `"ws"` and the socket is connected, the event is wrapped as a
-TX and sent over WebSocket via `socket.send(tx)`. If the socket is not ready,
-the adapter falls back to HTTP.
+Import the default `HTTP` export from `/core/transport/HTTP.js` for low-level
+integration. These callback APIs are not promise-returning entity RPC methods.
 
-### httpCallback(event, response)
-
-Called when an HTTP request completes successfully.
-
-```javascript
-httpCallback(event, response) {
-  // 1. If meta.inbox is set, use it as the new event name
-  if (event.meta['inbox'])
-    event.name = event.meta['inbox'];
-
-  // 2. Swap source and target (response goes back to the original sender)
-  let source = event.source, target = event.target;
-  event.source = target;
-  event.target = source;
-
-  // 3. Set data to the response body
-  event.data = response;
-
-  // 4. Dispatch back through the Matrix
-  this.matrix.dispatch(event);
-}
+```text
+HTTP.get(url, onSuccess, onError)
+HTTP.post(url, data, onSuccess, onError)
+HTTP.put(url, data, onSuccess, onError)
+HTTP.remove(url, onSuccess, onError)
+HTTP.stream(url, data, onChunk, onDone, onError) -> {cancel}
 ```
 
-The `meta.inbox` field is key: it allows the caller to specify what event name the response should arrive as. For example, `DynClass.call('READ', {}, {inbox: 'UPDATE'})` means the response will be dispatched as an UPDATE event rather than READ.
+Ordinary calls read `localStorage['jwtToken']` and send `x-access-token`. The
+ordinary unauthorized path clears stale tokens and redirects to login. SSE has
+its own error path; do not assume it performs the same redirect. Client token
+storage is exposed to page JavaScript, making XSS prevention important.
+Config timeout/retry constants do not establish a universal retry guarantee.
 
-### onError(event, response)
+## Streaming
 
-Creates an ERROR event with the original event as data and dispatches it back to the original source.
-
-### pull(target, callback)
-
-Convenience method to send a READ event to a target URL.
-
-### sendStream(event, onChunk, onDone, onError)
-
-Deprecated compatibility helper. The preferred path is `send()` with
-`meta.stream = true`, which uses the normal TX/HTTP streaming flow.
-
-Current behavior uses `HTTP.stream()` for SSE.
+Prefer `ntx-stream` for model methods. The lower-level API below is useful when
+testing an already-existing POST streaming endpoint:
 
 ```javascript
-const handle = adapter.sendStream(
-    { name: 'generate', target: 'http://localhost:5000/products/1', data: { prompt: 'hello' } },
-    (chunk) => console.log('Chunk:', chunk),
-    (data)  => console.log('Done:', data),
-    (err)   => console.error('Error:', err),
+import HTTP from '/core/transport/HTTP.js';
+const handle = HTTP.stream('/Issue/1/generate', {prompt: 'Summarize'},
+  chunk => console.log('chunk', chunk),
+  done => console.log('complete', done),
+  error => console.error(error),
 );
-
-// Cancel mid-stream:
-handle.cancel();
+// When the caller wants to stop reading:
+// handle.cancel();
 ```
 
-Returns `{ cancel: Function }` for both transports.
+This requires that exact endpoint and parameter schema; it does not create them.
+`HTTP.stream` uses Fetch/ReadableStream and returns an AbortController handle.
+Its parser expects JSON `data:` lines and `event: chunk|done|error` frames. It is
+not a complete general-purpose SSE parser: multiline data and event lines split
+across reader chunks need independent verification. The done guard avoids a
+second completion callback on normal reader closure after a parsed done event.
 
----
-
-## HTTP
-
-**File:** `core/transport/HTTP.js`
-
-Static utility class wrapping the Fetch API. All methods use `window.localStorage['jwtToken']` for auth if present.
-
-### Methods
-
-| Method | Signature | HTTP Method |
-|--------|-----------|-------------|
-| `HTTP.get(url, onSuccess, onError)` | | GET |
-| `HTTP.post(url, data, onSuccess, onError)` | | POST |
-| `HTTP.put(url, data, onSuccess, onError)` | | PUT |
-| `HTTP.remove(url, onSuccess, onError)` | | DELETE |
-| `HTTP.stream(url, data, onChunk, onDone, onError)` | | POST (SSE) |
-
-### Common Behavior
-
-1. Creates `Headers` with `x-access-token` if JWT exists in localStorage.
-2. For POST/PUT: stringifies data to JSON, sets `Content-Type: application/json`.
-3. On success: parses response as JSON, calls `onSuccess(json)`.
-4. On 401: redirects to `/login.html`.
-5. On error: calls `onError(message)`.
-
-### Static Helpers
-
-| Method | Description |
-|--------|-------------|
-| `HTTP.rpc(method, args, kwargs, onSuccess)` | RPC-style POST to `/api/rpc`. |
-| `HTTP.checkIfUnauthorized(res)` | Returns true if status is 401. |
-| `HTTP.checkValidCode(res)` | Returns true for 2xx status codes. |
-
-### stream(url, data, onChunk, onDone, onError)
-
-SSE client for streaming endpoints. Sends a POST request and reads the response as a `ReadableStream`, parsing SSE `event:`/`data:` lines.
-
-```javascript
-const handle = HTTP.stream(
-    'http://localhost:5000/products/1/generate',
-    { prompt: 'hello' },
-    (chunk) => console.log('Chunk:', chunk),    // event: chunk
-    (data)  => console.log('Done:', data),      // event: done
-    (err)   => console.error('Error:', err),    // event: error
-);
-
-// Cancel mid-stream:
-handle.cancel();
-```
-
-**SSE format** expected from server:
-```
-event: chunk
-data: {"chunk": "Part 0"}
-
-event: done
-data: {}
-```
-
-**Returns** `{ cancel: Function }` — calls `AbortController.abort()` to terminate the stream. Auth token from `localStorage['jwtToken']` is included automatically.
-
----
-
-## Socket
-
-**File:** `core/transport/Socket.js`
-
-TX-native WebSocket client with:
-
-- auto-reconnect with exponential backoff
-- outbound message queue while disconnected
-- heartbeat keep-alive every 30s
-- optional JWT auth via query parameter
-
-### Construction
-
-```javascript
-const socket = new Socket('ws://localhost:5000/ws');
-```
-
-### Public Surface
-
-| Property / Method | Description |
+| Cancellation surface | Actual guarantee |
 |---|---|
-| `url` | WebSocket URL |
-| `ws` | Underlying `WebSocket` instance or `null` |
-| `ready` | `true` when the socket is open and ready to send |
-| `onmessage` | callback invoked with parsed non-heartbeat message payloads |
-| `connect(token)` | opens the socket; appends `?token=...` when provided |
-| `send(tx)` | sends `tx.repr()` or plain payload; queues if disconnected |
-| `close()` | closes the socket and disables auto-reconnect |
+| `HTTP.stream(...).cancel()` | Aborts this browser fetch |
+| `Socket.registerStream(... )` returned cleanup | Unregisters local callback routing |
+| `NTTStream.cancel()` | Ignores later chunks, updates UI, sends cancel-intent TX |
+| Backend computation | No general stop/rollback guarantee from those client actions |
 
-### Usage
+The main `NetworkAdapter.send()` SSE path discards the returned abort handle.
+`STREAM_CANCEL` currently falls through generic method transport rather than a
+dedicated abort registry. Do not claim disconnect automatically cancels backend
+work. `sendStream(event,onChunk,onDone,onError)` is a deprecated HTTP compatibility
+helper; it is not the preferred WS/HTTP abstraction.
 
-```javascript
-const socket = new Socket(wsUrl);
-socket.onmessage = (data) => matrix.dispatch(data);
-socket.connect(token);
-socket.send(tx);
-socket.close();
-```
+## WebSocket
 
-### Message Handling
+`Socket` (default export) provides `connect(token)`, `send(tx)`, `close()`, `ready`
+and `onmessage`. It queues sends while disconnected, reconnects with backoff, and
+sends heartbeat frames. Token authentication is a query parameter; avoid leaking
+query strings through logs. The backend must explicitly expose a compatible WS
+endpoint; setting `WS_URL` does not create one.
 
-- Incoming WS frames are parsed as JSON.
-- Heartbeat frames (`{ heartbeat: true }`) are ignored.
-- All other payloads are forwarded to `socket.onmessage(data)`.
-- Outbound payloads are JSON-stringified.
+`registerStream(reqId,onChunk,onDone,onError)` handles correlated messages:
+`meta.error` terminates with error, `meta.stream_end` terminates with done,
+otherwise calls onChunk. Non-correlated messages go to `onmessage`. Matrix's
+adapter dispatches those replies back to local actors.
 
-### Reconnect / Queue Behavior
+Socket queuing is not durable delivery or exactly-once execution. HTTP fallback
+does not prove identical auth, error, ordering or method behavior across transports.
+Verify the enabled backend adapter before relying on cross-transport parity.
 
-- When the socket closes unexpectedly, reconnect is scheduled with exponential backoff.
-- Messages sent while disconnected are stored in an internal queue.
-- The queue is flushed when the socket opens successfully.
+## Sources and tests
 
-### Obsolete Contract Notes
-
-Older docs/tests referenced a larger Socket API with `sendEvent()`,
-`sendMessage()`, `watchdog()`, `Socket.resources`, `Socket.defaultSocket`,
-and target registration helpers. That is no longer the intended public
-contract for the current transport layer.
-
-### Stream Correlation
-
-`registerStream(reqId, onChunk, onDone, onError)` registers stream handlers for correlated WS messages. When an incoming message has `meta.stream` and `meta.req` matching a registered stream, it is dispatched to the stream handler instead of the generic `onmessage`.
-
-```javascript
-const cancel = socket.registerStream(txUuid,
-    (chunk) => console.log('Chunk:', chunk),
-    (data)  => console.log('Done:', data),
-    (err)   => console.error('Error:', err),
-);
-
-// Unregister the stream handler:
-cancel();
-```
-
-Messages are routed based on `meta` fields:
-- `meta.error` -> `onError`, then unregister
-- `meta.stream_end` -> `onDone`, then unregister
-- otherwise -> `onChunk`
-
----
-
-## Request/Response Cycle
-
-Complete lifecycle of a remote call:
-
-```
-1. Actor calls:     DynClass.call('READ', {})
-
-2. DynClass.call() creates TX:
-   { name: READ, target: "http://localhost:8000/products",
-     data: {}, meta: {} }
-   (source omitted — Actor._send assigns DynClass.name during Case 3 bubble)
-
-3. DynClass.send() -> Actor._send()
-   Target "http://..." is not in DynClass.children
-   -> Bubbles to Matrix
-
-4. Matrix.inbox():
-   First segment "http:" not in matrix.children
-   -> matrix.remote.send(tx)
-
-5. NetworkAdapter.send():
-   name="READ" -> HTTP.get("http://localhost:8000/products", callback, onError)
-
-6. Fetch completes:
-   HTTP.get -> onSuccess(jsonData)
-   -> NetworkAdapter.httpCallback(originalEvent, jsonData)
-
-7. httpCallback:
-   event.name = meta.inbox (if set) or stays "READ"
-   event.source = "http://localhost:8000/products"  (was target)
-   event.target = "Product"                          (was source)
-   event.data = [{id:1, name:"Keyboard",...}, ...]
-   matrix.dispatch(event)
-
-8. Matrix.inbox():
-   First segment "Product" -> found in matrix.children (DynClass)
-   -> DynClass.inbox(tx)
-
-9. DynClass (static) inbox:
-   tx.target = "Product" matches DynClass.addr
-   -> this["READ"](tx.data) dispatches to DynClass.READ()
-
-10. DynClass.READ():
-    Creates/updates N3TX instances from data array
-    Replays pending instance ATTACHes
-    Notifies all watchers with instance address array
-```
+[NetworkAdapter](../../packages/n3tx-core/src/n3tx_core/static/core/transport/NetworkAdapter.js) ·
+[HTTP](../../packages/n3tx-core/src/n3tx_core/static/core/transport/HTTP.js) ·
+[Socket](../../packages/n3tx-core/src/n3tx_core/static/core/transport/Socket.js) ·
+[transport tests](../../tests/frontend/tests/transport/) ·
+[message protocol](MESSAGE_PROTOCOL.md).

@@ -2,7 +2,7 @@
 
 This directory contains project-local OpenCode skills for N3TX development.
 Skills are agent-facing routing and execution aids; canonical framework
-contracts still live in `AGENTS.md`, `BACKEND.md`, `FRONTEND.md`, `/workspace/docs/`,
+contracts still live in `AGENTS.md`, `BACKEND.md`, `FRONTEND.md`, `docs/`,
 and package docs.
 
 ## Maintenance rules
@@ -35,7 +35,9 @@ and package docs.
 ## Read first
 1. `AGENTS.md` and relevant docs/package docs.
 2. `BACKEND.md`, `FRONTEND.md`, or both by scope.
-3. Source only when docs/skills are insufficient or contradicted.
+3. Then inspect relevant current implementation/tests before meaningful changes;
+   also inspect source when docs are incomplete or contradicted. Docs first is
+   not docs only.
 
 ## Drift anchors
 - Canonical docs or files that own the contract summarized by this skill.

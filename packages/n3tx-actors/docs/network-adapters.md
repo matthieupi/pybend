@@ -1,230 +1,165 @@
-# Network Adapters
+# Network adapters and remote references
 
-> Part of [n3tx-actors](../README.md)
+[Package](../README.md) · [Interceptors](interceptors.md) · [ActorModel](actor-model.md)
 
-## What This Covers
+Adapters translate protocols into TX messages or translate outbound TXs into
+network requests. They share messaging primitives, not identical authorization,
+validation, response or cancellation guarantees.
 
-The NetworkAdapter base class and its concrete adapters: NetworkAPI (HTTP), NetworkWebSocket, NetworkMCP, NetworkAP, and RemoteMatrix. Covers the request/response bridging mechanism, protocol translation, streaming, distributed refs, and route generation. Does not cover the auth interceptor in detail (see [interceptors.md](interceptors.md)).
-
-## Architecture
-
-```
-External Protocol         NetworkAdapter             Matrix / Actor Tree
------------------         ---------------            -------------------
-HTTP POST /products  -->  NetworkAPI.request(tx)  --> matrix.inbox(tx)
-                          [interceptors: auth]        --> Product.handler_crud()
-                          future = pending[uuid]      <-- reply TX
-                     <--  future.set_result(reply)    (via adapter.inbox correlation)
-
-WebSocket message    -->  NetworkWebSocket            --> matrix.inbox(tx)
-                          .handle_message(msg)
-                          _translate_incoming()
-                     <--  _translate_outgoing()
-
-MCP JSON-RPC         -->  NetworkMCP                  --> matrix.inbox(tx)
-                          .handle_jsonrpc(body)
-                     <--  JSON-RPC response
-
-AP Activity          -->  NetworkAP                   --> matrix.inbox(tx)
-                           .handle_inbox(activity)
-                      <--  AP response
-
-https://storage.example.com/File/1
-                    -->  RemoteMatrix.send(tx)     --> GET remote /File/1
-                    <--  TX reply/error            <-- REST JSON/error
+```text
+HTTP / WS / MCP / AP -> protocol adapter -> TX -> Matrix -> ActorModel
+HTTP(S) remote ref  <- RemoteMatrix     <- TX <- Matrix caller
 ```
 
-All adapters extend `NetworkAdapter(Actor, auto_register=False)`. They register as Matrix children via `matrix.register(adapter)`. Response TXs route back through normal Matrix routing -- the adapter's `inbox()` checks for pending correlation before falling through to normal dispatch.
+## Base adapter
 
-## Interface
+`NetworkAdapter(Actor, auto_register=False)` supplies:
 
-### NetworkAdapter (base)
+| Method | Behavior |
+|---|---|
+| `request(tx, timeout=30.0)` | Request interceptors, Future correlation by `meta.req`, response/error TX |
+| `stream(tx, timeout=120.0)` | Request interceptors, Queue correlation, background send, async TX iterator |
+| `inbox(tx)` | Resolves pending replies before normal Actor dispatch |
 
-```python
-class NetworkAdapter(Actor, auto_register=False):
-    async def inbox(self, tx: TX) -> None: ...
-    async def request(self, tx: TX, timeout=30.0) -> TX: ...
-    async def stream(self, tx: TX, timeout=120.0) -> AsyncGenerator[TX]: ...
-```
+Register instances with `matrix.register(adapter)`; adapter constructors do not
+automatically mount routes. Outbound adapters additionally need
+`matrix.register_adapter(adapter)`. Request timeout is a reply-wait timeout
+after inline send, not a total execution budget. Stream timeout applies between
+chunks; generator cleanup removes pending state and cancels unfinished sends.
+Check `is_error` rather than assuming a returned TX succeeded.
 
-`request()` bridges synchronous protocols to async actors: stores a Future keyed by `tx.uuid`, sends the TX, awaits the correlated reply (matched via `meta['req']`). Timeout returns error TX with code 504.
+## Protocol decision table
 
-`stream()` uses an `asyncio.Queue` instead of a Future. Yields TX chunks until `stream_end` or error. Launches `send()` as a background task to enable progressive delivery.
+| Adapter | Surface | Important limit |
+|---|---|---|
+| NetworkAPI | Generated FastAPI CRUD/actions/schema and SSE | Requires the boundary auth interceptor; raw Matrix is different |
+| NetworkWebSocket | `/ws?token=JWT`, frontend TX translation | Invalid token becomes anonymous; broadcasts have no per-recipient filtering |
+| NetworkMCP | `POST /mcp`, `GET /mcp/tools` | Stock tools/call does not propagate HTTP caller or model metadata |
+| NetworkAP | WebFinger, `/{tablename}/inbox`, `/{tablename}/outbox` | No HTTP-signature verification; in-memory outbox/followers |
+| RemoteMatrix | HTTP(S) class/entity targets, remote SSE | General outbound URLs; configured remotes are not an allowlist |
 
 ### NetworkAPI
 
-```python
-api = NetworkAPI(addr='api')   # default addr='api'
-matrix.register(api)
-api.use(auth_interceptor, on='request')
-router = create_api_routes(api, registered_models)
-app.include_router(router)
-```
+Prefer `create_app(..., routing='actor')` or the builder equivalent. Bootstrap
+registers finalized actor models, NetworkAPI and its auth interceptor. Manual
+integration uses `create_api_routes(api_adapter, registered_models)` on a
+registered adapter, with application auth middleware configured separately.
 
-`create_api_routes()` generates: schema routes (`GET /{ClassName}`), class-name JSON mirrors for storable models (`GET /{ClassName}/_`, `POST /{ClassName}`, `GET/PUT/DELETE /{ClassName}/{id:int}`), table-name CRUD routes (`POST/GET/PUT/DELETE /{tablename}/...`), literal custom method routes from `@expose_route` under both table-name and class-name paths, and streaming routes (SSE for `stream=True` methods). Data/API routes create TXs, call `api.request()` or `api.stream()`, and convert responses via `_response_or_raise()` or SSE framing.
+Schema is `GET /ClassName`; table routes provide CRUD; class-name mirrors use
+`/ClassName/_` for lists and `/ClassName/{id}` for members. Only declared literal
+exposed methods get method routes; there is no generic method catch-all.
+`register_view_routes` and `register_extra_routes` hooks can mount capability
+routes directly. HTML shells and File byte IO do not round-trip as CRUD TXs.
 
-Models may also expose optional HTML/view routes through a package-neutral capability hook:
+Generated routes supply trusted user/model metadata. HTTP updates strip
+protected fields; raw TX does not reproduce that preprocessing. ActorModel's
+JSON-string parsing also differs from direct HTTP string responses.
 
-```python
-class Product(ActorModel):
-    @classmethod
-    def register_view_routes(cls, router, *, tag: str) -> None: ...
-```
+SSE uses `event: chunk|done|error` and `data: <serialized TX>`, with comment
+padding, `Cache-Control: no-cache, no-transform`, and `X-Accel-Buffering: no`.
+These discourage buffering but do not guarantee proxy flush timing. Application
+events nested in TX data are distinct from outer completion/error flags.
 
-`n3tx-ui` provides this hook via `ViewableMixin` for models with `__ui__` / `__viewable__`. NetworkAPI delegates to the hook when present, so actor routing supports the same hypermedia routes as direct routing without importing `n3tx_ui`:
+### WebSocket
 
-- `GET /{ClassName}/@`
-- `GET /{ClassName}/@{view}`
-- `GET /{ClassName}/{id}/@`
-- `GET /{ClassName}/{id}/@{view}`
+`create_ws_routes(ws)` mounts the endpoint; configure
+`ws.use(auth_interceptor, on='request')` and register it with Matrix. Incoming
+frontend names map to backend names (`READ` to list/get, `LOAD` to schema).
+Canonical API URLs are stripped and class names mapped through registered
+models. Connection user metadata is supplied separately from incoming data.
 
-These HTML/view routes are served directly by the capability hook and do not dispatch CRUD or method TXs. Class-name JSON mirrors still dispatch normal CRUD or literal method TXs to the table-name actor address, preserving payload shape, `populate`, `depth`, authenticated user metadata, `model_cls` metadata, Tier 1/Tier 2 authorization, lifecycle hooks, and streaming metadata. `GET /{ClassName}` remains the schema endpoint; `GET /{ClassName}/_` is the explicit JSON collection mirror. There is no generic class-name method catch-all. Parent-scoped join/nested route synthesis is no longer part of NetworkAPI; see the global [release notes](../../../RELEASE_NOTES.md) for migration notes.
+The explicit class collection target `ClassName/_` currently forces `list`
+regardless of the incoming operation. In particular, do not assume a WebSocket
+CREATE to that target performs a create; the adapter tests expose this mismatch.
 
-### NetworkWebSocket
+Connection acceptance is not authorization. Token decode failure is logged and
+the connection is accepted anonymously. Lifecycle subscriptions broadcast entity
+data to **all** connections; do not subscribe private models assuming ABAC
+filters the broadcast. Custom-method kwargs do not use NetworkAPI's HTTP
+argument parser. Stream tasks are launched in the background; the endpoint does
+not implement a complete per-request cancellation/task registry on disconnect.
 
-```python
-ws = NetworkWebSocket(addr='ws')
-matrix.register(ws)
-router = create_ws_routes(ws)
-app.include_router(router)
-```
+### MCP
 
-WebSocket endpoint at `/ws?token=JWT`. Protocol translation: frontend UPPERCASE names mapped to backend lowercase (`READ`->`list`, `LOAD`->`schema`). Full URL targets stripped to local addresses. Lifecycle events broadcast to all connected clients.
+`create_mcp_routes(mcp)` exposes JSON-RPC `initialize`, `ping`, `tools/list` and
+`tools/call`. Discovery requests model schemas and caches tool descriptions;
+call `invalidate_cache()` after registry changes. Its schema conversion is
+separate from n3tx-agents discovery: it generates CRUD specs without the same
+storable check and does not supply the same instance-method ID handling.
 
-### NetworkMCP
+Tool names split with `rsplit('_', 1)`: underscores in table names work for
+simple actions; underscores in method names are ambiguous. Calls return MCP
+text content containing JSON, with `isError=True` for error TXs.
 
-```python
-mcp = NetworkMCP(addr='mcp')
-matrix.register(mcp)
-router = create_mcp_routes(mcp)
-app.include_router(router)
-```
+**Do not expose stock MCP as an authenticated user API.** The route does not
+forward request identity; tools/call builds TXs without `user` or `model_cls`.
+Attaching `auth_interceptor` alone therefore does not establish authorization.
 
-JSON-RPC 2.0 endpoint at `POST /mcp`. Supports `initialize`, `tools/list`, `tools/call`, `ping`. Tool names follow `{tablename}_{action}` pattern. Schemas cached, invalidated via `mcp.invalidate_cache()`.
+### ActivityPub
 
-### NetworkAP
+NetworkAP converts lifecycle create/update/delete into activities and records
+them in an in-memory outbox. It supports actor-document generation, WebFinger,
+Follow and Undo Follow. Generated routes mount collection inbox/outbox and
+WebFinger, not every URL advertised by actor documents.
 
-```python
-ap = NetworkAP(addr='ap', base_url='https://example.com')
-matrix.register(ap)
-router = create_federation_routes(ap)
-app.include_router(router)
-```
+Inbound CRUD activities use `send()` with federation metadata, no caller and no
+model authorization context. There is no HTTP-signature verification or durable
+delivery/outbox. `__federated__` discovery is not an ingress authorization gate.
+Keep this adapter off untrusted networks unless a separately reviewed boundary
+supplies the missing controls; it is not production federation parity.
 
-Endpoints: `GET /.well-known/webfinger`, `GET /{tablename}/outbox`, `POST /{tablename}/inbox`. Models with `__federated__ = True` get AP actor documents, outbox recording, Follow/Unfollow handling.
+## RemoteMatrix and RemoteRef
 
-### RemoteMatrix
+RemoteMatrix preserves absolute HTTP(S) identities. It does not translate them
+into `n3tx://` identities. Configured remote base URLs disambiguate API prefixes
+and select credentials. Queries/fragments and non-HTTP schemes are rejected.
+
+| Operation | Network behavior |
+|---|---|
+| `get` on entity target | GET canonical entity URL |
+| Other operation | Fetch class schema, resolve method route/scope, POST JSON |
+| Instance method without schema metadata | Legacy `/<Class>/<id>/<method>` fallback |
+| Class method without schema metadata | No placeholder-ID fallback |
+| `remote.stream(tx)` | POST SSE; reconstruct TX envelopes until error/end |
+
+This is not a general CRUD-to-HTTP verb mapper: non-get operations use POST.
+Remote streaming is an explicit adapter API, not proof that ordinary Matrix
+adapter delegation streams every remote call. RemoteRef supplies async `get()`
+and `call(method, **data)`, returning response data or raising RemoteRefError.
+`Model.ref(url, matrix=..., user=...)` checks the URL schema matches the model.
+
+Advanced wiring excerpt (requires an existing Matrix, compatible storage,
+reachable remote and reviewed credentials; **not** a local smoke test):
 
 ```python
 from n3tx_actors.api.remote_matrix import RemoteMatrix, MatrixReferenceResolver
 
-remote = RemoteMatrix(remotes={'storage': {'url': 'http://storage:7100', 'token': '...'}})
+remote = RemoteMatrix(remotes=remote_config)
 matrix.register(remote)
 matrix.register_adapter(remote)
 storage.set_reference_resolver(MatrixReferenceResolver(matrix))
 ```
 
-`RemoteMatrix` handles canonical distributed refs and remote class actor targets
-via existing class-name REST routes:
+Outgoing headers include `X-N3TX-Service`, optional `X-N3TX-User` JSON and bearer
+token selected from remote token or service-token fallback. Receiving core
+middleware trusts forwarded identity only with a matching service token. Such a
+token is authority to assert users, not an ordinary user credential.
 
-| TX | REST call |
-|---|---|
-| `TX(name='get', target='http://storage:7100/File/12')` | `GET http://storage:7100/File/12` |
-| `TX(name='process', target='http://storage:7100/File/12', data={...})` | `POST http://storage:7100/File/12/process` |
-| `TX(name='reindex', target='http://compute:7200/Job', data={...})` | `POST http://compute:7200/Job/<schema route>` |
-| `TX(name='generate', target='http://compute:7200/Job/12', meta={'stream': True})` | `POST http://compute:7200/Job/12/<schema route>` as SSE |
+RemoteMatrix accepts unconfigured entity URLs too and can use the service-token
+fallback for them. Restrict destinations before dispatch; never let arbitrary
+user URLs receive service credentials. Add egress/SSRF controls and timeouts.
+MatrixReferenceResolver can block synchronous storage while resolving remotely;
+explicit populate is not free or implicitly safe.
 
-Remote streaming uses the same TX stream contract as local `NetworkAdapter.stream()`.
-`RemoteMatrix.stream(tx)` opens the remote generated SSE route, parses
-`event: chunk|done|error` frames incrementally, reconstructs the serialized TX
-envelopes, and yields TX chunks until an error or `meta.stream_end` terminates
-the stream.
+## Evidence and verification
 
-Method URLs are resolved schema-first for both normal requests and streaming
-requests. The adapter fetches
-`GET /{ClassName}`, reads `schema.methods[tx.name].route`, and uses method
-`scope` to choose the route shape:
-
-```text
-classmethod/staticmethod: /{ClassName}{route}      # target {base_url}/{ClassName}
-instance method:          /{ClassName}/{id}{route}
-```
-
-If schema lookup fails or the method is not present, `RemoteMatrix` falls back to
-the original method route shape `/{ClassName}/{id}/{tx.name}` for compatibility.
-ID-less class/static targets do not have a legacy fallback because static
-capabilities should not invent placeholder ids. This preserves N3TX's
-model/schema authority while keeping existing simple instance method calls
-working.
-
-It attaches service/user context headers:
-
-```text
-Authorization: Bearer <remote-or-service-token>
-X-N3TX-Service: <local-service-name>
-X-N3TX-User: <json-user-context>  # when tx.meta.user is present
-```
-
-The receiving N3TX service accepts those headers through the core auth
-middleware when `Authorization` matches its configured `SERVICE_TOKEN`. The
-forwarded `X-N3TX-User` JSON becomes `request.state.user`, so generated routes
-and ActorModel handlers continue through the normal ABAC path. Remote response
-`$id` values that point back at the configured remote URL are normalized to the
-absolute HTTP(S) `$id` identity unchanged when returning to Matrix callers.
-
-`MatrixReferenceResolver` is the storage-facing adapter: `SQLiteStorage` can
-receive it as `reference_resolver` and keep core independent from actors.
-
-For explicit Python method calls, prefer the model-centric `ActorModel.ref()`
-helper:
-
-```python
-artifact = Artifact.ref('https://storage.example.com/Artifact/42', matrix=matrix)
-data = await artifact.get()
-result = await artifact.call('process', mode='fast')
-```
-
-Internally this returns a `RemoteRef` handle. `ActorProxy` is different: it wraps
-a local Python object/class as an actor; `RemoteRef` calls a remote HTTP(S)
-identity through Matrix.
-
-## Usage Patterns
-
-### Level 3 wiring (full actor routing)
-
-```python
-from n3tx_actors import matrix
-from n3tx_actors.api.network_api import NetworkAPI, create_api_routes
-from n3tx_actors.api.network_ws import NetworkWebSocket, create_ws_routes
-from n3tx_actors.api.auth_interceptor import auth_interceptor
-
-api = NetworkAPI()
-ws = NetworkWebSocket()
-matrix.register(api)
-matrix.register(ws)
-api.use(auth_interceptor, on='request')
-ws.use(auth_interceptor, on='request')
-
-app.include_router(create_api_routes(api, registered_models))
-app.include_router(create_ws_routes(ws))
-```
-
-### SSE streaming through NetworkAPI
-
-Streaming `@expose_route(stream=True)` methods produce SSE responses. The adapter calls `stream()` internally and converts TX chunks to SSE format: `event: chunk|done|error`, `data: {json TX envelope}`.
-
-Frames are intentionally anti-buffered: each SSE message starts with a large
-comment padding line and responses set `Cache-Control: no-cache, no-transform`
-plus `X-Accel-Buffering: no`. This keeps browser/proxy stacks from coalescing
-small model-generated chunks and preserves progressive first-token delivery.
-
-## Gotchas
-
-- **All adapters must use `auto_register=False`** and be manually registered via `matrix.register()`. They require constructor arguments and manual setup (interceptors, etc.).
-- **`request()` timeout returns an error TX, not an exception.** Always check `response.is_error` before accessing `response.data`.
-- **`stream()` launches `send()` as a background task** (`asyncio.create_task`). This prevents the full async generator from being consumed before chunks can be yielded. Do not change this to `await self.send(tx)`.
-- **WebSocket protocol translation strips API_URL prefix** from targets and maps frontend UPPERCASE names. If `config.API_URL` is not set correctly, routing will fail silently.
-- **MCP tool names use `rsplit('_', 1)`** to parse `{tablename}_{action}`. Model tablenames containing underscores will be parsed incorrectly (e.g., `product_reviews_list` splits as `product_reviews` + `list`, which is correct, but `my_products_list` would also work if tablename is `my_products`).
-- **NetworkAP stores outbox in memory** (`_outbox` dict). Activities are lost on restart. Persistent outbox storage is deferred to Wave 4+.
-- **RemoteMatrix is REST-backed in the first slice.** It intentionally reuses
-  existing class-name routes instead of introducing generic `/_tx` ingress.
+Sources: [API](../src/n3tx_actors/api/network_api.py),
+[WS](../src/n3tx_actors/api/network_ws.py),
+[MCP](../src/n3tx_actors/api/network_mcp.py),
+[AP](../src/n3tx_actors/api/network_ap.py),
+[remote](../src/n3tx_actors/api/remote_matrix.py).
+Tests: [adapter tests](../src/n3tx_actors/api/tests/),
+[remote tests](../src/n3tx_actors/tests/test_remote_matrix.py),
+[shutdown tests](../src/n3tx_actors/tests/test_streaming_shutdown.py).
+Test each enabled ingress for denied calls, caller spoofing, resource ownership,
+stream failure and disconnect; shared TX primitives are not a parity certificate.

@@ -1,5 +1,9 @@
 # `users` Model
 
+> Stale generated snapshot. Login/register scope and return descriptions below
+> are historical, not the current BaseUser contract. See [snapshot status](index.md)
+> and the [model guide](../MODELS.md).
+
 **Endpoint**: `GET /users` (returns schema)
 
 ## Fields

@@ -63,11 +63,17 @@ from n3tx_files import File, LocalFileStore, configure_file_store
 configure_file_store(LocalFileStore('./file-blobs'))
 ```
 
-App code should pass `File` metadata or addresses (`/File/1`,
-`n3tx://files/1`) across actor/method boundaries. Provider-specific handles stay
+App code should pass `File` metadata or canonical absolute HTTP(S) URLs such as
+`https://api.example.com/File/1` across actor/method boundaries. Provider-specific handles stay
 behind the `FileStore` implementation.
 
 ## Guardrails
+
+Provider interfaces are extension points, not shipped remote-store support.
+`ensure_local()` currently requires LocalFileStore. A scheduled actor still needs
+an external scheduling mechanism. Keep secrets outside public model fields;
+review URL/redirect destinations, timeouts and credential forwarding. Actor
+wrapping alone does not prevent SSRF or establish authorization.
 
 - Do not call third-party APIs from arbitrary model methods if the capability should be reused.
 - Do not expose secrets in schema or responses.

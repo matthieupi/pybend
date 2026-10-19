@@ -16,35 +16,32 @@ guess-and-check — you prove the root cause before touching production code.
 
 **You MUST follow these phases in strict sequential order. No skipping ahead.**
 
-> **START by writing failing tests. Do NOT read source code to "understand
-> the bug first". Do NOT analyze root causes. Do NOT touch production code.
-> Your FIRST action is to create test files and write failing tests.
-> Everything else comes after.**
+> **Read the repository guide, affected interface and test fixtures first.
+> Then reproduce the reported behavior with failing tests before changing
+> production code. Do not invent an interface just to write a test.**
 
 | # | Phase | Gate (must be true before moving on) |
 |---|---|---|
-| 1 | **Write failing tests** | 3+ test files written |
-| 2 | **Confirm red** | All tests fail for the right reason |
+| 1 | **Write reproduction tests** | At least one meaningful reproducer, plus relevant controls |
+| 2 | **Confirm red** | Reproducer fails for the reported reason; controls may pass |
 | 3 | **Diagnose** | Root cause identified, theory validated read-only |
 | 4 | **Propose fix — USER REVIEW** | User approves the proposed solution |
-| 5 | **Apply fix** | All tests pass (or 4-iteration limit hit) |
+| 5 | **Apply fix** | Targeted tests pass; stop unresolved at 4-iteration limit |
 | 6 | **Root cause analysis** | Root cause categorized, assessment presented |
 | 7 | **Optimal fix — USER REVIEW** | User approves deeper fix if one exists |
-| 8 | **Full suite validation** | No regressions in full test suite |
+| 8 | **Regression validation** | Selected coverage/results and untested boundaries reported |
 | 9 | **Summary** | Summary presented, no auto-commit |
 
 ---
 
 ## Phase 1: Reproduce — Write Failing Tests
 
-> **This is your FIRST action. Before you read a single line of source code,
-> before you form any theory, before you investigate anything — write the
-> tests. The tests ARE the investigation. They tell you what's broken and
-> where.**
+> **Reproduction precedes the fix, not the context needed to write a valid
+> test. Use existing interfaces and fixtures; confirm the failure's cause.**
 
-Write **at least three** failing tests that reproduce the reported bug from
-different angles. Mix and match freely from these test types — any
-combination that best covers the bug:
+Write **at least one meaningful failing reproduction test**, adding independent
+cases and passing regression controls where they provide useful signal. Choose
+from these test types to cover the affected behavior:
 
 - **Unit** — isolate the broken function/method directly
 - **Integration** — exercise the bug through the API or multi-module path
@@ -54,33 +51,31 @@ combination that best covers the bug:
 - **Happy-path** — confirm the expected behavior is actually broken
 - **Backend + Frontend** — cover both sides when the bug spans the API boundary
 
-Pick the three (or more) that give the most useful signal for this specific
-bug. There is no fixed pairing — use your judgment.
+There is no test-file quota or fixed pairing; use the smallest sufficient set.
 
 Place tests in the appropriate directory following project conventions:
-- `src/n3tx/core/tests/unit/` — framework unit tests
-- `example_api/tests/` — integration tests (Level 1/2 direct routes)
-- `example_actor/tests/` — integration tests (Level 3 actor routing)
-- `example_grants/tests/` — grants/agents app tests
-- `src/n3tx/static/tests/` — frontend tests
+- `packages/n3tx-core/src/n3tx_core/tests/unit/` - core unit tests
+- `examples/core/tests/` - direct-route integration tests
+- `examples/actors/tests/` - actor integration tests
+- `examples/grants/tests/` - grants/agents app tests
+- `tests/frontend/` - frontend harness; follow its README
 
 **Name the test functions clearly** — they should describe the bug, not the
 fix. Example: `test_like_returns_500_when_user_not_authenticated` rather than
 `test_like_fix`.
 
-Write more than three tests if the bug surface area warrants it, but three
-is the minimum.
+If reproduction is unavailable, report the evidence gap and stop before fixing;
+do not invent a failure or weaken the expected behavior.
 
 ---
 
 ## Phase 2: Confirm Red
 
-Run **only** the tests you just wrote. They must **all fail** for the reason
-the bug manifests. If a test passes, it doesn't reproduce the bug — rewrite
-it until it fails correctly.
+Run the selected reproducer and controls. The reproducer must fail for the
+reported reason. Keep useful passing controls; do not rewrite them to force red.
 
 ```bash
-python3 -m pytest path/to/test_file.py::test_name_1 path/to/test_file.py::test_name_2 path/to/test_file.py::test_name_3 -v
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" -m pytest path/to/test_file.py::test_reproduction -v
 ```
 
 Verify the failure messages match the reported bug behavior. If they fail
@@ -111,8 +106,9 @@ Prove your theory through read-only investigation before making any edits:
 - Trace the data flow from input to failure point
 - Check if the theory explains **all** failing tests, not just one
 - Look for prior art — has this pattern been handled correctly elsewhere?
-- Add temporary `print()` / `console.log()` statements and run the tests
-  to confirm the theory if needed (remove them after)
+- Use debugger inspection or existing logs without source edits. Temporary
+  diagnostic source edits require separate user approval, are not read-only,
+  and must be removed before re-running the unchanged reproducer.
 
 Do **not** proceed to Phase 4 unless you are confident in the root cause.
 
@@ -153,13 +149,13 @@ fix the bug.
 
 ### 5.2 — Verify
 
-Run the **same three+ tests** from Phase 2 (the saved pytest command).
+Run the **same reproducer and controls** from Phase 2 (the saved pytest command).
 
 ### 5.3 — Evaluate Result
 
 - **All tests pass** → exit the loop, proceed to Phase 6.
-- **Any test fails** → the fix is wrong. **Undo all changes** made in 5.1
-  (`git checkout -- <files>`) and return to 5.1 with an adjusted approach.
+- **Any test fails** → investigate the failure. If the fix is wrong, undo only
+  your attempted hunks, preserving pre-existing and concurrent work, and retry.
   If the failure suggests the approved approach is fundamentally wrong,
   go back to Phase 4 and re-propose to the user. Do not iterate on a
   broken fix — revert and rethink.
@@ -219,8 +215,8 @@ The user may:
 
 If approved:
 
-1. **Undo the Phase 5 fix**: `git checkout -- <files>` to restore the
-   buggy state. The failing tests are still in place.
+1. **Undo only your Phase 5 fix hunks**, preserving all other edits and the
+   failing tests. Never restore whole files over another contributor's work.
 
 2. **Implement the optimal fix.** This may be a broader refactor — that's
    fine, as long as it's motivated by the bug and makes the system genuinely
@@ -233,17 +229,19 @@ If no better fix exists, skip this phase — the Phase 5 fix stands.
 
 ---
 
-## Phase 8: Full Suite Validation
+## Phase 8: Regression Validation
 
-The failing tests pass with the optimal fix. Now verify nothing else broke.
+The targeted tests pass. Now run relevant isolated regression suites. The
+examples below select three backend suites, not the full repository suite.
+Discover other suites with `scripts/test-backend.py --list` and select frontend
+checks from `tests/frontend/README.md` when affected. Report actual coverage,
+skips and unavailable suites; claim full-suite success only if all were run.
 
 ```bash
-# Framework unit tests
-cd /workspace/src/n3tx/core && python3 -m pytest tests/unit/ -v
-
-# Integration tests (run whichever are relevant)
-cd /workspace && python3 -m pytest example_api/tests/ -v
-cd /workspace && python3 -m pytest example_actor/tests/ -v
+# From the N3TX repository root; run relevant suites in isolated processes.
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite core -- -v
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite examples-core -- -v
+"${N3TX_PYTHON:-/workspace/.venv-agents/bin/python}" scripts/test-backend.py --suite examples-actors -- -v
 ```
 
 If any unrelated test fails:
@@ -263,7 +261,8 @@ Root cause: <category> — <explanation>
 Fix: <what changed and why>
 Tests added: <list of test files/functions>
 Files modified: <list>
-Regression: none | <description>
+Regression: none observed in <selected coverage> | <description>
+Unverified: <suites/boundaries not exercised>
 ```
 
 Do **not** commit. The user decides when to commit (they may use `/commit`
@@ -289,12 +288,12 @@ or `/git-smart`).
 
 Re-read this before each action to stay on track:
 
-1. **WRITE TESTS FIRST** — 3+ failing tests, no source code analysis yet
-2. **RUN TESTS** — confirm they all fail for the right reason
+1. **REPRODUCE BEFORE FIXING** - load repo/interface/fixture context, then write failing tests
+2. **RUN TESTS** — confirm the reproducer fails for the right reason; retain passing controls
 3. **DIAGNOSE** — analyze and validate theory, read-only investigation
 4. **PROPOSE FIX → USER REVIEW** — present findings, wait for approval
 5. **APPLY FIX → VERIFY** — implement approved fix, loop until green, revert on failure
 6. **ROOT CAUSE** — categorize why the bug existed
 7. **OPTIMAL FIX → USER REVIEW** — propose deeper fix if one exists, wait for approval
-8. **FULL SUITE** — run all tests to catch regressions
+8. **REGRESSION VALIDATION** — run relevant suites; report exact coverage and gaps
 9. **SUMMARY** — report results, do not commit

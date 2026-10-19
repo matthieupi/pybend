@@ -1,5 +1,12 @@
 # N3TX Enhancement Plan: Review & Corrections
 
+> **Historical design critique; proposals are not a shipped API.** In particular,
+> convention-based renderer discovery, opt-in resizing, new loading hooks and
+> TypedDict configuration below must not be assumed implemented. The body remains
+> intact for provenance. Current references: [frontend guide](ARCHITECTURE.md),
+> [component lifecycle](../../packages/n3tx-ui/docs/components.md), and
+> [ViewableMixin](../../packages/n3tx-ui/docs/viewable-mixin.md).
+
 Critical review of the UI Primitives Enhancement Plan (`02_UI_PRIMITIVES_ENHANCEMENT.md`). Each section identifies a gap or design flaw, explains why it matters, and proposes a concrete fix. These corrections should be applied before implementation begins.
 
 **Companion documents**: `01_UI_SEPARATION_CONCERNS.md` (component analysis), `02_UI_PRIMITIVES_ENHANCEMENT.md` (enhancement plan).

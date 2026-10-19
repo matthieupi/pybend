@@ -1,5 +1,11 @@
 # N3TX Component Layer: Separation of Concerns
 
+> **Historical refactor analysis.** The before/after proposals and snippets below
+> describe their original design context, not today's API. Preserve them as
+> rationale, not copy/paste examples (some templates interpolate untrusted values).
+> Use [current lifecycle and safe renderer examples](../../packages/n3tx-ui/docs/components.md)
+> and the [frontend guide](ARCHITECTURE.md) for implementation.
+
 Architectural analysis and refactoring plan for the N3TX frontend component hierarchy.
 
 ---

@@ -1,5 +1,12 @@
 # N3TX Package Architecture
 
+> **Historical packaging proposal, not the current package contract.** The body
+> below is preserved as design history. Proposed `@ntt/*` packages, barrel imports,
+> old paths and architectural recommendations are not supported setup instructions.
+> Current packaging is runtime in n3tx-core, visual UI in n3tx-ui, with agent UI
+> layered on those assets. Start at the [frontend guide](ARCHITECTURE.md) and
+> [UI package reference](../../packages/n3tx-ui/README.md).
+
 Module boundaries, dependency analysis, and packaging strategy for the N3TX frontend framework and its N3TX backend.
 
 **Related:** `UI_SEPARATION_CONCERNS.md` covers the component-layer refactor in detail. This document focuses on the broader question of how the entire system should be organized into distributable units.

@@ -4,6 +4,12 @@ argument-hint: "<subsystem> [depth:quick|deep]  e.g. 'actor', 'tx depth:quick', 
 ---
 # Deep Audit: Comprehensive Subsystem Analysis
 
+In this checkout, use `.project/audits/` for outputs and `AGENTS.md`,
+`BACKEND.md`, `FRONTEND.md` for context instead of the legacy `.traces/` and
+`claude-back/front.md` names in the reusable template below. Check available
+delegation tools first. Length targets do not establish completeness: record
+unread/truncated inputs and distinguish source findings from executed tests.
+
 You are a senior systems architect performing a thorough audit of a subsystem
 for a **technical CEO and their engineering team**. Your goal is to disassemble
 every component, understand all design decisions, surface risks, and produce a

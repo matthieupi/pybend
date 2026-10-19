@@ -1,173 +1,93 @@
-# Tool Discovery
+# Tool discovery and execution boundaries
 
-> Part of [n3tx-agents](../README.md)
+[Package](../README.md) · [Actor authorization](../../n3tx-actors/docs/actor-model.md)
 
-## What This Covers
+Tool schemas describe available operations. They do not prove that the caller
+may perform them. Use trusted model schemas and deliberately selected addresses.
 
-The pipeline from actor addresses to callable Pydantic AI tools:
-`discover_tools()` -> `ToolSpec` -> `create_tool_function()` -> `make_tool()`.
-Also covers the schema extension that provides the LLM-clean schema pipeline.
-
-## Architecture
-
-```
-actor addresses        e.g. ['grants', 'web_tools']
-    |
-    v
-discover_tools()       reads schema() from Matrix children
-    |
-    +-- _crud_tool_specs()     CRUD for storable models (list/get/create/update/delete)
-    +-- _method_tool_specs()   @expose_route methods (scrape, extract, ...)
-    |
-    v
-list[ToolSpec]         {actor_addr, method_name, tool_name, description, parameters}
-    |
-    v
-make_tool(spec)        per spec:
-    |
-    +-- create_tool_function(spec)   exec()-generated async fn with typed params
-    +-- pydantic_ai.Tool(fn, ...)    wraps in Pydantic AI Tool
-    |
-    v
-list[Tool]             registered on pydantic_ai.Agent
+```text
+supplied addresses -> Matrix child lookup -> schema() -> ToolSpec
+                                                       |
+                                            generated typed function
+                                                       |
+Pydantic AI -> function(ctx, args) -> TX -> Matrix.request/stream
+                                             |
+                                         ActorModel
 ```
 
-Tool calls at runtime route through `_route_tool_call()`:
+## Discovery reference
 
-```
-LLM calls tool  ->  generated fn(ctx, params)  ->  _route_tool_call()
-    |
-    +-- creates TX(name=method, target=actor_addr, data=params)
-    +-- non-stream: Matrix.request(tx)  -- Future-based correlation
-    +-- stream=True: Matrix.stream(tx)  -- Queue-based correlation
-    +-- streamed routes are consumed server-side to completion
-    +-- returns one final JSON string to the LLM
-    +-- on error TX: raises ModelRetry (LLM retries)
-```
+| API | Contract |
+|---|---|
+| `discover_tools(actor_addrs: list, root, caller_addr: str = None)` | Returns `list[ToolSpec]` from exact child-address lookups |
+| `ToolSpec` | `actor_addr`, `method_name`, `tool_name`, `description`, `parameters`, `stream=False` |
+| `create_tool_function(spec)` | Generates an async callable using trusted schema metadata |
+| `make_tool(spec)` | Wraps it as a Pydantic AI Tool with `takes_ctx=True` |
+| `AgentDeps` | `user`, `agent_addr`; no adapter field |
 
-## Interface
+Missing children and classes without `schema()` are warned about and skipped.
+StorableMixin subclasses contribute `list/get/create/update/delete`; exposed
+schema methods contribute method tools, including streaming methods. Names use
+`{tablename}_{method}`.
 
-### `discover_tools(actor_addrs, root, caller_addr=None) -> list[ToolSpec]`
+The caller is excluded only when its address exactly matches a supplied address.
+An instance address such as `agents/1` does not exclude `agents`. AgentActor
+subclasses exclude the historical names `run` and `stream_run`, **not** the
+current exposed `agentic` and `agentic_stream`. This is not a recursion guard.
 
-| Param | Type | Purpose |
-|-------|------|---------|
-| `actor_addrs` | list[str] | Actor addresses to discover tools from |
-| `root` | Matrix | Matrix root for child lookup |
-| `caller_addr` | str | Calling agent address (excluded to prevent self-loops) |
+| Input generation | Behavior |
+|---|---|
+| CRUD fields | Omits `id` from writable fields and fields with `ui.protected` or `ui.display=False` |
+| Update | Requires only `id`; supplied fields are a patch, collections replace whole values |
+| Instance action | `scope == 'instancemethod'` adds required `id` |
+| Caller argument | Removes `user` from model-generated tool parameters |
+| Required arguments | Uses schema required list; empty/missing list falls back to all parameters |
+| Types | Maps string/integer/number/boolean/array/object to Python builtins; not full JSON Schema fidelity |
+| Optional `None` | Omitted before TX dispatch; required `None` retained |
 
-**Behavior**:
-- Looks up each address in `root._children`
-- Calls `cls.schema()` on found actors
-- Storable models get 5 CRUD ToolSpecs (list, get, create, update, delete)
-- All `@expose_route` methods get a ToolSpec each
-- Streaming `@expose_route(..., stream=True)` methods stay in the tool set and
-  are marked as streaming instead of being filtered out
-- AgentActor subclasses auto-exclude `run` and `stream_run` methods
-- Missing actors log a warning and are skipped
+Generated identifiers normalize hyphens (and tool-name dots); invalid parameter
+identifiers are skipped. Generated code uses `exec()` over schema-derived text:
+schemas are trusted code inputs, not user-supplied tool definitions.
 
-### `ToolSpec` (dataclass)
+## Execution and security limits
 
-```python
-@dataclass
-class ToolSpec:
-    actor_addr: str     # Target actor (e.g. 'products')
-    method_name: str    # Action name (e.g. 'create', 'scrape')
-    tool_name: str      # LLM-facing name (e.g. 'products_create')
-    description: str    # Human-readable description
-    parameters: dict    # JSON Schema for input parameters
-    stream: bool = False
-```
+`_route_tool_call` obtains `Actor.root()`, sets TX source to the root address,
+and carries `meta={'user': ctx.deps.user}`. `agent_addr` is not the TX source.
+It calls Matrix directly, not NetworkAPI. Error TXs become `ModelRetry`; a retry
+does not make a denied operation authorized or undo an earlier side effect.
 
-Tool names follow `{tablename}_{method}` convention.
+| Path | What is enforced / missing |
+|---|---|
+| CRUD get/create/update/delete | ActorModel checks declared model policy when `meta.user` is not `None`; absent model policy passes |
+| List | ActorModel consumes `meta.sql_filter`; tool routing does not compute it and list does not call `_authorize` |
+| Exposed action | ActorModel evaluates explicit decorator `access=` when caller is not `None`; no HTTP default-auth gate here |
+| Method argument `user` | Removed from discovery; raw ActorModel dispatch does not inject it from metadata |
+| `user=None` | Trusted internal bypass, including authenticated-only action rules |
+| Protected fields | Discovery filtering is not equivalent to HTTP protected-field stripping/injection |
 
-### `create_tool_function(spec) -> async function`
+Do not expose private collections to stock list tools on the assumption that
+passing a caller enforces row filtering. Do not accept identity from request
+bodies or treat tool-address selection as permission. Test denial and caller
+propagation on each real entrypoint. The existing
+[tool auth tests](../src/n3tx_agents/tests/test_tool_call_auth.py) explicitly
+exercise the internal bypass; they are not proof of external-user isolation.
 
-Generates an async function via `exec()` with properly typed parameters
-from the ToolSpec's JSON Schema. The function's signature is introspected
-by Pydantic AI for JSON Schema generation.
+## Streaming tools
 
-Type mapping: `string->str`, `integer->int`, `number->float`,
-`boolean->bool`, `array->list`, `object->dict`.
+Streaming specs route through `Matrix.stream()`. The tool consumes the stream
+server-side, returning one JSON string to the LLM: prefer a nested application
+`done.data`, otherwise concatenate text, otherwise return the collected events.
+An error TX or application `error` event raises ModelRetry. This can accumulate
+events in memory; it is not a bounded streaming-output interface for the LLM.
 
-Required params have no default. Optional params default to `None`.
-The `ctx` parameter (RunContext[AgentDeps]) is always first.
+## Schema context
 
-### `make_tool(spec) -> pydantic_ai.Tool`
+The registered `agent` schema stage publishes enabled status, safe config keys
+(`self_tools`, `neighbors`, `neighbor_depth`), method names, and AgentActor's
+`agentic_endpoint`. The separate `llm` pipeline strips UI/identity noise, `$defs`,
+hidden/protected schema properties and selected method metadata. It is schema
+cleanup, not caller-aware redaction of model instance values.
 
-Wraps `create_tool_function()` output in a `pydantic_ai.tools.Tool` with
-`takes_ctx=True`.
-
-### `_route_tool_call(ctx, target_addr, method_name, data, stream=False) -> str`
-
-Internal. Creates a TX, sends via `Actor.root().request()` or
-`Actor.root().stream()`, and returns response data as JSON string. On error
-TX, raises `pydantic_ai.ModelRetry`.
-
-For streaming tool methods, `_route_tool_call()` consumes the stream and
-collapses it into a single result for the LLM:
-
-- prefer a yielded `{'name': 'done', 'data': ...}` payload
-- otherwise fall back to concatenated text chunks
-- otherwise return collected event payloads
-
-## Usage Patterns
-
-### Manual tool discovery (for inspection)
-
-```python
-from n3tx_agents.tools import discover_tools
-from n3tx_actors.actor import Actor
-
-root = Actor.root()
-specs = discover_tools(['products', 'comments'], root)
-for spec in specs:
-    print(f"{spec.tool_name}: {spec.description}")
-    print(f"  params: {spec.parameters}")
-```
-
-### Custom tool filtering
-
-```python
-specs = discover_tools(['products'], root)
-# Keep only read operations
-read_specs = [s for s in specs if s.method_name in ('list', 'get')]
-tools = [make_tool(s) for s in read_specs]
-```
-
-## LLM Schema Pipeline
-
-The `schema_ext` module registers two pipelines:
-
-**Default pipeline** -- `agent` stage (after `methods`): Adds `agent`
-section to JSON Schema for `__agent__ = True` models. Contains `enabled`,
-`config` (safe keys only -- no LLM credentials), `methods` list, and
-`agentic_endpoint` (for AgentActor subclasses).
-
-**LLM pipeline** -- `base` + `clean` stages: Produces a clean schema
-for LLM context consumption. Strips frontend-only keys (`ui`, `$id`,
-`$schema`, `additionalProperties`), removes `$defs`, filters hidden/
-protected properties, strips routing metadata from methods, removes
-`user` parameter from method signatures.
-
-```python
-from n3tx_core.models.proto_schema import run_pipeline
-cleaned = run_pipeline(Product, pipeline='llm')
-```
-
-## Gotchas
-
-- CRUD tool specs filter out `id`, protected, and hidden fields from
-  writable properties. The `id` field is only included in get/update/delete
-  where it is required.
-- Instance methods (scope == `'instancemethod'`) auto-prepend an `id`
-  parameter and add it to `required`. Class methods do not.
-- The `user` parameter is always stripped from method tool specs -- it is
-  injected server-side from JWT, never passed by the LLM.
-- Parameter names with hyphens are converted to underscores. Invalid
-  Python identifiers are skipped with a warning.
-- Generated functions use `exec()` with a controlled namespace containing
-  only `_route`, `_target`, `_method`, and `_required`. Input comes from
-  trusted model schemas, not user data.
-- Optional parameters set to `None` are stripped from the data dict before
-  routing, but required parameters with `None` value are preserved. This
-  prevents sending empty optional fields to CRUD operations.
+Evidence: [tools.py](../src/n3tx_agents/tools.py),
+[schema_ext.py](../src/n3tx_agents/schema_ext.py),
+[stream specs tests](../src/n3tx_agents/tests/test_streaming_tool_specs.py).

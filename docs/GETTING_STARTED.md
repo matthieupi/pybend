@@ -1,726 +1,353 @@
 # Getting Started with N3TX
 
-This guide will walk you through building your first API with N3TX in under 10 minutes.
+Build a local issue tracker with authenticated users, private issues, public
+labels, a resolution action, SQLite persistence and a schema-driven UI. No custom
+CRUD routes, client-side model definitions or provider calls are needed.
+
+⚠️ **Trusted-input local demo only—not a safe shared-content UI.** Formidable
+currently interpolates some names/titles into HTML without escaping. Public
+labels can be created by any registered user. The restricted name alphabet below
+rejects HTML-bearing label and issue names; it does **not** sanitize arbitrary
+fields, resolutions, existing data or schema text. Use only trusted test
+content and do not expose this demo to untrusted users. Read the
+[Formidable HTML safety limits](../packages/n3tx-ui/docs/formidable.md#custom-form-path).
 
 ## Prerequisites
 
-- Python 3.8+
-- pip or poetry for package management
-- Basic understanding of REST APIs
-- Familiarity with Python type hints (helpful but not required)
-
-## Installation
-
-### 1. Clone the Repository
+Python 3.10+ is the package minimum. The documentation verifier uses Python 3.11.
+Use a new directory and a virtual environment, not a production database.
 
 ```bash
-git clone https://github.com/yourusername/n3tx.git
-cd n3tx
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install n3tx-core n3tx-ui
 ```
 
-### 2. Install Dependencies
+To use this checkout, substitute the editable install from the
+[root README](../README.md#installation). Run subsequent commands in your app
+directory with that environment active.
+
+## Configuration
+
+Set these before importing N3TX:
 
 ```bash
-pip install pydantic fastapi uvicorn
+export N3TX_DEBUG=false
+export N3TX_API_URL=http://localhost:5000
+export N3TX_JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
 ```
 
-**Optional dependencies**:
-```bash
-# For Flask backend
-pip install flask flasgger asgiref
+Keep the same secret when restarting if you want existing tokens to remain valid.
+It is not an application data encryption key. Do not commit it.
 
-# For first-class file metadata + local byte storage
-pip install n3tx-files
+⚠️ Global DEBUG changes security behavior: `BaseUser.register_user()` grants
+**admin** when it is true. Passing `debug=False` alone does not reset a global
+DEBUG value previously enabled in the process.
 
-# For development
-pip install pytest black mypy
-```
+## Your First API
 
-### 3. Verify Installation
+Save this complete block as `main.py`. Import UI before declaring models so its
+view capability is registered. Labels are intentionally public; do not put
+private information in them. Issue lists use OWNER, not AUTHENTICATED: the latter
+does not gate anonymous direct list reads in this checkout.
 
-```bash
-python -c "from models.proto_model import ProtoModel; print('✓ N3TX installed')"
-```
-
-## Your First API (5 minutes)
-
-Let's build a simple blog API with users and posts.
-
-### Step 1: Define Your Models
-
-Create `models/blog_models.py`:
-
+<!-- tutorial: main.py -->
 ```python
-from models.proto_model import ProtoModel
-from utils.typer import Ref
-from typing import ClassVar, Optional, List
-
-class User(ProtoModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'users'
-    
-    id: Optional[int] = None
-    username: str
-    email: str
-    bio: Optional[str] = ''
-
-class Post(ProtoModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'posts'
-    
-    id: Optional[int] = None
-    title: str
-    content: str
-    published: bool = False
-    author: Ref[User]  # Foreign key to User
-```
-
-That's it! No manual SQL, no migrations scripts, no route definitions needed.
-
-### Step 2: Register Models and Start Server
-
-Create `app.py`:
-
-```python
-from storage.sqlite_storage import SQLiteStorage
-from utils.registrar import register_model
-from api.backend import FastAPIBackend
-import config
-
-# Import your models
-from models.blog_models import User, Post
-
-# Create storage backend
-storage = SQLiteStorage('blog.db')
-
-# Register models (automatic table creation + migration)
-register_model(User, storage=storage)
-register_model(Post, storage=storage)
-
-# Create API backend
-backend = FastAPIBackend(
-    name="Blog API",
-    version="1.0.0",
-    description="A simple blog API built with N3TX",
-    port=8000
-)
-
-# Register routes (automatic CRUD endpoints)
-from utils.registrar import registered_models
-backend.register_routes(registered_models)
-
-# Get the app
-app = backend.get_app()
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
-```
-
-### Step 3: Run Your API
-
-```bash
-python app.py
-```
-
-You should see:
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process
-INFO:     Started server process
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-```
-
-### Step 4: Test Your API
-
-**View automatic documentation**:
-- Open http://localhost:8000/docs in your browser
-- You'll see interactive Swagger documentation
-
-**Create a user** (using curl):
-```bash
-curl -X POST http://localhost:8000/users \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "alice",
-    "email": "alice@example.com",
-    "bio": "Software developer"
-  }'
-```
-
-Response:
-```json
-{
-  "id": 1,
-  "username": "alice",
-  "email": "alice@example.com",
-  "bio": "Software developer"
-}
-```
-
-**List all users**:
-```bash
-curl http://localhost:8000/users
-```
-
-**Create a post**:
-```bash
-curl -X POST http://localhost:8000/posts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "My First Post",
-    "content": "Hello N3TX!",
-    "author": 1
-  }'
-```
-
-**Update a post**:
-```bash
-curl -X PUT http://localhost:8000/posts/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "My First Post",
-    "content": "Hello N3TX!",
-    "published": true,
-    "author": 1
-  }'
-```
-
-Generated HTTP `PUT` routes are patch-oriented, like direct Python
-`Model.update(id, patch)` calls. Omitted fields remain unchanged. Explicit list
-and dictionary values replace the complete stored field. See
-[CRUD update semantics](API_CRUD_ENDPOINTS.md#update-resource).
-
-**Delete a user**:
-```bash
-curl -X DELETE http://localhost:8000/users/1
-```
-
-## Optional: Add File Uploads
-
-Install and import the optional `n3tx-files` package when your app needs user
-files, documents, audio, generated artifacts, or other byte resources.
-
-```python
+import n3tx_ui
+from pathlib import Path
+from typing import Literal
+from pydantic import Field, model_validator
+from pydantic_core import PydanticCustomError
+from n3tx_core import config
 from n3tx_core.app import create_app
-from n3tx_files import File, LocalFileStore, configure_file_store
+from n3tx_core.authorize import ANYONE, AUTHENTICATED, NEVER, OWNER, ROLE
+from n3tx_core.models.base_user import BaseUser
+from n3tx_core.models.proto_model import ProtoModel
+from n3tx_core.models.ref import Ref
+from n3tx_core.utils.decorators import expose_route
+from n3tx_core.utils.erroring import MethodError
 
-configure_file_store(LocalFileStore('./file-blobs'))
 
-app = create_app(
-    models=[File],
-    storage='sqlite:///app.db',
-)
-```
+class User(BaseUser):
+    __tablename__ = 'users'
+    __abstract__ = False
+    __access__ = {'*': NEVER, 'read': OWNER, 'list': OWNER}
 
-Upload a file:
 
-```bash
-curl -X POST http://localhost:5000/files/upload \
-  -H "x-access-token: $TOKEN" \
-  -F "upload=@./sample.txt;type=text/plain"
-```
+class Label(ProtoModel):
+    __tablename__ = 'labels'
+    __storable__ = True
+    __access__ = {
+        '*': NEVER, 'read': ANYONE, 'list': ANYONE,
+        'create': AUTHENTICATED, 'update': ROLE('admin'), 'delete': ROLE('admin'),
+    }
+    __ui__ = {'field_order': ['name']}
+    name: str = Field(min_length=1, max_length=40, pattern=r'^[A-Za-z0-9 _-]+$')
 
-Download it:
 
-```bash
-curl http://localhost:5000/files/1/download -o sample.txt
-```
+class Issue(ProtoModel):
+    __tablename__ = 'issues'
+    __storable__ = True
+    __owner_field__ = 'user_owner'
+    __protected_fields__ = {'user_owner'}
+    __access__ = {
+        '*': NEVER, 'create': AUTHENTICATED,
+        'read': OWNER, 'list': OWNER, 'update': OWNER, 'delete': OWNER,
+    }
+    __ui__ = {
+        'field_order': ['name', 'status', 'resolution', 'labels', 'related'],
+        'renderer': {'list': 'ntx-list', 'item': 'ntx-item'},
+    }
+    name: str = Field(min_length=1, max_length=200, pattern=r'^[A-Za-z0-9 _-]+$')
+    status: Literal['open', 'closed'] = 'open'
+    resolution: str = Field(default='', max_length=2000,
+                            json_schema_extra={'ui': {'widget': 'textarea'}})
+    user_owner: int = 0
+    labels: list[Label] = Field(default_factory=list)
+    related: list[Ref[Label]] = Field(default_factory=list)
 
-Use it in a method by annotating a parameter as `File`:
-
-```python
-@expose_route('/process', methods=['POST'])
-async def process(file: File) -> dict:
-    local = await file.ensure_local()
-    return {'path': local['path']}
-```
-
-Then call the method with a file address:
-
-```json
-{"file": "/File/1"}
-```
-
-File metadata is stored in normal N3TX storage. Blob bytes are stored in the
-configured `FileStore` provider and are served through explicit authenticated
-download routes, not static file mounting.
-
-## What Just Happened?
-
-N3TX automatically created:
-
-### For User Model:
-- ✅ `GET /users` - List all users
-- ✅ `POST /users` - Create a user
-- ✅ `GET /users/{id}` - Get user by ID
-- ✅ `PUT /users/{id}` - Update user
-- ✅ `DELETE /users/{id}` - Delete user
-- ✅ `GET /User` - Get JSON schema
-
-### For Post Model:
-- ✅ `GET /posts` - List all posts
-- ✅ `POST /posts` - Create a post
-- ✅ `GET /posts/{id}` - Get post by ID
-- ✅ `PUT /posts/{id}` - Update post
-- ✅ `DELETE /posts/{id}` - Delete post
-- ✅ `GET /Post` - Get JSON schema
-
-### Database:
-- ✅ SQLite database `blog.db` created
-- ✅ Tables `users` and `posts` created
-- ✅ Foreign key relationship configured
-- ✅ Auto-incrementing IDs
-
-### Validation:
-- ✅ All inputs validated via Pydantic
-- ✅ Type checking enforced
-- ✅ Required fields enforced
-- ✅ JSON serialization automatic
-
-## Adding Custom Logic
-
-Let's add custom endpoints to our models.
-
-### Step 1: Add Custom Methods
-
-Edit `models/blog_models.py`:
-
-```python
-from utils.decorators import expose_route
-
-class User(ProtoModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'users'
-    
-    username: str
-    email: str
-    bio: Optional[str] = ''
-    
-    @staticmethod
-    @expose_route('/login', methods=['POST'])
-    def login(username: str, password: str) -> User:
-        """
-        Custom login endpoint
-        Creates: POST /users/login
-        """
-        users = User.list()
-        user = next((u for u in users if u.username == username), None)
-        if user:
-            # In production, check password hash
-            return user
-        raise ValueError("Invalid credentials")
-    
-    @expose_route('/posts', methods=['GET'])
-    def get_posts(self) -> List[Post]:
-        """
-        Get all posts by this user
-        Creates: GET /users/{id}/posts
-        """
-        all_posts = Post.list()
-        return [p for p in all_posts if int(p.author) == self.id]
-
-class Post(ProtoModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'posts'
-    
-    title: str
-    content: str
-    published: bool = False
-    author: Ref[User]
-    
-    @expose_route('/publish', methods=['POST'])
-    def publish(self) -> Post:
-        """
-        Publish this post
-        Creates: POST /posts/{id}/publish
-        """
-        self.published = True
-        self.save()  # Built-in save method
+    @model_validator(mode='after')
+    def valid_resolution(self):
+        if self.status == 'closed' and not self.resolution.strip():
+            raise PydanticCustomError('resolution_required', 'Closed issues require a resolution')
         return self
-    
-    @classmethod
-    @expose_route('/published', methods=['GET'])
-    def get_published(cls) -> List[Post]:
-        """
-        Get all published posts
-        Creates: GET /posts/published
-        """
-        return [p for p in cls.list() if p.published]
-```
 
-### Step 2: Restart Server
+    @expose_route('/resolve', methods=['POST'], access=OWNER)
+    def resolve(self, resolution: str, user: dict = None) -> dict:
+        if self.status == 'closed':
+            raise MethodError('Issue is already closed', status_code=409)
+        if not resolution.strip() or len(resolution) > 2000:
+            raise MethodError('Provide a resolution of 1–2000 characters', status_code=400)
+        updated = self.update({'status': 'closed', 'resolution': resolution.strip()})
+        return {'issue': updated.model_response(), 'resolved_by': user['user_id']}
 
-```bash
-# Ctrl+C to stop, then:
-python app.py
-```
-
-### Step 3: Test Custom Endpoints
-
-**Login**:
-```bash
-curl -X POST http://localhost:8000/users/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "alice",
-    "password": "secret123"
-  }'
-```
-
-**Get user's posts**:
-```bash
-curl http://localhost:8000/users/1/posts
-```
-
-**Publish a post**:
-```bash
-curl -X POST http://localhost:8000/posts/1/publish
-```
-
-**Get all published posts**:
-```bash
-curl http://localhost:8000/posts/published
-```
-
-## Adding Validation
-
-Use Pydantic's validation features:
-
-```python
-from pydantic import field_validator, EmailStr
-
-class User(ProtoModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'users'
-    
-    username: str
-    email: EmailStr  # Automatic email validation
-    
-    @field_validator('username')
-    @classmethod
-    def username_alphanumeric(cls, v):
-        if not v.isalnum():
-            raise ValueError('Username must be alphanumeric')
-        return v
-    
-    @field_validator('email')
-    @classmethod
-    def lowercase_email(cls, v):
-        return v.lower()
-```
-
-Now invalid data will be rejected automatically:
-
-```bash
-# This will fail (invalid email)
-curl -X POST http://localhost:8000/users \
-  -H "Content-Type: application/json" \
-  -d '{"username": "bob", "email": "not-an-email"}'
-
-# Response: 422 Unprocessable Entity
-```
-
-## Many-to-Many Relationships
-
-Let's add tags to posts:
-
-### Step 1: Define Tag Model
-
-```python
-class Tag(ProtoModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'tags'
-    
-    name: str
-    color: str = '#000000'
-
-class Post(ProtoModel):
-    # ... existing fields ...
-    tags: list[Tag] = Field(default=[])
-```
-
-### Step 2: Register Models
-
-```python
-register_model(Post, storage=storage)
-register_model(Tag, storage=storage)
-```
-
-N3TX stores `Post.tags` as an ordered JSON list of local `Tag` ids and hydrates
-the field into `Tag` objects in API responses. For shared relationship metadata,
-prefer an explicit link model; `ManyToMany[T]` is a legacy helper for existing
-shared-link cases.
-
-### Step 3: Add Tags to Posts
-
-```bash
-# Create tags
-curl -X POST http://localhost:8000/tags \
-  -H "Content-Type: application/json" \
-  -d '{"name": "python", "color": "#3776ab"}'
-
-curl -X POST http://localhost:8000/tags \
-  -H "Content-Type: application/json" \
-  -d '{"name": "tutorial", "color": "#ff6b6b"}'
-
-# Update post tags by replacing the ordered list
-curl -X PUT http://localhost:8000/Post/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "My First Post",
-    "content": "Hello N3TX!",
-    "published": true,
-    "author": 1,
-    "tags": [1, 2]
-  }'
-```
-
-## Switching Storage Backends
-
-N3TX supports multiple storage backends. Let's switch to JSON files:
-
-### Step 1: Change Storage Backend
-
-Edit `app.py`:
-
-```python
-# Change this:
-# from storage.sqlite_storage import SQLiteStorage
-# storage = SQLiteStorage('blog.db')
-
-# To this:
-from storage.json_storage import JSONStorage
-storage = JSONStorage(directory='data')  # Creates data/ folder
-```
-
-### Step 2: Restart Server
-
-```bash
-python app.py
-```
-
-Now your data is stored in `data/users.json` and `data/posts.json` as human-readable JSON files.
-
-## Using Actor Routing (Level 3)
-
-For full actor-system routing where every HTTP request flows through the Matrix as TX messages:
-
-### Step 1: Use ActorModel
-
-Change your model base class from `ProtoModel` to `ActorModel`:
-
-```python
-from n3tx.core.models.actor_model import ActorModel
-
-class User(ActorModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'users'
-
-    username: str
-    email: str
-
-class Post(ActorModel):
-    __storable__: ClassVar[bool] = True
-    __tablename__: ClassVar[str] = 'posts'
-
-    title: str
-    content: str
-    author: Ref[User]
-```
-
-### Step 2: Enable Actor Routing
-
-```python
-from n3tx import create_app
 
 app = create_app(
-    models=[User, Post],
-    storage="sqlite:///blog.db",
-    routing='actor',  # Routes through Matrix via NetworkAPI adapter
+    models=[User, Label, Issue],
+    storage='sqlite:///issues.db',
+    static_dir=str(Path(__file__).parent / 'static'),
+    jwt_secret=config.JWT_SECRET,
+    debug=False,
+    ssr='off',
+    name='Issue tracker',
 )
 ```
 
-### What Changes
+The issue heading deliberately uses `name`: the native collection create editor
+starts with an empty value, and Formidable renders a `name` header input in that
+case. A required `title` field would be excluded from the body without getting a
+matching header input. This is a tutorial model choice, not a runtime fix.
 
-- HTTP requests become TX messages routed through the Matrix
-- Interceptors can be added at the protocol boundary (auth, rate limiting, logging)
-- Two-tier authorization: Tier 1 (fast gate) + Tier 2 (resource-level OWNER checks)
-- Lifecycle events (`after_create`, `after_update`, `after_delete`) are published
-- MCP and ActivityPub adapters can be added alongside HTTP
+The validator uses `PydanticCustomError` with JSON-safe context. In this checkout,
+the direct PUT error handler can fail to serialize a validator's raw `ValueError`
+context and return 500 instead of 422. This does not make the invalid write valid.
 
-### What Stays the Same
+User CRUD is intentionally restricted: registration and login are inherited
+public methods, while generic user create/update/delete are denied. This avoids
+exposing a role-editing endpoint. The inherited registration flow does not verify
+email addresses, rate-limit attempts or enforce a password-strength policy.
 
-- All API endpoints, paths, and response formats are identical
-- Frontend code works without changes
-- Authentication via JWT `x-access-token` header
-- `__access__` rules enforced the same way
+### Run Your API
 
-## Using Flask Instead of FastAPI
-
-N3TX supports multiple web frameworks:
-
-### Change Backend
-
-Edit `app.py`:
-
-```python
-# Change this:
-# from api.backend import FastAPIBackend
-# backend = FastAPIBackend(...)
-
-# To this:
-from api.backend import FlaskBackend
-backend = FlaskBackend(
-    name="Blog API",
-    version="1.0.0",
-    description="Flask-powered blog API"
-)
+```bash
+python -m uvicorn main:app --host 127.0.0.1 --port 5000
 ```
 
-Everything else stays the same!
+The server binds only to loopback. `N3TX_API_URL` controls advertised identities;
+the Uvicorn command controls the listening address. Visit `/Issue` for schema and
+`/openapi.json` for HTTP routes. `/docs` is disabled with DEBUG false.
+
+## Test Your API
+
+The commands below use curl from a second terminal. Python can also issue these
+requests; the repository verification script uses an in-process HTTP client.
+
+### Register and log in
+
+```bash
+curl -i http://localhost:5000/users/register \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Alice","email":"alice@example.com","password":"tutorial-only-password"}'
+
+TOKEN=$(curl -fsS http://localhost:5000/users/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"alice@example.com","password":"tutorial-only-password"}' \
+  | python -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+```
+
+Both successful calls return HTTP 200 with `token` and `user`; `user.role` is
+`user`. Wrong credentials return 401; duplicate registration returns 409.
+Send the JWT through `x-access-token`, not a user ID in a JSON body.
+
+### Create a label and an issue
+
+These IDs assume a fresh database. Otherwise substitute returned IDs.
+
+```bash
+curl -i http://localhost:5000/labels \
+  -H "x-access-token: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"bug"}'
+
+curl -i http://localhost:5000/issues \
+  -H "x-access-token: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Fix keyboard navigation","labels":[1],"related":["https://example.invalid/Label/42"]}'
+```
+
+Creation returns 201. The issue response has `$schema` ending in `/Issue`, `$id`
+ending in `/Issue/1`, and the authenticated user's ID in `user_owner`.
+
+| Field | SQLite representation | Response |
+|---|---|---|
+| `labels: list[Label]` | Ordered local ID array | Hydrated Label objects; GET responses enrich them with flat `/Label/{id}` identity |
+| `related: list[Ref[Label]]` | URL array | URL strings; no remote fetch on ordinary reads |
+
+Direct create/update response validation can omit nested `$schema`/`$id` even
+though the top-level identity remains. Use GET to inspect the enriched child
+representation; do not assume identical nested metadata on every response path.
+
+The `.invalid` URL demonstrates reference validation without contacting a server.
+An integer is not a valid `Ref[Label]`. Referenced labels must be registered and
+exist locally for local hydration. See [Models](MODELS.md#references) for scalar
+annotation behavior and lifecycle limits.
+
+### List, read and update
+
+```bash
+curl -i 'http://localhost:5000/issues?limit=20&offset=0' -H "x-access-token: $TOKEN"
+curl -i http://localhost:5000/Issue/1 -H "x-access-token: $TOKEN"
+curl -i -X PUT http://localhost:5000/issues/1 \
+  -H "x-access-token: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Fix keyboard focus order"}'
+```
+
+The paginated list is `{data: [...], meta: {total, limit, offset, has_more}}`.
+Without `limit`, it is an array. A PUT is a patch: omitted fields remain unchanged;
+supplied lists or dictionaries replace the entire field. `{"labels":[]}` clears
+the association list, not the Label rows.
+
+### Add custom logic
+
+The model already declares `resolve`. It validates a domain operation, persists
+the resolution and reports the caller. The same model validator also rejects a
+CRUD patch that closes an issue without a resolution.
+
+```bash
+curl -i http://localhost:5000/issues/1/resolve \
+  -H "x-access-token: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"resolution":"Tab order now follows the visible controls"}'
+```
+
+The response is `{issue: {...}, resolved_by: ...}`. The `user` argument is
+server-injected; it is absent from method input schema. Calling resolve again
+returns 409. Ordinary edits still use CRUD; this action is not the only permitted
+way to change status. It is also not an atomic compare-and-set: concurrent
+resolution calls can race.
+
+### Check denied and invalid requests
+
+| Check | Expected in this app |
+|---|---|
+| Anonymous `GET /Issue` | 200, public schema |
+| Anonymous `GET /issues` | 200 with `[]`, OWNER SQL filtering |
+| Anonymous create with a valid body | 403 |
+| Anonymous read of an existing issue | 403 |
+| Another registered user's list | Does not include Alice's issue |
+| Another user's read/update/resolve/delete of Alice's issue | 403 |
+| PUT empty name | 422 |
+| PUT `status=closed` without a resolution on an open issue | 422 |
+| Action with missing resolution | 400 |
+| Invalid token | 401 |
+
+Try these against the generated endpoints, not just direct Python calls.
+Direct Python CRUD is trusted application code and does not apply route policy.
+
+## Open the Native UI
+
+Create `static/` beside `main.py` and save this complete shell as
+`static/index.html` before starting the server. Bootstrap merges app assets, UI
+assets and core runtime into one namespace; no separate static mount is needed.
+
+<!-- tutorial: static/index.html -->
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Issue tracker — local demo</title>
+  <link rel="stylesheet" href="/theme-base.css">
+  <link rel="stylesheet" href="/light-theme.css">
+</head>
+<body>
+  <p>Trusted-input local demo. <a href="/login.html">Log in</a></p>
+  <main id="app">Loading identity…</main>
+  <script type="module">
+    import { permissions } from '/utils/Permissions.js';
+    await permissions.init();
+    // No protected elements exist or upgrade before identity is ready.
+    await import('/core/NTT.js');
+    await import('/components/ntx-item.js');
+    await import('/components/ntx-list.js');
+    await import('/components/ntx-router.js');
+    document.getElementById('app').innerHTML = `
+      <ntx-router name="main">
+        <ntx-list model="Issue" allow-create></ntx-list>
+      </ntx-router>`;
+  </script>
+</body>
+</html>
+```
+
+Open `http://localhost:5000/login.html`, log in with the same account, then
+explicitly visit `http://localhost:5000/index.html`. Use the collection's create
+control, enter a trusted name, and save. Open the new issue, edit its name and
+save; use its `resolve` action with a nonempty resolution. Reload to check
+persistence. A second account should see only its own issues and receive 403
+when requesting the first account's issue through the API. These steps exercise
+native entities/forms/actions, not custom data plumbing.
+
+**Verification boundary:** generated HTTP login/create/edit/resolve and second-user
+denials passed, but the browser journey is not yet verified: the verification
+host cannot launch Chromium because `libglib-2.0.so.0` is absent. Do not interpret
+HTTP success as evidence that native form saves/actions work end to end. See the
+[T02E correction and verification report](../.project/documentation-overhaul/t02e-report.md).
+
+`/Issue/@`, `/Issue/1/@` and `/Label/@` remain **minimal viewing-only shells for
+this tutorial**, not the editing entrypoint: they do not initialize Permissions
+on the new page, and the collection shell does not set `allow-create`. A login
+token alone does not populate the permissions singleton on each new page.
+
+The HTML shell is public; its data requests still use the generated API's policy.
+UI hiding is not enforcement. For a custom renderer or widget, follow
+[Frontend architecture](frontend/ARCHITECTURE.md) and preserve native
+entity/schema/form handling rather than adding a second fetch-and-state layer.
+
+## Persistence and Cleanup
+
+Stop and restart with the same working directory and secret. `issues.db` retains
+users, labels and issues. Confirm the name and resolution with GET. Delete the
+issue through its generated route:
+
+```bash
+curl -i -X DELETE http://localhost:5000/issues/1 -H "x-access-token: $TOKEN"
+```
+
+Successful deletion returns 200 and `{"message":"Deleted successfully"}`;
+the next read returns 404. Labels are separate records and remain. To reset the
+whole tutorial, stop the server and remove only its disposable database and
+SQLite sidecars, or start in a new directory. Never delete a live database.
 
 ## Next Steps
 
-Now that you have a working API, explore:
+| Capability | Native path |
+|---|---|
+| Actor routing | [Actors](ACTORS.md), then [bootstrap](../packages/n3tx-core/docs/app-bootstrap.md); use ActorModel and verify the selected transport |
+| File uploads | [File guide](../packages/n3tx-files/docs/file.md); metadata and bytes have separate storage |
+| Agent execution | [Agents](AGENTS.md); use explicit tool scope and provider-free tests first |
+| Streaming actions | [Custom endpoints](API_CUSTOM_ENDPOINTS.md#streaming-endpoints); terminal/error behavior is transport-specific |
+| Deployment | [Operations](OPERATIONS.md); address list policies, CORS, backups and migrations before exposure |
 
-### Advanced Features
-- [Custom validation](./API_REFERENCE.md#validation)
-- [Middleware and hooks](./ARCHITECTURE.md#middleware-hooks)
-- [Authentication](./EXAMPLES.md#authentication)
-- [Pagination](./EXAMPLES.md#pagination)
-- [File uploads](./EXAMPLES.md#file-uploads)
-
-### Production Deployment
-- [Deployment guide](./DEPLOYMENT.md)
-- [Security best practices](./SECURITY.md)
-- [Performance optimization](./PERFORMANCE.md)
-
-### Documentation
-- [Full API Reference](./API_REFERENCE.md)
-- [Architecture Overview](./ARCHITECTURE.md)
-- [More Examples](./EXAMPLES.md)
-
-## Common Issues
-
-### Import Error: "No module named 'models'"
-
-Make sure you're running from the project root:
-```bash
-cd n3tx
-python app.py
-```
-
-### Database Locked Error
-
-SQLite only supports one writer at a time. For concurrent writes:
-```python
-# Use connection pooling or switch to PostgreSQL
-# Coming soon in N3TX
-```
-
-### Foreign Key Not Resolving
-
-Foreign keys are stored as IDs. To get the full object:
-```python
-post = Post.get(1)
-user_id = int(post.author)  # Get ID
-user = User.get(user_id)    # Fetch full user
-```
-
-Or implement lazy loading:
-```python
-class Post(ProtoModel):
-    @property
-    def author_obj(self):
-        return User.get(int(self.author))
-```
-
-### Port Already in Use
-
-Change the port in `app.py`:
-```python
-backend = FastAPIBackend(port=8080)  # Use different port
-```
-
-## Tips and Tricks
-
-### 1. Enable Debug Mode
-
-```python
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,  # Auto-reload on code changes
-        log_level="debug"
-    )
-```
-
-### 2. Generate Documentation
-
-```bash
-GENERATE_DOCS=true python app.py
-# Creates docs/*.md files
-```
-
-### 3. Use Type Hints
-
-Enable autocomplete in your IDE:
-```python
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from models.blog_models import User
-
-def get_user() -> User:
-    return User.get(1)  # IDE knows it returns User
-```
-
-### 4. Test Your API
-
-```python
-import pytest
-
-def test_create_user():
-    user = User.create(User(username="test", email="test@example.com"))
-    assert user.id is not None
-    assert user.username == "test"
-```
-
-### 5. Environment Variables
-
-```python
-import os
-
-DATABASE_URL = os.getenv('DATABASE_URL', 'blog.db')
-storage = SQLiteStorage(DATABASE_URL)
-```
-
-## Getting Help
-
-- 📖 [Read the documentation](./README.md)
-- 🐛 [Report issues](https://github.com/yourusername/n3tx/issues)
-- 💬 [Join discussions](https://github.com/yourusername/n3tx/discussions)
-- 📧 [Email support](mailto:support@n3tx.dev)
-
-## What's Next?
-
-You now have a fully functional REST API with:
-- ✅ Automatic CRUD operations
-- ✅ Type-safe validation
-- ✅ Foreign key relationships
-- ✅ Custom business logic
-- ✅ Automatic documentation
-- ✅ Flexible storage backends
-
-**Continue learning**:
-- Build a more complex app in [Examples](./EXAMPLES.md)
-- Understand the architecture in [Architecture Guide](./ARCHITECTURE.md)
-- Deploy to production in [Deployment Guide](./DEPLOYMENT.md)
-- Learn advanced patterns in [API Reference](./API_REFERENCE.md)
-
-Happy coding with N3TX! 🚀
+The [verification artifact](../.project/documentation-overhaul/verify_tutorial.py)
+extracts `main.py` from this page rather than maintaining a second application.
+Its results and browser-verification limits are recorded in
+[core-report](../.project/documentation-overhaul/core-report.md).

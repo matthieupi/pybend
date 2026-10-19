@@ -14,11 +14,12 @@ context or miss specialist contracts.
 
 For implementation tasks, preserve the repository context-loading order:
 
-1. Read `AGENTS.md` and relevant `/workspace/docs/` or package docs.
+1. Read `AGENTS.md` and relevant `docs/` or package docs.
 2. Read `BACKEND.md`, `FRONTEND.md`, or both based on the affected surface.
 3. Load the primary skill below and any required companion skill.
-4. Inspect framework source only when docs/skills are insufficient, stale, or
-   contradicted by observed behavior.
+4. Then inspect relevant current implementation/tests before meaningful changes;
+   also inspect source when docs are incomplete or contradicted. Docs first is
+   not docs only.
 5. If source reveals a stale contract, update or propose updates to docs/skills.
 
 ## Fresh N3TX codebase flow
@@ -32,13 +33,13 @@ new app / feature idea
   -> n3tx-testing
 ```
 
-Choose the lowest routing level that satisfies the requirement:
+Choose model capability independently from HTTP routing and construction API:
 
-| Need | Default level | Primary skill |
+| Need | Shape | Primary skill |
 |---|---|---|
-| CRUD/schema-driven app | Level 1: `ProtoModel` + direct routes | `n3tx-models` |
-| Actor-capable entities with direct HTTP | Level 2: `ActorModel` + direct routes | `n3tx-actors` |
-| TX/protocol routing, agents, MCP, WebSocket, federation | Level 3: `ActorModel` + `routing='actor'` | `n3tx-networking` |
+| CRUD/schema-driven app | `ProtoModel` + direct routes | `n3tx-models` |
+| Actor capabilities with direct HTTP | `ActorModel` + direct routes | `n3tx-actors` |
+| HTTP dispatched through TX | `ActorModel` + `routing='actor'` | `n3tx-networking` |
 
 ## Established codebase flow
 
@@ -59,7 +60,7 @@ N3TX mechanism skill for the failing path.
 |---|---|---|---|
 | app bootstrap, `create_app`, `N3TXApp`, static dirs, package imports | `n3tx-app-bootstrap` | `n3tx-build-app`, `n3tx-testing` | `n3tx-backend` |
 | model fields, `ProtoModel`, `ActorModel`, `BaseUser`, schema, validation | `n3tx-models` | `n3tx-storage-relationships`, `n3tx-authorization` | `n3tx-backend` |
-| storage, pagination, `ListRef`, joins, ownership, `ManyToMany` | `n3tx-storage-relationships` | `n3tx-json-fields`, `n3tx-testing` | raw SQL changes |
+| storage, pagination, local collections, HTTP(S) refs, shared links | `n3tx-storage-relationships` | `n3tx-json-fields`, `n3tx-testing` | raw SQL changes |
 | dict/list persistence, JSON TEXT, nested object field storage | `n3tx-json-fields` | `n3tx-storage-relationships` | relationship skills alone |
 | upload, download, blob, attachment, `File`, `FileStore`, `/files/upload` | `n3tx-files` | `n3tx-authorization`, `n3tx-testing`, `n3tx-external-integrations` | generic backend |
 | auth, JWT, `__access__`, OWNER, ROLE, protected fields | `n3tx-authorization` | `n3tx-models`, `n3tx-testing` | frontend-only fixes |
@@ -87,7 +88,7 @@ N3TX mechanism skill for the failing path.
 
 ## Stale-information guardrails
 
-- Treat `AGENTS.md`, `BACKEND.md`, `FRONTEND.md`, `/workspace/docs/`, and
+- Treat `AGENTS.md`, `BACKEND.md`, `FRONTEND.md`, `docs/`, and
   package docs as authoritative contracts.
 - Skills should summarize and route; avoid copying long command lists or route
   tables unless they include a drift anchor back to canonical docs.
