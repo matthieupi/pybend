@@ -37,6 +37,13 @@ export class NTTModal extends HTMLElement {
 
   #resolve = null;
   #config = {};
+  #closing = false;
+  #closed = false;
+  #closeReason = 'cancel';
+  #closeFrame = null;
+  #focusFrame = null;
+  #overflow = null;
+  #previousFocus = null;
 
   constructor() {
     super();
@@ -88,17 +95,26 @@ export class NTTModal extends HTMLElement {
 
 
   connectedCallback() {
+    const existing = [...document.querySelectorAll('ntx-modal')].find(modal =>
+      modal instanceof NTTModal && modal !== this && !modal.#closed);
+    this.#overflow = existing?.#overflow || ['overflow-x', 'overflow-y'].map(property => [
+      property, document.body.style.getPropertyValue(property), document.body.style.getPropertyPriority(property),
+    ]);
+    this.#previousFocus = document.activeElement;
+    while (this.#previousFocus?.shadowRoot?.activeElement) {
+      this.#previousFocus = this.#previousFocus.shadowRoot.activeElement;
+    }
     this.#render();
     this.#bind();
-    // Trap focus inside modal
-    requestAnimationFrame(() => {
+    // Set initial focus; cancel this work if the modal closes before the frame.
+    this.#focusFrame = requestAnimationFrame(() => {
       const first = this.shadowRoot.querySelector('.close-btn');
       first?.focus();
     });
   }
 
   disconnectedCallback() {
-    document.removeEventListener('keydown', this._escHandler);
+    this.#finishClose();
   }
 
 
@@ -107,12 +123,64 @@ export class NTTModal extends HTMLElement {
    * @param {string} reason - 'submit' | 'cancel' | 'backdrop' | 'escape'
    */
   close(reason = 'cancel') {
+    if (this.#closing || this.#closed) return;
+    this.#closing = true;
+    this.#closeReason = reason;
+    cancelAnimationFrame(this.#focusFrame);
     this.classList.add('closing');
-    this.addEventListener('animationend', () => {
-      this.remove();
-      this.dispatchEvent(new CustomEvent('modal-close', { detail: { reason } }));
-      this.#resolve?.({ reason });
-    }, { once: true });
+    // Only actual host animations own the exit, never descendant events. Missing,
+    // cancelled, paused or unbounded motion must not hold lifecycle cleanup open.
+    const animations = this.getAnimations().filter(animation => animation.effect?.target === this);
+    const finishWhenStopped = () => {
+      if (this.#closed) return;
+      if (animations.some(animation => animation.playState === 'running' &&
+          animation.playbackRate !== 0 && Number.isFinite(animation.effect.getComputedTiming().endTime))) {
+        this.#closeFrame = requestAnimationFrame(finishWhenStopped);
+      } else {
+        this.#finishClose();
+      }
+    };
+    finishWhenStopped();
+    // Completion/cancellation can settle even when a background tab stops frames;
+    // the frame check above also handles pauses, which do not settle finished.
+    Promise.allSettled(animations.map(animation => animation.finished)).then(() => this.#finishClose());
+  }
+
+  #finishClose() {
+    if (this.#closed) return;
+    this.#closed = true;
+    cancelAnimationFrame(this.#closeFrame);
+    cancelAnimationFrame(this.#focusFrame);
+    document.removeEventListener('keydown', this._escHandler);
+    const remaining = [...document.querySelectorAll('ntx-modal')].filter(modal =>
+      modal instanceof NTTModal && modal !== this && !modal.#closed);
+    // A later modal may have been opened from this one's shadow tree. Preserve
+    // its return-focus chain even when the lower modal is closed first.
+    for (const modal of remaining) {
+      let target = modal.#previousFocus;
+      while (target && target !== this) target = target.parentNode || target.host;
+      if (target === this) modal.#previousFocus = this.#previousFocus;
+    }
+    const restoreFocus = document.activeElement === this || document.activeElement === document.body;
+    this.remove();
+    if (!remaining.length && this.#overflow) {
+      for (const [property, value, priority] of this.#overflow) document.body.style.setProperty(property, value, priority);
+    }
+    const top = remaining.at(-1);
+    let focusTarget = this.#previousFocus;
+    if (top) {
+      // Rapid opens can capture the same page opener before either focus frame.
+      let owner = focusTarget;
+      while (owner && owner !== top) owner = owner.parentNode || owner.host;
+      if (owner !== top) focusTarget = top.shadowRoot.querySelector('.close-btn');
+    }
+    if ((restoreFocus || (top && !top.contains(document.activeElement))) && focusTarget?.isConnected) {
+      focusTarget.focus();
+    }
+    const reason = this.#closeReason;
+    this.dispatchEvent(new CustomEvent('modal-close', { detail: { reason } }));
+    this.#resolve?.({ reason });
+    this.#resolve = null;
   }
 
 
@@ -159,7 +227,8 @@ export class NTTModal extends HTMLElement {
 
     // Escape key
     this._escHandler = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && [...document.querySelectorAll('ntx-modal')]
+          .filter(modal => modal instanceof NTTModal && !modal.#closed).at(-1) === this) {
         e.stopPropagation();
         this.close('escape');
       }
@@ -168,9 +237,6 @@ export class NTTModal extends HTMLElement {
 
     // Prevent scroll on body while modal is open
     document.body.style.overflow = 'hidden';
-    this.addEventListener('modal-close', () => {
-      document.body.style.overflow = '';
-    }, { once: true });
   }
 }
 

@@ -8,7 +8,7 @@
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
-    animation: modalFadeIn 180ms ease both;
+    animation: modalFadeIn 300ms ease both;
 }
 
 .backdrop {
@@ -26,7 +26,6 @@
     border-radius: var(--ntx-radius-xl, 16px);
     background: var(--ntx-card-bg, rgba(17, 25, 46, 0.94));
     box-shadow: var(--ntx-shadow-xl, 0 48px 96px rgba(3, 8, 24, 0.42));
-    animation: modalSlideIn 220ms var(--ntx-ease, ease) both;
 }
 
 .modal-panel::before {
@@ -114,10 +113,6 @@
     animation: modalFadeOut 150ms ease both;
 }
 
-:host(.closing) .modal-panel {
-    animation: modalSlideOut 150ms ease both;
-}
-
 @keyframes modalFadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -128,12 +123,11 @@
     to { opacity: 0; }
 }
 
-@keyframes modalSlideIn {
-    from { opacity: 0; transform: translateY(14px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes modalSlideOut {
-    from { opacity: 1; transform: translateY(0) scale(1); }
-    to { opacity: 0; transform: translateY(8px) scale(0.985); }
+@media (prefers-reduced-motion: reduce) {
+    :host,
+    :host(.closing),
+    .modal-panel {
+        animation: none;
+        transition: none;
+    }
 }
